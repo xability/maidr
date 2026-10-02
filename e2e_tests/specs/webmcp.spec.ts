@@ -304,7 +304,7 @@ test.describe('WebMCP tools', () => {
 
     const result = await callTool(page, 'maidr_run_command', { command: 'toggle_text', focus: true });
 
-    expect(result).toMatchObject({ ok: true, applied: 'now', focused: true });
+    expect(result).toMatchObject({ ok: true, applied: 'queued', focused: true });
     expect(result.message).toContain('waits its turn');
     expect(result.modes).toBeUndefined();
     expect(await focusIsInChart(page)).toBe(true);

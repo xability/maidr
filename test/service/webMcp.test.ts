@@ -1380,13 +1380,13 @@ describe('maidr_run_command', () => {
     inChart = false;
     channel.run.mockImplementation((_command, options) => {
       inChart = options?.focus === true;
-      return 'kept';
+      return inChart ? 'queued' : 'kept';
     });
 
     const result = await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
 
     // No modes: the command has not run yet, so they would be from before it.
-    expect(result).toEqual({ ok: true, applied: 'now', focused: true, message: expect.stringContaining('waits its turn') });
+    expect(result).toEqual({ ok: true, applied: 'queued', focused: true, message: expect.stringContaining('waits its turn') });
     expect(result.message).toContain('counts it in pending');
     expect(result.message).toContain('Do not claim it has happened yet');
   });
@@ -1404,13 +1404,16 @@ describe('maidr_run_command', () => {
   });
 
   it('should say a command that joined others still waiting for a reader in the chart waits its turn', async () => {
-    channel.run.mockReturnValue('kept');
+    channel.run.mockReturnValue('queued');
 
     for (const focus of [false, true]) {
       clock += 500;
       expect(await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus }))
-        .toEqual({ ok: true, applied: 'now', message: expect.stringContaining('waits its turn') });
+        .toEqual({ ok: true, applied: 'queued', message: expect.stringContaining('waits its turn') });
     }
+    // Waiting, it is not what the rate limit counts: a command run now.
+    channel.run.mockReturnValue('now');
+    expect((await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' })).applied).toBe('now');
   });
 
   it('should refuse under a MAIDR dialog with focus as without it', async () => {

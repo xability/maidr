@@ -440,7 +440,9 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
         if (focus && controller === null) {
           bringReaderIn();
         }
-        return 'kept';
+        // A reader in the chart -- all along, or just brought in -- gets it
+        // in its turn; one who is not, when they next enter it.
+        return readerController() === null ? 'kept' : 'queued';
       },
       state: () => {
         const controller = controllerRef.current;

@@ -1188,7 +1188,7 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
   const runCommand: WebMcpTool = {
     name: TOOL_NAMES.RUN_COMMAND,
     title: 'Run one of the reader\'s commands',
-    description: 'Runs one of the screen-reader user\'s own MAIDR commands on a chart, by its id from maidr_list_commands -- for example turning braille or sound off, or starting autoplay -- as if they had pressed its keys where they are: their screen reader, braille display and sonification report the result. Only run a command the user asked for. A toggle steps a mode on rather than setting it: toggle_text goes verbose, terse, off, verbose; toggle_sound turns sound off or on, except on a scatter plot, where sound that is on is combined or separate and goes combined, separate, off, combined. So check `modes` from maidr_list_commands first, run a toggle only as often as reaching what the user asked for takes, and check the `modes` each run returns. Commands that open a dialog or text field are the reader\'s to use and cannot be run. If the reader has a MAIDR dialog open, nothing runs. Otherwise, if they are not inside the chart, the command waits and runs when they next enter it: tell them so, and do not claim it has happened -- unless you pass focus: true, which moves their keyboard focus into the chart, where their screen reader announces the chart and then the command runs. Pass focus: true only when the user asked for it to happen now, as in "play it now", and when the result says focused: true, tell them their focus moved. Apart from that, keyboard focus moves only as the command\'s own keys would move it.',
+    description: 'Runs one of the screen-reader user\'s own MAIDR commands on a chart, by its id from maidr_list_commands -- for example turning braille or sound off, or starting autoplay -- as if they had pressed its keys where they are: their screen reader, braille display and sonification report the result. Only run a command the user asked for. A toggle steps a mode on rather than setting it: toggle_text goes verbose, terse, off, verbose; toggle_sound turns sound off or on, except on a scatter plot, where sound that is on is combined or separate and goes combined, separate, off, combined. So check `modes` from maidr_list_commands first, run a toggle only as often as reaching what the user asked for takes, and check the `modes` each run returns. Commands that open a dialog or text field are the reader\'s to use and cannot be run. If the reader has a MAIDR dialog open, nothing runs. Otherwise, if they are not inside the chart, the command waits and runs when they next enter it: tell them so, and do not claim it has happened -- unless you pass focus: true, which moves their keyboard focus into the chart, where their screen reader announces the chart and then the command runs. Pass focus: true only when the user asked for it to happen now, as in "play it now", and when the result says focused: true, tell them their focus moved. A result of applied: queued has not run yet either: it waits its turn behind what is waiting for the reader, and has no modes. Apart from that, keyboard focus moves only as the command\'s own keys would move it.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1239,21 +1239,20 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
         case 'now':
           lastCommand.set(id, time);
           return { ok: true, applied: 'now', modes: copyModes(manager.inspectCommands(id)?.modes) };
+        case 'queued':
+          // The reader is in the chart -- brought in just now, when focus was
+          // asked of a reader who was away, or there all along and still
+          // hearing the commands their entry runs -- and this one joined them.
+          return {
+            ok: true,
+            applied: 'queued',
+            ...(focus && !wasInChart && { focused: true }),
+            message: 'The reader is in the chart, and the command waits its turn: it runs half a second after what they last heard, after any move kept for them and any command before it, and a toggle then steps the mode on from what it is at that moment. Until it has run, maidr_list_commands counts it in pending and gives the modes from before it. Do not claim it has happened yet.',
+          };
         case 'kept': {
-          // Focus was only asked of a reader who was away; one who was here
-          // is still hearing the commands their entry runs, and this one
-          // joined them.
+          // Focus was asked of a reader who was away, and the chart could not
+          // take them in.
           const triedFocus = focus && !wasInChart;
-          // The chart entered at once if it took the reader's focus, so where
-          // they are now says whether they arrived.
-          if (manager.inspect(id)?.inChart === true) {
-            return {
-              ok: true,
-              applied: 'now',
-              ...(triedFocus && { focused: true }),
-              message: 'The reader is in the chart, and the command waits its turn: it runs half a second after what they last heard, after any move kept for them and any command before it, and a toggle then steps the mode on from what it is at that moment. Until it has run, maidr_list_commands counts it in pending and gives the modes from before it. Do not claim it has happened yet.',
-            };
-          }
           if (triedFocus) {
             return {
               ok: true,

@@ -236,14 +236,17 @@ export interface LiveReaderModes {
  * - `blocked`: a MAIDR dialog, text field or label chord is open in the
  *   chart, whether or not the page has the browser's focus. Nothing ran, and
  *   nothing was kept.
- * - `kept`: the reader is not in the chart, or is while their entry is still
- *   running the commands kept for them. The command runs after any target
- *   kept for them and any command kept before it: the next time they enter
- *   the chart, or, for a reader already there, in turn, half a second after
- *   the announcement before it.
+ * - `queued`: the reader is in the chart, but their entry is still running
+ *   the commands kept for them -- or has just started to, for a reader
+ *   {@link LiveCommandOptions.focus} brought in. The command runs in turn,
+ *   after any target kept for them and any command before it, half a second
+ *   after the announcement before it.
+ * - `kept`: the reader is not in the chart. The command runs the next time
+ *   they enter it, after any target kept for them and any command kept
+ *   before it.
  * - `full`: as many commands as the chart keeps are already waiting.
  */
-export type LiveCommandOutcome = 'now' | 'unavailable' | 'blocked' | 'kept' | 'full';
+export type LiveCommandOutcome = 'now' | 'unavailable' | 'blocked' | 'queued' | 'kept' | 'full';
 
 /**
  * How a caller asks a chart to run a command, as {@link LiveCommandChannel.run}

@@ -342,6 +342,31 @@ describe('a command an agent runs for the reader', () => {
     ]);
   });
 
+  it('should queue a command asked for while the reader\'s entry still runs the kept ones, behind them', async () => {
+    renderChart();
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' });
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_sound' });
+    focusIn();
+    const heard = watchAnnouncements();
+
+    // In the chart, but not yet through what was kept: it waits its turn
+    // rather than cutting in, and has not run, so it has no modes.
+    expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' }))
+      .toEqual({ ok: true, applied: 'queued', message: expect.stringContaining('waits its turn') });
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(3);
+    wait(500);
+    wait(500);
+    wait(500);
+
+    expect(heard()).toEqual([
+      expect.stringContaining('Text mode is terse'),
+      expect.stringContaining('Sound is off'),
+      expect.stringContaining('Text mode is off'),
+    ]);
+    // Once they have all run, a command runs at once again.
+    expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_sound' })).applied).toBe('now');
+  });
+
   it('should report the modes the reader left with while they are away', async () => {
     renderChart();
     focusIn();
@@ -686,7 +711,7 @@ describe('an agent taking the reader into the chart when they ask', () => {
 
     const result = await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
 
-    expect(result).toEqual({ ok: true, applied: 'now', focused: true, message: expect.stringContaining('waits its turn') });
+    expect(result).toEqual({ ok: true, applied: 'queued', focused: true, message: expect.stringContaining('waits its turn') });
     expect(document.activeElement).toBe(plot);
     // Where they are first, on its own, as for a Tab in.
     expect(heard()).toEqual([expect.stringContaining('Category is B')]);
@@ -710,7 +735,7 @@ describe('an agent taking the reader into the chart when they ask', () => {
     // They are in now, but the first is still waiting: the second waits
     // behind it rather than cutting in, and focus is not asked for again.
     expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_sound', focus: true }))
-      .toEqual({ ok: true, applied: 'now', message: expect.stringContaining('waits its turn') });
+      .toEqual({ ok: true, applied: 'queued', message: expect.stringContaining('waits its turn') });
     expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(2);
     const heard = watchAnnouncements();
     wait(500);
