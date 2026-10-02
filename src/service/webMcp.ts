@@ -13,22 +13,22 @@
  * with `<meta name="maidr-webmcp" content="off">`, which wins over the
  * setting. Nothing runs at import.
  * Five tools are exposed: two silent reads of the charts, a cursor move that
- * travels the same path as `window.maidrLive.navigateTo`, and a silent list of
- * the reader's command-palette commands with a tool that runs one of them
- * through the reader's own command executor. Commands that open a dialog or
- * text field stay the reader's, and nothing writes chart data or settings
- * beyond what a command's own key changes.
+ * travels the same path as `window.maidrLive.navigateTo` but is marked as the
+ * agent's, and a silent list of the reader's command-palette commands with a
+ * tool that runs one of them through the reader's own command executor.
+ * Commands that open a dialog or text field stay the reader's, and nothing
+ * writes chart data or settings beyond what a command's own key changes.
  *
  * Everything a tool returns is rebuilt from plain JSON types and capped, and
  * every string that came from the chart producer sits under `content`, since
  * a chart's title and labels are text an agent must not take as instructions.
  *
- * The feature is contained in this file, its call site and command channel
- * in `useMaidrController` (with `LiveDataManager.runCommand`,
- * `inspectCommands` and `dropKeptCommands`, which carry it), the settings
- * listener and the command methods in `Controller`, the setting in
- * `GeneralSettings` and its row in the settings dialog; deleting those
- * removes it.
+ * The feature is contained in this file, its call site, command channel and
+ * the agent's mark on a kept target in `useMaidrController` (with
+ * `LiveDataManager.runCommand`, `inspectCommands`, `dropAgentRequests` and
+ * the `byAgent` navigate option, which carry them), the settings listener and
+ * the command methods in `Controller`, the setting in `GeneralSettings` and
+ * its row in the settings dialog; deleting those removes it.
  *
  * @packageDocumentation
  */
@@ -1066,7 +1066,9 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
         return { ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' };
       }
       const target: NavigationTarget = { layerId: args.layerId, ...position };
-      const accepted = manager.navigateTo(target, { id });
+      // Marked as the agent's: kept for the reader, it is dropped if they
+      // switch agent access off before they arrive, where the host's stays.
+      const accepted = manager.navigateTo(target, { id, byAgent: true });
       if (!accepted) {
         return { ok: false, applied: 'refused' };
       }
@@ -1077,7 +1079,7 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
       return {
         ok: true,
         applied: 'on-next-focus',
-        message: 'Best effort: the reader should land here the next time they enter the chart, but the move is dropped if the chart\'s data changes or the page moves them first. Tell them so; do not move focus.',
+        message: 'Best effort: the reader should land here the next time they enter the chart, but the move is dropped if the chart\'s data changes, the page moves them first, or they switch agent access off. Tell them so; do not move focus.',
       };
     }),
   };
@@ -1363,9 +1365,9 @@ function teardown(): void {
 }
 
 /**
- * Unregisters the tools this copy holds, drops the commands they kept for the
- * reader, stops waiting to take them over, and hands them to another copy of
- * MAIDR if this one owned them.
+ * Unregisters the tools this copy holds, drops the moves and commands they
+ * kept for the reader, stops waiting to take them over, and hands them to
+ * another copy of MAIDR if this one owned them.
  */
 function uninstall(): void {
   listenForRelease(false);
@@ -1386,8 +1388,9 @@ function uninstall(): void {
   controller = null;
   installedContext = null;
   // Nothing an agent asked for outlives its tools: the reader switching them
-  // off would otherwise still meet those commands on their next visit.
-  latestManager?.dropKeptCommands();
+  // off would otherwise still meet that move and those commands on their next
+  // visit. A target the host page kept is not the agent's, and stays.
+  latestManager?.dropAgentRequests();
   if (owner) {
     delete ownerSlot()[OWNER_KEY];
     owner = false;
@@ -1448,9 +1451,9 @@ export function acquireWebMcpTools(manager: LiveDataManager): Disposable {
 
 /**
  * Applies the reader's `general.agentTools` setting at once: registers the
- * tools while charts are mounted, or unregisters them and drops the commands
- * agents kept for the reader, without a reload and without touching the
- * charts otherwise.
+ * tools while charts are mounted, or unregisters them and drops the moves and
+ * commands agents kept for the reader, without a reload and without touching
+ * the charts otherwise.
  *
  * One call covers every chart on the page, since the tools are shared; the
  * page's `content="off"` tag still wins over `true`.
