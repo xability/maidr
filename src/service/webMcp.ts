@@ -1079,7 +1079,7 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
       return {
         ok: true,
         applied: 'on-next-focus',
-        message: 'Best effort: the reader should land here the next time they enter the chart, but the move is dropped if the chart\'s data changes or the page moves them first. Tell them so; do not move focus.',
+        message: 'Best effort: the reader should land here the next time they enter the chart, but the move is dropped if the chart\'s data changes, the page moves them first, or they switch agent access off. Tell them so; do not move focus.',
       };
     }),
   };
