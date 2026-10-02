@@ -30,7 +30,8 @@ if (window.maidrLive) {
 window.maidrLive = {
   setData: maidr => liveDataManager.setData(maidr),
   appendData: (point, options) => liveDataManager.appendData(point, options),
-  navigateTo: (target, options) => liveDataManager.navigateTo(target, options),
+  // Only the id: a target the page sets is the host's, whatever else it passes.
+  navigateTo: (target, options) => liveDataManager.navigateTo(target, { id: options?.id }),
 };
 
 /** Stores active MutationObservers for cleanup. */

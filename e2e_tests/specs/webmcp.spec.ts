@@ -321,6 +321,54 @@ test.describe('WebMCP tools', () => {
     await page.waitForFunction(count => Object.keys((window as any).__tools ?? {}).length === count, ALL_TOOLS.length);
   }
 
+  /**
+   * Reads one chart's aria text region, when the page has several.
+   * @param page - The Playwright page
+   * @param id - The chart's id
+   */
+  async function chartText(page: Page, id: string): Promise<string> {
+    return page.evaluate(
+      chartId => document.getElementById(`react-container-${chartId}`)?.textContent ?? '',
+      id,
+    );
+  }
+
+  for (const setBy of ['agent', 'page'] as const) {
+    const fate = setBy === 'agent' ? 'drops' : 'keeps';
+    test(`switching the tools off ${fate} a move the ${setBy} left waiting in another chart`, async ({ page }) => {
+      await setUp(page, null);
+      await openTwoCharts(page, false);
+      const barPlotPage = new BarPlotPage(page);
+
+      // The reader is in the first chart; the second is pointed at Thursday.
+      await page.click('svg#bar');
+      if (setBy === 'agent') {
+        const kept = await callTool(page, 'maidr_navigate', { chartId: 'bar2', layerId: '0', row: 0, col: 2 });
+        expect(kept.applied).toBe('on-next-focus');
+      } else {
+        expect(await page.evaluate(() => (window as any).maidrLive.navigateTo(
+          { layerId: '0', row: 0, col: 2 },
+          { id: 'bar2' },
+        ))).toBe(true);
+      }
+
+      await barPlotPage.openSettingsMenu();
+      await page.getByRole('checkbox', { name: 'Browser AI Agent Access' }).click();
+      await page.getByRole('button', { name: 'Save & Close Settings' }).click();
+      await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeHidden();
+      await page.waitForFunction(() => Object.keys((window as any).__tools ?? {}).length === 0);
+
+      await page.click('svg#bar2');
+      await expect.poll(() => chartText(page, 'bar2')).not.toBe('');
+      if (setBy === 'agent') {
+        await page.waitForTimeout(600); // settle: silence cannot be polled
+        expect(await chartText(page, 'bar2')).not.toContain('Thursday');
+      } else {
+        await expect.poll(() => chartText(page, 'bar2')).toContain('Thursday');
+      }
+    });
+  }
+
   for (const blockStorage of [false, true]) {
     test(`another chart's Settings shows a choice made in the first${blockStorage ? ' when storage is blocked' : ''}`, async ({ page }) => {
       await setUp(page, null);

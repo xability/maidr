@@ -1,4 +1,4 @@
-import type { LiveCommandChannel, LiveReaderProbe } from '@service/liveData';
+import type { LiveCommandChannel, LiveNavigator, LiveReaderProbe } from '@service/liveData';
 import type { MaidrContextValue } from '@state/context';
 import type { AppStore } from '@state/store';
 import type { Keys } from '@type/event';
@@ -20,6 +20,13 @@ const MAX_PENDING_COMMANDS = 8;
  * spacing an agent's own commands get, one per chart every 500 ms.
  */
 const KEPT_COMMAND_INTERVAL_MS = 500;
+
+/** A position kept for the reader's next focus-in, and who asked for it. */
+interface KeptTarget {
+  target: NavigationTarget;
+  /** An agent asked, through the WebMCP tools, rather than the host page. */
+  byAgent: boolean;
+}
 
 /**
  * Return type for the useMaidrController hook.
@@ -80,8 +87,10 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // took focus out of the figure and disposed the controller with it. Applied
   // on the next focus-in, so the reader arrives where the host is pointing,
   // and dropped when the data changes underneath it, since it addressed the
-  // figure that data described.
-  const pendingTargetRef = useRef<NavigationTarget | null>(null);
+  // figure that data described. An agent's is marked as such, and dropped as
+  // well when the reader switches agent access off; the host's stays. Each
+  // new target replaces the last, whoever set either.
+  const pendingTargetRef = useRef<KeptTarget | null>(null);
 
   // Commands asked for on the reader's behalf while they were away, in the
   // order asked, run on the next focus-in after a pending target. Unlike a
@@ -240,7 +249,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       const controller = controllerRef.current;
       if (pending !== null && controller !== null && !controller.isNavigationBlocked()) {
         pendingTargetRef.current = null;
-        controller.navigateTo(pending);
+        controller.navigateTo(pending.target);
       }
       // Then the kept commands, in order, each as the reader's own key would
       // run it and each heard on its own, starting once what was just
@@ -307,9 +316,13 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     // A move made while the reader is not here waits, and is announced when
     // they come back (focus-in fires again on the element when the window
     // regains focus).
-    const navigate = (target: NavigationTarget | null): boolean => {
+    const navigate: LiveNavigator = (target, { byAgent = false } = {}) => {
       if (target === null) {
-        pendingTargetRef.current = null;
+        // The host withdraws whatever waits; an agent -- or its tools being
+        // switched off -- only what an agent left.
+        if (!byAgent || pendingTargetRef.current?.byAgent === true) {
+          pendingTargetRef.current = null;
+        }
         return true;
       }
       const controller = readerController();
@@ -317,7 +330,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
         pendingTargetRef.current = null;
         return controller.navigateTo(target);
       }
-      pendingTargetRef.current = target;
+      pendingTargetRef.current = { target, byAgent };
       return true;
     };
     const probe: LiveReaderProbe = () => {

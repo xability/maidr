@@ -5,7 +5,7 @@ import type { NonEmptyTraceState } from '@type/state';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
-import { appendedPointPosition, appendPointToMaidr, cloneMaidrData, isAppendedPointFocused, LiveDataManager } from '@service/liveData';
+import { appendedPointPosition, appendPointToMaidr, cloneMaidrData, isAppendedPointFocused, LiveDataManager, liveDataManager, navigateMaidr } from '@service/liveData';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -940,7 +940,7 @@ describe('liveDataManager.navigateTo', () => {
 
     expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 1 }, { id: 'chart' })).toBe(true);
 
-    expect(navigator).toHaveBeenCalledWith({ layerId: 'layer-0', row: 0, col: 1 });
+    expect(navigator).toHaveBeenCalledWith({ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: false });
     navigator.mockReturnValue(false);
     expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 9 }, { id: 'chart' })).toBe(false);
   });
@@ -951,7 +951,34 @@ describe('liveDataManager.navigateTo', () => {
 
     expect(manager.navigateTo(null, { id: 'chart' })).toBe(true);
 
-    expect(navigator).toHaveBeenCalledWith(null);
+    expect(navigator).toHaveBeenCalledWith(null, { byAgent: false });
+  });
+
+  test('tells the chart when an agent asked, and only then', () => {
+    const navigator = jest.fn((_target: unknown, _options?: unknown) => true);
+    manager.register(createBarMaidr('chart'), jest.fn(), { navigator });
+
+    manager.navigateTo({ layerId: 'layer-0', row: 0, col: 1 }, { id: 'chart', byAgent: true });
+    manager.navigateTo({ layerId: 'layer-0', row: 0, col: 2 }, { id: 'chart' });
+
+    expect(navigator.mock.calls).toEqual([
+      [{ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: true }],
+      [{ layerId: 'layer-0', row: 0, col: 2 }, { byAgent: false }],
+    ]);
+  });
+
+  test('never marks a target from the page\'s own navigateMaidr as an agent\'s', () => {
+    const navigator = jest.fn((_target: unknown, _options?: unknown) => true);
+    const registration = liveDataManager.register(createBarMaidr('page-chart'), jest.fn(), { navigator });
+    try {
+      // A script page is not held to the types: whatever else it passes, the
+      // target is the host's.
+      navigateMaidr({ layerId: 'layer-0', row: 0, col: 1 }, { id: 'page-chart', byAgent: true } as { id: string });
+
+      expect(navigator).toHaveBeenCalledWith({ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: false });
+    } finally {
+      registration.dispose();
+    }
   });
 
   test('finds the only registered chart when no id is given', () => {
@@ -1100,10 +1127,34 @@ describe('liveDataManager.runCommand and inspectCommands', () => {
     manager.register(createLineMaidr('second'), jest.fn(), { commands: { ...channel, clear: second } });
 
     try {
-      manager.dropKeptCommands();
+      manager.dropAgentRequests();
 
       expect(first).toHaveBeenCalledTimes(1);
       expect(second).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalledTimes(1);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  test('asks every chart to withdraw a target an agent kept, past a navigator that throws', () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const throwing = jest.fn((_target: unknown, _options?: unknown): boolean => {
+      throw new Error('navigator failed');
+    });
+    const navigator = jest.fn((_target: unknown, _options?: unknown) => true);
+    const clear = jest.fn();
+    const channel = { run: (): LiveCommandOutcome => 'kept', state: (): LiveCommandState => ({ modes: null, blocked: false, pending: 1 }) };
+    manager.register(createBarMaidr('first'), jest.fn(), { navigator: throwing, commands: { ...channel, clear } });
+    manager.register(createLineMaidr('second'), jest.fn(), { navigator });
+
+    try {
+      manager.dropAgentRequests();
+
+      expect(throwing).toHaveBeenCalledWith(null, { byAgent: true });
+      expect(navigator).toHaveBeenCalledWith(null, { byAgent: true });
+      // The first chart's commands go even though its target could not.
+      expect(clear).toHaveBeenCalledTimes(1);
       expect(error).toHaveBeenCalledTimes(1);
     } finally {
       error.mockRestore();

@@ -131,14 +131,29 @@ export interface LiveDataEvent {
 type LiveDataListener = (event: LiveDataEvent) => void;
 
 /**
- * Moves a mounted chart's cursor to a position the host chose.
+ * Who asked a chart to move, as {@link LiveNavigator} is told it.
+ */
+export interface LiveNavigateOptions {
+  /**
+   * An in-browser agent asked, through the WebMCP tools, rather than the host
+   * page. A target kept for the reader's next focus-in remembers which of the
+   * two set it, so the reader switching agent access off can drop the
+   * agent's and leave the host's. With `null`, only a target an agent kept
+   * is withdrawn.
+   */
+  byAgent?: boolean;
+}
+
+/**
+ * Moves a mounted chart's cursor to a position the host, or an agent, chose.
  *
  * Registered by the chart alongside its data listener. `null` withdraws a
  * target the chart is still holding for its next focus-in (see
- * {@link LiveDataManager.navigateTo}). Returns whether the chart accepted the
- * target -- moved to it now, or kept it for when the reader arrives.
+ * {@link LiveDataManager.navigateTo}); with `byAgent`, only one an agent set.
+ * Returns whether the chart accepted the target -- moved to it now, or kept
+ * it for when the reader arrives.
  */
-export type LiveNavigator = (target: NavigationTarget | null) => boolean;
+export type LiveNavigator = (target: NavigationTarget | null, options?: LiveNavigateOptions) => boolean;
 
 /**
  * Where the reader is in a mounted chart, as {@link LiveReaderProbe} reports it.
@@ -674,12 +689,18 @@ export class LiveDataManager {
    * is no longer selected.
    *
    * @param target - The position, or `null` to withdraw a kept one
-   * @param options - Where to deliver it
+   * @param options - Where to deliver it, and who asked
    * @param options.id - Target chart; may be omitted when exactly one chart is
    *   registered
+   * @param options.byAgent - An in-browser agent asked, rather than the host
+   *   page (see {@link LiveNavigateOptions}). `window.maidrLive.navigateTo`
+   *   and {@link navigateMaidr} never set it
    * @returns True when a registered chart accepted the target
    */
-  public navigateTo(target: NavigationTarget | null, options: { id?: string } = {}): boolean {
+  public navigateTo(
+    target: NavigationTarget | null,
+    options: { id?: string } & LiveNavigateOptions = {},
+  ): boolean {
     const id = this.resolveId(options.id, 'navigateTo');
     if (id === null) {
       return false;
@@ -693,7 +714,7 @@ export class LiveDataManager {
       console.warn(`[maidr] navigateTo: the chart with id "${id}" cannot be navigated from outside`);
       return false;
     }
-    return instance.navigator(target);
+    return instance.navigator(target, { byAgent: options.byAgent === true });
   }
 
   /**
@@ -798,15 +819,22 @@ export class LiveDataManager {
   }
 
   /**
-   * Drops every command kept on every registered chart for the reader's next
-   * focus-in, running none of them -- for when whoever asked for them is no
-   * longer allowed to, such as an agent whose tools the reader switched off.
+   * Drops everything an agent left waiting for the reader's next focus-in on
+   * every registered chart -- the target it kept and the commands it kept --
+   * applying none of it, for when the agent is no longer allowed to ask, such
+   * as when the reader switched its tools off. A target the host page kept is
+   * the page's, and stays.
    *
    * A channel that throws is reported and skipped, so one chart cannot keep
-   * the others' commands alive.
+   * the others' requests alive, nor its target its own commands.
    */
-  public dropKeptCommands(): void {
+  public dropAgentRequests(): void {
     for (const [id, instance] of this.instances) {
+      try {
+        instance.navigator?.(null, { byAgent: true });
+      } catch (error) {
+        console.error(`[maidr] Could not drop the target an agent kept for the chart "${id}":`, error);
+      }
       try {
         instance.commands?.clear();
       } catch (error) {
@@ -1003,5 +1031,6 @@ export function navigateMaidr(
   target: NavigationTarget | null,
   options?: { id?: string },
 ): boolean {
-  return liveDataManager.navigateTo(target, options);
+  // Only the id: a target the page sets is the host's, whatever else it passes.
+  return liveDataManager.navigateTo(target, { id: options?.id });
 }

@@ -315,19 +315,24 @@ describe('registration', () => {
     expect(fake.tools.size).toBe(0);
   });
 
-  it('should drop the commands kept for the reader when they switch the tools off', () => {
+  it('should drop the move and commands kept for the reader when they switch the tools off', () => {
     installContext('document', fake);
     const manager = new LiveDataManager();
     const clear = jest.fn();
+    const navigator = jest.fn((_target: unknown, _options?: unknown) => true);
     manager.register(barMaidr(), jest.fn(), {
+      navigator,
       commands: { run: () => 'kept', state: () => ({ modes: null, blocked: false, pending: 1 }), clear },
     });
     const handle = acquireWebMcpTools(manager);
     expect(clear).not.toHaveBeenCalled();
+    expect(navigator).not.toHaveBeenCalled();
 
     setWebMcpEnabled(false);
 
     expect(clear).toHaveBeenCalledTimes(1);
+    // Withdrawn as an agent's, so the chart keeps a target the host set.
+    expect(navigator.mock.calls).toEqual([[null, { byAgent: true }]]);
     handle.dispose();
   });
 
@@ -831,14 +836,15 @@ describe('maidr_navigate', () => {
   it('should hand a cell or a point index to the chart', async () => {
     expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 2 }))
       .toEqual({ ok: true, applied: 'now' });
-    expect(navigator).toHaveBeenLastCalledWith({ layerId: 'bars', row: 0, col: 2 });
+    // Marked as the agent's, so switching agent access off can drop it.
+    expect(navigator).toHaveBeenLastCalledWith({ layerId: 'bars', row: 0, col: 2 }, { byAgent: true });
 
     const scatter = barMaidr('scatter-chart');
     scatter.subplots[0][0].layers[0] = { id: 'dots', type: TraceType.SCATTER, axes: {}, data: [{ x: 1, y: 2 }, { x: 3, y: 4 }] };
     manager.register(scatter, jest.fn(), { navigator, probe: () => ({ inChart, position: null }) });
     expect(await call(tools, TOOL_NAMES.NAVIGATE, { chartId: 'scatter-chart', layerId: 'dots', pointIndex: 1 }))
       .toEqual({ ok: true, applied: 'now' });
-    expect(navigator).toHaveBeenLastCalledWith({ layerId: 'dots', pointIndex: 1 });
+    expect(navigator).toHaveBeenLastCalledWith({ layerId: 'dots', pointIndex: 1 }, { byAgent: true });
   });
 
   it('should check the target against the layer\'s data before the chart keeps it', async () => {
