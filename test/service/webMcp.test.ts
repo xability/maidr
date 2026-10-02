@@ -1517,6 +1517,11 @@ describe('maidr_run_command', () => {
     for (const name of [TOOL_NAMES.NAVIGATE, TOOL_NAMES.RUN_COMMAND]) {
       expect(schemas[name].properties.focus).toEqual({ type: 'boolean', description: expect.stringContaining('keyboard focus') });
       expect(schemas[name].required).not.toContain('focus');
+      // When to pass it, and what to tell the reader after: the chart's own
+      // label goes with a first move, so the agent names the chart.
+      const description = tools.find(tool => tool.name === name)?.description ?? '';
+      expect(description).toContain('never just because they left the chart');
+      expect(description).toContain('tell them their focus moved, and into which chart');
     }
     for (const name of [TOOL_NAMES.LIST_CHARTS, TOOL_NAMES.GET_LAYER_DATA, TOOL_NAMES.LIST_COMMANDS]) {
       expect(schemas[name].properties.focus).toBeUndefined();

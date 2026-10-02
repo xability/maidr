@@ -291,7 +291,9 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // keyboard focus to the plot, the element a Tab lands on, and enters at
   // once -- the focus-in that focus starts, without waiting the tick it
   // waits for a Tab -- so whoever asked can tell straight away whether the
-  // reader arrived, and they hear what a Tab in would have told them.
+  // reader arrived, and they hear what a Tab in would have told them. A
+  // kept move made there takes the plot's label with it, as any first move
+  // does, so what names the chart is the agent, told to say where focus went.
   // `focus()` scrolls the plot into view only as far as the browser scrolls
   // for any focus, so a sighted helper beside the reader can see where they
   // are; nothing scrolls further. Never from a dialog, which keeps the
