@@ -297,13 +297,15 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // the page's own -- and never away from somewhere else in the figure -- the
   // braille field, say -- which is already their place in it.
   //
-  // Asked for even while the page does not have the browser's focus: a chart
-  // in another page's frame, such as a chat host's, receives it that way.
-  // When the page still does not have it -- the reader is in the browser's
-  // own agent panel, which no page can take focus from -- nothing is entered
-  // where they would not hear it. The browser may have put the page's own
-  // focus on the plot, so the focus-in it fires when they come back makes
-  // the move and runs the commands then.
+  // A chart in another page's frame, such as a chat host's, is asked for it
+  // even while its page does not have the browser's focus: that is how a
+  // frame receives it. A page of its own without it -- the reader is in the
+  // browser's own agent panel, which no page can take focus from -- is not:
+  // `focus()` there would only move the page's own focus, and scroll it,
+  // behind the reader's back, and drop them into the chart when they came
+  // back, where they would meet the move unasked. Either way, while the page
+  // does not have the browser's focus nothing is entered where the reader
+  // would not hear it, and what was asked for waits for their next entry.
   const bringReaderIn = useCallback((): void => {
     const plot = plotRef.current;
     const figure = figureRef.current;
@@ -313,6 +315,9 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     const active = document.activeElement;
     if (!figure.contains(active)) {
       if (active?.closest(DIALOG_SELECTOR)) {
+        return;
+      }
+      if (window.top === window && !document.hasFocus()) {
         return;
       }
       plot.focus();

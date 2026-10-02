@@ -315,7 +315,7 @@ test.describe('WebMCP tools', () => {
     expect(listed.modes as Record<string, unknown>).toMatchObject({ text: 'terse' });
   });
 
-  test('keeps the move, and announces nothing, when the page does not have the browser\'s focus', async ({ page }) => {
+  test('keeps the move, and moves and announces nothing, when the page does not have the browser\'s focus', async ({ page }) => {
     await setUp(page, null);
     await openChart(page);
     await focusButtonBesideChart(page);
@@ -335,11 +335,12 @@ test.describe('WebMCP tools', () => {
     const listed = await callTool(page, 'maidr_list_charts', {});
     expect((listed.content?.charts as Array<{ reader: unknown }>)[0].reader).toEqual({ inChart: false, position: null });
 
-    // Back on the page, they Tab into the chart and land on the point.
+    // Back on the page, where they left it -- the page's own focus did not
+    // move either -- they Tab into the chart and land on the point.
     await page.evaluate(() => {
       Document.prototype.hasFocus = (window as any).__hasFocus;
-      document.getElementById('elsewhere')?.focus();
     });
+    expect(await activeElement(page)).toBe('BUTTON#elsewhere');
     await page.keyboard.press('Tab');
     await waitForAriaText(page, 'Thursday');
   });

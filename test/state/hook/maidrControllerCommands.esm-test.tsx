@@ -819,10 +819,9 @@ describe('an agent taking the reader into the chart when they ask', () => {
     expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(0);
   });
 
-  it('should keep the request, and make and announce nothing, while the page does not have the browser\'s focus', async () => {
+  it('should keep the request, and change, make and announce nothing, while the page does not have the browser\'s focus', async () => {
     renderChart();
-    const plot = screen.getByRole('img');
-    focusElsewhere();
+    const button = focusElsewhere();
     const heard = watchAnnouncements();
     // The reader is talking to the agent in the browser's side panel, which
     // the page cannot take focus from.
@@ -836,9 +835,9 @@ describe('an agent taking the reader into the chart when they ask', () => {
         jest.advanceTimersByTime(1000);
       });
 
-      // Focus was asked for, and the page's own focus is on the chart, but
-      // nothing was entered behind the reader's back.
-      expect(document.activeElement).toBe(plot);
+      // The page's own focus stayed where the reader left it, and nothing
+      // was entered behind their back.
+      expect(document.activeElement).toBe(button);
       expect(heard().filter(text => text !== '')).toEqual([]);
       expect(await reader()).toEqual({ inChart: false, position: null });
       expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(1);
@@ -846,12 +845,10 @@ describe('an agent taking the reader into the chart when they ask', () => {
       hasFocus.mockRestore();
     }
 
-    // The browser left the page's own focus on the chart, so coming back to
-    // the page is a focus-in there, which makes the move and runs the command.
-    act(() => {
-      fireEvent.focus(plot);
-      jest.runOnlyPendingTimers();
-    });
+    // Back on the page, where they left it, they Tab into the chart, which
+    // makes the move and runs the command.
+    expect(document.activeElement).toBe(button);
+    focusIn();
     expect(heard().filter(text => text !== '')).toEqual([expect.stringContaining('Category is C')]);
     wait(500);
 

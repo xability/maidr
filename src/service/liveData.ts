@@ -152,10 +152,14 @@ export interface LiveNavigateOptions {
    * {@link LiveDataManager.inspect}, asked right after, says whether the
    * reader arrived. Focus is never taken from a dialog -- a MAIDR dialog, in
    * this chart or another, or one of the page's own -- nor moved from
-   * elsewhere in the chart. If the page does not have the browser's focus
-   * even once focus is asked for, nothing is entered and the target stays
-   * kept for the focus-in that follows the reader's return. Ignored with
-   * `null`, and for a reader already in the chart.
+   * elsewhere in the chart. A page of its own that does not have the
+   * browser's focus is left as it is: no page can take that focus from the
+   * browser's own panels, and moving the page's focus there would only drop
+   * the reader into the chart behind their back. In a frame, focus is asked
+   * for regardless, since that is how a frame receives it. Either way, if
+   * the page does not have the browser's focus, nothing is entered and the
+   * target stays kept for the reader's next entry. Ignored with `null`, and
+   * for a reader already in the chart.
    */
   focus?: boolean;
 }
