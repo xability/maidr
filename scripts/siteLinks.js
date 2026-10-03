@@ -57,6 +57,7 @@ export const INTEGRATION_PAGES = [
   { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
   { slug: 'lightweight-charts', title: 'Lightweight Charts', source: 'lightweight-charts.md' },
   { slug: 'powerbi', title: 'Power BI', source: 'powerbi.md' },
+  { slug: 'excel', title: 'Excel', source: 'excel.md' },
 ];
 
 const SLUG_BY_SOURCE = new Map(INTEGRATION_PAGES.map(({ slug, source }) => [source, slug]));

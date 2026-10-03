@@ -453,6 +453,22 @@ const GUIDES: Record<string, Guide> = {
       sparkline: ['line', 'bar'],
     },
   },
+  'excel': {
+    heading: '## Supported Chart Types',
+    column: 0,
+    minRows: { stable: 14, experimental: 5 },
+    // The guide has no per-type examples: the chart types come from Excel.
+    examples: { after: '## Examples', before: '## API Documentation', level: '###', min: 0 },
+    labels: {
+      'clustered column': ['dodged_bar'],
+      '100% stacked column': ['stacked_normalized_bar'],
+      'clustered bar': ['dodged_bar'],
+      '100% stacked bar': ['stacked_normalized_bar'],
+      'doughnut': ['pie'],
+      'scatter with lines': ['line'],
+      'stock': ['candlestick'],
+    },
+  },
   'recharts': {
     heading: '## Supported Chart Types',
     column: 0,

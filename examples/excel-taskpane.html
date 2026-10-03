@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Excel Task Pane (simulated workbook)</title>
+
+    <!-- MAIDR core, then the MAIDR Excel adapter (UMD, exposing the
+         `maidrExcel` global). A real add-in loads office.js from Microsoft's
+         CDN first; this page installs a stand-in for it below. See
+         docs/excel.md. -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/excel.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      .note {
+        border-left: 4px solid #217346;
+        background: #f3f9f5;
+        padding: 12px 16px;
+        margin: 16px 0;
+      }
+      .layout {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        align-items: flex-start;
+      }
+      /* Stands in for the task pane Excel opens beside the grid. */
+      #taskpane {
+        width: 360px;
+        min-height: 320px;
+        border: 1px solid #999;
+        padding: 12px;
+      }
+      #taskpane select { max-width: 100%; margin-bottom: 12px; }
+      [data-maidr-excel-status] {
+        padding: 12px;
+        border: 2px solid #217346;
+        border-radius: 4px;
+      }
+      #workbook { flex: 1; min-width: 280px; }
+      #workbook li { margin: 6px 0; }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + Excel Task Pane (simulated workbook)</h1>
+    <p>
+      An Excel add-in's task pane, reading the charts of the open workbook. Tab
+      to the <strong>Chart</strong> picker to choose a chart, then Tab to the
+      chart and use the arrow keys. Toggle B for Braille, T for Text, S for
+      Sonification, and R for Review mode.
+    </p>
+
+    <div class="note">
+      <strong>No Excel here.</strong> A real task pane runs inside Excel, which
+      hands it the workbook through Office.js. This page installs a stand-in for
+      Office.js's <code>Excel</code> and <code>Office</code> objects, holding a
+      workbook of five charts on four worksheets, and calls
+      <code>maidrExcel.bindExcel(element)</code> as a task pane would from
+      <code>Office.onReady</code>. The buttons under <em>The workbook</em> stand
+      for what a user does in the grid. Add <code>?api=1.11</code> to the address
+      to see what an Excel too old to share its charts gets. Build the bundles
+      first with <code>npm run build</code>.
+    </div>
+
+    <div class="layout">
+      <section aria-labelledby="pane-heading">
+        <h2 id="pane-heading">The task pane</h2>
+        <div id="taskpane"></div>
+      </section>
+
+      <section id="workbook" aria-labelledby="workbook-heading">
+        <h2 id="workbook-heading">The workbook (simulated)</h2>
+        <p>What a user does in the grid, outside the task pane:</p>
+        <ul>
+          <li><button type="button" id="activate-visits">Select the "Website visits" chart</button></li>
+          <li><button type="button" id="activate-share">Select the "Market share" chart</button></li>
+          <li><button type="button" id="deactivate">Select a cell (the chart is deactivated)</button></li>
+          <li><button type="button" id="edit">Type 105 into South's empty Q3 sales cell</button></li>
+          <li><button type="button" id="clear">Clear every value of "Sales by quarter"</button></li>
+          <li><button type="button" id="restore">Restore "Sales by quarter"</button></li>
+        </ul>
+      </section>
+    </div>
+
+    <script>
+      // -----------------------------------------------------------------------
+      // The workbook: worksheets, their cells, and the charts drawn from them.
+      // -----------------------------------------------------------------------
+
+      const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'];
+      const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+      const SALES = {
+        North: ['120', '135', '150', '170'],
+        South: ['90', '110', '', '140'], // Q3 is blank: a gap, not a zero
+        West: ['100', '95', '125', '160'],
+      };
+
+      function salesSeries(values) {
+        return Object.keys(values).map(name => ({
+          name,
+          chartType: 'ColumnClustered',
+          axisGroup: 'Primary',
+          categories: QUARTERS,
+          values: values[name],
+        }));
+      }
+
+      const book = {
+        activeChartId: null,
+        sheets: [
+          {
+            id: '{sheet-sales}',
+            name: 'Sales',
+            charts: [{
+              id: '{chart-sales}',
+              name: 'Chart 1',
+              chartType: 'ColumnClustered',
+              title: { text: 'Sales by quarter', visible: true },
+              axes: {
+                category: { text: 'Quarter', visible: true },
+                value: { text: 'Sales ($)', visible: true },
+              },
+              series: salesSeries(SALES),
+            }],
+          },
+          {
+            id: '{sheet-web}',
+            name: 'Web',
+            // The line chart has no category axis title: it is named after
+            // the header cell above its categories, which a task pane reads
+            // with ExcelApi 1.15.
+            cells: { A1: 'Month', A2: 'Jan', A3: 'Feb', A4: 'Mar', A5: 'Apr', A6: 'May', A7: 'Jun' },
+            charts: [{
+              id: '{chart-visits}',
+              name: 'Chart 2',
+              chartType: 'LineMarkers',
+              title: { text: 'Website visits', visible: true },
+              axes: {
+                category: { text: 'Axis Title', visible: false },
+                value: { text: 'People', visible: true },
+              },
+              series: [
+                { name: 'Visits', chartType: 'LineMarkers', categories: MONTHS, values: ['1200', '1350', '1280', '', '1620', '1700'] },
+                { name: 'Sign-ups', chartType: 'LineMarkers', categories: MONTHS, values: ['80', '95', '90', '110', '130', '150'] },
+              ].map(series => ({ ...series, axisGroup: 'Primary', source: { type: 'LocalRange', address: 'Web!$A$2:$A$7' } })),
+            }],
+          },
+          {
+            id: '{sheet-mix}',
+            name: 'Mix',
+            charts: [
+              {
+                id: '{chart-share}',
+                name: 'Chart 3',
+                chartType: 'Pie',
+                title: { text: 'Market share', visible: true },
+                series: [{
+                  name: 'Share',
+                  chartType: 'Pie',
+                  firstSliceAngle: 0,
+                  categories: ['Alpha', 'Beta', 'Gamma', 'Delta'],
+                  values: ['42', '28', '18', '12'],
+                }],
+              },
+              {
+                id: '{chart-combo}',
+                name: 'Chart 4',
+                chartType: 'ColumnClustered',
+                title: { text: 'Revenue and margin', visible: true },
+                axes: {
+                  category: { text: 'Quarter', visible: true },
+                  value: { text: 'Revenue ($k)', visible: true },
+                  secondaryValue: { text: 'Margin (%)', visible: true },
+                },
+                series: [
+                  { name: 'Revenue', chartType: 'ColumnClustered', axisGroup: 'Primary', categories: QUARTERS, values: ['310', '340', '275', '470'] },
+                  { name: 'Margin', chartType: 'Line', axisGroup: 'Secondary', categories: QUARTERS, values: ['12', '14', '9', '18'] },
+                ],
+              },
+            ],
+          },
+          {
+            id: '{sheet-other}',
+            name: 'Other',
+            charts: [{
+              id: '{chart-sizes}',
+              name: 'Chart 5',
+              chartType: 'Treemap',
+              title: { text: 'Product sizes', visible: true },
+              series: [{ name: 'Size', chartType: 'Treemap', categories: ['A', 'B', 'C'], values: ['5', '3', '2'] }],
+            }],
+          },
+        ],
+      };
+
+      // -----------------------------------------------------------------------
+      // The chart's picture, as Chart.getImage would hand it over.
+      // -----------------------------------------------------------------------
+
+      const COLORS = ['#4472c4', '#ed7d31', '#a5a5a5', '#ffc000'];
+
+      function picture(chart) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 480;
+        canvas.height = 300;
+        const g = canvas.getContext('2d');
+        g.fillStyle = '#fff';
+        g.fillRect(0, 0, 480, 300);
+        g.fillStyle = '#333';
+        g.font = '16px Arial';
+        g.textAlign = 'center';
+        g.fillText(chart.title ? chart.title.text : chart.name, 240, 24);
+        const number = text => (text === '' ? null : Number(text));
+
+        if (chart.chartType === 'Pie') {
+          const values = chart.series[0].values.map(number);
+          const total = values.reduce((sum, value) => sum + (value || 0), 0);
+          let angle = -Math.PI / 2;
+          values.forEach((value, i) => {
+            const sweep = ((value || 0) / total) * Math.PI * 2;
+            g.beginPath();
+            g.moveTo(240, 165);
+            g.arc(240, 165, 110, angle, angle + sweep);
+            g.fillStyle = COLORS[i % COLORS.length];
+            g.fill();
+            angle += sweep;
+          });
+          return canvas.toDataURL('image/png').split(',')[1];
+        }
+        if (chart.chartType === 'Treemap') {
+          g.fillStyle = COLORS[0];
+          g.fillRect(40, 40, 240, 240);
+          g.fillStyle = COLORS[1];
+          g.fillRect(284, 40, 156, 140);
+          g.fillStyle = COLORS[2];
+          g.fillRect(284, 184, 156, 96);
+          return canvas.toDataURL('image/png').split(',')[1];
+        }
+
+        // An axis chart: columns, lines, or both.
+        const left = 50;
+        const bottom = 270;
+        const height = 220;
+        const columns = chart.series.filter(series => series.chartType === 'ColumnClustered');
+        const lines = chart.series.filter(series => series.chartType !== 'ColumnClustered');
+        const count = chart.series[0].values.length;
+        const slot = (440 - left) / count;
+        const scale = list => Math.max(1, ...list.flatMap(series => series.values.map(number).filter(value => value !== null)));
+        g.strokeStyle = '#333';
+        g.beginPath();
+        g.moveTo(left, bottom);
+        g.lineTo(450, bottom);
+        g.stroke();
+        const columnMax = scale(columns);
+        columns.forEach((series, s) => {
+          const width = (slot - 16) / columns.length;
+          series.values.map(number).forEach((value, i) => {
+            if (value === null) {
+              return;
+            }
+            const h = (value / columnMax) * height;
+            g.fillStyle = COLORS[s % COLORS.length];
+            g.fillRect(left + i * slot + 8 + s * width, bottom - h, width - 2, h);
+          });
+        });
+        const lineMax = scale(lines);
+        lines.forEach((series, s) => {
+          g.strokeStyle = COLORS[(columns.length + s) % COLORS.length];
+          g.lineWidth = 3;
+          g.beginPath();
+          let drawing = false;
+          series.values.map(number).forEach((value, i) => {
+            if (value === null) {
+              drawing = false;
+              return;
+            }
+            const x = left + i * slot + slot / 2;
+            const y = bottom - (value / lineMax) * height;
+            if (drawing) {
+              g.lineTo(x, y);
+            } else {
+              g.moveTo(x, y);
+            }
+            drawing = true;
+          });
+          g.stroke();
+        });
+        return canvas.toDataURL('image/png').split(',')[1];
+      }
+
+      // -----------------------------------------------------------------------
+      // A stand-in for Office.js: just enough of `Excel` and `Office` for
+      // maidrExcel to read the workbook above and follow it.
+      // -----------------------------------------------------------------------
+
+      const handlers = new Map();
+      const EMPTY_TITLE = { text: '', visible: false };
+
+      function events(key) {
+        return {
+          add(handler) {
+            if (!handlers.has(key)) {
+              handlers.set(key, new Set());
+            }
+            handlers.get(key).add(handler);
+            return { context: { sync: async () => {} }, remove: () => handlers.get(key).delete(handler) };
+          },
+        };
+      }
+
+      async function fire(key, event) {
+        await Promise.all([...(handlers.get(key) || [])].map(handler => handler(event)));
+      }
+
+      function load() {
+        return this;
+      }
+
+      function result(compute) {
+        return { get value() { return compute(); } };
+      }
+
+      function title(get) {
+        return { load, get text() { return get().text; }, get visible() { return get().visible; } };
+      }
+
+      function columnNumber(letters) {
+        return [...letters].reduce((total, letter) => total * 26 + letter.charCodeAt(0) - 64, 0);
+      }
+
+      function rangeText(sheet, address) {
+        const [, c1, r1, c2 = c1, r2 = r1] = /^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/.exec(address.replace(/\$/g, ''));
+        const rows = [];
+        for (let row = Number(r1); row <= Number(r2); row++) {
+          const cells = [];
+          for (let column = columnNumber(c1); column <= columnNumber(c2); column++) {
+            cells.push((sheet.cells || {})[`${String.fromCharCode(64 + column)}${row}`] || '');
+          }
+          rows.push(cells);
+        }
+        return rows;
+      }
+
+      function seriesProxy(series) {
+        const dimensions = {
+          Categories: () => series.categories,
+          Values: () => series.values,
+          XValues: () => series.xValues,
+          YValues: () => series.yValues,
+        };
+        return {
+          load,
+          name: series.name,
+          chartType: series.chartType,
+          axisGroup: series.axisGroup || 'Primary',
+          filtered: false,
+          firstSliceAngle: series.firstSliceAngle || 0,
+          getDimensionValues: dimension => result(() => [...((dimensions[dimension] || (() => []))() || [])]),
+          getDimensionDataSourceType: () => result(() => (series.source ? series.source.type : 'Unknown')),
+          getDimensionDataSourceString: () => result(() => (series.source ? series.source.address : '')),
+        };
+      }
+
+      function chartProxy(sheet, chart) {
+        if (!chart) {
+          return { load, isNullObject: true };
+        }
+        const axis = pick => ({ title: title(() => (chart.axes && pick(chart.axes)) || EMPTY_TITLE) });
+        return {
+          load,
+          isNullObject: false,
+          id: chart.id,
+          name: chart.name,
+          chartType: chart.chartType,
+          title: title(() => chart.title || EMPTY_TITLE),
+          axes: {
+            categoryAxis: axis(axes => axes.category),
+            valueAxis: axis(axes => axes.value),
+            getItem: (type, group) => axis(axes => (type === 'Value' ? (group === 'Secondary' ? axes.secondaryValue : axes.value) : axes.category)),
+          },
+          series: { load, get items() { return chart.series.map(seriesProxy); } },
+          worksheet: sheetProxy(sheet),
+          getImage: () => result(() => picture(chart)),
+        };
+      }
+
+      function chartsProxy(sheet) {
+        const key = `charts.${sheet ? sheet.id : 'none'}`;
+        return {
+          load,
+          get items() { return sheet.charts.map(chart => chartProxy(sheet, chart)); },
+          onActivated: events(`${key}.onActivated`),
+          onAdded: events(`${key}.onAdded`),
+          onDeleted: events(`${key}.onDeleted`),
+        };
+      }
+
+      function sheetProxy(sheet) {
+        return {
+          load,
+          isNullObject: !sheet,
+          id: sheet && sheet.id,
+          name: sheet && sheet.name,
+          visibility: 'Visible',
+          charts: chartsProxy(sheet),
+          getRange: address => ({ load, get text() { return rangeText(sheet, address); } }),
+        };
+      }
+
+      function findChart(chartId) {
+        for (const sheet of book.sheets) {
+          const chart = sheet.charts.find(one => one.id === chartId);
+          if (chart) {
+            return { sheet, chart };
+          }
+        }
+        return null;
+      }
+
+      window.Excel = {
+        async run(batch) {
+          const context = {
+            sync: async () => {},
+            workbook: {
+              worksheets: {
+                load,
+                get items() { return book.sheets.map(sheetProxy); },
+                getItemOrNullObject: key => sheetProxy(book.sheets.find(sheet => sheet.id === key || sheet.name === key)),
+                onChanged: events('worksheets.onChanged'),
+                onAdded: events('worksheets.onAdded'),
+                onDeleted: events('worksheets.onDeleted'),
+              },
+              getActiveChartOrNullObject() {
+                const found = findChart(book.activeChartId);
+                return found ? chartProxy(found.sheet, found.chart) : chartProxy(null, null);
+              },
+            },
+          };
+          return batch(context);
+        },
+      };
+
+      // `?api=1.11` stands in for an Excel too old to share its charts.
+      const api = new URLSearchParams(location.search).get('api') || '1.15';
+      const minor = version => Number(String(version).split('.')[1] || 0);
+      window.Office = {
+        context: {
+          requirements: {
+            isSetSupported: (name, version) => name === 'ExcelApi' && minor(version) <= minor(api),
+          },
+        },
+        onReady: async () => ({ host: 'Excel', platform: 'OfficeOnline' }),
+      };
+
+      // -----------------------------------------------------------------------
+      // What a user does in the grid.
+      // -----------------------------------------------------------------------
+
+      async function activate(chartId) {
+        const found = findChart(chartId);
+        book.activeChartId = chartId;
+        await fire(`charts.${found.sheet.id}.onActivated`, { type: 'ChartActivated', chartId, worksheetId: found.sheet.id });
+      }
+
+      async function edit(change) {
+        change();
+        await fire('worksheets.onChanged', { type: 'WorksheetChanged', changeType: 'RangeEdited', source: 'Local' });
+      }
+
+      const salesChart = book.sheets[0].charts[0];
+      document.getElementById('activate-visits').addEventListener('click', () => activate('{chart-visits}'));
+      document.getElementById('activate-share').addEventListener('click', () => activate('{chart-share}'));
+      document.getElementById('deactivate').addEventListener('click', () => {
+        // Excel fires onDeactivated, which the task pane does not act on.
+        book.activeChartId = null;
+      });
+      document.getElementById('edit').addEventListener('click', () => edit(() => {
+        salesChart.series = salesSeries({ ...SALES, South: ['90', '110', '105', '140'] });
+      }));
+      document.getElementById('clear').addEventListener('click', () => edit(() => {
+        salesChart.series = salesSeries({ North: ['', '', '', ''], South: ['', '', '', ''], West: ['', '', '', ''] });
+      }));
+      document.getElementById('restore').addEventListener('click', () => edit(() => {
+        salesChart.series = salesSeries(SALES);
+      }));
+
+      // -----------------------------------------------------------------------
+      // What the task pane does, from Office.onReady.
+      // -----------------------------------------------------------------------
+
+      Office.onReady().then(() => maidrExcel.bindExcel(document.getElementById('taskpane'))).then((binding) => {
+        window.binding = binding;
+        document.body.dataset.bound = 'yes';
+      });
+    </script>
+  </body>
+</html>
