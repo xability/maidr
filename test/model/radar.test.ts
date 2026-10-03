@@ -262,6 +262,19 @@ describe('the description dialog', () => {
     });
   });
 
+  test('names numeric categories without grouping them in thousands', () => {
+    const binned: LinePoint[][] = [[
+      { x: 10000, y: 1 },
+      { x: 20000, y: 2 },
+      { x: 30000, y: 3 },
+    ]];
+
+    expect(radar(0, 0, TraceType.POLAR_AREA, binned).description.stats).toContainEqual({
+      label: 'Sectors, in order',
+      value: '10000, 20000, 30000',
+    });
+  });
+
   test('names a polar area\'s categories under its own noun', () => {
     expect(radar(0, 0, TraceType.POLAR_AREA).description.stats).toContainEqual({
       label: 'Sectors, in order',

@@ -2,7 +2,7 @@ import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import { TraceType } from '@type/grammar';
-import { defaultFormat } from '@util/format';
+import { defaultLabelFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { LineTrace } from './line';
 
@@ -215,7 +215,9 @@ export class RadarTrace extends LineTrace {
       // Composed here, so it is rounded here: the description service rounds a
       // bare number and passes a composed string through untouched, and a
       // polar area binned on a numeric axis carries numbers around its circle.
-      value: spokes.map(point => defaultFormat(point.x)).join(', '),
+      // Not grouped in thousands: the spokes are names, and in a list joined
+      // with commas `10,000, 20,000` would be four numbers or two.
+      value: spokes.map(point => defaultLabelFormat(point.x)).join(', '),
     });
 
     return { ...base, stats };
