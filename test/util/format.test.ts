@@ -22,6 +22,31 @@ describe('defaultFormat', () => {
     expect(defaultFormat(-40)).toBe('-40');
   });
 
+  it('groups the digits of a large number in threes with commas', () => {
+    expect(defaultFormat(12345)).toBe('12,345');
+    expect(defaultFormat(1234567)).toBe('1,234,567');
+    expect(defaultFormat(-9876543)).toBe('-9,876,543');
+    expect(defaultFormat(1234567.891)).toBe('1,234,567.89');
+    expect(defaultFormat(9999.996)).toBe('10,000');
+  });
+
+  it('leaves a four-digit number, such as a year, ungrouped', () => {
+    expect(defaultFormat(2024)).toBe('2024');
+    expect(defaultFormat(-9999)).toBe('-9999');
+    expect(defaultFormat(1234.5)).toBe('1234.5');
+  });
+
+  it('leaves exponent notation and numeric strings untouched', () => {
+    expect(defaultFormat(1e21)).toBe('1e+21');
+    expect(defaultFormat('1234567')).toBe('1234567');
+  });
+
+  it('gives way to a declared format', () => {
+    expect(FormatUtil.resolveFormat({ type: 'fixed', decimals: 0 })(1234567)).toBe('1234567');
+    expect(FormatUtil.resolveFormat({ function: 'return String(value)' })(1234567)).toBe('1234567');
+    expect(FormatUtil.resolveFormat(undefined)(1234567)).toBe('1,234,567');
+  });
+
   it('does not pad a value that is already short', () => {
     expect(defaultFormat(0.5)).toBe('0.5');
     expect(defaultFormat(2.25)).toBe('2.25');

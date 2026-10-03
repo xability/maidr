@@ -107,7 +107,7 @@ test.describe('Funnel', () => {
 
   test('should claim no retention on the entry stage', async ({ page }) => {
     // Nothing converted into it, so "100% retained" would report a
-    // conversion the chart never claimed, and "Entered is 10000, 100.0% of
+    // conversion the chart never claimed, and "Entered is 10,000, 100.0% of
     // it" would say the same number twice.
     const plot = new FunnelPlotPage(page);
     await plot.activateMaidr();
@@ -115,7 +115,7 @@ test.describe('Funnel', () => {
 
     const announcement = normalizeText(await plot.getInstructionText());
 
-    expect(announcement).toContain('10000');
+    expect(announcement).toContain('10,000');
     expect(announcement).not.toContain('100.0%');
     expect(announcement).not.toContain('Retained');
   });

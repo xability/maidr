@@ -165,7 +165,7 @@ describe('the announcement keeps the count', () => {
     const stats = funnel().description.stats;
 
     expect(stats.find(stat => stat.label === 'Entry stage')?.value)
-      .toBe('Visited (10000)');
+      .toBe('Visited (10,000)');
   });
 
   test('the share is cumulative, which the retention alone does not give', () => {
@@ -245,7 +245,7 @@ describe('a funnel drawn top to bottom', () => {
     const read = (label: string): unknown =>
       stats.find(stat => stat.label === label)?.value;
 
-    expect(read('Entry stage')).toBe('Visited (10000)');
+    expect(read('Entry stage')).toBe('Visited (10,000)');
   });
 
   test('names the stage that loses the most people', () => {

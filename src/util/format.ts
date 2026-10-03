@@ -19,8 +19,40 @@ const DEFAULT_MAX_DECIMALS = 2;
 const DEFAULT_SIGNIFICANT_DIGITS = 3;
 
 /**
+ * Smallest magnitude the default format groups into thousands. A four-digit
+ * number is left alone so that a year on a numeric axis reads `2024`, not
+ * `2,024`; a screen reader speaks `1234` and `1,234` the same way anyway.
+ */
+const DEFAULT_GROUPING_THRESHOLD = 10_000;
+
+/**
+ * Puts a comma between every third digit of a number's integer part:
+ * `1234567.89` -> `1,234,567.89`.
+ *
+ * A long run of digits is the hardest thing in an announcement to follow by
+ * ear -- several screen readers fall back to reading it digit by digit -- and
+ * with the commas one reads it as "one million, two hundred thirty-four
+ * thousand ...". Exponent notation (`1e+21`) and anything below
+ * {@link DEFAULT_GROUPING_THRESHOLD} come back unchanged.
+ *
+ * @param value - The number the text was produced from
+ * @param text - The number as already rounded and stringified
+ * @returns The text with its integer part grouped
+ */
+function groupThousands(value: number, text: string): string {
+  if (Math.abs(value) < DEFAULT_GROUPING_THRESHOLD || /e/i.test(text)) {
+    return text;
+  }
+  const [integer, fraction] = text.split('.');
+  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return fraction === undefined ? grouped : `${grouped}.${fraction}`;
+}
+
+/**
  * Default format function - converts value to string.
- * Strings pass through unchanged, integers are stringified as-is.
+ * Strings pass through unchanged. A number of {@link DEFAULT_GROUPING_THRESHOLD}
+ * or more has its digits grouped in threes with commas (`12,345`), the default
+ * for every axis that declares no `format`; a declared format replaces it.
  *
  * A fractional number is rounded to {@link DEFAULT_MAX_DECIMALS} places, because
  * this is what a screen reader speaks aloud. A value MAIDR computes rather than
@@ -38,13 +70,16 @@ const DEFAULT_SIGNIFICANT_DIGITS = 3;
  * @returns String representation of the value
  */
 export const defaultFormat: FormatFunction = (value: number | string): string => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || Number.isInteger(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     return `${value}`;
+  }
+  if (Number.isInteger(value)) {
+    return groupThousands(value, `${value}`);
   }
 
   const rounded = Number(value.toFixed(DEFAULT_MAX_DECIMALS));
   if (rounded !== 0) {
-    return `${rounded}`;
+    return groupThousands(rounded, `${rounded}`);
   }
 
   // Rounding erased the value (0.00012 -> 0). Announcing `0` for something that
