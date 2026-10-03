@@ -456,7 +456,7 @@ const GUIDES: Record<string, Guide> = {
   'excel': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: { stable: 14, experimental: 5 },
+    minRows: { stable: 24, experimental: 11 },
     // The guide has no per-type examples: the chart types come from Excel.
     examples: { after: '## Examples', before: '## API Documentation', level: '###', min: 0 },
     labels: {
@@ -465,8 +465,27 @@ const GUIDES: Record<string, Guide> = {
       'clustered bar': ['dodged_bar'],
       '100% stacked bar': ['stacked_normalized_bar'],
       'doughnut': ['pie'],
+      'pie of pie': ['pie'],
+      // The second plot is a bar of the points split off the pie.
+      'bar of pie': ['pie', 'bar'],
       'scatter with lines': ['line'],
-      'stock': ['candlestick'],
+      'bubble': ['point'],
+      'stock, open-high-low-close': ['candlestick'],
+      // The volume is a bar layer of its own beside the prices.
+      'stock, volume-open-high-low-close': ['candlestick', 'bar'],
+      // Candles with no open: MAIDR announces high, low and close.
+      'stock, high-low-close': ['candlestick'],
+      'stock, volume-high-low-close': ['candlestick', 'bar'],
+      'surface and contour': ['heat'],
+      // Binned by category, a histogram is a bar of each category's total.
+      'histogram': ['hist', 'bar'],
+      // The sorted bars, and the cumulative percentage as a line over them.
+      'pareto': ['bar', 'line'],
+      'box and whisker': ['box'],
+      // A stacked line is drawn at each series' running total: a stacked area.
+      'stacked line': ['stacked_area'],
+      '100% stacked line': ['stacked_normalized_area'],
+      'map': ['choropleth'],
     },
   },
   'recharts': {
