@@ -84,14 +84,16 @@ export class BindingOutputPage extends BasePage {
     }
     return this.page.evaluate(() => {
       const text = document.querySelector('#maidr-text-container')?.textContent?.trim() ?? '';
-      const numbers = text.match(/-?\d+(?:\.\d+)?/g);
+      // A number the default format grouped in thousands (`297,270.99`) is
+      // one number, not two.
+      const numbers = text.match(/-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?/g);
       const visible = Array.from(document.querySelectorAll('svg [data-maidr-owned]'))
         .filter(element => getComputedStyle(element).visibility !== 'hidden'
           && element.getAttribute('visibility') !== 'hidden');
       const first = visible[0]?.getBoundingClientRect();
       return {
         text,
-        value: numbers ? Number(numbers[numbers.length - 1]) : null,
+        value: numbers ? Number(numbers[numbers.length - 1].replace(/,/g, '')) : null,
         outlined: visible.length,
         box: first ? { x: first.x, y: first.y, width: first.width, height: first.height } : null,
       };
