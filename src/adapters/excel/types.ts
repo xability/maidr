@@ -52,7 +52,7 @@ export interface ExcelTitle extends ExcelLoadable {
 }
 
 /** One axis of a chart (`Excel.ChartAxis`; ExcelApi 1.1). */
-export interface ExcelChartAxis extends ExcelLoadable {
+export interface ExcelChartAxis {
   readonly title: ExcelTitle;
 }
 

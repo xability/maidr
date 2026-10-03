@@ -511,6 +511,12 @@ describe('convertExcelChart', () => {
       expect((layers(maidr)[0].data as SegmentedPoint[][]).map(row => row[0].z)).toEqual(['North', 'South']);
     });
 
+    it('reads a series that reports no type of its own as the chart\'s type', () => {
+      const untyped = { ...NORTH, chartType: '' };
+
+      expect(onlyLayer(convert(chart('Line', [untyped]))).type).toBe(TraceType.LINE);
+    });
+
     it('declines the whole chart when one of its series cannot be read', () => {
       const stacked = series('Total', ['1', '2', '3', '4'], { chartType: 'LineStacked' });
 

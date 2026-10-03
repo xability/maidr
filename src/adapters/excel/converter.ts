@@ -32,6 +32,7 @@ import type {
   SegmentedPoint,
 } from '../../type/grammar';
 import type {
+  ExcelChartSeriesDimension,
   ExcelChartSnapshot,
   ExcelConvertOptions,
   ExcelSeriesSnapshot,
@@ -201,6 +202,44 @@ function flatChartType(chartType: string): string {
  */
 function familyOf(chartType: string): Family {
   return FAMILIES[flatChartType(chartType)] ?? { kind: 'unsupported', reason: DECLINED.unknown };
+}
+
+/** What reading one series of a chart type needs from Office.js. */
+export interface ExcelSeriesNeeds {
+  /** The dimensions whose values are read; none for a type MAIDR declines. */
+  readonly dimensions: readonly ExcelChartSeriesDimension[];
+  /**
+   * Whether the series is measured on a value axis, so that the axes' titles
+   * and the series' `axisGroup` mean something.
+   */
+  readonly axes: boolean;
+  /** Whether the series is a pie's, whose first slice angle is read. */
+  readonly pie: boolean;
+}
+
+/**
+ * What reading a series drawn as `chartType` needs, so the reader loads only
+ * what this reading uses: a pie has no axes to ask about, and a declined type
+ * is not read at all.
+ *
+ * @param chartType - The series' `Excel.ChartType`.
+ * @returns The dimensions and properties to read.
+ */
+export function excelSeriesNeeds(chartType: string): ExcelSeriesNeeds {
+  const family = familyOf(chartType);
+  switch (family.kind) {
+    case 'unsupported':
+      return { dimensions: [], axes: false, pie: false };
+    case 'scatter':
+      return { dimensions: ['XValues', 'YValues'], axes: true, pie: false };
+    case 'pie':
+      return { dimensions: ['Categories', 'Values'], axes: false, pie: true };
+    case 'radar':
+    case 'funnel':
+      return { dimensions: ['Categories', 'Values'], axes: false, pie: false };
+    default:
+      return { dimensions: ['Categories', 'Values'], axes: true, pie: false };
+  }
 }
 
 /**
@@ -739,7 +778,8 @@ function groupSeries(
 ): Group[] | { readonly chartType: string; readonly reason: string } {
   const groups = new Map<string, { family: Group['family']; secondary: boolean; series: ExcelSeriesSnapshot[] }>();
   for (const one of series) {
-    const chartType = one.chartType ?? snapshot.chartType;
+    // An empty type is no type: the series is drawn as the chart is.
+    const chartType = one.chartType || snapshot.chartType;
     const family = familyOf(chartType);
     if (family.kind === 'unsupported') {
       return { chartType, reason: family.reason };
