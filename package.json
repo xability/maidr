@@ -120,6 +120,11 @@
       "import": "./dist/powerbi.mjs",
       "default": "./dist/powerbi.js"
     },
+    "./excel": {
+      "types": "./dist/excel.d.mts",
+      "import": "./dist/excel.mjs",
+      "default": "./dist/excel.js"
+    },
     "./uplot": {
       "types": "./dist/uplot.d.mts",
       "import": "./dist/uplot.mjs",
