@@ -43,6 +43,7 @@
 import type { JSX } from 'react';
 import type { Root as ReactRoot } from 'react-dom/client';
 import type { Maidr as MaidrData } from '../../type/grammar';
+import type { ExcelOmittedSeries } from './converter';
 import type { FoundChart } from './reader';
 import type {
   ExcelChartActivatedEvent,
@@ -90,6 +91,11 @@ export interface ExcelPaneLabels {
   readonly noData: string;
   /** When MAIDR has no reading of the chart's type; `{type}` names it. */
   readonly unsupported: string;
+  /**
+   * Above the figure, when a combo chart is read without some of its series;
+   * `{series}` names them.
+   */
+  readonly partial: string;
   /** When Excel is older than ExcelApi 1.12 and cannot hand charts to add-ins. */
   readonly unsupportedExcel: string;
   /** When the page is not running in Excel at all. */
@@ -108,6 +114,7 @@ export const DEFAULT_EXCEL_LABELS: ExcelPaneLabels = {
   noCharts: 'This workbook has no charts to read. Insert a chart, and it will be read here.',
   noData: 'This chart has no data to read.',
   unsupported: 'MAIDR cannot read {type} charts yet. Choose another chart.',
+  partial: 'MAIDR reads this chart without {series}, which it cannot read yet.',
   unsupportedExcel:
     'This version of Excel cannot share its charts with add-ins. MAIDR needs Excel on the web, '
     + 'Excel for Microsoft 365, or Excel 2021 or later.',
@@ -173,7 +180,14 @@ export interface ExcelBinding {
 /** What the pane's figure area shows. */
 type View
   = | { readonly kind: 'status'; readonly message: string }
-    | { readonly kind: 'figure'; readonly maidr: MaidrData; readonly image?: string; readonly label: string };
+    | {
+      readonly kind: 'figure';
+      readonly maidr: MaidrData;
+      readonly image?: string;
+      readonly label: string;
+      /** What a combo chart's reading leaves out, said above the figure. */
+      readonly note?: string;
+    };
 
 /** Everything the pane renders from. */
 interface PaneState {
@@ -219,11 +233,14 @@ function ExcelPane({ state, labels, onPick }: PaneProps): JSX.Element {
       <div data-maidr-excel-view="">
         {view.kind === 'figure'
           ? (
-              <MaidrComponent data={view.maidr}>
-                {view.image === undefined
-                  ? <div data-maidr-excel-anchor="">{view.label}</div>
-                  : <img data-maidr-excel-image="" alt="" src={`data:image/png;base64,${view.image}`} style={IMAGE_STYLE} />}
-              </MaidrComponent>
+              <>
+                {view.note !== undefined && <p data-maidr-excel-note="" role="status">{view.note}</p>}
+                <MaidrComponent data={view.maidr}>
+                  {view.image === undefined
+                    ? <div data-maidr-excel-anchor="">{view.label}</div>
+                    : <img data-maidr-excel-image="" alt="" src={`data:image/png;base64,${view.image}`} style={IMAGE_STYLE} />}
+                </MaidrComponent>
+              </>
             )
           : <div data-maidr-excel-status="" role="status" tabIndex={0}>{view.message}</div>}
       </div>
@@ -382,6 +399,7 @@ export async function bindExcel(container: HTMLElement, options: ExcelBindOption
         maidr,
         label: info.label,
         ...(snapshot.image === undefined ? {} : { image: snapshot.image }),
+        ...(outcome.omitted.length === 0 ? {} : { note: labels.partial.replace('{series}', omittedText(outcome.omitted)) }),
       },
     };
     render();
@@ -569,6 +587,16 @@ export async function bindExcel(container: HTMLElement, options: ExcelBindOption
   await listen(excel);
   await show();
   return binding;
+}
+
+/**
+ * The series a reading left out, as a note names them: `"Forecast" (Something New)`.
+ *
+ * @param omitted - The series.
+ * @returns Their names and types, joined.
+ */
+function omittedText(omitted: readonly ExcelOmittedSeries[]): string {
+  return omitted.map(one => `"${one.name}" (${excelChartTypeName(one.chartType)})`).join(', ');
 }
 
 /**

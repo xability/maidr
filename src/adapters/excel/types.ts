@@ -63,10 +63,43 @@ export interface ExcelChartAxes {
   /** The primary value axis (ExcelApi 1.1). */
   readonly valueAxis: ExcelChartAxis;
   /**
+   * The series axis of a 3-D chart, along which a surface's series run
+   * (ExcelApi 1.1).
+   */
+  readonly seriesAxis: ExcelChartAxis;
+  /**
    * An axis by type and group (ExcelApi 1.7). Read only for the secondary value
    * axis, which a series plotted against it is measured on.
    */
   getItem: (type: 'Category' | 'Value', group: 'Primary' | 'Secondary') => ExcelChartAxis;
+}
+
+/**
+ * How a histogram or Pareto series is binned (`Excel.ChartBinOptions`;
+ * ExcelApi 1.9).
+ */
+export interface ExcelChartBinOptions extends ExcelLoadable {
+  /** `Category`, `Auto`, `BinWidth` or `BinCount`. */
+  readonly type: string;
+  /** The bin width, for `BinWidth`. */
+  readonly width: number;
+  /** The number of bins, overflow and underflow included, for `BinCount`. */
+  readonly count: number;
+  /** Whether values above `overflowValue` share one bin. */
+  readonly allowOverflow: boolean;
+  readonly overflowValue: number;
+  /** Whether values at or below `underflowValue` share one bin. */
+  readonly allowUnderflow: boolean;
+  readonly underflowValue: number;
+}
+
+/**
+ * How a box and whisker series is computed (`Excel.ChartBoxwhiskerOptions`;
+ * ExcelApi 1.9).
+ */
+export interface ExcelChartBoxwhiskerOptions extends ExcelLoadable {
+  /** `Inclusive` or `Exclusive`: how the quartiles are calculated. */
+  readonly quartileCalculation: string;
 }
 
 /**
@@ -96,6 +129,22 @@ export interface ExcelChartSeries extends ExcelLoadable {
    * (ExcelApi 1.8). Valid only on a pie or doughnut series.
    */
   readonly firstSliceAngle: number;
+  /**
+   * How a pie of pie or bar of pie splits its points between the two plots:
+   * `SplitByPosition`, `SplitByValue`, `SplitByPercentValue` or
+   * `SplitByCustomSplit` (ExcelApi 1.8).
+   */
+  readonly splitType: string;
+  /**
+   * The threshold of that split: how many points, from the end, for a split
+   * by position; the value or the percentage below which a point is split
+   * off otherwise (ExcelApi 1.9).
+   */
+  readonly splitValue: number;
+  /** A histogram's or Pareto chart's binning (ExcelApi 1.9). */
+  readonly binOptions: ExcelChartBinOptions;
+  /** A box and whisker chart's quartile calculation (ExcelApi 1.9). */
+  readonly boxwhiskerOptions: ExcelChartBoxwhiskerOptions;
   /** The values of one dimension, as strings (ExcelApi 1.12). */
   getDimensionValues: (dimension: ExcelChartSeriesDimension) => ExcelClientResult<string[]>;
   /**
@@ -147,6 +196,11 @@ export interface ExcelChart extends ExcelLoadable {
   readonly name: string;
   /** ExcelApi 1.7; see `Excel.ChartType`. */
   readonly chartType: string;
+  /**
+   * How a blank cell is plotted: `NotPlotted`, `Zero` or `Interplotted`
+   * (ExcelApi 1.8).
+   */
+  readonly displayBlanksAs: string;
   /** ExcelApi 1.1. */
   readonly title: ExcelTitle;
   /** ExcelApi 1.1. */
@@ -288,6 +342,18 @@ export interface ExcelAxisSnapshot {
   readonly title?: ExcelTitleSnapshot;
 }
 
+/** A histogram's or Pareto chart's binning, read (`ChartBinOptions`). */
+export interface ExcelBinOptionsSnapshot {
+  /** `Category`, `Auto`, `BinWidth` or `BinCount`. */
+  readonly type: string;
+  readonly width?: number;
+  readonly count?: number;
+  readonly allowOverflow?: boolean;
+  readonly overflowValue?: number;
+  readonly allowUnderflow?: boolean;
+  readonly underflowValue?: number;
+}
+
 /**
  * One series of a chart, read.
  *
@@ -311,6 +377,26 @@ export interface ExcelSeriesSnapshot {
   readonly values?: readonly string[];
   readonly xValues?: readonly string[];
   readonly yValues?: readonly string[];
+  /** A bubble chart's sizes, one per point. */
+  readonly bubbleSizes?: readonly string[];
+  /**
+   * The header cell above the bubble sizes (ExcelApi 1.15), which names what
+   * a bubble's size measures.
+   */
+  readonly sizeHeader?: string;
+  /** A pie of pie's or bar of pie's split; see `ExcelChartSeries.splitType`. */
+  readonly splitType?: string;
+  readonly splitValue?: number;
+  /** A histogram's or Pareto chart's binning. */
+  readonly binOptions?: ExcelBinOptionsSnapshot;
+  /** A box and whisker chart's quartile calculation, `Inclusive` or `Exclusive`. */
+  readonly quartileCalculation?: string;
+  /**
+   * A waterfall's points set as totals, by position (Excel's *Set as total*).
+   * Office.js does not report them, so a read never has them; a snapshot
+   * written by hand can.
+   */
+  readonly totals?: readonly number[];
 }
 
 /**
@@ -326,12 +412,16 @@ export interface ExcelChartSnapshot {
   readonly worksheet?: string;
   /** `Excel.ChartType`; for a combo chart, Excel reports one of its types. */
   readonly chartType: string;
+  /** How a blank cell is plotted: `NotPlotted`, `Zero` or `Interplotted`. */
+  readonly displayBlanksAs?: string;
   readonly title?: ExcelTitleSnapshot;
   readonly axes?: {
     readonly category?: ExcelAxisSnapshot;
     readonly value?: ExcelAxisSnapshot;
     /** Read only when a series is measured on the secondary value axis. */
     readonly secondaryValue?: ExcelAxisSnapshot;
+    /** A 3-D chart's series axis; read only for a surface. */
+    readonly series?: ExcelAxisSnapshot;
   };
   /** The series, in plot order, filtered ones included. */
   readonly series: readonly ExcelSeriesSnapshot[];
@@ -341,6 +431,13 @@ export interface ExcelChartSnapshot {
    * outer first. Preferred over `categories` when it lines up with them.
    */
   readonly categoryLabels?: readonly string[];
+  /**
+   * The same cells' levels, outer first, one list per category, when the
+   * category range has more than one (ExcelApi 1.15). A blank outer cell is
+   * the one above it carried down, as Excel reads it. The hierarchy of a
+   * treemap or sunburst.
+   */
+  readonly categoryLevels?: readonly (readonly string[])[];
   /**
    * The header cell above (or before) the category range (ExcelApi 1.15),
    * which names the category axis when the chart shows no axis title.

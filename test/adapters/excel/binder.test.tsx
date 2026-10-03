@@ -77,12 +77,13 @@ const VISITS: FakeChartData = {
   series: [{ name: 'Visits', chartType: 'Line', categories: ['Jan', 'Feb'], values: ['10', '12'] }],
 };
 
-const TREEMAP: FakeChartData = {
-  id: '{tree}',
+/** A chart of a type a later Excel might add, which MAIDR has no reading of. */
+const FUTURE: FakeChartData = {
+  id: '{future}',
   name: 'Chart 3',
-  chartType: 'Treemap',
+  chartType: 'SomethingNew',
   axes: null,
-  series: [{ name: 'Sizes', chartType: 'Treemap', categories: ['a'], values: ['1'] }],
+  series: [{ name: 'Sizes', chartType: 'SomethingNew', categories: ['a'], values: ['1'] }],
 };
 
 function workbook(): FakeBook {
@@ -90,7 +91,7 @@ function workbook(): FakeBook {
     activeChartId: null,
     sheets: [
       { id: '{s1}', name: 'Sales', charts: [sales(), VISITS] },
-      { id: '{s2}', name: 'Shapes', charts: [TREEMAP] },
+      { id: '{s2}', name: 'Shapes', charts: [FUTURE] },
     ],
   };
 }
@@ -264,7 +265,7 @@ describe('excel binder', () => {
       picker().focus();
 
       await choose('{visits}');
-      await choose('{tree}');
+      await choose('{future}');
 
       expect(document.activeElement).toBe(picker());
     });
@@ -272,13 +273,37 @@ describe('excel binder', () => {
     it('shows a focusable message naming a chart type MAIDR cannot read', async () => {
       const binding = await bind();
 
-      await choose('{tree}');
+      await choose('{future}');
 
       expect(binding.maidr).toBeNull();
-      expect(status()?.textContent).toBe('MAIDR cannot read Treemap charts yet. Choose another chart.');
+      expect(status()?.textContent).toBe('MAIDR cannot read Something New charts yet. Choose another chart.');
       expect(status()?.getAttribute('role')).toBe('status');
       expect(status()?.tabIndex).toBe(0);
-      expect(picker().value).toBe('{tree}');
+      expect(picker().value).toBe('{future}');
+    });
+
+    it('says above the figure which series of a combo chart it reads without', async () => {
+      const data = workbook();
+      const combo = sales();
+      combo.series = [...combo.series, { name: 'Forecast', chartType: 'SomethingNew', categories: ['Q1', 'Q2', 'Q3'], values: ['1', '2', '3'] }];
+      data.sheets[0].charts[0] = combo;
+
+      const binding = await bind({}, data);
+      const note = container.querySelector('[data-maidr-excel-note]');
+
+      expect(binding.maidr).not.toBeNull();
+      expect(note?.textContent).toBe('MAIDR reads this chart without "Forecast" (Something New), which it cannot read yet.');
+      expect(note?.getAttribute('role')).toBe('status');
+      // Above the figure, and not in the way of Tab: the figure is still the
+      // stop after the picker.
+      expect(note?.nextElementSibling).toBe(plot());
+      expect(note?.hasAttribute('tabindex')).toBe(false);
+    });
+
+    it('has no note for a chart it reads whole', async () => {
+      await bind();
+
+      expect(container.querySelector('[data-maidr-excel-note]')).toBeNull();
     });
 
     it('can be driven from the binding', async () => {
@@ -400,7 +425,7 @@ describe('excel binder', () => {
       expect([...picker().options].map(option => [option.value, option.disabled])).toEqual([
         ['', true],
         ['{visits}', false],
-        ['{tree}', false],
+        ['{future}', false],
       ]);
     });
 
@@ -518,10 +543,10 @@ describe('excel binder', () => {
     it('takes its wording from the labels option', async () => {
       await bind({ labels: { picker: 'Diagramm', unsupported: 'Kein {type}' } });
 
-      await choose('{tree}');
+      await choose('{future}');
 
       expect(container.querySelector('label')?.textContent).toBe('Diagramm');
-      expect(status()?.textContent).toBe('Kein Treemap');
+      expect(status()?.textContent).toBe('Kein Something New');
     });
   });
 
@@ -554,7 +579,7 @@ describe('excel binder', () => {
       await bind();
       outside.focus();
 
-      await fire(() => host.activate('{tree}'));
+      await fire(() => host.activate('{future}'));
 
       expect(document.activeElement).toBe(outside);
     });

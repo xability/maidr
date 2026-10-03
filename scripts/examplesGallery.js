@@ -444,7 +444,7 @@ export const PAGE_TYPES = {
   'observable-plain.html': ['bar', 'point', 'stacked_bar', 'line'],
   'observable-quarto.html': ['bar', 'point', 'line', 'hist', 'stacked_bar'],
   'plotly-subplots.html': ['bar', 'point', 'line', 'hist'],
-  'excel-taskpane.html': ['dodged_bar', 'line', 'pie', 'bar'],
+  'excel-taskpane.html': ['dodged_bar', 'line', 'pie', 'bar', 'treemap'],
   'powerbi-bar.html': ['dodged_bar', 'bar'],
   'tableau-bar.html': ['bar'],
   'uplot/live.html': ['line'],

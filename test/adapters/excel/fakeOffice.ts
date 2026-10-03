@@ -3,6 +3,8 @@ import type {
   ExcelChartActivatedEvent,
   ExcelChartAxes,
   ExcelChartAxis,
+  ExcelChartBinOptions,
+  ExcelChartBoxwhiskerOptions,
   ExcelChartCollection,
   ExcelChartSeries,
   ExcelChartSeriesCollection,
@@ -51,8 +53,31 @@ export interface FakeSeriesData {
   values?: string[];
   xValues?: string[];
   yValues?: string[];
+  bubbleSizes?: string[];
   /** What `getDimensionDataSourceType/String('Categories')` report. */
   categorySource?: { type: string; address: string };
+  /** What `getDimensionDataSourceType/String('BubbleSizes')` report. */
+  sizeSource?: { type: string; address: string };
+  splitType?: string;
+  splitValue?: number;
+  binOptions?: Partial<FakeBinOptions>;
+  quartileCalculation?: string;
+  /**
+   * Properties this series refuses to load: asking for one fails the sync,
+   * as Office.js does for a property a chart type does not have.
+   */
+  rejects?: string[];
+}
+
+/** A histogram series' bin options, as the book records them. */
+export interface FakeBinOptions {
+  type: string;
+  width: number;
+  count: number;
+  allowOverflow: boolean;
+  overflowValue: number;
+  allowUnderflow: boolean;
+  underflowValue: number;
 }
 
 /** One chart, as the book records it. */
@@ -60,13 +85,17 @@ export interface FakeChartData {
   id: string;
   name: string;
   chartType: string;
+  displayBlanksAs?: string;
   title?: FakeTitleData;
   /** `null` for a chart with no axes: asking for an axis title fails the sync. */
   axes?: {
     category?: FakeTitleData;
     value?: FakeTitleData;
     secondaryValue?: FakeTitleData;
+    series?: FakeTitleData;
   } | null;
+  /** Properties this chart refuses to load; see {@link FakeSeriesData.rejects}. */
+  rejects?: string[];
   series: FakeSeriesData[];
   /** The base64 image `getImage` returns, or an error it fails the sync with. */
   image?: string | Error;
@@ -251,11 +280,17 @@ class FakeResult<T> implements ExcelClientResult<T> {
 class FakeLoadable {
   private readonly loaded = new Set<string>();
 
-  constructor(protected readonly context: FakeContext) {}
+  constructor(protected readonly context: FakeContext, private readonly rejects: readonly string[] = []) {}
 
   load = (names?: string | string[]): unknown => {
     const list = names === undefined ? ['*'] : (typeof names === 'string' ? names.split(',') : names).map(name => name.trim());
-    this.context.queue(() => this.markLoaded(list));
+    this.context.queue(() => {
+      const refused = list.filter(name => this.rejects.includes(name));
+      if (refused.length > 0) {
+        throw new Error(`PropertyNotSupported: ${this.constructor.name}.${refused.join(', ')}`);
+      }
+      this.markLoaded(list);
+    });
     return this;
   };
 
@@ -449,7 +484,7 @@ class FakeChart extends FakeLoadable implements ExcelChart {
   readonly worksheet: FakeWorksheet;
 
   constructor(context: FakeContext, private readonly data: FakeChartData | null, sheet: FakeSheetData | null) {
-    super(context);
+    super(context, data?.rejects);
     this.title = new FakeTitle(context, () => this.chart.title ?? { text: '', visible: false });
     const axis = (pick: (axes: NonNullable<FakeChartData['axes']>) => FakeTitleData | undefined): ExcelChartAxis => {
       const axes = this.data?.axes;
@@ -462,6 +497,7 @@ class FakeChart extends FakeLoadable implements ExcelChart {
     this.axes = {
       categoryAxis: axis(axes => axes.category),
       valueAxis: axis(axes => axes.value),
+      seriesAxis: axis(axes => axes.series),
       getItem: (type, group) => type === 'Value' && group === 'Secondary'
         ? axis(axes => axes.secondaryValue)
         : axis(axes => (type === 'Value' ? axes.value : axes.category)),
@@ -497,6 +533,10 @@ class FakeChart extends FakeLoadable implements ExcelChart {
     return this.read('chartType', () => this.chart.chartType);
   }
 
+  get displayBlanksAs(): string {
+    return this.read('displayBlanksAs', () => this.chart.displayBlanksAs ?? 'NotPlotted');
+  }
+
   getImage = (width?: number): ExcelClientResult<string> => new FakeResult(this.context, () => {
     const image = this.chart.image ?? 'iVBORw0KGgo=';
     if (image instanceof Error) {
@@ -516,9 +556,58 @@ class FakeSeriesCollection extends FakeCollection<FakeSeries> implements ExcelCh
   }
 }
 
-class FakeSeries extends FakeLoadable implements ExcelChartSeries {
-  constructor(context: FakeContext, private readonly data: FakeSeriesData) {
+class FakeBinOptionsProxy extends FakeLoadable implements ExcelChartBinOptions {
+  constructor(context: FakeContext, private readonly data: () => Partial<FakeBinOptions>) {
     super(context);
+  }
+
+  get type(): string {
+    return this.read('type', () => this.data().type ?? 'Auto');
+  }
+
+  get width(): number {
+    return this.read('width', () => this.data().width ?? 0);
+  }
+
+  get count(): number {
+    return this.read('count', () => this.data().count ?? 0);
+  }
+
+  get allowOverflow(): boolean {
+    return this.read('allowOverflow', () => this.data().allowOverflow ?? false);
+  }
+
+  get overflowValue(): number {
+    return this.read('overflowValue', () => this.data().overflowValue ?? 0);
+  }
+
+  get allowUnderflow(): boolean {
+    return this.read('allowUnderflow', () => this.data().allowUnderflow ?? false);
+  }
+
+  get underflowValue(): number {
+    return this.read('underflowValue', () => this.data().underflowValue ?? 0);
+  }
+}
+
+class FakeBoxwhiskerOptionsProxy extends FakeLoadable implements ExcelChartBoxwhiskerOptions {
+  constructor(context: FakeContext, private readonly data: () => string | undefined) {
+    super(context);
+  }
+
+  get quartileCalculation(): string {
+    return this.read('quartileCalculation', () => this.data() ?? 'Exclusive');
+  }
+}
+
+class FakeSeries extends FakeLoadable implements ExcelChartSeries {
+  readonly binOptions: FakeBinOptionsProxy;
+  readonly boxwhiskerOptions: FakeBoxwhiskerOptionsProxy;
+
+  constructor(context: FakeContext, private readonly data: FakeSeriesData) {
+    super(context, data.rejects);
+    this.binOptions = new FakeBinOptionsProxy(context, () => this.data.binOptions ?? {});
+    this.boxwhiskerOptions = new FakeBoxwhiskerOptionsProxy(context, () => this.data.quartileCalculation);
   }
 
   get name(): string {
@@ -541,6 +630,14 @@ class FakeSeries extends FakeLoadable implements ExcelChartSeries {
     return this.read('firstSliceAngle', () => this.data.firstSliceAngle ?? 0);
   }
 
+  get splitType(): string {
+    return this.read('splitType', () => this.data.splitType ?? 'SplitByPosition');
+  }
+
+  get splitValue(): number {
+    return this.read('splitValue', () => this.data.splitValue ?? 3);
+  }
+
   getDimensionValues = (dimension: ExcelChartSeriesDimension): ExcelClientResult<string[]> =>
     new FakeResult(this.context, () => {
       const values = {
@@ -548,16 +645,20 @@ class FakeSeries extends FakeLoadable implements ExcelChartSeries {
         Values: this.data.values,
         XValues: this.data.xValues,
         YValues: this.data.yValues,
-        BubbleSizes: undefined,
+        BubbleSizes: this.data.bubbleSizes,
       }[dimension];
       return [...(values ?? [])];
     });
 
-  getDimensionDataSourceString = (): ExcelClientResult<string> =>
-    new FakeResult(this.context, () => this.data.categorySource?.address ?? '');
+  private sourceOf(dimension: ExcelChartSeriesDimension): { type: string; address: string } | undefined {
+    return dimension === 'BubbleSizes' ? this.data.sizeSource : this.data.categorySource;
+  }
 
-  getDimensionDataSourceType = (): ExcelClientResult<string> =>
-    new FakeResult(this.context, () => this.data.categorySource?.type ?? 'Unknown');
+  getDimensionDataSourceString = (dimension: ExcelChartSeriesDimension): ExcelClientResult<string> =>
+    new FakeResult(this.context, () => this.sourceOf(dimension)?.address ?? '');
+
+  getDimensionDataSourceType = (dimension: ExcelChartSeriesDimension): ExcelClientResult<string> =>
+    new FakeResult(this.context, () => this.sourceOf(dimension)?.type ?? 'Unknown');
 }
 
 /**

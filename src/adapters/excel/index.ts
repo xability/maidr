@@ -24,10 +24,13 @@ export { listExcelCharts, readExcelChart } from './reader';
 export type { ExcelReadOptions } from './reader';
 export type {
   ExcelAxisSnapshot,
+  ExcelBinOptionsSnapshot,
   ExcelChart,
   ExcelChartActivatedEvent,
   ExcelChartAxes,
   ExcelChartAxis,
+  ExcelChartBinOptions,
+  ExcelChartBoxwhiskerOptions,
   ExcelChartCollection,
   ExcelChartInfo,
   ExcelChartSeries,

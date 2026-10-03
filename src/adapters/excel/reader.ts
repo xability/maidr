@@ -9,12 +9,17 @@
  * them on `context.sync()`, one round trip each, so the reads are batched:
  *
  * 1. the chart, its title, its worksheet and its series' names and types;
- * 2. every read series' dimension values, which needs the series from 1;
+ * 2. every read series' dimension values, which needs the series from 1, with
+ *    the options its chart type is computed from -- a histogram's bins, a box
+ *    and whisker chart's quartile calculation, a pie of pie's split -- and
+ *    how the chart plots blanks;
  * 3. the axis titles -- only for a chart that has axes, since asking a pie for
  *    its axes is asking for something that is not there;
  * 4. the category range's address (ExcelApi 1.15), and
  * 5. that range's displayed text and the header cell before it;
- * 6. the chart's image.
+ * 6. for a bubble chart, the header cell above each series' sizes, the same
+ *    way (ExcelApi 1.15);
+ * 7. the chart's image.
  *
  * The first two are the data and fail the read when they fail. The rest are
  * labels and a picture: each runs in a sync of its own, so that one Excel
@@ -24,12 +29,15 @@
 
 import type { ExcelSeriesNeeds } from './converter';
 import type {
+  ExcelBinOptionsSnapshot,
   ExcelChart,
+  ExcelChartBinOptions,
   ExcelChartInfo,
   ExcelChartSeries,
   ExcelChartSeriesDimension,
   ExcelChartSnapshot,
   ExcelClientResult,
+  ExcelRange,
   ExcelRequestContext,
   ExcelSeriesSnapshot,
   ExcelTitle,
@@ -166,34 +174,63 @@ function headerOf(range: CellRange, layout: 'rows' | 'columns'): string | null {
 }
 
 /**
- * One label per category from the range's displayed text.
+ * Each category's label levels, outer first, from the range's displayed text.
  *
- * A range of several label levels -- years beside quarters -- shows an outer
- * label only where its group starts, so a blank outer cell carries the label
- * above it on, and the levels are joined outer first: `2024 Q1`, `2024 Q2`.
+ * A range of several label levels -- years beside quarters, regions beside
+ * countries -- shows an outer label only where its group starts, so a blank
+ * outer cell is the label above it carried down: `2024` over `Q1`, then a
+ * blank over `Q2`, is `2024`, `Q2`. A blank is carried only into a category
+ * that names something deeper, and only while the levels outside it are the
+ * row above's -- a blank after a new outer label starts no branch of the old
+ * one -- and a blank with nothing deeper is no level at all.
+ *
+ * @param text - The range's text, `[row][column]`.
+ * @param layout - Whether each category is a row or a column.
+ * @returns One list of levels per category, `''` where a level is blank.
+ */
+export function labelLevels(text: readonly (readonly string[])[], layout: 'rows' | 'columns'): string[][] {
+  const categories = layout === 'rows'
+    ? text.map(row => [...row])
+    : (text[0] ?? []).map((_, column) => text.map(row => row[column] ?? ''));
+  let above: readonly string[] = [];
+  return categories.map((cells) => {
+    const own = cells.map(cell => cell.trim());
+    const deepest = own.reduce((last, cell, level) => (cell === '' ? last : level), -1);
+    const levels: string[] = [];
+    let sameBranch = true;
+    own.forEach((cell, level) => {
+      if (cell !== '') {
+        levels.push(cell);
+        sameBranch &&= cell === above[level];
+      } else if (level < deepest && sameBranch) {
+        levels.push(above[level] ?? '');
+      } else {
+        levels.push('');
+      }
+    });
+    above = levels;
+    return levels;
+  });
+}
+
+/**
+ * One label per category from the range's displayed text: its levels, outer
+ * first, joined -- `2024 Q1`, `2024 Q2`.
  *
  * @param text - The range's text, `[row][column]`.
  * @param layout - Whether each category is a row or a column.
  * @returns The labels.
  */
 export function joinLabelLevels(text: readonly (readonly string[])[], layout: 'rows' | 'columns'): string[] {
-  const categories = layout === 'rows'
-    ? text.map(row => [...row])
-    : (text[0] ?? []).map((_, column) => text.map(row => row[column] ?? ''));
-  const carried: string[] = [];
-  return categories.map(levels => levels.map((cell, level) => {
-    const own = cell.trim();
-    if (own !== '' || level === levels.length - 1) {
-      carried[level] = own;
-      return own;
-    }
-    return carried[level] ?? '';
-  }).filter(part => part !== '').join(' '));
+  return labelLevels(text, layout).map(levels => levels.filter(level => level !== '').join(' '));
 }
 
 function titleSnapshot(title: ExcelTitle): ExcelTitleSnapshot {
   return { text: title.text, visible: title.visible };
 }
+
+/** The bin options a histogram or Pareto reading uses. */
+const BIN_PROPERTIES = ['type', 'width', 'count', 'allowOverflow', 'overflowValue', 'allowUnderflow', 'underflowValue'];
 
 /**
  * Queue a series' reads.
@@ -201,19 +238,41 @@ function titleSnapshot(title: ExcelTitle): ExcelTitleSnapshot {
  * @returns What will be readable after the sync.
  */
 function queueSeries(series: ExcelChartSeries, chartType: string): ReadSeries {
-  const needs = excelSeriesNeeds(series.chartType || chartType);
+  const needs = excelSeriesNeeds(chartType, series.chartType);
   const values = new Map<ExcelChartSeriesDimension, ExcelClientResult<string[]>>();
   if (needs.dimensions.length > 0) {
-    series.load([
-      'filtered',
-      ...(needs.axes ? ['axisGroup'] : []),
+    const properties = [
+      ...(needs.filtered ? ['filtered'] : []),
+      ...(needs.axisGroup ? ['axisGroup'] : []),
       ...(needs.pie ? ['firstSliceAngle'] : []),
-    ]);
+      ...(needs.split ? ['splitType', 'splitValue'] : []),
+    ];
+    if (properties.length > 0) {
+      series.load(properties);
+    }
+    if (needs.bins) {
+      series.binOptions.load(BIN_PROPERTIES);
+    }
+    if (needs.box) {
+      series.boxwhiskerOptions.load('quartileCalculation');
+    }
     for (const dimension of needs.dimensions) {
       values.set(dimension, series.getDimensionValues(dimension));
     }
   }
   return { series, needs, values };
+}
+
+function binSnapshot(options: ExcelChartBinOptions): ExcelBinOptionsSnapshot {
+  return {
+    type: options.type,
+    width: options.width,
+    count: options.count,
+    allowOverflow: options.allowOverflow,
+    overflowValue: options.overflowValue,
+    allowUnderflow: options.allowUnderflow,
+    underflowValue: options.underflowValue,
+  };
 }
 
 function seriesSnapshot({ series, needs, values }: ReadSeries): ExcelSeriesSnapshot {
@@ -227,27 +286,35 @@ function seriesSnapshot({ series, needs, values }: ReadSeries): ExcelSeriesSnaps
   }
   return {
     ...snapshot,
-    filtered: series.filtered,
-    ...(needs.axes ? { axisGroup: series.axisGroup === 'Secondary' ? 'Secondary' : 'Primary' } : {}),
+    ...(needs.filtered ? { filtered: series.filtered } : {}),
+    ...(needs.axisGroup ? { axisGroup: series.axisGroup === 'Secondary' ? 'Secondary' : 'Primary' } : {}),
     ...(needs.pie ? { firstSliceAngle: series.firstSliceAngle } : {}),
+    ...(needs.split ? { splitType: series.splitType, splitValue: series.splitValue } : {}),
+    ...(needs.bins ? { binOptions: binSnapshot(series.binOptions) } : {}),
+    ...(needs.box ? { quartileCalculation: series.boxwhiskerOptions.quartileCalculation } : {}),
     ...(values.has('Categories') ? { categories: read('Categories'), values: read('Values') } : {}),
     ...(values.has('XValues') ? { xValues: read('XValues'), yValues: read('YValues') } : {}),
+    ...(values.has('BubbleSizes') ? { bubbleSizes: read('BubbleSizes') } : {}),
   };
 }
 
 /**
- * Read the axis titles, when the chart has axes to ask about.
+ * Read the axis titles, when the chart has axes to ask about: the secondary
+ * value axis' only when a series is measured on it, and a 3-D chart's series
+ * axis' only for a surface, whose rows it names.
  */
 async function readAxes(
   context: ExcelRequestContext,
   chart: ExcelChart,
   secondary: boolean,
+  seriesAxis: boolean,
 ): Promise<ExcelChartSnapshot['axes']> {
   try {
     const category = chart.axes.categoryAxis.title;
     const value = chart.axes.valueAxis.title;
     const second = secondary ? chart.axes.getItem('Value', 'Secondary').title : null;
-    for (const title of [category, value, second]) {
+    const depth = seriesAxis ? chart.axes.seriesAxis.title : null;
+    for (const title of [category, value, second, depth]) {
       title?.load(['text', 'visible']);
     }
     await context.sync();
@@ -255,6 +322,7 @@ async function readAxes(
       category: { title: titleSnapshot(category) },
       value: { title: titleSnapshot(value) },
       ...(second === null ? {} : { secondaryValue: { title: titleSnapshot(second) } }),
+      ...(depth === null ? {} : { series: { title: titleSnapshot(depth) } }),
     };
   } catch (error: unknown) {
     warn('could not read the chart\'s axis titles; reading it without them.', error);
@@ -262,17 +330,25 @@ async function readAxes(
   }
 }
 
+/** A header's cells as one label: each level's text, outer first. */
+function headerText(range: ExcelRange | null): string {
+  return range === null
+    ? ''
+    : range.text.flat().map(cell => cell.trim()).filter(cell => cell !== '').join(' / ');
+}
+
 /**
  * Read the category cells' displayed text and their header (ExcelApi 1.15).
  *
- * @returns The labels and header, or nothing when the categories are not a
- * range on a worksheet or the range cannot be read.
+ * @returns The labels, their levels when there are several, and the header,
+ * or nothing when the categories are not a range on a worksheet or the range
+ * cannot be read.
  */
 async function readCategoryCells(
   context: ExcelRequestContext,
   source: ExcelChartSeries,
   count: number,
-): Promise<Pick<ExcelChartSnapshot, 'categoryLabels' | 'categoryHeader'>> {
+): Promise<Pick<ExcelChartSnapshot, 'categoryLabels' | 'categoryLevels' | 'categoryHeader'>> {
   try {
     const type = source.getDimensionDataSourceType('Categories');
     const address = source.getDimensionDataSourceString('Categories');
@@ -289,17 +365,60 @@ async function readCategoryCells(
     const header = headerAddress === null ? null : sheet.getRange(headerAddress);
     header?.load('text');
     await context.sync();
+    const levels = labelLevels(cells.text, layout);
     // One header cell per label level, outer first.
-    const headerText = header === null
-      ? ''
-      : header.text.flat().map(cell => cell.trim()).filter(cell => cell !== '').join(' / ');
+    const named = headerText(header);
     return {
-      categoryLabels: joinLabelLevels(cells.text, layout),
-      ...(headerText === '' ? {} : { categoryHeader: headerText }),
+      categoryLabels: levels.map(list => list.filter(level => level !== '').join(' ')),
+      ...(levels.some(list => list.length > 1) ? { categoryLevels: levels } : {}),
+      ...(named === '' ? {} : { categoryHeader: named }),
     };
   } catch (error: unknown) {
     warn('could not read the category cells; reading the categories as the chart returns them.', error);
     return {};
+  }
+}
+
+/**
+ * Read the header cell above each bubble series' sizes (ExcelApi 1.15),
+ * which names what a bubble's size measures, the way a category range's
+ * header names its axis.
+ *
+ * @param context - The batch's request context.
+ * @param sources - The bubble series.
+ * @param counts - How many sizes each has.
+ * @returns Each series' header, or `undefined` where there is none to read.
+ */
+async function readSizeHeaders(
+  context: ExcelRequestContext,
+  sources: readonly ExcelChartSeries[],
+  counts: readonly number[],
+): Promise<(string | undefined)[]> {
+  try {
+    const queued = sources.map(series => ({
+      type: series.getDimensionDataSourceType('BubbleSizes'),
+      address: series.getDimensionDataSourceString('BubbleSizes'),
+    }));
+    await context.sync();
+    const headers = queued.map(({ type, address }, i) => {
+      const range = type.value === 'LocalRange' ? parseRangeAddress(address.value) : null;
+      const layout = range === null ? null : layoutOf(range, counts[i]);
+      const at = range === null || layout === null ? null : headerOf(range, layout);
+      if (range === null || at === null) {
+        return null;
+      }
+      const cell = context.workbook.worksheets.getItemOrNullObject(range.sheet).getRange(at);
+      cell.load('text');
+      return cell;
+    });
+    if (headers.every(cell => cell === null)) {
+      return sources.map(() => undefined);
+    }
+    await context.sync();
+    return headers.map(cell => headerText(cell) || undefined);
+  } catch (error: unknown) {
+    warn('could not read the bubble sizes\' header cells; naming the sizes generically.', error);
+    return sources.map(() => undefined);
   }
 }
 
@@ -354,12 +473,23 @@ export async function readExcelChart(
   await context.sync();
 
   const read = chart.series.items.map(series => queueSeries(series, chart.chartType));
+  // Only a line, area or scatter reading changes with it, and only those are
+  // sure to have it: the chart types Excel 2016 added are not asked.
+  const blanks = read.some(one => one.needs.blanks);
+  if (blanks) {
+    chart.load('displayBlanksAs');
+  }
   await context.sync();
   const series = read.map(seriesSnapshot);
 
   const measured = read.filter((one, i) => one.needs.dimensions.length > 0 && series[i].filtered !== true);
   const axes = measured.some(one => one.needs.axes)
-    ? await readAxes(context, chart, series.some(one => one.axisGroup === 'Secondary' && one.filtered !== true))
+    ? await readAxes(
+        context,
+        chart,
+        series.some(one => one.axisGroup === 'Secondary' && one.filtered !== true),
+        measured.some(one => one.needs.seriesAxis),
+      )
     : undefined;
 
   const categorySource = measured.find(one => one.values.has('Categories'));
@@ -367,6 +497,19 @@ export async function readExcelChart(
   const cells = options.categoryCells === true && categorySource !== undefined && count > 0
     ? await readCategoryCells(context, categorySource.series, count)
     : {};
+
+  const sized = options.categoryCells === true ? measured.filter(one => one.values.has('BubbleSizes')) : [];
+  const sizeHeaders = sized.length === 0
+    ? []
+    : await readSizeHeaders(
+        context,
+        sized.map(one => one.series),
+        sized.map(one => one.values.get('BubbleSizes')?.value.length ?? 0),
+      );
+  const named = series.map((one, i) => {
+    const header = sizeHeaders[sized.indexOf(read[i])];
+    return header === undefined ? one : { ...one, sizeHeader: header };
+  });
 
   const image = options.image === undefined || options.image === false
     ? undefined
@@ -377,9 +520,10 @@ export async function readExcelChart(
     name: chart.name,
     worksheet: chart.worksheet.name,
     chartType: chart.chartType,
+    ...(blanks ? { displayBlanksAs: chart.displayBlanksAs } : {}),
     title: titleSnapshot(chart.title),
     ...(axes === undefined ? {} : { axes }),
-    series,
+    series: named,
     ...cells,
     ...(image === undefined ? {} : { image }),
   };

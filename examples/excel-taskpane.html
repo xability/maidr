@@ -190,12 +190,28 @@
           {
             id: '{sheet-other}',
             name: 'Other',
+            // A treemap's hierarchy is its category range's columns, a blank
+            // group cell the one above carried down; a task pane reads them
+            // with ExcelApi 1.15.
+            cells: {
+              A1: 'Group', B1: 'Product',
+              A2: 'Fruit', B2: 'Apples',
+              B3: 'Pears',
+              A4: 'Vegetables', B4: 'Carrots',
+              B5: 'Leeks',
+            },
             charts: [{
               id: '{chart-sizes}',
               name: 'Chart 5',
               chartType: 'Treemap',
               title: { text: 'Product sizes', visible: true },
-              series: [{ name: 'Size', chartType: 'Treemap', categories: ['A', 'B', 'C'], values: ['5', '3', '2'] }],
+              series: [{
+                name: 'Sales',
+                chartType: 'Treemap',
+                categories: ['Apples', 'Pears', 'Carrots', 'Leeks'],
+                values: ['50', '30', '15', '5'],
+                source: { type: 'LocalRange', address: 'Other!$A$2:$B$5' },
+              }],
             }],
           },
         ],
@@ -236,12 +252,13 @@
           return canvas.toDataURL('image/png').split(',')[1];
         }
         if (chart.chartType === 'Treemap') {
+          // Fruit (80) beside Vegetables (20), each split between its products.
           g.fillStyle = COLORS[0];
-          g.fillRect(40, 40, 240, 240);
+          g.fillRect(40, 40, 200, 150);
+          g.fillRect(40, 194, 200, 86);
           g.fillStyle = COLORS[1];
-          g.fillRect(284, 40, 156, 140);
-          g.fillStyle = COLORS[2];
-          g.fillRect(284, 184, 156, 96);
+          g.fillRect(244, 40, 196, 180);
+          g.fillRect(244, 224, 196, 56);
           return canvas.toDataURL('image/png').split(',')[1];
         }
 
@@ -363,6 +380,10 @@
           axisGroup: series.axisGroup || 'Primary',
           filtered: false,
           firstSliceAngle: series.firstSliceAngle || 0,
+          splitType: 'SplitByPosition',
+          splitValue: 2,
+          binOptions: { load, type: 'Auto', width: 0, count: 0, allowOverflow: false, overflowValue: 0, allowUnderflow: false, underflowValue: 0 },
+          boxwhiskerOptions: { load, quartileCalculation: 'Exclusive' },
           getDimensionValues: dimension => result(() => [...((dimensions[dimension] || (() => []))() || [])]),
           getDimensionDataSourceType: () => result(() => (series.source ? series.source.type : 'Unknown')),
           getDimensionDataSourceString: () => result(() => (series.source ? series.source.address : '')),
@@ -380,10 +401,12 @@
           id: chart.id,
           name: chart.name,
           chartType: chart.chartType,
+          displayBlanksAs: 'NotPlotted',
           title: title(() => chart.title || EMPTY_TITLE),
           axes: {
             categoryAxis: axis(axes => axes.category),
             valueAxis: axis(axes => axes.value),
+            seriesAxis: axis(axes => axes.series),
             getItem: (type, group) => axis(axes => (type === 'Value' ? (group === 'Secondary' ? axes.secondaryValue : axes.value) : axes.category)),
           },
           series: { load, get items() { return chart.series.map(seriesProxy); } },

@@ -179,17 +179,20 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
     await waitForText(page, 'Quarter is Q4, Sales ($) is 140, Level is South');
   });
 
-  test('a chart type MAIDR cannot read gets a message the reader can reach', async ({ page }) => {
+  test('a treemap reads its groups, then each group\'s products, from the category columns', async ({ page }) => {
     await open(page);
     await picker(page).focus();
 
     await page.keyboard.press('End');
 
     await expect(picker(page)).toHaveValue('{chart-sizes}');
-    await expect(status(page)).toHaveText('MAIDR cannot read Treemap charts yet. Choose another chart.');
-    await expect(status(page)).toHaveAttribute('role', 'status');
-    await page.keyboard.press('Tab');
-    await expect(status(page)).toBeFocused();
+    await expect(plot(page)).toHaveAttribute('aria-label', /maidr plot of type: treemap/);
+    await tabIntoFigure(page, 'maidr plot of type: treemap');
+    await page.keyboard.press('ArrowRight');
+    // The group cell beside Pears is blank: Fruit, carried down, holds both.
+    await waitForText(page, 'Group / Product is Fruit, Sales is 80, Share of total is 80.0%');
+    await page.keyboard.press('ArrowDown');
+    await waitForText(page, 'Group / Product is Apples, Sales is 50, Share of Fruit is 62.5%');
   });
 
   test('focus moves to the message when the chart\'s data goes, and back when it returns', async ({ page }) => {

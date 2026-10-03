@@ -2,10 +2,12 @@
  * @jest-environment jsdom
  */
 
-import type { ExcelChartSnapshot, ExcelSeriesSnapshot } from '@adapters/excel/types';
+import type { ExcelBinOptionsSnapshot, ExcelChartSnapshot, ExcelSeriesSnapshot } from '@adapters/excel/types';
 import type {
   BarPoint,
+  BoxPoint,
   CandlestickPoint,
+  HistogramPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
@@ -115,7 +117,24 @@ describe('convertExcelChart', () => {
       expect(warned()).toContain('a chart filter hides every one');
     });
 
-    it.each(['ColumnClustered', 'Line', 'Pie', 'Area', 'Radar', 'Funnel', 'XYScatter'])('for a %s chart whose every reading is blank', (type) => {
+    it.each([
+      'ColumnClustered',
+      'Line',
+      'Pie',
+      'Area',
+      'Radar',
+      'Funnel',
+      'XYScatter',
+      'Bubble',
+      'Surface',
+      'PieOfPie',
+      'Histogram',
+      'Pareto',
+      'Boxwhisker',
+      'Waterfall',
+      'Treemap',
+      'RegionMap',
+    ])('for a %s chart whose every reading is blank', (type) => {
       const blank = { name: 'Empty', categories: QUARTERS, values: ['', '', '', ''], xValues: ['', ''], yValues: ['', ''] };
 
       expect(convertExcelChart(chart(type, [blank]))).toBeNull();
@@ -128,7 +147,7 @@ describe('convertExcelChart', () => {
 
     it('with an outcome that tells empty from unsupported', () => {
       expect(convertExcelChartOutcome(chart('Line', [series('L', ['', '', '', ''])]))).toEqual({ kind: 'empty' });
-      expect(convertExcelChartOutcome(chart('Treemap', [NORTH]))).toEqual({ kind: 'unsupported', chartType: 'Treemap' });
+      expect(convertExcelChartOutcome(chart('SomethingNew', [NORTH]))).toEqual({ kind: 'unsupported', chartType: 'SomethingNew' });
     });
   });
 
@@ -285,10 +304,53 @@ describe('convertExcelChart', () => {
       expect(maidr.subplots[0][0].legend).toEqual(['North', 'South']);
     });
 
-    it.each(['LineStacked', 'LineStacked100', 'LineMarkersStacked', 'LineMarkersStacked100'])('declines a %s chart rather than announce its totals as values', (type) => {
-      expect(convertExcelChartOutcome(chart(type, [NORTH, SOUTH]))).toEqual({ kind: 'unsupported', chartType: type });
-      expect(warned()).toContain('Stacked Line');
-      expect(warned()).toContain('no stacked line reading');
+    it.each(['LineStacked', 'LineMarkersStacked'])('reads a %s chart as a stacked area of each series\' own values', (type) => {
+      const layer = onlyLayer(convert(chart(type, [NORTH, SOUTH])));
+
+      expect(layer.type).toBe(TraceType.STACKED_AREA);
+      // Excel draws South at North's height plus its own; the reading keeps
+      // South's own value and leaves the total to the trace.
+      expect((layer.data as LinePoint[][])[1][0]).toEqual({ x: 'Q1', y: 90, z: 'South' });
+    });
+
+    it.each(['LineStacked100', 'LineMarkersStacked100'])('reads a %s chart as a normalized area', (type) => {
+      expect(onlyLayer(convert(chart(type, [NORTH, SOUTH]))).type).toBe(TraceType.NORMALIZED_AREA);
+    });
+
+    it('reads one stacked series as the line it is, and one 100% stacked series as normalized', () => {
+      expect(onlyLayer(convert(chart('LineStacked', [NORTH]))).type).toBe(TraceType.LINE);
+      expect(onlyLayer(convert(chart('LineStacked100', [NORTH]))).type).toBe(TraceType.NORMALIZED_AREA);
+    });
+  });
+
+  describe('blank cells, as the chart plots them', () => {
+    const plotted = (displayBlanksAs: string): Partial<ExcelChartSnapshot> => ({ displayBlanksAs });
+
+    it.each(['Line', 'Area', 'LineStacked'])('reads a blank as zero on a %s chart that plots blanks as zero', (type) => {
+      const layer = onlyLayer(convert(chart(type, [NORTH, SOUTH], plotted('Zero'))));
+
+      expect((layer.data as LinePoint[][])[1][2]).toEqual({ x: 'Q3', y: 0, z: 'South' });
+    });
+
+    it.each(['NotPlotted', 'Interplotted'])('keeps a blank as a gap when the chart plots blanks as %s', (displayBlanksAs) => {
+      const layer = onlyLayer(convert(chart('Line', [SOUTH], plotted(displayBlanksAs))));
+
+      expect((layer.data as LinePoint[][])[0][2]).toEqual({ x: 'Q3', y: null });
+    });
+
+    it('reads a scatter\'s blank y as zero when the chart plots blanks as zero', () => {
+      const points = { name: 'S', xValues: ['1', '2', '3'], yValues: ['4', '', '6'] };
+
+      expect(onlyLayer(convert(chart('XYScatter', [points], plotted('Zero')))).data).toEqual([{ x: 1, y: 4 }, { x: 2, y: 0 }, { x: 3, y: 6 }]);
+      expect(onlyLayer(convert(chart('XYScatterLines', [points], plotted('Zero')))).data).toEqual([[{ x: 1, y: 4 }, { x: 2, y: 0 }, { x: 3, y: 6 }]]);
+    });
+
+    it('leaves a bar\'s blank out and an error value a gap, whatever the chart plots blanks as', () => {
+      const bars = onlyLayer(convert(chart('ColumnClustered', [SOUTH], plotted('Zero'))));
+      const errors = onlyLayer(convert(chart('Line', [series('E', ['1', '#N/A', '3', '4'])], plotted('Zero'))));
+
+      expect((bars.data as BarPoint[]).map(point => point.x)).toEqual(['Q1', 'Q2', 'Q4']);
+      expect((errors.data as LinePoint[][])[0][1].y).toBeNull();
     });
   });
 
@@ -398,6 +460,12 @@ describe('convertExcelChart', () => {
       expect(layer.type).toBe(TraceType.RADAR);
       expect((layer.data as LinePoint[][])[0][1]).toEqual({ x: 'Q2', y: 135, z: 'North' });
     });
+
+    it('names a lone outline after its series too', () => {
+      const layer = onlyLayer(convert(chart('Radar', [NORTH])));
+
+      expect((layer.data as LinePoint[][])[0][0]).toEqual({ x: 'Q1', y: 120, z: 'North' });
+    });
   });
 
   describe('funnel charts', () => {
@@ -435,37 +503,365 @@ describe('convertExcelChart', () => {
       ]);
     });
 
-    it('reads a high-low-close chart without inventing an open', () => {
+    it('reads a high-low-close chart as candles with no open, inventing none', () => {
       const layer = onlyLayer(convert(chart('StockHLC', [
         priced('High', ['13', '14', '12']),
-        priced('Low', ['9', '11', '10']),
+        priced('Low', ['9', '11', '']),
         priced('Close', ['12', '11', '11']),
-      ])));
+      ], { axes: { value: { title: { text: 'Price', visible: true } } } })));
 
-      expect((layer.data as CandlestickPoint[]).map(candle => 'open' in candle)).toEqual([false, false, false]);
+      expect(layer).toMatchObject({ type: TraceType.CANDLESTICK, axes: { y: { label: 'Price' } } });
+      // The third day has no low, so no candle.
+      expect(layer.data).toEqual([
+        { value: '2024-01-02', high: 13, low: 9, close: 12, volatility: 4 },
+        { value: '2024-01-03', high: 14, low: 11, close: 11, volatility: 3 },
+      ]);
     });
 
-    it('reads the volume first, and the price from the secondary axis', () => {
-      const layer = onlyLayer(convert(chart('StockVOHLC', [
+    const SHARES = {
+      axes: {
+        value: { title: { text: 'Shares', visible: true } },
+        secondaryValue: { title: { text: 'Price', visible: true } },
+      },
+    };
+
+    it('reads the volume, first, as bars of their own beside the candles', () => {
+      const maidr = convert(chart('StockVOHLC', [
         priced('Volume', ['500', '', '700']),
         priced('Open', ['10', '12', '11']),
         priced('High', ['13', '14', '12']),
         priced('Low', ['9', '11', '10']),
         priced('Close', ['12', '11', '11']),
-      ], {
-        axes: {
-          value: { title: { text: 'Shares', visible: true } },
-          secondaryValue: { title: { text: 'Price', visible: true } },
-        },
-      })));
+      ], SHARES));
+      const [candles, volume] = layers(maidr);
 
-      expect(layer.axes).toEqual({ y: { label: 'Price' } });
-      expect((layer.data as CandlestickPoint[]).map(candle => candle.volume)).toEqual([500, undefined, 700]);
+      // The prices are measured on the secondary axis, the volume on the primary.
+      expect(candles).toMatchObject({ type: TraceType.CANDLESTICK, axes: { y: { label: 'Price' } } });
+      expect((candles.data as CandlestickPoint[]).map(candle => 'volume' in candle)).toEqual([false, false, false]);
+      expect(volume).toMatchObject({ type: TraceType.BAR, axes: { y: { label: 'Shares' } } });
+      expect(volume.data).toEqual([{ x: '2024-01-02', y: 500 }, { x: '2024-01-04', y: 700 }]);
+      expect(maidr.subplots[0][0].legend).toBeUndefined();
+    });
+
+    it('reads a volume-high-low-close chart as candles with no open, and the volume\'s bars', () => {
+      const maidr = convert(chart('StockVHLC', [
+        priced('Volume', ['500', '600', '700']),
+        priced('High', ['13', '14', '12']),
+        priced('Low', ['9', '11', '10']),
+        priced('Close', ['12', '11', '11']),
+      ]));
+
+      expect(layers(maidr).map(layer => layer.type)).toEqual([TraceType.CANDLESTICK, TraceType.BAR]);
+      expect((layers(maidr)[0].data as CandlestickPoint[]).map(candle => 'open' in candle)).toEqual([false, false, false]);
+      // Without an axis title, the volume is named after its series.
+      expect(layers(maidr)[1].axes).toEqual({ y: { label: 'Volume' } });
     });
 
     it('reads nothing from a stock chart missing a series', () => {
       expect(convertExcelChart(chart('StockOHLC', [priced('A', ['1']), priced('B', ['2'])]))).toBeNull();
       expect(warned()).toContain('reads 4 series (open, high, low, close)');
+    });
+  });
+
+  describe('bubble charts', () => {
+    const COUNTRIES: ExcelSeriesSnapshot = { name: 'Countries', xValues: ['1', '2', '3', '4'], yValues: ['10', '20', '', '40'], bubbleSizes: ['5', '0', '7', ''] };
+    const AXES: Partial<ExcelChartSnapshot> = {
+      axes: {
+        category: { title: { text: 'GDP', visible: true } },
+        value: { title: { text: 'Life expectancy', visible: true } },
+      },
+    };
+
+    it.each(['Bubble', 'Bubble3DEffect', 'BubbleEx'])('reads a %s chart as points, each bubble\'s size its z', (type) => {
+      const layer = onlyLayer(convert(chart(type, [{ ...COUNTRIES, sizeHeader: 'Population' }], AXES)));
+
+      expect(layer.type).toBe(TraceType.SCATTER);
+      expect(layer.axes).toEqual({ x: { label: 'GDP' }, y: { label: 'Life expectancy' }, z: { label: 'Population' } });
+      // The second bubble has no size and the fourth none at all, so Excel
+      // draws neither; the third has no y.
+      expect(layer.data).toEqual([{ x: 1, y: 10, z: 5 }]);
+      expect(warned()).toContain('2 bubble(s) of series "Countries" have no positive size');
+    });
+
+    it('names the size generically with no header cell to name it', () => {
+      expect(onlyLayer(convert(chart('Bubble', [COUNTRIES], AXES))).axes?.z).toEqual({ label: 'Bubble size' });
+    });
+
+    it('reads each series as a layer of its own, named after it', () => {
+      const other = { ...COUNTRIES, name: 'Cities', bubbleSizes: ['1', '1', '1', '1'] };
+
+      expect(layers(convert(chart('Bubble', [COUNTRIES, other]))).map(layer => layer.name)).toEqual(['Countries', 'Cities']);
+    });
+  });
+
+  describe('surface charts', () => {
+    it.each(['Surface', 'SurfaceWireframe', 'SurfaceTopView', 'SurfaceTopViewWireframe'])('reads a %s chart as a heat grid, its first series at the bottom', (type) => {
+      const layer = onlyLayer(convert(chart(type, [NORTH, SOUTH], {
+        axes: {
+          category: { title: { text: 'Quarter', visible: true } },
+          value: { title: { text: 'Sales', visible: true } },
+          series: { title: { text: 'Region', visible: true } },
+        },
+      })));
+
+      expect(layer.type).toBe(TraceType.HEATMAP);
+      expect(layer.axes).toEqual({ x: { label: 'Quarter' }, y: { label: 'Region' }, z: { label: 'Sales' } });
+      expect(layer.data).toEqual({
+        x: ['Q1', 'Q2', 'Q3', 'Q4'],
+        y: ['South', 'North'],
+        points: [[90, 110, null, 140], [120, 135, 150, 170]],
+      });
+    });
+  });
+
+  describe('pie of pie and bar of pie charts', () => {
+    const SHARE: ExcelSeriesSnapshot = { name: 'Share', categories: ['A', 'B', 'C', 'D', 'E'], values: ['40', '30', '15', '10', '5'] };
+    const split = (splitType: string, splitValue: number): ExcelSeriesSnapshot => ({ ...SHARE, splitType, splitValue });
+    const plots = (maidr: Maidr): MaidrLayer[] => maidr.subplots[0].map(subplot => subplot.layers[0]);
+
+    it('reads a pie of pie as two pies side by side, the split-off points one Other slice of the first', () => {
+      const maidr = convert(chart('PieOfPie', [split('SplitByPosition', 2)]));
+      const [main, second] = plots(maidr);
+
+      expect(maidr.subplots).toHaveLength(1);
+      expect(maidr.subplots[0]).toHaveLength(2);
+      expect(main).toMatchObject({ id: '0', type: TraceType.PIE });
+      expect(main.data).toEqual([{ x: 'A', y: 40 }, { x: 'B', y: 30 }, { x: 'C', y: 15 }, { x: 'Other', y: 15 }]);
+      expect(second).toMatchObject({ id: '1', type: TraceType.PIE, name: 'Other' });
+      expect(second.data).toEqual([{ x: 'D', y: 10 }, { x: 'E', y: 5 }]);
+    });
+
+    it('reads a bar of pie\'s second plot as bars', () => {
+      const [, second] = plots(convert(chart('BarOfPie', [split('SplitByPosition', 2)])));
+
+      expect(second).toMatchObject({ type: TraceType.BAR, name: 'Other' });
+      expect(second.data).toEqual([{ x: 'D', y: 10 }, { x: 'E', y: 5 }]);
+    });
+
+    it.each([
+      ['SplitByPosition', 1, ['E']],
+      ['SplitByValue', 12, ['D', 'E']],
+      ['SplitByPercentValue', 12, ['D', 'E']],
+      ['SplitByPercentValue', 20, ['C', 'D', 'E']],
+    ])('splits by %s %s as Excel does', (type, value, parted) => {
+      const [, second] = plots(convert(chart('PieOfPie', [split(type, value)])));
+
+      expect((second.data as BarPoint[]).map(point => point.x)).toEqual(parted);
+    });
+
+    it.each([undefined, 'Auto'])('splits the last three points off for a split of %s, Excel\'s default', (splitType) => {
+      const unsorted = { ...SHARE, values: ['5', '40', '30', '15', '10'], ...(splitType === undefined ? {} : { splitType }) };
+      const [, second] = plots(convert(chart('PieOfPie', [unsorted])));
+
+      // By position, not by size: A, the smallest, stays in the main pie.
+      expect(second.data).toEqual([{ x: 'C', y: 30 }, { x: 'D', y: 15 }, { x: 'E', y: 10 }]);
+    });
+
+    it('reads a custom split, which Office.js does not report, as one pie of every point', () => {
+      const maidr = convert(chart('PieOfPie', [split('SplitByCustomSplit', 0)]));
+
+      expect(maidr.subplots[0]).toHaveLength(1);
+      expect(onlyLayer(maidr).data).toHaveLength(5);
+      expect(warned()).toContain('custom pie split');
+    });
+
+    it('reads one pie when nothing is split off', () => {
+      expect(convert(chart('PieOfPie', [split('SplitByValue', 1)])).subplots[0]).toHaveLength(1);
+    });
+  });
+
+  describe('histograms', () => {
+    // Scott's rule on these gives a width of 3.6083: s = 2.2211, n = 10.
+    const SAMPLE = ['1', '2', '2', '3', '3', '3', '4', '4', '5', '9'];
+    const scores = (binOptions?: ExcelBinOptionsSnapshot): ExcelSeriesSnapshot =>
+      ({ name: 'Score', values: SAMPLE, ...(binOptions === undefined ? {} : { binOptions }) });
+    const bins = (binOptions?: ExcelBinOptionsSnapshot): HistogramPoint[] =>
+      onlyLayer(convert(chart('Histogram', [scores(binOptions)]))).data as HistogramPoint[];
+
+    it('bins automatically by Scott\'s rule, from the smallest value, each bin closed on the right but the first', () => {
+      const layer = onlyLayer(convert(chart('Histogram', [scores({ type: 'Auto' })])));
+      const read = layer.data as HistogramPoint[];
+
+      expect(layer.type).toBe(TraceType.HISTOGRAM);
+      expect(layer.axes).toEqual({ x: { label: 'Score' }, y: { label: 'Count' } });
+      expect(read.map(bin => bin.y)).toEqual([8, 1, 1]);
+      // The edges are announced at the place of the width's third significant
+      // figure: 4.61, not 4.608319134549957.
+      expect(read.map(bin => [bin.xMin, bin.xMax])).toEqual([[1, 4.61], [4.61, 8.22], [8.22, 11.82]]);
+      expect(read[0]).toMatchObject({ x: 2.805, yMin: 0, yMax: 8 });
+    });
+
+    it('bins automatically when the chart does not say how', () => {
+      expect(bins().map(bin => bin.y)).toEqual([8, 1, 1]);
+    });
+
+    it('bins by the author\'s width, a value on an edge counted in the bin below it', () => {
+      const read = bins({ type: 'BinWidth', width: 2 });
+
+      expect(read.map(bin => [bin.xMin, bin.xMax, bin.y])).toEqual([[1, 3, 6], [3, 5, 3], [5, 7, 0], [7, 9, 1]]);
+      expect(read.map(bin => bin.x)).toEqual([2, 4, 6, 8]);
+    });
+
+    it('bins into the author\'s count', () => {
+      expect(bins({ type: 'BinCount', count: 4 }).map(bin => [bin.xMin, bin.xMax, bin.y])).toEqual([[1, 3, 6], [3, 5, 3], [5, 7, 0], [7, 9, 1]]);
+    });
+
+    it('gathers values at or below the underflow, and above the overflow, into bins of their own', () => {
+      const rule = { allowUnderflow: true, underflowValue: 2, allowOverflow: true, overflowValue: 6 };
+
+      expect(bins({ type: 'BinWidth', width: 2, ...rule }).map(bin => [bin.xMin, bin.xMax, bin.y])).toEqual([[1, 2, 3], [2, 4, 5], [4, 6, 1], [6, 9, 1]]);
+      // A bin count includes those two bins, as Excel counts it.
+      expect(bins({ type: 'BinCount', count: 4, ...rule }).map(bin => bin.y)).toEqual([3, 5, 1, 1]);
+    });
+
+    it('ignores an overflow or underflow value the chart does not enable', () => {
+      expect(bins({ type: 'BinWidth', width: 2, allowOverflow: false, overflowValue: 6 }).map(bin => bin.y)).toEqual([6, 3, 0, 1]);
+    });
+
+    it('reads a histogram binned by category as each category\'s total', () => {
+      const sales = { name: 'Sales', categories: ['a', 'b', 'a', 'c'], values: ['1', '2', '3', ''], binOptions: { type: 'Category' } };
+      const layer = onlyLayer(convert(chart('Histogram', [sales])));
+
+      expect(layer.type).toBe(TraceType.BAR);
+      expect(layer.data).toEqual([{ x: 'a', y: 4 }, { x: 'b', y: 2 }]);
+    });
+  });
+
+  describe('Pareto charts', () => {
+    it('sorts the categories\' totals from largest to smallest, under a cumulative percentage line', () => {
+      const defects = {
+        name: 'Defects',
+        categories: ['Scratch', 'Dent', 'Scratch', 'Crack', 'Dent', 'Chip'],
+        values: ['10', '5', '20', '40', '5', '20'],
+        binOptions: { type: 'Category' },
+      };
+      const [bars, line] = layers(convert(chart('Pareto', [defects])));
+
+      expect(bars).toMatchObject({ type: TraceType.BAR, axes: { y: { label: 'Defects' } } });
+      expect(bars.data).toEqual([{ x: 'Crack', y: 40 }, { x: 'Scratch', y: 30 }, { x: 'Chip', y: 20 }, { x: 'Dent', y: 10 }]);
+      expect(line.type).toBe(TraceType.LINE);
+      expect(line.data).toEqual([[{ x: 'Crack', y: 40 }, { x: 'Scratch', y: 70 }, { x: 'Chip', y: 90 }, { x: 'Dent', y: 100 }]]);
+      expect(line.axes?.y).toEqual({ label: 'Cumulative percentage', format: { function: 'return Number(value).toFixed(1) + "%";' } });
+    });
+
+    it('bins numbers as a histogram does, then sorts the bins by their counts', () => {
+      const scores = { name: 'Score', values: ['1', '2', '2', '3', '3', '3', '4', '4', '5', '9'], binOptions: { type: 'BinWidth', width: 2 } };
+      const [bars, line] = layers(convert(chart('Pareto', [scores])));
+
+      expect(bars.axes).toEqual({ x: { label: 'Score' }, y: { label: 'Count' } });
+      expect(bars.data).toEqual([{ x: '[1, 3]', y: 6 }, { x: '(3, 5]', y: 3 }, { x: '(7, 9]', y: 1 }, { x: '(5, 7]', y: 0 }]);
+      expect((line.data as LinePoint[][])[0].map(point => point.y)).toEqual([60, 90, 100, 100]);
+    });
+  });
+
+  describe('box and whisker charts', () => {
+    // QUARTILE.EXC gives 6 and 16 for these, QUARTILE.INC 7 and 14.
+    const SCORES = ['3', '7', '8', '5', '12', '14', '21', '13', '18'];
+
+    it('computes the quartiles exclusively, Excel\'s default', () => {
+      const layer = onlyLayer(convert(chart('Boxwhisker', [{ name: 'Score', values: SCORES }])));
+
+      expect(layer.type).toBe(TraceType.BOX);
+      expect(layer.data).toEqual([{ z: 'Score', min: 3, q1: 6, q2: 12, q3: 16, max: 21, lowerOutliers: [], upperOutliers: [] }]);
+    });
+
+    it('computes them inclusively when the chart says so', () => {
+      const layer = onlyLayer(convert(chart('Boxwhisker', [{ name: 'Score', values: SCORES, quartileCalculation: 'Inclusive' }])));
+
+      expect((layer.data as BoxPoint[])[0]).toMatchObject({ q1: 7, q2: 12, q3: 14 });
+    });
+
+    it('ends each whisker at the furthest value within 1.5 IQR of the box, and calls the rest outliers', () => {
+      const values = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '40'];
+      const layer = onlyLayer(convert(chart('Boxwhisker', [{ name: 'Score', values }])));
+
+      expect(layer.data).toEqual([{ z: 'Score', min: 1, q1: 3, q2: 6, q3: 9, max: 10, lowerOutliers: [], upperOutliers: [40] }]);
+    });
+
+    it('draws a box per category of each series, every series a layer of its own', () => {
+      const north = { name: 'North', categories: ['A', 'B', 'A', 'B'], values: ['1', '10', '3', '12'] };
+      const south = { name: 'South', categories: ['A', 'B', 'A', 'B'], values: ['2', '20', '', '22'] };
+      const maidr = convert(chart('Boxwhisker', [north, south], { axes: { value: { title: { text: 'Score', visible: true } } } }));
+
+      expect(layers(maidr).map(layer => [layer.type, layer.name, layer.axes?.y?.label])).toEqual([
+        [TraceType.BOX, 'North', 'Score'],
+        [TraceType.BOX, 'South', 'Score'],
+      ]);
+      expect((layers(maidr)[0].data as BoxPoint[]).map(box => [box.z, box.q2])).toEqual([['A', 2], ['B', 11]]);
+      expect((layers(maidr)[1].data as BoxPoint[]).map(box => [box.z, box.q2])).toEqual([['A', 2], ['B', 21]]);
+    });
+  });
+
+  describe('waterfall charts', () => {
+    it('stands a point set as a total on the baseline, and goes on from its value', () => {
+      const cash = { name: 'Cash', categories: ['Opening', 'Sales', 'Costs', 'Closing'], values: ['100', '50', '-30', '120'], totals: [0, 3] };
+      const layer = onlyLayer(convert(chart('Waterfall', [cash])));
+
+      expect(layer.data).toEqual([
+        { x: 'Opening', start: 0, end: 100, delta: 100, kind: 'total' },
+        { x: 'Sales', start: 100, end: 150, delta: 50, kind: 'increase' },
+        { x: 'Costs', start: 150, end: 120, delta: -30, kind: 'decrease' },
+        { x: 'Closing', start: 0, end: 120, delta: 120, kind: 'total' },
+      ]);
+    });
+
+    it('reads each value as a step from the running total, a total set in Excel included', () => {
+      const cash = { name: 'Cash', categories: ['Opening', 'Sales', 'Costs', 'Tax', 'Closing'], values: ['100', '50', '-30', '', '120'] };
+      const layer = onlyLayer(convert(chart('Waterfall', [cash])));
+
+      expect(layer).toMatchObject({ type: TraceType.WATERFALL, axes: { y: { label: 'Cash' } } });
+      expect(layer.data).toEqual([
+        { x: 'Opening', start: 0, end: 100, delta: 100, kind: 'increase' },
+        { x: 'Sales', start: 100, end: 150, delta: 50, kind: 'increase' },
+        { x: 'Costs', start: 150, end: 120, delta: -30, kind: 'decrease' },
+        { x: 'Closing', start: 120, end: 240, delta: 120, kind: 'increase' },
+      ]);
+    });
+  });
+
+  describe('treemap and sunburst charts', () => {
+    const POPULATION: ExcelSeriesSnapshot = { name: 'Population', categories: ['China', 'India', 'Nigeria', 'Egypt'], values: ['1425', '1428', '224', '0'] };
+    const LEVELS = [['Asia', 'China'], ['Asia', 'India'], ['Africa', 'Nigeria'], ['Africa', 'Egypt']];
+
+    it.each([
+      ['Treemap', TraceType.TREEMAP],
+      ['Sunburst', TraceType.SUNBURST],
+    ])('reads a %s chart as leaves under their category levels', (type, expected) => {
+      const layer = onlyLayer(convert(chart(type, [POPULATION], { categoryLevels: LEVELS, categoryHeader: 'Region / Country' })));
+
+      expect(layer.type).toBe(expected);
+      expect(layer.axes).toEqual({ x: { label: 'Region / Country' }, y: { label: 'Population' } });
+      expect(layer.data).toEqual([
+        { x: 'China', y: 1425, path: ['Asia'] },
+        { x: 'India', y: 1428, path: ['Asia'] },
+        { x: 'Nigeria', y: 224, path: ['Africa'] },
+      ]);
+      expect(warned()).toContain('1 zero or negative value(s) have no area');
+    });
+
+    it('reads one level without the category cells', () => {
+      expect(onlyLayer(convert(chart('Treemap', [POPULATION]))).data).toEqual([
+        { x: 'China', y: 1425 },
+        { x: 'India', y: 1428 },
+        { x: 'Nigeria', y: 224 },
+      ]);
+    });
+
+    it('stops a path at the level its row reaches', () => {
+      const regions = { name: 'Population', categories: ['China', 'Europe'], values: ['1425', '740'] };
+      const layer = onlyLayer(convert(chart('Treemap', [regions], { categoryLevels: [['Asia', 'China'], ['Europe', '']] })));
+
+      expect(layer.data).toEqual([{ x: 'China', y: 1425, path: ['Asia'] }, { x: 'Europe', y: 740 }]);
+    });
+  });
+
+  describe('map charts', () => {
+    it('reads a map chart as a choropleth of its regions, in the order of the data', () => {
+      const rates = { name: 'Rate', categories: ['Washington', 'Oregon', 'Idaho'], values: ['12.1', '', '18.9'] };
+      const layer = onlyLayer(convert(chart('RegionMap', [rates], { categoryHeader: 'State' })));
+
+      expect(layer).toMatchObject({ type: TraceType.CHOROPLETH, axes: { x: { label: 'State' }, y: { label: 'Rate' } } });
+      expect(layer.data).toEqual([{ x: 'Washington', y: 12.1 }, { x: 'Idaho', y: 18.9 }]);
     });
   });
 
@@ -517,41 +913,163 @@ describe('convertExcelChart', () => {
       expect(onlyLayer(convert(chart('Line', [untyped]))).type).toBe(TraceType.LINE);
     });
 
-    it('declines the whole chart when one of its series cannot be read', () => {
-      const stacked = series('Total', ['1', '2', '3', '4'], { chartType: 'LineStacked' });
+    it('reads the rest of a chart one of whose series it cannot read, and says what it left out', () => {
+      const unknown = series('Forecast', ['1', '2', '3', '4'], { chartType: 'SomethingNew' });
+      const outcome = convertExcelChartOutcome(chart('ColumnClustered', [REVENUE, unknown]));
 
-      expect(convertExcelChartOutcome(chart('ColumnClustered', [REVENUE, stacked]))).toEqual({ kind: 'unsupported', chartType: 'LineStacked' });
+      expect(outcome.kind).toBe('figure');
+      if (outcome.kind === 'figure') {
+        expect(outcome.maidr.subplots[0][0].layers.map(layer => layer.type)).toEqual([TraceType.BAR]);
+        expect(outcome.omitted).toEqual([{ name: 'Forecast', chartType: 'SomethingNew', reason: expect.stringContaining('not one MAIDR knows') }]);
+      }
+      expect(warned()).toContain('read in part, leaving out "Forecast" (Something New');
+    });
+
+    it('leaves out a series of a type that is a chart of its own', () => {
+      const boxes = series('Spread', ['1', '2', '3', '4'], { chartType: 'Boxwhisker' });
+      const outcome = convertExcelChartOutcome(chart('Line', [NORTH, boxes]));
+
+      expect(outcome.kind === 'figure' ? outcome.omitted.map(one => one.name) : []).toEqual(['Spread']);
+      expect(warned()).toContain('reads only as a chart of its own');
+    });
+
+    it('declines a chart none of whose series it can read', () => {
+      expect(convertExcelChartOutcome(chart('SomethingNew', [NORTH, SOUTH]))).toEqual({ kind: 'unsupported', chartType: 'SomethingNew' });
+    });
+
+    it('leaves nothing out of a chart it reads whole', () => {
+      const outcome = convertExcelChartOutcome(chart('ColumnClustered', [REVENUE, MARGIN]));
+
+      expect(outcome.kind === 'figure' && outcome.omitted).toEqual([]);
     });
   });
 
-  describe('chart types MAIDR does not read yet', () => {
+  describe('chart types', () => {
+    // Every value of `Excel.ChartType` but `Invalid`, as Microsoft's reference
+    // lists it, the preview-only `…Ex` types included.
+    const EVERY_TYPE = [
+      '3DArea',
+      '3DAreaStacked',
+      '3DAreaStacked100',
+      '3DBarClustered',
+      '3DBarStacked',
+      '3DBarStacked100',
+      '3DColumn',
+      '3DColumnClustered',
+      '3DColumnStacked',
+      '3DColumnStacked100',
+      '3DLine',
+      '3DPie',
+      '3DPieExploded',
+      'Area',
+      'AreaEx',
+      'AreaStacked',
+      'AreaStacked100',
+      'AreaStacked100Ex',
+      'AreaStackedEx',
+      'BarClustered',
+      'BarClusteredEx',
+      'BarOfPie',
+      'BarStacked',
+      'BarStacked100',
+      'BarStacked100Ex',
+      'BarStackedEx',
+      'Boxwhisker',
+      'Bubble',
+      'Bubble3DEffect',
+      'BubbleEx',
+      'ColumnClustered',
+      'ColumnClusteredEx',
+      'ColumnStacked',
+      'ColumnStacked100',
+      'ColumnStacked100Ex',
+      'ColumnStackedEx',
+      'ConeBarClustered',
+      'ConeBarStacked',
+      'ConeBarStacked100',
+      'ConeCol',
+      'ConeColClustered',
+      'ConeColStacked',
+      'ConeColStacked100',
+      'CylinderBarClustered',
+      'CylinderBarStacked',
+      'CylinderBarStacked100',
+      'CylinderCol',
+      'CylinderColClustered',
+      'CylinderColStacked',
+      'CylinderColStacked100',
+      'Doughnut',
+      'DoughnutEx',
+      'DoughnutExploded',
+      'Funnel',
+      'Histogram',
+      'Line',
+      'LineEx',
+      'LineMarkers',
+      'LineMarkersStacked',
+      'LineMarkersStacked100',
+      'LineStacked',
+      'LineStacked100',
+      'LineStacked100Ex',
+      'LineStackedEx',
+      'Pareto',
+      'Pie',
+      'PieEx',
+      'PieExploded',
+      'PieOfPie',
+      'PyramidBarClustered',
+      'PyramidBarStacked',
+      'PyramidBarStacked100',
+      'PyramidCol',
+      'PyramidColClustered',
+      'PyramidColStacked',
+      'PyramidColStacked100',
+      'Radar',
+      'RadarFilled',
+      'RadarMarkers',
+      'RegionMap',
+      'StockHLC',
+      'StockOHLC',
+      'StockVHLC',
+      'StockVOHLC',
+      'Sunburst',
+      'Surface',
+      'SurfaceTopView',
+      'SurfaceTopViewWireframe',
+      'SurfaceWireframe',
+      'Treemap',
+      'Waterfall',
+      'XYScatter',
+      'XYScatterEx',
+      'XYScatterLines',
+      'XYScatterLinesNoMarkers',
+      'XYScatterSmooth',
+      'XYScatterSmoothNoMarkers',
+    ];
+
+    it('has a reading for every type Excel.ChartType names', () => {
+      expect(EVERY_TYPE).toHaveLength(97);
+      expect(EVERY_TYPE.filter(type => !isSupportedExcelChartType(type))).toEqual([]);
+    });
+
     it.each([
-      ['Histogram', 'Histogram'],
-      ['Pareto', 'Pareto'],
-      ['Boxwhisker', 'Box and Whisker'],
-      ['Waterfall', 'Waterfall'],
-      ['Treemap', 'Treemap'],
-      ['Sunburst', 'Sunburst'],
-      ['RegionMap', 'Map'],
-      ['Bubble', 'Bubble'],
-      ['Bubble3DEffect', '3-D Bubble'],
-      ['Surface', '3-D Surface'],
-      ['SurfaceTopView', 'Contour'],
-      ['PieOfPie', 'Pie of Pie'],
-      ['BarOfPie', 'Bar of Pie'],
       ['Invalid', 'unknown'],
       ['SomethingNew', 'Something New'],
-    ])('declines %s with a message naming it', (type, name) => {
+    ])('declines %s, a type with no reading, with a message naming it', (type, name) => {
       expect(convertExcelChart(chart(type, [NORTH]))).toBeNull();
       expect(isSupportedExcelChartType(type)).toBe(false);
       expect(excelChartTypeName(type)).toBe(name);
       expect(warned()).toContain(`is a ${name} chart, which MAIDR cannot read`);
     });
 
-    it('reads every type it says it reads', () => {
-      const supported = ['ColumnClustered', 'BarStacked100', 'Line', 'LineMarkers', 'Area', 'AreaStacked', 'Pie', 'Doughnut', 'XYScatter', 'XYScatterSmooth', 'Radar', 'Funnel', 'StockOHLC', '3DPie', 'ConeCol'];
-
-      expect(supported.filter(type => !isSupportedExcelChartType(type))).toEqual([]);
+    it.each([
+      ['Boxwhisker', 'Box and Whisker'],
+      ['SurfaceTopView', 'Contour'],
+      ['LineMarkersStacked100', '100% Stacked Line with Markers'],
+      ['ColumnClustered', 'Column Clustered'],
+      ['3DColumn', '3-D Column'],
+    ])('names %s as Excel names it', (type, name) => {
+      expect(excelChartTypeName(type)).toBe(name);
     });
   });
 
@@ -748,6 +1266,89 @@ describe('the figure reads in MAIDR\'s model as the chart holds it', () => {
     expect(texts.at(-1)?.main.value).toBe('Paid');
     expect(texts.at(-1)?.cross).toEqual({ label: 'People', value: 40 });
     expect(texts.at(-1)?.z?.value).toBe('4.0%');
+  });
+
+  it('a stacked line announces each band\'s own value with the running total', () => {
+    const texts = announce(convert(chart('LineStacked', [NORTH, SOUTH])), [right, down]);
+
+    expect(texts.at(-1)?.cross?.value).toBe(90);
+    expect(texts.at(-1)?.stack?.value).toBe(210);
+  });
+
+  it('a bubble announces its size, named, alongside its position', () => {
+    const points = { name: 'Countries', xValues: ['1', '2'], yValues: ['10', '20'], bubbleSizes: ['3', '4'], sizeHeader: 'Population' };
+    const texts = announce(convert(chart('Bubble', [points])), [right, right]);
+
+    expect(texts.map(text => [text.main.value, text.z])).toEqual([
+      [1, { label: 'Population', value: 3 }],
+      [2, { label: 'Population', value: 4 }],
+    ]);
+  });
+
+  it('a surface starts on its first series, the bottom row of the grid', () => {
+    const texts = announce(convert(chart('Surface', [NORTH, SOUTH])), [right]);
+
+    expect([texts[0].main.value, texts[0].cross?.value, texts[0].z?.value]).toEqual(['Q1', 'North', 120]);
+  });
+
+  it('a histogram announces each bin\'s range and count', () => {
+    const scores = { name: 'Score', values: ['1', '2', '2', '3', '3', '3', '4', '4', '5', '9'], binOptions: { type: 'BinWidth', width: 2 } };
+    const texts = announce(convert(chart('Histogram', [scores])), [right, right]);
+
+    expect(texts.map(text => [text.range, text.cross?.value])).toEqual([
+      [{ min: 1, max: 3 }, 6],
+      [{ min: 3, max: 5 }, 3],
+    ]);
+  });
+
+  it('a box announces its quartiles as Excel computed them', () => {
+    const texts = announce(convert(chart('Boxwhisker', [{ name: 'Score', values: ['3', '7', '8', '5', '12', '14', '21', '13', '18'] }])), [right, up, up, up]);
+
+    expect(texts.slice(1).map(text => text.cross?.value)).toEqual([3, 6, 12]);
+  });
+
+  it('a waterfall announces each step and the running total', () => {
+    const cash = { name: 'Cash', categories: ['Opening', 'Sales', 'Costs'], values: ['100', '50', '-30'] };
+    const texts = announce(convert(chart('Waterfall', [cash])), [right, right, right]);
+
+    expect(texts.map(text => [text.main.value, text.cross?.value, text.stack?.value])).toEqual([
+      ['Opening', 100, 100],
+      ['Sales', 50, 150],
+      ['Costs', -30, 120],
+    ]);
+  });
+
+  it('a treemap starts at its outer level, each branch the sum of its leaves', () => {
+    const population = { name: 'Population', categories: ['China', 'India', 'Nigeria'], values: ['1425', '1428', '224'] };
+    const levels = [['Asia', 'China'], ['Asia', 'India'], ['Africa', 'Nigeria']];
+    const texts = announce(convert(chart('Treemap', [population], { categoryLevels: levels })), [right, right]);
+
+    expect(texts.map(text => [text.main.value, text.cross?.value])).toEqual([['Asia', 2853], ['Africa', 224]]);
+  });
+
+  it('a map announces each region and its value', () => {
+    const rates = { name: 'Rate', categories: ['Washington', 'Oregon'], values: ['12', '16'] };
+    const texts = announce(convert(chart('RegionMap', [rates])), [right, right]);
+
+    expect(texts.map(text => [text.main.value, text.cross?.value])).toEqual([['Washington', 12], ['Oregon', 16]]);
+  });
+
+  it('a high-low-close chart announces its prices, and no open or trend', () => {
+    const days = ['Mon', 'Tue'];
+    const priced = (name: string, values: string[]): ExcelSeriesSnapshot => ({ name, categories: days, values });
+    const texts = announce(convert(chart('StockHLC', [priced('High', ['13', '14']), priced('Low', ['9', '11']), priced('Close', ['12', '11'])])), [right, up]);
+
+    expect(texts.map(text => [text.main.value, text.section, text.cross?.value, text.z])).toEqual([
+      ['Mon', 'close', 12, undefined],
+      ['Mon', 'high', 13, undefined],
+    ]);
+  });
+
+  it('a pie of pie builds both of its plots', () => {
+    const share = { name: 'Share', categories: ['A', 'B', 'C'], values: ['60', '30', '10'], splitType: 'SplitByPosition', splitValue: 1 };
+    const figure = new Figure(convert(chart('PieOfPie', [share])));
+
+    expect(figure.subplots[0]).toHaveLength(2);
   });
 
   it('a scatter announces its points by x', () => {

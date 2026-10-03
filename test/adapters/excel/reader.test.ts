@@ -6,6 +6,7 @@ import {
   columnLetters,
   findExcelCharts,
   joinLabelLevels,
+  labelLevels,
   listExcelCharts,
   parseRangeAddress,
   readExcelChart,
@@ -179,19 +180,134 @@ describe('readExcelChart', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('reads nothing more of a series MAIDR declines than its name and type', async () => {
-    const treemap: FakeChartData = {
+  it('reads nothing more of a series of a type MAIDR does not know than its name and type', async () => {
+    const unknown: FakeChartData = {
       id: '{t}',
-      name: 'Treemap',
-      chartType: 'Treemap',
+      name: 'Future',
+      chartType: 'SomethingNew',
       axes: null,
-      series: [{ name: 'Sizes', chartType: 'Treemap', categories: ['a'], values: ['1'] }],
+      series: [{ name: 'Sizes', chartType: 'SomethingNew', categories: ['a'], values: ['1'] }],
     };
 
-    const { snapshot } = await read(book([treemap]));
+    const { snapshot } = await read(book([unknown]));
 
-    expect(snapshot.series).toEqual([{ name: 'Sizes', chartType: 'Treemap' }]);
+    expect(snapshot.series).toEqual([{ name: 'Sizes', chartType: 'SomethingNew' }]);
     expect(snapshot.axes).toBeUndefined();
+  });
+
+  describe('what each chart type is computed from', () => {
+    /** A chart of one series, which refuses the properties its type has not got. */
+    function only(chartType: string, series: Partial<FakeChartData['series'][number]>, extra: Partial<FakeChartData> = {}): FakeChartData {
+      return {
+        id: '{c}',
+        name: 'Chart',
+        chartType,
+        series: [{ name: 'S', chartType, categories: ['a', 'b'], values: ['1', '2'], ...series }],
+        ...extra,
+      };
+    }
+
+    // The chart types Excel 2016 added have no chart filter and one axis
+    // group, so their series are never asked for either.
+    const CHARTEX = ['filtered', 'axisGroup', 'firstSliceAngle', 'splitType', 'splitValue'];
+
+    it('reads a histogram\'s bin options with its values', async () => {
+      const binOptions = { type: 'BinWidth', width: 2, count: 5, allowOverflow: true, overflowValue: 9, allowUnderflow: false, underflowValue: 0 };
+      const { snapshot } = await read(book([only('Histogram', { binOptions, rejects: CHARTEX })]));
+
+      expect(snapshot.series[0]).toEqual({ name: 'S', chartType: 'Histogram', binOptions, categories: ['a', 'b'], values: ['1', '2'] });
+    });
+
+    it('reads a series of a whole chart by the chart\'s type, whatever type the series reports', async () => {
+      const { snapshot } = await read(book([only('Histogram', { chartType: 'Invalid', binOptions: { type: 'Auto' }, rejects: CHARTEX })]));
+
+      expect(snapshot.series[0]).toMatchObject({ values: ['1', '2'], binOptions: { type: 'Auto' } });
+    });
+
+    it('reads a Pareto chart\'s bin options too', async () => {
+      const { snapshot } = await read(book([only('Pareto', { binOptions: { type: 'Category' }, rejects: CHARTEX })]));
+
+      expect(snapshot.series[0].binOptions?.type).toBe('Category');
+    });
+
+    it('reads a box and whisker chart\'s quartile calculation', async () => {
+      const { snapshot } = await read(book([only('Boxwhisker', { quartileCalculation: 'Inclusive', rejects: CHARTEX })]));
+
+      expect(snapshot.series[0].quartileCalculation).toBe('Inclusive');
+    });
+
+    it.each(['Waterfall', 'Funnel', 'Treemap', 'Sunburst', 'RegionMap'])('asks a %s series for its values alone', async (type) => {
+      const { snapshot } = await read(book([only(type, { rejects: CHARTEX })]));
+
+      expect(snapshot.series[0]).toEqual({ name: 'S', chartType: type, categories: ['a', 'b'], values: ['1', '2'] });
+    });
+
+    it('reads a pie of pie\'s split', async () => {
+      const { snapshot } = await read(book([only('PieOfPie', { splitType: 'SplitByValue', splitValue: 12 }, { axes: null })]));
+
+      expect(snapshot.series[0]).toMatchObject({ splitType: 'SplitByValue', splitValue: 12 });
+    });
+
+    it('reads a surface\'s series axis title, and asks its series for no filter, which a surface has not got', async () => {
+      const surface = only('Surface', { rejects: ['filtered', 'axisGroup'] }, {
+        axes: { category: { text: 'Quarter', visible: true }, series: { text: 'Region', visible: true } },
+      });
+
+      const { snapshot } = await read(book([surface]));
+
+      expect(snapshot.axes?.series).toEqual({ title: { text: 'Region', visible: true } });
+      expect(snapshot.series[0].filtered).toBeUndefined();
+    });
+
+    it('asks how the chart plots blanks only for a reading it changes', async () => {
+      const line = await read(book([only('Line', {}, { displayBlanksAs: 'Zero' })]));
+      const column = await read(book([only('ColumnClustered', {}, { rejects: ['displayBlanksAs'] })]));
+
+      expect(line.snapshot.displayBlanksAs).toBe('Zero');
+      expect(column.snapshot.displayBlanksAs).toBeUndefined();
+      // Asked in the values' round trip, not one of its own.
+      expect(line.host.syncs).toBe(column.host.syncs);
+    });
+
+    it('reads a bubble chart\'s sizes, and with ExcelApi 1.15 the header above them, in two more round trips', async () => {
+      const bubble: FakeChartData = {
+        id: '{b}',
+        name: 'Bubbles',
+        chartType: 'Bubble',
+        series: [{
+          name: 'Countries',
+          chartType: 'Bubble',
+          xValues: ['1', '2'],
+          yValues: ['3', '4'],
+          bubbleSizes: ['5', '6'],
+          sizeSource: { type: 'LocalRange', address: 'Sales!$C$2:$C$3' },
+        }],
+      };
+      const data = book([bubble]);
+      data.sheets[0].cells = { C1: 'Population', C2: '5', C3: '6' };
+
+      const plain = await read(data);
+      const named = await read(data, { categoryCells: true });
+
+      expect(plain.snapshot.series[0]).toMatchObject({ bubbleSizes: ['5', '6'] });
+      expect(plain.snapshot.series[0].sizeHeader).toBeUndefined();
+      expect(named.snapshot.series[0].sizeHeader).toBe('Population');
+      expect(named.host.syncs).toBe(plain.host.syncs + 2);
+    });
+
+    it('keeps a bubble chart whose size header cannot be read', async () => {
+      const bubble: FakeChartData = {
+        id: '{b}',
+        name: 'Bubbles',
+        chartType: 'Bubble',
+        series: [{ name: 'C', chartType: 'Bubble', xValues: ['1'], yValues: ['3'], bubbleSizes: ['5'], sizeSource: { type: 'LocalRange', address: 'Gone!$C$2:$C$2' } }],
+      };
+
+      const { snapshot } = await read(book([bubble]), { categoryCells: true });
+
+      expect(snapshot.series[0].bubbleSizes).toEqual(['5']);
+      expect(warned()).toContain('could not read the bubble sizes\' header cells');
+    });
   });
 
   it('reads the secondary value axis only when a series is drawn against it', async () => {
@@ -247,6 +363,8 @@ describe('readExcelChart', () => {
 
       expect(snapshot.categoryLabels).toEqual(['Q1', 'Q2', 'Q3']);
       expect(snapshot.categoryHeader).toBe('Quarter');
+      // One level is no hierarchy.
+      expect(snapshot.categoryLevels).toBeUndefined();
       expect(host.syncs).toBe(6);
     });
 
@@ -260,6 +378,7 @@ describe('readExcelChart', () => {
       const { snapshot } = await read(data, { categoryCells: true });
 
       expect(snapshot.categoryLabels).toEqual(['2024 Q3', '2024 Q4', '2025 Q1']);
+      expect(snapshot.categoryLevels).toEqual([['2024', 'Q3'], ['2024', 'Q4'], ['2025', 'Q1']]);
       expect(snapshot.categoryHeader).toBe('Year / Quarter');
     });
 
@@ -418,6 +537,29 @@ describe('cell addresses', () => {
 
   it.each([[1, 'A'], [26, 'Z'], [27, 'AA'], [28, 'AB'], [702, 'ZZ'], [703, 'AAA']])('writes column %d as %s', (column, letters) => {
     expect(columnLetters(column)).toBe(letters);
+  });
+
+  it('carries a blank outer level down only into a category that names something deeper, in the same branch', () => {
+    const levels = labelLevels([
+      ['Asia', 'East', 'China'],
+      ['', '', 'Japan'],
+      ['', 'South', 'India'],
+      ['Europe', '', ''],
+      ['', '', 'France'],
+      ['Africa', '', 'Nigeria'],
+    ], 'rows');
+
+    expect(levels).toEqual([
+      ['Asia', 'East', 'China'],
+      ['Asia', 'East', 'Japan'],
+      ['Asia', 'South', 'India'],
+      // A blank with nothing deeper is no level: Europe is a leaf.
+      ['Europe', '', ''],
+      // Europe carried down; its blank second level stays blank.
+      ['Europe', '', 'France'],
+      // A new outer label starts a new branch: South is not carried into it.
+      ['Africa', '', 'Nigeria'],
+    ]);
   });
 
   it('joins label levels down rows and across columns', () => {
