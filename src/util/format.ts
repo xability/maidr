@@ -49,10 +49,12 @@ function groupThousands(value: number, text: string): string {
 }
 
 /**
- * Default format function - converts value to string.
- * Strings pass through unchanged. A number of {@link DEFAULT_GROUPING_THRESHOLD}
- * or more has its digits grouped in threes with commas (`12,345`), the default
- * for every axis that declares no `format`; a declared format replaces it.
+ * {@link defaultFormat} without the thousands grouping, for a number that
+ * names something rather than measures it: a series called `12345`, or a
+ * category drawn on an axis that mixes names and numbers. An id reads as
+ * itself, digit for digit, where a quantity reads as a quantity.
+ *
+ * Strings pass through unchanged, integers are stringified as-is.
  *
  * A fractional number is rounded to {@link DEFAULT_MAX_DECIMALS} places, because
  * this is what a screen reader speaks aloud. A value MAIDR computes rather than
@@ -69,17 +71,14 @@ function groupThousands(value: number, text: string): string {
  * @param value - The value to format
  * @returns String representation of the value
  */
-export const defaultFormat: FormatFunction = (value: number | string): string => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+export const defaultLabelFormat: FormatFunction = (value: number | string): string => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || Number.isInteger(value)) {
     return `${value}`;
-  }
-  if (Number.isInteger(value)) {
-    return groupThousands(value, `${value}`);
   }
 
   const rounded = Number(value.toFixed(DEFAULT_MAX_DECIMALS));
   if (rounded !== 0) {
-    return groupThousands(rounded, `${rounded}`);
+    return `${rounded}`;
   }
 
   // Rounding erased the value (0.00012 -> 0). Announcing `0` for something that
@@ -90,6 +89,28 @@ export const defaultFormat: FormatFunction = (value: number | string): string =>
   // here rather than being announced as a signed zero. Comparing against
   // `Object.is(rounded, 0)` instead would let `-0` through.
   return `${Number(value.toPrecision(DEFAULT_SIGNIFICANT_DIGITS))}`;
+};
+
+/**
+ * Default format function - converts value to string.
+ * Strings pass through unchanged. A number of {@link DEFAULT_GROUPING_THRESHOLD}
+ * or more has its digits grouped in threes with commas (`12,345`), the default
+ * for every axis that declares no `format`; a declared format replaces it.
+ *
+ * A fractional number is rounded as {@link defaultLabelFormat} describes.
+ * The commas are always `,` with `.` for decimals, whatever the reader's
+ * language, matching the decimal point this format has always used; an author
+ * whose readers expect another convention declares a `number` format with a
+ * `locale`.
+ *
+ * @param value - The value to format
+ * @returns String representation of the value
+ */
+export const defaultFormat: FormatFunction = (value: number | string): string => {
+  const text = defaultLabelFormat(value);
+  return typeof value === 'number' && Number.isFinite(value)
+    ? groupThousands(Number(text), text)
+    : text;
 };
 
 /**

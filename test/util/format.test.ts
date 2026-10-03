@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { defaultFormat, formatters, FormatUtil } from '@util/format';
+import { defaultFormat, defaultLabelFormat, formatters, FormatUtil } from '@util/format';
 
 describe('defaultFormat', () => {
   it('shortens a computed share to something a screen reader can speak', () => {
@@ -28,6 +28,13 @@ describe('defaultFormat', () => {
     expect(defaultFormat(-9876543)).toBe('-9,876,543');
     expect(defaultFormat(1234567.891)).toBe('1,234,567.89');
     expect(defaultFormat(9999.996)).toBe('10,000');
+    expect(defaultFormat(-12345.678)).toBe('-12,345.68');
+  });
+
+  it('starts grouping at 10,000', () => {
+    expect(defaultFormat(9999)).toBe('9999');
+    expect(defaultFormat(10000)).toBe('10,000');
+    expect(defaultFormat(-10000)).toBe('-10,000');
   });
 
   it('leaves a four-digit number, such as a year, ungrouped', () => {
@@ -39,6 +46,13 @@ describe('defaultFormat', () => {
   it('leaves exponent notation and numeric strings untouched', () => {
     expect(defaultFormat(1e21)).toBe('1e+21');
     expect(defaultFormat('1234567')).toBe('1234567');
+  });
+
+  it('leaves a number that names something ungrouped in the label variant', () => {
+    expect(defaultLabelFormat(12345)).toBe('12345');
+    expect(defaultLabelFormat(20240115)).toBe('20240115');
+    expect(defaultLabelFormat(12345.678)).toBe('12345.68');
+    expect(defaultLabelFormat('Q1')).toBe('Q1');
   });
 
   it('gives way to a declared format', () => {
