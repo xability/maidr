@@ -64,6 +64,13 @@ export const EXCLUDED_EXAMPLES = [
       + 'Tableau Integration Guide explains how to add it to a dashboard.',
   },
   {
+    page: 'excel-addin/taskpane.html',
+    reason:
+      'The task pane manifest.xml points Excel at. It reads the workbook it is '
+      + 'opened beside, so outside Excel there is nothing for it to show; '
+      + 'excel-taskpane.html, in the Excel group, simulates one.',
+  },
+  {
     page: 'victory/index.html',
     reason:
       'Vite entry point, not a page. `npm run build:victory-example` bundles it '
