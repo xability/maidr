@@ -42,6 +42,26 @@ describe('formatterService', () => {
     service.dispose();
   });
 
+  it('groups a large number on an unformatted axis, a numeric category included', () => {
+    // The payload does not say whether a number on an axis counts something
+    // or names it, and counting is the common case. An author whose bar
+    // categories are ids or date keys declares a format to keep them literal.
+    const service = new FormatterService(figure());
+
+    expect(service.formatSingleValue(1234567, 'layer-1', 'y')).toBe('1,234,567');
+    expect(service.formatSingleValue(20240115, 'layer-1', 'x')).toBe('20,240,115');
+
+    service.dispose();
+  });
+
+  it('keeps a numeric category literal under a declared format', () => {
+    const service = new FormatterService(figure({ function: 'return String(value);' }));
+
+    expect(service.formatSingleValue(20240115, 'layer-1', 'y')).toBe('20240115');
+
+    service.dispose();
+  });
+
   it('rounds every element of an array, as boxplot outliers arrive', () => {
     const service = new FormatterService(figure());
 

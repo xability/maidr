@@ -163,6 +163,17 @@ describe('where the chart runs', () => {
     expect(statOf(describedBy(staggered), 'X range')).toBe('Q1 to Q3');
   });
 
+  test('reads a number on a categorical axis as a name, not a quantity', () => {
+    // Grouping in thousands is for quantities. On an axis that mixes names and
+    // numbers the numbers are names, so `20240115` stays a day's key.
+    const keyed: LinePoint[][] = [[
+      { x: 20240115, y: 1 },
+      { x: 'Total', y: 2 },
+    ]];
+
+    expect(statOf(describedBy(keyed), 'X range')).toBe('20240115 to Total');
+  });
+
   test('says nothing at all for a layer with no samples', () => {
     expect(statOf(describedBy([]), 'X range')).toBeUndefined();
   });

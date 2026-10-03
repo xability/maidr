@@ -5,7 +5,7 @@ import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
-import { defaultFormat } from '@util/format';
+import { defaultLabelFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -258,8 +258,9 @@ export class LineTrace extends AbstractTrace {
     // number -- the level the curve traces -- and `String` gave it in full
     // while the announcement of the same curve, which goes through a
     // formatter, gave two decimals. One dialog, two numbers, one curve. A
-    // whole number is untouched, so an integer id still reads as itself.
-    return typeof authored === 'number' ? defaultFormat(authored) : String(authored);
+    // whole number is untouched -- not even grouped in thousands -- so an
+    // integer id still reads as itself.
+    return typeof authored === 'number' ? defaultLabelFormat(authored) : String(authored);
   }
 
   /**
@@ -413,11 +414,13 @@ export class LineTrace extends AbstractTrace {
     // so this is the order the categories are drawn in with the repeats a
     // second series contributes removed. Composed here, so it is rounded here:
     // the description service rounds a bare number and passes a string
-    // through untouched.
+    // through untouched. Rounded but not grouped in thousands: an axis that
+    // mixes names and numbers uses its numbers as names, and `20240115`
+    // names a day where `20,240,115` counts something.
     const drawn = new Set<string>();
     for (const line of this.points) {
       for (const { x } of line) {
-        drawn.add(defaultFormat(x));
+        drawn.add(defaultLabelFormat(x));
       }
     }
     const order = [...drawn];

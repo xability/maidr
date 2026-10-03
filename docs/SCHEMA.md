@@ -144,7 +144,7 @@ Use the following to define the object properties:
 
 - `id`: the id that you added as an attribute of your main SVG.
 - `title`: the title of the plot. (optional)
-- `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.
+- `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering; an axis without one announces numbers rounded to two decimals, with digits grouped in threes from 10,000 up, e.g. `1,234,567`, using `,` and `.` whatever the locale -- declare a `number` format with a `locale` for another convention; a numeric category such as an id or a `20240115` date key is grouped too, so declare `"format": { "function": "return String(value);" }` on that axis to keep it literal). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.
 - `data`: the main data for your plot. See below.
 
 ### Top-Level Figure Properties
