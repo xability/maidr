@@ -64,6 +64,13 @@ export const EXCLUDED_EXAMPLES = [
       + 'Tableau Integration Guide explains how to add it to a dashboard.',
   },
   {
+    page: 'excel-addin/taskpane.html',
+    reason:
+      'The task pane manifest.xml points Excel at. It reads the workbook it is '
+      + 'opened beside, so outside Excel there is nothing for it to show; '
+      + 'excel-taskpane.html, in the Excel group, simulates one.',
+  },
+  {
     page: 'victory/index.html',
     reason:
       'Vite entry point, not a page. `npm run build:victory-example` bundles it '
@@ -255,6 +262,7 @@ export const TITLES = {
   'lightweight-charts.html': 'Candlestick, Moving Average and Volume',
   'lightweight-charts-live.html': 'Live Price Ticker (series.update streaming)',
   'plotly-subplots.html': 'Subplots (2×2 Grid)',
+  'excel-taskpane.html': 'Task Pane (simulated workbook)',
   'powerbi-bar.html': 'Clustered Column Chart',
   'powerbi-line.html': 'Line Chart (companion mode)',
   'vegalite-bindbox-horizontal.html': 'Box Plot (horizontal)',
@@ -436,6 +444,7 @@ export const PAGE_TYPES = {
   'observable-plain.html': ['bar', 'point', 'stacked_bar', 'line'],
   'observable-quarto.html': ['bar', 'point', 'line', 'hist', 'stacked_bar'],
   'plotly-subplots.html': ['bar', 'point', 'line', 'hist'],
+  'excel-taskpane.html': ['dodged_bar', 'line', 'pie', 'bar', 'treemap'],
   'powerbi-bar.html': ['dodged_bar', 'bar'],
   'tableau-bar.html': ['bar'],
   'uplot/live.html': ['line'],
@@ -629,6 +638,13 @@ export const GROUPS = [
     prefixes: ['powerbi-'],
     headingPrefix: 'Power BI',
     note: 'See the <a href="powerbi.html">Power BI Integration Guide</a> for the custom visual setup, chart and companion modes, and cross-highlighting.',
+  },
+  {
+    id: 'excel',
+    heading: 'Excel',
+    prefixes: ['excel-'],
+    headingPrefix: 'Excel',
+    note: 'See the <a href="excel.html">Excel Integration Guide</a> for the add-in task pane, the chart types it reads, and its limitations.',
   },
 ];
 

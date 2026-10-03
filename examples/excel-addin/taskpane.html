@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAIDR accessible charts</title>
+    <!--
+      The task pane manifest.xml points Excel at. It only does anything inside
+      Excel: opened in a browser on its own, there is no workbook to read, and
+      the pane says so.
+
+      Office.js has to be loaded in the head, from Microsoft's CDN. MAIDR comes
+      from this repository's build, so run `npm run build` first; a copy built
+      on a release would load https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js
+      and .../excel.js instead.
+    -->
+    <script src="https://officeapis.public.onecdn.static.microsoft/1/office.js"></script>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/excel.js"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0.5rem;
+      }
+
+      h1 {
+        font-size: 1.125rem;
+        margin: 0 0 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="maidr" aria-labelledby="maidr-heading">
+      <h1 id="maidr-heading">Accessible charts</h1>
+    </main>
+
+    <script>
+      const bind = () => window.maidrExcel.bindExcel(document.getElementById('maidr'));
+
+      // Without Office.js, which a blocked CDN leaves out, the pane still
+      // mounts and says it cannot find Excel.
+      if (window.Office) {
+        Office.onReady(bind);
+      } else {
+        bind();
+      }
+    </script>
+  </body>
+</html>
