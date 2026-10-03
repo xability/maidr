@@ -72,8 +72,12 @@ const COUNT_LABEL = 'Count';
 /** The line a Pareto chart draws over its bars. */
 const CUMULATIVE_LABEL = 'Cumulative percentage';
 
-/** A Pareto line's values are percentages from 0 to 100. */
-const PERCENT_FORMAT = 'return Number(value).toFixed(1) + "%";';
+/**
+ * A Pareto line's values are shares of the whole, from 0 to 1, read as
+ * percentages through MAIDR's own percent format rather than a `function`
+ * string, which a page's content security policy may refuse to run.
+ */
+const PERCENT_FORMAT = { type: 'percent', decimals: 1 } as const;
 
 /** How the series of a bar or column chart share a category. */
 type BarMode = 'clustered' | 'stacked' | 'stacked100';
@@ -1151,7 +1155,7 @@ function buildHistogram(whole: Whole): Built[][] {
  * A Pareto chart: the bars sorted from largest to smallest -- each category's
  * total, or, for numbers, each bin's count, the bins as a histogram makes them
  * -- as a `bar` layer, and the line of their cumulative share of the whole, as
- * a percentage from 0 to 100, as a `line` layer over the same bars.
+ * a fraction read as a percentage, as a `line` layer over the same bars.
  */
 function buildPareto(whole: Whole): Built[][] {
   const { snapshot, category } = whole;
@@ -1173,11 +1177,11 @@ function buildPareto(whole: Whole): Built[][] {
   let running = 0;
   const line: LinePoint[] = sorted.map(({ label, amount }) => {
     running += amount;
-    return { x: label, y: tidy((running / total) * 100) };
+    return { x: label, y: tidy(running / total) };
   });
   const cumulative: NonNullable<MaidrLayer['axes']> = {
     ...buildAxes(x, undefined),
-    y: { label: CUMULATIVE_LABEL, format: { function: PERCENT_FORMAT } },
+    y: { label: CUMULATIVE_LABEL, format: PERCENT_FORMAT },
   };
   return [[
     { layer: { type: TraceType.BAR, axes: buildAxes(x, valueTitle), data: bars }, series: [series] },

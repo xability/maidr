@@ -740,8 +740,9 @@ describe('convertExcelChart', () => {
       expect(bars).toMatchObject({ type: TraceType.BAR, axes: { y: { label: 'Defects' } } });
       expect(bars.data).toEqual([{ x: 'Crack', y: 40 }, { x: 'Scratch', y: 30 }, { x: 'Chip', y: 20 }, { x: 'Dent', y: 10 }]);
       expect(line.type).toBe(TraceType.LINE);
-      expect(line.data).toEqual([[{ x: 'Crack', y: 40 }, { x: 'Scratch', y: 70 }, { x: 'Chip', y: 90 }, { x: 'Dent', y: 100 }]]);
-      expect(line.axes?.y).toEqual({ label: 'Cumulative percentage', format: { function: 'return Number(value).toFixed(1) + "%";' } });
+      expect(line.data).toEqual([[{ x: 'Crack', y: 0.4 }, { x: 'Scratch', y: 0.7 }, { x: 'Chip', y: 0.9 }, { x: 'Dent', y: 1 }]]);
+      // MAIDR's own percent format, which no content security policy blocks.
+      expect(line.axes?.y).toEqual({ label: 'Cumulative percentage', format: { type: 'percent', decimals: 1 } });
     });
 
     it('bins numbers as a histogram does, then sorts the bins by their counts', () => {
@@ -750,7 +751,7 @@ describe('convertExcelChart', () => {
 
       expect(bars.axes).toEqual({ x: { label: 'Score' }, y: { label: 'Count' } });
       expect(bars.data).toEqual([{ x: '[1, 3]', y: 6 }, { x: '(3, 5]', y: 3 }, { x: '(7, 9]', y: 1 }, { x: '(5, 7]', y: 0 }]);
-      expect((line.data as LinePoint[][])[0].map(point => point.y)).toEqual([60, 90, 100, 100]);
+      expect((line.data as LinePoint[][])[0].map(point => point.y)).toEqual([0.6, 0.9, 1, 1]);
     });
   });
 
