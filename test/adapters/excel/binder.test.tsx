@@ -345,6 +345,17 @@ describe('excel binder', () => {
       ]);
     });
 
+    it('re-reads the chart after the workbook recalculates, as after an edit', async () => {
+      const binding = await bind();
+      const runs = host.runs;
+
+      host.book.sheets[0].charts[0] = sales(['7', '8', '9']);
+      await fire(() => host.fire('worksheets.onCalculated', {}));
+
+      expect(host.runs).toBe(runs + 1);
+      expect((binding.maidr?.subplots[0][0].layers[0].data as { y: number }[]).map(point => point.y)).toEqual([7, 8, 9]);
+    });
+
     it('does not re-render when a change leaves the chart as it was', async () => {
       await bind();
       const renders = mockRenders.length;
@@ -554,6 +565,7 @@ describe('excel binder', () => {
       await bind();
 
       expect(host.handlerCount('worksheets.onChanged')).toBe(1);
+      expect(host.handlerCount('worksheets.onCalculated')).toBe(1);
       expect(host.handlerCount('worksheets.onAdded')).toBe(1);
       expect(host.handlerCount('worksheets.onDeleted')).toBe(1);
       for (const sheet of ['{s1}', '{s2}']) {

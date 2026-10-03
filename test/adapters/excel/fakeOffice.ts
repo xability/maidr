@@ -331,6 +331,7 @@ class FakeWorkbook implements ExcelWorkbook {
 
 class FakeWorksheetCollection extends FakeCollection<FakeWorksheet> implements ExcelWorksheetCollection {
   readonly onChanged = new FakeEvent<unknown>(this.context, 'worksheets.onChanged');
+  readonly onCalculated = new FakeEvent<unknown>(this.context, 'worksheets.onCalculated');
   readonly onAdded = new FakeEvent<ExcelWorksheetAddedEvent>(this.context, 'worksheets.onAdded');
   readonly onDeleted = new FakeEvent<unknown>(this.context, 'worksheets.onDeleted');
 

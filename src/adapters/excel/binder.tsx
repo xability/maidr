@@ -13,8 +13,9 @@
  *   worksheet's `charts.onActivated` (ExcelApi 1.8). A chart losing activation
  *   changes nothing: moving from the grid into the pane (F6) can deactivate
  *   the chart, and the reader came to the pane to read it.
- * - **The workbook's data** is re-read a moment after a cell changes
- *   (`worksheets.onChanged`, ExcelApi 1.9), once per burst of edits, and the
+ * - **The workbook's data** is re-read a moment after a cell changes or the
+ *   workbook recalculates (`worksheets.onChanged`, ExcelApi 1.9, and
+ *   `worksheets.onCalculated`, ExcelApi 1.8), once per burst of them, and the
  *   figure is replaced only when what it reads has changed.
  * - **The chart list** is re-read when a chart or worksheet is added or
  *   deleted.
@@ -490,6 +491,7 @@ export async function bindExcel(container: HTMLElement, options: ExcelBindOption
       await host.run(async (context) => {
         const sheets = context.workbook.worksheets;
         listenTo(registrations, sheets.onChanged, onChange, 'worksheet changed');
+        listenTo(registrations, sheets.onCalculated, onChange, 'worksheet calculated');
         listenTo(registrations, sheets.onAdded, onSheetAdded, 'worksheet added');
         listenTo(registrations, sheets.onDeleted, onChange, 'worksheet deleted');
         sheets.load('items/id');

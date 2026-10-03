@@ -435,6 +435,7 @@
                 get items() { return book.sheets.map(sheetProxy); },
                 getItemOrNullObject: key => sheetProxy(book.sheets.find(sheet => sheet.id === key || sheet.name === key)),
                 onChanged: events('worksheets.onChanged'),
+                onCalculated: events('worksheets.onCalculated'),
                 onAdded: events('worksheets.onAdded'),
                 onDeleted: events('worksheets.onDeleted'),
               },

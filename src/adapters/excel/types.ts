@@ -227,6 +227,8 @@ export interface ExcelWorksheetCollection extends ExcelLoadable {
   getItemOrNullObject: (key: string) => ExcelWorksheet & { readonly isNullObject?: boolean };
   /** A cell changed on any worksheet (ExcelApi 1.9). */
   readonly onChanged: ExcelEventHandlers<unknown>;
+  /** Any worksheet was recalculated (ExcelApi 1.8). */
+  readonly onCalculated: ExcelEventHandlers<unknown>;
   /** A worksheet was added (ExcelApi 1.7). */
   readonly onAdded: ExcelEventHandlers<ExcelWorksheetAddedEvent>;
   /** A worksheet was deleted (ExcelApi 1.7). */
