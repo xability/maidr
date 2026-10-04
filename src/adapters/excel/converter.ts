@@ -732,9 +732,10 @@ function buildAreas(group: Group, mode: AreaMode, labels: Labels): Built | null 
 /**
  * The slices of a pie, from one series: a blank, zero or negative value has no
  * slice in Excel's pie, so it has none here either, and a warning counts the
- * negative ones.
+ * negative ones. Given `origins`, each slice's position among the series'
+ * points is pushed to it.
  */
-function pieSlices(series: ExcelSeriesSnapshot, categories: readonly string[]): PiePoint[] {
+function pieSlices(series: ExcelSeriesSnapshot, categories: readonly string[], origins?: number[]): PiePoint[] {
   const values = readNumbers(series.name, series.values, categories.length);
   const slices: PiePoint[] = [];
   let negative = 0;
@@ -744,6 +745,7 @@ function pieSlices(series: ExcelSeriesSnapshot, categories: readonly string[]): 
       return;
     }
     slices.push({ x: categories[i], y: value });
+    origins?.push(i);
   });
   if (negative > 0) {
     warn(`${negative} negative value(s) have no slice in a pie; skipping them.`);
@@ -1019,16 +1021,27 @@ function buildSurface(whole: Whole): Built[][] {
  * - By value, the slices worth less than `splitValue`.
  * - By percentage, the slices worth less than `splitValue` percent of the pie.
  * - A custom split is the points the author moved one by one, which Office.js
- *   does not report: `null`.
+ *   does not report: `null`, unless the snapshot names them (`splitPoints`,
+ *   by each point's position in the series, which `origins` maps the slices
+ *   back to).
  * - Excel's automatic split, or no split read, is its default: by position,
  *   the last three.
  */
-function splitOff(slices: readonly PiePoint[], type: string | undefined, value: number | undefined): Set<number> | null {
+function splitOff(
+  slices: readonly PiePoint[],
+  series: ExcelSeriesSnapshot,
+  origins: readonly number[],
+): Set<number> | null {
+  const { splitType: type, splitValue: value, splitPoints: points } = series;
   const indices = slices.map((_, i) => i);
   const threshold = value !== undefined && Number.isFinite(value) ? value : undefined;
   const last = (count: number): Set<number> => new Set(indices.slice(Math.max(0, slices.length - count)));
   if (type === 'SplitByCustomSplit') {
-    return null;
+    if (points === undefined) {
+      return null;
+    }
+    const moved = new Set(points);
+    return new Set(indices.filter(i => moved.has(origins[i])));
   }
   if (type === 'SplitByPosition' && threshold !== undefined) {
     return last(Math.max(0, Math.round(threshold)));
@@ -1047,18 +1060,20 @@ function splitOff(slices: readonly PiePoint[], type: string | undefined, value: 
  * A pie of pie or bar of pie, as two subplots side by side, as Excel draws
  * it: the main pie, with the points split off gathered into one `Other`
  * slice, and the split-off points again as a pie or as bars. A custom split
- * cannot be read, so the chart then reads as one pie of every point, which is
- * true to the values if not to the drawing.
+ * Office.js cannot report, so read through it the chart reads as one pie of
+ * every point, which is true to the values if not to the drawing; a chart
+ * part read from a file names its points, and reads split.
  */
 function buildOfPie(whole: Whole, second: 'pie' | 'bar'): Built[][] {
   const { snapshot, category } = whole;
   const series = onlySeries(second === 'pie' ? 'pie of pie' : 'bar of pie', whole.series);
-  const slices = pieSlices(series, categoryLabels(snapshot, [series]));
+  const origins: number[] = [];
+  const slices = pieSlices(series, categoryLabels(snapshot, [series]), origins);
   if (slices.length === 0) {
     return [];
   }
   const axes = buildAxes(category, series.name);
-  const split = splitOff(slices, series.splitType, series.splitValue);
+  const split = splitOff(slices, series, origins);
   if (split === null) {
     warn('a custom pie split is not reported by Office.js; reading every point as one pie.');
   }
