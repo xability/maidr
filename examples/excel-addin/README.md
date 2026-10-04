@@ -34,7 +34,7 @@ You need Node.js 20.19 or later, and a Microsoft account, or a work or school on
    npx http-server -S -C ~/.office-addin-dev-certs/localhost.crt -K ~/.office-addin-dev-certs/localhost.key -p 3000 -c-1
    ```
 
-   On Windows, start the paths with `%USERPROFILE%\` in `cmd` or `$HOME\` in PowerShell instead of `~/`. Open `https://localhost:3000/examples/excel-addin/taskpane.html` in a browser to check: it should load with no certificate warning, and say that MAIDR could not find Excel, since outside Excel there is no workbook to read. A warning means the browser does not trust the authority yet; import `ca.crt`, from the same folder, into it.
+   On Windows, start the paths with `%USERPROFILE%\` in `cmd` or `$HOME\` in PowerShell instead of `~/`. Open `https://localhost:3000/examples/excel-addin/taskpane.html` in a browser to check: it should load with no certificate warning, and show its **Accessible charts** heading and nothing else. Outside Excel, Microsoft's Office.js never reports that it is ready, so the pane is never bound. A warning means the browser does not trust the authority yet; import `ca.crt`, from the same folder, into it.
 
 4. **Add it to Excel on the web.** Open a workbook at [office.com](https://www.office.com/), select **Home** > **Add-ins**, then **More Settings**, and on the **Office Add-ins** dialog select **Upload My Add-in**. Browse to `manifest.xml` and select **Upload**. With no ribbon button to wait for, the task pane opens straight away. Excel on the web keeps an uploaded add-in in the browser's storage, so in another browser, or after clearing its cache, upload it again.
 

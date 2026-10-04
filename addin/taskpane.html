@@ -45,6 +45,7 @@
         margin-bottom: 0.75rem;
       }
 
+      #maidr-waiting,
       [data-maidr-office-status],
       [data-maidr-excel-status] {
         border: 1px solid currentColor;
@@ -70,16 +71,35 @@
   <body>
     <main id="maidr" aria-labelledby="maidr-heading">
       <h1 id="maidr-heading">Accessible charts</h1>
+      <p id="maidr-waiting" role="status">Connecting to Excel, PowerPoint or Word…</p>
     </main>
     <footer>
       <a href="https://maidr.ai/office-addin.html" target="_blank" rel="noopener">How to use MAIDR Accessible Charts</a>
     </footer>
 
     <script>
-      const bind = () => window.maidrOffice.bindOffice(document.getElementById('maidr'));
+      const waiting = document.getElementById('maidr-waiting');
 
-      // Without Office.js -- a blocked CDN, or the page opened outside
-      // Office -- the pane still mounts and says it cannot find the file.
+      // Office.js calls back once Excel, PowerPoint or Word has the page
+      // open. Opened anywhere else it never does -- Microsoft's copy stops at
+      // "hostInfo validation failed" -- so the pane cannot mount, and after
+      // a while the page says why nothing came.
+      const unanswered = setTimeout(() => {
+        waiting.textContent =
+          'Excel, PowerPoint or Word has not answered. MAIDR Accessible Charts works inside them: ' +
+          'open it with the Accessible Charts button on the Home tab.';
+      }, 10000);
+
+      const bind = () => {
+        clearTimeout(unanswered);
+        waiting.remove();
+        window.maidrOffice.bindOffice(document.getElementById('maidr'), {
+          labels: { noOffice: 'MAIDR could not find Excel, PowerPoint or Word. Open this page as an Office add-in.' },
+        });
+      };
+
+      // Without Office.js at all, which a blocked CDN leaves out, there is
+      // nothing to wait for: the pane mounts and says it found no application.
       if (window.Office) {
         Office.onReady(() => bind());
       } else {

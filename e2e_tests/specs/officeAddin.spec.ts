@@ -7,9 +7,10 @@ import { expect, test } from '@playwright/test';
  *
  * The page loads Office.js from Microsoft's CDN, as an add-in must. Here that
  * request is answered with a stand-in for Office.js in Word, holding a
- * document of one chart, so the page's own wiring -- the bundles it loads and
- * its bindOffice call -- is what is driven. The panes themselves are covered
- * by office.spec.ts and excel.spec.ts.
+ * document of one chart, so the page's own wiring -- the bundles it loads, its
+ * bindOffice call, and what it says while Office has not answered -- is what
+ * is driven. The panes themselves are covered by office.spec.ts and
+ * excel.spec.ts.
  *
  * Requires a built bundle (dist/maidr.js, dist/office.js), like every spec.
  */
@@ -73,6 +74,16 @@ const FAKE_OFFICE_JS = `
   };
 `;
 
+/**
+ * Office.js as Microsoft's copy behaves on a page opened outside Office: it
+ * loads, and `Office.onReady` never calls back.
+ */
+const UNANSWERED_OFFICE_JS = `
+  window.Office = {
+    onReady: () => new Promise(() => {}),
+  };
+`;
+
 async function open(page: Page): Promise<void> {
   await page.goto(PAGE);
 }
@@ -88,6 +99,19 @@ test.describe('The published Office add-in: its task pane (addin/taskpane.html)'
     await expect(page.locator('#maidr [data-maidr-office-view] [tabindex="0"]').first())
       .toHaveAttribute('aria-label', /maidr plot of type: vertical bar/);
     await expect(page.locator('#maidr').getByRole('button', { name: 'Read again' })).toBeVisible();
+    await expect(page.locator('#maidr-waiting')).toHaveCount(0);
+  });
+
+  test('says what it is waiting for, and after a while that Office has not answered', async ({ page }) => {
+    await page.clock.install();
+    await page.route(OFFICE_JS, route => route.fulfill({ contentType: 'text/javascript', body: UNANSWERED_OFFICE_JS }));
+
+    await open(page);
+
+    const waiting = page.locator('#maidr').getByRole('status');
+    await expect(waiting).toHaveText('Connecting to Excel, PowerPoint or Word…');
+    await page.clock.runFor(10000);
+    await expect(waiting).toHaveText(/^Excel, PowerPoint or Word has not answered\. .*Accessible Charts button on the Home tab\.$/);
   });
 
   test('says it found no file to read when Office.js cannot load', async ({ page }) => {
@@ -95,6 +119,7 @@ test.describe('The published Office add-in: its task pane (addin/taskpane.html)'
 
     await open(page);
 
-    await expect(page.locator('#maidr [data-maidr-office-status]')).toHaveText(/could not find PowerPoint or Word/);
+    await expect(page.locator('#maidr [data-maidr-office-status]')).toHaveText(/could not find Excel, PowerPoint or Word/);
+    await expect(page.locator('#maidr-waiting')).toHaveCount(0);
   });
 });
