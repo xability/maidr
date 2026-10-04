@@ -263,6 +263,7 @@ export const TITLES = {
   'lightweight-charts-live.html': 'Live Price Ticker (series.update streaming)',
   'plotly-subplots.html': 'Subplots (2×2 Grid)',
   'excel-taskpane.html': 'Task Pane (simulated workbook)',
+  'office-taskpane.html': 'Task Pane (simulated presentation or document)',
   'powerbi-bar.html': 'Clustered Column Chart',
   'powerbi-line.html': 'Line Chart (companion mode)',
   'vegalite-bindbox-horizontal.html': 'Box Plot (horizontal)',
@@ -445,6 +446,7 @@ export const PAGE_TYPES = {
   'observable-quarto.html': ['bar', 'point', 'line', 'hist', 'stacked_bar'],
   'plotly-subplots.html': ['bar', 'point', 'line', 'hist'],
   'excel-taskpane.html': ['dodged_bar', 'line', 'pie', 'bar', 'treemap'],
+  'office-taskpane.html': ['dodged_bar', 'waterfall', 'pie', 'line'],
   'powerbi-bar.html': ['dodged_bar', 'bar'],
   'tableau-bar.html': ['bar'],
   'uplot/live.html': ['line'],
@@ -645,6 +647,13 @@ export const GROUPS = [
     prefixes: ['excel-'],
     headingPrefix: 'Excel',
     note: 'See the <a href="excel.html">Excel Integration Guide</a> for the add-in task pane, the chart types it reads, and its limitations.',
+  },
+  {
+    id: 'office',
+    heading: 'PowerPoint and Word',
+    prefixes: ['office-'],
+    headingPrefix: 'PowerPoint and Word',
+    note: 'See the <a href="office.html">PowerPoint and Word Integration Guide</a> for the add-in task pane, how a presentation or a document is read, and its limitations.',
   },
 ];
 

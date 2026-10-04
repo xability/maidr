@@ -387,6 +387,13 @@ export interface ExcelSeriesSnapshot {
   /** A pie of pie's or bar of pie's split; see `ExcelChartSeries.splitType`. */
   readonly splitType?: string;
   readonly splitValue?: number;
+  /**
+   * The points of a custom split (`SplitByCustomSplit`) that are in the
+   * second plot, by position. Office.js does not report them, so a read
+   * never has them; a chart part read from a file, or a snapshot written by
+   * hand, can.
+   */
+  readonly splitPoints?: readonly number[];
   /** A histogram's or Pareto chart's binning. */
   readonly binOptions?: ExcelBinOptionsSnapshot;
   /** A box and whisker chart's quartile calculation, `Inclusive` or `Exclusive`. */

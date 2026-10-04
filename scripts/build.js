@@ -512,6 +512,23 @@ export const builds = [
     useDts: true,
     aliases: adapterAliases,
   },
+  {
+    name: 'office',
+    entry: 'src/office-entry.ts',
+    libName: 'maidrOffice',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'office.mjs' : 'office.js',
+    emptyOutDir: false,
+    // `bindOffice` mounts the MAIDR React UI in an add-in's task pane for
+    // Excel, PowerPoint or Word, so React is bundled in and so is the Excel
+    // adapter it dispatches to (mirrors excel). Office.js is read
+    // structurally, and presentations are unzipped with the browser's
+    // DecompressionStream: nothing to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
   ...LOCALE_PACKS.map(localePackBuild),
 ];
 

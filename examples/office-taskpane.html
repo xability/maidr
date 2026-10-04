@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + PowerPoint and Word Task Pane (simulated file)</title>
+
+    <!-- MAIDR core, then the MAIDR Office adapter (UMD, exposing the
+         `maidrOffice` global). A real add-in loads office.js from Microsoft's
+         CDN first; this page installs a stand-in for it below. See
+         docs/office.md. -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/office.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      .note {
+        border-left: 4px solid #b7472a;
+        background: #fbf3f1;
+        padding: 12px 16px;
+        margin: 16px 0;
+      }
+      .layout {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        align-items: flex-start;
+      }
+      /* Stands in for the task pane PowerPoint or Word opens beside the file. */
+      #taskpane {
+        width: 360px;
+        min-height: 320px;
+        border: 1px solid #999;
+        padding: 12px;
+      }
+      #taskpane select { max-width: 100%; margin-bottom: 12px; }
+      [data-maidr-office-status] {
+        padding: 12px;
+        border: 2px solid #b7472a;
+        border-radius: 4px;
+      }
+      [data-maidr-office-anchor] { padding: 12px; }
+      #file { flex: 1; min-width: 280px; }
+      #file li { margin: 6px 0; }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + PowerPoint and Word Task Pane (simulated file)</h1>
+    <p>
+      An Office add-in's task pane, reading the charts of the open presentation
+      or document. Tab to the <strong>Chart</strong> picker to choose a chart,
+      then Tab to the chart and use the arrow keys. Toggle B for Braille, T for
+      Text, S for Sonification, and R for Review mode.
+    </p>
+
+    <div class="note">
+      <strong>No PowerPoint or Word here.</strong> A real task pane runs inside
+      PowerPoint or Word, which hand it the file through Office.js. This page
+      writes a small presentation of three charts on three slides, installs a
+      stand-in for Office.js that hands it over, and calls
+      <code>maidrOffice.bindOffice(element)</code> as a task pane would from
+      <code>Office.onReady</code>. Add <code>?host=Word</code> to the address
+      for a Word document of two charts instead. The buttons under <em>The
+      file</em> stand for what a user does outside the pane. Build the bundles
+      first with <code>npm run build</code>.
+    </div>
+
+    <div class="layout">
+      <section aria-labelledby="pane-heading">
+        <h2 id="pane-heading">The task pane</h2>
+        <div id="taskpane"></div>
+      </section>
+
+      <section id="file" aria-labelledby="file-heading">
+        <h2 id="file-heading">The file (simulated)</h2>
+        <p>What a user does outside the task pane:</p>
+        <ul id="actions"></ul>
+      </section>
+    </div>
+
+    <script>
+      const HOST = new URLSearchParams(location.search).get('host') === 'Word' ? 'Word' : 'PowerPoint';
+
+      // -----------------------------------------------------------------------
+      // The parts: charts as PowerPoint and Word write them, with their caches.
+      // -----------------------------------------------------------------------
+
+      const NS = {
+        c: 'http://schemas.openxmlformats.org/drawingml/2006/chart',
+        cx: 'http://schemas.microsoft.com/office/drawing/2014/chartex',
+        a: 'http://schemas.openxmlformats.org/drawingml/2006/main',
+        r: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+        p: 'http://schemas.openxmlformats.org/presentationml/2006/main',
+        mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+        rel: 'http://schemas.openxmlformats.org/package/2006/relationships',
+        w: 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+        wp: 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing',
+        pkg: 'http://schemas.microsoft.com/office/2006/xmlPackage',
+      };
+      const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
+
+      const cache = (tag, values) => `<c:${tag}><c:ptCount val="${values.length}"/>${values
+        .map((v, i) => (v === null ? '' : `<c:pt idx="${i}"><c:v>${v}</c:v></c:pt>`)).join('')}</c:${tag}>`;
+      const title = text => `<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>${text}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>`;
+      const series = (idx, name, categories, values, extra = '') => `<c:ser><c:idx val="${idx}"/><c:order val="${idx}"/>`
+        + `<c:tx><c:strRef><c:f>Sheet1!$${String.fromCharCode(66 + idx)}$1</c:f>${cache('strCache', [name])}</c:strRef></c:tx>${extra}`
+        + `<c:cat><c:strRef><c:f>Sheet1!$A$2:$A$${categories.length + 1}</c:f>${cache('strCache', categories)}</c:strRef></c:cat>`
+        + `<c:val><c:numRef><c:f>Sheet1!$B$2:$B$${values.length + 1}</c:f>${cache('numCache', values)}</c:numRef></c:val></c:ser>`;
+      const chartSpace = (chartTitle, plotArea) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+        + `<c:chartSpace xmlns:c="${NS.c}" xmlns:a="${NS.a}" xmlns:r="${NS.r}"><c:chart>${title(chartTitle)}`
+        + `<c:autoTitleDeleted val="0"/><c:plotArea>${plotArea}</c:plotArea></c:chart></c:chartSpace>`;
+      const axes = (category, value) => `<c:catAx><c:axId val="1"/><c:scaling/><c:delete val="0"/><c:axPos val="b"/>${title(category)}<c:crossAx val="2"/></c:catAx>`
+        + `<c:valAx><c:axId val="2"/><c:scaling/><c:delete val="0"/><c:axPos val="l"/>${title(value)}<c:crossAx val="1"/></c:valAx>`;
+
+      const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'];
+      const file = {
+        north: ['120', '135', '150', '170'],
+      };
+
+      function salesChart() {
+        return chartSpace('Sales by quarter', `<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/>${
+          series(0, 'North', QUARTERS, file.north)
+        }${series(1, 'South', QUARTERS, ['90', '110', null, '140'])}<c:axId val="1"/><c:axId val="2"/></c:barChart>${axes('Quarter', 'Sales ($)')}`);
+      }
+
+      function cashFlowChart() {
+        const steps = ['Start', 'Sales', 'Costs', 'End'];
+        const level = values => `<cx:lvl ptCount="${values.length}">${values.map((v, i) => `<cx:pt idx="${i}">${v}</cx:pt>`).join('')}</cx:lvl>`;
+        return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cx:chartSpace xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:cx="${NS.cx}">`
+          + `<cx:chartData><cx:data id="0"><cx:strDim type="cat"><cx:f>Sheet1!$A$2:$A$5</cx:f>${level(steps)}</cx:strDim>`
+          + `<cx:numDim type="val"><cx:f>Sheet1!$B$2:$B$5</cx:f>${level([100, 50, -30, 120])}</cx:numDim></cx:data></cx:chartData>`
+          + `<cx:chart><cx:title pos="t" align="ctr" overlay="0"><cx:tx><cx:txData><cx:v>Cash flow</cx:v></cx:txData></cx:tx></cx:title>`
+          + `<cx:plotArea><cx:plotAreaRegion><cx:series layoutId="waterfall"><cx:tx><cx:txData><cx:f>Sheet1!$B$1</cx:f><cx:v>Cash</cx:v></cx:txData></cx:tx>`
+          + `<cx:dataId val="0"/><cx:layoutPr><cx:subtotals><cx:idx val="0"/><cx:idx val="3"/></cx:subtotals></cx:layoutPr></cx:series></cx:plotAreaRegion>`
+          + `<cx:axis id="0"><cx:catScaling gapWidth="0.5"/></cx:axis><cx:axis id="1"><cx:valScaling/></cx:axis></cx:plotArea></cx:chart></cx:chartSpace>`;
+      }
+
+      function spendingChart() {
+        return chartSpace('Spending', `<c:ofPieChart><c:ofPieType val="pie"/><c:varyColors val="1"/>${
+          series(0, 'Spending', ['Rent', 'Food', 'Travel', 'Gifts'], ['50', '30', '15', '5'])
+        }<c:splitType val="cust"/><c:custSplit><c:secondPiePt val="1"/><c:secondPiePt val="3"/></c:custSplit></c:ofPieChart>`);
+      }
+
+      function visitorsChart() {
+        return chartSpace('Visitors', `<c:lineChart><c:grouping val="standard"/><c:ser><c:idx val="0"/><c:order val="0"/>`
+          + `<c:tx><c:strRef><c:f>Sheet1!$B$1</c:f>${cache('strCache', ['Visitors'])}</c:strRef></c:tx>`
+          + `<c:cat><c:numRef><c:f>Sheet1!$A$2:$A$4</c:f><c:numCache><c:formatCode>mmm-yy</c:formatCode><c:ptCount val="3"/>`
+          + `<c:pt idx="0"><c:v>45292</c:v></c:pt><c:pt idx="1"><c:v>45323</c:v></c:pt><c:pt idx="2"><c:v>45352</c:v></c:pt></c:numCache></c:numRef></c:cat>`
+          + `<c:val><c:numRef><c:f>Sheet1!$B$2:$B$4</c:f>${cache('numCache', ['1200', '1350', '1100'])}</c:numRef></c:val></c:ser>`
+          + `<c:marker val="1"/><c:axId val="1"/><c:axId val="2"/></c:lineChart>`
+          + `<c:dateAx><c:axId val="1"/><c:scaling/><c:delete val="0"/><c:axPos val="b"/><c:crossAx val="2"/></c:dateAx>`
+          + `<c:valAx><c:axId val="2"/><c:scaling/><c:delete val="0"/><c:axPos val="l"/>${title('People')}<c:crossAx val="1"/></c:valAx>`);
+      }
+
+      const rels = links => `<?xml version="1.0"?><Relationships xmlns="${NS.rel}">${links
+        .map(([id, type, target]) => `<Relationship Id="${id}" Type="${type}" Target="${target}"/>`).join('')}</Relationships>`;
+
+      // -----------------------------------------------------------------------
+      // The presentation: three slides, written as a zip file (stored).
+      // -----------------------------------------------------------------------
+
+      const frame = (id, name, ex) => `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${id}" name="${name}"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>`
+        + `<p:xfrm><a:off x="0" y="0"/><a:ext cx="6096000" cy="4064000"/></p:xfrm><a:graphic><a:graphicData uri="${ex ? NS.cx : NS.c}">`
+        + `${ex ? `<cx:chart xmlns:cx="${NS.cx}" r:id="rId2"/>` : `<c:chart xmlns:c="${NS.c}" r:id="rId2"/>`}</a:graphicData></a:graphic></p:graphicFrame>`;
+      const slide = (shapes, hidden) => `<?xml version="1.0"?><p:sld xmlns:p="${NS.p}" xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:mc="${NS.mc}"${hidden ? ' show="0"' : ''}>`
+        + `<p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>`
+        + `<p:sp><p:nvSpPr><p:cNvPr id="2" name="Title 1"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp>${shapes}</p:spTree></p:cSld></p:sld>`;
+
+      function presentationParts() {
+        return {
+          '[Content_Types].xml': '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>',
+          '_rels/.rels': rels([['rId1', `${REL}officeDocument`, 'ppt/presentation.xml']]),
+          'ppt/presentation.xml': `<?xml version="1.0"?><p:presentation xmlns:p="${NS.p}" xmlns:r="${NS.r}"><p:sldIdLst>`
+            + `<p:sldId id="256" r:id="rId1"/><p:sldId id="257" r:id="rId2"/><p:sldId id="258" r:id="rId3"/></p:sldIdLst></p:presentation>`,
+          'ppt/_rels/presentation.xml.rels': rels([1, 2, 3].map(n => [`rId${n}`, `${REL}slide`, `slides/slide${n}.xml`])),
+          'ppt/slides/slide1.xml': slide(frame(4, 'Chart 3')),
+          'ppt/slides/_rels/slide1.xml.rels': rels([['rId2', `${REL}chart`, '../charts/chart1.xml']]),
+          // A waterfall is offered in mc:Choice, with a picture for older PowerPoint.
+          'ppt/slides/slide2.xml': slide(`<mc:AlternateContent><mc:Choice Requires="cx1">${frame(4, 'Chart 3', true)}</mc:Choice>`
+            + `<mc:Fallback><p:sp><p:nvSpPr><p:cNvPr id="4" name="Chart 3"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr/></p:sp></mc:Fallback></mc:AlternateContent>`),
+          'ppt/slides/_rels/slide2.xml.rels': rels([['rId2', 'http://schemas.microsoft.com/office/2014/relationships/chartEx', '../charts/chartEx1.xml']]),
+          'ppt/slides/slide3.xml': slide(frame(5, 'Chart 4'), true),
+          'ppt/slides/_rels/slide3.xml.rels': rels([['rId2', `${REL}chart`, '../charts/chart2.xml']]),
+          'ppt/charts/chart1.xml': salesChart(),
+          'ppt/charts/chartEx1.xml': cashFlowChart(),
+          'ppt/charts/chart2.xml': spendingChart(),
+        };
+      }
+
+      const CRC = Array.from({ length: 256 }, (_, n) => {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+        return c >>> 0;
+      });
+      function crc32(bytes) {
+        let crc = 0xFFFFFFFF;
+        for (const byte of bytes) crc = CRC[(crc ^ byte) & 0xFF] ^ (crc >>> 8);
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+      }
+
+      /** A zip file of `parts`, stored, as any zip writer lays one out. */
+      function zip(parts) {
+        const encoder = new TextEncoder();
+        const chunks = [];
+        const directory = [];
+        let offset = 0;
+        for (const [name, text] of Object.entries(parts)) {
+          const data = encoder.encode(text);
+          const nameBytes = encoder.encode(name);
+          const header = new DataView(new ArrayBuffer(30));
+          header.setUint32(0, 0x04034B50, true);
+          header.setUint16(4, 20, true);
+          header.setUint32(14, crc32(data), true);
+          header.setUint32(18, data.length, true);
+          header.setUint32(22, data.length, true);
+          header.setUint16(26, nameBytes.length, true);
+          const entry = new DataView(new ArrayBuffer(46));
+          entry.setUint32(0, 0x02014B50, true);
+          entry.setUint16(4, 20, true);
+          entry.setUint16(6, 20, true);
+          entry.setUint32(16, crc32(data), true);
+          entry.setUint32(20, data.length, true);
+          entry.setUint32(24, data.length, true);
+          entry.setUint16(28, nameBytes.length, true);
+          entry.setUint32(42, offset, true);
+          chunks.push(new Uint8Array(header.buffer), nameBytes, data);
+          directory.push(new Uint8Array(entry.buffer), nameBytes);
+          offset += 30 + nameBytes.length + data.length;
+        }
+        const size = directory.reduce((sum, chunk) => sum + chunk.length, 0);
+        const end = new DataView(new ArrayBuffer(22));
+        end.setUint32(0, 0x06054B50, true);
+        end.setUint16(8, directory.length / 2, true);
+        end.setUint16(10, directory.length / 2, true);
+        end.setUint32(12, size, true);
+        end.setUint32(16, offset, true);
+        const all = [...chunks, ...directory, new Uint8Array(end.buffer)];
+        const out = new Uint8Array(all.reduce((sum, chunk) => sum + chunk.length, 0));
+        let at = 0;
+        for (const chunk of all) {
+          out.set(chunk, at);
+          at += chunk.length;
+        }
+        return out;
+      }
+
+      // -----------------------------------------------------------------------
+      // The document: two charts, as Word's getOoxml returns a flat package.
+      // -----------------------------------------------------------------------
+
+      const drawing = (id, name, rid) => `<w:p><w:r><w:drawing><wp:inline><wp:extent cx="5486400" cy="3200400"/><wp:docPr id="${id}" name="${name}"/>`
+        + `<a:graphic xmlns:a="${NS.a}"><a:graphicData uri="${NS.c}"><c:chart xmlns:c="${NS.c}" r:id="${rid}"/></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+
+      function flatPackage(parts) {
+        return `<?xml version="1.0" standalone="yes"?><pkg:package xmlns:pkg="${NS.pkg}">${Object.entries(parts)
+          .map(([name, xml]) => `<pkg:part pkg:name="${name}" pkg:contentType="application/xml"><pkg:xmlData>${xml.replace(/^<\?xml[^>]*\?>/, '')}</pkg:xmlData></pkg:part>`)
+          .join('')}</pkg:package>`;
+      }
+
+      function documentPackage(only) {
+        const charts = [
+          { id: 1, name: 'Chart 1', part: salesChart() },
+          { id: 2, name: 'Chart 2', part: visitorsChart() },
+        ].filter(chart => only === undefined || chart.id === only);
+        const parts = {
+          '/_rels/.rels': rels([['rId1', `${REL}officeDocument`, 'word/document.xml']]),
+          '/word/document.xml': `<w:document xmlns:w="${NS.w}" xmlns:wp="${NS.wp}" xmlns:r="${NS.r}"><w:body>`
+            + `<w:p><w:r><w:t>Quarterly report</w:t></w:r></w:p>${charts.map(chart => drawing(chart.id, chart.name, `rId${chart.id}`)).join('')}</w:body></w:document>`,
+          '/word/_rels/document.xml.rels': rels(charts.map(chart => [`rId${chart.id}`, `${REL}chart`, `charts/chart${chart.id}.xml`])),
+        };
+        for (const chart of charts) {
+          parts[`/word/charts/chart${chart.id}.xml`] = chart.part;
+        }
+        return flatPackage(parts);
+      }
+
+      // -----------------------------------------------------------------------
+      // The stand-in for Office.js: the file, the selection, and its event.
+      // -----------------------------------------------------------------------
+
+      const selection = { slide: null, shapes: [], word: null };
+      const handlers = new Set();
+      const succeeded = value => ({ status: 'succeeded', value });
+
+      window.Office = {
+        context: {
+          host: HOST,
+          platform: 'OfficeOnline',
+          requirements: {
+            isSetSupported: (name, version) => (name === 'PowerPointApi' && Number(version) <= 1.5)
+              || (name === 'WordApi' && Number(version) <= 1.1),
+          },
+          document: {
+            getFileAsync(type, { sliceSize }, callback) {
+              const bytes = zip(presentationParts());
+              setTimeout(() => callback(succeeded({
+                size: bytes.length,
+                sliceCount: Math.ceil(bytes.length / sliceSize),
+                getSliceAsync(index, done) {
+                  const data = Array.from(bytes.subarray(index * sliceSize, (index + 1) * sliceSize));
+                  setTimeout(() => done(succeeded({ data, index, size: data.length })), 0);
+                },
+                closeAsync(done) {
+                  done?.(succeeded());
+                },
+              })), 0);
+            },
+            addHandlerAsync(type, handler, callback) {
+              handlers.add(handler);
+              callback?.(succeeded());
+            },
+            removeHandlerAsync(type, { handler }, callback) {
+              handlers.delete(handler);
+              callback?.(succeeded());
+            },
+          },
+        },
+        onReady: async () => ({ host: HOST, platform: 'OfficeOnline' }),
+      };
+
+      const SLIDES = ['256#', '257#', '258#'].map(id => ({ id }));
+      const collection = items => ({ items, load() {} });
+      window.PowerPoint = {
+        run: async batch => batch({
+          presentation: {
+            slides: collection(SLIDES),
+            getSelectedSlides: () => collection(selection.slide === null ? [] : [selection.slide]),
+            getSelectedShapes: () => collection(selection.shapes),
+          },
+          sync: async () => undefined,
+        }),
+      };
+      window.Word = {
+        run: async batch => batch({
+          document: {
+            body: { getOoxml: () => ({ value: documentPackage() }) },
+            getSelection: () => ({ getOoxml: () => ({ value: selection.word === null ? '' : documentPackage(selection.word) }) }),
+          },
+          sync: async () => undefined,
+        }),
+      };
+
+      function selectionChanged() {
+        for (const handler of handlers) handler();
+      }
+
+      // -----------------------------------------------------------------------
+      // What a user does outside the pane.
+      // -----------------------------------------------------------------------
+
+      const ACTIONS = HOST === 'Word'
+        ? [
+            ['select-visitors', 'Select the "Visitors" chart', () => { selection.word = 2; }],
+            ['edit-sales', 'Change North\'s Q1 sales to 125, and select the "Sales by quarter" chart', () => { file.north = ['125', '135', '150', '170']; selection.word = 1; }],
+          ]
+        : [
+            ['select-cash', 'Select the chart on slide 2', () => { selection.slide = SLIDES[1]; selection.shapes = [{ id: '4', name: 'Chart 3', type: 'Chart' }]; }],
+            ['select-title', 'Select the title on slide 1', () => { selection.slide = SLIDES[0]; selection.shapes = [{ id: '2', name: 'Title 1', type: 'Placeholder' }]; }],
+            ['edit-sales', 'Change North\'s Q1 sales to 125 (then choose Read again)', () => { file.north = ['125', '135', '150', '170']; }],
+          ];
+      const list = document.getElementById('actions');
+      for (const [id, label, act] of ACTIONS) {
+        const item = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.id = id;
+        button.textContent = label;
+        button.addEventListener('click', () => {
+          act();
+          selectionChanged();
+        });
+        item.appendChild(button);
+        list.appendChild(item);
+      }
+
+      window.Office.onReady().then(() => window.maidrOffice.bindOffice(document.getElementById('taskpane'), { selectionDelay: 50 }))
+        .then((binding) => {
+          window.binding = binding;
+          document.body.setAttribute('data-bound', 'yes');
+        });
+    </script>
+  </body>
+</html>

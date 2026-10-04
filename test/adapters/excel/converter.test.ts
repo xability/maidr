@@ -665,6 +665,17 @@ describe('convertExcelChart', () => {
       expect(warned()).toContain('custom pie split');
     });
 
+    it('reads a custom split whose points the snapshot names, by their place in the series, blanks and all', () => {
+      const withBlank = { ...SHARE, values: ['40', '', '30', '15', '10'], splitType: 'SplitByCustomSplit', splitPoints: [0, 3] };
+
+      const [main, second] = plots(convert(chart('PieOfPie', [withBlank])));
+
+      // B is blank and has no slice; A and D, points 0 and 3, are split off.
+      expect(main.data).toEqual([{ x: 'C', y: 30 }, { x: 'E', y: 10 }, { x: 'Other', y: 55 }]);
+      expect(second.data).toEqual([{ x: 'A', y: 40 }, { x: 'D', y: 15 }]);
+      expect(warned()).not.toContain('custom pie split');
+    });
+
     it('reads one pie when nothing is split off', () => {
       expect(convert(chart('PieOfPie', [split('SplitByValue', 1)])).subplots[0]).toHaveLength(1);
     });

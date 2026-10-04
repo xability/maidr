@@ -125,6 +125,11 @@
       "import": "./dist/excel.mjs",
       "default": "./dist/excel.js"
     },
+    "./office": {
+      "types": "./dist/office.d.mts",
+      "import": "./dist/office.mjs",
+      "default": "./dist/office.js"
+    },
     "./uplot": {
       "types": "./dist/uplot.d.mts",
       "import": "./dist/uplot.mjs",
