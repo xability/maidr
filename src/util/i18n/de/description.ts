@@ -172,6 +172,10 @@ export const description = {
   'guide.parallel_coordinates.purpose': 'Damit vergleicht man Dinge über viele Merkmale gleichzeitig und findet Gruppen ähnlicher Dinge.',
   'guide.parallel_coordinates.appearance': 'Mehrere senkrechte Achsen stehen nebeneinander, eine pro Messwert. Jedes Ding ist eine Zickzacklinie, die jede Achse bei ihrem Wert für diesen Messwert kreuzt.',
 
+  'guide.percentile_band.definition': 'Ein Perzentilband, auch Fächerdiagramm genannt, zeigt, wie sich die Streuung von Werten entlang einer Achse verändert, als schattierte Bänder um eine mittlere Linie.',
+  'guide.percentile_band.purpose': 'Damit zeigt man Unsicherheit oder Schwankung über die Zeit, etwa den wahrscheinlichen Bereich einer Prognose oder wie sich die Gewichte eines Modells beim Training verteilen.',
+  'guide.percentile_band.appearance': 'Eine Linie verläuft durch die Mitte des Diagramms. Schattierte Bänder umgeben sie, nahe der Linie am dunkelsten und weiter außen heller, wie ein offener Fächer. Wo die Bänder breit sind, streuen die Werte stark; wo sie schmal sind, liegen die Werte dicht beieinander.',
+
   'guide.pie.definition': 'Ein Kreisdiagramm zeigt, wie ein Ganzes in Teile geteilt ist, als Stücke eines Kreises.',
   'guide.pie.purpose': 'Damit zeigt man Anteile an einer Gesamtsumme, zum Beispiel wie ein Budget auf die Abteilungen verteilt ist.',
   'guide.pie.appearance': 'Ein Kreis ist von der Mitte aus in keilförmige Stücke geschnitten, wie eine Torte. Je größer der Anteil, desto breiter das Stück. Alle Stücke zusammen ergeben den ganzen Kreis.',

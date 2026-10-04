@@ -172,6 +172,10 @@ export const description = {
   'guide.parallel_coordinates.purpose': 'Serve a confrontare gli elementi su molte variabili insieme e a trovare gruppi di elementi simili.',
   'guide.parallel_coordinates.appearance': 'Diversi assi verticali stanno uno accanto all\'altro, uno per misura. Ogni elemento è una linea a zig-zag che attraversa ogni asse all\'altezza del suo valore per quella misura.',
 
+  'guide.percentile_band.definition': 'Una banda di percentili, o grafico a ventaglio, mostra come cambia la dispersione dei valori lungo un asse, con bande ombreggiate attorno a una linea centrale.',
+  'guide.percentile_band.purpose': 'Serve a mostrare l\'incertezza o la variazione nel tempo, come l\'intervallo probabile di una previsione o come si distribuiscono i pesi di un modello durante l\'addestramento.',
+  'guide.percentile_band.appearance': 'Una linea attraversa il centro del grafico. Bande ombreggiate la circondano, più scure vicino alla linea e più chiare verso l\'esterno, come un ventaglio aperto. Dove le bande sono larghe i valori sono sparsi; dove sono strette i valori sono vicini.',
+
   'guide.pie.definition': 'Un grafico a torta mostra come un totale è diviso in parti, come fette di un cerchio.',
   'guide.pie.purpose': 'Serve a mostrare le quote di un totale, per esempio come un bilancio è diviso tra i vari reparti.',
   'guide.pie.appearance': 'Un cerchio è tagliato in fette a spicchio che partono dal centro, come una torta. Più la quota è grande, più la fetta è larga. Tutte le fette insieme formano il cerchio intero.',

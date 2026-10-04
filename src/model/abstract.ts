@@ -100,6 +100,7 @@ const CHART_TYPE_LABEL: Record<TraceType, MessageKey> = {
   [TraceType.NORMALIZED]: 'model.chartTypeNormalized',
   [TraceType.NORMALIZED_AREA]: 'model.chartTypeNormalizedArea',
   [TraceType.PARALLEL]: 'model.chartTypeParallel',
+  [TraceType.PERCENTILE_BAND]: 'model.chartTypePercentileBand',
   [TraceType.PIE]: 'model.chartTypePie',
   [TraceType.POLAR_AREA]: 'model.chartTypePolarArea',
   [TraceType.PR_CURVE]: 'model.chartTypePrCurve',

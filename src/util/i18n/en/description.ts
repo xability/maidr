@@ -183,6 +183,10 @@ export const description = {
   'guide.parallel_coordinates.purpose': 'It is used to compare items across many variables at once, and to find groups of similar items.',
   'guide.parallel_coordinates.appearance': 'Several vertical axes stand side by side, one per measurement. Each item is a zig-zag line that crosses every axis at its value for that measurement.',
 
+  'guide.percentile_band.definition': 'A percentile band, or fan chart, shows how the spread of a set of values changes along an axis, as shaded bands around a middle line.',
+  'guide.percentile_band.purpose': 'It is used to show uncertainty or variation over time, such as the likely range of a forecast or how a model\'s weights spread out during training.',
+  'guide.percentile_band.appearance': 'A line runs through the middle of the chart. Shaded bands surround it, darkest close to the line and lighter further out, like an open fan. Where the bands are wide the values are spread out; where they are narrow the values are close together.',
+
   'guide.pie.definition': 'A pie chart shows how a whole is divided into parts, as slices of a circle.',
   'guide.pie.purpose': 'It is used to show shares of a total, such as how a budget is split between departments.',
   'guide.pie.appearance': 'A circle is cut into wedge-shaped slices from its centre, like a pie. The bigger the share, the wider the slice, and all slices together make the full circle.',

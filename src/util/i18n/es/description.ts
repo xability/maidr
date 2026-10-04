@@ -182,6 +182,10 @@ export const description = {
   'guide.parallel_coordinates.purpose': 'Sirve para comparar elementos en muchas variables a la vez y para encontrar grupos de elementos parecidos.',
   'guide.parallel_coordinates.appearance': 'Varios ejes verticales se colocan uno junto a otro, uno por medida. Cada elemento es una línea en zigzag que cruza cada eje en su valor para esa medida.',
 
+  'guide.percentile_band.definition': 'Una banda de percentiles, o gráfico de abanico, muestra cómo cambia la dispersión de unos valores a lo largo de un eje, como bandas sombreadas alrededor de una línea central.',
+  'guide.percentile_band.purpose': 'Sirve para mostrar la incertidumbre o la variación en el tiempo, como el rango probable de un pronóstico o cómo se reparten los pesos de un modelo durante el entrenamiento.',
+  'guide.percentile_band.appearance': 'Una línea recorre el centro del gráfico. La rodean bandas sombreadas, más oscuras cerca de la línea y más claras hacia fuera, como un abanico abierto. Donde las bandas son anchas, los valores están dispersos; donde son estrechas, están juntos.',
+
   'guide.pie.definition': 'Un gráfico circular muestra cómo se reparte un total en partes, como porciones de un círculo.',
   'guide.pie.purpose': 'Sirve para mostrar partes de un total. Por ejemplo, cómo se reparte un presupuesto entre departamentos.',
   'guide.pie.appearance': 'Un círculo se corta en porciones desde el centro, como una tarta o una pizza. Cuanto mayor es la parte, más ancha es la porción. Todas juntas forman el círculo completo.',

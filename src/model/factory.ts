@@ -25,6 +25,7 @@ import { LineTrace } from './line';
 import { MosaicTrace } from './mosaic';
 import { NetworkTrace } from './network';
 import { ParallelTrace } from './parallel';
+import { PercentileBandTrace } from './percentileBand';
 import { PieTrace } from './pie';
 import { PrCurveTrace } from './prCurve';
 import { RadarTrace } from './radar';
@@ -178,6 +179,9 @@ export abstract class TraceFactory {
 
       case TraceType.PARALLEL:
         return new ParallelTrace(layer);
+
+      case TraceType.PERCENTILE_BAND:
+        return new PercentileBandTrace(layer);
 
       case TraceType.MANHATTAN:
       case TraceType.VOLCANO:

@@ -1266,6 +1266,11 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // the line encoder's per-row scaling is correct for it. Scaling a row
       // of raw values would compare a horsepower figure to a fuel-economy one.
       [TraceType.PARALLEL, asGeneric(new LineBrailleEncoder())],
+      // A percentile band's rows are its quantiles and its columns the x
+      // positions -- a multi-line layer's shape -- and every row is encoded
+      // against the whole band's range, which the trace hands over as each
+      // row's min and max, so the rows can be compared cell by cell.
+      [TraceType.PERCENTILE_BAND, asGeneric(new LineBrailleEncoder())],
       // A pie's braille state is a single row of slice magnitudes scaled
       // against that row's own range — the bar encoder's input exactly.
       [TraceType.PIE, asGeneric(new BarBrailleEncoder())],

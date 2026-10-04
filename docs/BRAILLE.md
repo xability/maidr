@@ -332,6 +332,14 @@ A ROC curve is a multi-line layer -- one curve per classifier, one point per dec
 
 As for a line plot: each line of a multiline display is one classifier's curve, and a single-line display switches curves with the up and down arrow keys.
 
+### Percentile band (fan chart) [experimental]
+
+A percentile band is read as a multi-line layer with one line per quantile -- the minimum, each percentile and the maximum, lowest first -- and its braille is a line plot's: each Braille character is that quantile's value at one x. Unlike a line plot, every row is encoded against the range of the whole band rather than its own, so the same cell height means the same value on every row and the rows can be compared: a wide band reads as rows far apart, a narrow one as rows close together.
+
+#### Multiline Displays
+
+Each line of a multiline display is one quantile. A single-line display shows the quantile the cursor is on, starting on the median, and switches quantiles with the up and down arrow keys.
+
 ### Rug plot [experimental]
 
 A rug marks each observation as a tick on one axis, so the chart has one quantity per observation: its position. The braille is a density strip along that axis. The axis is cut into bins, and each Braille character is the number of observations in its bin, encoded as a bar plot's magnitudes are:

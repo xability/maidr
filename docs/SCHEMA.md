@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `pr_curve`, `radar`, `ridgeline`, `roc`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
+- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `percentile_band`, `pie`, `point`, `polar_area`, `pr_curve`, `radar`, `ridgeline`, `roc`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
 
 > **`candlestick_delta` has no example page, on purpose.** It should never be
 > given one: it is a reading mode the model derives at runtime from a
@@ -200,8 +200,8 @@ from the list above.
 
 Fifteen of them predate the chart-type coverage roadmap (#814). Thirty-seven
 were added by it, most of them inside about two weeks, and `rug` (#1132),
-`roc` and `pr_curve` (#1349) after it. **None of the forty has been through a
-user study**.
+`roc`, `pr_curve` (#1349) and `percentile_band` (#1348) after it. **None of the
+forty-one has been through a user study**.
 
 Elsewhere in these docs — the braille guide, the integration guides'
 supported-type tables and the examples gallery — an experimental type is marked
@@ -229,7 +229,7 @@ change to any of them changes behaviour people already depend on.
 `alluvial`, `area`, `boxen`, `bump`, `chord`, `choropleth`, `contour`,
 `diverging_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`,
 `gantt`, `gauge`, `hexbin`, `icicle`, `lollipop`, `manhattan`, `mosaic`,
-`network`, `pack`, `parallel_coordinates`, `polar_area`, `pr_curve`, `radar`,
+`network`, `pack`, `parallel_coordinates`, `percentile_band`, `polar_area`, `pr_curve`, `radar`,
 `ridgeline`, `roc`, `rug`, `sankey`, `stacked_area`, `stacked_normalized_area`,
 `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `volcano`,
 `waterfall`, `word_cloud`
@@ -357,6 +357,7 @@ reports the chart drawn, not when its first `<svg>` appears.
 | `pie` | string | Exactly one element per slice, in drawn order; reversed when `direction` is `'counterclockwise'`. |
 | `heat` | string; grid `[row][column]` | A string names one element per cell: `<rect>` cells are read column by column (`domMapping.order: 'row'` reads them row by row), `<path>` cells row by row from the top, and a single `<image>` gets an overlay. A grid's rows run bottom first, the reverse of `data.points`. |
 | `line`, `step`, `survival`, `smooth`, `area`, `stacked_area`, `stacked_normalized_area`, `bump`, `radar`, `polar_area`, `parallel_coordinates`, `roc`, `pr_curve`, `contour` | list with one entry per series (a string is one series) | A selector matching one element per point pairs them in document order; otherwise the vertices of the `<path>`, `<polyline>` or `<polygon>` it matches are the points. When a series matches several drawn elements -- a line broken by missing values, which gridSVG writes as sibling polylines -- their vertices are joined in document order and each reading is placed by its x; a missing reading gets no marker. A single element whose subpaths skip the missing values, with one vertex per reading, has its vertices paired with the readings in order. A `step` layer's staircase may run on to a flat vertex before its first sample and after its last, as MUI X Charts draws one on a category axis. Elements inside `<defs>`, `<clipPath>`, `<marker>`, `<symbol>`, `<pattern>` or `<mask>` (matplotlib's marker templates) are not pieces of the series. `domMapping.pointOrder: 'reverse'` says the chart draws them the other way round. |
+| `percentile_band` | list with one entry per band, outermost first, and optionally one more for the median's line; or list with one entry per quantile, lowest first | The two lengths never coincide, so the count decides. **One per band**: entry *k* names the filled element between the *k*-th lowest and *k*-th highest quantile (for TensorBoard's nine levels, four polygons: minimum to maximum, then 6.68th to 93.32nd, 15.87th to 84.13th, 30.85th to 69.15th), and every point of either bound outlines it; the optional extra entry names the median's line, and without it the median outlines the innermost band. An entry that matches several elements outlines all of them. **One per quantile**: each entry is that quantile's line, read as a `line` series is (row above), so a marker walks along the bound. Hovering finds a point only in the per-quantile shape. With no selectors, or none that resolve, every point is still announced, sounded and brailled. |
 | `box`, `violin_box` | `BoxSelector[]`, one per box | See the box and violin plot types below. |
 | `violin_kde` | string; list with one entry per violin | Markers are drawn at each point's `svg_x`/`svg_y`; the list names the curve each violin belongs to. |
 | `candlestick` | string; `CandlestickSelector` | A string pairs one element per candle in document order. |
@@ -863,6 +864,66 @@ The data property is defined as a list of objects where each object is a record 
          { "x": 0.25, "y": 0.6, "threshold": 0.5, "z": "Random forest" },
          { "x": 1, "y": 1, "threshold": 0, "z": "Random forest" }
        ]
+     ],
+   };
+
+   // percentile_band [experimental]: a distribution at each x drawn as nested
+   // shaded bands around its median -- TensorBoard's distributions, a forecast
+   // fan chart, a quantile band. One point per x, in drawn order; `x` is a
+   // number or a category, and `quantiles` lists the distribution's quantiles
+   // at that x, each a `level` from 0 to 1 (0 the minimum, 0.5 the median, 1
+   // the maximum) and its `value` (`null` for a gap). The layer's quantiles
+   // are every level any point declares; one a point leaves out is a gap
+   // there. They pair into nested bands from the outside in -- lowest with
+   // highest -- around the median, so declare them symmetric about 0.5.
+   //
+   // The reader enters on the median, walks x with left and right, and steps
+   // from quantile to quantile with up and down; every quantile is pitched
+   // against the whole band's range. Each point announces the median and the
+   // band around it ("Middle 68% is -0.31 to 0.35"), and the description says
+   // where the band nearest one standard deviation is widest and narrowest,
+   // and where it widens and narrows most. `axes.x` labels the position,
+   // `axes.y` the value; `selectors` is one polygon per band, outermost first,
+   // and optionally the median's line (see "Selectors").
+   maidr = {
+     type: 'percentile_band',
+     axes: { x: { label: 'Step' }, y: { label: 'Weight' } },
+     selectors: [
+       "g#bands > polygon:nth-of-type(1)",
+       "g#bands > polygon:nth-of-type(2)",
+       "g#bands > polygon:nth-of-type(3)",
+       "g#bands > polygon:nth-of-type(4)",
+       "polyline#median"
+     ],
+     data: [
+       {
+         "x": 100,
+         "quantiles": [
+           { "level": 0, "value": -0.92 },
+           { "level": 0.0668, "value": -0.61 },
+           { "level": 0.1587, "value": -0.31 },
+           { "level": 0.3085, "value": -0.12 },
+           { "level": 0.5, "value": 0.02 },
+           { "level": 0.6915, "value": 0.16 },
+           { "level": 0.8413, "value": 0.35 },
+           { "level": 0.9332, "value": 0.64 },
+           { "level": 1, "value": 0.97 }
+         ]
+       },
+       {
+         "x": 200,
+         "quantiles": [
+           { "level": 0, "value": -1.5 },
+           { "level": 0.0668, "value": -1.1 },
+           { "level": 0.1587, "value": -0.8 },
+           { "level": 0.3085, "value": -0.3 },
+           { "level": 0.5, "value": 0.05 },
+           { "level": 0.6915, "value": 0.4 },
+           { "level": 0.8413, "value": 0.9 },
+           { "level": 0.9332, "value": 1.2 },
+           { "level": 1, "value": 1.6 }
+         ]
+       }
      ],
    };
 

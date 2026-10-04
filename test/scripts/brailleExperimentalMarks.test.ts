@@ -37,6 +37,7 @@ const SECTION_TYPES: Record<string, string[]> = {
   'Scatter plot': ['point'],
   'Precision-recall curve': ['pr_curve'],
   'ROC curve': ['roc'],
+  'Percentile band (fan chart)': ['percentile_band'],
   'Rug plot': ['rug'],
   'Segmented Bar Plots': ['stacked_bar', 'dodged_bar', 'stacked_normalized_bar'],
   'Violin Plot': ['violin_kde', 'violin_box'],

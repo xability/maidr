@@ -172,6 +172,10 @@ export const description = {
   'guide.parallel_coordinates.purpose': 'Il sert à comparer des éléments sur beaucoup de variables à la fois, et à trouver des groupes d\'éléments semblables.',
   'guide.parallel_coordinates.appearance': 'Plusieurs axes verticaux sont placés côte à côte, un par mesure. Chaque élément est une ligne en zigzag qui croise chaque axe à sa valeur pour cette mesure.',
 
+  'guide.percentile_band.definition': 'Une bande de centiles, ou graphique en éventail, montre comment la dispersion de valeurs évolue le long d\'un axe, sous forme de bandes ombrées autour d\'une ligne centrale.',
+  'guide.percentile_band.purpose': 'Elle sert à montrer l\'incertitude ou la variation dans le temps, par exemple la plage probable d\'une prévision ou la répartition des poids d\'un modèle pendant l\'entraînement.',
+  'guide.percentile_band.appearance': 'Une ligne traverse le milieu du graphique. Des bandes ombrées l\'entourent, plus foncées près de la ligne et plus claires vers l\'extérieur, comme un éventail ouvert. Là où les bandes sont larges, les valeurs sont dispersées ; là où elles sont étroites, les valeurs sont proches.',
+
   'guide.pie.definition': 'Un diagramme circulaire montre comment un tout se partage en parts, comme les tranches d\'un cercle.',
   'guide.pie.purpose': 'Il sert à montrer les parts d\'un total. Par exemple, comment un budget se répartit entre les services.',
   'guide.pie.appearance': 'Un cercle est découpé en parts depuis son centre, comme une tarte ou un camembert. Plus la part est grande, plus la tranche est large. Toutes les tranches ensemble forment le cercle complet.',
