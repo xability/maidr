@@ -377,3 +377,64 @@ describe('plotly layout observer', () => {
     });
   });
 });
+
+describe('plotly focus ring', () => {
+  /**
+   * Wraps `chart` the way maidr does, in an `<article>/<figure>` around the
+   * focusable plot div, and returns that div.
+   */
+  function wrapInMaidrFigure(chart: Element, id: string, parent: Element): HTMLElement {
+    const doc = dom.window.document;
+    const article = doc.createElement('article');
+    article.id = `maidr-article-${id}`;
+    const figure = doc.createElement('figure');
+    figure.id = `maidr-figure-${id}`;
+    const plot = doc.createElement('div');
+    plot.tabIndex = 0;
+    plot.appendChild(chart);
+    figure.appendChild(plot);
+    article.appendChild(figure);
+    parent.appendChild(article);
+    return plot;
+  }
+
+  /** A Plotly chart and an SVG chart on one page, both bound by maidr. */
+  function buildMixedPage(): { plotlyPlot: HTMLElement; svgPlot: HTMLElement } {
+    const doc = dom.window.document;
+    const plotlyDiv = doc.createElement('div');
+    plotlyDiv.className = 'js-plotly-plot';
+    const container = doc.createElement('div');
+    container.className = 'svg-container';
+    plotlyDiv.appendChild(container);
+    doc.body.appendChild(plotlyDiv);
+    const mainSvg = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+    mainSvg.setAttribute('class', 'main-svg');
+    const plotlyPlot = wrapInMaidrFigure(mainSvg, 'plotly', container);
+    const svgPlot = wrapInMaidrFigure(doc.createElementNS(SVG_NS, 'svg'), 'svg', doc.body);
+
+    normalizePlotlySvg(mainSvg, createSchema([[undefined]]));
+
+    return { plotlyPlot, svgPlot };
+  }
+
+  it('leaves the focus ring of a chart that is not Plotly alone', () => {
+    // The rule that hides the Plotly plot div's ring matched every maidr
+    // figure on the page, so a keyboard user lost the focus indicator on
+    // every other chart once a Plotly chart was bound.
+    const { svgPlot } = buildMixedPage();
+
+    svgPlot.focus();
+
+    expect(dom.window.getComputedStyle(svgPlot).getPropertyValue('outline')).not.toBe('none');
+  });
+
+  it('still turns off the ring of the Plotly chart\'s own plot div', () => {
+    // The div wraps only Plotly's absolutely positioned SVG, so it has no box
+    // to draw a ring around; its svg-container draws one instead.
+    const { plotlyPlot } = buildMixedPage();
+
+    plotlyPlot.focus();
+
+    expect(dom.window.getComputedStyle(plotlyPlot).getPropertyValue('outline')).toBe('none');
+  });
+});
