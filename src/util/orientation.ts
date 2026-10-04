@@ -113,6 +113,11 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // same grid. There is no main and cross axis to swap, because every column
   // is its own axis.
   [TraceType.PARALLEL]: false,
+  // The bands run along x and spread up and down it, the way TensorBoard,
+  // fan charts and quantile bands all draw them. `PercentileBandTrace` never
+  // reads the key, so announcing an orientation would name something no
+  // reader could act on.
+  [TraceType.PERCENTILE_BAND]: false,
   // Slices are arranged around a circle, not along an axis: there is no
   // orientation to declare and none to fall back to.
   [TraceType.PIE]: false,

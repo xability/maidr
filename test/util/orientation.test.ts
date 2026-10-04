@@ -56,6 +56,8 @@ describe('resolveOrientation', () => {
   });
 
   const unorientedTypes = [
+    // Bands spread up and down along x, whichever library drew them.
+    TraceType.PERCENTILE_BAND,
     // Two rates on two fixed axes, whichever library drew them.
     TraceType.ROC,
     TraceType.PR_CURVE,

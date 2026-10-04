@@ -172,6 +172,10 @@ export const description = {
   'guide.parallel_coordinates.purpose': '它用来同时在很多个变量上比较事物，并找出相似的事物组成的群体。',
   'guide.parallel_coordinates.appearance': '几条竖直的坐标轴并排站着，每条代表一项测量。每个事物是一条折来折去的线，在每条坐标轴上穿过它在这项测量上的数值。',
 
+  'guide.percentile_band.definition': '百分位带图，也叫扇形图，用围绕中间一条线的阴影带，展示一组数值的分散程度沿着一个轴如何变化。',
+  'guide.percentile_band.purpose': '它用来展示随时间变化的不确定性或波动，比如一项预测可能的范围，或者模型的权重在训练中如何分散。',
+  'guide.percentile_band.appearance': '一条线从图的中间穿过。几条阴影带围着它，靠近线的地方颜色最深，越往外越浅，像一把展开的扇子。带子宽的地方，数值分散；带子窄的地方，数值集中。',
+
   'guide.pie.definition': '饼图把一个圆切成几块，展示一个整体怎样分成几个部分。',
   'guide.pie.purpose': '它用来展示各部分占总数的份额，比如一笔预算怎样分给各个部门。',
   'guide.pie.appearance': '一个圆从圆心切成几块扇形，就像切开的比萨饼。份额越大，扇形越宽，所有扇形合起来正好是一整个圆。',

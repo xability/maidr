@@ -43,6 +43,7 @@ const PLOT_TYPE_LABEL: Record<TraceType, MessageKey> = {
   [TraceType.NORMALIZED]: 'model.plotTypeNormalized',
   [TraceType.NORMALIZED_AREA]: 'model.plotTypeNormalizedArea',
   [TraceType.PARALLEL]: 'model.plotTypeParallel',
+  [TraceType.PERCENTILE_BAND]: 'model.plotTypePercentileBand',
   [TraceType.PIE]: 'model.plotTypePie',
   [TraceType.POLAR_AREA]: 'model.plotTypePolarArea',
   [TraceType.PR_CURVE]: 'model.plotTypePrCurve',

@@ -125,6 +125,7 @@ export const text = {
   'text.seriesNounObservation': '观测',
   'text.seriesNounCompetitor': '竞争者',
   'text.seriesNounCurve': '曲线',
+  'text.seriesNounQuantile': '分位数',
   'text.seriesNounSeries': '系列',
   'text.columnRowPosition': '第 {col} 列，共 {cols} 列，第 {row} 行，共 {rows} 行',
   'text.wholeCircle': '整个圆',

@@ -131,6 +131,7 @@ export const text = {
   'text.seriesNounObservation': 'Beobachtung',
   'text.seriesNounCompetitor': 'Wettbewerber',
   'text.seriesNounCurve': 'Kurve',
+  'text.seriesNounQuantile': 'Quantil',
   'text.seriesNounSeries': 'Reihe',
   'text.columnRowPosition': 'Spalte {col} von {cols}, Zeile {row} von {rows}',
   'text.wholeCircle': 'der ganze Kreis',

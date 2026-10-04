@@ -1154,6 +1154,64 @@ export interface PrCurvePoint extends LinePoint {
 }
 
 /**
+ * One quantile of a {@link PercentileBandPoint}: the value below which a
+ * `level` share of the distribution at that x falls.
+ */
+export interface PercentileBandQuantile {
+  /**
+   * The quantile, as a fraction from 0 to 1: `0` is the minimum, `0.5` the
+   * median and `1` the maximum. TensorBoard's distribution dashboard draws
+   * `0`, `0.0668`, `0.1587`, `0.3085`, `0.5`, `0.6915`, `0.8413`, `0.9332`
+   * and `1` -- the median and the points one, two and three standard
+   * deviations either side of it for a normal distribution.
+   */
+  level: number;
+  /**
+   * The value at that quantile, or `null` where the chart has a position but
+   * no reading -- a gap, as {@link LinePoint.y} spells one.
+   */
+  value: number | null;
+}
+
+/**
+ * One position along a percentile band (fan chart): the distribution at one
+ * x, as an ordered list of its quantiles.
+ *
+ * A `percentile_band` layer is `PercentileBandPoint[]`, one entry per x in
+ * drawn order. The layer's levels are every level any point declares; a
+ * point that leaves one out has a gap there. The quantiles pair up into
+ * nested bands from the outside in -- the lowest level with the highest, the
+ * second lowest with the second highest -- and an odd one in the middle is
+ * the median the bands surround. The pairing is by position in the sorted
+ * list, so the levels are expected to be symmetric about 0.5 the way every
+ * fan chart draws them; a band whose two levels are not is named by both of
+ * them rather than as a "middle" share.
+ *
+ * @example
+ * // one training step of a TensorBoard distribution
+ * {
+ *   x: 100,
+ *   quantiles: [
+ *     { level: 0, value: -0.92 },
+ *     { level: 0.0668, value: -0.61 },
+ *     { level: 0.1587, value: -0.31 },
+ *     { level: 0.3085, value: -0.12 },
+ *     { level: 0.5, value: 0.02 },
+ *     { level: 0.6915, value: 0.16 },
+ *     { level: 0.8413, value: 0.35 },
+ *     { level: 0.9332, value: 0.64 },
+ *     { level: 1, value: 0.97 },
+ *   ],
+ * }
+ */
+export interface PercentileBandPoint {
+  /** The position along the band: a step, a time, a forecast horizon. */
+  x: number | string;
+  /** The distribution's quantiles at this x, in any order. */
+  quantiles: PercentileBandQuantile[];
+}
+
+/**
  * One operating point of a ROC curve: the false positive rate a classifier
  * pays and the true positive rate it gets at one decision threshold.
  *
@@ -1814,6 +1872,7 @@ export interface MaidrLayer {
     | LinePoint[][]
     | PiePoint[]
     | PrCurvePoint[][]
+    | PercentileBandPoint[]
     | RocPoint[][]
     | RugPoint[]
     | ScatterPoint[]
@@ -2031,6 +2090,18 @@ export enum TraceType {
    * than against one range for the layer.
    */
   PARALLEL = 'parallel_coordinates',
+  /**
+   * The distribution of a quantity at each x drawn as nested shaded bands
+   * around its median -- TensorBoard's distributions, a forecast fan chart,
+   * a quantile band. Read as one {@link TraceType.LINE} per quantile, the
+   * chart loses that the lines bound nested bands; read as a
+   * {@link TraceType.BOX} per x it loses the outer quantiles and treats x as
+   * categories. Here x is walked as a line is, the median is the tone a
+   * reader starts on, up and down walk the band bounds, every point says the
+   * median and the band around it, and the description says where the
+   * spread widens and narrows most.
+   */
+  PERCENTILE_BAND = 'percentile_band',
   PIE = 'pie',
   /**
    * Categories arranged around a circle rather than along an axis, drawn as

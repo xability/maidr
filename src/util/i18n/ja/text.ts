@@ -124,6 +124,7 @@ export const text = {
   'text.seriesNounObservation': '観測値',
   'text.seriesNounCompetitor': '対象',
   'text.seriesNounCurve': '曲線',
+  'text.seriesNounQuantile': '分位点',
   'text.seriesNounSeries': '系列',
   'text.columnRowPosition': '{cols}列中{col}列目、{rows}行中{row}行目',
   'text.wholeCircle': '円全体',
