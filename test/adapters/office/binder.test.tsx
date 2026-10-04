@@ -9,6 +9,7 @@ import { DecompressionStream, ReadableStream } from 'node:stream/web';
 import { TextDecoder, TextEncoder } from 'node:util';
 import { bindPowerPoint, bindWord } from '@adapters/office/binder';
 import { bindOffice } from '@adapters/office/bindOffice';
+import { waitFor } from '@testing-library/react';
 import { act } from 'react';
 import { FakeOffice, FakePowerPoint, FakeWord } from './fakeOffice';
 import { columnChart, deck, wordDocument } from './officeFiles';
@@ -69,7 +70,12 @@ afterAll(() => {
   warn.mockRestore();
 });
 
-/** Let every pending timer and promise settle, inside `act`. */
+/**
+ * Let every pending timer and promise settle, inside `act`. A read of the file
+ * is not among them: it inflates the file's parts through
+ * `DecompressionStream`, which takes as long as the machine makes it, so a
+ * test that reads the file again waits for what the read shows instead.
+ */
 async function settle(ms = 50): Promise<void> {
   await act(async () => {
     await new Promise(resolve => setTimeout(resolve, ms));
@@ -152,10 +158,9 @@ describe('bindPowerPoint', () => {
     powerpoint.selectedSlide = powerpoint.slides[1];
     powerpoint.selectedShapes = [{ id: '4', name: 'Chart 9', type: 'Chart' }];
     office.selectionChanged();
-    await settle();
 
+    await waitFor(() => expect(binding.chart?.label).toBe('Slide 2: New'));
     expect(office.fileReads).toBe(2);
-    expect(binding.chart?.label).toBe('Slide 2: New');
   });
 
   it('should leave the chart on show when the selection is not a chart', async () => {
@@ -181,11 +186,10 @@ describe('bindPowerPoint', () => {
     await act(async () => {
       container.querySelector<HTMLButtonElement>('[data-maidr-office-refresh]')?.click();
     });
-    await settle();
 
+    await waitFor(() => expect(shownValues(binding)).toEqual([{ x: 'A', y: 30 }, { x: 'B', y: 40 }]));
     expect(office.fileReads).toBe(2);
     expect(binding.chart?.label).toBe('Slide 2: Costs');
-    expect(shownValues(binding)).toEqual([{ x: 'A', y: 30 }, { x: 'B', y: 40 }]);
   });
 
   it('should say so, focusably, when the presentation has no charts', async () => {
