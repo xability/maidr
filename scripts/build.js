@@ -496,6 +496,22 @@ export const builds = [
     useDts: true,
     aliases: adapterAliases,
   },
+  {
+    name: 'excel',
+    entry: 'src/excel-entry.ts',
+    libName: 'maidrExcel',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'excel.mjs' : 'excel.js',
+    emptyOutDir: false,
+    // `bindExcel` mounts the MAIDR React UI in an add-in's task pane, a page
+    // of its own with no React to share, so React is bundled in (mirrors
+    // powerbi). Office.js is loaded by the task pane from Microsoft's CDN and
+    // read structurally; there is no `office-js` import to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
   ...LOCALE_PACKS.map(localePackBuild),
 ];
 
