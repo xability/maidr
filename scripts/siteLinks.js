@@ -59,6 +59,7 @@ export const INTEGRATION_PAGES = [
   { slug: 'powerbi', title: 'Power BI', source: 'powerbi.md' },
   { slug: 'excel', title: 'Excel', source: 'excel.md' },
   { slug: 'office', title: 'PowerPoint and Word', source: 'office.md' },
+  { slug: 'office-addin', title: 'Office Add-in', source: 'office-addin.md' },
 ];
 
 const SLUG_BY_SOURCE = new Map(INTEGRATION_PAGES.map(({ slug, source }) => [source, slug]));

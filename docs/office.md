@@ -6,6 +6,8 @@ Office.js has no way to read a chart in PowerPoint or Word. The adapter reads th
 
 > **What this adapter is not.** It does **not** make PowerPoint's or Word's own chart accessible where it sits on the slide or the page. The reading is in the task pane, and the reader moves to the pane to hear it. The pane shows no picture of the chart either: neither application hands one to an add-in, and the chart is on the slide or the page beside the pane. See [Limitations](#limitations) before you plan around it.
 
+> **Looking for the add-in rather than the code?** MAIDR publishes one built on this adapter, for Excel, PowerPoint and Word: [MAIDR Accessible Charts](office-addin.md).
+
 ## Quick Start
 
 An add-in is a web page an Office application opens in a task pane, and a manifest that tells it where the page is. Microsoft's [PowerPoint](https://learn.microsoft.com/office/dev/add-ins/quickstarts/powerpoint-quickstart-yo) and [Word](https://learn.microsoft.com/office/dev/add-ins/quickstarts/word-quickstart-yo) quick starts cover creating and sideloading one; MAIDR needs only the page below.

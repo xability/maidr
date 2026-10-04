@@ -40,6 +40,7 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [Power BI](https://maidr.ai/powerbi.html): Sonification, braille and keyboard navigation inside a Power BI custom visual
 - [Excel](https://maidr.ai/excel.html): Sonification, braille and keyboard navigation for the native charts of an Excel workbook, read through Office.js into an add-in's task pane
 - [PowerPoint and Word](https://maidr.ai/office.html): Sonification, braille and keyboard navigation for the charts of a PowerPoint presentation or a Word document, read from the file into an add-in's task pane
+- [Office Add-in](https://maidr.ai/office-addin.html): MAIDR Accessible Charts, a ready-made add-in for Excel, PowerPoint and Word, with its install steps and privacy statement
 
 ## Optional
 - [npm](https://www.npmjs.com/package/maidr): Install with `npm install maidr`
