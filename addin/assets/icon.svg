@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- MAIDR's mark: the braille cell for "r" from the logo, dots 1, 2, 3 and 5. -->
+  <rect x="2" y="2" width="60" height="60" rx="13" fill="#112D55"/>
+  <circle cx="23" cy="17" r="6.5" fill="#FFFFFF"/>
+  <circle cx="23" cy="32" r="6.5" fill="#FFFFFF"/>
+  <circle cx="23" cy="47" r="6.5" fill="#FFFFFF"/>
+  <circle cx="41" cy="32" r="6.5" fill="#598FF6"/>
+</svg>

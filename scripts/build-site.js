@@ -94,6 +94,7 @@ const PAGE_DESCRIPTIONS = {
   'powerbi': 'How to build an accessible Power BI custom visual with MAIDR: sonification, braille and keyboard navigation for column, bar, line, scatter and pie charts.',
   'excel': 'How to read native Excel charts in an Office add-in task pane with MAIDR: sonification, braille and keyboard navigation for column, line, pie and more.',
   'office': 'How to read the charts of PowerPoint presentations and Word documents in an Office add-in task pane with MAIDR: sonification, braille and keyboard navigation.',
+  'office-addin': 'MAIDR Accessible Charts for Excel, PowerPoint and Word: hear, braille and explore a file\'s charts by keyboard. Install steps and privacy.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'The MAIDR JSON data schema: how to describe figures, subplots, layers, axes and data points for bar, box, heatmap, scatter, line and other chart types.',
   'Braille Generation': 'How MAIDR encodes bar, box, heatmap, line, scatter and other plots as braille characters for refreshable braille displays, with the rules for each plot type.',
@@ -326,6 +327,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{POWERBI_ACTIVE\}\}/g, () => activePage === 'powerbi' ? 'active' : '')
     .replace(/\{\{EXCEL_ACTIVE\}\}/g, () => activePage === 'excel' ? 'active' : '')
     .replace(/\{\{OFFICE_ACTIVE\}\}/g, () => activePage === 'office' ? 'active' : '')
+    .replace(/\{\{OFFICE_ADDIN_ACTIVE\}\}/g, () => activePage === 'office-addin' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -617,6 +619,20 @@ if (fs.existsSync(examplesSource)) {
     recursive: true,
     filter: source => !source.startsWith(path.join(examplesSource, 'powerbi-visual') + path.sep)
       || !skipped.has(path.basename(source)),
+  });
+}
+
+// Copy the Office add-in MAIDR publishes to _site/addin/: the manifest, its
+// task pane and commands pages, and its icons. Every URL in addin/manifest.xml
+// is under the production site's /addin/, so this is where Office loads them
+// from, and the task pane loads MAIDR from the dist/ copied above. The README
+// is for the repository, not the site.
+console.log('Copying the Office add-in...');
+const addinSource = path.join(ROOT, 'addin');
+if (fs.existsSync(addinSource)) {
+  fs.cpSync(addinSource, path.join(SITE_DIR, 'addin'), {
+    recursive: true,
+    filter: source => path.basename(source) !== 'README.md',
   });
 }
 

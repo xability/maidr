@@ -40,8 +40,10 @@ may instead mirror one at the repository root, under the same name:
 - `test/cdnjs/` covers `cdnjs/`, the payload for the cdnjs listing, which
   nothing in this repository reads and which therefore has nowhere else to be
   checked.
+- `test/addin/` covers `addin/`, the Office add-in the site publishes, whose
+  manifest only Office reads.
 
-Both follow the same rule as the layer directories: the test lives in the
+All three follow the same rule as the layer directories: the test lives in the
 directory named after what it covers. Add another only when the thing under
 test genuinely is not application code — a config file that has to stay in step
 with the build is; a new module of `src/` is not.

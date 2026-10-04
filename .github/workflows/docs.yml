@@ -12,6 +12,7 @@ on:
       - 'package.json'
       - 'docs/**'
       - 'examples/**'
+      - 'addin/**'
       - 'media/**'
       - 'scripts/build-site.js'
       - 'scripts/siteOrigin.js'

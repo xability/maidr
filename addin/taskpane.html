@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAIDR Accessible Charts</title>
+    <!--
+      The task pane manifest.xml points Excel, PowerPoint and Word at, served
+      at https://maidr.ai/addin/taskpane.html. Office.js comes from Microsoft's
+      CDN, as an add-in must load it; MAIDR comes from the same site's dist/,
+      built from this repository. bindOffice mounts the pane for whichever
+      application opened the page.
+    -->
+    <script src="https://officeapis.public.onecdn.static.microsoft/1/office.js"></script>
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/office.js"></script>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      body {
+        font-family:
+          'Segoe UI',
+          system-ui,
+          -apple-system,
+          sans-serif;
+        font-size: 14px;
+        margin: 0.75rem;
+      }
+
+      h1 {
+        font-size: 1.125rem;
+        margin: 0 0 0.75rem;
+      }
+
+      select,
+      button {
+        font: inherit;
+        max-width: 100%;
+      }
+
+      [data-maidr-office-picker],
+      [data-maidr-excel-picker] {
+        margin-bottom: 0.75rem;
+      }
+
+      [data-maidr-office-status],
+      [data-maidr-excel-status] {
+        border: 1px solid currentColor;
+        border-radius: 4px;
+        padding: 0.75rem;
+      }
+
+      [data-maidr-office-anchor] {
+        padding: 0.75rem 0;
+      }
+
+      [data-maidr-office-actions] {
+        margin-top: 0.75rem;
+      }
+
+      footer {
+        border-top: 1px solid #8886;
+        margin-top: 1.5rem;
+        padding-top: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="maidr" aria-labelledby="maidr-heading">
+      <h1 id="maidr-heading">Accessible charts</h1>
+    </main>
+    <footer>
+      <a href="https://maidr.ai/office-addin.html" target="_blank" rel="noopener">How to use MAIDR Accessible Charts</a>
+    </footer>
+
+    <script>
+      const bind = () => window.maidrOffice.bindOffice(document.getElementById('maidr'));
+
+      // Without Office.js -- a blocked CDN, or the page opened outside
+      // Office -- the pane still mounts and says it cannot find the file.
+      if (window.Office) {
+        Office.onReady(() => bind());
+      } else {
+        bind();
+      }
+    </script>
+  </body>
+</html>

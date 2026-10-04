@@ -1,6 +1,6 @@
 # MAIDR accessible charts: a sample Excel add-in
 
-A minimal [Office Add-in](https://learn.microsoft.com/office/dev/add-ins/overview/office-add-ins) built on MAIDR's [Excel adapter](../../docs/excel.md): a manifest and a task pane page, served from your machine and added to Excel for development. Copy it as the starting point for your own add-in.
+A minimal [Office Add-in](https://learn.microsoft.com/office/dev/add-ins/overview/office-add-ins) built on MAIDR's [Excel adapter](../../docs/excel.md): a manifest and a task pane page, served from your machine and added to Excel for development. Copy it as the starting point for your own add-in. The add-in MAIDR publishes, ready to install in Excel, PowerPoint and Word, is [MAIDR Accessible Charts](../../docs/office-addin.md).
 
 The task pane lists every chart in the workbook in a picker labelled **Chart**, follows the chart selected in the grid, and gives a keyboard or screen-reader user MAIDR's reading of it: sonification, text descriptions, braille and keyboard navigation. It reads the chart through Office.js; Excel's own chart in the grid is unchanged.
 
