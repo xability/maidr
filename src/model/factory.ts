@@ -26,6 +26,7 @@ import { MosaicTrace } from './mosaic';
 import { NetworkTrace } from './network';
 import { ParallelTrace } from './parallel';
 import { PieTrace } from './pie';
+import { PrCurveTrace } from './prCurve';
 import { RadarTrace } from './radar';
 import { RidgelineTrace } from './ridgeline';
 import { RocTrace } from './roc';
@@ -203,6 +204,8 @@ export abstract class TraceFactory {
 
       case TraceType.RIDGELINE:
         return new RidgelineTrace(layer);
+      case TraceType.PR_CURVE:
+        return new PrCurveTrace(layer);
       case TraceType.ROC:
         return new RocTrace(layer);
       case TraceType.RUG:

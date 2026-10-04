@@ -180,6 +180,10 @@ export const description = {
   'guide.polar_area.purpose': 'Serve a confrontare valori in categorie cicliche, come i mesi dell\'anno o i punti cardinali.',
   'guide.polar_area.appearance': 'Gli spicchi si aprono a ventaglio da un centro comune, tutti con lo stesso angolo, come i petali di un fiore. Più uno spicchio si allontana dal centro, più il suo valore è grande.',
 
+  'guide.pr_curve.definition': 'Una curva precisione-richiamo mostra come un modello di previsione bilancia il trovare tutti i casi veri e il dare allarmi corretti.',
+  'guide.pr_curve.purpose': 'Serve a valutare un classificatore quando i casi veri sono rari, e a scegliere una soglia che bilanci i casi veri trovati con gli allarmi corretti.',
+  'guide.pr_curve.appearance': 'Una curva attraversa un quadrato da sinistra a destra; di solito parte in alto e scende verso destra. Una linea orizzontale rappresenta le risposte date a caso, all\'altezza della quota di casi veri nei dati. Più la curva resta vicina all\'angolo in alto a destra, migliore è il modello.',
+
   'guide.radar.definition': 'Un grafico radar, detto anche grafico a ragno, mostra diverse misure di un elemento su assi disposti in cerchio.',
   'guide.radar.purpose': 'Serve a confrontare punti di forza e di debolezza su diverse qualità, per esempio le abilità di un giocatore.',
   'guide.radar.appearance': 'Dei raggi partono da un punto centrale, uno per misura, come i raggi di una ruota. Ogni valore è un punto sul suo raggio, più lontano dal centro per i valori alti. I punti sono uniti in una forma chiusa, come una ragnatela.',

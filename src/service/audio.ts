@@ -392,6 +392,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
     // exact (x, y) sample is a data property, not a path-geometry one — so
     // they belong here too; every ROC curve shares (0, 0) and (1, 1) with
     // every other, and the rotor's intersection mode lands on exactly those.
+    // A precision-recall curve is the same case: curves scored on one test
+    // set share the loosest threshold's point (recall 1, the prevalence).
     // Compared against the enum rather than a bare string so a renamed
     // member breaks the build instead of silently disabling the chord.
     //
@@ -405,7 +407,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
     if (
       (state.traceType === TraceType.LINE
         || state.traceType === TraceType.STEP
-        || state.traceType === TraceType.ROC)
+        || state.traceType === TraceType.ROC
+        || state.traceType === TraceType.PR_CURVE)
       && !state.empty
       && Array.isArray(state.intersections)
       && state.intersections.length > 1

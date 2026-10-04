@@ -119,6 +119,9 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // Spokes sit around a circle rather than along an axis, so there is no main
   // and cross axis to swap -- the same answer a pie gives.
   [TraceType.POLAR_AREA]: false,
+  // Two rates on two fixed axes, as a ROC curve: recall is always across and
+  // precision always up, whichever library drew it.
+  [TraceType.PR_CURVE]: false,
   [TraceType.RADAR]: false,
   // The groups run one way and the value axis the other, and a ridgeline is
   // drawn with its groups down the page as often as across it -- but the

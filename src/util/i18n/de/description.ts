@@ -180,6 +180,10 @@ export const description = {
   'guide.polar_area.purpose': 'Damit vergleicht man Werte in Kategorien, die sich wiederholen, zum Beispiel die Monate eines Jahres oder Himmelsrichtungen.',
   'guide.polar_area.appearance': 'Keile fächern sich von einer gemeinsamen Mitte aus, alle mit demselben Winkel, wie die Blütenblätter einer Blume. Je weiter ein Keil von der Mitte reicht, desto größer ist sein Wert.',
 
+  'guide.pr_curve.definition': 'Eine Precision-Recall-Kurve zeigt, wie ein Vorhersagemodell abwägt, möglichst alle echten Fälle zu finden und dabei mit seinen Alarmen richtig zu liegen.',
+  'guide.pr_curve.purpose': 'Damit bewertet man einen Klassifikator, wenn echte Fälle selten sind, und wählt einen Schwellenwert. Er soll viele echte Fälle finden, und möglichst viele Alarme sollen stimmen.',
+  'guide.pr_curve.appearance': 'Eine Kurve läuft in einem Quadrat von links nach rechts. Meist beginnt sie oben und fällt nach rechts ab. Eine waagerechte Linie steht für reines Raten, auf der Höhe des Anteils echter Fälle in den Daten. Je näher die Kurve an der oberen rechten Ecke bleibt, desto besser ist das Modell.',
+
   'guide.radar.definition': 'Ein Radardiagramm, auch Netzdiagramm genannt, zeigt mehrere Messwerte eines Dings auf Achsen, die im Kreis angeordnet sind.',
   'guide.radar.purpose': 'Damit vergleicht man Stärken und Schwächen bei mehreren Eigenschaften, zum Beispiel die Fähigkeiten eines Spielers.',
   'guide.radar.appearance': 'Speichen gehen von einem Mittelpunkt aus, eine pro Messwert, wie bei einem Rad. Jeder Wert ist ein Punkt auf seiner Speiche, weiter außen für höhere Werte. Die Punkte sind zu einer geschlossenen Form verbunden, wie ein Spinnennetz.',

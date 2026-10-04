@@ -191,6 +191,10 @@ export const description = {
   'guide.polar_area.purpose': 'It is used to compare values in cyclic categories, such as months of the year or compass directions.',
   'guide.polar_area.appearance': 'Wedges fan out from a common centre, all with the same angle, like petals of a flower. The further a wedge reaches from the centre, the larger its value.',
 
+  'guide.pr_curve.definition': 'A precision-recall curve shows how a prediction model balances finding all the true cases against keeping its alarms correct.',
+  'guide.pr_curve.purpose': 'It is used to judge a classifier when true cases are rare, and to choose a threshold that balances how many real cases are found against how many alarms are right.',
+  'guide.pr_curve.appearance': 'A curve runs across a square from left to right, usually starting high and falling as it goes. A flat line marks random guessing, at the height of the share of true cases in the data. The closer the curve stays to the top-right corner, the better the model.',
+
   'guide.radar.definition': 'A radar chart, also called a spider chart, shows several measurements of one item on axes arranged in a circle.',
   'guide.radar.purpose': 'It is used to compare strengths and weaknesses across several qualities, such as the skills of a player.',
   'guide.radar.appearance': 'Spokes radiate from a centre point, one per measurement, like the spokes of a wheel. Each value is a point on its spoke, further out for higher values, and the points are joined into a closed shape like a spider web.',

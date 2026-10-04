@@ -190,6 +190,10 @@ export const description = {
   'guide.polar_area.purpose': 'Sirve para comparar valores en categorías que se repiten en ciclo, como los meses del año o los puntos cardinales.',
   'guide.polar_area.appearance': 'Las porciones se abren en abanico desde un centro común, todas con el mismo ángulo, como los pétalos de una flor. Cuanto más lejos del centro llega una porción, mayor es su valor.',
 
+  'guide.pr_curve.definition': 'Una curva de precisión-exhaustividad muestra cómo un modelo de predicción equilibra encontrar todos los casos reales y acertar con sus alarmas.',
+  'guide.pr_curve.purpose': 'Sirve para evaluar un clasificador cuando los casos reales son poco frecuentes, y para elegir un umbral que equilibre los casos reales encontrados y las alarmas acertadas.',
+  'guide.pr_curve.appearance': 'Una curva cruza un cuadrado de izquierda a derecha; suele empezar arriba y bajar hacia la derecha. Una línea horizontal marca el acierto al azar, a la altura de la proporción de casos reales en los datos. Cuanto más cerca se mantiene la curva de la esquina superior derecha, mejor es el modelo.',
+
   'guide.radar.definition': 'Un gráfico de radar, también llamado gráfico de araña, muestra varias medidas de un elemento sobre ejes colocados en círculo.',
   'guide.radar.purpose': 'Sirve para comparar puntos fuertes y débiles en varias cualidades. Por ejemplo, las habilidades de un jugador.',
   'guide.radar.appearance': 'Desde un punto central salen radios, uno por medida, como los radios de una rueda. Cada valor es un punto sobre su radio, más lejos del centro cuanto más alto. Los puntos se unen en una figura cerrada, como una tela de araña.',

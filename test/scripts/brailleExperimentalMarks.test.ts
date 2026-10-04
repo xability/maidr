@@ -35,6 +35,7 @@ const SECTION_TYPES: Record<string, string[]> = {
   'Hexbin': ['hexbin'],
   'Letter-value plot (boxen)': ['boxen'],
   'Scatter plot': ['point'],
+  'Precision-recall curve': ['pr_curve'],
   'ROC curve': ['roc'],
   'Rug plot': ['rug'],
   'Segmented Bar Plots': ['stacked_bar', 'dodged_bar', 'stacked_normalized_bar'],
