@@ -68,7 +68,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({ message, disa
               fontWeight="medium"
               color="text.secondary"
               component="h3"
-              sx={{ fontSize: '0.8rem', margin: 0, marginBottom: 0.5 }}
+              sx={{ fontSize: theme => theme.typography.pxToRem(12.8), margin: 0, marginBottom: 0.5 }}
               aria-label={t('dialogs.chatModelName', { model: getModelDisplayName(message.model) })}
             >
               {getModelDisplayName(message.model)}
