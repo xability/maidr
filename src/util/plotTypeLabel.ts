@@ -22,6 +22,7 @@ const PLOT_TYPE_LABEL: Record<TraceType, MessageKey> = {
   [TraceType.CHORD]: 'model.plotTypeChord',
   [TraceType.SANKEY]: 'model.plotTypeSankey',
   [TraceType.NETWORK]: 'model.plotTypeNetwork',
+  [TraceType.DIRECTED_GRAPH]: 'model.plotTypeDirectedGraph',
   [TraceType.CANDLESTICK_DELTA]: 'model.plotTypeCandlestickDelta',
   [TraceType.CHOROPLETH]: 'model.plotTypeChoropleth',
   [TraceType.CONTOUR]: 'model.plotTypeContour',

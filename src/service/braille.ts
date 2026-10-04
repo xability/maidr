@@ -1180,6 +1180,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.CHORD, asGeneric(new BarBrailleEncoder())],
       [TraceType.SANKEY, asGeneric(new BarBrailleEncoder())],
       [TraceType.NETWORK, asGeneric(new BarBrailleEncoder())],
+      // One row per scope depth, one cell per node's connection count: the
+      // treemap's rows with the network's magnitude.
+      [TraceType.DIRECTED_GRAPH, asGeneric(new BarBrailleEncoder())],
       [TraceType.BOX, asGeneric(new BoxBrailleEncoder())],
       // A bump chart's rows are competitors and its columns periods, which is
       // the line encoder's input exactly. The cells rise with the rank NUMBER

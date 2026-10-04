@@ -159,6 +159,9 @@ export const description = {
   'guide.network.definition': '네트워크 다이어그램은 항목을 점으로, 항목 사이의 연결을 선으로 보여 줍니다.',
   'guide.network.purpose': '관계를 보여 줄 때 씁니다. 예를 들어 사람 사이의 친구 관계나 웹 페이지 사이의 링크를 보고, 가장 많이 연결된 항목을 찾습니다.',
   'guide.network.appearance': '노드라고 부르는 작은 원들이 페이지 곳곳에 흩어져 있습니다. 링크라고 부르는 선이 노드 두 개를 잇습니다. 연결이 많은 항목은 가운데에 놓이고, 그 주위로 선이 사방으로 뻗어 나갈 때가 많습니다.',
+  'guide.directed_graph.definition': '방향 그래프는 처리 단계를 상자로, 각 단계에서 그 결과를 사용하는 단계로 향하는 흐름을 화살표로 보여 줍니다.',
+  'guide.directed_graph.purpose': '신경망의 층처럼 어떤 값이 어떻게 계산되는지 보여 주며, 입력부터 출력까지 데이터를 따라가면서 어디서 갈라지고 어디서 합쳐지는지 볼 때 사용합니다.',
+  'guide.directed_graph.appearance': '노드라고 하는 상자가 한쪽 끝의 입력부터 다른 쪽 끝의 출력까지 놓이고 화살표로 이어집니다. 관련된 노드는 열고 닫을 수 있는 더 큰 상자 안에 함께 그려지는 경우가 많습니다.',
 
   'guide.stacked_normalized_bar.definition': '100% 누적 막대 그래프는 항목마다 전체 길이가 같은 막대를 하나씩 두고, 그 막대를 백분율 조각으로 나눕니다.',
   'guide.stacked_normalized_bar.purpose': '항목끼리 비율을 비교할 때 씁니다. 예를 들어 여러 나라에서 연령대별 인구 비율을 비교합니다.',

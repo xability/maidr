@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Directed Graph Example — A Small Residual Network</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A directed graph nested in scopes: a neural network's architecture as
+        Keras' plot_model or TensorBoard's Graphs dashboard draws it.
+
+        Each node declares the nodes feeding it as `inputs`, its scopes as a
+        `path`, and free-form `attributes` (layer type, output shape,
+        parameter count) that are announced on every move.
+
+        The reader enters at the top level with every scope closed:
+
+          left/right  the items of this scope, input to output
+          down / up   open a scope onto its first member / close it again
+          rotor       Outputs follows the edges downstream, Inputs upstream
+
+        The skip connection from input_1 to block1/add makes input_1 a branch
+        point and add a merge point, and each says so.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="560pt" height="540pt" viewBox="0 0 560 540" version="1.1"
+        id="dag-resnet" maidr="{&#10;  &quot;id&quot;: &quot;dag-resnet&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;dag-resnet-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;dag-resnet-layer&quot;,&#10;            &quot;type&quot;: &quot;directed_graph&quot;,&#10;            &quot;title&quot;: &quot;A small residual network&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Layer&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;rect[id=&#x27;node-0&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-1&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-2&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-3&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-4&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-5&#x27;]&quot;,&#10;              &quot;rect[id=&#x27;node-6&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;id&quot;: &quot;input_1&quot;,&#10;                &quot;attributes&quot;: {&#10;                  &quot;Layer type&quot;: &quot;InputLayer&quot;,&#10;                  &quot;Output shape&quot;: &quot;(None, 32, 32, 3)&quot;,&#10;                  &quot;Parameters&quot;: 0&#10;                }&#10;              },&#10;              {&#10;                &quot;id&quot;: &quot;block1/conv1&quot;,&#10;                &quot;label&quot;: &quot;conv1&quot;,&#10;                &quot;path&quot;: [&#10;                  &quot;block1&quot;&#10;                ],&#10;                &quot;inputs&quot;: [&#10;                  &quot;input_1&quot;&#10;                ],&#10;                &quot;attributes&quot;: {&#10;                  &quot;Layer type&quot;: &quot;Conv2D&quot;,&#10;                  &quot;Output shape&quot;: &quot;(None, 32, 32, 16)&quot;,&#10;                  &quot;Parameters&quot;: 448&#10;                }&#10;              },&#10;              {&#10;                &quot;id&quot;: &quot;block1/conv2&quot;,&#10;                &quot;label&quot;: &quot;conv2&quot;,&#10;                &quot;path&quot;: [&#10;                  &quot;block1&quot;&#10;                ],&#10;                &quot;inputs&quot;: [&#10;                  &quot;block1/conv1&quot;&#10;                ],&#10;                &quot;attributes&quot;: {&#10;                  &quot;Layer type&quot;: &quot;Conv2D&quot;,&#10;                  &quot;Output shape&quot;: &quot;(None, 32, 32, 3)&quot;,&#10;                  &quot;Parameters&quot;: 435&#10;                }&#10;              },&#10;              {&#10;                &quot;id&quot;: &quot;block1/add&quot;,&#10;                &quot;label&quot;: &quot;add&quot;,&#10;                &quot;path&quot;: [&#10;                  &quot;block1&quot;&#10;                ],&#10;                &quot;inputs&quot;: [&#10;                  &quot;block1/conv2&quot;,&#10;                  &quot;input_1&quot;&#10;                ],&#10;                &quot;attributes&quot;: {&#10;                  &quot;Layer type&quot;: &quot;Add&quot;,&#10;                  &quot;Output shape&quot;: &quot;(None, 32, 32, 3)&quot;,&#10;                  &quot;Parameters&quot;: 0&#10;                }&#10;              },&#10;              {&#10;                &quot;id&quot;: &quot;block2/conv&quot;,&#10;                &quot;label&quot;: &quot;conv&quot;,&#10;                &quot;path&quot;: [&#10;                  &quot;block2&quot;&#10;                ],&#10;                &quot;inputs&quot;: [&#10;                  &quot;block1/add&quot;&#10;                ],&#10;                &quot;attributes&quot;: {&#10;                  &quot;Layer type&quot;: &quot;Conv2D&quot;,&#10;                  &quot;Output shape&quot;: &quot;(None, 32, 32, 8)&quot;,&#10;                  &quot;Parameters&quot;: 224&#10;                }&#10;              },&#10;              {&#10;                &quot;id&quot;: &quot;block2/pool&quot;,&#10;                &quot;label&quot;: &quot;pool&quot;,&#10;                &quot;path&quot;: [&#10;                  &quot;block2&quot;&#10;                ],&#10;                &quot;inputs&quot;: [&#10;                  &quot;block2/conv&quot;&#10;                ],&#10;                &quot;attributes&quot;: {&#10;                  &quot;Layer type&quot;: &quot;GlobalAveragePooling2D&quot;,&#10;                  &quot;Output shape&quot;: &quot;(None, 8)&quot;,&#10;                  &quot;Parameters&quot;: 0&#10;                }&#10;              },&#10;              {&#10;                &quot;id&quot;: &quot;dense&quot;,&#10;                &quot;inputs&quot;: [&#10;                  &quot;block2/pool&quot;&#10;                ],&#10;                &quot;attributes&quot;: {&#10;                  &quot;Layer type&quot;: &quot;Dense&quot;,&#10;                  &quot;Output shape&quot;: &quot;(None, 10)&quot;,&#10;                  &quot;Parameters&quot;: 90&#10;                }&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: #b0b8c4" />
+          </marker>
+        </defs>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 540  L 560 540  L 560 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+          <rect x="160" y="95" width="350" height="200" rx="8" style="fill: none; stroke: #8a94a6; stroke-dasharray: 4 3" />
+          <text x="170" y="112" style="font: 11px sans-serif; fill: #4a5568">block1</text>
+          <rect x="160" y="325" width="350" height="135" rx="8" style="fill: none; stroke: #8a94a6; stroke-dasharray: 4 3" />
+          <text x="170" y="342" style="font: 11px sans-serif; fill: #4a5568">block2</text>
+          <line x1="260" y1="58.0" x2="260" y2="98.0" style="stroke: #b0b8c4; stroke-width: 2" marker-end="url(#arrow)" />
+          <line x1="260" y1="138.0" x2="260" y2="168.0" style="stroke: #b0b8c4; stroke-width: 2" marker-end="url(#arrow)" />
+          <line x1="260" y1="208.0" x2="260" y2="238.0" style="stroke: #b0b8c4; stroke-width: 2" marker-end="url(#arrow)" />
+          <path d="M 335.0 58.0 C 470 58.0, 470 278.0, 335.0 278.0" style="fill: none; stroke: #b0b8c4; stroke-width: 2" marker-end="url(#arrow)" />
+          <line x1="260" y1="278.0" x2="260" y2="328.0" style="stroke: #b0b8c4; stroke-width: 2" marker-end="url(#arrow)" />
+          <line x1="260" y1="368.0" x2="260" y2="398.0" style="stroke: #b0b8c4; stroke-width: 2" marker-end="url(#arrow)" />
+          <line x1="260" y1="438.0" x2="260" y2="478.0" style="stroke: #b0b8c4; stroke-width: 2" marker-end="url(#arrow)" />
+          <rect id="node-0" x="185.0" y="22.0" width="150" height="36" rx="4" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <text x="260" y="38" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">input_1</text>
+          <text x="260" y="51" style="font: 9px sans-serif; text-anchor: middle; fill: #dbe4f0">InputLayer</text>
+          <rect id="node-1" x="185.0" y="102.0" width="150" height="36" rx="4" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <text x="260" y="118" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">conv1</text>
+          <text x="260" y="131" style="font: 9px sans-serif; text-anchor: middle; fill: #dbe4f0">Conv2D</text>
+          <rect id="node-2" x="185.0" y="172.0" width="150" height="36" rx="4" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <text x="260" y="188" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">conv2</text>
+          <text x="260" y="201" style="font: 9px sans-serif; text-anchor: middle; fill: #dbe4f0">Conv2D</text>
+          <rect id="node-3" x="185.0" y="242.0" width="150" height="36" rx="4" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <text x="260" y="258" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">add</text>
+          <text x="260" y="271" style="font: 9px sans-serif; text-anchor: middle; fill: #dbe4f0">Add</text>
+          <rect id="node-4" x="185.0" y="332.0" width="150" height="36" rx="4" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <text x="260" y="348" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">conv</text>
+          <text x="260" y="361" style="font: 9px sans-serif; text-anchor: middle; fill: #dbe4f0">Conv2D</text>
+          <rect id="node-5" x="185.0" y="402.0" width="150" height="36" rx="4" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <text x="260" y="418" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">pool</text>
+          <text x="260" y="431" style="font: 9px sans-serif; text-anchor: middle; fill: #dbe4f0">GlobalAveragePooling2D</text>
+          <rect id="node-6" x="185.0" y="482.0" width="150" height="36" rx="4" style="fill: #4a7ab5; stroke: #ffffff; stroke-width: 2" />
+          <text x="260" y="498" style="font: 11px sans-serif; text-anchor: middle; fill: #ffffff">dense</text>
+          <text x="260" y="511" style="font: 9px sans-serif; text-anchor: middle; fill: #dbe4f0">Dense</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `percentile_band`, `pie`, `point`, `polar_area`, `pr_curve`, `radar`, `ridgeline`, `roc`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
+- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `directed_graph`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `percentile_band`, `pie`, `point`, `polar_area`, `pr_curve`, `radar`, `ridgeline`, `roc`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
 
 > **`candlestick_delta` has no example page, on purpose.** It should never be
 > given one: it is a reading mode the model derives at runtime from a
@@ -200,8 +200,9 @@ from the list above.
 
 Fifteen of them predate the chart-type coverage roadmap (#814). Thirty-seven
 were added by it, most of them inside about two weeks, and `rug` (#1132),
-`roc`, `pr_curve` (#1349) and `percentile_band` (#1348) after it. **None of the
-forty-one has been through a user study**.
+`roc`, `pr_curve` (#1349), `percentile_band` (#1348) and `directed_graph` (#1347)
+after it. **None of the
+forty-two has been through a user study**.
 
 Elsewhere in these docs — the braille guide, the integration guides'
 supported-type tables and the examples gallery — an experimental type is marked
@@ -227,7 +228,7 @@ change to any of them changes behaviour people already depend on.
 ### Experimental
 
 `alluvial`, `area`, `boxen`, `bump`, `chord`, `choropleth`, `contour`,
-`diverging_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`,
+`directed_graph`, `diverging_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`,
 `gantt`, `gauge`, `hexbin`, `icicle`, `lollipop`, `manhattan`, `mosaic`,
 `network`, `pack`, `parallel_coordinates`, `percentile_band`, `polar_area`, `pr_curve`, `radar`,
 `ridgeline`, `roc`, `rug`, `sankey`, `stacked_area`, `stacked_normalized_area`,
@@ -363,6 +364,7 @@ reports the chart drawn, not when its first `<svg>` appears.
 | `candlestick` | string; `CandlestickSelector` | A string pairs one element per candle in document order. |
 | `rug` | string; list with one entry per tick | Ticks are walked by position. |
 | `boxen`, `ridgeline`, `dumbbell`, `error_bar`, `forest`, `gantt`, `hexbin`, `waterfall`, `word_cloud`, `gauge`, `alluvial`, `chord`, `sankey`, `network`, `choropleth`, `treemap`, `sunburst`, `icicle`, `tree`, `pack` | string; list of strings | A list's entries are each resolved and the results concatenated. The total must be one element per item the layer declares -- distribution, group, pair, sample, interval, bin, step, term, flow, link, region or node -- in declared order; `gauge` uses the first match. |
+| `directed_graph` | string; list of strings | As the row above: one element per declared node, in declared order. A scope is derived from the nodes' paths rather than declared, so it has no element and is not outlined; edges are not highlighted. A count that does not match drops the highlight for the layer. |
 
 ### Lists written for maidr.js before 4.0
 
@@ -954,6 +956,48 @@ The data property is defined as a list of objects where each object is a record 
    };
 
 ```
+
+### Directed graph (`directed_graph`) [experimental]
+
+A computation graph -- a neural network's architecture as TensorBoard's Graphs
+dashboard or Keras' `plot_model` draws it. `data` is one entry per **node**;
+the edges are declared on the node they arrive at, as `inputs`, and scopes as a
+`path`, the way a treemap declares its hierarchy:
+
+```javascript
+{
+  type: 'directed_graph',
+  axes: { x: { label: 'Layer' } },        // what a node is called; defaults to "Node"
+  selectors: '#graph g.node',              // optional: one element per node, in declared order
+  data: [
+    { id: 'input_1', attributes: { 'Layer type': 'InputLayer', 'Output shape': '(None, 32, 32, 3)' } },
+    { id: 'block1/conv', label: 'conv', path: ['block1'], inputs: ['input_1'],
+      attributes: { 'Layer type': 'Conv2D', 'Parameters': 896 } },
+    { id: 'block1/add', label: 'add', path: ['block1'], inputs: ['block1/conv', 'input_1'] },
+    { id: 'dense', inputs: ['block1/add'], attributes: { 'Layer type': 'Dense' } },
+  ],
+}
+```
+
+- `id` is unique in the layer and is what `inputs` refer to; `label` is what is
+  announced, defaulting to `id`.
+- `path` lists the enclosing scopes, outermost first, excluding the node. A
+  scope exists because a path names it; it is never declared on its own.
+- `inputs` names the nodes feeding this one. An id naming no declared node, a
+  node naming itself and a repeated input are ignored.
+- `attributes` is free-form: each entry is announced as a clause, in declared
+  order, and becomes a column of the description's table.
+
+The reader enters on the first top-level item with every scope **closed**.
+Left and right walk the items of one scope in topological order, input to
+output; down opens a scope onto its first member and up closes it again;
+Ctrl with an arrow goes to the first or last item of the scope, out to the
+top-level item, or down to the deepest first member. The rotor's **Outputs**
+and **Inputs** units follow the edges downstream and upstream. An edge to a
+node inside a closed scope arrives at the scope. Each move announces the node,
+its connections as `2 inputs, 1 output`, whether it is a graph input or output
+or a branch or merge point, the names on either side, its attributes, and its
+place in the scope's order.
 
 ## Multilayer Plots
 

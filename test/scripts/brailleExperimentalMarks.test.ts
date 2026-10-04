@@ -64,6 +64,7 @@ const SECTION_TYPES: Record<string, string[]> = {
   'Contour and filled contour': ['contour'],
   'Sankey, alluvial and chord': ['sankey', 'alluvial', 'chord'],
   'Network': ['network'],
+  'Directed graph': ['directed_graph'],
   'Treemap': ['treemap'],
   'Sunburst and icicle': ['sunburst', 'icicle'],
   'Volcano and Manhattan': ['volcano', 'manhattan'],

@@ -159,6 +159,9 @@ export const description = {
   'guide.network.definition': 'Un diagramma di rete mostra degli elementi come punti e i collegamenti tra loro come linee.',
   'guide.network.purpose': 'Serve a mostrare delle relazioni, per esempio le amicizie tra persone o i link tra pagine web, e a trovare gli elementi più collegati.',
   'guide.network.appearance': 'Piccoli cerchi, chiamati nodi, sono sparsi sulla pagina. Delle linee, chiamate collegamenti, uniscono coppie di nodi. Gli elementi con molti collegamenti tendono a stare al centro, con tante linee che partono da loro.',
+  'guide.directed_graph.definition': 'Un grafo orientato mostra i passaggi come riquadri e frecce da ogni passaggio ai passaggi che ne usano il risultato.',
+  'guide.directed_graph.purpose': 'Serve a mostrare come viene calcolato qualcosa, come gli strati di una rete neurale, per seguire i dati dall’ingresso all’uscita e vedere dove si diramano e si uniscono.',
+  'guide.directed_graph.appearance': 'Riquadri chiamati nodi sono disposti dall’ingresso a un’estremità fino all’uscita all’altra, collegati da frecce. I nodi correlati sono spesso disegnati dentro un riquadro più grande che si può aprire o chiudere.',
 
   'guide.stacked_normalized_bar.definition': 'Un grafico a barre impilate al 100% mostra ogni categoria come una barra della stessa lunghezza totale, divisa in parti percentuali.',
   'guide.stacked_normalized_bar.purpose': 'Serve a confrontare proporzioni tra categorie, per esempio la quota di ogni fascia d\'età in diversi paesi.',

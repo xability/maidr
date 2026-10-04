@@ -952,6 +952,32 @@ One line per group, so the split into groups -- the structure a reader
 following links can never discover, because links do not cross between them --
 is felt directly as separate rows of different lengths.
 
+### Directed graph [experimental]
+
+One row per **depth of scope nesting**, one cell per item at that depth -- a
+node, or a scope shown closed -- each cell the item's connection count, inputs
+and outputs together, scaled against the whole chart as a network's degree is.
+The top row is the view a reader enters on: the graph's top-level blocks, in
+topological order, input to output.
+
+Branch and merge points stand out as the taller cells of a row, which is the
+structure a model graph is read for. **The edges themselves have no
+representation**: two cells side by side are two items of the same depth taken
+in reading order, not two items one feeds the other, and a row runs on across
+scope boundaries. The announcement carries what the dots cannot -- the inputs
+and outputs by name, the scope, and where the node falls in its scope's order.
+
+```
+Depth   Cells
+0       ⠆⡶⡶⠆
+1       ⠆⠆⡶⠆⠆
+```
+
+#### Multiline Displays
+
+One line per depth, so the top-level outline is a line of its own and the
+detail of every open scope sits below it.
+
 ### Treemap [experimental]
 
 One row per **level** of the tree, one cell per node at that level, each row

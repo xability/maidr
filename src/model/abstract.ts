@@ -79,6 +79,7 @@ const CHART_TYPE_LABEL: Record<TraceType, MessageKey> = {
   [TraceType.CHORD]: 'model.chartTypeChord',
   [TraceType.SANKEY]: 'model.chartTypeSankey',
   [TraceType.NETWORK]: 'model.chartTypeNetwork',
+  [TraceType.DIRECTED_GRAPH]: 'model.chartTypeDirectedGraph',
   [TraceType.CANDLESTICK_DELTA]: 'model.chartTypeCandlestickDelta',
   [TraceType.CHOROPLETH]: 'model.chartTypeChoropleth',
   [TraceType.CONTOUR]: 'model.chartTypeContour',

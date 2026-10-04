@@ -159,6 +159,9 @@ export const description = {
   'guide.network.definition': 'Un diagramme de réseau représente des éléments par des points et les liens entre eux par des traits.',
   'guide.network.purpose': 'Il sert à montrer des relations, comme des amitiés entre personnes ou des liens entre pages web. Il aide aussi à trouver les éléments les plus connectés.',
   'guide.network.appearance': 'De petits cercles, appelés nœuds, sont répartis sur la page. Des traits, appelés liens, relient des paires de nœuds. Les éléments très connectés se trouvent souvent au centre, avec des traits qui partent dans tous les sens.',
+  'guide.directed_graph.definition': 'Un graphe orienté montre des étapes sous forme de boîtes et des flèches allant de chaque étape vers les étapes qui utilisent son résultat.',
+  'guide.directed_graph.purpose': 'Il sert à montrer comment quelque chose est calculé, comme les couches d’un réseau de neurones, pour suivre les données de l’entrée à la sortie et voir où elles se séparent et se rejoignent.',
+  'guide.directed_graph.appearance': 'Des boîtes appelées nœuds sont disposées de l’entrée, à une extrémité, jusqu’à la sortie, à l’autre, reliées par des flèches. Les nœuds apparentés sont souvent dessinés dans une boîte plus grande que l’on peut ouvrir ou fermer.',
 
   'guide.stacked_normalized_bar.definition': 'Un diagramme à barres empilées normalisées représente chaque catégorie par une barre de même longueur totale, découpée en pourcentages.',
   'guide.stacked_normalized_bar.purpose': 'Il sert à comparer des proportions entre catégories. Par exemple, la part de chaque tranche d\'âge dans plusieurs pays.',

@@ -170,6 +170,9 @@ export const description = {
   'guide.network.definition': 'A network diagram shows items as points and the connections between them as lines.',
   'guide.network.purpose': 'It is used to show relationships, such as friendships between people or links between web pages, and to find the most connected items.',
   'guide.network.appearance': 'Small circles called nodes are spread over the page. Lines called links join pairs of nodes. Items with many connections tend to sit in the middle with lines radiating from them.',
+  'guide.directed_graph.definition': 'A directed graph shows steps as boxes and arrows from each step to the steps that use its result.',
+  'guide.directed_graph.purpose': 'It is used to show how something is computed, such as the layers of a neural network, so a reader can follow data from the input to the output and see where it branches and joins.',
+  'guide.directed_graph.appearance': 'Boxes called nodes are stacked from the input at one end to the output at the other, joined by arrows. Related nodes are often drawn inside a larger box that can be opened or closed.',
 
   'guide.stacked_normalized_bar.definition': 'A normalized stacked bar chart shows each category as a bar of the same total length, split into percentage parts.',
   'guide.stacked_normalized_bar.purpose': 'It is used to compare proportions between categories, such as the share of each age group in several countries.',

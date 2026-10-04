@@ -79,6 +79,8 @@ describe('resolveOrientation', () => {
     TraceType.SANKEY,
     // A force layout has no axes, and where a node lands carries no meaning.
     TraceType.NETWORK,
+    // Data flows input to output; the walk is topological, not along an axis.
+    TraceType.DIRECTED_GRAPH,
     // One measure on a dial: no second axis to swap with.
     TraceType.GAUGE,
     TraceType.HEATMAP,

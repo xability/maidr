@@ -1024,6 +1024,48 @@ export interface FlowPoint {
 }
 
 /**
+ * One node of a directed graph -- one op or layer of a computation graph.
+ *
+ * The edges are declared on the node they arrive at, as `inputs`: that is how
+ * a TensorFlow `GraphDef` names them (`NodeDef.input`) and how a Keras layer
+ * names its inbound layers, so a producer copies a field rather than
+ * inverting one. Edge order is node order, then input order -- the order the
+ * edge selectors would be in.
+ *
+ * Scopes are declared as a path, the way {@link TreemapPoint.path} declares
+ * a hierarchy: acyclic by construction, impossible to orphan, and already
+ * what a TensorFlow name scope is (`block1/conv1/Conv2D` is the path
+ * `['block1', 'conv1']` and the node `Conv2D`).
+ *
+ * @example
+ * { id: 'block1/add', label: 'add', path: ['block1'],
+ *   inputs: ['block1/conv2', 'input_1'],
+ *   attributes: { 'Layer type': 'Add', 'Output shape': '(None, 32, 32, 64)' } }
+ */
+export interface DirectedGraphPoint {
+  /** What the other nodes' `inputs` name this one by. Unique in the layer. */
+  id: string | number;
+  /** What the node is called when it is announced. Defaults to `id`. */
+  label?: string | number;
+  /**
+   * The scopes the node sits in, outermost first, **excluding the node
+   * itself**. A node at the top level omits it or declares `[]`.
+   */
+  path?: (string | number)[];
+  /**
+   * The `id`s of the nodes feeding this one, in the order it takes them.
+   * An id naming no declared node, and a node naming itself, are ignored.
+   */
+  inputs?: (string | number)[];
+  /**
+   * Anything else the reader should hear about the node, announced as
+   * `key, value` clauses in declared order and tabulated in the
+   * description: a layer type, an output shape, a parameter count.
+   */
+  attributes?: Record<string, string | number | boolean>;
+}
+
+/**
  * One link of a network or node-link diagram.
  *
  * Undirected: a link between two nodes is a fact about the pair, not a
@@ -1857,6 +1899,7 @@ export interface MaidrLayer {
     | BarPoint[]
     | FlowPoint[]
     | NetworkPoint[]
+    | DirectedGraphPoint[]
     | BoxPoint[]
     | BoxenPoint[]
     | CandlestickPoint[]
@@ -1967,6 +2010,21 @@ export enum TraceType {
    * steeply the field changes here -- both go unanswered.
    */
   CONTOUR = 'contour',
+  /**
+   * A directed acyclic graph whose nodes may be nested in named scopes -- a
+   * neural network's architecture as TensorBoard's Graphs dashboard or
+   * Keras' `plot_model` draws it, or any other computation graph.
+   *
+   * Named apart from {@link TraceType.NETWORK} rather than as a flag on it,
+   * because almost nothing of that trace survives a direction. A network is
+   * read by degree, in components, with its links undirected; a model graph
+   * is read along its edges, input to output, scope by scope. The point
+   * shape differs too: a network derives its nodes from its links, and a
+   * graph like this has to declare its nodes, since they carry the
+   * attributes (layer type, output shape, parameter count) and the scope a
+   * reader needs and a link list has nowhere to put either.
+   */
+  DIRECTED_GRAPH = 'directed_graph',
   /**
    * Two series drawn back to back across a shared category axis, one growing
    * left and one growing right -- a population pyramid, or a Likert scale
