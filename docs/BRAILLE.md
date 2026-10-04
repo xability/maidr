@@ -316,6 +316,14 @@ shifted upward, not merely one with a different spread.
 Letter-value plots use one line per distribution on a multiline display, so
 several groups' tails can be compared with one sweep.
 
+### Precision-recall curve [experimental]
+
+A precision-recall curve is a multi-line layer -- one curve per classifier, class or run, one point per decision threshold -- and its braille is a line plot's: each Braille character is the precision at that threshold, encoded by its magnitude within the curve. The recall is not on the display; it is what the pitch's stereo position and the text carry, and so is the baseline the curve is read against.
+
+#### Multiline Displays
+
+As for a line plot: each line of a multiline display is one curve, and a single-line display switches curves with the up and down arrow keys.
+
 ### ROC curve [experimental]
 
 A ROC curve is a multi-line layer -- one curve per classifier, one point per decision threshold -- and its braille is a line plot's: each Braille character is the true positive rate at that operating point, encoded by its magnitude within the curve. The false positive rate is not on the display; it is what the pitch's stereo position and the text carry.

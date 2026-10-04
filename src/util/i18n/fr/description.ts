@@ -180,6 +180,10 @@ export const description = {
   'guide.polar_area.purpose': 'Il sert à comparer des valeurs pour des catégories qui reviennent en cycle, comme les mois de l\'année ou les directions de la boussole.',
   'guide.polar_area.appearance': 'Des secteurs s\'ouvrent en éventail depuis un même centre, tous avec le même angle, comme les pétales d\'une fleur. Plus un secteur va loin du centre, plus sa valeur est grande.',
 
+  'guide.pr_curve.definition': 'Une courbe précision-rappel montre comment un modèle de prédiction équilibre trouver tous les vrais cas et donner des alertes justes.',
+  'guide.pr_curve.purpose': 'Elle sert à juger un classificateur quand les vrais cas sont rares, et à choisir un seuil. Ce seuil équilibre les vrais cas trouvés et les alertes justes.',
+  'guide.pr_curve.appearance': 'Une courbe traverse un carré de gauche à droite. Elle commence souvent en haut et descend vers la droite. Une ligne horizontale représente le hasard, à la hauteur de la part de vrais cas dans les données. Plus la courbe reste près du coin en haut à droite, meilleur est le modèle.',
+
   'guide.radar.definition': 'Un graphique radar, aussi appelé graphique en toile d\'araignée, montre plusieurs mesures d\'un même élément sur des axes disposés en cercle.',
   'guide.radar.purpose': 'Il sert à comparer les points forts et les points faibles sur plusieurs qualités. Par exemple, les compétences d\'un joueur.',
   'guide.radar.appearance': 'Des rayons partent d\'un point central, un par mesure, comme les rayons d\'une roue. Chaque valeur est un point sur son rayon, plus loin du centre quand elle est plus élevée. Les points sont reliés en une forme fermée, comme une toile d\'araignée.',

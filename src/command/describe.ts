@@ -755,7 +755,8 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         || traceType === TraceType.POLAR_AREA
         || traceType === TraceType.PARALLEL
         || traceType === TraceType.BUMP
-        || traceType === TraceType.ROC)
+        || traceType === TraceType.ROC
+        || traceType === TraceType.PR_CURVE)
       && state.groupCount
       && state.groupCount > 1
     ) {
@@ -779,7 +780,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
             ? t('text.seriesNounObservation')
             : traceType === TraceType.BUMP
               ? t('text.seriesNounCompetitor')
-              : traceType === TraceType.ROC ? t('text.seriesNounCurve') : t('text.seriesNounSeries'),
+              : traceType === TraceType.ROC || traceType === TraceType.PR_CURVE
+                ? t('text.seriesNounCurve')
+                : t('text.seriesNounSeries'),
       );
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird

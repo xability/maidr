@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `roc`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
+- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `pr_curve`, `radar`, `ridgeline`, `roc`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
 
 > **`candlestick_delta` has no example page, on purpose.** It should never be
 > given one: it is a reading mode the model derives at runtime from a
@@ -199,8 +199,9 @@ Not every declarable type carries the same promise, and that is not visible
 from the list above.
 
 Fifteen of them predate the chart-type coverage roadmap (#814). Thirty-seven
-were added by it, most of them inside about two weeks, and `rug` (#1132) and
-`roc` after it. **None of the thirty-nine has been through a user study**.
+were added by it, most of them inside about two weeks, and `rug` (#1132),
+`roc` and `pr_curve` (#1349) after it. **None of the forty has been through a
+user study**.
 
 Elsewhere in these docs — the braille guide, the integration guides'
 supported-type tables and the examples gallery — an experimental type is marked
@@ -228,7 +229,7 @@ change to any of them changes behaviour people already depend on.
 `alluvial`, `area`, `boxen`, `bump`, `chord`, `choropleth`, `contour`,
 `diverging_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`,
 `gantt`, `gauge`, `hexbin`, `icicle`, `lollipop`, `manhattan`, `mosaic`,
-`network`, `pack`, `parallel_coordinates`, `polar_area`, `radar`,
+`network`, `pack`, `parallel_coordinates`, `polar_area`, `pr_curve`, `radar`,
 `ridgeline`, `roc`, `rug`, `sankey`, `stacked_area`, `stacked_normalized_area`,
 `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `volcano`,
 `waterfall`, `word_cloud`
@@ -355,7 +356,7 @@ reports the chart drawn, not when its first `<svg>` appears.
 | `point`, `sunflower`, `volcano`, `manhattan` | string | Paired by the position each mark is drawn at, not by document order. |
 | `pie` | string | Exactly one element per slice, in drawn order; reversed when `direction` is `'counterclockwise'`. |
 | `heat` | string; grid `[row][column]` | A string names one element per cell: `<rect>` cells are read column by column (`domMapping.order: 'row'` reads them row by row), `<path>` cells row by row from the top, and a single `<image>` gets an overlay. A grid's rows run bottom first, the reverse of `data.points`. |
-| `line`, `step`, `survival`, `smooth`, `area`, `stacked_area`, `stacked_normalized_area`, `bump`, `radar`, `polar_area`, `parallel_coordinates`, `roc`, `contour` | list with one entry per series (a string is one series) | A selector matching one element per point pairs them in document order; otherwise the vertices of the `<path>`, `<polyline>` or `<polygon>` it matches are the points. When a series matches several drawn elements -- a line broken by missing values, which gridSVG writes as sibling polylines -- their vertices are joined in document order and each reading is placed by its x; a missing reading gets no marker. A single element whose subpaths skip the missing values, with one vertex per reading, has its vertices paired with the readings in order. A `step` layer's staircase may run on to a flat vertex before its first sample and after its last, as MUI X Charts draws one on a category axis. Elements inside `<defs>`, `<clipPath>`, `<marker>`, `<symbol>`, `<pattern>` or `<mask>` (matplotlib's marker templates) are not pieces of the series. `domMapping.pointOrder: 'reverse'` says the chart draws them the other way round. |
+| `line`, `step`, `survival`, `smooth`, `area`, `stacked_area`, `stacked_normalized_area`, `bump`, `radar`, `polar_area`, `parallel_coordinates`, `roc`, `pr_curve`, `contour` | list with one entry per series (a string is one series) | A selector matching one element per point pairs them in document order; otherwise the vertices of the `<path>`, `<polyline>` or `<polygon>` it matches are the points. When a series matches several drawn elements -- a line broken by missing values, which gridSVG writes as sibling polylines -- their vertices are joined in document order and each reading is placed by its x; a missing reading gets no marker. A single element whose subpaths skip the missing values, with one vertex per reading, has its vertices paired with the readings in order. A `step` layer's staircase may run on to a flat vertex before its first sample and after its last, as MUI X Charts draws one on a category axis. Elements inside `<defs>`, `<clipPath>`, `<marker>`, `<symbol>`, `<pattern>` or `<mask>` (matplotlib's marker templates) are not pieces of the series. `domMapping.pointOrder: 'reverse'` says the chart draws them the other way round. |
 | `box`, `violin_box` | `BoxSelector[]`, one per box | See the box and violin plot types below. |
 | `violin_kde` | string; list with one entry per violin | Markers are drawn at each point's `svg_x`/`svg_y`; the list names the curve each violin belongs to. |
 | `candlestick` | string; `CandlestickSelector` | A string pairs one element per candle in document order. |
@@ -794,6 +795,44 @@ The data property is defined as a list of objects where each object is a record 
 
             "orientation": "vert" // horz when the distributions run across the page
   }
+
+   // pr_curve [experimental]: a precision-recall curve, one array of points per
+   // classifier (or class, or run). `x` is the recall and `y` the precision,
+   // both fractions of one; `threshold` is the decision threshold the point
+   // was scored at, and `z` names the curve as it names a line. `prevalence`
+   // is the share of positives in the data the curve was scored on -- the
+   // precision a classifier that guesses keeps at every recall, and so the
+   // height of the chart's horizontal chance baseline -- and `ap` is the
+   // average precision the producer computed; each is read from the first
+   // point of the curve that carries it. When no point carries `ap`, it is
+   // measured from the points as `sklearn.metrics.average_precision_score`
+   // computes it: over each rise in recall, the rise times the precision at
+   // its top. When no point carries `prevalence`, the baseline is not said.
+   // The points may be listed in either order; `precision_recall_curve`
+   // returns them from a recall of 1 down to 0, the last without a threshold.
+   //
+   // The pitch is the precision on the unit interval for every curve, and
+   // the pan follows the recall. Each point announces its threshold and how
+   // far its precision sits above (or below) the baseline; the description
+   // gives each curve's average precision, the baseline and where each
+   // average precision stands against it, and the point with the best F1,
+   // which the extrema dialog also offers.
+   maidr = {
+     type: 'pr_curve',
+     axes: { x: { label: 'Recall' }, y: { label: 'Precision' } },
+     data: [
+       [
+         { "x": 1, "y": 0.3, "threshold": 0.05, "z": "Logistic", "prevalence": 0.3, "ap": 0.76 },
+         { "x": 0.8, "y": 0.7, "threshold": 0.4, "z": "Logistic" },
+         { "x": 0, "y": 1, "z": "Logistic" }
+       ],
+       [
+         { "x": 1, "y": 0.3, "threshold": 0.1, "z": "Random forest", "prevalence": 0.3 },
+         { "x": 0.6, "y": 0.56, "threshold": 0.5, "z": "Random forest" },
+         { "x": 0, "y": 1, "z": "Random forest" }
+       ]
+     ],
+   };
 
    // roc [experimental]: a receiver operating characteristic curve, one array of operating
    // points per classifier. `x` is the false positive rate and `y` the true

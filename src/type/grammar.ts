@@ -1089,6 +1089,71 @@ export interface RugPoint {
 }
 
 /**
+ * One point of a precision-recall curve: the recall a classifier reaches and
+ * the precision it keeps at one decision threshold.
+ *
+ * A precision-recall layer is `PrCurvePoint[][]`, one array per curve, so
+ * several classifiers (or the classes of one, or the runs TensorBoard's PR
+ * Curves dashboard overlays) are compared in one layer the way a multi-line
+ * layer holds several series; `z` names the curve, as it names a line. Both
+ * rates are fractions of one. Listed in any order -- `precision_recall_curve`
+ * returns them from a recall of 1 down to 0 -- since the average precision is
+ * measured over the points sorted by `x`.
+ *
+ * Unlike a ROC curve, the chart is not read against a diagonal: a classifier
+ * that guesses keeps a precision equal to the share of positives in the data,
+ * at every recall. That share is the curve's `prevalence`, and the baseline
+ * it draws is a horizontal line.
+ *
+ * @example
+ * // one classifier on data that is 30% positive, three thresholds
+ * {
+ *   type: 'pr_curve',
+ *   axes: { x: { label: 'Recall' }, y: { label: 'Precision' } },
+ *   data: [[
+ *     { x: 0, y: 1, z: 'Logistic', prevalence: 0.3 },
+ *     { x: 0.6, y: 0.8, threshold: 0.5, z: 'Logistic' },
+ *     { x: 1, y: 0.3, threshold: 0, z: 'Logistic' },
+ *   ]],
+ * }
+ */
+export interface PrCurvePoint extends LinePoint {
+  /** The recall at this threshold, from 0 to 1. */
+  x: number;
+  /** The precision at this threshold, from 0 to 1, or `null` for a gap. */
+  y: number | null;
+  /**
+   * The decision threshold this point was scored at.
+   *
+   * The one number a reader can act on: without it the reader learns the
+   * rates but not how to get them. Optional because a curve drawn from rates
+   * alone is still a precision-recall curve -- and because
+   * `precision_recall_curve` returns one threshold fewer than points, the
+   * last point (recall 0, precision 1) having none.
+   */
+  threshold?: number | null;
+  /**
+   * The share of positives in the data this curve was scored on: the
+   * precision a classifier that guesses keeps at every recall, and so the
+   * height of the chart's chance baseline.
+   *
+   * Read from the first point of the curve that declares one, the way `z`
+   * names a series. When no point declares it, the baseline is not said: it
+   * cannot be recovered from the points with confidence.
+   */
+  prevalence?: number | null;
+  /**
+   * The average precision of this curve, as the producer computed it.
+   *
+   * Read from the first point of the curve that declares one. When no point
+   * declares it, it is measured from the curve's own points the way
+   * `sklearn.metrics.average_precision_score` computes it: the sum, over
+   * each rise in recall, of the rise times the precision at its top.
+   */
+  ap?: number | null;
+}
+
+/**
  * One operating point of a ROC curve: the false positive rate a classifier
  * pays and the true positive rate it gets at one decision threshold.
  *
@@ -1748,6 +1813,7 @@ export interface MaidrLayer {
     | HistogramPoint[]
     | LinePoint[][]
     | PiePoint[]
+    | PrCurvePoint[][]
     | RocPoint[][]
     | RugPoint[]
     | ScatterPoint[]
@@ -1973,6 +2039,18 @@ export enum TraceType {
    * not in what a reader navigates.
    */
   POLAR_AREA = 'polar_area',
+  /**
+   * A precision-recall curve: a classifier's precision against its recall,
+   * one point per decision threshold, one curve per classifier, class or run
+   * -- scikit-learn's `PrecisionRecallDisplay` and TensorBoard's PR Curves
+   * dashboard. Shares {@link TraceType.ROC}'s reading of two rates on the
+   * unit interval, and is read against a different reference: a chance
+   * classifier keeps a precision equal to the prevalence of positives at
+   * every recall, so the baseline is horizontal, the summary is the average
+   * precision against that baseline, and the point of interest is the best
+   * F1 rather than the furthest from a diagonal.
+   */
+  PR_CURVE = 'pr_curve',
   /**
    * Categories arranged around a circle rather than along an axis, joined
    * into a closed outline -- a radar or spider chart. Navigated as a

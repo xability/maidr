@@ -1,12 +1,12 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, RocPoint } from '@type/grammar';
-import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
+import type { DescriptionState, TextState, TraceState } from '@type/state';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { isMeasured, missingText } from './bar';
 import { extremumAt } from './extremaTarget';
-import { LineTrace } from './line';
+import { RateCurveTrace } from './rateCurve';
 
 /**
  * Where one curve is best read at: the point furthest above the chance
@@ -32,25 +32,14 @@ const CHANCE_AREA = 0.5;
  * against its false positive rate, one point per decision threshold, one
  * curve per classifier.
  *
- * Structurally a multi-line layer, so navigation, braille, intersections and
- * highlighting transfer. What is different is that **both axes are rates on
- * the unit interval, and the chart is read against a diagonal it does not
- * draw as data.** Read as a line, four things go wrong, and each is the
- * difference between a chart that informs and one that sounds confident
- * while saying nothing.
- *
- * **The pitch is on the unit interval, for every curve.** A line scales each
- * series' pitch to its own range, and every complete ROC curve runs from
- * (0, 0) to (1, 1), so two classifiers -- one excellent, one barely better
- * than chance -- were given the same sweep from the lowest note to the
- * highest. Here the register is the rate itself, so a curve that climbs to
- * 0.9 by a false positive rate of 0.1 is heard doing so.
- *
- * **The pan follows the false positive rate.** A curve is sampled wherever
- * its thresholds fall, and `roc_curve` puts most of them where the curve
- * bends, so panning by column index put the whole left half of the chart in
- * the left tenth of the stereo field. The pan is the position on the x axis,
- * the idiom the rug and the pie use.
+ * Structurally a multi-line layer whose axes are both rates on the unit
+ * interval; {@link RateCurveTrace} holds what that changes -- the pitch on
+ * the unit interval for every curve (every complete ROC curve runs from
+ * (0, 0) to (1, 1), so a line's per-series scaling made an excellent
+ * classifier and a guessing one sound alike), the pan by false positive
+ * rate, the moves between curves at the cursor's own rate and the threshold
+ * column. What is ROC's own is that **the chart is read against a diagonal
+ * it does not draw as data.**
  *
  * **Each point says where it stands against chance, and at what threshold.**
  * A sighted reader takes in a point's height above the diagonal at a glance;
@@ -63,7 +52,7 @@ const CHANCE_AREA = 0.5;
  * -- and the best operating point, rather than a min and max that are 0 and
  * 1 on every ROC curve ever drawn.
  */
-export class RocTrace extends LineTrace {
+export class RocTrace extends RateCurveTrace {
   private readonly rocPoints: RocPoint[][];
 
   /**
@@ -85,17 +74,6 @@ export class RocTrace extends LineTrace {
    * every point tied for its maximum.
    */
   private readonly bestPoints: OperatingPoint[][];
-
-  /** The register the pitch is read against; see {@link RocTrace.audio}. */
-  private readonly rateMin: number;
-  private readonly rateMax: number;
-
-  /**
-   * Each curve's measured points sorted by false positive rate, which is
-   * the order the curve is drawn in whatever order the producer listed
-   * them; see {@link RocTrace.findVerticalTarget}.
-   */
-  private readonly sortedCurves: Array<Array<{ x: number; y: number }>>;
 
   /**
    * Creates a new ROC trace.
@@ -130,50 +108,13 @@ export class RocTrace extends LineTrace {
       }
       return points;
     });
-
-    // Both axes are rates, so the register is the unit interval and two
-    // curves are comparable by ear. A producer that emitted percentages
-    // rather than fractions would put every point above the top of that
-    // register, so the register grows to hold the data rather than clipping
-    // it; it never shrinks, because a curve that stops short of (1, 1) is
-    // still a curve on the unit square.
-    const measured = this.lineValues.flat().filter(isMeasured);
-    this.rateMin = Math.min(0, MathUtil.safeMin(measured));
-    this.rateMax = Math.max(1, MathUtil.safeMax(measured));
-
-    this.sortedCurves = this.rocPoints.map((curve, row) =>
-      RocTrace.measuredByRate(curve, this.lineValues[row]));
   }
 
   public override dispose(): void {
     this.areas.length = 0;
     this.aboveChance.length = 0;
     this.bestPoints.length = 0;
-    this.sortedCurves.length = 0;
     super.dispose();
-  }
-
-  /**
-   * A curve's measured points in the order they are drawn: by false
-   * positive rate, and by true positive rate within a vertical run.
-   *
-   * @param curve - The curve's points
-   * @param rates - The true positive rates, `NaN` for a gap
-   * @returns The measured points, sorted
-   */
-  private static measuredByRate(
-    curve: readonly RocPoint[],
-    rates: readonly number[],
-  ): Array<{ x: number; y: number }> {
-    const measured: Array<{ x: number; y: number }> = [];
-    for (const [col, point] of curve.entries()) {
-      const x = Number(point?.x);
-      const y = rates[col];
-      if (Number.isFinite(x) && isMeasured(y)) {
-        measured.push({ x, y });
-      }
-    }
-    return measured.sort((a, b) => a.x - b.x || a.y - b.y);
   }
 
   /**
@@ -220,186 +161,6 @@ export class RocTrace extends LineTrace {
     return area;
   }
 
-  /**
-   * The threshold a point was scored at, or undefined when it has none.
-   *
-   * @param point - The operating point
-   * @returns The threshold as a finite number
-   */
-  private static thresholdOf(point: RocPoint | undefined): number | undefined {
-    const threshold = point?.threshold;
-    return typeof threshold === 'number' && Number.isFinite(threshold) ? threshold : undefined;
-  }
-
-  protected override get audio(): AudioState {
-    const base = super.audio;
-    return {
-      ...base,
-      freq: { ...base.freq, min: this.rateMin, max: this.rateMax },
-    };
-  }
-
-  /**
-   * The pan for a point: its position on the x axis, so that a chord at a
-   * point two curves share arrives from where that point is, as the single
-   * tone does.
-   *
-   * @param row - The curve
-   * @param col - The point along it
-   * @returns The panning for that point
-   */
-  protected override panningFor(row: number, col: number): AudioState['panning'] {
-    const fpr = Number(this.rocPoints[row]?.[col]?.x);
-    const span = this.rateMax - this.rateMin;
-    const fraction = Number.isFinite(fpr) && span > 0
-      ? MathUtil.clamp((fpr - this.rateMin) / span, 0, 1)
-      : 0.5;
-
-    // `cols: 2` with a fraction in `x` is the idiom the rug and the pie use
-    // to pan by position rather than by index.
-    return { x: fraction, y: row, rows: this.lineValues.length, cols: 2 };
-  }
-
-  /**
-   * Where an up or down move lands: the curve nearest above or below the
-   * cursor at the cursor's own false positive rate.
-   *
-   * The line asks each other series for a point at exactly the cursor's x,
-   * and a ROC curve has none to offer: `roc_curve` samples each classifier
-   * at its own thresholds, so two curves share an x only at the corners --
-   * where they also share a y, which the line's strict comparison reads as
-   * neither above nor below. On a chart of two classifiers the up and down
-   * keys moved between them at one point in thirteen. What a reader means by
-   * "the curve above this one" is the curve whose true positive rate is
-   * higher at this false positive rate, and a drawn curve has a rate at
-   * every x it spans: the straight line between its two neighbouring points,
-   * which is what the chart draws. Where a curve climbs vertically at that
-   * x it has a range of rates, and a cursor inside the range is level with
-   * it. Curves level with the cursor -- every curve at (0, 0) and (1, 1) --
-   * are stacked in series order, the first curve on top, so the corners a
-   * reader starts at are still a place to move between curves.
-   *
-   * The landing point is the target curve's sample nearest in x, and
-   * nearest in rate among samples tied in x, since the interpolated rate is
-   * not a point a reader can be put on.
-   *
-   * @param direction - UPWARD for the nearest curve above, DOWNWARD for the nearest below
-   * @returns The curve and point to move to, or null when no curve lies that way
-   */
-  protected override findVerticalTarget(
-    direction: 'UPWARD' | 'DOWNWARD',
-  ): { row: number; col: number } | null {
-    const x = Number(this.rocPoints[this.row]?.[this.col]?.x);
-    const y = this.lineValues[this.row]?.[this.col];
-    if (!Number.isFinite(x) || !isMeasured(y)) {
-      return null;
-    }
-
-    let best: { row: number; distance: number } | null = null;
-    for (let row = 0; row < this.rocPoints.length; row++) {
-      if (row === this.row) {
-        continue;
-      }
-      const span = this.rateSpanAt(row, x);
-      if (span === null) {
-        continue;
-      }
-      // Level with the cursor when the cursor's rate is inside the curve's
-      // range at this x; otherwise the gap to the nearer end.
-      const delta = y < span.lo ? span.lo - y : y > span.hi ? span.hi - y : 0;
-      const liesThatWay = direction === 'UPWARD'
-        ? delta > 0 || (delta === 0 && row < this.row)
-        : delta < 0 || (delta === 0 && row > this.row);
-      if (!liesThatWay) {
-        continue;
-      }
-      const distance = Math.abs(delta);
-      const closer = best === null
-        || distance < best.distance
-        || (distance === best.distance
-          && Math.abs(row - this.row) < Math.abs(best.row - this.row));
-      if (closer) {
-        best = { row, distance };
-      }
-    }
-
-    if (best === null) {
-      return null;
-    }
-    return { row: best.row, col: this.nearestColumn(best.row, x, y) };
-  }
-
-  /**
-   * The true positive rates a curve is drawn at for one false positive
-   * rate: a single interpolated rate between two points, or the range of a
-   * vertical run sampled at exactly that x.
-   *
-   * @param row - The curve
-   * @param x - The false positive rate
-   * @returns The lowest and highest rate, or null where the curve is not drawn
-   */
-  private rateSpanAt(row: number, x: number): { lo: number; hi: number } | null {
-    const curve = this.sortedCurves[row];
-    if (curve === undefined || curve.length === 0
-      || x < curve[0].x || x > curve[curve.length - 1].x) {
-      return null;
-    }
-
-    let lo = Number.POSITIVE_INFINITY;
-    let hi = Number.NEGATIVE_INFINITY;
-    for (let i = 0; i < curve.length; i++) {
-      const point = curve[i];
-      if (point.x === x) {
-        lo = Math.min(lo, point.y);
-        hi = Math.max(hi, point.y);
-        continue;
-      }
-      const next = curve[i + 1];
-      if (point.x < x && next !== undefined && next.x > x) {
-        const y = point.y + (next.y - point.y) * (x - point.x) / (next.x - point.x);
-        return { lo: y, hi: y };
-      }
-    }
-    return lo <= hi ? { lo, hi } : null;
-  }
-
-  /**
-   * The point of a curve nearest to a position: nearest in false positive
-   * rate, then in true positive rate, then the earlier point. A measured
-   * point over a gap, since a gap has no rate to compare.
-   *
-   * @param row - The curve
-   * @param x - The false positive rate to land near
-   * @param y - The true positive rate to land near
-   * @returns The column of the nearest point
-   */
-  private nearestColumn(row: number, x: number, y: number): number {
-    let bestCol = 0;
-    let bestDx = Number.POSITIVE_INFINITY;
-    let bestDy = Number.POSITIVE_INFINITY;
-    let bestMeasured = false;
-    for (const [col, point] of this.rocPoints[row].entries()) {
-      const px = Number(point?.x);
-      const py = this.lineValues[row][col];
-      const measured = Number.isFinite(px) && isMeasured(py);
-      if (bestMeasured && !measured) {
-        continue;
-      }
-      const dx = measured ? Math.abs(px - x) : Number.POSITIVE_INFINITY;
-      const dy = measured ? Math.abs(py - y) : Number.POSITIVE_INFINITY;
-      const closer = (measured && !bestMeasured)
-        || dx < bestDx
-        || (dx === bestDx && dy < bestDy);
-      if (closer) {
-        bestCol = col;
-        bestDx = dx;
-        bestDy = dy;
-        bestMeasured = measured;
-      }
-    }
-    return bestCol;
-  }
-
   protected override get text(): TextState {
     const base = super.text;
     const point = this.rocPoints[this.row]?.[this.col];
@@ -430,26 +191,6 @@ export class RocTrace extends LineTrace {
     }
 
     return asides.length > 0 ? { ...base, asides } : base;
-  }
-
-  protected override get groupFallbackLabel(): string {
-    // Announced beside the curve's own name on every move, so inheriting the
-    // line's "Group" puts two words for one referent in one sentence.
-    return t('model.nounCurve');
-  }
-
-  protected override get seriesLabels(): {
-    count: string;
-    perSeries: string;
-    names: string;
-    column: string;
-  } {
-    return {
-      count: t('model.statNumberOfCurves'),
-      perSeries: t('model.statOperatingPointsPerCurve'),
-      names: t('model.statCurveNames'),
-      column: t('model.nounCurve'),
-    };
   }
 
   public override get description(): DescriptionState {
@@ -519,35 +260,7 @@ export class RocTrace extends LineTrace {
       stats.push({ label: t('model.statBestOperatingPoint'), value: this.describeOperatingPoint(best) });
     }
 
-    // The threshold is what the table is read to look up -- "which cutoff
-    // gives me this rate" -- and the line's table has no column for it. Added
-    // only when some point carries one, so a curve of rates alone keeps the
-    // line's table.
-    const hasThreshold = this.rocPoints.some(curve =>
-      curve.some(point => RocTrace.thresholdOf(point) !== undefined));
-    if (!hasThreshold) {
-      return { ...base, stats };
-    }
-
-    const thresholdCell = (point: RocPoint): string | number =>
-      RocTrace.thresholdOf(point) ?? '';
-    const headers = isMultiCurve
-      ? [this.xAxis, this.yAxis, t('model.tableThreshold'), t('model.nounCurve')]
-      : [this.xAxis, this.yAxis, t('model.tableThreshold')];
-    const columnAxes: DescriptionState['dataTable']['columnAxes'] = isMultiCurve
-      ? ['x', 'y', undefined, 'z']
-      : ['x', 'y', undefined];
-    const allRows = this.rocPoints.flatMap((curve, row) => {
-      const name = this.groupNameAt(row);
-      return curve.map(point => isMultiCurve
-        ? [point.x, point.y ?? '', thresholdCell(point), name]
-        : [point.x, point.y ?? '', thresholdCell(point)]);
-    });
-    // The same cap the line applies, whose "first N of M" stat the base
-    // description already pushed for the same row count.
-    const rows = allRows.slice(0, base.dataTable.rows.length);
-
-    return { ...base, stats, dataTable: { headers, columnAxes, rows } };
+    return this.withThresholdTable(base, stats);
   }
 
   /**

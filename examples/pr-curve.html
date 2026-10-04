@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Precision-Recall Curve Example — Two Classifiers</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A precision-recall curve is a classifier's precision against its
+        recall, one point per decision threshold, listed here as
+        precision_recall_curve returns them: from a recall of 1 down to 0.
+        It is read against a horizontal baseline, drawn dashed, at the share
+        of positives in the data (30% here): a classifier that guesses keeps
+        that precision at every recall. Read as a precision-recall curve the
+        pitch is the precision itself, the pan is the recall, every point
+        says its threshold and how far it sits above the baseline, and the
+        description gives each curve's average precision against the
+        baseline and the point with the best F1.
+
+        Logistic regression declares no average precision, so it is measured
+        from the points (0.760 by the step sum average_precision_score
+        computes); random forest carries the one its producer computed.
+        Alt+Shift+M reaches the best F1, which for logistic regression is
+        the threshold of 0.4.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="480pt" viewBox="0 0 720 480" version="1.1"
+        id="pr-classifiers" maidr='{&#10;  &quot;id&quot;: &quot;pr-classifiers&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;pr-classifiers-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;pr-classifiers-layer&quot;,&#10;            &quot;type&quot;: &quot;pr_curve&quot;,&#10;            &quot;title&quot;: &quot;Precision-Recall Curves of Two Classifiers&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Recall&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Precision&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;g[id=&#x27;pr-curves&#x27;] &gt; polyline:nth-of-type(1)&quot;,&#10;              &quot;g[id=&#x27;pr-curves&#x27;] &gt; polyline:nth-of-type(2)&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: 1,&#10;                  &quot;y&quot;: 0.3,&#10;                  &quot;threshold&quot;: 0.05,&#10;                  &quot;z&quot;: &quot;Logistic regression&quot;,&#10;                  &quot;prevalence&quot;: 0.3&#10;                },&#10;                {&#10;                  &quot;x&quot;: 0.9,&#10;                  &quot;y&quot;: 0.5,&#10;                  &quot;threshold&quot;: 0.2,&#10;                  &quot;z&quot;: &quot;Logistic regression&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 0.8,&#10;                  &quot;y&quot;: 0.7,&#10;                  &quot;threshold&quot;: 0.4,&#10;                  &quot;z&quot;: &quot;Logistic regression&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 0.6,&#10;                  &quot;y&quot;: 0.85,&#10;                  &quot;threshold&quot;: 0.6,&#10;                  &quot;z&quot;: &quot;Logistic regression&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 0.3,&#10;                  &quot;y&quot;: 0.95,&#10;                  &quot;threshold&quot;: 0.8,&#10;                  &quot;z&quot;: &quot;Logistic regression&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 0,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;z&quot;: &quot;Logistic regression&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: 1,&#10;                  &quot;y&quot;: 0.3,&#10;                  &quot;threshold&quot;: 0.1,&#10;                  &quot;z&quot;: &quot;Random forest&quot;,&#10;                  &quot;prevalence&quot;: 0.3,&#10;                  &quot;ap&quot;: 0.532&#10;                },&#10;                {&#10;                  &quot;x&quot;: 0.8,&#10;                  &quot;y&quot;: 0.4,&#10;                  &quot;threshold&quot;: 0.3,&#10;                  &quot;z&quot;: &quot;Random forest&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 0.6,&#10;                  &quot;y&quot;: 0.56,&#10;                  &quot;threshold&quot;: 0.5,&#10;                  &quot;z&quot;: &quot;Random forest&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 0.35,&#10;                  &quot;y&quot;: 0.72,&#10;                  &quot;threshold&quot;: 0.7,&#10;                  &quot;z&quot;: &quot;Random forest&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: 0,&#10;                  &quot;y&quot;: 1,&#10;                  &quot;z&quot;: &quot;Random forest&quot;&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 480  L 720 480  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="baseline">
+              <line x1="100" y1="312" x2="660" y2="312" style="stroke: #888888; stroke-width: 1; stroke-dasharray: 6 4" />
+            </g>
+            <g id="pr-curves">
+              <polyline points="660,312 604,240 548,168 436,114 268,78 100,60" fill="none" style="stroke: #4c72b0; stroke-width: 3" />
+              <polyline points="660,312 548,276 436,218.4 296,160.8 100,60" fill="none" style="stroke: #dd8452; stroke-width: 3" />
+            </g>
+            <g id="axis_x">
+              <line x1="100" x2="660" y1="420" y2="420" style="stroke: #000000; stroke-width: 1" />
+              <text x="100" y="440" style="font: 12px sans-serif; text-anchor: middle">0</text>
+              <text x="240" y="440" style="font: 12px sans-serif; text-anchor: middle">0.25</text>
+              <text x="380" y="440" style="font: 12px sans-serif; text-anchor: middle">0.5</text>
+              <text x="520" y="440" style="font: 12px sans-serif; text-anchor: middle">0.75</text>
+              <text x="660" y="440" style="font: 12px sans-serif; text-anchor: middle">1</text>
+              <text x="380" y="465" style="font: 13px sans-serif; text-anchor: middle">Recall</text>
+            </g>
+            <g id="axis_y">
+              <line x1="100" x2="100" y1="60" y2="420" style="stroke: #000000; stroke-width: 1" />
+              <text x="90" y="424" style="font: 12px sans-serif; text-anchor: end">0</text>
+              <text x="90" y="334" style="font: 12px sans-serif; text-anchor: end">0.25</text>
+              <text x="90" y="244" style="font: 12px sans-serif; text-anchor: end">0.5</text>
+              <text x="90" y="154" style="font: 12px sans-serif; text-anchor: end">0.75</text>
+              <text x="90" y="64" style="font: 12px sans-serif; text-anchor: end">1</text>
+              <text x="30" y="240" transform="rotate(-90 30 240)" style="font: 13px sans-serif; text-anchor: middle">Precision</text>
+            </g>
+            <g id="legend">
+              <line x1="130" y1="360" x2="160" y2="360" style="stroke: #4c72b0; stroke-width: 3" />
+              <text x="168" y="364" style="font: 12px sans-serif">Logistic regression</text>
+              <line x1="130" y1="380" x2="160" y2="380" style="stroke: #dd8452; stroke-width: 3" />
+              <text x="168" y="384" style="font: 12px sans-serif">Random forest</text>
+              <line x1="130" y1="400" x2="160" y2="400" style="stroke: #888888; stroke-width: 1; stroke-dasharray: 6 4" />
+              <text x="168" y="404" style="font: 12px sans-serif">Baseline (prevalence 0.3)</text>
+            </g>
+            <g id="chart-title">
+              <text x="380" y="35" style="font: 16px sans-serif; text-anchor: middle">Precision-Recall Curves of Two Classifiers</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
