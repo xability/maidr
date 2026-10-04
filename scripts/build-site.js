@@ -622,6 +622,20 @@ if (fs.existsSync(examplesSource)) {
   });
 }
 
+// Copy the Office add-in MAIDR publishes to _site/addin/: the manifest, its
+// task pane and commands pages, and its icons. Every URL in addin/manifest.xml
+// is under the production site's /addin/, so this is where Office loads them
+// from, and the task pane loads MAIDR from the dist/ copied above. The README
+// is for the repository, not the site.
+console.log('Copying the Office add-in...');
+const addinSource = path.join(ROOT, 'addin');
+if (fs.existsSync(addinSource)) {
+  fs.cpSync(addinSource, path.join(SITE_DIR, 'addin'), {
+    recursive: true,
+    filter: source => path.basename(source) !== 'README.md',
+  });
+}
+
 // Copy built Recharts example (single-file HTML) to _site/examples/recharts/
 console.log('Copying built Recharts example...');
 const rechartsBuilt = path.join(ROOT, 'examples', 'recharts', 'dist', 'index.html');
