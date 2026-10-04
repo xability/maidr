@@ -368,6 +368,19 @@ addCase('network of several components', {
   data: [{ source: 'Ada', target: 'Grace' }, { source: 'Alan', target: 'Edsger' }],
 });
 
+addCase('directed graph', {
+  id: 'directed-graph',
+  type: TraceType.DIRECTED_GRAPH,
+  axes: { x: { label: 'Layer' } },
+  // A scope and an attribute, which are what add the nested rows and the
+  // attribute column to the table.
+  data: [
+    { id: 'input', attributes: { 'Layer type': 'InputLayer' } },
+    { id: 'block/conv', label: 'conv', path: ['block'], inputs: ['input'] },
+    { id: 'dense', inputs: ['block/conv', 'input'] },
+  ],
+});
+
 addCase('mosaic carrying counts', {
   id: 'mosaic',
   type: TraceType.MOSAIC,

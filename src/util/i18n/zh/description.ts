@@ -159,6 +159,9 @@ export const description = {
   'guide.network.definition': '网络图把事物画成点，把它们之间的联系画成线。',
   'guide.network.purpose': '它用来展示关系，比如人和人之间的朋友关系，或网页之间的链接，也用来找出联系最多的事物。',
   'guide.network.appearance': '页面上散布着一个个小圆圈，叫作节点。线条把两两节点连起来，这些线叫作连线。联系多的事物往往在中间，许多线从它们身上向外伸出。',
+  'guide.directed_graph.definition': '有向图用方框表示各个步骤，并用箭头从每个步骤指向使用其结果的步骤。',
+  'guide.directed_graph.purpose': '它用于展示某个结果是如何计算出来的，例如神经网络的各层，让读者能从输入一路跟随数据到输出，并看出数据在哪里分支、在哪里汇合。',
+  'guide.directed_graph.appearance': '称为节点的方框从一端的输入排列到另一端的输出，由箭头相连。相关的节点常被画在一个可以展开或折叠的大方框里。',
 
   'guide.stacked_normalized_bar.definition': '百分比堆叠条形图让每个类别的长条总长度都一样，再把长条按百分比分成几段。',
   'guide.stacked_normalized_bar.purpose': '它用来比较不同类别的比例，比如几个国家里各年龄段人口所占的比例。',

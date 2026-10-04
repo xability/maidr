@@ -46,6 +46,9 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // A force layout has no axes at all, and where a node lands carries no
   // meaning to swap.
   [TraceType.NETWORK]: false,
+  // Data flows input to output whichever way the layers are stacked on the
+  // page; the walk is topological, not along an axis.
+  [TraceType.DIRECTED_GRAPH]: false,
   [TraceType.CANDLESTICK]: true,
   // Built at runtime from a candlestick and a reference line, never declared
   // in the JSON; it is navigated by field and candle, not by an orientation.

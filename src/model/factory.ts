@@ -10,6 +10,7 @@ import { BumpTrace } from './bump';
 import { Candlestick } from './candlestick';
 import { ChoroplethTrace } from './choropleth';
 import { ContourTrace } from './contour';
+import { DirectedGraphTrace } from './directedGraph';
 import { DivergingTrace } from './diverging';
 import { DumbbellTrace } from './dumbbell';
 import { ErrorBarTrace } from './errorBar';
@@ -192,6 +193,9 @@ export abstract class TraceFactory {
 
       case TraceType.NETWORK:
         return new NetworkTrace(layer);
+
+      case TraceType.DIRECTED_GRAPH:
+        return new DirectedGraphTrace(layer);
 
       case TraceType.MOSAIC:
         return new MosaicTrace(layer);
