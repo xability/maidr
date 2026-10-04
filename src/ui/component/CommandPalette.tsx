@@ -109,7 +109,7 @@ const CommandPalette: React.FC = () => {
       }}
     >
       <Box component="h2" id="command-palette-title" sx={{ p: 2, m: 0 }}>
-        <Box component="span" sx={{ fontSize: '1.25rem', fontWeight: 600 }}>
+        <Box component="span" sx={{ fontSize: theme => theme.typography.pxToRem(20), fontWeight: 600 }}>
           {t('keybinding.commandPaletteTitle')}
         </Box>
       </Box>

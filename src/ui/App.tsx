@@ -2,8 +2,11 @@ import type { MaidrContextValue } from '@state/context';
 import type { AppStore } from '@state/store';
 import type { Focus } from '@type/event';
 import type { FC, JSX } from 'react';
+import { createTheme, ThemeProvider } from '@mui/material';
 import { MaidrContext } from '@state/context';
 import { useViewModelState } from '@state/hook/useViewModel';
+import { readHtmlFontSize, watchRootFontSize } from '@util/htmlFontSize';
+import { useMemo, useSyncExternalStore } from 'react';
 import { Provider } from 'react-redux';
 import Braille from './component/Braille';
 import CandlestickDeltaSettings from './component/CandlestickDeltaSettings';
@@ -23,6 +26,16 @@ interface AppProps {
 
 const App: FC<AppProps> = ({ plot }) => {
   const { focus, tooltip } = useViewModelState('display');
+
+  // MUI sizes this UI's text in rem and assumes a 16px root. Telling it how
+  // the page's root compares with the reader's default size keeps a host
+  // that shrinks its root -- Bootstrap 3 sets 10px -- from shrinking every
+  // dialog with it (see `readHtmlFontSize`). Read on every render, so a
+  // dialog is sized for the page as it is when it opens rather than as it was
+  // when the chart was activated, and again when a resize moves the root
+  // under a dialog that is already open (see `watchRootFontSize`).
+  const htmlFontSize = useSyncExternalStore(watchRootFontSize, readHtmlFontSize, readHtmlFontSize);
+  const theme = useMemo(() => createTheme({ typography: { htmlFontSize } }), [htmlFontSize]);
 
   const renderFocusedComponent = (focused: Focus | null): JSX.Element | null => {
     switch (focused) {
@@ -59,11 +72,11 @@ const App: FC<AppProps> = ({ plot }) => {
   };
 
   return (
-    <>
+    <ThemeProvider theme={theme}>
       {tooltip.visible && <Tooltip plot={plot} />}
       <Text />
       {renderFocusedComponent(focus)}
-    </>
+    </ThemeProvider>
   );
 };
 

@@ -227,7 +227,7 @@ const LayerTabs: React.FC<LayerTabsProps> = ({
               borderColor: layer.index === activeIndex ? 'primary.main' : 'divider',
               bgcolor: layer.index === activeIndex ? 'action.selected' : 'transparent',
               fontWeight: layer.index === activeIndex ? 'bold' : 'normal',
-              fontSize: '0.875rem',
+              fontSize: theme => theme.typography.pxToRem(14),
             }}
           >
             {/* Not run through `formatCell`: the model guarantees a non-blank
