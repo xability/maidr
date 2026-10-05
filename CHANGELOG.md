@@ -1,3 +1,23 @@
+# [4.14.0](https://github.com/xability/maidr/compare/v4.13.0...v4.14.0) (2026-10-05)
+
+
+### Bug Fixes
+
+* **addin:** say what the task pane waits for, and why nothing came outside office ([#1355](https://github.com/xability/maidr/issues/1355)) ([3cdf2e6](https://github.com/xability/maidr/commit/3cdf2e669c145956c76c4c1658b9fc2c0acf5f46))
+* **plotly:** keep the focus ring on charts that are not plotly ([#1359](https://github.com/xability/maidr/issues/1359)) ([4830dfa](https://github.com/xability/maidr/commit/4830dfa7ab7a911422213e395e4d249660326c03))
+* **ui:** stop a host page's smaller root font size from shrinking dialog text ([#1360](https://github.com/xability/maidr/issues/1360)) ([97cce4c](https://github.com/xability/maidr/commit/97cce4c9166e0deb96e50f7c6a52be05b5becf91))
+
+
+### Features
+
+* **addin:** publish maidr accessible charts, an office add-in for excel, powerpoint and word ([#1352](https://github.com/xability/maidr/issues/1352)) ([9efe786](https://github.com/xability/maidr/commit/9efe7866d214aca75d7ddee3a385526d3c84c0a1))
+* **band:** read a percentile band as nested quantiles around its median ([#1356](https://github.com/xability/maidr/issues/1356)) ([6f0e109](https://github.com/xability/maidr/commit/6f0e1095f4e6b69187ad551b48640375940b8843)), closes [#1348](https://github.com/xability/maidr/issues/1348)
+* **excel:** read a workbook's native charts in an excel add-in task pane ([#1350](https://github.com/xability/maidr/issues/1350)) ([1566541](https://github.com/xability/maidr/commit/15665416457cce0676b8e8dbdafafbeb2d7c0b33))
+* **format:** group large numbers with thousands separators by default ([#1346](https://github.com/xability/maidr/issues/1346)) ([ba44968](https://github.com/xability/maidr/commit/ba44968e316bea24deeb0b0fded674968849f86b))
+* **graph:** read a directed graph along its edges, scope by scope ([#1357](https://github.com/xability/maidr/issues/1357)) ([3a77562](https://github.com/xability/maidr/commit/3a77562e0c3bb004fe3410fff43a6091cfe4c7e0)), closes [#1347](https://github.com/xability/maidr/issues/1347)
+* **office:** read the charts of powerpoint presentations and word documents in an add-in task pane ([#1351](https://github.com/xability/maidr/issues/1351)) ([1bdc309](https://github.com/xability/maidr/commit/1bdc3092801974ddea04e41018b8bd8307e6e80f))
+* **pr:** read a precision-recall curve against its prevalence baseline ([#1353](https://github.com/xability/maidr/issues/1353)) ([f806f7d](https://github.com/xability/maidr/commit/f806f7d33d1bd8e42fc979d251e2ce6b1082998d)), closes [#1349](https://github.com/xability/maidr/issues/1349)
+
 # [4.13.0](https://github.com/xability/maidr/compare/v4.12.0...v4.13.0) (2026-10-02)
 
 
