@@ -2,7 +2,7 @@ import type { DotPadGeometry, DotPadKey, DotPadState, DotPadTransport } from '@t
 import type { Event } from '@type/event';
 import type { Hid, HidConnectionEvent, HidDevice, HidInputReportEvent } from '@type/hid';
 import type { TactileDisplayDriver } from '@type/tactileDisplay';
-import type { HidBrailleLayout } from '@util/tactile/hidBraille';
+import type { HidBitField, HidBrailleLayout, HidKey } from '@util/tactile/hidBraille';
 import type { SpacedCellLayout } from '@util/tactile/spacedCells';
 import { Emitter } from '@type/event';
 import { allowsDeviceFeature } from '@util/deviceFeature';
@@ -40,6 +40,57 @@ const MIN_LINES = 6;
 const MAX_LINES = 10;
 
 /**
+ * The Monarch's array of pins, one bit each, which it offers beside its cells.
+ *
+ * Not part of the HID braille standard, whose usages stop at cells: the
+ * Monarch declares it under a usage of its own on the braille page, in an
+ * output report of its own (0x21). Each byte is a block of 2 by 4 pins, its
+ * dots numbered as a braille cell's are, and the blocks run 48 across by 10
+ * down in reading order. Found, and confirmed on a Monarch in Braille
+ * Terminal, by the BrlMultiline add-on for NVDA, whose Monarch driver draws
+ * through it.
+ */
+const PIN_ARRAY_USAGE = 0x41_0301;
+
+/**
+ * The pin array read as cells with no space between them, one 2 by 4 block to
+ * a byte.
+ */
+const PIN_BLOCKS: SpacedCellLayout = {
+  columns: PIN_COLUMNS / DotPack.PINS_PER_CELL_X,
+  lines: PIN_ROWS / DotPack.PINS_PER_CELL_Y,
+  dotRows: 4,
+  pitchX: DotPack.PINS_PER_CELL_X,
+  pitchY: DotPack.PINS_PER_CELL_Y,
+};
+
+/**
+ * The text line when MAIDR draws every pin: Braille Terminal's own spacing,
+ * 32 cells three pins apart, on the last of ten four-pin lines -- the bottom
+ * four rows, with a blank row between it and the picture.
+ */
+const TEXT_LINE: SpacedCellLayout = {
+  columns: CELLS_PER_LINE,
+  lines: PIN_ROWS / DotPack.PINS_PER_CELL_Y,
+  dotRows: 4,
+  pitchX: PIN_COLUMNS / CELLS_PER_LINE,
+  pitchY: DotPack.PINS_PER_CELL_Y,
+};
+
+/**
+ * Pins down the picture when MAIDR draws every pin: all but the text line and
+ * the blank row above it.
+ */
+const PIN_PICTURE_ROWS = PIN_ROWS - TEXT_LINE.dotRows - 1;
+
+/**
+ * The Monarch's zoom keys, the plus and minus beside its keyboard. Usages of
+ * its own, just past the last one the braille page defines.
+ */
+const ZOOM_IN_USAGE = 0x41_0220;
+const ZOOM_OUT_USAGE = 0x41_0221;
+
+/**
  * The browser's device picker lists braille displays only: devices with a
  * collection on the HID Braille Display usage page.
  */
@@ -59,13 +110,14 @@ const HANDOFF_CHANNEL = 'maidr-tactile-display-monarch';
 const CLOSE_FLUSH_TIMEOUT_MS = 2000;
 
 /**
- * The Monarch's keys, as the HID braille standard names them, given the jobs
- * a DotPad's keys do.
+ * HID braille keys, given the jobs a DotPad's keys do.
  *
- * The D-pads beside the display pan the picture, which is what they do in the
- * Monarch's own Tactile Viewer. The panning keys -- which move a braille reader
- * on to the next lines -- move along the text line instead. A joystick and a
- * rocker are the same controls on other HID braille displays.
+ * A D-pad or a joystick pans the picture, which is what the Monarch's D-pads
+ * do in its own Tactile Viewer. Panning keys and a rocker -- what most braille
+ * displays move a reader on through text with -- move along the text line. The
+ * Monarch has neither of those, so its right D-pad and its Space chords do
+ * that instead (see {@link RIGHT_PAD_KEYS} and {@link CHORD_KEYS}). Its zoom
+ * keys zoom.
  */
 const KEYS: ReadonlyMap<number, DotPadKey> = new Map<number, DotPadKey>([
   [BrailleUsage.dPadLeft, 'panLeft'],
@@ -80,6 +132,49 @@ const KEYS: ReadonlyMap<number, DotPadKey> = new Map<number, DotPadKey>([
   [BrailleUsage.rockerUp, 'function1'],
   [BrailleUsage.panRight, 'function4'],
   [BrailleUsage.rockerDown, 'function4'],
+  [ZOOM_IN_USAGE, 'zoomIn'],
+  [ZOOM_OUT_USAGE, 'zoomOut'],
+]);
+
+/**
+ * The right-hand D-pad's jobs on a display with a D-pad on each side, as the
+ * Monarch has: it moves along the text line, back with left or up and on with
+ * right or down, and leaves the left-hand one to pan the picture. Each hand
+ * then has one of the two things a reader scrolls.
+ */
+const RIGHT_PAD_KEYS: ReadonlyMap<number, DotPadKey> = new Map<number, DotPadKey>([
+  [BrailleUsage.dPadLeft, 'function1'],
+  [BrailleUsage.dPadUp, 'function1'],
+  [BrailleUsage.dPadRight, 'function4'],
+  [BrailleUsage.dPadDown, 'function4'],
+]);
+
+/**
+ * Chords of Space with one dot, by the dot: the two a Monarch reader moves
+ * back and on through lines of text with, dot 1 back and dot 4 on.
+ */
+const CHORD_KEYS: ReadonlyMap<number, DotPadKey> = new Map<number, DotPadKey>([
+  [BrailleUsage.keyboardDot1, 'function1'],
+  [BrailleUsage.keyboardDot4, 'function4'],
+]);
+
+/**
+ * The braille keyboard's spaces: one in the middle, or one under each thumb.
+ */
+const SPACES: ReadonlySet<number> = new Set([
+  BrailleUsage.keyboardSpace,
+  BrailleUsage.keyboardLeftSpace,
+  BrailleUsage.keyboardRightSpace,
+]);
+
+/**
+ * The D-pad's directions, by which a D-pad is told from other keys.
+ */
+const D_PAD: ReadonlySet<number> = new Set([
+  BrailleUsage.dPadUp,
+  BrailleUsage.dPadDown,
+  BrailleUsage.dPadLeft,
+  BrailleUsage.dPadRight,
 ]);
 
 /**
@@ -88,6 +183,12 @@ const KEYS: ReadonlyMap<number, DotPadKey> = new Map<number, DotPadKey>([
 interface MonarchShape {
   readonly layout: HidBrailleLayout;
   readonly cells: SpacedCellLayout;
+
+  /**
+   * Where the device takes its pins one by one, or null when it takes cells
+   * only.
+   */
+  readonly pinArray: HidBitField | null;
 }
 
 /**
@@ -101,11 +202,17 @@ interface MonarchConnection {
   readonly device: HidDevice;
   readonly layout: HidBrailleLayout;
   readonly cells: SpacedCellLayout;
+  readonly pinArray: HidBitField | null;
 
   /**
    * The picture, one entry per pin, as the tactile service last drew it.
    */
   readonly pins: DotRaster;
+
+  /**
+   * Pins down the picture; the rest of the display is the text line.
+   */
+  readonly pictureRows: number;
 
   /**
    * The text line, bit 0 being dot 1.
@@ -119,9 +226,21 @@ interface MonarchConnection {
   readonly sent: Map<number, Uint8Array>;
 
   /**
-   * The keys each input report last said were down.
+   * The keys each input report last said were down, by `keyId`.
    */
-  readonly pressed: Map<number, Set<number>>;
+  readonly pressed: Map<number, Map<string, HidKey>>;
+
+  /**
+   * True when the device has a D-pad on each side, so the right one can be
+   * given the text line.
+   */
+  readonly padsOnBothSides: boolean;
+
+  /**
+   * The braille keyboard keys pressed since the keyboard was last let go of
+   * entirely: the chord being typed.
+   */
+  readonly chord: Set<number>;
 
   readonly onInputReport: (event: HidInputReportEvent) => void;
 
@@ -142,13 +261,16 @@ interface MonarchConnection {
  * The Monarch has no SDK a page can load. What it offers a computer is Braille
  * Terminal, in which it acts as a braille display speaking the USB HID braille
  * standard -- over a cable or paired over Bluetooth -- and WebHID reaches that
- * in Chromium. So MAIDR draws on it the way a screen reader writes to it:
- * cells, line by line.
+ * in Chromium.
  *
- * Braille Terminal lays its cells out for reading, three pins apart with the
- * third always down, so the picture is drawn on the Monarch's own 96 by 40 pins
- * and folded onto the cells (see {@link SpacedCells}). The bottom line carries
- * the description of the focused point, as a DotPad's braille line does.
+ * Beside its cells, Braille Terminal takes the Monarch's 96 by 40 pins one by
+ * one (see `PIN_ARRAY_USAGE`), and MAIDR draws through that: the picture
+ * on every pin above, the description of the focused point on the bottom
+ * line, as a DotPad's braille line carries it. A firmware without the pin
+ * array is written cell by cell instead. Its cells are laid out for reading,
+ * three pins apart with the third always down, so the picture is still drawn
+ * on the 96 by 40 pins and then folded onto the cells (see
+ * {@link SpacedCells}).
  *
  * A module-level singleton for the reason the DotPad's session is one: the
  * connection has to outlive every chart's controller, since opening a device
@@ -254,6 +376,14 @@ class MonarchSession implements TactileDisplayDriver {
    */
   public get canTranslate(): boolean {
     return false;
+  }
+
+  /**
+   * True: the text line breaks between words, so a number or a name is not
+   * read in two halves, one either side of a scroll.
+   */
+  public get breaksTextAtWords(): boolean {
+    return true;
   }
 
   /**
@@ -412,9 +542,9 @@ class MonarchSession implements TactileDisplayDriver {
       await device.open();
     }
 
-    const { layout, cells } = shape;
+    const { layout, cells, pinArray } = shape;
     this.watchDisconnects();
-    const height = MonarchSession.graphicHeight(cells);
+    const height = MonarchSession.graphicHeight(shape);
     const geometry: DotPadGeometry = {
       cellColumns: Math.ceil(PIN_COLUMNS / DotPack.PINS_PER_CELL_X),
       cellRows: Math.ceil(height / DotPack.PINS_PER_CELL_Y),
@@ -426,13 +556,17 @@ class MonarchSession implements TactileDisplayDriver {
       device,
       layout,
       cells,
+      pinArray,
       pins: new DotRaster(
         geometry.cellColumns * DotPack.PINS_PER_CELL_X,
         geometry.cellRows * DotPack.PINS_PER_CELL_Y,
       ),
+      pictureRows: height,
       text: new Uint8Array(CELLS_PER_LINE),
       sent: new Map(),
       pressed: new Map(),
+      padsOnBothSides: MonarchSession.hasPadsOnBothSides(layout),
+      chord: new Set(),
       onInputReport: event => this.handleInputReport(connection, event),
       dirty: false,
       flushing: null,
@@ -545,7 +679,7 @@ class MonarchSession implements TactileDisplayDriver {
   }
 
   /**
-   * Sends every report whose cells changed, until nothing drawn is left
+   * Sends every report whose pins changed, until nothing drawn is left
    * unsent.
    *
    * Clears `flushing` itself, synchronously as it finishes: a write made in
@@ -559,7 +693,7 @@ class MonarchSession implements TactileDisplayDriver {
       await Promise.resolve();
       while (connection.dirty) {
         connection.dirty = false;
-        const reports = HidBraille.outputReports(connection.layout, MonarchSession.cellsOf(connection));
+        const reports = MonarchSession.reportsOf(connection);
         for (const [reportId, data] of reports) {
           if (MonarchSession.same(connection.sent.get(reportId), data)) {
             continue;
@@ -610,9 +744,13 @@ class MonarchSession implements TactileDisplayDriver {
   }
 
   /**
-   * Fires the keys an input report says have just gone down.
+   * Fires the keys an input report says have just gone down, and a chord once
+   * the braille keyboard is let go of.
    *
-   * Key-down rather than key-up, so a pan answers as the key is pressed.
+   * A key fires as it goes down rather than up, so a pan answers as the key is
+   * pressed. A chord cannot: it is only known once every key of it is down,
+   * and only certain once they are all up again, which is when braille input
+   * is read everywhere else too.
    *
    * @param connection - The connection the report came on
    * @param event - The report
@@ -621,13 +759,33 @@ class MonarchSession implements TactileDisplayDriver {
     if (this.connection !== connection) {
       return;
     }
-    const down = HidBraille.pressed(connection.layout, event.reportId, event.data);
-    const before = connection.pressed.get(event.reportId) ?? new Set<number>();
+    const down = new Map<string, HidKey>();
+    for (const key of HidBraille.pressed(connection.layout, event.reportId, event.data)) {
+      down.set(MonarchSession.keyId(key), key);
+    }
+    const before = connection.pressed.get(event.reportId) ?? new Map<string, HidKey>();
     connection.pressed.set(event.reportId, down);
-    for (const usage of down) {
-      const key = KEYS.get(usage);
-      if (key !== undefined && !before.has(usage)) {
-        this.onKeyEmitter.fire(key);
+    for (const [id, key] of down) {
+      if (before.has(id)) {
+        continue;
+      }
+      if (MonarchSession.isKeyboardKey(key.usage)) {
+        connection.chord.add(key.usage);
+        continue;
+      }
+      const job = MonarchSession.jobOf(connection, key);
+      if (job !== undefined) {
+        this.onKeyEmitter.fire(job);
+      }
+    }
+
+    const keyboardHeld = Array.from(connection.pressed.values())
+      .some(keys => Array.from(keys.values()).some(key => MonarchSession.isKeyboardKey(key.usage)));
+    if (connection.chord.size > 0 && !keyboardHeld) {
+      const job = MonarchSession.chordJob(connection.chord);
+      connection.chord.clear();
+      if (job !== undefined) {
+        this.onKeyEmitter.fire(job);
       }
     }
   }
@@ -692,6 +850,9 @@ class MonarchSession implements TactileDisplayDriver {
     if (lines < MIN_LINES || lines > MAX_LINES || pitchY < dotRows) {
       return null;
     }
+    // Taken only at the Monarch's own size: a run of single bits of another
+    // size is some other device's, and not to be sent a picture of 96 by 40.
+    const pinArray = HidBraille.outputBits(device.collections, PIN_ARRAY_USAGE);
     return {
       layout,
       cells: {
@@ -701,15 +862,113 @@ class MonarchSession implements TactileDisplayDriver {
         pitchX: PIN_COLUMNS / CELLS_PER_LINE,
         pitchY,
       },
+      pinArray: pinArray?.count === PIN_COLUMNS * PIN_ROWS ? pinArray : null,
     };
   }
 
   /**
-   * Pins down the picture: every line but the last, which is the text line.
-   * @param cells - How the cells sit on the pins
+   * Pins down the picture: every pin above the text line and the blank row
+   * over it or, written cell by cell, every line but the last.
+   * @param shape - How the device is laid out
    */
-  private static graphicHeight(cells: SpacedCellLayout): number {
-    return (cells.lines - 1) * cells.pitchY;
+  private static graphicHeight(shape: MonarchShape): number {
+    return shape.pinArray === null
+      ? (shape.cells.lines - 1) * shape.cells.pitchY
+      : PIN_PICTURE_ROWS;
+  }
+
+  /**
+   * The reports that put what has been drawn on the display: the pin array
+   * where the device has one, its cells where it does not.
+   * @param connection - The connection
+   * @returns The data of each report, without its ID, by report ID
+   */
+  private static reportsOf(connection: MonarchConnection): Map<number, Uint8Array> {
+    if (connection.pinArray === null) {
+      return HidBraille.outputReports(connection.layout, MonarchSession.cellsOf(connection));
+    }
+    const pins = MonarchSession.pinsOf(connection);
+    return new Map([[connection.pinArray.reportId, HidBraille.bitReport(connection.pinArray, pins)]]);
+  }
+
+  /**
+   * Every pin on the display, packed as the pin array takes them: the picture
+   * as it was drawn, and the text line below it.
+   *
+   * The pin array is a block of 2 by 4 pins to a byte, numbered as the dots of
+   * a braille cell, so reading the display as cells with no space between
+   * them packs it.
+   *
+   * @param connection - The connection
+   */
+  private static pinsOf(connection: MonarchConnection): Uint8Array {
+    const surface = new DotRaster(PIN_COLUMNS, PIN_ROWS);
+    for (let y = 0; y < connection.pictureRows; y++) {
+      for (let x = 0; x < PIN_COLUMNS; x++) {
+        if (connection.pins.get(x, y)) {
+          surface.set(x, y);
+        }
+      }
+    }
+    SpacedCells.draw(surface, TEXT_LINE, connection.text, TEXT_LINE.lines - 1);
+    return SpacedCells.fold(surface, PIN_BLOCKS, PIN_BLOCKS.lines);
+  }
+
+  /**
+   * What a key does, if anything.
+   * @param connection - The connection it was pressed on
+   * @param key - The key
+   */
+  private static jobOf(connection: MonarchConnection, key: HidKey): DotPadKey | undefined {
+    if (connection.padsOnBothSides && key.side === 'right') {
+      const job = RIGHT_PAD_KEYS.get(key.usage);
+      if (job !== undefined) {
+        return job;
+      }
+    }
+    return KEYS.get(key.usage);
+  }
+
+  /**
+   * What a chord does: Space with one dot, if that dot does anything.
+   * @param chord - The keyboard keys pressed together
+   */
+  private static chordJob(chord: ReadonlySet<number>): DotPadKey | undefined {
+    const dots = Array.from(chord).filter(usage => !SPACES.has(usage));
+    if (dots.length !== 1 || dots.length === chord.size) {
+      return undefined;
+    }
+    return CHORD_KEYS.get(dots[0]);
+  }
+
+  /**
+   * Whether a usage is a key of the braille keyboard: a dot or a space.
+   * @param usage - The usage
+   */
+  private static isKeyboardKey(usage: number): boolean {
+    return usage >= BrailleUsage.keyboardDot1 && usage <= BrailleUsage.keyboardRightSpace;
+  }
+
+  /**
+   * Whether a device has a D-pad on its left and another on its right.
+   *
+   * Only then is either given anything but the picture: a display with one
+   * D-pad, on whichever side, keeps it for panning.
+   *
+   * @param layout - Where the device keeps its keys
+   */
+  private static hasPadsOnBothSides(layout: HidBrailleLayout): boolean {
+    const sides = new Set(layout.buttonBits.filter(bit => D_PAD.has(bit.usage)).map(bit => bit.side));
+    return sides.has('left') && sides.has('right');
+  }
+
+  /**
+   * A key's identity: its usage and its side, since two keys can share a
+   * usage.
+   * @param key - The key
+   */
+  private static keyId(key: HidKey): string {
+    return `${key.side ?? ''}:${key.usage}`;
   }
 
   /**

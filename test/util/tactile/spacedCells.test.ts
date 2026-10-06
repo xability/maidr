@@ -108,4 +108,48 @@ describe('SpacedCells', () => {
     expect(cells).toHaveLength(7 * 32);
     expect(cells.every(cell => cell === 0)).toBe(true);
   });
+
+  it('should read cells with no space between them as plain blocks of pins', () => {
+    // A pitch of two by four leaves no gap pins to fold, which is how the
+    // Monarch's pin array packs its pins.
+    const blocks: SpacedCellLayout = { columns: 48, lines: 10, dotRows: 4, pitchX: 2, pitchY: 4 };
+
+    const cells = SpacedCells.fold(picture([[2, 0], [3, 3], [95, 39]]), blocks, 10);
+
+    expect(cells[1]).toBe(0x01 | 0x80);
+    expect(cells[10 * 48 - 1]).toBe(0x80);
+    expect(cells.filter(cell => cell !== 0)).toHaveLength(2);
+  });
+
+  describe('draw', () => {
+    it('should put each dot of a cell on the pin it sits on', () => {
+      const raster = new DotRaster(96, 40);
+
+      SpacedCells.draw(raster, EIGHT_LINES, Uint8Array.from([0x01 | 0x20 | 0x80]), 0);
+
+      expect(raster.get(0, 0)).toBe(true);
+      expect(raster.get(1, 2)).toBe(true);
+      expect(raster.get(1, 3)).toBe(true);
+      expect(raster.raisedCount).toBe(3);
+    });
+
+    it('should space the cells along their line and start on the line asked for', () => {
+      const raster = new DotRaster(96, 40);
+
+      SpacedCells.draw(raster, EIGHT_LINES, Uint8Array.from([0, 0x01]), 7);
+
+      // The second cell of the eighth line: three pins along, 35 down.
+      expect(raster.get(3, 35)).toBe(true);
+      expect(raster.raisedCount).toBe(1);
+    });
+
+    it('should give back from fold what it drew', () => {
+      const raster = new DotRaster(96, 40);
+      const cells = Uint8Array.from(Array.from({ length: 32 }, (_, cell) => (cell * 37) & 0xFF));
+
+      SpacedCells.draw(raster, EIGHT_LINES, cells, 2);
+
+      expect(Array.from(SpacedCells.fold(raster, EIGHT_LINES, 3).subarray(64))).toEqual(Array.from(cells));
+    });
+  });
 });

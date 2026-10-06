@@ -1,4 +1,5 @@
 import type { HidCollectionInfo, HidReportItem } from '@type/hid';
+import type { HidKey } from '@util/tactile/hidBraille';
 import { describe, expect, it } from '@jest/globals';
 import { BrailleUsage, HidBraille } from '@util/tactile/hidBraille';
 
@@ -64,6 +65,43 @@ function oneReportDisplay(rows: number, cells: number): HidCollectionInfo[] {
     }],
     children: rowItems.map(item => ({ ...BRAILLE_ROW, outputReports: [{ reportId: 2, items: [item] }] })),
   }];
+}
+
+const FACE_CONTROLS = { usagePage: 0x41, usage: 0x20C } as const;
+const LEFT_CONTROLS = { usagePage: 0x41, usage: 0x20D } as const;
+const RIGHT_CONTROLS = { usagePage: 0x41, usage: 0x20E } as const;
+const D_PAD = [BrailleUsage.dPadUp, BrailleUsage.dPadDown, BrailleUsage.dPadLeft, BrailleUsage.dPadRight];
+
+/**
+ * A display with a D-pad on each side, reported the way a Monarch reports
+ * them: the same four usages twice in one input report, under right controls
+ * and then under left controls.
+ * @param unclaimed - Keys declared ahead of both pads, outside any control
+ * collection
+ */
+function twoPadDisplay(unclaimed: number[] = []): HidCollectionInfo[] {
+  const right = keyBits(D_PAD);
+  const left = keyBits(D_PAD);
+  const keyboard = keyBits([BrailleUsage.keyboardDot1, BrailleUsage.keyboardSpace]);
+  const ahead = unclaimed.length > 0 ? [keyBits(unclaimed)] : [];
+  return [{
+    ...BRAILLE_DISPLAY,
+    outputReports: [{ reportId: 2, items: [cellItem(32)] }],
+    inputReports: [{ reportId: 0x20, items: [...ahead, right, left, keyboard] }],
+    children: [
+      { ...RIGHT_CONTROLS, inputReports: [{ reportId: 0x20, items: [right] }] },
+      { ...LEFT_CONTROLS, inputReports: [{ reportId: 0x20, items: [left] }] },
+      { ...FACE_CONTROLS, inputReports: [{ reportId: 0x20, items: [keyboard] }] },
+    ],
+  }];
+}
+
+/**
+ * The usages of a set of keys, whichever side each is on.
+ * @param keys - The keys
+ */
+function usagesOf(keys: readonly HidKey[]): Set<number> {
+  return new Set(keys.map(key => key.usage));
 }
 
 /**
@@ -252,7 +290,7 @@ describe('HidBraille', () => {
       // Bit 2 is D-pad left and bit 5 is pan right.
       const down = HidBraille.pressed(layout, 1, view([0b0010_0100]));
 
-      expect(down).toEqual(new Set([BrailleUsage.dPadLeft, BrailleUsage.panRight]));
+      expect(usagesOf(down)).toEqual(new Set([BrailleUsage.dPadLeft, BrailleUsage.panRight]));
     });
 
     it('should read nothing from another report', () => {
@@ -261,7 +299,7 @@ describe('HidBraille', () => {
         throw new Error('no layout');
       }
 
-      expect(HidBraille.pressed(layout, 9, view([0xFF])).size).toBe(0);
+      expect(HidBraille.pressed(layout, 9, view([0xFF]))).toEqual([]);
     });
 
     it('should read keys reported by a usage range', () => {
@@ -283,7 +321,7 @@ describe('HidBraille', () => {
         throw new Error('no layout');
       }
 
-      expect(HidBraille.pressed(layout, 0, view([0b1000]))).toEqual(new Set([BrailleUsage.dPadRight]));
+      expect(usagesOf(HidBraille.pressed(layout, 0, view([0b1000])))).toEqual(new Set([BrailleUsage.dPadRight]));
     });
 
     it('should read keys reported as a list of what is down', () => {
@@ -308,7 +346,7 @@ describe('HidBraille', () => {
         throw new Error('no layout');
       }
 
-      expect(HidBraille.pressed(layout, 0, view([3, 0]))).toEqual(new Set([BrailleUsage.rockerUp]));
+      expect(HidBraille.pressed(layout, 0, view([3, 0]))).toEqual([{ usage: BrailleUsage.rockerUp, side: null }]);
     });
 
     it('should read a report shorter than its layout as nothing pressed past its end', () => {
@@ -317,7 +355,78 @@ describe('HidBraille', () => {
         throw new Error('no layout');
       }
 
-      expect(HidBraille.pressed(layout, 1, view([])).size).toBe(0);
+      expect(HidBraille.pressed(layout, 1, view([]))).toEqual([]);
+    });
+
+    it('should tell two D-pads apart by the side each is declared on', () => {
+      const layout = HidBraille.layout(twoPadDisplay());
+      if (layout === null) {
+        throw new Error('no layout');
+      }
+
+      // Bit 0 is up on the right pad, bit 4 up on the left: the right pad is
+      // declared first, as a Monarch declares it.
+      const right = HidBraille.pressed(layout, 0x20, view([0b0000_0001]));
+      const left = HidBraille.pressed(layout, 0x20, view([0b0001_0000]));
+
+      expect(right).toEqual([{ usage: BrailleUsage.dPadUp, side: 'right' }]);
+      expect(left).toEqual([{ usage: BrailleUsage.dPadUp, side: 'left' }]);
+    });
+
+    it('should give a key declared once the side of its collection', () => {
+      const layout = HidBraille.layout(twoPadDisplay());
+      if (layout === null) {
+        throw new Error('no layout');
+      }
+
+      // Bit 8 is dot 1 on the keyboard, under face controls.
+      expect(HidBraille.pressed(layout, 0x20, view([0, 0b0000_0001])))
+        .toEqual([{ usage: BrailleUsage.keyboardDot1, side: 'face' }]);
+    });
+
+    it('should give no side to a usage that is also declared outside the control collections', () => {
+      // Three D-pad ups and two declarations: which bit belongs to which
+      // collection is no longer known, and a guessed side could be the other
+      // pad's.
+      const layout = HidBraille.layout(twoPadDisplay([BrailleUsage.dPadUp]));
+      if (layout === null) {
+        throw new Error('no layout');
+      }
+
+      const sides = layout.buttonBits.filter(bit => bit.usage === BrailleUsage.dPadUp).map(bit => bit.side);
+
+      expect(sides).toEqual([null, null, null]);
+    });
+  });
+
+  describe('outputBits', () => {
+    it('should find a run of single bits declared under a usage, after whatever comes before it', () => {
+      const collections: HidCollectionInfo[] = [{
+        ...BRAILLE_DISPLAY,
+        outputReports: [
+          { reportId: 2, items: [cellItem(32)] },
+          { reportId: 0x21, items: [padding(8), { usages: [0x41_0301], reportSize: 1, reportCount: 3840 }] },
+        ],
+      }];
+
+      expect(HidBraille.outputBits(collections, 0x41_0301))
+        .toEqual({ reportId: 0x21, bitOffset: 8, count: 3840, reportBytes: 481 });
+    });
+
+    it('should find nothing on a display without one', () => {
+      expect(HidBraille.outputBits(oneReportDisplay(8, 32), 0x41_0301)).toBeNull();
+    });
+  });
+
+  describe('bitReport', () => {
+    it('should put the run where it starts, its first bit lowest, and nothing past its end', () => {
+      const field = { reportId: 0x21, bitOffset: 4, count: 12, reportBytes: 2 };
+
+      const data = HidBraille.bitReport(field, Uint8Array.from([0b1000_0001, 0b1111_1111]));
+
+      // Bit 0 of the run lands on bit 4 of the report and bit 7 on bit 11;
+      // bits 8 to 11 fill the top of the second byte, and the run stops there.
+      expect(Array.from(data)).toEqual([0b0001_0000, 0b1111_1000]);
     });
   });
 });

@@ -54,6 +54,7 @@ function createDriver(deviceName: string, transports: DotPadTransport[]): FakeDr
     },
     geometry: null,
     canTranslate: false,
+    breaksTextAtWords: transports.includes('hid'),
     isSupported: true,
     onStateChange: states.event,
     onKey: keys.event,
@@ -235,6 +236,15 @@ describe('TactileDisplay', () => {
 
     expect(monarch.preload).toHaveBeenCalledTimes(1);
     expect(dotPad.preload).toHaveBeenCalledTimes(1);
+  });
+
+  it('should break the text line between words only on a display that does', async () => {
+    await display.connect('serial');
+    const onDotPad = display.breaksTextAtWords;
+    await display.connect('hid');
+
+    expect(onDotPad).toBe(false);
+    expect(display.breaksTextAtWords).toBe(true);
   });
 
   it('should disconnect the display in use', async () => {

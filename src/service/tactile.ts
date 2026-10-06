@@ -871,6 +871,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     const step = KEY_TEXT_SCROLL[key];
     if (step !== undefined) {
       this.scrollText(step);
+      return;
+    }
+
+    if (key === 'zoomIn') {
+      this.zoomIn();
+    } else if (key === 'zoomOut') {
+      this.zoomOut();
     }
   }
 
@@ -896,7 +903,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return;
     }
 
-    const lastWindow = TactileBraille.windowCount(this.textCells, cellCount) - 1;
+    const lastWindow = TactileBraille.windowCount(this.textCells, cellCount, tactileDisplay.breaksTextAtWords) - 1;
     if (lastWindow <= 0) {
       this.signalLineEdge(t('tactile.lineWholeShown'));
       return;
@@ -2203,7 +2210,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    */
   private writeTextWindow(cellCount: number): void {
     const hex = DotPack.brailleCells(
-      TactileBraille.window(this.textCells, cellCount, this.textWindow),
+      TactileBraille.window(this.textCells, cellCount, this.textWindow, tactileDisplay.breaksTextAtWords),
       cellCount,
     );
     if (hex === this.lastText) {

@@ -106,37 +106,50 @@ the way JAWS and NVDA use it. MAIDR draws on it the same way, through WebHID.
 
 **Resolution.** The Monarch's pins are 96 across and 40 down, evenly spaced
 2.6 mm apart — 480 cells of eight pins. Braille Terminal reports its braille
-cells, not the pins under them, so MAIDR takes the pins from the hardware and
-checks the cells against them: 32 cells to a line and six to ten lines. A
-braille display that does not fit — an ordinary single-line display picked by
-mistake — is refused with *"That display is not laid out like a Monarch"*,
-rather than drawn on as though it were one.
+cells — eight lines of 32 — and MAIDR checks them against the pins: 32 cells to
+a line and six to ten lines. A braille display that does not fit — an ordinary
+single-line display picked by mistake — is refused with *"That display is not
+laid out like a Monarch"*, rather than drawn on as though it were one.
 
-**The picture.** The bottom line is kept for text, and the chart is drawn on
-the pins above it: all 96 across, and 35 down with eight lines of braille (36
-with ten). It is drawn at that true resolution, so a circle stays round and a
-mark lands where it belongs. But Braille Terminal lays its cells out for
-reading, three pins apart with the third always down, and with eight lines a
-row of pins between lines too. Those pins cannot be raised, so each is folded
-into the dot beside it. Nothing drawn is lost — a line that falls between cells
-is felt one pin to the side — but a long horizontal line is felt as pairs of
-pins with a gap between, and a filled mark as stripes. That is the limit of
-what a computer can do with the Monarch's pins today; the Monarch's own Tactile
-Viewer has every pin.
+**The picture.** Beside its cells, Braille Terminal takes the Monarch's pins
+one by one, and MAIDR draws through that: the chart on every pin of the top 35
+rows, a blank row, and the text line on the bottom four. A circle stays round, a
+mark lands where it belongs, and a filled bar is felt solid. This pin array is
+not part of the HID braille standard; it was found, and confirmed on a Monarch,
+by the [BrlMultiline](https://github.com/travisroth/BrlMultiline) add-on for
+NVDA. Should a firmware not offer it, MAIDR writes cells instead. Braille
+Terminal lays those out for reading, three pins apart with the third always
+down and a row of pins between lines, so the picture is drawn at the same
+resolution and each pin that cannot be raised is folded into the dot beside it.
+Nothing drawn is lost that way — a line that falls between cells is felt one
+pin to the side — but a long horizontal line is felt as pairs of pins with a gap
+between, and a filled mark as stripes.
 
-**The text line** is the bottom line's 32 cells, carrying the same description
-of the focused point as a Dot Pad's braille line. It is uncontracted (grade 1):
-there is no braille engine to load for a Monarch, and MAIDR says so once when
-the line first appears.
+**The text line** is 32 cells along the bottom, three pins apart as Braille
+Terminal spaces them, carrying the same description of the focused point as a
+Dot Pad's braille line. It is uncontracted (grade 1): there is no braille engine
+to load for a Monarch, and MAIDR says so once when the line first appears. It
+breaks between words, so a scroll never leaves a number or a name in two
+halves.
 
-**Keys.** MAIDR listens for the keys by the names the HID braille standard
-gives them: the D-pads beside the display pan the picture, as they pan a graphic
-in the Monarch's own Tactile Viewer, and the panning keys move back and on along
-the text line. A key Braille Terminal reports under some other name does nothing
-in MAIDR; zooming is on the computer's keyboard either way, and moving through
-the chart still brings the view along with the focus. The HID braille standard
-has no way for a computer to make the Monarch vibrate, so the end of the line is
-spoken instead.
+**Keys.** The Monarch has two D-pads and two zoom keys, and MAIDR gives each
+hand one of the two things you scroll:
+
+- the **left D-pad** pans the picture, as the D-pads pan a graphic in the
+  Monarch's own Tactile Viewer;
+- the **right D-pad** moves along the text line — right or down to go on, left
+  or up to go back — and so do **Space with dot 4** and **Space with dot 1**,
+  the chords a Monarch reader moves through lines of text with;
+- the **plus and minus keys** zoom the picture in and out.
+
+MAIDR goes by the side the Monarch reports each D-pad on. That the one it
+reports as its left is the one on the left has not yet been checked on a
+Monarch; if the two seem the other way round, the pads are swapped and nothing
+else is wrong. A display with a single D-pad keeps it for the picture. Moving
+through the chart still brings the view along with the focus, and the
+computer's keyboard zooms as well. The HID braille standard has no way for a
+computer to make the Monarch vibrate, so the end of the line is spoken
+instead.
 
 ### The SDK
 
@@ -437,7 +450,8 @@ the pin view independently.
 
 Zoom in is <kbd>=</kbd> rather than <kbd>+</kbd> — the same key, without the
 shift. <kbd>Shift</kbd> + <kbd>=</kbd> works too, for anyone reaching for the
-<kbd>+</kbd> printed on the keycap.
+<kbd>+</kbd> printed on the keycap. On a Monarch, its own plus and minus keys
+zoom too.
 
 Both are live wherever the display can be, not only while the braille panel is
 open — braille cannot open on every plot type, and leaving these keys in
@@ -559,10 +573,10 @@ the device itself, without taking a hand off it:
 
 | Action     | Dot Pad key          | Monarch key          |
 | ---------- | -------------------- | -------------------- |
-| Pan left   | Panning Left         | D-pad left           |
-| Pan right  | Panning Right        | D-pad right          |
-| Pan up     | Function 2           | D-pad up             |
-| Pan down   | Function 3           | D-pad down           |
+| Pan left   | Panning Left         | Left D-pad left      |
+| Pan right  | Panning Right        | Left D-pad right     |
+| Pan up     | Function 2           | Left D-pad up        |
+| Pan down   | Function 3           | Left D-pad down      |
 
 Each step moves half a window, so some of what you were reading stays in view.
 At an edge, MAIDR says there is no more chart that way rather than moving
@@ -580,7 +594,8 @@ across.
 
 The two inner function keys move the picture and the two outer ones move the
 braille line below it, so the two things you scroll never take each other's
-keys. On a Monarch the D-pads move the picture and the panning keys the line.
+keys. On a Monarch the left D-pad moves the picture, and the right D-pad and
+the Space chords move the line.
 
 Navigation also pans on its own, but only when it has to: if an arrow key takes
 the focus off the visible window, the view recentres on it. A pan you chose
@@ -595,10 +610,13 @@ under your fingers.
 
 That description runs well past twenty cells, so the line scrolls:
 
-| Action              | Dot Pad key | Monarch key   |
-| ------------------- | ----------- | ------------- |
-| Back along the line | Function 1  | Pan up        |
-| On along the line   | Function 4  | Pan down      |
+| Action              | Dot Pad key | Monarch key                                  |
+| ------------------- | ----------- | -------------------------------------------- |
+| Back along the line | Function 1  | Right D-pad left or up, or Space with dot 1  |
+| On along the line   | Function 4  | Right D-pad right or down, or Space with dot 4 |
+
+A Dot Pad's line is cut at its width, so a word can run on to the next part. A
+Monarch's breaks between words.
 
 When more text follows, the final cell shows dots 7 and 8. Moving along the line
 is silent — you are reading it with your fingers, and a voice naming the part
@@ -703,9 +721,10 @@ cell rows, cell columns and braille-line width when it connects, and MAIDR sizes
 the rendering to what it is told — including devices with no braille line at
 all, which simply get the graphic area.
 
-The Monarch is the exception, because Braille Terminal reports its cells and
-not its pins: its 96 by 40 pins are written into MAIDR, and the cells it
-reports are checked against them before anything is drawn.
+The Monarch is the exception, because Braille Terminal does not report its
+pins: its 96 by 40 pins are written into MAIDR, the cells it reports are
+checked against them before anything is drawn, and its pin array is written
+only when it holds exactly that many.
 
 Each kind of display has a driver of its own behind one interface
 (`src/type/tactileDisplay.ts`): a Dot Pad's speaks the vendor's SDK
