@@ -114,6 +114,13 @@ export class TactileDisplay {
   }
 
   /**
+   * True when the display in use breaks its text line between words.
+   */
+  public get breaksTextAtWords(): boolean {
+    return this.active.breaksTextAtWords;
+  }
+
+  /**
    * True when this browser can reach any kind of display MAIDR drives.
    */
   public get isSupported(): boolean {

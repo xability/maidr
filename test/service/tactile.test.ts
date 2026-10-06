@@ -107,6 +107,7 @@ jest.mock('@service/tactileDisplay', () => {
       disconnect: jest.fn(),
       adopt: jest.fn(async (): Promise<boolean> => false),
       canTranslate: false,
+      breaksTextAtWords: false,
       translate: jest.fn(async (_text: string): Promise<string | null> => null),
       fireKey: (key: DotPadKey): void => {
         for (const listener of Array.from(keyListeners)) {
@@ -155,6 +156,7 @@ interface FakeSession {
   isConnected: boolean;
   geometry: DotPadGeometry | null;
   canTranslate: boolean;
+  breaksTextAtWords: boolean;
   translate: jest.Mock<(text: string) => Promise<string | null>>;
   current: DotPadState;
   writeGraphic: jest.Mock<(hex: string) => void>;
@@ -450,6 +452,7 @@ describe('tactileService', () => {
     session.isConnected = false;
     session.geometry = GEOMETRY;
     session.canTranslate = false;
+    session.breaksTextAtWords = false;
     session.translate.mockReset();
     session.translate.mockImplementation(async (): Promise<string | null> => null);
     session.writeGraphic.mockClear();
@@ -665,6 +668,23 @@ describe('tactileService', () => {
       activate();
 
       expect(session.writeText.mock.calls.at(-1)?.[0]).toHaveLength(MONARCH.textCells * 2);
+    });
+
+    it('should break the text line between words where the display asks for it', () => {
+      session.geometry = MONARCH;
+      session.breaksTextAtWords = true;
+
+      activate();
+      session.fireKey('function4');
+
+      const cells = TactileBraille.toCells(format.mock.results[0].value as string);
+      const windows = [0, 1].map(index =>
+        DotPack.brailleCells(TactileBraille.window(cells, MONARCH.textCells, index, true), MONARCH.textCells));
+      expect(session.writeText.mock.calls.map(call => call[0])).toEqual(windows);
+      // Not what cutting every 31 cells gives, or this would show nothing.
+      expect(windows[1]).not.toBe(
+        DotPack.brailleCells(TactileBraille.window(cells, MONARCH.textCells, 1), MONARCH.textCells),
+      );
     });
 
     it('should zoom from the display\'s own zoom keys', () => {

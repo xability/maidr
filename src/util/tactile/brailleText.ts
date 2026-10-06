@@ -213,10 +213,15 @@ export abstract class TactileBraille {
    * Number of windows a cell buffer occupies on a line of a given width.
    * @param cells - The full translated buffer
    * @param cellCount - Cells on the device's text line
+   * @param atWords - Break between words rather than every `cellCount - 1`
+   * cells; see {@link window}
    */
-  public static windowCount(cells: readonly number[], cellCount: number): number {
+  public static windowCount(cells: readonly number[], cellCount: number, atWords: boolean = false): number {
     if (cellCount <= 0) {
       return 0;
+    }
+    if (atWords && cellCount > 1) {
+      return this.wordStarts(cells, cellCount).length;
     }
     if (cells.length <= cellCount) {
       return 1;
@@ -240,14 +245,29 @@ export abstract class TactileBraille {
    * marker replaces the final cell whenever more text follows, so a reader
    * knows to pan rather than assuming the value ended.
    *
+   * Broken between words, a window ends at the last blank that keeps its words
+   * whole and the next starts on the word after it, so a scroll never lands in
+   * the middle of a word or a number. Only a word too long for a window of its
+   * own is cut, where the window ends.
+   *
    * @param cells - The full translated buffer
    * @param cellCount - Cells on the device's text line
    * @param windowIndex - Zero-based window to return, clamped into range
+   * @param atWords - Break between words rather than every `cellCount - 1`
+   * cells
    * @returns Exactly `cellCount` cells
    */
-  public static window(cells: readonly number[], cellCount: number, windowIndex: number): number[] {
+  public static window(
+    cells: readonly number[],
+    cellCount: number,
+    windowIndex: number,
+    atWords: boolean = false,
+  ): number[] {
     if (cellCount <= 0) {
       return [];
+    }
+    if (atWords && cellCount > 1) {
+      return this.wordWindow(cells, cellCount, windowIndex);
     }
 
     const lastWindow = this.windowCount(cells, cellCount) - 1;
@@ -267,5 +287,65 @@ export abstract class TactileBraille {
       window[cellCount - 1] = this.CONTINUATION_CELL;
     }
     return window;
+  }
+
+  /**
+   * One window of a buffer broken between words.
+   * @param cells - The full translated buffer
+   * @param cellCount - Cells on the device's text line, more than one
+   * @param windowIndex - Zero-based window to return, clamped into range
+   */
+  private static wordWindow(cells: readonly number[], cellCount: number, windowIndex: number): number[] {
+    const starts = this.wordStarts(cells, cellCount);
+    const index = Math.min(Math.max(windowIndex, 0), starts.length - 1);
+    const isLast = index === starts.length - 1;
+    const start = starts[index];
+    // A window with more text after it ends in the continuation marker, so it
+    // carries one cell fewer.
+    const end = isLast ? start + cellCount : Math.min(starts[index + 1], start + cellCount - 1);
+
+    const window = cells.slice(start, end);
+    while (window.length < cellCount) {
+      window.push(0);
+    }
+    if (!isLast) {
+      window[cellCount - 1] = this.CONTINUATION_CELL;
+    }
+    return window;
+  }
+
+  /**
+   * Where each window starts when a buffer is broken between words.
+   *
+   * A window with more text after it holds `cellCount - 1` cells, and ends at
+   * the last blank that keeps its words whole. The blanks after that blank
+   * are on no window: the next one starts on the next word.
+   *
+   * @param cells - The full translated buffer
+   * @param cellCount - Cells on the device's text line, more than one
+   */
+  private static wordStarts(cells: readonly number[], cellCount: number): number[] {
+    const carried = cellCount - 1;
+    const starts = [0];
+    let start = 0;
+    while (cells.length - start > cellCount) {
+      // A blank just past the window ends it on a whole word too.
+      let next = start + carried;
+      for (let at = start + carried; at > start; at--) {
+        if (cells[at] === 0) {
+          next = at;
+          break;
+        }
+      }
+      while (next < cells.length && cells[next] === 0) {
+        next++;
+      }
+      if (next >= cells.length) {
+        break;
+      }
+      starts.push(next);
+      start = next;
+    }
+    return starts;
   }
 }

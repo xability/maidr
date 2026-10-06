@@ -396,6 +396,14 @@ class DotPadSession implements TactileDisplayDriver {
   }
 
   /**
+   * False: a DotPad's text line is cut at its width, as it always has been,
+   * and changing that is a question for a DotPad in a reader's hands.
+   */
+  public get breaksTextAtWords(): boolean {
+    return false;
+  }
+
+  /**
    * Publishes a state change.
    * @param patch - Fields to change
    */

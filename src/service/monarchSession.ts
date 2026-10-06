@@ -379,6 +379,14 @@ class MonarchSession implements TactileDisplayDriver {
   }
 
   /**
+   * True: the text line breaks between words, so a number or a name is not
+   * read in two halves, one either side of a scroll.
+   */
+  public get breaksTextAtWords(): boolean {
+    return true;
+  }
+
+  /**
    * True when WebHID is there and the page may use it.
    */
   public get isSupported(): boolean {

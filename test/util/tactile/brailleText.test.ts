@@ -286,3 +286,72 @@ describe('tactileBraille line sizing', () => {
       .toBe(TactileBraille.CONTINUATION_CELL);
   });
 });
+
+describe('tactileBraille windows broken between words', () => {
+  it('should end a window on its last whole word and start the next on the word after', () => {
+    // Thirty-four cells. Cut every 31, as a DotPad's line is, the 87.0 at
+    // the end would be read in two halves either side of a scroll.
+    const cells = TactileBraille.toCells('Day is Saturday, Count is 87.0');
+
+    const first = TactileBraille.window(cells, 32, 0, true);
+    const second = TactileBraille.window(cells, 32, 1, true);
+
+    expect(TactileBraille.windowCount(cells, 32, true)).toBe(2);
+    expect(first.slice(0, 28)).toEqual(TactileBraille.toCells('Day is Saturday, Count is'));
+    expect(first.slice(28, 31)).toEqual([0, 0, 0]);
+    expect(first[31]).toBe(TactileBraille.CONTINUATION_CELL);
+    expect(second.slice(0, 6)).toEqual([...TactileBraille.toCells('87.0'), 0]);
+  });
+
+  it('should leave windows cut every so many cells unless asked to break at words', () => {
+    const cells = TactileBraille.toCells('Day is Saturday, Count is 87.0');
+
+    const first = TactileBraille.window(cells, 32, 0);
+
+    // The number sign and the 8 end the first window: the line a DotPad has
+    // always had.
+    expect(first.slice(29, 31)).toEqual(TactileBraille.toCells('8'));
+  });
+
+  it('should hold a line that fits in one window', () => {
+    const cells = TactileBraille.toCells('Apples 30');
+
+    expect(TactileBraille.windowCount(cells, CELL_COUNT, true)).toBe(1);
+    expect(TactileBraille.window(cells, CELL_COUNT, 0, true))
+      .toEqual([...cells, ...Array.from({ length: CELL_COUNT - cells.length }, () => 0)]);
+  });
+
+  it('should show every word whole, on one window or another', () => {
+    const cells = TactileBraille.toCells('Fruit is Apples, Units is 30, Notes are many and varied');
+    const count = TactileBraille.windowCount(cells, CELL_COUNT, true);
+
+    const shown = Array.from({ length: count }, (_, index) => {
+      const window = TactileBraille.window(cells, CELL_COUNT, index, true);
+      const text = index < count - 1 ? window.slice(0, CELL_COUNT - 1) : window;
+      let end = text.length;
+      while (end > 0 && text[end - 1] === 0) {
+        end--;
+      }
+      return text.slice(0, end);
+    });
+
+    expect(count).toBeGreaterThan(2);
+    expect(shown.flatMap((words, index) => (index === 0 ? words : [0, ...words]))).toEqual(cells);
+  });
+
+  it('should cut a word too long for a window where the window ends', () => {
+    const cells = TactileBraille.toCells('a'.repeat(50));
+
+    expect(TactileBraille.windowCount(cells, CELL_COUNT, true)).toBe(3);
+    expect(TactileBraille.window(cells, CELL_COUNT, 1, true).slice(0, CELL_COUNT - 1))
+      .toEqual(cells.slice(CELL_COUNT - 1, 2 * (CELL_COUNT - 1)));
+  });
+
+  it('should clamp a window index out of range to the first or last window', () => {
+    const cells = TactileBraille.toCells('Fruit is Apples, Units is 30, Notes are many and varied');
+    const last = TactileBraille.windowCount(cells, CELL_COUNT, true) - 1;
+
+    expect(TactileBraille.window(cells, CELL_COUNT, -3, true)).toEqual(TactileBraille.window(cells, CELL_COUNT, 0, true));
+    expect(TactileBraille.window(cells, CELL_COUNT, 99, true)).toEqual(TactileBraille.window(cells, CELL_COUNT, last, true));
+  });
+});

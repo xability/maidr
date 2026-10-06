@@ -128,7 +128,9 @@ between, and a filled mark as stripes.
 **The text line** is 32 cells along the bottom, three pins apart as Braille
 Terminal spaces them, carrying the same description of the focused point as a
 Dot Pad's braille line. It is uncontracted (grade 1): there is no braille engine
-to load for a Monarch, and MAIDR says so once when the line first appears.
+to load for a Monarch, and MAIDR says so once when the line first appears. It
+breaks between words, so a scroll never leaves a number or a name in two
+halves.
 
 **Keys.** The Monarch has two D-pads and two zoom keys, and MAIDR gives each
 hand one of the two things you scroll:
@@ -612,6 +614,9 @@ That description runs well past twenty cells, so the line scrolls:
 | ------------------- | ----------- | -------------------------------------------- |
 | Back along the line | Function 1  | Right D-pad left or up, or Space with dot 1  |
 | On along the line   | Function 4  | Right D-pad right or down, or Space with dot 4 |
+
+A Dot Pad's line is cut at its width, so a word can run on to the next part. A
+Monarch's breaks between words.
 
 When more text follows, the final cell shows dots 7 and 8. Moving along the line
 is silent — you are reading it with your fingers, and a voice naming the part

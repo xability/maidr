@@ -41,6 +41,12 @@ export interface TactileDisplayDriver {
   readonly canTranslate: boolean;
 
   /**
+   * True when the text line is broken between words, so a scroll never lands
+   * in the middle of one; false when it is cut every so many cells.
+   */
+  readonly breaksTextAtWords: boolean;
+
+  /**
    * True when this browser can reach the device over any of its transports.
    */
   readonly isSupported: boolean;
