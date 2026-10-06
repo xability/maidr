@@ -564,7 +564,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     if (!next) {
       // Lowered, not disconnected: the connection is the reader's until they
       // end it in Settings. A chart in another frame that wants the display
-      // asks for it; see `DotPadSession.requestHandoff`.
+      // asks for it; see `DisplayHandoff.request`.
       this.blank();
       return;
     }
@@ -2244,7 +2244,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * Deliberately does NOT disconnect the device. This runs on every focus-out
    * and tab switch, and the connection is the reader's until they end it in
    * Settings. A chart in another frame that wants the display asks this one
-   * for it instead; see `DotPadSession.requestHandoff`.
+   * for it instead; see `DisplayHandoff.request`.
    *
    * What it does do is leave the display the way turning braille off leaves
    * it. Nothing else closes the display on the way out: braille's own
