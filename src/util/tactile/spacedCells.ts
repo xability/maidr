@@ -87,6 +87,30 @@ export abstract class SpacedCells {
   }
 
   /**
+   * Draws lines of cells onto a picture, each dot on the pin it sits on: the
+   * way back from {@link fold}, for text on a display whose every pin can be
+   * raised.
+   *
+   * @param raster - The picture
+   * @param layout - How the cells sit on the pins
+   * @param cells - The cells, line after line, bit 0 being dot 1
+   * @param firstLine - The line the first cell goes on
+   */
+  public static draw(raster: DotRaster, layout: SpacedCellLayout, cells: Uint8Array, firstLine: number): void {
+    for (let index = 0; index < cells.length; index++) {
+      const left = (index % layout.columns) * layout.pitchX;
+      const top = (firstLine + Math.floor(index / layout.columns)) * layout.pitchY;
+      for (let dotColumn = 0; dotColumn < 2; dotColumn++) {
+        for (let dotRow = 0; dotRow < layout.dotRows; dotRow++) {
+          if (cells[index] & SpacedCells.DOT_BITS[dotColumn][dotRow]) {
+            raster.set(left + dotColumn, top + dotRow);
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Reads one cell.
    * @param raster - The picture
    * @param layout - How the cells sit on the pins

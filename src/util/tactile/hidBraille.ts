@@ -106,6 +106,29 @@ export interface HidKey {
 }
 
 /**
+ * A run of single-bit output fields declared under one usage, such as a
+ * vendor's array of pins.
+ */
+export interface HidBitField {
+  readonly reportId: number;
+
+  /**
+   * Where the first field starts, in bits from the start of the report's data.
+   */
+  readonly bitOffset: number;
+
+  /**
+   * Fields in the run.
+   */
+  readonly count: number;
+
+  /**
+   * Bytes in the whole report, without its ID.
+   */
+  readonly reportBytes: number;
+}
+
+/**
  * Keys the device reports as a list: each field holds the index of one usage
  * that is down.
  */
@@ -260,6 +283,53 @@ export abstract class HidBraille {
       }
     }
     return reports;
+  }
+
+  /**
+   * Finds a run of single-bit output fields declared under one usage.
+   *
+   * The standard has cells and nothing finer, so a display that offers more --
+   * a Monarch can be written pin by pin -- declares it under a usage of its own.
+   *
+   * @param collections - The device's top-level collections
+   * @param usage - The extended usage the run is declared under
+   * @returns Where the run is, or null when the device has none
+   */
+  public static outputBits(collections: readonly HidCollectionInfo[], usage: number): HidBitField | null {
+    for (const display of collections.filter(collection => collection.usagePage === BRAILLE_PAGE)) {
+      for (const report of display.outputReports ?? []) {
+        let bits = 0;
+        let found: { bitOffset: number; count: number } | null = null;
+        for (const item of report.items ?? []) {
+          const size = item.reportSize ?? 0;
+          const count = item.reportCount ?? 0;
+          if (found === null && !item.isConstant && size === 1 && count > 0 && HidBraille.names(item, usage)) {
+            found = { bitOffset: bits, count };
+          }
+          bits += size * count;
+        }
+        if (found !== null) {
+          return { reportId: report.reportId ?? 0, ...found, reportBytes: Math.ceil(bits / 8) };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Builds the output report that sets a run of single-bit fields.
+   *
+   * @param field - Where the run is
+   * @param bits - The values, eight to a byte, the first in the lowest bit
+   * @returns The report's data, without its ID
+   */
+  public static bitReport(field: HidBitField, bits: Uint8Array): Uint8Array {
+    const data = new Uint8Array(field.reportBytes);
+    for (let byte = 0; byte * 8 < field.count; byte++) {
+      const size = Math.min(8, field.count - byte * 8);
+      HidBraille.writeBits(data, field.bitOffset + byte * 8, size, bits[byte] ?? 0);
+    }
+    return data;
   }
 
   /**
@@ -450,19 +520,29 @@ export abstract class HidBraille {
     if (item.isConstant) {
       return null;
     }
-    // Both forms are checked whatever `isRange` says: Chromium counts a
-    // minimum equal to its maximum as no range, and then lists no usages
-    // either, so a row declared that way is only found by its bounds.
-    const names = (usage: number): boolean => (item.usages ?? []).includes(usage)
-      || (item.usageMinimum !== undefined && item.usageMaximum !== undefined
-        && item.usageMinimum <= usage && usage <= item.usageMaximum);
-    if (names(BrailleUsage.eightDotCell)) {
+    if (HidBraille.names(item, BrailleUsage.eightDotCell)) {
       return 8;
     }
-    if (names(BrailleUsage.sixDotCell)) {
+    if (HidBraille.names(item, BrailleUsage.sixDotCell)) {
       return 6;
     }
     return null;
+  }
+
+  /**
+   * Whether an item is declared under a usage.
+   *
+   * Both forms are checked whatever `isRange` says: Chromium counts a minimum
+   * equal to its maximum as no range, and then lists no usages either, so an
+   * item declared that way is only found by its bounds.
+   *
+   * @param item - The item
+   * @param usage - The extended usage
+   */
+  private static names(item: HidReportItem, usage: number): boolean {
+    return (item.usages ?? []).includes(usage)
+      || (item.usageMinimum !== undefined && item.usageMaximum !== undefined
+        && item.usageMinimum <= usage && usage <= item.usageMaximum);
   }
 
   /**

@@ -398,4 +398,35 @@ describe('HidBraille', () => {
       expect(sides).toEqual([null, null, null]);
     });
   });
+
+  describe('outputBits', () => {
+    it('should find a run of single bits declared under a usage, after whatever comes before it', () => {
+      const collections: HidCollectionInfo[] = [{
+        ...BRAILLE_DISPLAY,
+        outputReports: [
+          { reportId: 2, items: [cellItem(32)] },
+          { reportId: 0x21, items: [padding(8), { usages: [0x41_0301], reportSize: 1, reportCount: 3840 }] },
+        ],
+      }];
+
+      expect(HidBraille.outputBits(collections, 0x41_0301))
+        .toEqual({ reportId: 0x21, bitOffset: 8, count: 3840, reportBytes: 481 });
+    });
+
+    it('should find nothing on a display without one', () => {
+      expect(HidBraille.outputBits(oneReportDisplay(8, 32), 0x41_0301)).toBeNull();
+    });
+  });
+
+  describe('bitReport', () => {
+    it('should put the run where it starts, its first bit lowest, and nothing past its end', () => {
+      const field = { reportId: 0x21, bitOffset: 4, count: 12, reportBytes: 2 };
+
+      const data = HidBraille.bitReport(field, Uint8Array.from([0b1000_0001, 0b1111_1111]));
+
+      // Bit 0 of the run lands on bit 4 of the report and bit 7 on bit 11;
+      // bits 8 to 11 fill the top of the second byte, and the run stops there.
+      expect(Array.from(data)).toEqual([0b0001_0000, 0b1111_1000]);
+    });
+  });
 });

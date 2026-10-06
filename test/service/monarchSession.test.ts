@@ -34,6 +34,9 @@ import { DotRaster } from '@util/tactile/raster';
  * - Gathering a frame. The tactile service sends a frame as several writes,
  *   and a Monarch takes seconds to raise a whole display, so they go out as
  *   one report rather than one each.
+ * - Drawing through the pin array where the Monarch has one: every pin of the
+ *   picture where it was drawn, and the text line spaced as Braille Terminal
+ *   spaces it.
  * - The keys, which fire once per press however long the key is held: the
  *   left D-pad pans the picture, the right one and Space chords scroll the
  *   text line, and a lone D-pad pans whichever side it is on.
@@ -58,6 +61,11 @@ const RIGHT_CONTROLS = { usagePage: 0x41, usage: 0x20E } as const;
 const ZOOM_IN = 0x41_0220;
 const ZOOM_OUT = 0x41_0221;
 
+/**
+ * The usage the Monarch declares its pin array under.
+ */
+const PIN_ARRAY = 0x41_0301;
+
 const D_PAD: readonly number[] = [BrailleUsage.dPadUp, BrailleUsage.dPadDown, BrailleUsage.dPadLeft, BrailleUsage.dPadRight];
 
 /**
@@ -78,6 +86,11 @@ const KEY_BITS = [
  * What a fake display has beside its cells and keys.
  */
 interface Extras {
+  /**
+   * The Monarch's pin array, in output report 0x21, with this many pins.
+   */
+  pins?: number;
+
   /**
    * A D-pad under right controls and another under left controls, ahead of
    * the other keys, as a Monarch reports them; or only the one side named.
@@ -107,9 +120,12 @@ function brailleDisplay(lines: number, cells: number = 32, dots: 6 | 8 = 8, extr
   const pads = extras.pads === 'both'
     ? [{ ...RIGHT_CONTROLS, item: padItem() }, { ...LEFT_CONTROLS, item: padItem() }]
     : extras.pads === 'right' ? [{ ...RIGHT_CONTROLS, item: padItem() }] : [];
+  const pinReports = extras.pins === undefined
+    ? []
+    : [{ reportId: 0x21, items: [{ usages: [PIN_ARRAY], reportSize: 1, reportCount: extras.pins }] }];
   return [{
     ...BRAILLE_DISPLAY,
-    outputReports: [{ reportId: 2, items: rows }],
+    outputReports: [{ reportId: 2, items: rows }, ...pinReports],
     inputReports: [{ reportId: 1, items: [...pads.map(pad => pad.item), keyItem] }],
     children: [
       ...rows.map(item => ({ ...BRAILLE_ROW, outputReports: [{ reportId: 2, items: [item] }] })),
@@ -799,6 +815,77 @@ describe('monarchSession', () => {
     device.input(padKeys(['right', BrailleUsage.dPadLeft]));
 
     expect(pressed).toEqual(['panLeft']);
+  });
+
+  describe('writing every pin', () => {
+    let session: Session;
+    let device: FakeDevice;
+
+    beforeEach(async () => {
+      device = new FakeDevice(brailleDisplay(8, 32, 8, { pins: 96 * 40 }));
+      hid.picked = [device];
+      session = await loadSession();
+      await session.connect('hid');
+    });
+
+    it('should keep the picture above a blank row and the text line', () => {
+      expect(session.geometry).toEqual({ cellColumns: 48, cellRows: 9, textCells: 32, dotWidth: 96, dotHeight: 35 });
+    });
+
+    it('should raise the very pin drawn, through the pin array alone', async () => {
+      // x 4 is the left column of the third block of 2 by 4; y 2 its third
+      // row, which is dot 3.
+      session.writeGraphic(frame(session, [[4, 2]]));
+      await settle();
+
+      expect(device.sent).toHaveLength(1);
+      expect(device.sent[0].reportId).toBe(0x21);
+      expect(device.last).toHaveLength(480);
+      expect(device.last[2]).toBe(0x04);
+      expect(device.last.filter(byte => byte !== 0)).toHaveLength(1);
+    });
+
+    it('should raise a pin that falls between Braille Terminal\'s cells where it was drawn', async () => {
+      // x 5 is the space between the second and third cells, which the cells
+      // can only fold into a dot beside it. On the pin array it is dot 4 of
+      // the third block, like any other pin.
+      session.writeGraphic(frame(session, [[5, 0]]));
+      await settle();
+
+      expect(device.last[2]).toBe(0x08);
+      expect(device.last.filter(byte => byte !== 0)).toHaveLength(1);
+    });
+
+    it('should reach the picture\'s last row and leave the row under it down', async () => {
+      // y 34 is the third row of the ninth row of blocks; y 35, its fourth,
+      // is the blank row above the text line.
+      session.writeGraphic(frame(session, [[0, 34]]));
+      await settle();
+
+      expect(device.last[8 * 48]).toBe(0x04);
+    });
+
+    it('should draw the text line on the bottom four rows, three pins to a cell', async () => {
+      session.writeText(DotPack.brailleCells([0x1E, 0x15, 0xFF], 32));
+      await settle();
+
+      // Cell 0 fills the first block of the last row of blocks. Cell 1 starts
+      // three pins on, in the right-hand column of the second block, and ends
+      // in the left-hand column of the third; cell 2 is the fourth block.
+      expect(device.last.slice(9 * 48, 9 * 48 + 5)).toEqual([0x1E, 0x28, 0x02, 0xFF, 0]);
+    });
+  });
+
+  it('should write cells to a display whose pin array is not the Monarch\'s', async () => {
+    const device = new FakeDevice(brailleDisplay(8, 32, 8, { pins: 64 }));
+    hid.picked = [device];
+    const session = await loadSession();
+    await session.connect('hid');
+
+    session.writeGraphic(frame(session, [[4, 2]]));
+    await settle();
+
+    expect(device.sent.map(sent => sent.reportId)).toEqual([2]);
   });
 
   describe('the device going away', () => {

@@ -106,28 +106,29 @@ the way JAWS and NVDA use it. MAIDR draws on it the same way, through WebHID.
 
 **Resolution.** The Monarch's pins are 96 across and 40 down, evenly spaced
 2.6 mm apart — 480 cells of eight pins. Braille Terminal reports its braille
-cells, not the pins under them, so MAIDR takes the pins from the hardware and
-checks the cells against them: 32 cells to a line and six to ten lines. A
-braille display that does not fit — an ordinary single-line display picked by
-mistake — is refused with *"That display is not laid out like a Monarch"*,
-rather than drawn on as though it were one.
+cells — eight lines of 32 — and MAIDR checks them against the pins: 32 cells to
+a line and six to ten lines. A braille display that does not fit — an ordinary
+single-line display picked by mistake — is refused with *"That display is not
+laid out like a Monarch"*, rather than drawn on as though it were one.
 
-**The picture.** The bottom line is kept for text, and the chart is drawn on
-the pins above it: all 96 across, and 35 down with eight lines of braille (36
-with ten). It is drawn at that true resolution, so a circle stays round and a
-mark lands where it belongs. But Braille Terminal lays its cells out for
-reading, three pins apart with the third always down, and with eight lines a
-row of pins between lines too. Those pins cannot be raised, so each is folded
-into the dot beside it. Nothing drawn is lost — a line that falls between cells
-is felt one pin to the side — but a long horizontal line is felt as pairs of
-pins with a gap between, and a filled mark as stripes. That is the limit of
-what a computer can do with the Monarch's pins today; the Monarch's own Tactile
-Viewer has every pin.
+**The picture.** Beside its cells, Braille Terminal takes the Monarch's pins
+one by one, and MAIDR draws through that: the chart on every pin of the top 35
+rows, a blank row, and the text line on the bottom four. A circle stays round, a
+mark lands where it belongs, and a filled bar is felt solid. This pin array is
+not part of the HID braille standard; it was found, and confirmed on a Monarch,
+by the [BrlMultiline](https://github.com/travisroth/BrlMultiline) add-on for
+NVDA. Should a firmware not offer it, MAIDR writes cells instead. Braille
+Terminal lays those out for reading, three pins apart with the third always
+down and a row of pins between lines, so the picture is drawn at the same
+resolution and each pin that cannot be raised is folded into the dot beside it.
+Nothing drawn is lost that way — a line that falls between cells is felt one
+pin to the side — but a long horizontal line is felt as pairs of pins with a gap
+between, and a filled mark as stripes.
 
-**The text line** is the bottom line's 32 cells, carrying the same description
-of the focused point as a Dot Pad's braille line. It is uncontracted (grade 1):
-there is no braille engine to load for a Monarch, and MAIDR says so once when
-the line first appears.
+**The text line** is 32 cells along the bottom, three pins apart as Braille
+Terminal spaces them, carrying the same description of the focused point as a
+Dot Pad's braille line. It is uncontracted (grade 1): there is no braille engine
+to load for a Monarch, and MAIDR says so once when the line first appears.
 
 **Keys.** The Monarch has two D-pads and two zoom keys, and MAIDR gives each
 hand one of the two things you scroll:
@@ -715,9 +716,10 @@ cell rows, cell columns and braille-line width when it connects, and MAIDR sizes
 the rendering to what it is told — including devices with no braille line at
 all, which simply get the graphic area.
 
-The Monarch is the exception, because Braille Terminal reports its cells and
-not its pins: its 96 by 40 pins are written into MAIDR, and the cells it
-reports are checked against them before anything is drawn.
+The Monarch is the exception, because Braille Terminal does not report its
+pins: its 96 by 40 pins are written into MAIDR, the cells it reports are
+checked against them before anything is drawn, and its pin array is written
+only when it holds exactly that many.
 
 Each kind of display has a driver of its own behind one interface
 (`src/type/tactileDisplay.ts`): a Dot Pad's speaks the vendor's SDK
