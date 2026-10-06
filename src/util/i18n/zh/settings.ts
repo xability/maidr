@@ -67,11 +67,13 @@ export const settings = {
   'settings.selectTactileDisplay': '选择触觉显示器',
   'settings.connectBluetooth': '通过 Bluetooth 连接',
   'settings.connectUsb': '通过 USB 连接',
+  'settings.connectHid': '连接',
   'settings.disconnect': '断开连接',
 
   // How the tactile display's connection is announced.
   'settings.tactileConnectedBluetooth': '已通过 Bluetooth 连接到{device}。在图表上按 b 即可显示。',
   'settings.tactileConnectedUsb': '已通过 USB 连接到{device}。在图表上按 b 即可显示。',
+  'settings.tactileConnectedHid': '已连接到{device}。在图表上按 b 即可显示。',
   'settings.tactileGenericDevice': '触觉显示器',
   'settings.tactileConnecting': '正在连接…',
   'settings.tactileRetry': '{message} 请重新选择设备以重试。',

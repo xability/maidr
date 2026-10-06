@@ -62,10 +62,12 @@ export const settings = {
   'settings.selectTactileDisplay': 'स्पर्श डिस्प्ले चुनें',
   'settings.connectBluetooth': 'Bluetooth से कनेक्ट करें',
   'settings.connectUsb': 'USB से कनेक्ट करें',
+  'settings.connectHid': 'कनेक्ट करें',
   'settings.disconnect': 'डिस्कनेक्ट करें',
 
   'settings.tactileConnectedBluetooth': '{device} से Bluetooth द्वारा कनेक्ट हुआ। इसे दिखाने के लिए चार्ट पर b दबाएँ।',
   'settings.tactileConnectedUsb': '{device} से USB द्वारा कनेक्ट हुआ। इसे दिखाने के लिए चार्ट पर b दबाएँ।',
+  'settings.tactileConnectedHid': '{device} से कनेक्ट हुआ। इसे दिखाने के लिए चार्ट पर b दबाएँ।',
   'settings.tactileGenericDevice': 'एक स्पर्श डिस्प्ले',
   'settings.tactileConnecting': 'कनेक्ट हो रहा है…',
   'settings.tactileRetry': '{message} दोबारा कोशिश करने के लिए डिवाइस फिर से चुनें।',

@@ -4,6 +4,12 @@
  *
  * Never hardcode these. Models differ — one DotPad has no text line at all —
  * and a renderer that assumes one geometry silently draws garbage on another.
+ *
+ * The graphic area travels as a DotPad lays it out, in cells of two pins by
+ * four, whichever display it is going to. A display laid out differently -- a
+ * Monarch, whose braille cells sit apart on its pins -- reads the pins back out
+ * of those cells, so the tactile service draws for either without knowing which
+ * it has.
  */
 export interface DotPadGeometry {
   /**
@@ -27,7 +33,9 @@ export interface DotPadGeometry {
   dotWidth: number;
 
   /**
-   * Pins down the graphic area — `cellRows * 4`.
+   * Pins down the graphic area — `cellRows * 4` on a DotPad. On a display
+   * whose pin rows are not a whole number of cells, fewer: the last cell row
+   * is then only partly on the display, and its other pins stay down.
    */
   dotHeight: number;
 }
@@ -39,6 +47,10 @@ export interface DotPadGeometry {
  * keys pan it vertically, which together let a reader reach the whole chart
  * while zoomed in without leaving the display. The outer function keys scroll
  * the braille text line below it.
+ *
+ * Named for the DotPad's keys, which were the first. Another display maps its
+ * own keys onto the same four jobs: a Monarch's D-pads pan the view, and its
+ * panning keys scroll the text line.
  */
 export type DotPadKey = 'panLeft' | 'panRight' | 'function1' | 'function2' | 'function3' | 'function4';
 
@@ -51,8 +63,14 @@ export type DotPadKey = 'panLeft' | 'panRight' | 'function1' | 'function2' | 'fu
  * no charge. Bluetooth is the one that works on Android, where Web Serial does
  * not exist, and the one that leaves the desk free of a cable. So both are
  * offered and the reader picks.
+ *
+ * `hid` is the third, and belongs to a different kind of device: a braille
+ * display speaking the USB HID braille standard, as a Monarch does in Braille
+ * Terminal. WebHID reaches it whether it is on a cable or paired over
+ * Bluetooth with the computer, and cannot tell the page which, so it is one
+ * transport rather than two.
  */
-export type DotPadTransport = 'bluetooth' | 'serial';
+export type DotPadTransport = 'bluetooth' | 'serial' | 'hid';
 
 /**
  * Lifecycle of the connection to a tactile display.

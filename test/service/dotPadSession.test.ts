@@ -521,6 +521,19 @@ describe('dotPadSession', () => {
       expect(session.isSupported).toBe(true);
     });
 
+    it('should not offer WebHID, which a DotPad does not speak', async () => {
+      // WebHID is how a Monarch is reached. A DotPad answers only its
+      // vendor's protocol, so a page with WebHID and nothing else cannot
+      // reach one.
+      setNavigator({ hid: {} });
+
+      const session = await loadSession();
+
+      expect(session.transports).toEqual(['bluetooth', 'serial']);
+      expect(session.supports('hid')).toBe(false);
+      expect(session.isSupported).toBe(false);
+    });
+
     it('should report support when only Bluetooth is available', async () => {
       setNavigator({ bluetooth: {} });
 

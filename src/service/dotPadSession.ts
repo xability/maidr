@@ -8,8 +8,11 @@ import type {
   DotPadVendorSdk,
 } from '@type/dotPad';
 import type { Event } from '@type/event';
+import type { TactileDisplayDriver } from '@type/tactileDisplay';
 import { Emitter } from '@type/event';
+import { allowsDeviceFeature } from '@util/deviceFeature';
 import { t } from '@util/i18n';
+import { DisplayHandoff } from './displayHandoff';
 import sdkManifest from './dotPadSdk.json';
 
 /**
@@ -150,26 +153,10 @@ const CLOSE_FLUSH_TIMEOUT_MS = 2000;
 const EDGE_VIBRATION = { onMs: 300, offMs: 0, count: 1 } as const;
 
 /**
- * The channel the frames of one page hand the display between; see
- * {@link DotPadSession.requestHandoff}.
+ * The channel the frames of one page hand a DotPad between; see
+ * {@link DisplayHandoff}.
  */
 const HANDOFF_CHANNEL = 'maidr-tactile-display';
-
-/**
- * How long a frame asking for the display waits to hear that another frame
- * holds it. Frames on one page answer within a task or two; no answer by then
- * means nobody holds it, and the ask is not worth more of the reader's time.
- */
-const HANDOFF_ACK_TIMEOUT_MS = 150;
-
-/**
- * A message between frames about who holds the display.
- */
-interface HandoffMessage {
-  type: 'release' | 'releasing' | 'released' | 'return';
-  from: string;
-  to?: string;
-}
 
 /**
  * Owns the connection to a tactile display, for as long as the page lives.
@@ -186,7 +173,12 @@ interface HandoffMessage {
  * host page provides -- a global, a configured URL, or the vendor's published
  * copy -- and holds it to a structural contract.
  */
-class DotPadSession {
+class DotPadSession implements TactileDisplayDriver {
+  /**
+   * A DotPad is reached over Bluetooth or over a cable, and the reader picks.
+   */
+  public readonly transports: readonly DotPadTransport[] = ['bluetooth', 'serial'];
+
   /**
    * The vendor SDK instance, once loaded.
    */
@@ -215,16 +207,31 @@ class DotPadSession {
   private adopting: Promise<boolean> | null = null;
 
   /**
-   * This frame's name on {@link HANDOFF_CHANNEL}, so it can tell its own asks
-   * from another frame's.
+   * Passes the DotPad between the frames of the page. Letting it go marks the
+   * connection closed at once and closes the device behind the writes already
+   * queued for it.
    */
-  private readonly frameId = Math.random().toString(36).slice(2);
-
-  /**
-   * The channel to the page's other frames, opened on first use; null where
-   * the browser has none.
-   */
-  private channel: BroadcastChannel | null | undefined;
+  private readonly handoff = new DisplayHandoff(HANDOFF_CHANNEL, {
+    release: () => {
+      const sdk = this.sdk;
+      const device = this.device;
+      if (sdk === null || device === null) {
+        return null;
+      }
+      this.device = null;
+      this.setState({
+        status: 'disconnected',
+        deviceName: null,
+        transport: null,
+        geometry: null,
+        message: '',
+      });
+      return this.closeWhenQueueDrains(sdk, device);
+    },
+    retake: () => {
+      void this.adopt();
+    },
+  }, CLOSE_FLUSH_TIMEOUT_MS);
 
   private moduleUrl: string | null = null;
 
@@ -626,13 +633,13 @@ class DotPadSession {
         // Another chart on the page may be holding it -- one the reader
         // connected there and has since tabbed away from. The reader is here
         // now, so it is asked to let go.
-        const holder = await this.requestHandoff();
+        const holder = await this.handoff.request();
         let attached = false;
         try {
           attached = await this.attach(sdk, transport, granted);
         } finally {
           if (!attached) {
-            this.returnHandoff(holder);
+            this.handoff.giveBack(holder);
           }
         }
         if (attached) {
@@ -753,34 +760,12 @@ class DotPadSession {
    * @param transport - The connection to test
    */
   public supports(transport: DotPadTransport): boolean {
-    if (typeof navigator === 'undefined') {
+    // A DotPad speaks its vendor's own protocol, not the HID braille standard,
+    // so WebHID is no way to it.
+    if (transport === 'hid') {
       return false;
     }
-
-    const feature = transport === 'bluetooth' ? 'bluetooth' : 'serial';
-    // Presence is not permission. A frame denied the feature by Permissions
-    // Policy can still expose the API -- measured in Chromium, a cross-origin
-    // frame without `allow` keeps `navigator.serial` and only loses
-    // `navigator.bluetooth` -- so a presence check alone lets MAIDR offer a
-    // control that answers with a raw SecurityError. The policy is the
-    // authority where the browser will state it.
-    const policy = typeof document === 'undefined'
-      ? undefined
-      : (document as unknown as {
-          featurePolicy?: { allowsFeature: (name: string) => boolean };
-        }).featurePolicy;
-    if (policy !== undefined) {
-      try {
-        if (!policy.allowsFeature(feature)) {
-          return false;
-        }
-      } catch {
-        // A browser that does not know the feature name throws rather than
-        // answering; fall through to the presence check.
-      }
-    }
-
-    return feature in navigator;
+    return allowsDeviceFeature(transport);
   }
 
   /**
@@ -898,13 +883,13 @@ class DotPadSession {
         return this.state;
       }
 
-      const holder = await this.requestHandoff();
+      const holder = await this.handoff.request();
       let attached = false;
       try {
         attached = await this.attach(sdk, transport, selected);
       } finally {
         if (!attached) {
-          this.returnHandoff(holder);
+          this.handoff.giveBack(holder);
         }
       }
       if (!attached) {
@@ -992,132 +977,6 @@ class DotPadSession {
         console.error('DotPad disconnect failed:', error instanceof Error ? error.message : error);
       });
     return this.writeChain;
-  }
-
-  /**
-   * Asks whichever other frame on the page holds the display to let it go,
-   * and waits until it has.
-   *
-   * A device can be open in one frame at a time, and in a notebook or a
-   * rendered document every chart is a frame of its own. A connection the
-   * reader made in one chart was kept there for as long as that frame lived,
-   * so every other chart found the device busy and the reader had to connect
-   * again in each one. Asking is what lets the connection follow the reader
-   * from chart to chart until they disconnect it themselves.
-   *
-   * Resolves at once where no frame holds the display, or where the browser
-   * has no way to ask.
-   *
-   * @returns The frame that let the display go, to be given it back should
-   * opening it here fail, or null when no frame held it
-   */
-  private requestHandoff(): Promise<string | null> {
-    const channel = this.handoffChannel();
-    if (channel === null) {
-      return Promise.resolve(null);
-    }
-    return new Promise<string | null>((resolve) => {
-      let settled = false;
-      let holder: string | null = null;
-      let timer: ReturnType<typeof setTimeout>;
-      const listening = new AbortController();
-      const finish = (): void => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        clearTimeout(timer);
-        listening.abort();
-        resolve(holder);
-      };
-      const listen = (event: MessageEvent<HandoffMessage>): void => {
-        const message = event.data;
-        if (message?.to !== this.frameId) {
-          return;
-        }
-        if (message.type === 'releasing') {
-          holder = message.from;
-          // Someone holds it: wait for the close, bounded as the close is.
-          clearTimeout(timer);
-          timer = setTimeout(finish, CLOSE_FLUSH_TIMEOUT_MS + HANDOFF_ACK_TIMEOUT_MS);
-        } else if (message.type === 'released') {
-          finish();
-        }
-      };
-      channel.addEventListener('message', listen, { signal: listening.signal });
-      timer = setTimeout(finish, HANDOFF_ACK_TIMEOUT_MS);
-      channel.postMessage({ type: 'release', from: this.frameId } satisfies HandoffMessage);
-    });
-  }
-
-  /**
-   * Lets another frame have the display it asked for; see
-   * {@link requestHandoff}.
-   *
-   * The pins are left as they are: the frame that asked is about to draw.
-   *
-   * @param message - The ask
-   */
-  private handleHandoff(message: HandoffMessage): void {
-    if (message?.type === 'return' && message.to === this.frameId) {
-      // Given back: the frame that asked for it could not open it after all.
-      void this.adopt();
-      return;
-    }
-    if (message?.type !== 'release' || message.from === this.frameId) {
-      return;
-    }
-    const channel = this.handoffChannel();
-    const sdk = this.sdk;
-    const device = this.device;
-    if (channel === null || sdk === null || device === null) {
-      return;
-    }
-    channel.postMessage({ type: 'releasing', from: this.frameId, to: message.from } satisfies HandoffMessage);
-    this.device = null;
-    this.setState({
-      status: 'disconnected',
-      deviceName: null,
-      transport: null,
-      geometry: null,
-      message: '',
-    });
-    void this.closeWhenQueueDrains(sdk, device).then(() => {
-      channel.postMessage({ type: 'released', from: this.frameId, to: message.from } satisfies HandoffMessage);
-    });
-  }
-
-  /**
-   * Gives the display back to the frame that let it go, when opening it here
-   * failed.
-   *
-   * The ask closed a connection that was working. A frame that then cannot
-   * open the device -- a Bluetooth link that drops as it reconnects, a display
-   * switched off a moment ago -- would otherwise leave the reader with no
-   * display anywhere, for a failure that had nothing to do with the chart
-   * that had it.
-   *
-   * @param holder - The frame that let it go, or null when none did
-   */
-  private returnHandoff(holder: string | null): void {
-    const channel = this.handoffChannel();
-    if (holder === null || channel === null) {
-      return;
-    }
-    channel.postMessage({ type: 'return', from: this.frameId, to: holder } satisfies HandoffMessage);
-  }
-
-  /**
-   * The channel to the page's other frames, opened on first use.
-   */
-  private handoffChannel(): BroadcastChannel | null {
-    if (this.channel === undefined) {
-      this.channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(HANDOFF_CHANNEL);
-      this.channel?.addEventListener('message', (event: MessageEvent<HandoffMessage>) => {
-        this.handleHandoff(event.data);
-      });
-    }
-    return this.channel;
   }
 
   /**

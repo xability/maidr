@@ -5,22 +5,30 @@ per data point, magnitude encoded in the dot pattern. See
 [Braille Generation](BRAILLE.md) for that.
 
 A **tactile graphics display** is a different device: it has a grid of pins that
-the chart itself is drawn onto, plus a separate braille line for text. MAIDR
-drives one over Bluetooth or USB, scaling the chart's own SVG down onto the
-pins while the braille panel is open.
+the chart itself is drawn onto, plus a line of braille for text. MAIDR drives
+one directly, scaling the chart's own SVG down onto the pins while the braille
+panel is open.
 
-Currently supported: **Dot Pad X** (Dot Inc.).
+Currently supported:
+
+- **Dot Pad X** (Dot Inc.), over Bluetooth or USB.
+- **Monarch** (APH and HumanWare), in its Braille Terminal, over USB or
+  Bluetooth. See [Monarch](#monarch) for how it differs.
 
 ## Connecting
 
 1. Open Settings and find **Tactile Graphics Display**.
-2. Choose your device. MAIDR opens the browser's Bluetooth picker immediately.
-3. Pick the display in the picker and pair it.
+2. Choose your device. MAIDR opens the browser's picker immediately: the
+   Bluetooth picker for a Dot Pad, the list of braille displays for a Monarch.
+3. Pick the display in the picker. A Dot Pad pairs there; a Monarch is already
+   connected to the computer, as below.
 
-For a cabled display, use **Connect over USB** instead; either button works at
-any time. The status line reports what happened and which way you are
-connected, and both buttons retry if a picker is dismissed or a connection
-fails.
+For a Dot Pad on a cable, use **Connect over USB** instead; either button works
+at any time. A Monarch has one button, **Connect**, because the browser finds it
+the same way on a cable and over Bluetooth. The status line reports what
+happened and which way you are connected, and the buttons retry if a picker is
+dismissed or a connection fails. Choosing another device disconnects the one in
+use: MAIDR draws on one display at a time.
 
 ### Several charts on one page
 
@@ -37,13 +45,14 @@ chart yourself or it took the device up silently. Charts in the same frame
 simply share it. It ends only when you press **Disconnect** in Settings.
 
 Taking the device up again needs the browser to hand back a device the page was
-granted. Chrome does that for USB. Over Bluetooth it needs Chrome's persistent
-Bluetooth permissions, still behind a flag in some versions; without them each
-frame asks for the picker again.
+granted. Chrome does that for a Dot Pad on USB, and for a Monarch however it is
+connected. For a Dot Pad over Bluetooth it needs Chrome's persistent Bluetooth
+permissions, still behind a flag in some versions; without them each frame asks
+for the picker again.
 
 ### Bluetooth or USB
 
-Both work. They differ in ways worth knowing:
+For a Dot Pad, both work. They differ in ways worth knowing:
 
 |                | Bluetooth              | USB                          |
 | -------------- | ---------------------- | ---------------------------- |
@@ -61,14 +70,16 @@ headroom above it.
 Reaching the device at all is a browser capability MAIDR cannot supply on its
 own:
 
-- **A Chromium browser.** Neither Web Bluetooth nor Web Serial is implemented
-  in Firefox or Safari.
+- **A Chromium browser.** None of Web Bluetooth, Web Serial and WebHID is
+  implemented in Firefox or Safari, and WebHID, which reaches a Monarch, is not
+  in Chromium on Android either.
 - **A page permitted to use it.** Inside an iframe — which is how charts are
-  embedded in notebooks — the frame needs `allow="bluetooth"` for the wireless
-  path and `allow="serial"` for the cabled one. A frame without them cannot
-  reach the device however the page is served. The two are gated separately, so
-  a page may permit one and not the other; MAIDR greys out whichever button
-  cannot work rather than letting you press it and fail.
+  embedded in notebooks — the frame needs `allow="bluetooth"` for a Dot Pad's
+  wireless path, `allow="serial"` for its cabled one, and `allow="hid"` for a
+  Monarch. A frame without them cannot reach the device however the page is
+  served. Each is gated separately, so a page may permit one and not another;
+  MAIDR greys out whichever button cannot work rather than letting you press it
+  and fail.
 - **A click.** The browser only opens its picker while a user gesture is in
   progress, which is why connecting is a button in Settings and cannot happen
   automatically on load.
@@ -76,18 +87,69 @@ own:
 Where any of these is missing, MAIDR says so in the status line and the rest of
 the chart works exactly as before.
 
+### Monarch
+
+The Monarch has no SDK a web page can load: APH's is for apps that run on the
+Monarch itself. What it offers a computer is **Braille Terminal**, in which it
+acts as a multi-line braille display speaking the USB HID braille standard —
+the way JAWS and NVDA use it. MAIDR draws on it the same way, through WebHID.
+
+1. On the Monarch, open **Braille Terminal** and connect it to the computer
+   over USB, or pair it over Bluetooth in the computer's own Bluetooth
+   settings. The browser's picker lists it either way; it cannot pair a device
+   itself, as it does a Dot Pad.
+2. **Turn off your screen reader's braille output to the Monarch** — in NVDA,
+   choose *No braille* as the braille display. A device is open in one program
+   at a time: while your screen reader holds the Monarch MAIDR cannot open it,
+   and the status line says so. Speech carries on as usual.
+3. In MAIDR's Settings, choose **Monarch** and pick it in the browser's list.
+
+**Resolution.** The Monarch's pins are 96 across and 40 down, evenly spaced
+2.6 mm apart — 480 cells of eight pins. Braille Terminal reports its braille
+cells, not the pins under them, so MAIDR takes the pins from the hardware and
+checks the cells against them: 32 cells to a line and six to ten lines. A
+braille display that does not fit — an ordinary single-line display picked by
+mistake — is refused with *"That display is not laid out like a Monarch"*,
+rather than drawn on as though it were one.
+
+**The picture.** The bottom line is kept for text, and the chart is drawn on
+the pins above it: all 96 across, and 35 down with eight lines of braille (36
+with ten). It is drawn at that true resolution, so a circle stays round and a
+mark lands where it belongs. But Braille Terminal lays its cells out for
+reading, three pins apart with the third always down, and with eight lines a
+row of pins between lines too. Those pins cannot be raised, so each is folded
+into the dot beside it. Nothing drawn is lost — a line that falls between cells
+is felt one pin to the side — but a long horizontal line is felt as pairs of
+pins with a gap between, and a filled mark as stripes. That is the limit of
+what a computer can do with the Monarch's pins today; the Monarch's own Tactile
+Viewer has every pin.
+
+**The text line** is the bottom line's 32 cells, carrying the same description
+of the focused point as a Dot Pad's braille line. It is uncontracted (grade 1):
+there is no braille engine to load for a Monarch, and MAIDR says so once when
+the line first appears.
+
+**Keys.** MAIDR listens for the keys by the names the HID braille standard
+gives them: the D-pads beside the display pan the picture, as they pan a graphic
+in the Monarch's own Tactile Viewer, and the panning keys move back and on along
+the text line. A key Braille Terminal reports under some other name does nothing
+in MAIDR; zooming is on the computer's keyboard either way, and moving through
+the chart still brings the view along with the focus. The HID braille standard
+has no way for a computer to make the Monarch vibrate, so the end of the line is
+spoken instead.
+
 ### The SDK
 
-MAIDR does not bundle the vendor's SDK by default. Its braille engine is a
-14 MB liblouis build, and shipping that inside every copy of `maidr.js` would
-make every page heavier for a device most readers do not have. Instead MAIDR
-loads the SDK over a CDN from a git commit, pinned so the bytes cannot change
-under a release. The pin is recorded, with the size and digest of every file
-and the vendor archive they were verified against, in
-`src/service/dotPadSdk.json`. The build copies that file into the npm package
-as `dist/dotpad-sdk.json`, and the Python and R bindings and the agent skill
-take their pins from it when they refresh the bundle, so all four load the
-same release.
+A Dot Pad is reached through its vendor's SDK, which MAIDR does not bundle by
+default. Its braille engine is a 14 MB liblouis build, and shipping that inside
+every copy of `maidr.js` would make every page heavier for a device most readers
+do not have. Instead MAIDR loads the SDK over a CDN from a git commit, pinned so
+the bytes cannot change under a release. The pin is recorded, with the size and
+digest of every file and the vendor archive they were verified against, in
+`src/service/dotPadSdk.json`. The build copies that file into the npm package as
+`dist/dotpad-sdk.json`, and the Python and R bindings and the agent skill take
+their pins from it when they refresh the bundle, so all four load the same
+release.
 
 Dot Inc. publish each release in `dotincorp/dotpad-sdk-guide`, but as a zip
 under `Web/<version>/download/`, and a CDN cannot serve a file from inside an
@@ -495,12 +557,12 @@ about rather than working around by making the picture harder to read.
 Zooming in means the rest of the chart is off the pins, so the view pans — from
 the device itself, without taking a hand off it:
 
-| Action     | Device key           |
-| ---------- | -------------------- |
-| Pan left   | Panning Left         |
-| Pan right  | Panning Right        |
-| Pan up     | Function 2           |
-| Pan down   | Function 3           |
+| Action     | Dot Pad key          | Monarch key          |
+| ---------- | -------------------- | -------------------- |
+| Pan left   | Panning Left         | D-pad left           |
+| Pan right  | Panning Right        | D-pad right          |
+| Pan up     | Function 2           | D-pad up             |
+| Pan down   | Function 3           | D-pad down           |
 
 Each step moves half a window, so some of what you were reading stays in view.
 At an edge, MAIDR says there is no more chart that way rather than moving
@@ -518,7 +580,7 @@ across.
 
 The two inner function keys move the picture and the two outer ones move the
 braille line below it, so the two things you scroll never take each other's
-keys.
+keys. On a Monarch the D-pads move the picture and the panning keys the line.
 
 Navigation also pans on its own, but only when it has to: if an arrow key takes
 the focus off the visible window, the view recentres on it. A pan you chose
@@ -533,10 +595,10 @@ under your fingers.
 
 That description runs well past twenty cells, so the line scrolls:
 
-| Action              | Device key  |
-| ------------------- | ----------- |
-| Back along the line | Function 1  |
-| On along the line   | Function 4  |
+| Action              | Dot Pad key | Monarch key   |
+| ------------------- | ----------- | ------------- |
+| Back along the line | Function 1  | Pan up        |
+| On along the line   | Function 4  | Pan down      |
 
 When more text follows, the final cell shows dots 7 and 8. Moving along the line
 is silent — you are reading it with your fingers, and a voice naming the part
@@ -636,7 +698,18 @@ In these cases the braille panel behaves normally and the pins stay down.
 
 ## Notes for other devices
 
-Nothing in MAIDR hardcodes a pin count. Every device reports its own cell rows,
-cell columns and braille-line width when it connects, and MAIDR sizes the
-rendering to what it is told — including devices with no braille line at all,
-which simply get the graphic area.
+Nothing in MAIDR hardcodes a Dot Pad's pin count. Every Dot Pad reports its own
+cell rows, cell columns and braille-line width when it connects, and MAIDR sizes
+the rendering to what it is told — including devices with no braille line at
+all, which simply get the graphic area.
+
+The Monarch is the exception, because Braille Terminal reports its cells and
+not its pins: its 96 by 40 pins are written into MAIDR, and the cells it
+reports are checked against them before anything is drawn.
+
+Each kind of display has a driver of its own behind one interface
+(`src/type/tactileDisplay.ts`): a Dot Pad's speaks the vendor's SDK
+(`src/service/dotPadSession.ts`), a Monarch's speaks the HID braille standard
+over WebHID (`src/service/monarchSession.ts`), and the tactile service draws
+through whichever is in use (`src/service/tactileDisplay.ts`). Another display
+is another driver.

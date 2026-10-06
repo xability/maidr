@@ -38,7 +38,7 @@
  *   after the first time the reader tabbed away. That assertion is the reason
  *   this file exists as much as any of the others.
  *
- * Both hardware and geometry are mocked at their boundary. `dotPadSession` is
+ * Both hardware and geometry are mocked at their boundary. `tactileDisplay` is
  * replaced by a fake that keeps the listeners it is handed, so a key press or a
  * connection change can be fired from a test; jsdom has no SVG layout engine,
  * so `TactileSvgGeometry.ringsOf` returns hand-written rings and every
@@ -58,21 +58,21 @@ import type { FigureState, NonEmptyTraceState, SubplotState, TraceState } from '
 import type { DotRing } from '@util/tactile/svgGeometry';
 import type { TactileViewport } from '@util/tactile/viewport';
 import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { dotPadSession } from '@service/dotPadSession';
 import { TactileService } from '@service/tactile';
+import { tactileDisplay } from '@service/tactileDisplay';
 import { Emitter } from '@type/event';
 import { TactileBraille } from '@util/tactile/brailleText';
 import { DotPack } from '@util/tactile/pack';
 import { TactileRenderer } from '@util/tactile/render';
 import { TactileSvgGeometry } from '@util/tactile/svgGeometry';
 
-jest.mock('@service/dotPadSession', () => {
+jest.mock('@service/tactileDisplay', () => {
   const keyListeners = new Set<(key: DotPadKey) => void>();
   const stateListeners = new Set<(state: DotPadState) => void>();
   const writeFailureListeners = new Set<() => void>();
 
   return {
-    dotPadSession: {
+    tactileDisplay: {
       isConnected: false,
       geometry: null,
       current: {
@@ -168,7 +168,7 @@ interface FakeSession {
   fireWriteFailure: () => void;
 }
 
-const session = dotPadSession as unknown as FakeSession;
+const session = tactileDisplay as unknown as FakeSession;
 const ringsOf = TactileSvgGeometry.ringsOf as jest.Mock<
   (element: SVGGraphicsElement, viewport: TactileViewport) => DotRing[]
 >;
@@ -615,6 +615,56 @@ describe('tactileService', () => {
 
       expect(session.writeGraphic).not.toHaveBeenCalled();
       expect(session.writeText).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('on a display whose pins are not whole cells down', () => {
+    /**
+     * A Monarch in Braille Terminal: 96 pins across, and seven lines of
+     * picture five pins apart, so 35 pins down -- a cell row and a bit short of
+     * nine, as a DotPad counts them -- above a 32-cell text line.
+     */
+    const MONARCH: DotPadGeometry = { cellColumns: 48, cellRows: 9, textCells: 32, dotWidth: 96, dotHeight: 35 };
+
+    /**
+     * The pins a frame packed for {@link MONARCH} raises.
+     * @param hex - A payload `writeGraphic` was sent
+     */
+    function raised(hex: string): { x: number; y: number }[] {
+      const pins: { x: number; y: number }[] = [];
+      const bits = [[0x01, 0x02, 0x04, 0x08], [0x10, 0x20, 0x40, 0x80]];
+      for (let cell = 0; cell < MONARCH.cellColumns * MONARCH.cellRows; cell++) {
+        const value = Number.parseInt(hex.slice(cell * 2, cell * 2 + 2), 16);
+        for (let dx = 0; dx < 2; dx++) {
+          for (let dy = 0; dy < 4; dy++) {
+            if (value & bits[dx][dy]) {
+              pins.push({ x: (cell % MONARCH.cellColumns) * 2 + dx, y: Math.floor(cell / MONARCH.cellColumns) * 4 + dy });
+            }
+          }
+        }
+      }
+      return pins;
+    }
+
+    it('should draw on every pin it has and none it has not, one pin clear of the edge', () => {
+      session.geometry = MONARCH;
+
+      activate();
+
+      const hex = session.writeGraphic.mock.calls[0][0];
+      const pins = raised(hex);
+      expect(hex).toHaveLength(MONARCH.cellColumns * MONARCH.cellRows * 2);
+      expect(Math.max(...pins.map(pin => pin.y))).toBe(MONARCH.dotHeight - 2);
+      expect(Math.max(...pins.map(pin => pin.x))).toBe(MONARCH.dotWidth - 2);
+      expect(Math.min(...pins.map(pin => pin.y))).toBe(1);
+    });
+
+    it('should fill the whole text line it has', () => {
+      session.geometry = MONARCH;
+
+      activate();
+
+      expect(session.writeText.mock.calls.at(-1)?.[0]).toHaveLength(MONARCH.textCells * 2);
     });
   });
 

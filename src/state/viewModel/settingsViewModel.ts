@@ -7,7 +7,7 @@ import type { HelpMenuItem, RebindResult } from '@type/help';
 import type { Settings, SettingsSection } from '@type/settings';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
-import { dotPadSession } from '@service/dotPadSession';
+import { tactileDisplay } from '@service/tactileDisplay';
 import { isWebMcpSupported } from '@service/webMcp';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { AbstractViewModel } from './viewModel';
@@ -180,7 +180,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
    * Current state of the connection to a tactile graphics display.
    */
   public get tactileDisplayState(): DotPadState {
-    return dotPadSession.current;
+    return tactileDisplay.current;
   }
 
   /**
@@ -194,7 +194,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
    * @returns A disposable that ends the subscription
    */
   public onTactileDisplayStateChange(listener: (state: DotPadState) => void): Disposable {
-    return dotPadSession.onStateChange(listener);
+    return tactileDisplay.onStateChange(listener);
   }
 
   /**
@@ -202,7 +202,7 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
    * @param transport - The connection to test
    */
   public supportsTactileTransport(transport: DotPadTransport): boolean {
-    return dotPadSession.supports(transport);
+    return tactileDisplay.supports(transport);
   }
 
   /**
@@ -215,11 +215,13 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   }
 
   /**
-   * Fetches the tactile display SDK ahead of any connect attempt, so the
-   * connect click is not spent waiting for it.
+   * Fetches what connecting to a tactile display would otherwise wait on, so
+   * the connect click is not spent waiting for it: the DotPad SDK for a
+   * DotPad, nothing for a Monarch.
+   * @param deviceId - The device the reader picked, or null when none yet
    */
-  public preloadTactileDisplay(): void {
-    void dotPadSession.preload();
+  public preloadTactileDisplay(deviceId: string | null): void {
+    void tactileDisplay.preload(deviceId);
   }
 
   /**
@@ -229,18 +231,19 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
    * the picker while a gesture is still in progress, and anything awaited first
    * spends that activation.
    *
-   * @param transport - Whether to look for the device over Bluetooth or USB
+   * @param transport - Whether to look for a DotPad over Bluetooth or USB, or
+   * for a Monarch over WebHID
    * @returns The connection state once the attempt settles
    */
   public async connectTactileDisplay(transport: DotPadTransport): Promise<DotPadState> {
-    return dotPadSession.connect(transport);
+    return tactileDisplay.connect(transport);
   }
 
   /**
    * Disconnects the tactile display.
    */
   public disconnectTactileDisplay(): void {
-    dotPadSession.disconnect();
+    tactileDisplay.disconnect();
   }
 }
 
