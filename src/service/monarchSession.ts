@@ -2,7 +2,7 @@ import type { DotPadGeometry, DotPadKey, DotPadState, DotPadTransport } from '@t
 import type { Event } from '@type/event';
 import type { Hid, HidConnectionEvent, HidDevice, HidInputReportEvent } from '@type/hid';
 import type { TactileDisplayDriver } from '@type/tactileDisplay';
-import type { HidBrailleLayout } from '@util/tactile/hidBraille';
+import type { HidBrailleLayout, HidKey } from '@util/tactile/hidBraille';
 import type { SpacedCellLayout } from '@util/tactile/spacedCells';
 import { Emitter } from '@type/event';
 import { allowsDeviceFeature } from '@util/deviceFeature';
@@ -40,6 +40,13 @@ const MIN_LINES = 6;
 const MAX_LINES = 10;
 
 /**
+ * The Monarch's zoom keys, the plus and minus beside its keyboard. Usages of
+ * its own, just past the last one the braille page defines.
+ */
+const ZOOM_IN_USAGE = 0x41_0220;
+const ZOOM_OUT_USAGE = 0x41_0221;
+
+/**
  * The browser's device picker lists braille displays only: devices with a
  * collection on the HID Braille Display usage page.
  */
@@ -59,13 +66,14 @@ const HANDOFF_CHANNEL = 'maidr-tactile-display-monarch';
 const CLOSE_FLUSH_TIMEOUT_MS = 2000;
 
 /**
- * The Monarch's keys, as the HID braille standard names them, given the jobs
- * a DotPad's keys do.
+ * HID braille keys, given the jobs a DotPad's keys do.
  *
- * The D-pads beside the display pan the picture, which is what they do in the
- * Monarch's own Tactile Viewer. The panning keys -- which move a braille reader
- * on to the next lines -- move along the text line instead. A joystick and a
- * rocker are the same controls on other HID braille displays.
+ * A D-pad or a joystick pans the picture, which is what the Monarch's D-pads
+ * do in its own Tactile Viewer. Panning keys and a rocker -- what most braille
+ * displays move a reader on through text with -- move along the text line. The
+ * Monarch has neither of those, so its right D-pad and its Space chords do
+ * that instead (see {@link RIGHT_PAD_KEYS} and {@link CHORD_KEYS}). Its zoom
+ * keys zoom.
  */
 const KEYS: ReadonlyMap<number, DotPadKey> = new Map<number, DotPadKey>([
   [BrailleUsage.dPadLeft, 'panLeft'],
@@ -80,6 +88,49 @@ const KEYS: ReadonlyMap<number, DotPadKey> = new Map<number, DotPadKey>([
   [BrailleUsage.rockerUp, 'function1'],
   [BrailleUsage.panRight, 'function4'],
   [BrailleUsage.rockerDown, 'function4'],
+  [ZOOM_IN_USAGE, 'zoomIn'],
+  [ZOOM_OUT_USAGE, 'zoomOut'],
+]);
+
+/**
+ * The right-hand D-pad's jobs on a display with a D-pad on each side, as the
+ * Monarch has: it moves along the text line, back with left or up and on with
+ * right or down, and leaves the left-hand one to pan the picture. Each hand
+ * then has one of the two things a reader scrolls.
+ */
+const RIGHT_PAD_KEYS: ReadonlyMap<number, DotPadKey> = new Map<number, DotPadKey>([
+  [BrailleUsage.dPadLeft, 'function1'],
+  [BrailleUsage.dPadUp, 'function1'],
+  [BrailleUsage.dPadRight, 'function4'],
+  [BrailleUsage.dPadDown, 'function4'],
+]);
+
+/**
+ * Chords of Space with one dot, by the dot: the two a Monarch reader moves
+ * back and on through lines of text with, dot 1 back and dot 4 on.
+ */
+const CHORD_KEYS: ReadonlyMap<number, DotPadKey> = new Map<number, DotPadKey>([
+  [BrailleUsage.keyboardDot1, 'function1'],
+  [BrailleUsage.keyboardDot4, 'function4'],
+]);
+
+/**
+ * The braille keyboard's spaces: one in the middle, or one under each thumb.
+ */
+const SPACES: ReadonlySet<number> = new Set([
+  BrailleUsage.keyboardSpace,
+  BrailleUsage.keyboardLeftSpace,
+  BrailleUsage.keyboardRightSpace,
+]);
+
+/**
+ * The D-pad's directions, by which a D-pad is told from other keys.
+ */
+const D_PAD: ReadonlySet<number> = new Set([
+  BrailleUsage.dPadUp,
+  BrailleUsage.dPadDown,
+  BrailleUsage.dPadLeft,
+  BrailleUsage.dPadRight,
 ]);
 
 /**
@@ -119,9 +170,21 @@ interface MonarchConnection {
   readonly sent: Map<number, Uint8Array>;
 
   /**
-   * The keys each input report last said were down.
+   * The keys each input report last said were down, by `keyId`.
    */
-  readonly pressed: Map<number, Set<number>>;
+  readonly pressed: Map<number, Map<string, HidKey>>;
+
+  /**
+   * True when the device has a D-pad on each side, so the right one can be
+   * given the text line.
+   */
+  readonly padsOnBothSides: boolean;
+
+  /**
+   * The braille keyboard keys pressed since the keyboard was last let go of
+   * entirely: the chord being typed.
+   */
+  readonly chord: Set<number>;
 
   readonly onInputReport: (event: HidInputReportEvent) => void;
 
@@ -433,6 +496,8 @@ class MonarchSession implements TactileDisplayDriver {
       text: new Uint8Array(CELLS_PER_LINE),
       sent: new Map(),
       pressed: new Map(),
+      padsOnBothSides: MonarchSession.hasPadsOnBothSides(layout),
+      chord: new Set(),
       onInputReport: event => this.handleInputReport(connection, event),
       dirty: false,
       flushing: null,
@@ -610,9 +675,13 @@ class MonarchSession implements TactileDisplayDriver {
   }
 
   /**
-   * Fires the keys an input report says have just gone down.
+   * Fires the keys an input report says have just gone down, and a chord once
+   * the braille keyboard is let go of.
    *
-   * Key-down rather than key-up, so a pan answers as the key is pressed.
+   * A key fires as it goes down rather than up, so a pan answers as the key is
+   * pressed. A chord cannot: it is only known once every key of it is down,
+   * and only certain once they are all up again, which is when braille input
+   * is read everywhere else too.
    *
    * @param connection - The connection the report came on
    * @param event - The report
@@ -621,13 +690,33 @@ class MonarchSession implements TactileDisplayDriver {
     if (this.connection !== connection) {
       return;
     }
-    const down = HidBraille.pressed(connection.layout, event.reportId, event.data);
-    const before = connection.pressed.get(event.reportId) ?? new Set<number>();
+    const down = new Map<string, HidKey>();
+    for (const key of HidBraille.pressed(connection.layout, event.reportId, event.data)) {
+      down.set(MonarchSession.keyId(key), key);
+    }
+    const before = connection.pressed.get(event.reportId) ?? new Map<string, HidKey>();
     connection.pressed.set(event.reportId, down);
-    for (const usage of down) {
-      const key = KEYS.get(usage);
-      if (key !== undefined && !before.has(usage)) {
-        this.onKeyEmitter.fire(key);
+    for (const [id, key] of down) {
+      if (before.has(id)) {
+        continue;
+      }
+      if (MonarchSession.isKeyboardKey(key.usage)) {
+        connection.chord.add(key.usage);
+        continue;
+      }
+      const job = MonarchSession.jobOf(connection, key);
+      if (job !== undefined) {
+        this.onKeyEmitter.fire(job);
+      }
+    }
+
+    const keyboardHeld = Array.from(connection.pressed.values())
+      .some(keys => Array.from(keys.values()).some(key => MonarchSession.isKeyboardKey(key.usage)));
+    if (connection.chord.size > 0 && !keyboardHeld) {
+      const job = MonarchSession.chordJob(connection.chord);
+      connection.chord.clear();
+      if (job !== undefined) {
+        this.onKeyEmitter.fire(job);
       }
     }
   }
@@ -710,6 +799,63 @@ class MonarchSession implements TactileDisplayDriver {
    */
   private static graphicHeight(cells: SpacedCellLayout): number {
     return (cells.lines - 1) * cells.pitchY;
+  }
+
+  /**
+   * What a key does, if anything.
+   * @param connection - The connection it was pressed on
+   * @param key - The key
+   */
+  private static jobOf(connection: MonarchConnection, key: HidKey): DotPadKey | undefined {
+    if (connection.padsOnBothSides && key.side === 'right') {
+      const job = RIGHT_PAD_KEYS.get(key.usage);
+      if (job !== undefined) {
+        return job;
+      }
+    }
+    return KEYS.get(key.usage);
+  }
+
+  /**
+   * What a chord does: Space with one dot, if that dot does anything.
+   * @param chord - The keyboard keys pressed together
+   */
+  private static chordJob(chord: ReadonlySet<number>): DotPadKey | undefined {
+    const dots = Array.from(chord).filter(usage => !SPACES.has(usage));
+    if (dots.length !== 1 || dots.length === chord.size) {
+      return undefined;
+    }
+    return CHORD_KEYS.get(dots[0]);
+  }
+
+  /**
+   * Whether a usage is a key of the braille keyboard: a dot or a space.
+   * @param usage - The usage
+   */
+  private static isKeyboardKey(usage: number): boolean {
+    return usage >= BrailleUsage.keyboardDot1 && usage <= BrailleUsage.keyboardRightSpace;
+  }
+
+  /**
+   * Whether a device has a D-pad on its left and another on its right.
+   *
+   * Only then is either given anything but the picture: a display with one
+   * D-pad, on whichever side, keeps it for panning.
+   *
+   * @param layout - Where the device keeps its keys
+   */
+  private static hasPadsOnBothSides(layout: HidBrailleLayout): boolean {
+    const sides = new Set(layout.buttonBits.filter(bit => D_PAD.has(bit.usage)).map(bit => bit.side));
+    return sides.has('left') && sides.has('right');
+  }
+
+  /**
+   * A key's identity: its usage and its side, since two keys can share a
+   * usage.
+   * @param key - The key
+   */
+  private static keyId(key: HidKey): string {
+    return `${key.side ?? ''}:${key.usage}`;
   }
 
   /**

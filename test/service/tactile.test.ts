@@ -666,6 +666,17 @@ describe('tactileService', () => {
 
       expect(session.writeText.mock.calls.at(-1)?.[0]).toHaveLength(MONARCH.textCells * 2);
     });
+
+    it('should zoom from the display\'s own zoom keys', () => {
+      session.geometry = MONARCH;
+      activate();
+
+      session.fireKey('zoomIn');
+      session.fireKey('zoomOut');
+
+      expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 50% across and 50% down');
+      expect(notify).toHaveBeenLastCalledWith('Whole plot');
+    });
   });
 
   describe('when inactive', () => {

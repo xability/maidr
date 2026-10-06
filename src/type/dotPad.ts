@@ -49,10 +49,19 @@ export interface DotPadGeometry {
  * the braille text line below it.
  *
  * Named for the DotPad's keys, which were the first. Another display maps its
- * own keys onto the same four jobs: a Monarch's D-pads pan the view, and its
- * panning keys scroll the text line.
+ * own keys onto the same jobs: a Monarch's left D-pad pans the view, and its
+ * right D-pad and Space chords scroll the text line. The zoom keys are a
+ * Monarch's own, its plus and minus; a DotPad has none.
  */
-export type DotPadKey = 'panLeft' | 'panRight' | 'function1' | 'function2' | 'function3' | 'function4';
+export type DotPadKey
+  = | 'panLeft'
+    | 'panRight'
+    | 'function1'
+    | 'function2'
+    | 'function3'
+    | 'function4'
+    | 'zoomIn'
+    | 'zoomOut';
 
 /**
  * How MAIDR reaches a tactile display.

@@ -871,6 +871,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     const step = KEY_TEXT_SCROLL[key];
     if (step !== undefined) {
       this.scrollText(step);
+      return;
+    }
+
+    if (key === 'zoomIn') {
+      this.zoomIn();
+    } else if (key === 'zoomOut') {
+      this.zoomOut();
     }
   }
 

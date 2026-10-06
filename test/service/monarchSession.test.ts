@@ -34,7 +34,9 @@ import { DotRaster } from '@util/tactile/raster';
  * - Gathering a frame. The tactile service sends a frame as several writes,
  *   and a Monarch takes seconds to raise a whole display, so they go out as
  *   one report rather than one each.
- * - The keys, which fire once per press however long the key is held.
+ * - The keys, which fire once per press however long the key is held: the
+ *   left D-pad pans the picture, the right one and Space chords scroll the
+ *   text line, and a lone D-pad pans whichever side it is on.
  * - Passing the Monarch between charts, as the DotPad's session does: two
  *   frames writing to one display would overwrite each other's pictures.
  *
@@ -47,19 +49,41 @@ type Session = typeof import('@service/monarchSession')['monarchSession'];
 const BRAILLE_DISPLAY = { usagePage: 0x41, usage: 0x01 } as const;
 const BRAILLE_ROW = { usagePage: 0x41, usage: 0x02 } as const;
 
+const LEFT_CONTROLS = { usagePage: 0x41, usage: 0x20D } as const;
+const RIGHT_CONTROLS = { usagePage: 0x41, usage: 0x20E } as const;
+
+/**
+ * The Monarch's zoom keys, usages of its own past the end of the braille page.
+ */
+const ZOOM_IN = 0x41_0220;
+const ZOOM_OUT = 0x41_0221;
+
+const D_PAD: readonly number[] = [BrailleUsage.dPadUp, BrailleUsage.dPadDown, BrailleUsage.dPadLeft, BrailleUsage.dPadRight];
+
 /**
  * The keys the fake Monarch reports, one bit each, in this order.
  */
 const KEY_BITS = [
-  BrailleUsage.dPadUp,
-  BrailleUsage.dPadDown,
-  BrailleUsage.dPadLeft,
-  BrailleUsage.dPadRight,
+  ...D_PAD,
   BrailleUsage.panLeft,
   BrailleUsage.panRight,
-  0x41_0201,
-  0x41_0209,
+  BrailleUsage.keyboardDot1,
+  BrailleUsage.keyboardSpace,
+  BrailleUsage.keyboardDot4,
+  ZOOM_IN,
+  ZOOM_OUT,
 ];
+
+/**
+ * What a fake display has beside its cells and keys.
+ */
+interface Extras {
+  /**
+   * A D-pad under right controls and another under left controls, ahead of
+   * the other keys, as a Monarch reports them; or only the one side named.
+   */
+  pads?: 'both' | 'right';
+}
 
 /**
  * A HID braille display as Chromium presents it: rows of cells in output
@@ -67,19 +91,30 @@ const KEY_BITS = [
  * @param lines - Rows of cells
  * @param cells - Cells in each row
  * @param dots - Dots in each cell
+ * @param extras - What it has beside
  */
-function brailleDisplay(lines: number, cells: number = 32, dots: 6 | 8 = 8): HidCollectionInfo[] {
+function brailleDisplay(lines: number, cells: number = 32, dots: 6 | 8 = 8, extras: Extras = {}): HidCollectionInfo[] {
   const row: HidReportItem = {
     usages: [dots === 8 ? BrailleUsage.eightDotCell : BrailleUsage.sixDotCell],
     reportSize: 8,
     reportCount: cells,
   };
   const rows = Array.from({ length: lines }, () => row);
+  // A display with pads of its own reports the D-pad usages there alone.
+  const others = extras.pads === undefined ? KEY_BITS : KEY_BITS.filter(usage => !D_PAD.includes(usage));
+  const keyItem: HidReportItem = { usages: others, reportSize: 1, reportCount: others.length };
+  const padItem = (): HidReportItem => ({ usages: D_PAD, reportSize: 1, reportCount: D_PAD.length });
+  const pads = extras.pads === 'both'
+    ? [{ ...RIGHT_CONTROLS, item: padItem() }, { ...LEFT_CONTROLS, item: padItem() }]
+    : extras.pads === 'right' ? [{ ...RIGHT_CONTROLS, item: padItem() }] : [];
   return [{
     ...BRAILLE_DISPLAY,
     outputReports: [{ reportId: 2, items: rows }],
-    inputReports: [{ reportId: 1, items: [{ usages: KEY_BITS, reportSize: 1, reportCount: KEY_BITS.length }] }],
-    children: rows.map(item => ({ ...BRAILLE_ROW, outputReports: [{ reportId: 2, items: [item] }] })),
+    inputReports: [{ reportId: 1, items: [...pads.map(pad => pad.item), keyItem] }],
+    children: [
+      ...rows.map(item => ({ ...BRAILLE_ROW, outputReports: [{ reportId: 2, items: [item] }] })),
+      ...pads.map(({ item, ...collection }) => ({ ...collection, inputReports: [{ reportId: 1, items: [item] }] })),
+    ],
   }];
 }
 
@@ -275,11 +310,35 @@ function frame(session: Session, pins: [number, number][]): string {
 }
 
 /**
- * The bits of the fake Monarch's key report with the given keys down.
+ * The bytes of a key report with the given bits set.
+ * @param bits - The bits, from the start of the report
+ * @param total - Bits in the report
+ */
+function report(bits: number[], total: number): number[] {
+  const bytes = Array.from({ length: Math.ceil(total / 8) }, () => 0);
+  for (const bit of bits) {
+    bytes[bit >> 3] |= 1 << (bit & 7);
+  }
+  return bytes;
+}
+
+/**
+ * The fake Monarch's key report with the given keys down.
  * @param usages - The keys
  */
 function keys(...usages: number[]): number[] {
-  return [usages.reduce((bits, usage) => bits | (1 << KEY_BITS.indexOf(usage)), 0)];
+  return report(usages.map(usage => KEY_BITS.indexOf(usage)), KEY_BITS.length);
+}
+
+/**
+ * The key report of a fake Monarch with a D-pad on each side, with keys on
+ * the pads down.
+ * @param pressed - Each key as its pad and its direction
+ */
+function padKeys(...pressed: ['left' | 'right', number][]): number[] {
+  // The right pad's four bits come first, then the left pad's.
+  const bits = pressed.map(([side, usage]) => (side === 'right' ? 0 : D_PAD.length) + D_PAD.indexOf(usage));
+  return report(bits, D_PAD.length + KEY_BITS.length);
 }
 
 const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
@@ -647,10 +706,36 @@ describe('monarchSession', () => {
       expect(pressed).toEqual(['panRight', 'function3']);
     });
 
-    it('should ignore the braille keyboard', () => {
-      monarch.input(keys(0x41_0201, 0x41_0209));
+    it('should move along the text line with Space and dot 1 or dot 4, once they are let go', () => {
+      monarch.input(keys(BrailleUsage.keyboardSpace));
+      monarch.input(keys(BrailleUsage.keyboardSpace, BrailleUsage.keyboardDot4));
+      const whileHeld = [...pressed];
+      monarch.input(keys(BrailleUsage.keyboardDot4));
+      monarch.input(keys());
+      monarch.input(keys(BrailleUsage.keyboardDot1, BrailleUsage.keyboardSpace));
+      monarch.input(keys());
+
+      expect(whileHeld).toEqual([]);
+      expect(pressed).toEqual(['function4', 'function1']);
+    });
+
+    it('should do nothing for any other chord', () => {
+      monarch.input(keys(BrailleUsage.keyboardDot1));
+      monarch.input(keys());
+      monarch.input(keys(BrailleUsage.keyboardSpace));
+      monarch.input(keys());
+      monarch.input(keys(BrailleUsage.keyboardSpace, BrailleUsage.keyboardDot1, BrailleUsage.keyboardDot4));
+      monarch.input(keys());
 
       expect(pressed).toEqual([]);
+    });
+
+    it('should zoom with the zoom keys', () => {
+      monarch.input(keys(ZOOM_IN));
+      monarch.input(keys());
+      monarch.input(keys(ZOOM_OUT));
+
+      expect(pressed).toEqual(['zoomIn', 'zoomOut']);
     });
 
     it('should hear no keys once disconnected', () => {
@@ -660,6 +745,60 @@ describe('monarchSession', () => {
 
       expect(pressed).toEqual([]);
     });
+  });
+
+  describe('a Monarch\'s two D-pads', () => {
+    let session: Session;
+    let device: FakeDevice;
+    let pressed: DotPadKey[];
+
+    beforeEach(async () => {
+      device = new FakeDevice(brailleDisplay(8, 32, 8, { pads: 'both' }));
+      hid.picked = [device];
+      session = await loadSession();
+      await session.connect('hid');
+      pressed = [];
+      session.onKey(key => pressed.push(key));
+    });
+
+    it('should pan the picture with the left D-pad', () => {
+      device.input(padKeys(['left', BrailleUsage.dPadLeft]));
+      device.input(padKeys(['left', BrailleUsage.dPadUp]));
+      device.input(padKeys(['left', BrailleUsage.dPadRight]));
+      device.input(padKeys(['left', BrailleUsage.dPadDown]));
+
+      expect(pressed).toEqual(['panLeft', 'function2', 'panRight', 'function3']);
+    });
+
+    it('should move along the text line with the right D-pad, on with right or down and back with left or up', () => {
+      device.input(padKeys(['right', BrailleUsage.dPadRight]));
+      device.input(padKeys(['right', BrailleUsage.dPadDown]));
+      device.input(padKeys(['right', BrailleUsage.dPadLeft]));
+      device.input(padKeys(['right', BrailleUsage.dPadUp]));
+
+      expect(pressed).toEqual(['function4', 'function4', 'function1', 'function1']);
+    });
+
+    it('should hear both pads at once as two keys', () => {
+      device.input(padKeys(['left', BrailleUsage.dPadUp], ['right', BrailleUsage.dPadUp]));
+
+      expect(pressed).toEqual(['function1', 'function2']);
+    });
+  });
+
+  it('should pan the picture with a D-pad that has no twin, whichever side it is on', async () => {
+    // Only a pair is split between picture and text: a display whose one
+    // D-pad sits on the right would otherwise have nothing to pan with.
+    const device = new FakeDevice(brailleDisplay(8, 32, 8, { pads: 'right' }));
+    hid.picked = [device];
+    const session = await loadSession();
+    await session.connect('hid');
+    const pressed: DotPadKey[] = [];
+    session.onKey(key => pressed.push(key));
+
+    device.input(padKeys(['right', BrailleUsage.dPadLeft]));
+
+    expect(pressed).toEqual(['panLeft']);
   });
 
   describe('the device going away', () => {

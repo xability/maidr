@@ -8,12 +8,33 @@ const BRAILLE_PAGE = 0x41;
 const BRAILLE_ROW = 0x02;
 
 /**
+ * Which side of the display a key is on, as the standard's control
+ * collections name it.
+ */
+export type ControlSide = 'face' | 'left' | 'right' | 'top';
+
+/**
+ * The collections the standard groups a display's controls under, by usage.
+ */
+const CONTROL_SIDES: ReadonlyMap<number, ControlSide> = new Map<number, ControlSide>([
+  [0x020C, 'face'],
+  [0x020D, 'left'],
+  [0x020E, 'right'],
+  [0x020F, 'top'],
+]);
+
+/**
  * Extended usages, the usage page in the high sixteen bits, as WebHID reports
  * them.
  */
 export const BrailleUsage = {
   eightDotCell: 0x41_0003,
   sixDotCell: 0x41_0004,
+  keyboardDot1: 0x41_0201,
+  keyboardDot4: 0x41_0204,
+  keyboardSpace: 0x41_0209,
+  keyboardLeftSpace: 0x41_020A,
+  keyboardRightSpace: 0x41_020B,
   joystickUp: 0x41_0211,
   joystickDown: 0x41_0212,
   joystickLeft: 0x41_0213,
@@ -62,6 +83,26 @@ export interface HidButtonBit {
   readonly reportId: number;
   readonly bitOffset: number;
   readonly usage: number;
+
+  /**
+   * The side of the display the key is on, or null when the device does not
+   * say.
+   */
+  readonly side: ControlSide | null;
+}
+
+/**
+ * A key held down.
+ */
+export interface HidKey {
+  readonly usage: number;
+
+  /**
+   * The side of the display the key is on, or null when the device does not
+   * say. Two keys can share a usage and differ only here: a Monarch's two
+   * D-pads both report the D-pad usages.
+   */
+  readonly side: ControlSide | null;
 }
 
 /**
@@ -160,9 +201,11 @@ export abstract class HidBraille {
           outputLengths.set(reportId, Math.ceil(found.bits / 8));
         }
       }
+      const bits: HidButtonBit[] = [];
       for (const report of display.inputReports ?? []) {
-        HidBraille.buttons(report, buttonBits, buttonArrays);
+        HidBraille.buttons(report, bits, buttonArrays);
       }
+      buttonBits.push(...HidBraille.withSides(display, bits));
     }
     if (fields.size === 0) {
       return null;
@@ -225,13 +268,13 @@ export abstract class HidBraille {
    * @param layout - Where the display keeps its keys
    * @param reportId - The report's ID
    * @param data - The report's bytes, without the ID
-   * @returns The extended usages of every key held down
+   * @returns Every key held down
    */
-  public static pressed(layout: HidBrailleLayout, reportId: number, data: DataView): Set<number> {
-    const down = new Set<number>();
+  public static pressed(layout: HidBrailleLayout, reportId: number, data: DataView): HidKey[] {
+    const down: HidKey[] = [];
     for (const button of layout.buttonBits) {
       if (button.reportId === reportId && HidBraille.readBits(data, button.bitOffset, 1) === 1) {
-        down.add(button.usage);
+        down.push({ usage: button.usage, side: button.side });
       }
     }
     for (const array of layout.buttonArrays) {
@@ -242,7 +285,7 @@ export abstract class HidBraille {
         const value = HidBraille.readBits(data, array.bitOffset + field * array.size, array.size);
         const usage = HidBraille.usageAt(array.item, value - (array.item.logicalMinimum ?? 0));
         if (usage !== null) {
-          down.add(usage);
+          down.push({ usage, side: null });
         }
       }
     }
@@ -287,13 +330,102 @@ export abstract class HidBraille {
           for (let field = 0; field < count; field++) {
             const usage = HidBraille.usageAt(item, field);
             if (usage !== null) {
-              bits.push({ reportId, bitOffset: offset + field, usage });
+              bits.push({ reportId, bitOffset: offset + field, usage, side: null });
             }
           }
         }
       }
       offset += size * count;
     }
+  }
+
+  /**
+   * Gives each key the side of the display its control collection names.
+   *
+   * WebHID lists every key under the top-level collection, which is where its
+   * bit is found, and again under the collection it was declared in, which
+   * names its side but not its bit. Both lists keep the order of declaration,
+   * so the n-th control collection to declare a usage owns the n-th bit that
+   * reports it. That only ever decides anything for a usage declared twice: a
+   * Monarch reports both its D-pads with the D-pad usages, once under left
+   * controls and once under right.
+   *
+   * A usage whose bits and declarations do not pair up -- declared outside any
+   * control collection as well as inside one, say -- is given no side at all,
+   * rather than a side that may belong to its twin.
+   *
+   * @param display - The top-level collection
+   * @param bits - Its keys, in the order it lists them
+   */
+  private static withSides(display: HidCollectionInfo, bits: readonly HidButtonBit[]): HidButtonBit[] {
+    const declared = new Map<string, ControlSide[]>();
+    for (const { side, collection } of HidBraille.controlCollections(display)) {
+      for (const report of collection.inputReports ?? []) {
+        for (const usage of HidBraille.bitUsages(report)) {
+          const key = `${report.reportId ?? 0}:${usage}`;
+          declared.set(key, [...(declared.get(key) ?? []), side]);
+        }
+      }
+    }
+    const reported = new Map<string, number>();
+    for (const bit of bits) {
+      const key = `${bit.reportId}:${bit.usage}`;
+      reported.set(key, (reported.get(key) ?? 0) + 1);
+    }
+    const seen = new Map<string, number>();
+    return bits.map((bit) => {
+      const key = `${bit.reportId}:${bit.usage}`;
+      const index = seen.get(key) ?? 0;
+      seen.set(key, index + 1);
+      const sides = declared.get(key) ?? [];
+      return sides.length === reported.get(key) ? { ...bit, side: sides[index] } : bit;
+    });
+  }
+
+  /**
+   * The control collections under a collection, in the order they are
+   * declared.
+   *
+   * One holding others is passed over for them: WebHID lists a key under
+   * every collection around it, so the outer one would claim its inner ones'
+   * keys as well.
+   *
+   * @param collection - The collection to walk
+   */
+  private static controlCollections(
+    collection: HidCollectionInfo,
+  ): { side: ControlSide; collection: HidCollectionInfo }[] {
+    const found: { side: ControlSide; collection: HidCollectionInfo }[] = [];
+    for (const child of collection.children ?? []) {
+      const inner = HidBraille.controlCollections(child);
+      const side = child.usagePage === BRAILLE_PAGE ? CONTROL_SIDES.get(child.usage ?? -1) : undefined;
+      if (inner.length === 0 && side !== undefined) {
+        found.push({ side, collection: child });
+      } else {
+        found.push(...inner);
+      }
+    }
+    return found;
+  }
+
+  /**
+   * The usages of a report's one-bit keys, in the order they are declared.
+   * @param report - The report
+   */
+  private static bitUsages(report: HidReportInfo): number[] {
+    const usages: number[] = [];
+    for (const item of report.items ?? []) {
+      if (item.isConstant || item.isArray || item.reportSize !== 1) {
+        continue;
+      }
+      for (let field = 0; field < (item.reportCount ?? 0); field++) {
+        const usage = HidBraille.usageAt(item, field);
+        if (usage !== null) {
+          usages.push(usage);
+        }
+      }
+    }
+    return usages;
   }
 
   /**

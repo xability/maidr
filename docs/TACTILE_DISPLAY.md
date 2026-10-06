@@ -129,14 +129,24 @@ of the focused point as a Dot Pad's braille line. It is uncontracted (grade 1):
 there is no braille engine to load for a Monarch, and MAIDR says so once when
 the line first appears.
 
-**Keys.** MAIDR listens for the keys by the names the HID braille standard
-gives them: the D-pads beside the display pan the picture, as they pan a graphic
-in the Monarch's own Tactile Viewer, and the panning keys move back and on along
-the text line. A key Braille Terminal reports under some other name does nothing
-in MAIDR; zooming is on the computer's keyboard either way, and moving through
-the chart still brings the view along with the focus. The HID braille standard
-has no way for a computer to make the Monarch vibrate, so the end of the line is
-spoken instead.
+**Keys.** The Monarch has two D-pads and two zoom keys, and MAIDR gives each
+hand one of the two things you scroll:
+
+- the **left D-pad** pans the picture, as the D-pads pan a graphic in the
+  Monarch's own Tactile Viewer;
+- the **right D-pad** moves along the text line — right or down to go on, left
+  or up to go back — and so do **Space with dot 4** and **Space with dot 1**,
+  the chords a Monarch reader moves through lines of text with;
+- the **plus and minus keys** zoom the picture in and out.
+
+MAIDR goes by the side the Monarch reports each D-pad on. That the one it
+reports as its left is the one on the left has not yet been checked on a
+Monarch; if the two seem the other way round, the pads are swapped and nothing
+else is wrong. A display with a single D-pad keeps it for the picture. Moving
+through the chart still brings the view along with the focus, and the
+computer's keyboard zooms as well. The HID braille standard has no way for a
+computer to make the Monarch vibrate, so the end of the line is spoken
+instead.
 
 ### The SDK
 
@@ -437,7 +447,8 @@ the pin view independently.
 
 Zoom in is <kbd>=</kbd> rather than <kbd>+</kbd> — the same key, without the
 shift. <kbd>Shift</kbd> + <kbd>=</kbd> works too, for anyone reaching for the
-<kbd>+</kbd> printed on the keycap.
+<kbd>+</kbd> printed on the keycap. On a Monarch, its own plus and minus keys
+zoom too.
 
 Both are live wherever the display can be, not only while the braille panel is
 open — braille cannot open on every plot type, and leaving these keys in
@@ -559,10 +570,10 @@ the device itself, without taking a hand off it:
 
 | Action     | Dot Pad key          | Monarch key          |
 | ---------- | -------------------- | -------------------- |
-| Pan left   | Panning Left         | D-pad left           |
-| Pan right  | Panning Right        | D-pad right          |
-| Pan up     | Function 2           | D-pad up             |
-| Pan down   | Function 3           | D-pad down           |
+| Pan left   | Panning Left         | Left D-pad left      |
+| Pan right  | Panning Right        | Left D-pad right     |
+| Pan up     | Function 2           | Left D-pad up        |
+| Pan down   | Function 3           | Left D-pad down      |
 
 Each step moves half a window, so some of what you were reading stays in view.
 At an edge, MAIDR says there is no more chart that way rather than moving
@@ -580,7 +591,8 @@ across.
 
 The two inner function keys move the picture and the two outer ones move the
 braille line below it, so the two things you scroll never take each other's
-keys. On a Monarch the D-pads move the picture and the panning keys the line.
+keys. On a Monarch the left D-pad moves the picture, and the right D-pad and
+the Space chords move the line.
 
 Navigation also pans on its own, but only when it has to: if an arrow key takes
 the focus off the visible window, the view recentres on it. A pan you chose
@@ -595,10 +607,10 @@ under your fingers.
 
 That description runs well past twenty cells, so the line scrolls:
 
-| Action              | Dot Pad key | Monarch key   |
-| ------------------- | ----------- | ------------- |
-| Back along the line | Function 1  | Pan up        |
-| On along the line   | Function 4  | Pan down      |
+| Action              | Dot Pad key | Monarch key                                  |
+| ------------------- | ----------- | -------------------------------------------- |
+| Back along the line | Function 1  | Right D-pad left or up, or Space with dot 1  |
+| On along the line   | Function 4  | Right D-pad right or down, or Space with dot 4 |
 
 When more text follows, the final cell shows dots 7 and 8. Moving along the line
 is silent — you are reading it with your fingers, and a voice naming the part
