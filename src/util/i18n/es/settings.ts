@@ -69,12 +69,14 @@ export const settings = {
   'settings.selectTactileDisplay': 'Seleccione un dispositivo táctil',
   'settings.connectBluetooth': 'Conectar por Bluetooth',
   'settings.connectUsb': 'Conectar por USB',
+  'settings.connectHid': 'Conectar',
   'settings.disconnect': 'Desconectar',
 
   // How the tactile display's connection is announced. Every branch says what
   // the reader can do next.
   'settings.tactileConnectedBluetooth': 'Conectado a {device} por Bluetooth. Presione b en el gráfico para mostrarlo.',
   'settings.tactileConnectedUsb': 'Conectado a {device} por USB. Presione b en el gráfico para mostrarlo.',
+  'settings.tactileConnectedHid': 'Conectado a {device}. Presione b en el gráfico para mostrarlo.',
   'settings.tactileGenericDevice': 'un dispositivo táctil',
   'settings.tactileConnecting': 'Conectando…',
   'settings.tactileRetry': '{message} Vuelva a seleccionar el dispositivo para reintentar.',

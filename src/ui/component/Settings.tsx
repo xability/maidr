@@ -84,7 +84,13 @@ import {
   t as translate,
 } from '@util/i18n';
 import { resolveVersionOptions } from '@util/llm';
-import { formatTactilePreset, isTactileDisplayId, TACTILE_DISPLAY_PRESETS } from '@util/tactilePreset';
+import {
+  DEFAULT_TACTILE_TRANSPORTS,
+  formatTactilePreset,
+  isTactileDisplayId,
+  TACTILE_DISPLAY_PRESETS,
+  tactilePresetFor,
+} from '@util/tactilePreset';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
@@ -239,6 +245,19 @@ interface SettingRowProps {
 }
 
 /**
+ * The label of the button that connects over each transport.
+ *
+ * A Monarch has one: WebHID finds it on a cable or paired over Bluetooth
+ * alike, so naming a transport would only send a reader with the other one
+ * looking for a button that is not there.
+ */
+const TACTILE_CONNECT_LABEL: Record<DotPadTransport, MessageKey> = {
+  bluetooth: 'settings.connectBluetooth',
+  serial: 'settings.connectUsb',
+  hid: 'settings.connectHid',
+};
+
+/**
  * Describes the tactile display connection for the settings live region.
  *
  * Every branch says what the reader can do next, because "failed" on its own
@@ -251,9 +270,14 @@ function describeTactileState(state: DotPadState): string {
   switch (state.status) {
     case 'connected': {
       const device = state.deviceName ?? translate('settings.tactileGenericDevice');
-      return state.transport === 'serial'
-        ? translate('settings.tactileConnectedUsb', { device })
-        : translate('settings.tactileConnectedBluetooth', { device });
+      switch (state.transport) {
+        case 'serial':
+          return translate('settings.tactileConnectedUsb', { device });
+        case 'hid':
+          return translate('settings.tactileConnectedHid', { device });
+        default:
+          return translate('settings.tactileConnectedBluetooth', { device });
+      }
     }
     case 'connecting':
       return translate('settings.tactileConnecting');
@@ -672,14 +696,18 @@ const Settings: React.FC = () => {
   // fetched here for a reader who has already chosen one, and otherwise the
   // moment they reach the tactile controls -- which is always before they
   // press a button in them.
+  const tactileDeviceId = generalSettings.tactileDisplayDeviceId;
   const preloadTactile = useCallback((): void => {
-    viewModel.preloadTactileDisplay();
-  }, [viewModel]);
+    viewModel.preloadTactileDisplay(tactileDeviceId);
+  }, [viewModel, tactileDeviceId]);
   useEffect(() => {
     if (isTactileDisplayId(general.tactileDisplayDeviceId)) {
-      preloadTactile();
+      viewModel.preloadTactileDisplay(general.tactileDisplayDeviceId);
     }
-  }, [general.tactileDisplayDeviceId, preloadTactile]);
+  }, [general.tactileDisplayDeviceId, viewModel]);
+  // The buttons follow the device picked: a DotPad's two transports, or the
+  // Monarch's one. Before any is picked, the DotPad's, as ever.
+  const tactileTransports = tactilePresetFor(tactileDeviceId)?.transports ?? DEFAULT_TACTILE_TRANSPORTS;
 
   useEffect(() => {
     setGeneralSettings(general);
@@ -722,10 +750,10 @@ const Settings: React.FC = () => {
   const handleTactileDeviceChange = useCallback((deviceId: string): void => {
     setGeneralSettings(prev => ({ ...prev, tactileDisplayDeviceId: deviceId }));
     // Picking a device is itself the gesture, so the picker can open straight
-    // from it. Bluetooth is the attempt made here because it is the transport
-    // every supported platform has; a reader on a cable takes the USB button
-    // beside it, which is one click either way.
-    handleTactileConnect('bluetooth');
+    // from it, for the device's first transport. For a DotPad that is
+    // Bluetooth, the transport every supported platform has; a reader on a
+    // cable takes the USB button beside it, which is one click either way.
+    handleTactileConnect(tactilePresetFor(deviceId)?.transports[0] ?? 'bluetooth');
   }, [handleTactileConnect]);
 
   const handleBrailleKindChange = useCallback((kind: BrailleDisplayKind): void => {
@@ -1721,28 +1749,20 @@ const Settings: React.FC = () => {
                     ))}
                   </Select>
                   <Grid container spacing={1} sx={{ mt: 1 }} alignItems="center">
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => handleTactileConnect('bluetooth')}
-                      disabled={
-                        tactileState.status === 'connecting'
-                        || !viewModel.supportsTactileTransport('bluetooth')
-                      }
-                    >
-                      {t('settings.connectBluetooth')}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => handleTactileConnect('serial')}
-                      disabled={
-                        tactileState.status === 'connecting'
-                        || !viewModel.supportsTactileTransport('serial')
-                      }
-                    >
-                      {t('settings.connectUsb')}
-                    </Button>
+                    {tactileTransports.map(transport => (
+                      <Button
+                        key={transport}
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleTactileConnect(transport)}
+                        disabled={
+                          tactileState.status === 'connecting'
+                          || !viewModel.supportsTactileTransport(transport)
+                        }
+                      >
+                        {t(TACTILE_CONNECT_LABEL[transport])}
+                      </Button>
+                    ))}
                     {tactileState.status === 'connected' && (
                       <Button
                         size="small"

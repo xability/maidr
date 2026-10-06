@@ -29,4 +29,11 @@ export const tactile = {
   'tactile.deviceNoneSelected': '未选择任何 DotPad。',
   'tactile.deviceConnectFailed': '无法连接到 DotPad。',
   'tactile.deviceNotPermitted': '此页面无权连接 DotPad。页面必须通过 HTTPS 提供，iframe 还需要相应的 allow 属性。',
+
+  'tactile.monarchDisconnected': 'Monarch 已断开连接',
+  'tactile.monarchNoHid': '此页面无法连接 Monarch。WebHID 需要桌面版 Chromium 内核的浏览器，以及获准使用它的页面或 iframe。',
+  'tactile.monarchNoneSelected': '未选择任何 Monarch。',
+  'tactile.monarchConnectFailed': '无法打开 Monarch。请确认 Monarch 上正在运行 Braille Terminal，并且没有屏幕阅读器将其用作点显器。',
+  'tactile.monarchUnrecognised': '该显示器的布局与 Monarch 不同。请选择正在运行 Braille Terminal 的 Monarch。',
+  'tactile.monarchNotPermitted': '此页面无权连接 Monarch。页面必须通过 HTTPS 提供，iframe 还需要相应的 allow 属性。',
 } satisfies Partial<Record<MessageKey, string>>;

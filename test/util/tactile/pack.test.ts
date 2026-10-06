@@ -432,3 +432,60 @@ describe('dotPack.brailleCells', () => {
     expect(packed).toBe('');
   });
 });
+
+describe('dotPack.readGraphic', () => {
+  it('should read the vendor sample back into the frame it came from', () => {
+    // The reverse of the round trip above: a display sent DotPad payloads but
+    // laid out differently -- a Monarch -- recovers the picture from them, so
+    // reading a frame and packing it again has to give the same bytes.
+    const read = new DotRaster(GOLDEN_CELL_COLUMNS * 2, GOLDEN_CELL_ROWS * 4);
+
+    DotPack.readGraphic(read, CELL300_GRAPHIC_FULL, GOLDEN_CELL_COLUMNS);
+
+    expect(DotPack.graphic(read, GOLDEN_CELL_COLUMNS, GOLDEN_CELL_ROWS)).toBe(CELL300_GRAPHIC_FULL);
+  });
+
+  it('should give back every pin of a drawn frame, and no other', () => {
+    const original = new DotRaster(60, 40);
+    original.hLine(0, 59, 20);
+    original.vLine(30, 0, 39);
+    original.set(7, 3);
+    const read = new DotRaster(60, 40);
+
+    DotPack.readGraphic(read, DotPack.graphic(original, 30, 10), 30);
+
+    expect(read.equals(original)).toBe(true);
+  });
+
+  it('should read a single row into its place', () => {
+    const original = new DotRaster(8, 12);
+    original.set(5, 9);
+    const read = new DotRaster(8, 12);
+    read.set(0, 0);
+
+    DotPack.readGraphic(read, DotPack.graphicRow(original, 2, 4), 4, 2);
+
+    expect(read.get(5, 9)).toBe(true);
+    // Other rows are left as they were.
+    expect(read.get(0, 0)).toBe(true);
+    expect(read.raisedCount).toBe(2);
+  });
+
+  it('should lower the pins of a row that is blank', () => {
+    const read = new DotRaster(4, 8);
+    read.set(1, 5);
+
+    DotPack.readGraphic(read, '0000', 2, 1);
+
+    expect(read.isEmpty()).toBe(true);
+  });
+
+  it('should drop pins past the edge of a shorter buffer', () => {
+    // The last cell row of a Monarch's picture is only partly on its pins.
+    const read = new DotRaster(2, 3);
+
+    DotPack.readGraphic(read, 'ff', 1);
+
+    expect(read.raisedCount).toBe(6);
+  });
+});

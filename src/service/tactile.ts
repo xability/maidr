@@ -21,7 +21,7 @@ import { TactileRenderer } from '@util/tactile/render';
 import { TactileShade } from '@util/tactile/shade';
 import { TactileSvgGeometry } from '@util/tactile/svgGeometry';
 import { TactileViewport } from '@util/tactile/viewport';
-import { dotPadSession } from './dotPadSession';
+import { tactileDisplay } from './tactileDisplay';
 
 /**
  * States this service observes, matching the union the other observing services
@@ -469,15 +469,15 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       this.setShowing(event.enabled);
     }));
 
-    this.disposables.push(dotPadSession.onKey((key) => {
+    this.disposables.push(tactileDisplay.onKey((key) => {
       this.handleDeviceKey(key);
     }));
 
-    this.disposables.push(dotPadSession.onWriteFailure(() => {
+    this.disposables.push(tactileDisplay.onWriteFailure(() => {
       this.handleWriteFailure();
     }));
 
-    this.disposables.push(dotPadSession.onStateChange((state) => {
+    this.disposables.push(tactileDisplay.onStateChange((state) => {
       if (state.status === 'connected') {
         this.lastRaster = null;
         this.lastText = null;
@@ -519,7 +519,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * and a device is connected.
    */
   public get isActive(): boolean {
-    return this.showing && dotPadSession.isConnected;
+    return this.showing && tactileDisplay.isConnected;
   }
 
   /**
@@ -530,7 +530,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * braille's own account of why it cannot open.
    */
   public get canShow(): boolean {
-    return dotPadSession.isConnected;
+    return tactileDisplay.isConnected;
   }
 
   /**
@@ -575,8 +575,8 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // but the permission behind it belongs to the page. Taking the display up
     // here — silently, no picker — is what makes the reader pair once for the
     // page rather than once for every chart.
-    if (!dotPadSession.isConnected) {
-      void dotPadSession.adopt().then((adopted) => {
+    if (!tactileDisplay.isConnected) {
+      void tactileDisplay.adopt().then((adopted) => {
         // A newer controller may own this frame by now -- focus-out disposes
         // on a 0ms timer and this took a round trip -- and the display may
         // have gone off again, a double press of `b` being enough.
@@ -847,7 +847,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     if (this.isActive) {
       return true;
     }
-    this.notification.notify(dotPadSession.isConnected
+    this.notification.notify(tactileDisplay.isConnected
       ? t('tactile.brailleOff')
       : t('tactile.notConnected'));
     return false;
@@ -891,7 +891,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @param step - Windows to move; negative moves back toward the start
    */
   public scrollText(step: number): void {
-    const cellCount = dotPadSession.geometry?.textCells ?? 0;
+    const cellCount = tactileDisplay.geometry?.textCells ?? 0;
     if (!this.isActive || cellCount <= 0) {
       return;
     }
@@ -918,7 +918,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    */
   private signalLineEdge(fallback: string): void {
     const say = (): void => this.notification.notify(fallback);
-    if (!dotPadSession.vibrate(say)) {
+    if (!tactileDisplay.vibrate(say)) {
       say();
     }
   }
@@ -1515,7 +1515,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @returns What the redraw did to the pins
    */
   private draw(state: DrawableState, follow: FocusFollow): FrameOutcome {
-    const geometry = dotPadSession.geometry;
+    const geometry = tactileDisplay.geometry;
     if (geometry === null) {
       return 'unchanged';
     }
@@ -2023,7 +2023,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * reason -- it is cached against retransmission in exactly the same way.
    *
    * This only ever hears about the writes the vendor SDK refuses; see
-   * {@link DotPadSession.onWriteFailure} for the frames it cannot see. A frame
+   * `DotPadSession.onWriteFailure` for the frames it cannot see. A frame
    * the SDK accepted and the wire then lost is recovered the other way round:
    * a connection that fails hard enough is dropped by the SDK, and the
    * reconnect handler above forgets the frame exactly as this does.
@@ -2064,14 +2064,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     }
 
     if (previous === null) {
-      dotPadSession.writeGraphic(DotPack.graphic(raster, cellColumns, cellRows));
+      tactileDisplay.writeGraphic(DotPack.graphic(raster, cellColumns, cellRows));
     } else {
       const changed = DotPack.changedRows(previous, raster, cellRows);
       if (changed.length > cellRows / 2) {
-        dotPadSession.writeGraphic(DotPack.graphic(raster, cellColumns, cellRows));
+        tactileDisplay.writeGraphic(DotPack.graphic(raster, cellColumns, cellRows));
       } else {
         for (const cellRow of changed) {
-          dotPadSession.writeGraphicRow(cellRow, DotPack.graphicRow(raster, cellRow, cellColumns));
+          tactileDisplay.writeGraphicRow(cellRow, DotPack.graphicRow(raster, cellRow, cellColumns));
         }
       }
     }
@@ -2094,7 +2094,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * same failure. The engine can be unreachable, and it can also come up,
    * accept a language and a grade, and then return nothing when asked to
    * translate -- a broken table compiles to an empty result rather than to an
-   * error, and that path leaves {@link DotPadSession.canTranslate} true.
+   * error, and that path leaves `DotPadSession.canTranslate` true.
    *
    * Once per session. It is a standing condition, not an event, and repeating
    * it on every arrow key would talk over the reading it is describing.
@@ -2154,7 +2154,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     this.textWindow = 0;
     const request = ++this.textRequest;
 
-    if (!dotPadSession.canTranslate) {
+    if (!tactileDisplay.canTranslate) {
       this.announceUncontracted();
       this.textCells = TactileBraille.toCells(description);
       this.writeTextWindow(cellCount);
@@ -2165,7 +2165,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // written until it answers. The wait is a few milliseconds against a
     // graphic frame that costs a second, and writing uncontracted cells first
     // would spend a device write on a line about to be replaced.
-    void dotPadSession.translate(description).then((hex) => {
+    void tactileDisplay.translate(description).then((hex) => {
       if (request !== this.textRequest) {
         return;
       }
@@ -2210,7 +2210,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return;
     }
     this.lastText = hex;
-    dotPadSession.writeText(hex);
+    tactileDisplay.writeText(hex);
   }
 
   /**
@@ -2218,12 +2218,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * than holding a chart the reader has moved on from.
    */
   private blank(): void {
-    const geometry = dotPadSession.geometry;
-    if (geometry === null || !dotPadSession.isConnected) {
+    const geometry = tactileDisplay.geometry;
+    if (geometry === null || !tactileDisplay.isConnected) {
       return;
     }
     const blank = new DotRaster(geometry.dotWidth, geometry.dotHeight);
-    dotPadSession.writeGraphic(DotPack.graphic(blank, geometry.cellColumns, geometry.cellRows));
+    tactileDisplay.writeGraphic(DotPack.graphic(blank, geometry.cellColumns, geometry.cellRows));
     if (geometry.textCells > 0) {
       const blankText = DotPack.brailleCells([], geometry.textCells);
       this.textCells = [];
@@ -2233,7 +2233,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       this.textRequest++;
       this.lastText = blankText;
       this.lastDescription = null;
-      dotPadSession.writeText(blankText);
+      tactileDisplay.writeText(blankText);
     }
     this.lastRaster = blank;
   }

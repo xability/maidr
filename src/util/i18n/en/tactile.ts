@@ -35,4 +35,12 @@ export const tactile = {
   'tactile.deviceNoneSelected': 'No DotPad was selected.',
   'tactile.deviceConnectFailed': 'Could not connect to the DotPad.',
   'tactile.deviceNotPermitted': 'This page is not permitted to reach a DotPad. It needs to be served over HTTPS, and an iframe needs the matching allow attribute.',
+
+  // Monarch connection.
+  'tactile.monarchDisconnected': 'Monarch disconnected',
+  'tactile.monarchNoHid': 'This page cannot reach a Monarch. WebHID needs a Chromium browser on desktop, and a page — or an iframe — permitted to use it.',
+  'tactile.monarchNoneSelected': 'No Monarch was selected.',
+  'tactile.monarchConnectFailed': 'Could not open the Monarch. Check that Braille Terminal is running on it and that no screen reader is using it as a braille display.',
+  'tactile.monarchUnrecognised': 'That display is not laid out like a Monarch. Choose the Monarch, with Braille Terminal running on it.',
+  'tactile.monarchNotPermitted': 'This page is not permitted to reach a Monarch. It needs to be served over HTTPS, and an iframe needs the matching allow attribute.',
 } as const;

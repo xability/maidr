@@ -11,7 +11,7 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [Live & Streaming Data](https://maidr.ai/docs/LIVE_DATA.html): Realtime updates with setData and appendData, sliding windows, and monitor mode
 - [Browser AI Agents (WebMCP)](https://maidr.ai/docs/WEBMCP.html): Experimental WebMCP tools, on by default, that let in-browser AI agents read chart data, move the reader's cursor and run the reader's command-palette commands; turned off in Settings > General or by the page
 - [Braille Generation](https://maidr.ai/docs/BRAILLE.html): How each plot type is encoded for refreshable braille displays
-- [Tactile Graphics Display](https://maidr.ai/docs/TACTILE_DISPLAY.html): Rendering charts on the Dot Pad X tactile graphics display over Bluetooth or USB
+- [Tactile Graphics Display](https://maidr.ai/docs/TACTILE_DISPLAY.html): Rendering charts on a Dot Pad X tactile graphics display over Bluetooth or USB, or on a Monarch in Braille Terminal over WebHID
 - [Violin Plot Specification](https://maidr.ai/docs/VIOLIN_PLOT_SPEC.html): Data structures and navigation for violin plots (KDE and box layers)
 - [API Reference](https://maidr.ai/api/index.html): TypeDoc reference for the MAIDR JavaScript API
 - [Examples](https://maidr.ai/examples.html): Interactive examples gallery for every supported chart type and integration

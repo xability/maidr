@@ -29,4 +29,11 @@ export const tactile = {
   'tactile.deviceNoneSelected': 'DotPad が選択されませんでした。',
   'tactile.deviceConnectFailed': 'DotPad に接続できませんでした。',
   'tactile.deviceNotPermitted': 'このページには DotPad に接続する権限がありません。HTTPS で配信されている必要があり、iframe の場合は対応する allow 属性が必要です。',
+
+  'tactile.monarchDisconnected': 'Monarch の接続が切れました',
+  'tactile.monarchNoHid': 'このページからは Monarch に接続できません。WebHID を使用するには、デスクトップの Chromium 系ブラウザーと、使用を許可されたページまたは iframe が必要です。',
+  'tactile.monarchNoneSelected': 'Monarch が選択されませんでした。',
+  'tactile.monarchConnectFailed': 'Monarch を開けませんでした。Monarch で Braille Terminal が実行中であること、スクリーンリーダーが点字ディスプレイとして使用していないことを確認してください。',
+  'tactile.monarchUnrecognised': 'このディスプレイは Monarch と配置が異なります。Braille Terminal を実行中の Monarch を選択してください。',
+  'tactile.monarchNotPermitted': 'このページには Monarch に接続する権限がありません。HTTPS で配信されている必要があり、iframe の場合は対応する allow 属性が必要です。',
 } satisfies Partial<Record<MessageKey, string>>;

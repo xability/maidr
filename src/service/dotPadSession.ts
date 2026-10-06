@@ -8,6 +8,7 @@ import type {
   DotPadVendorSdk,
 } from '@type/dotPad';
 import type { Event } from '@type/event';
+import type { TactileDisplayDriver } from '@type/tactileDisplay';
 import { Emitter } from '@type/event';
 import { allowsDeviceFeature } from '@util/deviceFeature';
 import { t } from '@util/i18n';
@@ -172,7 +173,12 @@ const HANDOFF_CHANNEL = 'maidr-tactile-display';
  * host page provides -- a global, a configured URL, or the vendor's published
  * copy -- and holds it to a structural contract.
  */
-class DotPadSession {
+class DotPadSession implements TactileDisplayDriver {
+  /**
+   * A DotPad is reached over Bluetooth or over a cable, and the reader picks.
+   */
+  public readonly transports: readonly DotPadTransport[] = ['bluetooth', 'serial'];
+
   /**
    * The vendor SDK instance, once loaded.
    */
@@ -754,6 +760,11 @@ class DotPadSession {
    * @param transport - The connection to test
    */
   public supports(transport: DotPadTransport): boolean {
+    // A DotPad speaks its vendor's own protocol, not the HID braille standard,
+    // so WebHID is no way to it.
+    if (transport === 'hid') {
+      return false;
+    }
     return allowsDeviceFeature(transport);
   }
 

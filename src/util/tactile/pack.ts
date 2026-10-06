@@ -82,6 +82,37 @@ export abstract class DotPack {
   }
 
   /**
+   * Unpacks graphic-mode cells back into a pin buffer, the reverse of
+   * {@link graphic} and {@link graphicRow}.
+   *
+   * For a display that is sent the same payloads as a DotPad but lays its pins
+   * out differently, and has to recover the picture to redraw it its own way.
+   * Pins past the buffer's edge are dropped.
+   *
+   * @param raster - The pin buffer to write into
+   * @param hex - Cells in row-major order, two hex digits each
+   * @param cellColumns - Cells across the graphic area
+   * @param firstCellRow - The cell row the payload starts at; 0 for a whole frame
+   */
+  public static readGraphic(raster: DotRaster, hex: string, cellColumns: number, firstCellRow: number = 0): void {
+    const cellCount = Math.floor(hex.length / 2);
+    for (let index = 0; index < cellCount; index++) {
+      const cell = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+      const cellRow = firstCellRow + Math.floor(index / cellColumns);
+      const cellColumn = index % cellColumns;
+      for (let column = 0; column < this.PINS_PER_CELL_X; column++) {
+        for (let row = 0; row < this.PINS_PER_CELL_Y; row++) {
+          raster.set(
+            cellColumn * this.PINS_PER_CELL_X + column,
+            cellRow * this.PINS_PER_CELL_Y + row,
+            !Number.isNaN(cell) && (cell & this.GRAPHIC_BITS[column][row]) !== 0,
+          );
+        }
+      }
+    }
+  }
+
+  /**
    * Packs one row of cells from a pin buffer, for a single-line update.
    *
    * Repainting one row instead of the whole frame keeps the device's

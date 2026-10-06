@@ -62,10 +62,12 @@ export const settings = {
   'settings.selectTactileDisplay': 'Sélectionnez un afficheur tactile',
   'settings.connectBluetooth': 'Connecter par Bluetooth',
   'settings.connectUsb': 'Connecter par USB',
+  'settings.connectHid': 'Connecter',
   'settings.disconnect': 'Déconnecter',
 
   'settings.tactileConnectedBluetooth': 'Connecté à {device} par Bluetooth. Appuyez sur b dans le graphique pour l\'afficher.',
   'settings.tactileConnectedUsb': 'Connecté à {device} par USB. Appuyez sur b dans le graphique pour l\'afficher.',
+  'settings.tactileConnectedHid': 'Connecté à {device}. Appuyez sur b dans le graphique pour l\'afficher.',
   'settings.tactileGenericDevice': 'un afficheur tactile',
   'settings.tactileConnecting': 'Connexion en cours…',
   'settings.tactileRetry': '{message} Sélectionnez de nouveau l\'appareil pour réessayer.',

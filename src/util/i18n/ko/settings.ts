@@ -61,10 +61,12 @@ export const settings = {
   'settings.selectTactileDisplay': '촉각 디스플레이를 선택하세요',
   'settings.connectBluetooth': 'Bluetooth로 연결',
   'settings.connectUsb': 'USB로 연결',
+  'settings.connectHid': '연결',
   'settings.disconnect': '연결 끊기',
 
   'settings.tactileConnectedBluetooth': '{device}에 Bluetooth로 연결되었습니다. 차트에서 b 키를 누르면 표시됩니다.',
   'settings.tactileConnectedUsb': '{device}에 USB로 연결되었습니다. 차트에서 b 키를 누르면 표시됩니다.',
+  'settings.tactileConnectedHid': '{device}에 연결되었습니다. 차트에서 b 키를 누르면 표시됩니다.',
   'settings.tactileGenericDevice': '촉각 디스플레이',
   'settings.tactileConnecting': '연결 중...',
   'settings.tactileRetry': '{message} 다시 시도하려면 장치를 다시 선택하세요.',
