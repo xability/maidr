@@ -106,6 +106,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Stacked Stepped Area [experimental] | `SteppedAreaChart` + `isStacked: true` | `'StackedSteppedAreaChart'` |
 | 100% Stacked Stepped Area [experimental] | `SteppedAreaChart` + `isStacked: 'percent'` | `'NormalizedSteppedAreaChart'` |
 | Error bars / intervals [experimental] | `LineChart`, `ScatterChart`, `ColumnChart` or `BarChart` with `role: 'interval'` columns | detected automatically — keep the chart's own `chartType` |
+| Percentile band (fan chart) [experimental] | `LineChart` of one series whose `role: 'interval'` columns are quantiles, named in `percentileBands` | `'LineChart'` |
 | Sankey [experimental] | `Sankey` (`sankey` package) | `'Sankey'` |
 | TreeMap [experimental] | `TreeMap` (`treemap` package) | `'TreeMap'` |
 | Gantt [experimental] | `google.charts.Gantt` (`gantt` package) | `'Gantt'` |
@@ -151,6 +152,26 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 > **Precision-recall note:** a precision-recall curve is a `LineChart` of precision against recall, and nothing in the table says so, so it is **declared** in the custom properties of a series column — Google's own slot for "custom values applied to the column": `dt.addColumn({ type: 'number', label: 'Logistic', p: { maidr: { type: 'pr_curve', prevalence: 0.3 } } })`. Every series of the chart is then one curve, recall the domain column, which must be a number in every row; `prevalence` and `ap` are fractions from 0 to 1 and describe the curve of the column they are written on, never one without a block. A curve's thresholds ride in a **role** column (a `tooltip`, say) whose id or label is the block's `threshold`, falling back to `threshold`, `thresholds` and `cutoff` — a role column because Google draws every other number column as a series of its own. The highlight is each series' own outline, as a line's.
 
 > **Highlighting note for the non-corechart packages:** Sankey, TreeMap, Gantt and Timeline expose no `getChartLayoutInterface()`, so there is no bounding box to match a data row against and the drawn elements have to be matched by DOM order. The adapter only does so when the counts agree exactly, and otherwise turns visual highlighting off for that chart rather than highlighting the wrong element — the same rule the pie wedges follow. Expect this with a `TreeMap`, which renders `maxDepth` levels at a time and redraws on click, and with a Gantt drawing percent-complete bars. Audio, text, and braille are unaffected.
+
+> **Fan chart note:** a fan chart in Google is one series with an even number of `role: 'interval'` columns -- with `intervals: {style: 'area'}`, filled bands around the line. Google pairs those columns **by position**, the first with the last and the second with the second-last, and draws each pair as one band; measured on Google Charts 51, four interval columns drew the first and fourth columns' band and the second and third's whatever their values or ids. So write them outermost first and innermost last -- `p5, p25, p75, p95` -- or the bands Google draws cross. Nothing in the table says which quantiles a pair's edges are, and undeclared the chart is read as the outermost pair's error bars. Say it with `percentileBands`:
+>
+> ```js
+> // columns: Step, {id: 'median', label: 'Median'},
+> //   {id: 'p90', role: 'interval'} (5th), {id: 'p50', role: 'interval'} (25th),
+> //   {id: 'p50', role: 'interval'} (75th), {id: 'p90', role: 'interval'} (95th)
+> createMaidrFromGoogleChart(chart, data, container, {
+>   chartType: 'LineChart',
+>   percentileBands: [{
+>     median: 'median',
+>     bands: [
+>       { series: 'p90', lower: 0.05, upper: 0.95 },
+>       { series: 'p50', lower: 0.25, upper: 0.75 },
+>     ],
+>   }],
+> });
+> ```
+>
+> `median` names the series' data column by id or label, and each band's `series` names its interval columns by id or label -- give a band's two columns the same id, or name either one. A band whose named columns Google does not draw as one pair, or the middle column of an odd count, is reported and left out; a median that names no column, or is one of several series, leaves the chart read as before. Each band's edges are its two columns' values, the lower one first. The levels are fractions (`0.05`, not `5`), every `lower` below 0.5 and every `upper` above it, and the bands must nest; the same validator as the co-located `maidr` declaration other adapters read refuses an entry that fails, with a console warning. Highlighting outlines each band's filled area, outermost first, then the line, and needs `intervals: {style: 'area'}`: verified in Chromium on Google Charts 51, where the five levels of a two-band fan outlined the outer band, the inner band, the line, the inner band and the outer band. With any other interval style the layer is read but not highlighted.
 
 > **Schedule note:** a Gantt's dates are converted to days (or to hours, for a schedule spanning less than two days) rather than left as epoch milliseconds, because MAIDR announces the *length* of an interval and "1209600000" is not a length anyone can hold. The time axis carries a format that renders the same numbers back as dates, so the ends still read as dates. A Gantt gets one lane per task; a Timeline merges the rows sharing a label into one lane and keeps each bar's own name. Keep the rows of a lane together in the DataTable — interleaved lanes cannot be matched to the drawn bars, and highlighting is dropped for the chart.
 
@@ -516,6 +537,7 @@ Four chart types carry meaning that is not in the DataTable at all — it lives 
 | `stepDirection` | `StepDirection` | `'SurvivalChart'` | Where the curve jumps between samples — `'hv'` for a Kaplan-Meier estimate. Omitted means MAIDR names no convention rather than assuming one |
 | `thresholdOptions` | `ThresholdOptions` | `'VolcanoChart'`, `'ManhattanChart'` | The significance cutoff, which side of it counts, and the effect size. Drives the entry summary and the rotor that jumps between the hits |
 | `waterfallTotals` | `readonly number[]` | `'WaterfallChart'` | DataTable row indices of the rows that restate the running total (the opening and closing bars, and any subtotal) rather than changing it |
+| `percentileBands` | `{ median, bands: { series, lower, upper }[], title?, name? }[]` | `'LineChart'` | The median's data column and the interval columns of each band, with each band's two quantile levels; see the fan chart note |
 
 These same options are accepted **per panel** by `createMaidrFromGoogleCharts`, since a faceted figure may mix chart types: set them on the panel object next to its `chartType`.
 

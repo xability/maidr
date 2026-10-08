@@ -60,6 +60,7 @@ import type {
   WaterfallKind,
   WaterfallPoint,
 } from '@type/grammar';
+import type { PercentileBandOption, PercentileBandPlan, ResolvedBandEdges } from '../shared/percentileBandOption';
 import type {
   GoogleBoundingBox,
   GoogleChart,
@@ -70,6 +71,12 @@ import type {
   GoogleGaugeOptions,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import {
+  percentileBandPoints,
+  readPercentileBandOptions,
+  warnUnreadBand,
+  warnUnreadMedian,
+} from '../shared/percentileBandOption';
 import { cssEscape } from '../shared/selectorUtil';
 import { FIELD_REF_FALLBACKS, readDeclarationSlot, warnUnresolvedRef } from '../shared/traceDeclaration';
 import { buildDataSelector, ensureContainerId, nextId } from './selectors';
@@ -206,6 +213,31 @@ export interface GoogleChartReadingOptions {
    * never made.
    */
   waterfallTotals?: readonly number[];
+  /**
+   * A `'LineChart'`'s fan chart: the median's data column and the bands its
+   * `role: 'interval'` columns draw around it, with each band's two quantile
+   * levels as fractions.
+   *
+   * Google pairs a series' interval columns by position -- the first with the
+   * last, the second with the second-last -- and draws each pair as one band
+   * (with `intervals: {style: 'area'}`, a filled one). Nothing in the table
+   * says which quantiles a pair's edges are, and undeclared they are read as
+   * the outermost pair's error bars. `median` names the data column by its id
+   * or label; each band's `series` names one of its interval columns, or both,
+   * by id or label -- give the two columns of a band the same id.
+   *
+   * @example
+   * // columns: step, p50, {id:'p90', role:'interval'} (p5),
+   * //   {id:'p50', role:'interval'} (p25), {id:'p50', ...} (p75), {id:'p90', ...} (p95)
+   * percentileBands: [{
+   *   median: 'p50',
+   *   bands: [
+   *     { series: 'p90', lower: 0.05, upper: 0.95 },
+   *     { series: 'p50', lower: 0.25, upper: 0.75 },
+   *   ],
+   * }]
+   */
+  percentileBands?: PercentileBandOption[];
 }
 
 /**
@@ -657,6 +689,13 @@ function buildLayer(
   // and `intervals.style` are not. A chart that declares them draws two
   // magnitudes per sample, and reading it as a plain line or bar drops the
   // one a statistical graphic is usually drawn to show.
+  if (chartType === 'LineChart' && reading.percentileBands !== undefined) {
+    const fan = buildPercentileBandLayer(dt, container, reading.percentileBands);
+    if (fan) {
+      return fan;
+    }
+  }
+
   const intervals = intervalColumnsFor(dt, chartType);
   if (intervals) {
     // A `BarChart` is the horizontal one; the other three interval-capable
@@ -1954,6 +1993,192 @@ function intervalGroups(dt: GoogleDataTable): IntervalGroup[] {
   }
 
   return groups;
+}
+
+// ---------------------------------------------------------------------------
+// Percentile band (fan chart)
+// ---------------------------------------------------------------------------
+
+/** Whether a column is the one a fan chart option names, by id or label. */
+function columnNamed(dt: GoogleDataTable, c: number, name: string): boolean {
+  return dt.getColumnId?.(c) === name || dt.getColumnLabel(c) === name;
+}
+
+/**
+ * The two interval columns of one band, as Google pairs them: with `n`
+ * interval columns after a series, pair `k` is column `k` and column
+ * `n - 1 - k`. Measured on Google Charts 51 with `intervals: {style:
+ * 'area'}`: four interval columns drew two filled bands, the first and fourth
+ * columns' and the second and third's, whatever their values or ids -- so two
+ * columns that are not such a pair are not one band, however they are named.
+ *
+ * @param intervals - The series' interval columns, in table order
+ * @param named - The columns a band's name matched
+ * @returns The pair's index and its two columns, or a reason it is none
+ */
+function drawnPair(
+  intervals: readonly number[],
+  named: readonly number[],
+): { pair: number; columns: [number, number] } | string {
+  const n = intervals.length;
+  const pairs = new Set(named.map((c) => {
+    const k = intervals.indexOf(c);
+    return Math.min(k, n - 1 - k);
+  }));
+  if (pairs.size !== 1) {
+    return 'names interval columns Google does not draw as one band; it pairs the first interval column '
+      + 'with the last, the second with the second-last';
+  }
+  const [pair] = [...pairs];
+  if (pair === n - 1 - pair) {
+    return 'names the middle interval column, which Google draws as a line of its own rather than a band';
+  }
+  return { pair, columns: [intervals[pair], intervals[n - 1 - pair]] };
+}
+
+/**
+ * Builds a `LineChart`'s declared fan chart: the median's data column and
+ * the bands its interval columns draw, as one `percentile_band` layer.
+ *
+ * Read only from a chart whose median is its one data series -- the rest of
+ * a multi-series chart would have nowhere to go -- and only from the first
+ * entry that names it. A band naming no interval column of the median, or
+ * columns Google does not draw as one band, is reported and left out.
+ *
+ * Highlighted as a fan is -- each band's filled path, outermost first, then
+ * the median's line -- when the chart drew its intervals as filled areas
+ * (`intervals: {style: 'area'}`) and so draws one filled path per band and
+ * one line; any other interval style leaves the layer without selectors.
+ *
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @param option    - The caller's `percentileBands`
+ * @returns The layer, or undefined to read the chart as undeclared
+ */
+function buildPercentileBandLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  option: PercentileBandOption[],
+): MaidrLayer | undefined {
+  const groups = intervalGroups(dt);
+  for (const plan of readPercentileBandOptions(option, 'Google Charts')) {
+    const group = groups.find(one => columnNamed(dt, one.dataCol, plan.median));
+    if (!group) {
+      warnUnreadMedian('Google Charts', plan, 'names no data column of this chart');
+      continue;
+    }
+    if (groups.length !== 1) {
+      warnUnreadMedian('Google Charts', plan, 'is one of several series, which this reading does not cover');
+      continue;
+    }
+    return fanLayer(dt, container, plan, group);
+  }
+  return undefined;
+}
+
+/**
+ * Reads one validated fan chart off its median's interval group.
+ *
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @param plan      - The fan chart
+ * @param group     - The median column and its interval columns
+ * @returns The layer
+ */
+function fanLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  plan: PercentileBandPlan,
+  group: IntervalGroup,
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const used = new Set<number>();
+  const bands: (ResolvedBandEdges & { pair: number })[] = [];
+  for (const band of plan.bands) {
+    const named = group.intervalCols.filter(c => columnNamed(dt, c, band.series));
+    if (named.length === 0) {
+      warnUnreadBand('Google Charts', plan, band.series, `names no interval column of "${plan.median}"`);
+      continue;
+    }
+    const drawn = drawnPair(group.intervalCols, named);
+    if (typeof drawn === 'string') {
+      warnUnreadBand('Google Charts', plan, band.series, drawn);
+      continue;
+    }
+    if (used.has(drawn.pair)) {
+      warnUnreadBand('Google Charts', plan, band.series, 'another band already reads');
+      continue;
+    }
+    used.add(drawn.pair);
+    const [a, b] = drawn.columns;
+    bands.push({
+      lower: band.lower,
+      upper: band.upper,
+      pair: drawn.pair,
+      edgesAt: (r) => {
+        const one = numericValue(dt, r, a);
+        const other = numericValue(dt, r, b);
+        return Number.isFinite(one) && Number.isFinite(other)
+          ? [Math.min(one, other), Math.max(one, other)]
+          : [null, null];
+      },
+    });
+  }
+
+  const medians = Array.from({ length: rows }, (_, r) => {
+    const value = numericValue(dt, r, group.dataCol);
+    return { x: formatCellValue(dt, r, 0), value: Number.isFinite(value) ? value : null };
+  });
+  // One median per row, so each band is asked for its edges by row.
+  const selectors = markFanElements(container, Math.floor(group.intervalCols.length / 2), bands.map(band => band.pair));
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.PERCENTILE_BAND,
+    title: plan.title ?? (dt.getColumnLabel(group.dataCol) || plan.median),
+    ...(plan.name ? { name: plan.name } : {}),
+    ...(selectors ? { selectors } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(group.dataCol) || undefined },
+    },
+    data: percentileBandPoints(medians, bands),
+  };
+}
+
+/**
+ * Stamps a fan chart's band areas and median line, and returns one selector
+ * per band, outermost first, then the median's.
+ *
+ * Measured on Google Charts 51 with `intervals: {style: 'area'}`: inside the
+ * plot's clipped group, each interval pair is one filled `<path>`, in pair
+ * order, and the series is one `path[fill="none"]`. Anything else -- sticks,
+ * bars, boxes or lines -- draws a different number of each, and the layer is
+ * left without selectors rather than pointed at the wrong marks.
+ *
+ * @param container - The DOM container element
+ * @param pairs     - How many bands Google draws
+ * @param kept      - The pair index of each band the layer reads, outermost first
+ * @returns The selectors, or undefined
+ */
+function markFanElements(container: HTMLElement, pairs: number, kept: number[]): string[] | undefined {
+  const svg = container.querySelector('svg');
+  if (!svg) {
+    return undefined;
+  }
+  svg.querySelectorAll('[data-maidr-band]').forEach(element => element.removeAttribute('data-maidr-band'));
+  const areas = Array.from(svg.querySelectorAll('g[clip-path] path:not([fill="none"])'));
+  const lines = svg.querySelectorAll('g[clip-path] path[fill="none"]');
+  if (areas.length !== pairs || lines.length !== 1) {
+    return undefined;
+  }
+  const scope = `#${cssEscape(container.id)} svg`;
+  areas.forEach((area, k) => area.setAttribute('data-maidr-band', String(k)));
+  lines[0].setAttribute('data-maidr-band', 'median');
+  return [
+    ...kept.map(k => `${scope} path[data-maidr-band="${k}"]`),
+    `${scope} path[data-maidr-band="median"]`,
+  ];
 }
 
 // ---------------------------------------------------------------------------
