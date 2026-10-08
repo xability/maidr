@@ -1,3 +1,4 @@
+import type { PercentileBandOption } from '@adapters/shared/percentileBandOption';
 import type {
   BarPoint,
   BoxPoint,
@@ -51,6 +52,24 @@ export interface VictoryAdapterConfig {
    * figures are unaffected.
    */
   layout?: VictoryPanelLayout;
+  /**
+   * Fan charts drawn in the chart, each read as one `percentile_band` layer.
+   *
+   * A `<VictoryArea>` given `y0` fills between two values, and nothing in it
+   * says which quantiles those are. Each component is named by its own `name`
+   * prop: `median` names a `<VictoryLine>`, and each band's `series` a
+   * `<VictoryArea>` drawn with `y0`, with the band's two levels as fractions.
+   * The band's edges are its `y0` and `y`, matched to the median by x.
+   *
+   * @example
+   * // <VictoryArea name="p90" data={rows} x="step" y0="p5" y="p95" />
+   * // <VictoryLine name="median" data={rows} x="step" y="p50" />
+   * percentileBands: [{
+   *   median: 'median',
+   *   bands: [{ series: 'p90', lower: 0.05, upper: 0.95 }],
+   * }]
+   */
+  percentileBands?: PercentileBandOption[];
 }
 
 /**
@@ -97,7 +116,15 @@ export type VictoryLayerData
      * The fill is what the chart is called rather than a second magnitude, so
      * the payload is a line's.
      */
-    | { kind: 'area'; points: LinePoint[][] }
+    | {
+      kind: 'area';
+      points: LinePoint[][];
+      /**
+       * Each point's `y0`, when the area is drawn between two values rather
+       * than down to the baseline -- `null` where a point has none.
+       */
+      lower?: (number | null)[];
+    }
     /**
      * A `VictoryStack` of `VictoryArea` children, one row per band. Each
      * band carries its own untransformed value; the running total is the
@@ -164,6 +191,8 @@ export interface VictoryLayerInfo {
   dataCount: number;
   /** Legend labels for multi-series segmented charts. */
   legend?: string[];
+  /** The component's own `name` prop, which names it in `percentileBands`. */
+  componentName?: string;
   /**
    * Set when the layer's points were turned round to match an inverted
    * independent axis (#1018).
