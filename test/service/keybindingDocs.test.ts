@@ -1,9 +1,13 @@
+import type { Context } from '@model/context';
+import type { DisplayService } from '@service/display';
 import type { ScopeKeymap } from '@service/keybinding';
 import type { MessageKey } from '@util/i18n';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from '@jest/globals';
+import { HelpService } from '@service/help';
 import { SCOPED_KEYMAP } from '@service/keybinding';
+import { Scope } from '@type/event';
 import { t } from '@util/i18n';
 
 /**
@@ -49,6 +53,20 @@ describe('docs/CONTROLS.md', () => {
 
   it.each(names)('should name the "%s" shortcut', (name) => {
     expect(CONTROLS).toContain(name);
+  });
+
+  it('should name the keys on each tactile display, as the help menu does', () => {
+    // They are not keybindings, so the enumeration above never reaches them:
+    // the help menu adds them under the keyboard's tactile shortcuts.
+    const context = { scope: Scope.TRACE } as unknown as Context;
+    const display = { toggleFocus: (): void => {} } as unknown as DisplayService;
+    const rows = new HelpService(context, display).getMenuItems().filter(item => item.device !== undefined);
+
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(CONTROLS).toContain(`| ${row.description}`);
+      expect(CONTROLS).toContain(row.key);
+    }
   });
 
   it('should not document first- and last-element shortcuts that do not exist', () => {

@@ -4,7 +4,7 @@ import type { KeybindingOverrides } from '@service/keybinding';
 import type { SettingsService } from '@service/settings';
 import type { KeybindingEntry } from '@type/event';
 import type { HelpMenuItem, HelpSectionId, RebindResult } from '@type/help';
-import type { Locale } from '@util/i18n';
+import type { Locale, MessageKey } from '@util/i18n';
 import { findBindingConflict, getKeymapForScope, isRebindable, resolveOverrides } from '@service/keybinding';
 import { Scope } from '@type/event';
 import { HELP_SECTIONS } from '@type/help';
@@ -123,6 +123,41 @@ const SECTION_ORDER: Readonly<Record<Exclude<HelpSectionId, 'other'>, readonly s
   ],
 };
 
+/**
+ * The keys on the tactile displays themselves, listed under the keyboard's
+ * tactile shortcuts.
+ *
+ * Not keybindings: the display reports its keys and the tactile service
+ * answers them, so there is nothing to rebind and nothing in a keymap for the
+ * menu to read. Without these rows, a reader learns what a DotPad's function
+ * keys or a Monarch's two D-pads do only from the documentation. Each row
+ * names its display first, so a reader moving down the group hears which
+ * device a row is about before what it does.
+ */
+const TACTILE_DEVICE_KEYS: readonly {
+  device: NonNullable<HelpMenuItem['device']>;
+  description: MessageKey;
+  key: MessageKey;
+}[] = [
+  { device: 'dotPad', description: 'keybinding.dotPadPanSideways', key: 'keybinding.dotPadPanSidewaysKeys' },
+  { device: 'dotPad', description: 'keybinding.dotPadPanUpDown', key: 'keybinding.dotPadPanUpDownKeys' },
+  { device: 'dotPad', description: 'keybinding.dotPadBrailleLine', key: 'keybinding.dotPadBrailleLineKeys' },
+  { device: 'monarch', description: 'keybinding.monarchPan', key: 'keybinding.monarchPanKeys' },
+  { device: 'monarch', description: 'keybinding.monarchBrailleLine', key: 'keybinding.monarchBrailleLineKeys' },
+  { device: 'monarch', description: 'keybinding.monarchZoom', key: 'keybinding.monarchZoomKeys' },
+];
+
+/**
+ * The rows for the keys on the tactile displays, in the reader's language.
+ * @returns Each row, with an id that names no command
+ */
+function tactileDeviceRows(): { commandKey: string; item: HelpMenuItem }[] {
+  return TACTILE_DEVICE_KEYS.map(({ device, description, key }) => ({
+    commandKey: `${device}:${description}`,
+    item: { description: t(description), key: t(key), section: 'tactile', device },
+  }));
+}
+
 /** Each listed command's group and its place in the whole menu. */
 const COMMAND_PLACEMENT: ReadonlyMap<string, { section: HelpSectionId; rank: number }> = new Map(
   HELP_SECTIONS
@@ -140,17 +175,19 @@ function sectionOf(commandKey: string): HelpSectionId {
 }
 
 /**
- * Orders help rows by group, most-used first, keeping the keymap's order
- * among rows the table does not place.
+ * Orders help rows by group, in the order of `HELP_SECTIONS`, and within a
+ * group most-used first, keeping the order rows arrive in among those the
+ * table does not place.
  * @param rows - Each row with the command it runs
  * @returns The rows, sorted
  */
 function sortBySection(rows: { commandKey: string; item: HelpMenuItem }[]): HelpMenuItem[] {
   const unplaced = COMMAND_PLACEMENT.size;
+  const groupOf = (item: HelpMenuItem): number => HELP_SECTIONS.indexOf(item.section);
   const rankOf = (commandKey: string): number => COMMAND_PLACEMENT.get(commandKey)?.rank ?? unplaced;
   return rows
     .map((row, index) => ({ ...row, index }))
-    .sort((a, b) => rankOf(a.commandKey) - rankOf(b.commandKey) || a.index - b.index)
+    .sort((a, b) => groupOf(a.item) - groupOf(b.item) || rankOf(a.commandKey) - rankOf(b.commandKey) || a.index - b.index)
     .map(row => row.item);
 }
 
@@ -262,6 +299,12 @@ function generateCompleteHelpMenu(scope: Scope, overrides: KeybindingOverrides):
       const nestedItems = generateNestedScopeHelp(nestedKeymap, config.entryKey, keymap);
       rows.push(...nestedItems);
     }
+  }
+
+  // The displays' own keys go wherever the keyboard's tactile keys are
+  // listed: the scopes the tactile display answers in.
+  if (rows.some(row => row.item.section === 'tactile')) {
+    rows.push(...tactileDeviceRows());
   }
 
   return sortBySection(rows);

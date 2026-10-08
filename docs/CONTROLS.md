@@ -133,9 +133,24 @@ The three tactile-display shortcuts are live on a plot and in Braille mode, and
 only do something when a tactile graphics display is connected — with none, they
 say so. They are bare keys rather than Control chords so that Control +
 plus/minus stays the browser's own page zoom — a low-vision reader can enlarge
-the page and the pin view independently. See
-[Tactile Graphics Display](TACTILE_DISPLAY.md) for setup and for the panning
-keys on the device itself.
+the page and the pin view independently.
+
+The displays have keys of their own, which MAIDR answers while the chart is on
+the pins:
+
+| Function                                     | Key on the display                                          |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| DotPad: Pan Tactile Display Left or Right    | Panning Left, Panning Right                                 |
+| DotPad: Pan Tactile Display Up or Down       | Function 2, Function 3                                      |
+| DotPad: Scroll Braille Line Back or Forward  | Function 1, Function 4                                      |
+| Monarch: Pan Tactile Display                 | Left D-pad                                                  |
+| Monarch: Scroll Braille Line Back or Forward | Right D-pad left or right, or Space + dot 1, Space + dot 4  |
+| Monarch: Zoom Tactile Display In or Out      | Plus, Minus                                                 |
+
+The help menu lists the keyboard's tactile shortcuts and these keys under
+**Tactile Display**, its last group, after every other: only a reader with a
+tactile display needs them. See [Tactile Graphics Display](TACTILE_DISPLAY.md)
+for setup and for what each key does.
 
 ## Multi-Panel Figures (the Lobby)
 

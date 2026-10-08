@@ -6,7 +6,12 @@ import type { MessageKey } from '@util/i18n';
  * hearing where you are come first because every session is made of them;
  * the modes are set once or twice a session; autoplay and the jumps are for
  * a reader who already knows the basics; the dialogs, and the keys that only
- * one kind of chart or device answers to, come last.
+ * one kind of chart answers to, come after.
+ *
+ * The tactile display's keys close the list, after even the rows nobody has
+ * placed yet: only a reader with a DotPad or a Monarch on the desk needs
+ * them, and the keys on the displays themselves make it a long group for
+ * everyone else to read past.
  */
 export const HELP_SECTIONS = [
   'navigate',
@@ -16,8 +21,8 @@ export const HELP_SECTIONS = [
   'jump',
   'tools',
   'candlestick',
-  'tactile',
   'other',
+  'tactile',
 ] as const;
 
 export type HelpSectionId = (typeof HELP_SECTIONS)[number];
@@ -55,6 +60,12 @@ export interface HelpMenuItem {
   defaultKey?: string;
   /** Whether `key` is the reader's own shortcut rather than the default. */
   isCustom?: boolean;
+  /**
+   * The tactile display the keys are on, for a row whose keys are on the
+   * display rather than the keyboard. Such a row is never rebound: the device
+   * reports its keys and MAIDR answers them, with nothing bound in between.
+   */
+  device?: 'dotPad' | 'monarch';
 }
 
 /**
