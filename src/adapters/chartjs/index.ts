@@ -41,6 +41,8 @@ export type {
   FieldRef,
   MaidrTraceDeclaration,
   ManhattanDeclaration,
+  PercentileBandDeclaration,
+  PercentileBandRef,
   PrCurveDeclaration,
   ScatterDeclaration,
   SurvivalDeclaration,

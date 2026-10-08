@@ -18,8 +18,8 @@
  * the navigation they need.
  */
 
-import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, PrCurveDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DirectedGraphPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, NetworkPoint, PiePoint, PrCurvePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
+import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, PercentileBandDeclaration, PrCurveDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
+import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DirectedGraphPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, NetworkPoint, PercentileBandPoint, PercentileBandQuantile, PiePoint, PrCurvePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsGeoValue, ChartJsGraphValue, ChartJsParsedValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -623,6 +623,7 @@ type DatasetDeclarations = readonly (MaidrTraceDeclaration | null)[];
 const DECLARED_TYPE_CONSTRUCTS: Partial<Record<TraceType, readonly string[]>> = {
   [TraceType.SURVIVAL]: ['line'],
   [TraceType.PR_CURVE]: ['line'],
+  [TraceType.PERCENTILE_BAND]: ['line'],
   [TraceType.SCATTER]: ['scatter', 'bubble'],
   [TraceType.VOLCANO]: ['scatter', 'bubble'],
   [TraceType.MANHATTAN]: ['scatter', 'bubble'],
@@ -2064,6 +2065,262 @@ function extractPrCurveLayer(
   };
 }
 
+/** One band of a declared fan chart, resolved to the two datasets drawing its edges. */
+interface ChartJsBand {
+  lower: number;
+  upper: number;
+  /** The dataset drawing the low edge. */
+  lowerDs: number;
+  /** The dataset drawing the high edge. */
+  upperDs: number;
+}
+
+/** A declared fan chart: the median's dataset and its bands, outermost first. */
+interface PercentileBandPlan {
+  median: number;
+  bands: ChartJsBand[];
+}
+
+/**
+ * The dataset a line dataset's `fill` reaches, when it reaches one.
+ *
+ * Decoded as Chart.js 4.4.7's filler decodes it (`parseFillOption`,
+ * `_decodeFill`, `decodeTargetIndex`): the `target` of the object form or the
+ * option itself, an integer absolute and a signed one relative, and nothing
+ * for `true`, `'origin'`, `'start'`, `'end'`, `'stack'`, `'shape'` or a
+ * `{ value }` -- a fill to a constant or to the axis bounds no band.
+ *
+ * @param chart - The chart being read
+ * @param dsIdx - The dataset whose fill to decode
+ * @returns The target dataset's index, or null
+ */
+function fillTargetIndex(chart: ChartJsChart, dsIdx: number): number | null {
+  const option = chart.data.datasets[dsIdx]?.fill ?? chart.options.elements?.line?.fill;
+  const fill = typeof option === 'object' && option !== null ? option.target : option;
+  if (typeof fill !== 'number' && typeof fill !== 'string')
+    return null;
+  const parsed = typeof fill === 'number' ? fill : Number.parseFloat(fill);
+  if (!Number.isInteger(parsed))
+    return null;
+  const relative = typeof fill === 'string' && (fill.startsWith('-') || fill.startsWith('+'));
+  const target = relative ? dsIdx + parsed : parsed;
+  const count = chart.data.datasets.length;
+  return target === dsIdx || target < 0 || target >= count ? null : target;
+}
+
+/**
+ * Which way round a band's two edge datasets sit: `1` when the first is the
+ * high edge at every position both draw, `-1` when it is the low one, and
+ * `0` when they cross or share nothing, which no band does.
+ *
+ * @param chart - The chart being read
+ * @param a - One edge's dataset
+ * @param b - The other's
+ * @returns The ordering
+ */
+function edgeOrder(chart: ChartJsChart, a: number, b: number): 1 | -1 | 0 {
+  const [rowsA, rowsB] = percentileBandIndices(chart, [a, b]);
+  let above = 0;
+  let below = 0;
+  rowsA.forEach((indexA, col) => {
+    const indexB = rowsB[col];
+    if (indexA < 0 || indexB < 0)
+      return;
+    const va = toFiniteNumber(chart.data.datasets[a].data[indexA]);
+    const vb = toFiniteNumber(chart.data.datasets[b].data[indexB]);
+    if (va === null || vb === null)
+      return;
+    if (va > vb)
+      above += 1;
+    else if (va < vb)
+      below += 1;
+  });
+  if (above > 0 && below === 0)
+    return 1;
+  if (below > 0 && above === 0)
+    return -1;
+  return 0;
+}
+
+/**
+ * Every fan chart the line datasets declare, with each band resolved to the
+ * two datasets that draw its edges.
+ *
+ * Chart.js has no range series: a band is one line dataset filled to another
+ * through its `fill` option. So a band entry names, by `label`, the dataset
+ * that fills, and the dataset it fills to is the other edge -- which of the
+ * two is the high one is read from their values, and a pair that crosses is
+ * no band. An entry naming no dataset, a dataset filling to none, or a pair
+ * already used is reported and left out; the fan keeps the bands it can read.
+ *
+ * @param chart - The chart being read
+ * @param declarations - Every dataset's validated block
+ * @returns One plan per declaring dataset
+ */
+function planPercentileBands(
+  chart: ChartJsChart,
+  declarations: DatasetDeclarations,
+): PercentileBandPlan[] {
+  const datasets = chart.data.datasets;
+  const used = new Set<number>();
+  const declaring = declarations
+    .map((one, median) => ({ one, median }))
+    .filter((entry): entry is { one: PercentileBandDeclaration; median: number } =>
+      entry.one?.type === TraceType.PERCENTILE_BAND);
+  declaring.forEach(({ median }) => used.add(median));
+
+  return declaring.map(({ one, median }) => {
+    const where = datasetRef(datasets[median], median);
+    const refuse = (series: string, why: string): undefined => {
+      warn(
+        `maidr declaration for "percentile_band" on ${where} names dataset "${series}" `
+        + `as a band, ${why}; emitting the layer without it.`,
+      );
+      return undefined;
+    };
+    const bands = [...one.bands]
+      .sort((a, b) => a.lower - b.lower)
+      .map((band): ChartJsBand | undefined => {
+        const named = datasets.findIndex((dataset, i) => i !== median && dataset.label === band.series);
+        if (named < 0)
+          return refuse(band.series, 'which this chart does not have');
+        const target = fillTargetIndex(chart, named);
+        if (target === null)
+          return refuse(band.series, 'which fills to no other dataset; a band is one line filled to another');
+        if (used.has(named) || used.has(target))
+          return refuse(band.series, 'whose edges another band or median already reads');
+        const order = edgeOrder(chart, named, target);
+        if (order === 0)
+          return refuse(band.series, 'whose two edges cross, which no band\'s do');
+        used.add(named);
+        used.add(target);
+        return order === 1
+          ? { lower: band.lower, upper: band.upper, lowerDs: target, upperDs: named }
+          : { lower: band.lower, upper: band.upper, lowerDs: named, upperDs: target };
+      })
+      .filter((band): band is ChartJsBand => band !== undefined);
+    return { median, bands };
+  });
+}
+
+/**
+ * A fan chart's datasets in the order `PercentileBandTrace` reads its rows:
+ * the quantiles lowest first, so every band's low edge from the outermost
+ * in, then the median, then every high edge from the innermost out.
+ *
+ * @param plan - The fan chart
+ * @returns The dataset behind each row
+ */
+function percentileBandRows(plan: PercentileBandPlan): number[] {
+  return [
+    ...plan.bands.map(band => band.lowerDs),
+    plan.median,
+    ...[...plan.bands].reverse().map(band => band.upperDs),
+  ];
+}
+
+/**
+ * For each row of a fan chart, the element index drawing it at each of the
+ * median's positions, or `-1` where that row's dataset draws nothing there.
+ *
+ * The columns are the median's finite data, in the order the category axis is
+ * drawn. A row reached by the same position on a category axis, and by the
+ * same `x` where the data are `{x, y}` points -- which a band authored along a
+ * linear or time scale routinely starts later or ends earlier than its median.
+ *
+ * Exported because the highlight table walks the same list the extractor
+ * reads, as {@link drawnPrCurveReads} is: a table built by a different walk
+ * would outline a different point from the one announced (#1024).
+ *
+ * @param chart - The chart being read
+ * @param rows - The dataset behind each row; the median is the middle one
+ * @returns One index per row per column
+ */
+export function percentileBandIndices(chart: ChartJsChart, rows: readonly number[]): number[][] {
+  const datasets = chart.data.datasets;
+  const median = rows[Math.floor(rows.length / 2)];
+  const medianData = datasets[median]?.data ?? [];
+  const columns = drawnCategoryPositions(chart, medianData.length)
+    .filter(i => toFiniteNumber(medianData[i]) !== null);
+
+  return rows.map((dsIdx) => {
+    const data = datasets[dsIdx]?.data ?? [];
+    const byX = new Map<unknown, number>();
+    data.forEach((value, i) => {
+      if (isPointValue(value) && !byX.has(value.x))
+        byX.set(value.x, i);
+    });
+    return columns.map((i) => {
+      const at = medianData[i];
+      const index = isPointValue(at) ? (byX.get(at.x) ?? -1) : i;
+      return index >= 0 && index < data.length && toFiniteNumber(data[index]) !== null ? index : -1;
+    });
+  });
+}
+
+/**
+ * Extracts one declared fan chart as a `percentile_band` layer: a point per
+ * position of the median, carrying the median at level 0.5 and each band's
+ * edges at the levels the block gave them; an edge that draws nothing at a
+ * position is a gap there.
+ *
+ * Chart.js draws into a canvas, so the layer has no selectors: the plugin
+ * outlines the quantile the reader is on as the point its own dataset draws
+ * at that position, through the table {@link percentileBandIndices} builds.
+ *
+ * @param chart - The chart being read
+ * @param plan - The fan chart
+ * @param declarations - Every dataset's block, for the title and name
+ * @param id - The layer's id
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns The layer
+ */
+function extractPercentileBandLayer(
+  chart: ChartJsChart,
+  plan: PercentileBandPlan,
+  declarations: DatasetDeclarations,
+  id: string,
+  pluginOptions?: MaidrPluginOptions,
+): MaidrLayer {
+  const datasets = chart.data.datasets;
+  const labels = chart.data.labels ?? [];
+  const rows = percentileBandRows(plan);
+  const table = percentileBandIndices(chart, rows);
+  const levels = [
+    ...plan.bands.map(band => band.lower),
+    0.5,
+    ...[...plan.bands].reverse().map(band => band.upper),
+  ];
+  const medianRow = table[plan.bands.length];
+  const medianData = datasets[plan.median].data;
+
+  const data: PercentileBandPoint[] = medianRow.map((i, col) => {
+    const at = medianData[i];
+    const quantiles: PercentileBandQuantile[] = rows.map((dsIdx, row) => {
+      const index = table[row][col];
+      return {
+        level: levels[row],
+        value: index < 0 ? null : toFiniteNumber(datasets[dsIdx].data[index]),
+      };
+    });
+    return { x: labels[i] ?? (isPointValue(at) ? at.x : i), quantiles };
+  });
+
+  const block = declarations[plan.median];
+  const title = block?.title ?? datasets[plan.median].label;
+  return {
+    id,
+    type: TraceType.PERCENTILE_BAND,
+    ...(title !== undefined ? { title } : {}),
+    ...(block?.name !== undefined ? { name: block.name } : {}),
+    axes: {
+      x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+      y: { label: getAxisLabel(chart, 'y', pluginOptions) },
+    },
+    data,
+  };
+}
+
 function extractLineLayers(
   chart: ChartJsChart,
   declarations: DatasetDeclarations,
@@ -2097,7 +2354,30 @@ function extractLineLayers(
   if (declared === TraceType.PR_CURVE)
     return [extractPrCurveLayer(chart, declarations, pluginOptions)];
 
-  if (isDotPlot(chart, declared))
+  // A fan chart takes the median and its bands' edges out of the chart and
+  // leaves every other dataset to the ordinary reading: a forecast's fan is
+  // routinely drawn beside the history it continues.
+  const layers: MaidrLayer[] = [];
+  const absorbed = new Set<number>();
+  if (declared === TraceType.PERCENTILE_BAND) {
+    const plans = planPercentileBands(chart, declarations);
+    if (plans.length === 0) {
+      warn(
+        'plugins.maidr.traceType "percentile_band" names no bands; a fan chart is declared '
+        + 'with a maidr block on its median dataset, which names each band. Reading the chart '
+        + 'as the undeclared one.',
+      );
+    }
+    for (const plan of plans) {
+      const rows = percentileBandRows(plan);
+      rows.forEach(dsIdx => absorbed.add(dsIdx));
+      const id = String(layers.length);
+      datasetIndices?.set(id, rows);
+      layers.push(extractPercentileBandLayer(chart, plan, declarations, id, pluginOptions));
+    }
+  }
+
+  if (absorbed.size === 0 && isDotPlot(chart, declared))
     return extractDotLayers(chart, pluginOptions, datasetIndices);
 
   // Read in the order the categories are *drawn*, which a reversed axis turns
@@ -2141,6 +2421,8 @@ function extractLineLayers(
   // line are different trace types, so they cannot share a layer.
   const groups = new Map<string, LineGroup>();
   for (let dsIdx = 0; dsIdx < data.datasets.length; dsIdx++) {
+    if (absorbed.has(dsIdx))
+      continue;
     const direction = stepDirectionOf(data.datasets[dsIdx], chart) ?? '';
     const filled = isFilledLine(data.datasets[dsIdx], chart);
     const key = `${direction}|${filled}`;
@@ -2163,7 +2445,6 @@ function extractLineLayers(
     y: { label: getAxisLabel(chart, 'y', pluginOptions) },
   };
 
-  const layers: MaidrLayer[] = [];
   const stacked = isStacked(chart);
   // Plain lines first, so a mixed chart keeps the line layer where it was;
   // then bands, then the stepped variants of each. Ranking rather than sorting
