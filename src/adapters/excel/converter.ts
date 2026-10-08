@@ -50,6 +50,7 @@ import type {
   ExcelTitleSnapshot,
 } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+import { drawsPrCurves } from '../shared/prCurveAxes';
 import { binValues, boxSummary, tidy } from './statistics';
 
 const ADAPTER_PREFIX = '[MAIDR excel]';
@@ -865,8 +866,12 @@ function buildScatterLines(group: Group, labels: Labels): Built | null {
   if (!measured) {
     return null;
   }
+  // A precision-recall curve is drawn as a scatter with lines, and the axis
+  // titles are the only thing in the workbook that says so.
+  const value = labels.value(group);
+  const type = drawsPrCurves(labels.category, value, data) ? TraceType.PR_CURVE : TraceType.LINE;
   return {
-    layer: { type: TraceType.LINE, axes: buildAxes(labels.category, labels.value(group)), data },
+    layer: { type, axes: buildAxes(labels.category, value), data },
     series: group.series,
   };
 }

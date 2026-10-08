@@ -134,6 +134,7 @@ A 100% stacked chart reads as normalized even with one series, because Excel dra
 | Treemap [experimental] | `Treemap` | `treemap` |
 | Sunburst [experimental] | `Sunburst` | `sunburst` |
 | Map [experimental] | `RegionMap` | `choropleth` |
+| Precision-recall curve [experimental] | `XYScatterLines`, `XYScatterLinesNoMarkers`, `XYScatterSmooth`, `XYScatterSmoothNoMarkers` | `pr_curve`, when the horizontal axis is titled exactly `Recall` and the vertical `Precision` (case aside) and every point lies from 0 to 1; otherwise `line` |
 
 These MAIDR layers are [experimental](SCHEMA.md#trace-type-stability): their readings may change in any release. A stacked line is drawn at each series' running total, which is what a stacked area reads: each band its own series' value, the total derived from them.
 
