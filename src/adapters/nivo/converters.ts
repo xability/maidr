@@ -13,6 +13,7 @@ import type {
 } from '@type/grammar';
 import type { NivoAdapterConfig, NivoChartType, NivoLayerInfo } from './types';
 import { pieGeometry } from '@adapters/shared/pieGeometry';
+import { drawsPrCurves } from '@adapters/shared/prCurveAxes';
 import { Orientation, TraceType } from '@type/grammar';
 import { stampedSelectors } from './selectors';
 import { timeAxisFormat, timeReader } from './time';
@@ -857,14 +858,18 @@ export function toMaidrLayer(layer: NivoLayerInfo, selectors?: MaidrLayer['selec
       return { ...base, type: TraceType.STACKED, axes, data: data.points };
     case 'dodged':
       return { ...base, type: TraceType.DODGED, axes, data: data.points };
-    case 'line':
+    case 'line': {
+      // A precision-recall curve is drawn as an ordinary line, and the axis
+      // legends are the only thing on a Nivo chart that says so.
+      const prCurve = drawsPrCurves(layer.xAxisLabel, layer.yAxisLabel, data.points);
       return {
         ...base,
-        type: data.stepDirection ? TraceType.STEP : TraceType.LINE,
-        ...(data.stepDirection ? { stepDirection: data.stepDirection } : {}),
+        type: prCurve ? TraceType.PR_CURVE : data.stepDirection ? TraceType.STEP : TraceType.LINE,
+        ...(data.stepDirection && !prCurve ? { stepDirection: data.stepDirection } : {}),
         axes,
         data: data.points,
       };
+    }
     case 'scatter':
       return { ...base, type: TraceType.SCATTER, axes, data: data.points };
     case 'pie':

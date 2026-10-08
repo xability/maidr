@@ -248,6 +248,25 @@ describe('line charts', () => {
     expect(layer.selectors).toEqual(['#c path.MuiLineChart-line[data-series="auto-generated-id-0"]']);
   });
 
+  it('reads a line of precision against recall as a precision-recall curve', () => {
+    const props = {
+      xAxis: [{ data: [0, 0.5, 1], label: 'Recall' }],
+      yAxis: [{ label: 'Precision' }],
+      series: [{ data: [1, 0.8, 0.4], label: 'model' }],
+    };
+
+    const [curve] = convertMuiChart('line', props, SCOPE).layers;
+    const [line] = convertMuiChart('line', { ...props, yAxis: [{ label: 'Accuracy' }] }, SCOPE).layers;
+
+    expect(curve.type).toBe(TraceType.PR_CURVE);
+    expect(curve.data).toEqual([[
+      { x: 0, y: 1, z: 'model' },
+      { x: 0.5, y: 0.8, z: 'model' },
+      { x: 1, y: 0.4, z: 'model' },
+    ]]);
+    expect(line.type).toBe(TraceType.LINE);
+  });
+
   it('announces dates in ISO form', () => {
     const [layer] = convertMuiChart('line', {
       xAxis: [{ data: [new Date(Date.UTC(2024, 0, 1)), new Date(Date.UTC(2024, 0, 1, 12))] }],

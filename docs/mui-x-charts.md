@@ -89,6 +89,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Radar chart [experimental] | `RadarChart` | ✅ | One row per series, one column per `radar.metrics` spoke. |
 | Funnel chart [experimental] | `FunnelChart` (Pro) | ✅ | One layer per series, stages in data order, named by each item's `label` or else `categoryAxis.categories`. The default vertical funnel draws each value as a width. |
 | Sankey [experimental] | `SankeyChart` (Pro) | ✅ | One flow per link, named by its nodes' `label`s (or ids; a label two nodes share is followed by the id). Two links between the same pair of nodes are both read, but not outlined. |
+| Precision-recall curve [experimental] | `LineChart` | ✅ | Read off the axes: the x axis `label` exactly `Recall`, the y axis `Precision` (case aside), and every point from 0 to 1. Anything else, rates in percent included, stays a line. |
 
 ### Notes on these chart types
 

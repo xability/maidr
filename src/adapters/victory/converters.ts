@@ -25,6 +25,7 @@ import type {
   VictorySubplotInfo,
 } from './types';
 import { isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
+import { drawsPrCurves } from '@adapters/shared/prCurveAxes';
 import { Orientation, TraceType } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
@@ -1660,16 +1661,20 @@ export function toMaidrLayer(
         data: horizontal ? data.points.map(swapBarPoint) : data.points,
       };
 
-    case 'line':
+    case 'line': {
+      // A precision-recall curve is drawn as an ordinary line, and the axis
+      // labels are the only thing on a Victory chart that says so.
+      const prCurve = !horizontal && drawsPrCurves(xLabel, yLabel, data.points);
       return {
         id: layer.id,
-        type: data.stepDirection ? TraceType.STEP : TraceType.LINE,
+        type: prCurve ? TraceType.PR_CURVE : data.stepDirection ? TraceType.STEP : TraceType.LINE,
         axes,
         selectors: selector ? [selector as string] : undefined,
-        ...(data.stepDirection ? { stepDirection: data.stepDirection } : {}),
+        ...(data.stepDirection && !prCurve ? { stepDirection: data.stepDirection } : {}),
         ...(layer.pointsReversed ? REVERSED_LINE_POINTS : {}),
         data: data.points,
       };
+    }
 
     case 'area':
       return {

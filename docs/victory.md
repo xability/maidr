@@ -71,6 +71,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 | `VictoryBoxPlot` | Box plot | ✅ | Per-section highlight (min, Q1, median, Q3, max). Requires pre-computed statistics. |
 | `VictoryCandlestick` | Candlestick chart | ✅ | Per-section highlight (open, high, low, close, volatility). |
 | `VictoryPie` | Pie chart | ✅ | A doughnut is the same component with an `innerRadius`. Standing alone it has no `VictoryAxis` to read labels from, so the axes are named `Category` and `Value`; wrap it in a `<VictoryChart>` with axis labels to override. |
+| `VictoryLine` | Precision-recall curve [experimental] | ✅ | Read off the axes: the x `VictoryAxis` labelled exactly `Recall`, the dependent axis `Precision` (case aside), and every point from 0 to 1. Anything else, rates in percent included, stays a line. |
 
 > Box and candlestick are composite shapes (rects + lines) with no semantic classes, so the adapter classifies their parts by geometry. If a future Victory version changes that layout, highlighting degrades gracefully — audio, text, and braille are unaffected.
 
