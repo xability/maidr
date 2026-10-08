@@ -224,6 +224,7 @@ const LINE_FAMILY_TYPES: ReadonlySet<FrappeChartType> = new Set<FrappeChartType>
   'area',
   'bump',
   'line',
+  'pr_curve',
 ]);
 
 /**
@@ -368,6 +369,24 @@ function buildLayers(
       return [buildLineLayer(data, containerId, options, TraceType.AREA)];
     case 'bump':
       return [buildLineLayer(data, containerId, options, TraceType.BUMP)];
+    // A precision-recall curve is a `type: 'line'` chart of precision, one
+    // dataset per curve, over labels that are the recall. Nothing in Frappe
+    // says so, which is why it is declared; a label that is not a number names
+    // no recall, and the chart is read as the line it is.
+    case 'pr_curve':
+      if (hasNumericLabels(data)) {
+        const layer = buildLineLayer(data, containerId, options, TraceType.PR_CURVE);
+        return [{
+          ...layer,
+          data: (layer.data as LinePoint[][]).map(curve =>
+            curve.map(point => ({ ...point, x: Number(point.x) }))),
+        }];
+      }
+      console.warn(
+        '[maidr/frappe] Chart type \'pr_curve\' has non-numeric labels, which name no '
+        + 'recall. Converting as a line chart.',
+      );
+      return [buildLineLayer(data, containerId, options, TraceType.LINE)];
     case 'scatter':
       // Frappe places its marks at evenly spaced label positions whatever the
       // label holds, so a 'scatter' over category names is a dot plot rather
@@ -396,7 +415,7 @@ function buildLayers(
     default:
       throw new Error(
         `Unsupported Frappe chart type: ${options.chartType as string}. `
-        + 'Supported types: bar, line, area, bump, scatter, dot, diverging, '
+        + 'Supported types: bar, line, area, bump, pr_curve, scatter, dot, diverging, '
         + 'axis-mixed, pie, donut, percentage.',
       );
   }
@@ -482,7 +501,7 @@ function buildLineLayer(
   data: FrappeData,
   containerId: string,
   options: FrappeChartAdapterOptions,
-  type: TraceType.AREA | TraceType.BUMP | TraceType.LINE,
+  type: TraceType.AREA | TraceType.BUMP | TraceType.LINE | TraceType.PR_CURVE,
 ): MaidrLayer {
   const multiLine = data.datasets.length > 1;
 

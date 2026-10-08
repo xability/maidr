@@ -208,6 +208,42 @@ describe('createMaidrFromFrappeChart (bump)', () => {
   });
 });
 
+describe('createMaidrFromFrappeChart (pr_curve)', () => {
+  const curves: FrappeChart = {
+    data: {
+      labels: ['0', '0.5', '1'],
+      datasets: [
+        { name: 'Logistic', values: [1, 0.8, 0.4] },
+        { name: 'Forest', values: [1, 0.9, 0.4] },
+      ],
+    },
+  };
+
+  it('reads each dataset as a curve over the recall its labels give', () => {
+    const layer = onlyLayer(curves, 'pr_curve');
+
+    expect(layer.type).toBe(TraceType.PR_CURVE);
+    expect((layer.data as LinePoint[][])[0]).toEqual([
+      { x: 0, y: 1, z: 'Logistic' },
+      { x: 0.5, y: 0.8, z: 'Logistic' },
+      { x: 1, y: 0.4, z: 'Logistic' },
+    ]);
+    // The line's own markers, one selector per curve.
+    expect(layer.selectors).toHaveLength(2);
+  });
+
+  it('reads the chart as a line when its labels name no recall', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const layer = onlyLayer({ ...curves, data: { ...curves.data, labels: ['Low', 'Mid', 'High'] } }, 'pr_curve');
+
+    expect(layer.type).toBe(TraceType.LINE);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('non-numeric labels, which name no recall'));
+    // Cleared rather than restored: the dot plots below silence the same spy.
+    warn.mockClear();
+  });
+});
+
 describe('createMaidrFromFrappeChart (dot)', () => {
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
