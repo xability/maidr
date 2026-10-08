@@ -26,6 +26,7 @@ import type {
   CandlestickPoint,
   CandlestickTrend,
   ChoroplethPoint,
+  DirectedGraphPoint,
   DumbbellData,
   DumbbellPoint,
   FlowPoint,
@@ -48,6 +49,7 @@ import type {
 import type {
   AnyChartBinderOptions,
   AnyChartDataView,
+  AnyChartGraphData,
   AnyChartGridInput,
   AnyChartInstance,
   AnyChartIterator,
@@ -254,7 +256,7 @@ function readChartType(chart: AnyChartInstance): string {
 function resolveChartDataView(
   chart: AnyChartInstance,
 ): AnyChartDataView | undefined {
-  let data: AnyChartDataView | AnyChartTree | undefined;
+  let data: AnyChartDataView | AnyChartTree | AnyChartGraphData | undefined;
   try {
     data = chart.data?.();
   } catch {
@@ -2500,6 +2502,113 @@ function isSankeyChart(chart: AnyChartInstance): boolean {
 }
 
 /**
+ * Whether a chart is a graph (`anychart.graph()`), which reports `'graph'`.
+ *
+ * @param chart - The chart to ask
+ * @returns True for a graph chart
+ */
+function isGraphChart(chart: AnyChartInstance): boolean {
+  try {
+    return chart.getType?.() === 'graph';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a graph chart's edges draw arrows.
+ *
+ * Measured on AnyChart 8.14.1: with `chart.edges().arrows({ enabled: true })`
+ * every edge draws one arrowhead, and its tip points at the edge's `to` node
+ * wherever along the edge `position` puts it -- at `'0%'`, `'50%'` and
+ * `'100%'` alike -- so an arrowed edge runs from `from` to `to` without
+ * exception.
+ *
+ * @param chart - The graph chart
+ * @returns True when its edges are arrowed
+ */
+function graphEdgesArrowed(chart: AnyChartInstance): boolean {
+  try {
+    return chart.edges?.()?.arrows?.()?.enabled?.() === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The rows of one of a graph chart's data sets, reading the given fields.
+ *
+ * @param set - The node or edge data set
+ * @param fields - The fields to read off each row
+ * @returns The rows, or none when the set cannot be iterated
+ */
+function readGraphRows(
+  set: AnyChartGraphData['nodes'],
+  fields: readonly string[],
+): Array<Record<string, unknown>> {
+  try {
+    const iterator = set?.mapAs?.().getIterator() ?? set?.getIterator?.();
+    if (!iterator)
+      return [];
+    const rows: Array<Record<string, unknown>> = [];
+    iterator.reset();
+    while (iterator.advance()) {
+      rows.push(Object.fromEntries(fields.map(field => [field, iterator.get(field)])));
+    }
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Reads an arrowed graph chart as a directed graph: every node in data
+ * order, keyed by its `id`, its `inputs` the `from` ends of the edges arriving
+ * at it.
+ *
+ * Without arrows the same chart is an undirected network, a reading this
+ * does not make. No selectors are emitted: AnyChart draws nodes, edges and
+ * arrowheads as unlabelled paths, and pairing them with the declared nodes
+ * has not been measured.
+ *
+ * @param chart - The graph chart
+ * @returns The layer, or null when the chart carries no nodes
+ */
+function buildDirectedGraphLayerFromChart(chart: AnyChartInstance): MaidrLayer | null {
+  let data: AnyChartGraphData | undefined;
+  try {
+    data = chart.data?.() as AnyChartGraphData | undefined;
+  } catch {
+    return null;
+  }
+  const isId = (value: unknown): value is string | number =>
+    (typeof value === 'string' && value !== '') || (typeof value === 'number' && Number.isFinite(value));
+  const nodes = readGraphRows(data?.nodes, ['id', 'name']).filter(row => isId(row.id));
+  const edges = readGraphRows(data?.edges, ['from', 'to']).filter(row => isId(row.from) && isId(row.to));
+  if (nodes.length === 0)
+    return null;
+
+  const points: DirectedGraphPoint[] = nodes.map((node) => {
+    const id = node.id as string | number;
+    const inputs = edges.filter(edge => edge.to === id).map(edge => edge.from as string | number);
+    return {
+      id,
+      ...(isId(node.name) && node.name !== id ? { label: node.name } : {}),
+      ...(inputs.length > 0 ? { inputs } : {}),
+    };
+  });
+  return {
+    id: '0',
+    type: TraceType.DIRECTED_GRAPH,
+    title: extractTitle(chart),
+    // A graph is bound to no axis; the one dimension it has is its nodes, as
+    // the Chart.js reading of the same chart names it.
+    axes: { x: { label: 'Node' } },
+    data: points,
+  };
+}
+
+/**
  * Whether a chart is a sunburst.
  *
  * `anychart.sunburst()` reports `'sunburst'`, and no other AnyChart chart type
@@ -3951,7 +4060,7 @@ interface GanttScale {
  * @returns Its tree, or `null` when it has none
  */
 function readChartTree(chart: AnyChartInstance): AnyChartTree | null {
-  let data: AnyChartDataView | AnyChartTree | undefined;
+  let data: AnyChartDataView | AnyChartTree | AnyChartGraphData | undefined;
   try {
     data = chart.data?.();
   } catch {
@@ -6280,6 +6389,13 @@ function buildSubplot(
   // `chart.data()` and it exposes no series API, so the `getSeriesCount()`
   // fallback below would hand its `from` / `to` / `weight` rows to the heatmap
   // builder and bind a one-row heatmap without a word.
+  // A graph whose edges draw arrows is a directed graph, read off the
+  // chart's own node and edge data sets.
+  if (isGraphChart(chart) && graphEdgesArrowed(chart)) {
+    const layer = buildDirectedGraphLayerFromChart(chart);
+    return layer ? finalize([layer]) : null;
+  }
+
   if (isSankeyChart(chart)) {
     // Filtered here as well as in the builder so a chart whose every row is a
     // dropoff — or whose data has not loaded — is reported as unconvertible

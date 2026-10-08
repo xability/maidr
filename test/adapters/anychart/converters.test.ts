@@ -7,6 +7,7 @@ import type {
 import type {
   BarPoint,
   BoxSelector,
+  DirectedGraphPoint,
   DumbbellData,
   FlowPoint,
   LinePoint,
@@ -1336,6 +1337,57 @@ describe('bindAnyChart (tag cloud stamping)', () => {
       .toContain('Expected exactly one rendered word');
 
     container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Graph charts (anychart.graph): nodes and edges, no series API
+// ---------------------------------------------------------------------------
+
+/**
+ * A drawn AnyChart graph, whose `data()` is its node and edge data sets, each
+ * iterated through `mapAs()` as AnyChart 8.14.1 hands them out.
+ */
+function createGraphChart(arrows: boolean): AnyChartInstance {
+  const set = (rows: Array<Record<string, unknown>>) => ({ mapAs: () => ({ getIterator: () => createIterator(rows) }) });
+  return {
+    title: () => 'Model',
+    container: () => '',
+    getType: () => 'graph',
+    edges: () => ({ arrows: () => ({ enabled: () => arrows }) }),
+    data: () => ({
+      nodes: set([{ id: 'input', name: 'Input' }, { id: 'dense' }, { id: 'relu' }, { id: 'output' }]),
+      edges: set([
+        { from: 'input', to: 'dense' },
+        { from: 'dense', to: 'relu' },
+        { from: 'relu', to: 'output' },
+        { from: 'input', to: 'output' },
+      ]),
+    }),
+  } as unknown as AnyChartInstance;
+}
+
+describe('anyChartToMaidr (graph chart)', () => {
+  it('reads a graph whose edges draw arrows as a directed graph', () => {
+    const layer = anyChartToMaidr(createGraphChart(true))!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.DIRECTED_GRAPH);
+    expect(layer.data as DirectedGraphPoint[]).toEqual([
+      { id: 'input', label: 'Input' },
+      { id: 'dense', inputs: ['input'] },
+      { id: 'relu', inputs: ['dense'] },
+      { id: 'output', inputs: ['relu', 'input'] },
+    ]);
+    // Nodes, edges and arrowheads are unlabelled paths whose pairing with the
+    // declared nodes has not been measured, so nothing is outlined.
+    expect(layer.selectors).toBeUndefined();
+  });
+
+  it('leaves a graph without arrows unread, as before', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(anyChartToMaidr(createGraphChart(false))).toBeNull();
+    warn.mockRestore();
   });
 });
 

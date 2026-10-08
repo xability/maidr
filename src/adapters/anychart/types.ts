@@ -16,6 +16,16 @@ export interface AnyChartIterator {
   reset: () => void;
 }
 
+/**
+ * What a graph chart's `data()` answers: its node and edge data sets.
+ * Measured on AnyChart 8.14.1, each hands out its rows through
+ * `mapAs().getIterator()`.
+ */
+export interface AnyChartGraphData {
+  nodes?: { mapAs?: () => { getIterator: () => AnyChartIterator }; getIterator?: () => AnyChartIterator };
+  edges?: { mapAs?: () => { getIterator: () => AnyChartIterator }; getIterator?: () => AnyChartIterator };
+}
+
 /** A wrapped data point returned by `series.getPoint(index)`. */
 export interface AnyChartPoint {
   get: (field: string) => unknown;
@@ -268,7 +278,13 @@ export interface AnyChartInstance {
    * view — the two are told apart by whether the result can hand out an
    * iterator, never by the chart type alone.
    */
-  data?: () => AnyChartDataView | AnyChartTree;
+  data?: () => AnyChartDataView | AnyChartTree | AnyChartGraphData;
+
+  /**
+   * A graph chart's edge settings (`anychart.graph()`), read for whether the
+   * edges draw arrows. Present only on a graph chart.
+   */
+  edges?: () => { arrows?: () => { enabled?: () => unknown } } | undefined;
 
   /**
    * The geodata a map was bound to (`anychart.maps.*`), as GeoJSON or
