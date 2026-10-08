@@ -133,6 +133,8 @@ export function MaidrRecharts({
   errorConfig,
   forestConfig,
   survivalConfig,
+  prCurveConfig,
+  percentileBandConfig,
   waterfallConfig,
   ganttConfig,
   gaugeConfig,
@@ -217,6 +219,8 @@ export function MaidrRecharts({
       errorConfig,
       forestConfig,
       survivalConfig,
+      prCurveConfig,
+      percentileBandConfig,
       waterfallConfig,
       ganttConfig,
       gaugeConfig,
@@ -229,7 +233,7 @@ export function MaidrRecharts({
     // The three facts read out of `children` stand in for it, so a chart that
     // flips `reversed` is still picked up while a parent re-render that only
     // rebuilds the same subtree is not.
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, pieAnglesKey, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, pieAnglesKey, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
   );
 
   return (

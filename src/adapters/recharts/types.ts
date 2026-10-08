@@ -64,6 +64,12 @@ import type { GaugeBand, Orientation, StepDirection } from '@type/grammar';
  * - `'survival'` → `TraceType.SURVIVAL` — Kaplan-Meier curve: a
  *   `<Line type="stepAfter">` plus the censoring marks and confidence band
  *   declared through {@link SurvivalCurveConfig}
+ * - `'pr_curve'` → `TraceType.PR_CURVE` — Precision-recall curve: a `<Line>`
+ *   of precision (each `yKeys` entry, one per curve) against recall (`xKey`),
+ *   with the thresholds and baselines declared through {@link PrCurveConfig}
+ * - `'percentile_band'` → `TraceType.PERCENTILE_BAND` — Fan chart: a median
+ *   `<Line>` (the single `yKeys` entry) and range `<Area>`s around it, whose
+ *   quantile levels are declared through {@link PercentileBandConfig}
  * - `'scatter'` → `TraceType.SCATTER` — Scatter/point plot
  * - `'volcano'` → `TraceType.VOLCANO` — Volcano plot: effect size against
  *   significance, read through the cutoffs in {@link VolcanoPointConfig}
@@ -131,6 +137,8 @@ export type RechartsChartType
     | 'polar_area'
     | 'bump'
     | 'survival'
+    | 'pr_curve'
+    | 'percentile_band'
     | 'scatter'
     | 'volcano'
     | 'manhattan'
@@ -320,6 +328,57 @@ export interface SurvivalCurveConfig {
    * with `type="stepBefore"`.
    */
   stepDirection?: StepDirection;
+}
+
+/**
+ * Configuration for precision-recall curves.
+ * Optional when `chartType` is `'pr_curve'`.
+ *
+ * A precision-recall curve is drawn as an ordinary `<Line>`, so everything a
+ * reader needs beyond the rates is the author's: which column holds each
+ * point's threshold, and the share of positives and the average precision of
+ * each curve. Every array is one entry per `yKeys` entry, in the same order;
+ * an entry describes **that curve only**, and a curve given none says none.
+ */
+export interface PrCurveConfig {
+  /** Keys holding the decision threshold each point was scored at, one per curve. */
+  thresholdKeys?: string[];
+  /**
+   * The share of positives each curve was scored on, as a fraction from 0 to 1
+   * -- the height of its chance baseline. Never inferred; a percentage is
+   * refused with a warning rather than rescaled.
+   */
+  prevalence?: (number | undefined)[];
+  /** Each curve's average precision as the producer computed it, from 0 to 1. */
+  ap?: (number | undefined)[];
+}
+
+/** One band of a {@link PercentileBandConfig}. */
+export interface PercentileBandEntry {
+  /**
+   * Key whose value is the band's `[low, high]` pair on every row -- the
+   * `dataKey` of the range `<Area>` that draws it, which is how Recharts draws
+   * an area between two values.
+   */
+  dataKey: string;
+  /** The quantile the low edge is, as a fraction below 0.5. */
+  lower: number;
+  /** The quantile the high edge is, as a fraction above 0.5. */
+  upper: number;
+}
+
+/**
+ * Configuration for a fan chart.
+ * Required when `chartType` is `'percentile_band'`.
+ *
+ * A range `<Area>` says nothing about which quantiles its edges are: the same
+ * area draws a min-max envelope and a 95% interval. So the levels are
+ * declared, one entry per band, and must nest -- each band strictly inside the
+ * next wider one -- as the co-located `maidr` declaration's `bands` must.
+ */
+export interface PercentileBandConfig {
+  /** The bands around the median, in any order. */
+  bands: PercentileBandEntry[];
 }
 
 /**
@@ -1269,6 +1328,18 @@ export interface RechartsAdapterConfig {
    * Used when `chartType` is `'survival'`.
    */
   survivalConfig?: SurvivalCurveConfig;
+
+  /**
+   * Precision-recall curve configuration.
+   * Used when `chartType` is `'pr_curve'`.
+   */
+  prCurveConfig?: PrCurveConfig;
+
+  /**
+   * Fan chart bands.
+   * Required when `chartType` is `'percentile_band'`.
+   */
+  percentileBandConfig?: PercentileBandConfig;
 
   /**
    * Waterfall step configuration.

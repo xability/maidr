@@ -377,7 +377,14 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
     case 'step':
     case 'bump':
     case 'survival':
+    case 'pr_curve':
       return '.recharts-line-dots .recharts-line-dot';
+    // A fan chart's bands are range areas Recharts gives no class of their
+    // own, and a band's quantiles are outlined as the band they bound, so a
+    // per-dot selector would name the wrong marks. Highlighting is off unless
+    // the author names the bands with classes of their own.
+    case 'percentile_band':
+      return undefined;
     case 'area':
     case 'stacked_area':
     case 'normalized_area':

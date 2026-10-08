@@ -515,6 +515,8 @@ const GUIDES: Record<string, Guide> = {
       'error_bar': ['error_bar'],
       'parallel': ['parallel_coordinates'],
       'boxen': ['boxen'],
+      'pr_curve': ['pr_curve'],
+      'percentile_band': ['percentile_band'],
       // Example headings
       'dot plot and lollipop chart': ['dot', 'lollipop'],
       'stacked and 100% stacked area': ['stacked_area', 'stacked_normalized_area'],

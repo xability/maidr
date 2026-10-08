@@ -46,7 +46,9 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PercentileBandPoint,
   PiePoint,
+  PrCurvePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -61,7 +63,7 @@ import type { RechartsAdapterConfig, RechartsChartType, RechartsLayerConfig, Rec
 import { toCategoryShares } from '@adapters/shared/normalize';
 import { clockFromCounterclockwiseOf3, pieGeometry } from '@adapters/shared/pieGeometry';
 import { cssEscape } from '@adapters/shared/selectorUtil';
-import { resolveFieldRef } from '@adapters/shared/traceDeclaration';
+import { resolveFieldRef, validateDeclaration } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
 import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors } from './selectors';
 
@@ -215,6 +217,8 @@ function buildPanelSubplot(
     errorConfig: config.errorConfig,
     forestConfig: config.forestConfig,
     survivalConfig: config.survivalConfig,
+    prCurveConfig: config.prCurveConfig,
+    percentileBandConfig: config.percentileBandConfig,
     waterfallConfig: config.waterfallConfig,
     ganttConfig: config.ganttConfig,
     gaugeConfig: config.gaugeConfig,
@@ -350,6 +354,39 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
   // points, and the plain line builders have nowhere to put them.
   if (chartType === 'survival') {
     return [buildSurvivalLayer(data, xKey, yKeys, chartType, xLabel, yLabel, fillKeys, config.survivalConfig, selectorOverride, config.id, panelScope)];
+  }
+
+  // A precision-recall figure is one layer of curves, read against each
+  // other, with each curve's threshold and baseline riding on its points.
+  if (chartType === 'pr_curve') {
+    const hasMultipleCurves = yKeys.length > 1;
+    const selector = selectorOverride
+      ?? getRechartsSelector(chartType, hasMultipleCurves ? 0 : undefined, config.id, panelScope);
+    return [{
+      id: '0',
+      type: TraceType.PR_CURVE,
+      selectors: selector ? yKeys.map(() => selector) : undefined,
+      axes: { x: { label: xLabel }, y: { label: yLabel } },
+      data: yKeys.map((yKey, curve) => convertToPrCurveRow(
+        data,
+        xKey,
+        yKey,
+        config.prCurveConfig,
+        curve,
+        hasMultipleCurves ? (fillKeys?.[curve] ?? yKey) : undefined,
+      )),
+    }];
+  }
+
+  // A fan chart is one layer: the median the single yKey names, and the
+  // bands its config names around it.
+  if (chartType === 'percentile_band') {
+    return [{
+      id: '0',
+      type: TraceType.PERCENTILE_BAND,
+      axes: { x: { label: xLabel }, y: { label: yLabel } },
+      data: convertToPercentileBandPoints(data, xKey, yKeys[0], config.percentileBandConfig),
+    }];
   }
 
   // A gauge, a gantt and a dumbbell each carry ONE payload for the whole
@@ -1463,7 +1500,7 @@ function convertData(
   xKey: string,
   yKey: string,
   config: RechartsAdapterConfig,
-): BarPoint[] | ErrorBarPoint[] | FlowPoint[] | ForestPoint[] | HistogramPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] | SurvivalPoint[][] | TreemapPoint[] | VolcanoPoint[] | WaterfallPoint[] {
+): BarPoint[] | ErrorBarPoint[] | FlowPoint[] | ForestPoint[] | HistogramPoint[] | LinePoint[][] | PercentileBandPoint[] | PiePoint[] | PrCurvePoint[][] | ScatterPoint[] | SurvivalPoint[][] | TreemapPoint[] | VolcanoPoint[] | WaterfallPoint[] {
   switch (chartType) {
     // A dot plot and a lollipop carry a bar's data — one category, one
     // magnitude — and differ only in the mark drawn for it. So does a funnel:
@@ -1491,6 +1528,10 @@ function convertData(
     // entry of each per-arm key array.
     case 'survival':
       return [convertToSurvivalRow(data, xKey, yKey, config.survivalConfig, 0)];
+    case 'pr_curve':
+      return [convertToPrCurveRow(data, xKey, yKey, config.prCurveConfig, 0)];
+    case 'percentile_band':
+      return convertToPercentileBandPoints(data, xKey, yKey, config.percentileBandConfig);
     case 'scatter':
       return convertToScatterPoints(data, xKey, yKey);
     // Both are scatters read through a threshold, and differ only in what the
@@ -1785,6 +1826,140 @@ function convertToSurvivalRow(
       point.yMax = yMax;
     }
     return point;
+  });
+}
+
+/**
+ * A rate a precision-recall config declared, when it is one: a fraction from
+ * 0 to 1. A percentage is refused rather than rescaled, as the co-located
+ * declaration refuses one, because a baseline thirty times above the chart
+ * is worse than none.
+ *
+ * @param value - What the config gave
+ * @param field - The config field, for the warning
+ * @param curve - Which curve it describes
+ * @returns The rate, or undefined
+ */
+function declaredRate(value: number | undefined, field: string, curve: number): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'number' && value >= 0 && value <= 1) {
+    return value;
+  }
+  console.warn(
+    `[MAIDR Recharts] prCurveConfig.${field}[${curve}] is ${String(value)}; `
+    + 'expected a number from 0 to 1; ignored.',
+  );
+  return undefined;
+}
+
+/**
+ * Converts data to one precision-recall curve.
+ *
+ * Recall is the x key and precision the y key. The threshold rides on each
+ * point from the curve's own key, and the prevalence and average precision on
+ * its first point, where the grammar reads them -- for this curve only.
+ *
+ * @param data - The Recharts data array
+ * @param xKey - Key holding the recall
+ * @param yKey - Key holding this curve's precision
+ * @param prCurveConfig - Per-curve threshold keys and baselines
+ * @param curve - Which curve this is; indexes the per-curve arrays
+ * @param seriesName - Curve display name, when the figure draws more than one
+ * @returns The curve's points; a row without both rates is skipped
+ */
+function convertToPrCurveRow(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  prCurveConfig?: RechartsAdapterConfig['prCurveConfig'],
+  curve: number = 0,
+  seriesName?: string,
+): PrCurvePoint[] {
+  const thresholdKey = prCurveConfig?.thresholdKeys?.[curve];
+  const points: PrCurvePoint[] = [];
+  for (const item of data) {
+    const x = toOptionalNumber(item[xKey]);
+    const y = toOptionalNumber(item[yKey]);
+    if (x === undefined || y === undefined) {
+      continue;
+    }
+    const threshold = thresholdKey === undefined ? undefined : toOptionalNumber(item[thresholdKey]);
+    points.push({
+      x,
+      y,
+      ...(seriesName !== undefined ? { z: seriesName } : {}),
+      ...(threshold !== undefined ? { threshold } : {}),
+    });
+  }
+  const prevalence = declaredRate(prCurveConfig?.prevalence?.[curve], 'prevalence', curve);
+  const ap = declaredRate(prCurveConfig?.ap?.[curve], 'ap', curve);
+  if (points.length > 0) {
+    points[0] = {
+      ...points[0],
+      ...(prevalence !== undefined ? { prevalence } : {}),
+      ...(ap !== undefined ? { ap } : {}),
+    };
+  }
+  return points;
+}
+
+/**
+ * Converts data to a fan chart: one point per row, carrying the median at
+ * level 0.5 and each band's `[low, high]` pair at the levels its config gives.
+ *
+ * The bands are checked by the shared declaration validator -- fractions,
+ * each straddling the median, nesting -- so the config is held to exactly
+ * what the co-located `maidr` block is, and says so in the same words. A
+ * config that fails reads as the median alone, a truthful smaller reading. A
+ * row whose band value is not a two-number pair is a gap in that band.
+ *
+ * @param data - The Recharts data array
+ * @param xKey - Key holding the position
+ * @param yKey - Key holding the median
+ * @param config - The bands
+ * @returns The band's points
+ */
+function convertToPercentileBandPoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  config?: RechartsAdapterConfig['percentileBandConfig'],
+): PercentileBandPoint[] {
+  const declared = validateDeclaration(
+    config && {
+      type: TraceType.PERCENTILE_BAND,
+      bands: config.bands.map(band => ({ series: band.dataKey, lower: band.lower, upper: band.upper })),
+    },
+    { adapter: 'Recharts', seriesRef: 'percentileBandConfig' },
+    [TraceType.PERCENTILE_BAND],
+  );
+  if (config === undefined) {
+    console.warn(
+      '[MAIDR Recharts] chartType "percentile_band" needs percentileBandConfig naming its bands; '
+      + 'reading the median alone.',
+    );
+  }
+  const bands = declared?.bands ?? [];
+
+  return data.flatMap((item) => {
+    const median = toOptionalNumber(item[yKey]);
+    if (median === undefined) {
+      return [];
+    }
+    const quantiles = [{ level: 0.5, value: median as number | null }];
+    for (const band of bands) {
+      const pair = item[band.series];
+      const [low, high] = Array.isArray(pair) && pair.length === 2
+        ? [toOptionalNumber(pair[0]), toOptionalNumber(pair[1])]
+        : [undefined, undefined];
+      quantiles.push(
+        { level: band.lower, value: low ?? null },
+        { level: band.upper, value: high ?? null },
+      );
+    }
+    return [{ x: toLineX(item[xKey]), quantiles }];
   });
 }
 
@@ -2139,7 +2314,8 @@ function isLineType(chartType: RechartsChartType): boolean {
     || chartType === 'radar'
     || chartType === 'polar_area'
     || chartType === 'bump'
-    || chartType === 'survival';
+    || chartType === 'survival'
+    || chartType === 'pr_curve';
 }
 
 /**
@@ -2287,6 +2463,10 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.BUMP;
     case 'survival':
       return TraceType.SURVIVAL;
+    case 'pr_curve':
+      return TraceType.PR_CURVE;
+    case 'percentile_band':
+      return TraceType.PERCENTILE_BAND;
     case 'scatter':
       return TraceType.SCATTER;
     case 'volcano':
