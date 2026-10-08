@@ -266,9 +266,13 @@ function coalesceSiblingLineLayers(
     // for. The stacked variants are deliberately excluded — Vega-Lite stacks
     // within one mark, never across `alt.layer(...)`, so a run of them would
     // not be one stack and merging would invent a total that is not drawn.
+    // Precision-recall curves too: `alt.layer` of one curve per classifier
+    // is the same chart as one curve per colour, and only same-typed layers
+    // ever join a run, so a curve never merges into a plain line.
     if (current.layer.type !== TraceType.LINE
       && current.layer.type !== TraceType.STEP
-      && current.layer.type !== TraceType.AREA) {
+      && current.layer.type !== TraceType.AREA
+      && current.layer.type !== TraceType.PR_CURVE) {
       out.push(current.layer);
       i += 1;
       continue;
@@ -1953,6 +1957,54 @@ function rowsAreSeriesMajor(
   return true;
 }
 
+/**
+ * Whether a channel is named, by its field or its authored title, as the one
+ * rate given -- case aside, and nothing else around it.
+ *
+ * @param channel - The channel, when the spec declares one
+ * @param rate - The rate's name, in lower case
+ * @returns True when the field or the title is exactly that name
+ */
+function namesRate(channel: VegaLiteChannelDef | undefined, rate: string): boolean {
+  return [channel?.field, authoredLabel(channel)].some(name =>
+    typeof name === 'string' && name.trim().toLowerCase() === rate);
+}
+
+/**
+ * Whether a line layer draws a precision-recall curve: recall along x,
+ * precision up y, both as fractions of one.
+ *
+ * Vega-Lite has no such mark -- scikit-learn's curve and TensorBoard's are
+ * both drawn as a `line` over two columns -- so the axes are the only thing
+ * that says so, and both have to: a channel named `recall` or titled
+ * `Recall` on x and one named or titled `precision` on y, and neither
+ * channel named for the other rate as well. The rows have to agree: every
+ * point a number from 0 to 1 on both axes, unaggregated and unbinned, which
+ * a rate is and a percentage or a count of positives is not. Anything less
+ * keeps the line reading, which is never wrong about a line.
+ *
+ * Only that orientation. A chart with precision along x is drawn the other
+ * way round from every precision-recall plot the grammar describes, and is
+ * read as the line it is.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param series - The line's points, one array per series
+ * @returns True for a precision-recall curve
+ */
+function readsAsPrCurve(encoding: VegaLiteEncoding, series: LinePoint[][]): boolean {
+  const { x, y } = encoding;
+  if (!namesRate(x, 'recall') || !namesRate(y, 'precision')
+    || namesRate(x, 'precision') || namesRate(y, 'recall')) {
+    return false;
+  }
+  if (x?.aggregate != null || y?.aggregate != null || x?.bin || y?.bin)
+    return false;
+  const isRate = (value: unknown): boolean =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+  return series.length > 0 && series.every(points =>
+    points.length > 0 && points.every(point => isRate(point.x) && isRate(point.y)));
+}
+
 function extractLineData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
@@ -3525,6 +3577,14 @@ function convertLayerSpec(
       data = lineData;
       // Line/area traces expect selectors as string[] (one per series).
       selectors = buildLineSelectors(mark, lineData.length, selectorLayerIndex, layered, markGroupPrefix);
+      // A precision-recall curve is drawn as an ordinary line, and nothing
+      // but what its axes measure says so. `PrCurveTrace` reads the same
+      // `LinePoint[][]`, one array per curve, so only the announced type
+      // changes -- and only for a layer the author left undeclared.
+      if (traceType === TraceType.LINE && declaration?.type === undefined
+        && readsAsPrCurve(encoding, lineData)) {
+        announcedType = TraceType.PR_CURVE;
+      }
       break;
     }
     // One polyline per observation rather than one per colour, and every
