@@ -7,12 +7,15 @@ import type {
 import type {
   BarPoint,
   BoxSelector,
+  DirectedGraphPoint,
   DumbbellData,
   FlowPoint,
   LinePoint,
   MaidrLayer,
   MosaicPoint,
+  PercentileBandPoint,
   PiePoint,
+  PrCurvePoint,
   WaterfallPoint,
   WordCloudPoint,
 } from '@type/grammar';
@@ -1336,6 +1339,164 @@ describe('bindAnyChart (tag cloud stamping)', () => {
       .toContain('Expected exactly one rendered word');
 
     container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Declarations: series.meta('maidr')
+// ---------------------------------------------------------------------------
+
+/** A series carrying an id and, when given, a `maidr` block in its metadata. */
+function declaringSeries(
+  seriesType: string,
+  rows: Array<Record<string, unknown>>,
+  id: string,
+  maidr?: unknown,
+): AnyChartSeries {
+  return {
+    ...createSeries(seriesType, rows),
+    id: () => id,
+    name: () => id,
+    meta: (key: string) => (key === 'maidr' ? maidr : undefined),
+  };
+}
+
+describe('anyChartToMaidr (declared percentile band)', () => {
+  const XS = ['0', '1', '2'];
+  const range = (id: string, spread: number, type = 'range-area'): AnyChartSeries =>
+    declaringSeries(type, XS.map(x => ({ x, low: Number(x) - spread, high: Number(x) + spread })), id);
+  const BANDS = [
+    { series: 'p25-75', lower: 0.25, upper: 0.75 },
+    { series: 'p5-95', lower: 0.05, upper: 0.95 },
+  ];
+
+  it('reads the median and the range areas it names as one fan chart', () => {
+    const chart = createChart({
+      title: 'Forecast',
+      series: [
+        range('p5-95', 2),
+        range('p25-75', 1, 'range-spline-area'),
+        declaringSeries('line', XS.map(x => ({ x, value: Number(x) })), 'median', { type: 'percentile_band', bands: BANDS }),
+        createSeries('line', XS.map(x => ({ x, value: 9 }))),
+      ],
+    });
+
+    const layers = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.PERCENTILE_BAND, TraceType.LINE]);
+    expect((layers[0].data as PercentileBandPoint[])[1]).toEqual({
+      x: '1',
+      quantiles: [
+        { level: 0.5, value: 1 },
+        { level: 0.05, value: -1 },
+        { level: 0.95, value: 3 },
+        { level: 0.25, value: 0 },
+        { level: 0.75, value: 2 },
+      ],
+    });
+  });
+
+  it('reports a band naming no range series, and keeps the rest', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const chart = createChart({
+      series: [
+        range('p5-95', 2),
+        declaringSeries('line', XS.map(x => ({ x, value: Number(x) })), 'median', { type: 'percentile_band', bands: BANDS }),
+      ],
+    });
+
+    const [layer] = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect((layer.data as PercentileBandPoint[])[0].quantiles.map(q => q.level)).toEqual([0.5, 0.05, 0.95]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('names series "p25-75" as a band'));
+    warn.mockRestore();
+  });
+});
+
+describe('anyChartToMaidr (declared precision-recall curve)', () => {
+  const ROWS = [
+    { x: '0', value: 1, threshold: 0.9 },
+    { x: '0.5', value: 0.8, threshold: 0.5 },
+    { x: '1', value: 0.4 },
+  ];
+
+  it('reads a declared line as a curve, with its thresholds and its own baseline', () => {
+    const chart = createChart({
+      series: [declaringSeries('line', ROWS, 'Logistic', { type: 'pr_curve', prevalence: 0.4 })],
+    });
+
+    const [layer] = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect(layer.type).toBe(TraceType.PR_CURVE);
+    expect((layer.data as PrCurvePoint[][])[0]).toEqual([
+      expect.objectContaining({ x: 0, y: 1, threshold: 0.9, prevalence: 0.4 }),
+      expect.objectContaining({ x: 0.5, y: 0.8, threshold: 0.5 }),
+      expect.objectContaining({ x: 1, y: 0.4 }),
+    ]);
+  });
+
+  it('stays a line when its x names no recall', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const chart = createChart({
+      series: [declaringSeries('line', [{ x: 'Low', value: 1 }, { x: 'High', value: 0.4 }], 'Logistic', { type: 'pr_curve' })],
+    });
+
+    const [layer] = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect(layer.type).toBe(TraceType.LINE);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('needs a number for the recall at every point'));
+    warn.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Graph charts (anychart.graph): nodes and edges, no series API
+// ---------------------------------------------------------------------------
+
+/**
+ * A drawn AnyChart graph, whose `data()` is its node and edge data sets, each
+ * iterated through `mapAs()` as AnyChart 8.14.1 hands them out.
+ */
+function createGraphChart(arrows: boolean): AnyChartInstance {
+  const set = (rows: Array<Record<string, unknown>>) => ({ mapAs: () => ({ getIterator: () => createIterator(rows) }) });
+  return {
+    title: () => 'Model',
+    container: () => '',
+    getType: () => 'graph',
+    edges: () => ({ arrows: () => ({ enabled: () => arrows }) }),
+    data: () => ({
+      nodes: set([{ id: 'input', name: 'Input' }, { id: 'dense' }, { id: 'relu' }, { id: 'output' }]),
+      edges: set([
+        { from: 'input', to: 'dense' },
+        { from: 'dense', to: 'relu' },
+        { from: 'relu', to: 'output' },
+        { from: 'input', to: 'output' },
+      ]),
+    }),
+  } as unknown as AnyChartInstance;
+}
+
+describe('anyChartToMaidr (graph chart)', () => {
+  it('reads a graph whose edges draw arrows as a directed graph', () => {
+    const layer = anyChartToMaidr(createGraphChart(true))!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.DIRECTED_GRAPH);
+    expect(layer.data as DirectedGraphPoint[]).toEqual([
+      { id: 'input', label: 'Input' },
+      { id: 'dense', inputs: ['input'] },
+      { id: 'relu', inputs: ['dense'] },
+      { id: 'output', inputs: ['relu', 'input'] },
+    ]);
+    // Nodes, edges and arrowheads are unlabelled paths whose pairing with the
+    // declared nodes has not been measured, so nothing is outlined.
+    expect(layer.selectors).toBeUndefined();
+  });
+
+  it('leaves a graph without arrows unread, as before', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(anyChartToMaidr(createGraphChart(false))).toBeNull();
+    warn.mockRestore();
   });
 });
 

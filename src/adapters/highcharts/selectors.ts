@@ -122,6 +122,19 @@ export function lineSelectors(containerId: string, seriesIndices: number[]): str
 }
 
 /**
+ * Generates the CSS selector for the filled polygon of one range series.
+ *
+ * An `arearange` or `areasplinerange` draws, in its `.highcharts-series-N`
+ * group, one `path.highcharts-area` for the band, one `path.highcharts-graph`
+ * for both of its edges and a tracker; its markers sit in a separate
+ * `.highcharts-markers` group that carries the same series class but no area.
+ * Measured on Highcharts 12.6.2: the selector matches exactly the one polygon.
+ */
+export function bandAreaSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} path.highcharts-area`;
+}
+
+/**
  * Generates a CSS selector for all point elements in a scatter series.
  *
  * Scatter points carry the `highcharts-point` class. The element tag may vary

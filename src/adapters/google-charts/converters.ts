@@ -28,6 +28,7 @@
  *   VolcanoPoint[]      = [{ x, y, label?, group? }, ...]  (also manhattan)
  */
 
+import type { PrCurveDeclaration } from '@type/declaration';
 import type {
   AxisFormat,
   BarPoint,
@@ -48,6 +49,7 @@ import type {
   MaidrLayer,
   MaidrSubplot,
   PiePoint,
+  PrCurvePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -69,6 +71,7 @@ import type {
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import { cssEscape } from '../shared/selectorUtil';
+import { FIELD_REF_FALLBACKS, readDeclarationSlot, warnUnresolvedRef } from '../shared/traceDeclaration';
 import { buildDataSelector, ensureContainerId, nextId } from './selectors';
 
 /**
@@ -668,7 +671,8 @@ function buildLayer(
     case 'BarChart':
       return buildBarOrSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL);
     case 'LineChart':
-      return buildLineLayer(chart, dt, container, TraceType.LINE);
+      return buildDeclaredPrCurveLayer(chart, dt, container)
+        ?? buildLineLayer(chart, dt, container, TraceType.LINE);
     // A bump chart is a line chart of ranks. Everything that makes it read as
     // one — the inverted pitch, the places gained on every move — is decided
     // by the declared type, so the conversion is a line chart's.
@@ -1062,6 +1066,138 @@ function buildSegmentedLayer(
  * @param traceType  - Which of the five readings the caller asked for
  * @returns The MAIDR layer
  */
+/**
+ * The co-located declaration a data column carries in its custom properties,
+ * `p: { maidr: { ... } }`, when it declares a precision-recall curve.
+ *
+ * @param dt - The DataTable
+ * @param c - The column
+ * @returns The block, or undefined
+ */
+function columnPrCurve(dt: GoogleDataTable, c: number): PrCurveDeclaration | undefined {
+  let raw: unknown;
+  try {
+    raw = dt.getColumnProperty?.(c, 'maidr');
+  } catch {
+    return undefined;
+  }
+  if (raw === undefined || raw === null)
+    return undefined;
+  const declaration = readDeclarationSlot(
+    { maidr: raw },
+    { adapter: 'Google Charts', seriesRef: `column ${c} ("${dt.getColumnLabel(c)}")`, binding: dt },
+    [TraceType.PR_CURVE],
+  );
+  return declaration ?? undefined;
+}
+
+/**
+ * The role column a curve's thresholds ride in: the one whose id or label is
+ * the name the block gives, or -- left out -- `threshold`, `thresholds` or
+ * `cutoff`. Only a role column counts, because Google draws every other
+ * number column as a series of its own, and a threshold drawn as a line would
+ * be announced as a curve.
+ *
+ * @param dt - The DataTable
+ * @param ref - The name the block gave, if any
+ * @returns The column, or -1
+ */
+function thresholdColumn(dt: GoogleDataTable, ref: string | undefined): number {
+  const names = ref !== undefined ? [ref] : ['threshold', ...FIELD_REF_FALLBACKS.threshold];
+  for (const name of names) {
+    for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+      if (isRoleColumn(dt, c) && (dt.getColumnId?.(c) === name || dt.getColumnLabel(c) === name))
+        return c;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Reads a `LineChart` one of whose series declares a precision-recall curve,
+ * through the column's custom properties, as one `pr_curve` layer: every data
+ * column a curve, recall on the domain column and precision on its own, as
+ * the Chart.js adapter reads every line dataset of such a chart as one figure.
+ *
+ * Each curve's thresholds come from the role column its block names, and
+ * its `prevalence` and `ap` from its block alone. A domain value that is not
+ * a number names no recall, so such a chart is reported and read as a line.
+ * The highlight is the line's own, one stamped path per series.
+ *
+ * @param chart - The chart
+ * @param dt - The DataTable
+ * @param container - The chart's container
+ * @returns The layer, or null when no column declares a curve
+ */
+function buildDeclaredPrCurveLayer(
+  chart: GoogleChart,
+  dt: GoogleDataTable,
+  container: HTMLElement,
+): MaidrLayer | null {
+  const cols = dt.getNumberOfColumns();
+  const rows = dt.getNumberOfRows();
+  const curves: { c: number; block: PrCurveDeclaration | undefined }[] = [];
+  for (let c = 1; c < cols; c++) {
+    if (!isRoleColumn(dt, c))
+      curves.push({ c, block: columnPrCurve(dt, c) });
+  }
+  if (!curves.some(curve => curve.block !== undefined))
+    return null;
+
+  const recalls = Array.from({ length: rows }, (_, r) => numericValue(dt, r, 0));
+  if (!recalls.every(Number.isFinite)) {
+    console.warn(
+      '[MAIDR Google Charts] maidr declaration for "pr_curve" needs a number for the recall '
+      + 'in the domain column of every row; reading the chart as the undeclared one.',
+    );
+    return null;
+  }
+
+  const data: PrCurvePoint[][] = curves.map(({ c, block }, n) => {
+    const z = dt.getColumnLabel(c) || `Series ${n + 1}`;
+    const ref = typeof block?.threshold === 'string' ? block.threshold : undefined;
+    const tc = block === undefined ? -1 : thresholdColumn(dt, ref);
+    if (ref !== undefined && tc < 0) {
+      warnUnresolvedRef(
+        { adapter: 'Google Charts', seriesRef: `column ${c} ("${dt.getColumnLabel(c)}")`, binding: dt },
+        ref,
+        'threshold',
+      );
+    }
+    const curve: PrCurvePoint[] = [];
+    for (let r = 0; r < rows; r++) {
+      const y = numericValue(dt, r, c);
+      if (!Number.isFinite(y))
+        continue;
+      const threshold = tc < 0 ? Number.NaN : numericValue(dt, r, tc);
+      curve.push({ x: recalls[r], y, z, ...(Number.isFinite(threshold) ? { threshold } : {}) });
+    }
+    if (curve.length > 0 && block !== undefined) {
+      curve[0] = {
+        ...curve[0],
+        ...(block.prevalence === undefined ? {} : { prevalence: block.prevalence }),
+        ...(block.ap === undefined ? {} : { ap: block.ap }),
+      };
+    }
+    return curve;
+  });
+
+  const first = curves.find(curve => curve.block !== undefined)?.block;
+  const selectors = markLinePointElements(chart, container, rows, curves.length);
+  return {
+    id: nextId('layer'),
+    type: TraceType.PR_CURVE,
+    ...(first?.title !== undefined ? { title: first.title } : {}),
+    ...(first?.name !== undefined ? { name: first.name } : {}),
+    ...(selectors && selectors.length === curves.length ? { selectors } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: curves.length === 1 ? dt.getColumnLabel(curves[0].c) || undefined : undefined },
+    },
+    data,
+  };
+}
+
 function buildLineLayer(
   chart: GoogleChart,
   dt: GoogleDataTable,

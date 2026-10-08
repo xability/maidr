@@ -70,6 +70,7 @@ import { bindD3Boxen } from './binders/boxen';
 import { bindD3Candlestick } from './binders/candlestick';
 import { bindD3Choropleth } from './binders/choropleth';
 import { bindD3Contour } from './binders/contour';
+import { bindD3DirectedGraph } from './binders/directedGraph';
 import { bindD3Dumbbell } from './binders/dumbbell';
 import { bindD3ErrorBar, bindD3Forest } from './binders/errorBar';
 import { bindD3Alluvial, bindD3Chord, bindD3Sankey } from './binders/flow';
@@ -81,7 +82,9 @@ import { bindD3Histogram } from './binders/histogram';
 import { bindD3Bump, bindD3Line, bindD3Radar } from './binders/line';
 import { bindD3Network } from './binders/network';
 import { bindD3Parallel } from './binders/parallel';
+import { bindD3PercentileBand } from './binders/percentileBand';
 import { bindD3Pie, bindD3PolarArea } from './binders/pie';
+import { bindD3PrCurve } from './binders/prCurve';
 import { bindD3Ridgeline } from './binders/ridgeline';
 import { bindD3Manhattan, bindD3Scatter, bindD3Volcano } from './binders/scatter';
 import { bindD3Diverging, bindD3Mosaic, bindD3Segmented } from './binders/segmented';
@@ -207,6 +210,12 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Sunburst(svg, { ...spec.config, autoApply: false });
     case 'survival':
       return bindD3Survival(svg, { ...spec.config, autoApply: false });
+    case 'prCurve':
+      return bindD3PrCurve(svg, { ...spec.config, autoApply: false });
+    case 'percentileBand':
+      return bindD3PercentileBand(svg, { ...spec.config, autoApply: false });
+    case 'directedGraph':
+      return bindD3DirectedGraph(svg, { ...spec.config, autoApply: false });
     case 'treemap':
       return bindD3Treemap(svg, { ...spec.config, autoApply: false });
     case 'volcano':
@@ -304,6 +313,12 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
     case 'sunburst':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'survival':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'prCurve':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'percentileBand':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'directedGraph':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'treemap':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };

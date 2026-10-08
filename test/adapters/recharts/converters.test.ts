@@ -1,5 +1,5 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
-import type { BarPoint, BoxenPoint, DumbbellData, ErrorBarPoint, FlowPoint, ForestPoint, GanttData, GaugePoint, HexbinPoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint, SurvivalPoint, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallPoint } from '@type/grammar';
+import type { BarPoint, BoxenPoint, DumbbellData, ErrorBarPoint, FlowPoint, ForestPoint, GanttData, GaugePoint, HexbinPoint, HistogramPoint, LinePoint, PercentileBandPoint, PiePoint, PrCurvePoint, ScatterPoint, SegmentedPoint, SurvivalPoint, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallPoint } from '@type/grammar';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { Orientation, PieDirection, TraceType } from '@type/grammar';
 
@@ -1198,6 +1198,109 @@ describe('convertRechartsToMaidr', () => {
       // The line-family limitation: CSS cannot pick one competitor's dots
       // out of the surface, so highlighting degrades rather than misaligns.
       expect(layer.selectors).toBeUndefined();
+    });
+  });
+
+  describe('precision-recall curve', () => {
+    const prConfig: RechartsAdapterConfig = {
+      id: 'pr',
+      data: [
+        { recall: 0, logistic: 1, forest: 1, cutL: 0.9 },
+        { recall: 0.5, logistic: 0.8, forest: 0.9, cutL: 0.5 },
+        { recall: 1, logistic: 0.4, forest: 0.4 },
+      ],
+      chartType: 'pr_curve',
+      xKey: 'recall',
+      yKeys: ['logistic', 'forest'],
+      prCurveConfig: { thresholdKeys: ['cutL'], prevalence: [0.4, undefined], ap: [undefined, 0.9] },
+    };
+
+    it('reads one curve per key, each carrying only its own threshold and baseline', () => {
+      const layer = convertRechartsToMaidr(prConfig).subplots[0][0].layers[0];
+      const curves = layer.data as PrCurvePoint[][];
+
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+      expect(curves[0]).toEqual([
+        { x: 0, y: 1, z: 'logistic', threshold: 0.9, prevalence: 0.4 },
+        { x: 0.5, y: 0.8, z: 'logistic', threshold: 0.5 },
+        { x: 1, y: 0.4, z: 'logistic' },
+      ]);
+      expect(curves[1][0]).toEqual({ x: 0, y: 1, z: 'forest', ap: 0.9 });
+    });
+
+    it('refuses a prevalence written as a percentage', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layer = convertRechartsToMaidr({
+        ...prConfig,
+        yKeys: ['logistic'],
+        prCurveConfig: { prevalence: [40] },
+      }).subplots[0][0].layers[0];
+
+      expect((layer.data as PrCurvePoint[][])[0][0]).not.toHaveProperty('prevalence');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('prCurveConfig.prevalence[0] is 40'));
+      warn.mockRestore();
+    });
+
+    it('highlights a lone curve through its line dots', () => {
+      const layer = convertRechartsToMaidr({ ...prConfig, yKeys: ['logistic'] }).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toEqual([expect.stringContaining('.recharts-line-dots .recharts-line-dot')]);
+    });
+  });
+
+  describe('percentile band', () => {
+    const fanConfig: RechartsAdapterConfig = {
+      id: 'fan',
+      data: [
+        { step: 0, p50: 0, p5_95: [-2, 2], p25_75: [-1, 1] },
+        { step: 1, p50: 1, p5_95: [-1, 3], p25_75: null },
+      ],
+      chartType: 'percentile_band',
+      xKey: 'step',
+      yKeys: ['p50'],
+      percentileBandConfig: {
+        bands: [
+          { dataKey: 'p25_75', lower: 0.25, upper: 0.75 },
+          { dataKey: 'p5_95', lower: 0.05, upper: 0.95 },
+        ],
+      },
+    };
+
+    it('reads the median and each range area at its declared levels', () => {
+      const layer = convertRechartsToMaidr(fanConfig).subplots[0][0].layers[0];
+      const points = layer.data as PercentileBandPoint[];
+
+      expect(layer.type).toBe(TraceType.PERCENTILE_BAND);
+      expect(points[0].quantiles).toEqual([
+        { level: 0.5, value: 0 },
+        { level: 0.25, value: -1 },
+        { level: 0.75, value: 1 },
+        { level: 0.05, value: -2 },
+        { level: 0.95, value: 2 },
+      ]);
+      // A row without the band's pair is a gap in that band, not a zero.
+      expect(points[1].quantiles.filter(q => q.level === 0.25 || q.level === 0.75))
+        .toEqual([{ level: 0.25, value: null }, { level: 0.75, value: null }]);
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('reads the median alone when the bands do not nest, and says why', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layer = convertRechartsToMaidr({
+        ...fanConfig,
+        percentileBandConfig: {
+          bands: [
+            { dataKey: 'p25_75', lower: 0.25, upper: 0.95 },
+            { dataKey: 'p5_95', lower: 0.05, upper: 0.75 },
+          ],
+        },
+      }).subplots[0][0].layers[0];
+
+      expect((layer.data as PercentileBandPoint[])[0].quantiles).toEqual([{ level: 0.5, value: 0 }]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('do not nest'));
+      warn.mockRestore();
     });
   });
 

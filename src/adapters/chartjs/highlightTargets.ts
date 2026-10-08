@@ -11,7 +11,7 @@
 import type { ChoroplethPoint, GanttData, HeatmapData, MaidrLayer, TreemapPoint } from '../../type/grammar';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
-import { drawnBoxCells, drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, drawnPrCurveReads, drawnViolinCurveCells, isMatrixValue, isPointValue, isRangeValue, parallelGrid, toFiniteNumber } from './extractor';
+import { drawnBoxCells, drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, drawnPrCurveReads, drawnViolinCurveCells, isMatrixValue, isPointValue, isRangeValue, parallelGrid, percentileBandIndices, toFiniteNumber } from './extractor';
 
 /**
  * Figure-unique layer id → original Chart.js dataset indices backing that
@@ -437,6 +437,17 @@ export function computeTargetMaps(
         );
         break;
       }
+      // A fan chart is a row per quantile, each drawn by a dataset of its
+      // own -- a band's edges are two line datasets, one filled to the other
+      // -- so a row's mark at a column is its own dataset's point at the
+      // median's position, found by the walk the extractor read the values
+      // with. `-1` marks an edge that draws nothing there.
+      case TraceType.PERCENTILE_BAND: {
+        const dsIndices = layerDatasetIndices.get(layer.id);
+        if (dsIndices)
+          barLineIndices.set(layer.id, percentileBandIndices(chart, dsIndices));
+        break;
+      }
       // An interval chart is one MAIDR row per dataset, columns along the
       // category axis -- the shape a line has. It cannot borrow the line
       // branch's walk, though: that tests the raw entries with
@@ -716,6 +727,17 @@ export function resolveActiveTargets(
   // instead would light up a mark the reader was not told about.
   if (layer.type === TraceType.NETWORK)
     return [];
+
+  // Percentile band: MAIDR row = the quantile, lowest first, each drawn by
+  // its own dataset; col = the median's position. An edge that draws nothing
+  // at that position outlines nothing rather than the median's index in a
+  // dataset it does not line up with.
+  if (layer.type === TraceType.PERCENTILE_BAND) {
+    const index = maps.barLineIndices.get(layer.id)?.[row]?.[col];
+    if (index === undefined || index < 0)
+      return [];
+    return [{ datasetIndex: rowDatasetIndex(layerDatasetIndices, layerId, row), index }];
+  }
 
   // Choropleth / bubble map: `col` is the region, but only when the model
   // left the regions where the payload put them.

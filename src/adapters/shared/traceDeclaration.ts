@@ -30,7 +30,7 @@
  * option blocks would become a second grammar that can drift from the first.
  */
 
-import type { AlluvialDeclaration, BoxenDeclaration, ChoroplethDeclaration, ErrorBarDeclaration, FieldRef, ForestDeclaration, GanttDeclaration, HexbinDeclaration, MaidrTraceDeclaration, ManhattanDeclaration, MosaicDeclaration, ParallelDeclaration, PrCurveDeclaration, RidgelineDeclaration, ScatterDeclaration, SurvivalDeclaration, VolcanoDeclaration } from '../../type/declaration';
+import type { AlluvialDeclaration, BoxenDeclaration, ChoroplethDeclaration, ErrorBarDeclaration, FieldRef, ForestDeclaration, GanttDeclaration, HexbinDeclaration, MaidrTraceDeclaration, ManhattanDeclaration, MosaicDeclaration, ParallelDeclaration, PercentileBandDeclaration, PercentileBandRef, PrCurveDeclaration, RidgelineDeclaration, ScatterDeclaration, SurvivalDeclaration, VolcanoDeclaration } from '../../type/declaration';
 import { Orientation, TraceType } from '../../type/grammar';
 
 /** The `type` values {@link MaidrTraceDeclaration} covers. */
@@ -473,6 +473,7 @@ type ValueKind
     | 'index'
     | 'boolean'
     | 'dimensions'
+    | 'bands'
     | 'orientation'
     | 'stepDirection'
     | 'significanceDirection';
@@ -640,6 +641,11 @@ const DECLARATION_KEYS: Readonly<Record<DeclaredType, Readonly<Record<string, Ke
     ap: 'fraction',
     merge: 'boolean',
   } satisfies FieldKeySet<PrCurveDeclaration>,
+  [TraceType.PERCENTILE_BAND]: {
+    title: 'text',
+    name: 'text',
+    bands: ['bands', 'required'],
+  } satisfies FieldKeySet<PercentileBandDeclaration>,
 };
 
 /**
@@ -660,6 +666,7 @@ const VALUE_EXPECTATIONS: Readonly<Record<ValueKind, string>> = {
   index: 'a row index',
   boolean: 'a boolean',
   dimensions: 'a non-empty list of axes',
+  bands: 'a non-empty list of { series, lower, upper }',
   orientation: '"horz" or "vert"',
   stepDirection: '"hv", "vh" or "mid"',
   significanceDirection: '"above" or "below"',
@@ -668,14 +675,15 @@ const VALUE_EXPECTATIONS: Readonly<Record<ValueKind, string>> = {
 /**
  * Whether a value is the kind its key takes.
  *
- * `'dimensions'` is not decided here: its entries are reported one by one, so
- * it goes through {@link isValidDimensions} where the warnings can be raised.
+ * `'dimensions'` and `'bands'` are not decided here: their entries are
+ * reported one by one, so they go through {@link isValidDimensions} and
+ * {@link isValidBands} where the warnings can be raised.
  *
  * @param kind  - The kind the key's rule names.
  * @param value - The value the author wrote.
  * @returns True when the value can be kept.
  */
-function isValidValue(kind: Exclude<ValueKind, 'dimensions'>, value: unknown): boolean {
+function isValidValue(kind: Exclude<ValueKind, 'dimensions' | 'bands'>, value: unknown): boolean {
   switch (kind) {
     case 'field':
     case 'series':
@@ -762,7 +770,85 @@ function isValidDimensions(value: unknown, report: (message: string) => void): b
   return usable;
 }
 
+/** The keys one entry of a percentile band's `bands` list takes. */
+const BAND_KEYS: readonly (keyof PercentileBandRef)[] = ['series', 'lower', 'upper'];
+
 /**
+ * Whether a percentile band's list of bands is usable, reporting each entry
+ * that is not.
+ *
+ * Checked entry by entry, as `dimensions` is, because the levels are the one
+ * thing the bands cannot be read without: an `arearange` says nothing about
+ * which quantiles its edges are. Each entry names a series, a `lower` level
+ * below the median and an `upper` one above it, as fractions -- `95` is a
+ * percentage and is refused rather than rescaled. The bands must then nest,
+ * each strictly inside the next wider one: nested bands are what a fan chart
+ * is, and the trace pairs the lowest level with the highest, so a list that
+ * crosses would be announced as bands the chart does not draw. Any entry that
+ * fails makes the whole list unusable.
+ *
+ * @param value  - The value at the `bands` key.
+ * @param report - Raises one warning, already located on the series.
+ * @returns True when every entry is usable and the bands nest.
+ */
+function isValidBands(value: unknown, report: (message: string) => void): boolean {
+  if (!Array.isArray(value) || value.length === 0) {
+    report(`has bands ${describeValue(value)}; expected ${VALUE_EXPECTATIONS.bands}.`);
+    return false;
+  }
+
+  const read: { lower: number; upper: number; series: string }[] = [];
+  let usable = true;
+  value.forEach((entry, index) => {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+      report(`has bands[${index}] ${describeValue(entry)}; expected { series, lower, upper }.`);
+      usable = false;
+      return;
+    }
+    const band = entry as Record<string, unknown>;
+    for (const key of Object.keys(band)) {
+      if (!(BAND_KEYS as readonly string[]).includes(key)) {
+        report(`has bands[${index}] with unknown key "${key}"; ignored.`);
+      }
+    }
+    if (!isValidValue('series', band.series)) {
+      report(`has bands[${index}] naming no series; expected ${VALUE_EXPECTATIONS.series}.`);
+      usable = false;
+      return;
+    }
+    const { lower, upper } = band;
+    if (typeof lower !== 'number' || !(lower >= 0 && lower < 0.5)
+      || typeof upper !== 'number' || !(upper > 0.5 && upper <= 1)) {
+      report(
+        `has bands[${index}] with levels ${describeValue(lower)} and ${describeValue(upper)}; `
+        + `expected a lower level from 0 to below 0.5 and an upper one above 0.5 to 1.`,
+      );
+      usable = false;
+      return;
+    }
+    read.push({ lower, upper, series: band.series as string });
+  });
+  if (!usable) {
+    return false;
+  }
+
+  const outermostFirst = [...read].sort((a, b) => a.lower - b.lower);
+  for (let i = 1; i < outermostFirst.length; i++) {
+    const outer = outermostFirst[i - 1];
+    const inner = outermostFirst[i];
+    if (!(inner.lower > outer.lower && inner.upper < outer.upper)) {
+      report(
+        `has bands "${outer.series}" and "${inner.series}" that do not nest; `
+        + `each band must lie strictly inside the next wider one.`,
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Whether a string is a type {@link MaidrTraceDeclaration} has a variant for./**
  * Whether a string is a type {@link MaidrTraceDeclaration} has a variant for.
  *
  * @param value - The `type` read off the block.
@@ -915,6 +1001,12 @@ export function validateDeclaration<T extends DeclaredType = DeclaredType>(
     const { kind } = readRule(accepted[key]);
     if (kind === 'dimensions') {
       if (!isValidDimensions(value, located)) {
+        dropped.push(key);
+      }
+      continue;
+    }
+    if (kind === 'bands') {
+      if (!isValidBands(value, located)) {
         dropped.push(key);
       }
       continue;

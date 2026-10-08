@@ -210,6 +210,7 @@ const GUIDES: Record<string, Guide> = {
       'radar / spider': ['radar'],
       'force-directed network': ['network'],
       'kaplan-meier survival curve': ['survival'],
+      'percentile band / fan chart': ['percentile_band'],
       'ridgeline / joy plot': ['ridgeline'],
       'hexbin density': ['hexbin'],
       'contour / density field': ['contour'],
@@ -281,6 +282,7 @@ const GUIDES: Record<string, Guide> = {
       'stacked_bar': ['stacked_bar'],
       // A step is a `line` trace carrying `stepDirection`.
       'line + stepdirection': ['line'],
+      'pr_curve': ['pr_curve'],
       'single-value charts': ['pie', 'funnel', 'gauge'],
       'grid-value charts': ['heat', 'candlestick', 'box'],
       'hierarchies and graphs': ['treemap', 'sunburst', 'tree', 'sankey', 'network', 'directed_graph'],
@@ -329,6 +331,7 @@ const GUIDES: Record<string, Guide> = {
       'subplots': [],
       // Example sections are named after Plot's marks, not charts.
       'hexbins': ['hexbin'],
+      'precision-recall curves': ['pr_curve'],
       'regression lines': ['smooth'],
       '100% stacked charts': ['stacked_normalized_bar', 'stacked_normalized_area'],
       'step curves': ['step'],
@@ -514,6 +517,8 @@ const GUIDES: Record<string, Guide> = {
       'error_bar': ['error_bar'],
       'parallel': ['parallel_coordinates'],
       'boxen': ['boxen'],
+      'pr_curve': ['pr_curve'],
+      'percentile_band': ['percentile_band'],
       // Example headings
       'dot plot and lollipop chart': ['dot', 'lollipop'],
       'stacked and 100% stacked area': ['stacked_area', 'stacked_normalized_area'],

@@ -269,6 +269,17 @@ describe('nivo line', () => {
     ]);
   });
 
+  it('reads a line of precision against recall as a precision-recall curve', () => {
+    const curve = [{ id: 'model', data: [{ x: 0, y: 1 }, { x: 0.5, y: 0.8 }, { x: 1, y: 0.4 }] }];
+
+    const layer = layerOf('line', { data: curve, axisBottom: { legend: 'Recall' }, axisLeft: { legend: 'Precision' } });
+    const swapped = layerOf('line', { data: curve, axisBottom: { legend: 'Precision' }, axisLeft: { legend: 'Recall' } });
+
+    expect(layer.type).toBe(TraceType.PR_CURVE);
+    expect(layer.data).toEqual([[{ x: 0, y: 1, z: 'model' }, { x: 0.5, y: 0.8, z: 'model' }, { x: 1, y: 0.4, z: 'model' }]]);
+    expect(swapped.type).toBe(TraceType.LINE);
+  });
+
   it('names the series as the legend', () => {
     const figure = nivoToMaidr({ id: 'c', type: 'line', props: { data: SERIES } });
     expect(figure.subplots[0][0].legend).toEqual(['japan', 'france']);

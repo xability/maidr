@@ -114,6 +114,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 |------------|---------------|---------------------|
 | Area [experimental] | `'line'` + `lineOptions: { regionFill: 1 }` | `'area'` (also inferred) |
 | Bump (rank over time) [experimental] | `'line'` (one dataset per competitor) | `'bump'` |
+| Precision-recall curve [experimental] | `'line'` (one dataset per curve, labels the recall) | `'pr_curve'` |
 | Dot plot [experimental] | `'line'` + `lineOptions: { hideLine: 1 }` | `'dot'` |
 | Diverging bar [experimental] | `'bar'` (two signed datasets) | `'diverging'` |
 
@@ -130,6 +131,8 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 > **Area note:** `lineOptions.regionFill` is an instance field the adapter reads directly, so a chart passed as `chartType: 'line'` with the region filled is announced as an area chart anyway — you cannot mislabel one as the other. Pass `chartType: 'area'` when you hand the adapter a plain `{ data }` object, which has no instance to read. Several filled bands in one chart **overlap** in Frappe rather than stacking, so they stay independent series (`area`, never `stacked_area`). Keep `dotSize > 0`: the fill is one `<path>` for the whole series and cannot highlight individual points.
 
 > **Scatter / dot note:** Frappe Charts v1.6.2 has no native `scatter` type. Render either chart with a line chart whose connecting line is hidden (`lineOptions: { hideLine: 1, dotSize: 6 }`). Frappe places its marks at **evenly spaced label positions whatever the label holds**, so which of the two you have depends on the labels: numeric, evenly spaced labels are a scatter plot (`chartType: 'scatter'`), and category names are a Cleveland dot plot (`chartType: 'dot'`). Passing `'scatter'` with categorical labels is converted as a dot plot with a console warning, because `Number('Mon')` is `NaN` and a scatter layer built from those labels would have no x values at all.
+
+> **Precision-recall note:** a precision-recall curve is a `type: 'line'` chart of precision with one dataset per curve, its labels the recall, and nothing in Frappe says so — hence `chartType: 'pr_curve'`. Each label has to be a number; a chart whose labels are not is converted as a line, with a warning. Frappe spaces labels evenly whatever they hold, so the curve is drawn with its recall steps equal; MAIDR reads the recall itself. Frappe has no slot for a curve's thresholds, prevalence or average precision, so none is announced and MAIDR measures the average precision from the points.
 
 > **Bump note:** A bump chart is a multi-dataset line chart whose y values are **ranks** — one dataset per competitor, `1` = best. MAIDR inverts the pitch so first place is the highest note and announces the places gained or lost at each period, which is why the type has to be declared: nothing in the data distinguishes a rank from a magnitude. Emit the **true ranks**. Frappe v1.6.2 cannot invert or reverse an axis, so a rank chart it draws shows rank 1 at the *bottom*; pre-inverting the values to make the picture look right would make MAIDR announce the wrong ranks.
 

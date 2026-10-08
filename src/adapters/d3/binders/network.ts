@@ -32,19 +32,23 @@ const NODE_NAME_KEYS = ['id', 'name', 'key', 'label'] as const;
  * "[object Object] — [object Object]".
  *
  * @param raw - The value the accessor produced for this end
- * @param endpoint - Which end, for the error message
- * @param index - Position of the link in the selection
+ * @param endpoint - Which end, for the error message -- or `'node'` for a
+ *   node element's own datum, which a directed graph names the same way
+ * @param index - Position of the link (or node) in the selection
  * @returns The node's name
  * @throws Error when an object end carries none of {@link NODE_NAME_KEYS}
  */
-function resolveEndpoint(
+export function resolveEndpoint(
   raw: unknown,
-  endpoint: 'source' | 'target',
+  endpoint: 'source' | 'target' | 'node',
   index: number,
 ): string | number {
   if (typeof raw === 'string' || typeof raw === 'number') {
     return raw;
   }
+  const where = endpoint === 'node'
+    ? `The node at index ${index}`
+    : `The "${endpoint}" of the link at index ${index}`;
   if (raw !== null && typeof raw === 'object') {
     const node = raw as Record<string, unknown>;
     for (const key of NODE_NAME_KEYS) {
@@ -54,15 +58,15 @@ function resolveEndpoint(
       }
     }
     throw new Error(
-      `The "${endpoint}" of the link at index ${index} is a node object with `
+      `${where} is a node object with `
       + `no name: none of ${NODE_NAME_KEYS.join(', ')} is set on it. `
       + `Available properties: ${Object.keys(node).join(', ')}. Pass a `
       + `\`${endpoint}\` accessor that names the node, e.g. `
-      + `\`${endpoint}: d => d.${endpoint}.title\`.`,
+      + `\`${endpoint}: d => ${endpoint === 'node' ? 'd' : `d.${endpoint}`}.title\`.`,
     );
   }
   throw new Error(
-    `The "${endpoint}" of the link at index ${index} resolved to `
+    `${where} resolved to `
     + `${String(raw)}, which names no node. A link needs both of its ends.`,
   );
 }

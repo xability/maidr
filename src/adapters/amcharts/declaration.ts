@@ -34,6 +34,7 @@ import type {
   ForestDeclaration,
   MaidrTraceDeclaration,
   ManhattanDeclaration,
+  PercentileBandDeclaration,
   PrCurveDeclaration,
   ScatterDeclaration,
   SurvivalDeclaration,
@@ -42,6 +43,8 @@ import type {
 import type {
   EstimatedPoint,
   ForestPoint,
+  PercentileBandPoint,
+  PercentileBandQuantile,
   PrCurvePoint,
   ScatterPoint,
   SurvivalPoint,
@@ -99,6 +102,7 @@ export type AmDeclaration
     | ErrorBarDeclaration
     | ForestDeclaration
     | ManhattanDeclaration
+    | PercentileBandDeclaration
     | PrCurveDeclaration
     | ScatterDeclaration
     | SurvivalDeclaration
@@ -126,11 +130,27 @@ export interface AmDeclaredLayer {
   /** `pooledSeries` — the summary mark at the foot of a forest plot. */
   pooled?: AmXYSeries;
   /**
+   * `bands` — a fan chart's range series, outermost first, each with the
+   * two quantile levels its edges are. Only those that resolve to a series
+   * drawing a range.
+   */
+  bands?: AmBand[];
+  /**
    * Following siblings folded into this layer by `merge`: further arms of one
    * survival figure, further curves of one precision-recall figure, or
    * further chromosomes of one Manhattan cloud.
    */
   arms: AmXYSeries[];
+}
+
+/** One band of a declared fan chart, resolved to the series drawing it. */
+export interface AmBand {
+  /** The series drawing the band, bound to `openValueYField` and `valueYField`. */
+  series: AmXYSeries;
+  /** The quantile its `openValueY` edge is. */
+  lower: number;
+  /** The quantile its `valueY` edge is. */
+  upper: number;
 }
 
 /** What a chart's declarations come to, resolved together. */
@@ -282,6 +302,7 @@ function isDeclarable(declaration: MaidrTraceDeclaration): declaration is AmDecl
     case TraceType.ERROR_BAR:
     case TraceType.FOREST:
     case TraceType.MANHATTAN:
+    case TraceType.PERCENTILE_BAND:
     case TraceType.PR_CURVE:
     case TraceType.SCATTER:
     case TraceType.SURVIVAL:
@@ -515,7 +536,9 @@ function backsDeclaration(series: AmXYSeries, declaration: AmDeclaration): boole
     case TraceType.CHOROPLETH:
       return isMapPolygonSeries(series)
         && extractChoroplethPoints(series, choroplethFields(declaration)).length > 0;
+    // The median is a line like a survival curve: a position and a value.
     case TraceType.SURVIVAL:
+    case TraceType.PERCENTILE_BAND:
       return series.dataItems.some(item =>
         readXValue(item, series) != null && item.get('valueY') != null
         && toNumber(item.get('valueY')) != null);
@@ -650,6 +673,62 @@ function absorb(
 }
 
 /**
+ * Whether a series draws a range: both ends of a floating mark bound, the
+ * `openValueY` edge below and the `valueY` edge above.
+ *
+ * @param series - The series a band names.
+ * @returns True when it is bound to both fields.
+ */
+function drawsRange(series: AmXYSeries): boolean {
+  return typeof series.get('openValueYField') === 'string'
+    && typeof series.get('valueYField') === 'string';
+}
+
+/**
+ * Resolve a fan chart's `bands` to the series drawing them, outermost first.
+ *
+ * Each is absorbed the way any companion is, by `id`; one that names nothing,
+ * or a series bound to a single value rather than a range, is reported and
+ * left out, and the layer keeps the bands it can read rather than announcing
+ * one line's values as two quantiles.
+ *
+ * @param declared    - The declared median.
+ * @param declaration - Its block.
+ * @param byId        - The chart's series by id.
+ * @param plan        - The plan being built.
+ * @returns The bands that resolved, outermost first.
+ */
+function absorbBands(
+  declared: AmDeclaredLayer,
+  declaration: PercentileBandDeclaration,
+  byId: Map<string, AmXYSeries>,
+  plan: AmDeclarationPlan,
+): AmBand[] {
+  const bands: AmBand[] = [];
+  const outermostFirst = [...declaration.bands].sort((a, b) => a.lower - b.lower);
+  for (const [index, band] of outermostFirst.entries()) {
+    const role = `bands[${declaration.bands.indexOf(band)}]`;
+    const series = absorb(declared, band.series, role, byId, plan);
+    if (series === undefined) {
+      continue;
+    }
+    if (!drawsRange(series)) {
+      plan.absorbed.delete(series);
+      warnOnce(
+        declared.declaration,
+        `range:${index}`,
+        `maidr declaration on ${describeSeries(declared.series)} names ${role} `
+        + `"${band.series}", which is bound to no openValueYField; a band is a range `
+        + `drawn between two values, so the layer is emitted without it.`,
+      );
+      continue;
+    }
+    bands.push({ series, lower: band.lower, upper: band.upper });
+  }
+  return bands;
+}
+
+/**
  * Resolve every declaration on a chart into the layers they describe.
  *
  * Runs in three passes, and the order matters: every declaration is read before
@@ -712,6 +791,9 @@ export function planDeclarations(chart: AmChart): AmDeclarationPlan {
         break;
       case TraceType.ERROR_BAR:
         declared.interval = absorb(declared, declaration.intervalSeries, 'intervalSeries', byId, plan);
+        break;
+      case TraceType.PERCENTILE_BAND:
+        declared.bands = absorbBands(declared, declaration, byId, plan);
         break;
       default:
         break;
@@ -955,6 +1037,69 @@ export function extractPrCurves(
   }
 
   return { data, items, owners };
+}
+
+// ---------------------------------------------------------------------------
+// Percentile band
+// ---------------------------------------------------------------------------
+
+/** A declared fan chart, read: its points, and the live marks behind each. */
+export interface DeclaredBand {
+  data: PercentileBandPoint[];
+  /** The median's mark at each point. */
+  medians: AmDataItem[];
+  /**
+   * Each band's mark at each point, outermost band first, or `undefined`
+   * where the band draws nothing at that x.
+   */
+  bands: (AmDataItem | undefined)[][];
+}
+
+/**
+ * Read a declared fan chart: one point per mark of the median line, carrying
+ * the median at level 0.5 and each band's two edges at their levels.
+ *
+ * A band is matched to the median by position, as a survival curve's band
+ * is, since a band routinely starts later or ends earlier than the line it
+ * surrounds; where it draws nothing, both its quantiles are a gap there.
+ *
+ * @param declared - The declared median and its resolved bands.
+ * @returns The points, and the marks the highlight resolves them to.
+ */
+export function extractPercentileBand(declared: AmDeclaredLayer): DeclaredBand {
+  const bands = declared.bands ?? [];
+  const byPosition = bands.map((band) => {
+    const at = new Map<string, AmDataItem>();
+    for (const item of band.series.dataItems) {
+      const x = readXValue(item, band.series);
+      if (x != null) {
+        at.set(String(toStringOrNumber(x)), item);
+      }
+    }
+    return at;
+  });
+
+  const result: DeclaredBand = { data: [], medians: [], bands: bands.map(() => []) };
+  for (const item of declared.series.dataItems) {
+    const x = readXValue(item, declared.series);
+    const median = declaredNumber(item.get('valueY'));
+    if (x == null || median === null) {
+      continue;
+    }
+    const position = toStringOrNumber(x);
+    const quantiles: PercentileBandQuantile[] = [{ level: 0.5, value: median }];
+    bands.forEach((band, i) => {
+      const edge = byPosition[i].get(String(position));
+      quantiles.push(
+        { level: band.lower, value: declaredNumber(edge?.get('openValueY')) },
+        { level: band.upper, value: declaredNumber(edge?.get('valueY')) },
+      );
+      result.bands[i].push(edge);
+    });
+    result.data.push({ x: position, quantiles });
+    result.medians.push(item);
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------

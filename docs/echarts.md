@@ -227,10 +227,13 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | ECharts `series.type` | Read as | Notes |
 |---|---|---|
 | `line` + `areaStyle` | `area` [experimental] | The fill is what makes it an area |
+| `line` over value axes named `recall` and `precision` | `pr_curve` [experimental] | Every point a number from 0 to 1 on both; see below |
 | `bar` ×N in one stack over a transparent placeholder | `waterfall` [experimental] | ECharts' waterfall recipe, and Superset's; each step's direction comes from the running total |
 | `custom` encoding two columns onto the value axis | `waterfall` [experimental] | Metabase's waterfall. Any other `custom` series is not read |
 
 ### Notes on these chart types
+
+A precision-recall curve has no ECharts series of its own: redrawn in ECharts it is a `line` over two `value` axes, so the axis names are what say so, as in the Vega-Lite reading of the same chart. The x axis named exactly `recall` and the y axis `precision`, case aside, neither categorical nor dated, and every point a number from 0 to 1 on both make each such line a `pr_curve` layer — announced with its average precision and best F1 — with the line's own points and highlight; a stepped curve announces no step convention. ECharts has no slot on a series for a threshold or a prevalence, so neither is said. Anything less, including rates written as percentages, stays a line.
 
 **Every series type the adapter has measured now has a reading.** A type
 outside that set is still refused *by name* rather than mapped onto whichever

@@ -3,7 +3,7 @@
  */
 
 import type { UPlotSeries } from '@adapters/uplot/types';
-import type { BarPoint, LinePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, LinePoint, PercentileBandPoint, PrCurvePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
 import { extractUPlotData, inferSeriesKind } from '@adapters/uplot/extractor';
 import { Orientation, TraceType } from '@type/grammar';
 import { BAR_PATHS, fakeUPlot, LINE_PATHS, POINT_PATHS } from './helpers';
@@ -811,5 +811,107 @@ describe('filled areas', () => {
     const layer = layersOf(u, { areas: true, stacked: true })[0];
     expect(layer.type).toBe(TraceType.AREA);
     expect((layer.data as LinePoint[][]).map(r => r.map(p => p.y))).toEqual([[1, 2], [2, 3]]);
+  });
+});
+
+describe('precision-recall curves', () => {
+  it('reads a series declared a curve as one, with only its own baseline', () => {
+    const u = fakeUPlot({
+      data: [[0, 0.5, 1], [1, 0.8, 0.4], [1, 0.9, 0.4]],
+      series: [
+        {},
+        { label: 'Logistic', _paths: LINE_PATHS, maidr: { kind: 'pr_curve', prevalence: 0.4, ap: 0.8 } },
+        { label: 'Forest', _paths: LINE_PATHS, maidr: { kind: 'pr_curve' } },
+      ],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart');
+    const [layer] = maidr.subplots[0][0].layers;
+
+    expect(layer.type).toBe(TraceType.PR_CURVE);
+    const curves = layer.data as PrCurvePoint[][];
+    expect(curves[0][0]).toEqual({ x: 0, y: 1, z: 'Logistic', prevalence: 0.4, ap: 0.8 });
+    expect(curves[1][0]).toEqual({ x: 0, y: 1, z: 'Forest' });
+    expect(sources.get(layer.id)?.seriesIdxs).toEqual([1, 2]);
+  });
+
+  it('refuses a prevalence written as a percentage', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const u = fakeUPlot({
+      data: [[0, 1], [1, 0.4]],
+      series: [{}, { label: 'Logistic', _paths: LINE_PATHS, maidr: { kind: 'pr_curve', prevalence: 40 } }],
+    });
+
+    const [layer] = layersOf(u);
+
+    expect((layer.data as PrCurvePoint[][])[0][0]).not.toHaveProperty('prevalence');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('prevalence 40 on series "Logistic"'));
+    warn.mockRestore();
+  });
+});
+
+describe('percentile bands', () => {
+  // Series 1-2 are the 90% band's edges, 3-4 the 50% band's, 5 the median.
+  function fanChart(bands: { band: number; lower: number; upper: number }[]) {
+    return fakeUPlot({
+      data: [[1, 2], [-1, 0], [3, 4], [0, 1], [2, 3], [1, 2]],
+      bands: [{ series: [2, 1] }, { series: [4, 3] }],
+      series: [
+        {},
+        { label: 'p5', _paths: LINE_PATHS },
+        { label: 'p95', _paths: LINE_PATHS },
+        { label: 'p25', _paths: LINE_PATHS },
+        { label: 'p75', _paths: LINE_PATHS },
+        { label: 'Median', _paths: LINE_PATHS, maidr: { bands } },
+      ],
+    });
+  }
+
+  it('reads the median and the bands it names as one fan chart', () => {
+    const { maidr, sources } = extractUPlotData(fanChart([
+      { band: 1, lower: 0.25, upper: 0.75 },
+      { band: 0, lower: 0.05, upper: 0.95 },
+    ]), 'chart');
+    const layers = maidr.subplots[0][0].layers;
+
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.PERCENTILE_BAND);
+    expect((layers[0].data as PercentileBandPoint[])[0]).toEqual({
+      x: 1,
+      quantiles: [
+        { level: 0.05, value: -1 },
+        { level: 0.25, value: 0 },
+        { level: 0.5, value: 1 },
+        { level: 0.75, value: 2 },
+        { level: 0.95, value: 3 },
+      ],
+    });
+    // A row per quantile, lowest first, each the series that draws it.
+    expect(sources.get(layers[0].id)?.seriesIdxs).toEqual([1, 3, 5, 4, 2]);
+  });
+
+  it('leaves out a band that names nothing, and reads the edges it did not take as lines', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const layers = layersOf(fanChart([
+      { band: 0, lower: 0.05, upper: 0.95 },
+      { band: 7, lower: 0.25, upper: 0.75 },
+    ]));
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.LINE, TraceType.PERCENTILE_BAND]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('names band 7'));
+    warn.mockRestore();
+  });
+
+  it('reads nothing as a fan when the bands do not nest', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const layers = layersOf(fanChart([
+      { band: 0, lower: 0.05, upper: 0.75 },
+      { band: 1, lower: 0.25, upper: 0.95 },
+    ]));
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.LINE]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('do not nest'));
+    warn.mockRestore();
   });
 });

@@ -52,6 +52,12 @@ const survivalData = [
   { months: 12, treated: 0.71, censored: false },
 ];
 
+const prData = [
+  { recall: 0, precision: 1, threshold: 0.9 },
+  { recall: 0.5, precision: 0.8, threshold: 0.5 },
+  { recall: 1, precision: 0.4 },
+];
+
 const pyramidData = [
   { band: '0-9', men: -2100, women: 2000 },
   { band: '10-19', men: -1900, women: 1850 },
@@ -181,6 +187,14 @@ const configs = {
     xKey: 'months',
     yKeys: ['treated'],
     survivalConfig: { censoredKeys: ['censored'] },
+  },
+  prCurve: {
+    id: 'pr-dom',
+    data: prData,
+    chartType: 'pr_curve' as const,
+    xKey: 'recall',
+    yKeys: ['precision'],
+    prCurveConfig: { thresholdKeys: ['threshold'] },
   },
   alluvial: {
     id: 'alluvial-dom',
@@ -447,6 +461,13 @@ beforeAll(async () => {
         createElement(YAxis, {}),
         createElement(Line, { type: 'stepAfter', dataKey: 'treated', dot: true, isAnimationActive: false }),
       )),
+      wrap(configs.prCurve, createElement(
+        LineChart,
+        { width: 320, height: 220, data: prData },
+        createElement(XAxis, { dataKey: 'recall', type: 'number' }),
+        createElement(YAxis, {}),
+        createElement(Line, { dataKey: 'precision', dot: true, isAnimationActive: false }),
+      )),
       wrap(configs.alluvial, createElement(Sankey, {
         width: 480,
         height: 300,
@@ -598,6 +619,10 @@ describe('recharts rendered mark contract', () => {
 
   it('matches one dot per survival time', () => {
     expect(document.querySelectorAll(firstSelector(maidr.survival))).toHaveLength(survivalData.length);
+  });
+
+  it('matches one dot per precision-recall operating point', () => {
+    expect(document.querySelectorAll(firstSelector(maidr.prCurve))).toHaveLength(prData.length);
   });
 
   it('matches one path per flow, in the order the links were declared', () => {

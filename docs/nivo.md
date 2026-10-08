@@ -80,6 +80,7 @@ Axis labels come from Nivo's axis `legend` fields: `axisBottom.legend` (or `axis
 | Pie / doughnut chart | `'pie'` | `Pie` / `ResponsivePie` | ✅ | A doughnut is the same chart with an `innerRadius`. No highlight with `sortByValue`. |
 | Heatmap | `'heatmap'` | `HeatMap` / `ResponsiveHeatMap` | ✅ | |
 | Box plot | `'boxplot'` | `BoxPlot` / `ResponsiveBoxPlot` | ✅ | Whiskers end at the 10th and 90th percentiles by default. See [Box plot](#box-plot). |
+| Precision-recall curve [experimental] | `'line'` | `Line` / `ResponsiveLine` | ✅ | Read off the axes: `axisBottom.legend` exactly `Recall`, `axisLeft.legend` `Precision` (case aside), and every point from 0 to 1. Anything else, rates in percent included, stays a line. |
 
 Only the SVG components are supported. The `*Canvas` variants (`BarCanvas`, `LineCanvas`, `ScatterPlotCanvas`, `PieCanvas`, `HeatMapCanvas` and their `Responsive*` forms) are not. Their props are still read, so audio, text and braille work, but a canvas has no elements to highlight. The adapter logs one console warning and emits no selectors.
 

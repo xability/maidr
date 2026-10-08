@@ -875,6 +875,33 @@ function lineRows(chart: ApexChartsInstance, indices: number[]): LinePoint[][] {
 }
 
 /**
+ * Whether a line layer draws precision-recall curves: recall along x,
+ * precision up y, every point a fraction of one.
+ *
+ * ApexCharts has no such series, and no slot on a series to declare one in,
+ * so the axis titles are the only thing that says so -- as in the Vega-Lite
+ * reading of the same chart: the x axis titled exactly `recall` and the y axis
+ * `precision`, case aside, and every point a number from 0 to 1 on both.
+ * Anything less keeps the line reading, which is never wrong about a line.
+ *
+ * @param rows - The layer's points, one row per series
+ * @param xLabel - The x axis title
+ * @param yLabel - The y axis title
+ * @returns True for precision-recall curves
+ */
+function drawsPrCurve(rows: LinePoint[][], xLabel: string | undefined, yLabel: string | undefined): boolean {
+  const named = (label: string | undefined, rate: string): boolean =>
+    typeof label === 'string' && label.trim().toLowerCase() === rate;
+  if (!named(xLabel, 'recall') || !named(yLabel, 'precision')) {
+    return false;
+  }
+  const isRate = (value: unknown): boolean =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+  return rows.some(row => row.length > 0)
+    && rows.every(row => row.every(point => isRate(point.x) && isRate(point.y)));
+}
+
+/**
  * Builds a line or step layer.
  *
  * @param ctx     - The conversion context
@@ -887,11 +914,12 @@ function lineLayer(ctx: Context, indices: number[], step?: StepDirection): Maidr
   if (rows.every(row => row.length === 0)) {
     return null;
   }
+  const prCurve = drawsPrCurve(rows, ctx.labels.x, yLabelOf(ctx, indices));
   return {
     id: nextLayerId(ctx),
-    type: step ? TraceType.STEP : TraceType.LINE,
+    type: prCurve ? TraceType.PR_CURVE : step ? TraceType.STEP : TraceType.LINE,
     ...(indices.length === 1 ? { name: seriesName(ctx.chart, indices[0]) } : {}),
-    ...(step ? { stepDirection: step } : {}),
+    ...(step && !prCurve ? { stepDirection: step } : {}),
     axes: { x: positionalXAxis(ctx, rows), y: axis(yLabelOf(ctx, indices)) },
     ...(selectors ? { selectors } : {}),
     data: rows,

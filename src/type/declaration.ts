@@ -152,7 +152,8 @@ export type MaidrTraceDeclaration
     | HexbinDeclaration
     | BoxenDeclaration
     | GanttDeclaration
-    | PrCurveDeclaration;
+    | PrCurveDeclaration
+    | PercentileBandDeclaration;
 
 /**
  * A Kaplan-Meier survival curve drawn as a step line.
@@ -310,6 +311,64 @@ export interface PrCurveDeclaration extends DeclarationBase {
    * @default true
    */
   merge?: boolean;
+}
+
+/**
+ * One band of a {@link PercentileBandDeclaration}: the companion series that
+ * draws it, and the two quantile levels its edges are.
+ */
+export interface PercentileBandRef {
+  /**
+   * The series drawing the band, as a native range construct: a Highcharts
+   * `arearange` or `areasplinerange`, or an amCharts series bound to both
+   * `openValueYField` and `valueYField`. Its low edge is read as the `lower`
+   * quantile and its high edge as the `upper` one, matched to the median by x.
+   */
+  series: SeriesRef;
+  /** The quantile its low edge is, as a fraction below 0.5 — `0.05`, not `5`. */
+  lower: number;
+  /** The quantile its high edge is, as a fraction above 0.5 — `0.95`, not `95`. */
+  upper: number;
+}
+
+/**
+ * A percentile band (fan chart): a median line with nested bands of quantiles
+ * drawn around it, as a forecast's prediction intervals or TensorBoard's
+ * distribution dashboard draw them.
+ *
+ * A range series says nothing about which quantiles its edges are: the same
+ * `arearange` draws a min-max envelope, a 95% confidence interval and a
+ * mean plus or minus one standard deviation. Read undeclared, the median is a
+ * line and each band an area of its own, correct about every number and
+ * silent about how much of the distribution each band holds. The declaration
+ * is written on the **median** line and names each band's series and its two
+ * levels, so the figure becomes one `percentile_band` layer whose quantiles
+ * are the bands' edges and the median, at every x the median draws.
+ *
+ * The bands must nest: each one strictly inside the next wider one, every
+ * `lower` below 0.5 and every `upper` above it. A list that does not nest
+ * describes no fan chart and is refused. The band series are absorbed into
+ * the layer and become no layer of their own; one that cannot be resolved is
+ * reported and left out, and the layer keeps the bands that can.
+ *
+ * @example
+ * // Highcharts, a median with a 90% and a 50% band
+ * {
+ *   custom: { maidr: { type: 'percentile_band', bands: [
+ *     { series: 'p5-95', lower: 0.05, upper: 0.95 },
+ *     { series: 'p25-75', lower: 0.25, upper: 0.75 },
+ *   ] } }
+ * }
+ */
+export interface PercentileBandDeclaration extends DeclarationBase {
+  /** `TraceType.PERCENTILE_BAND` — the string `'percentile_band'`. */
+  type: TraceType.PERCENTILE_BAND;
+  /**
+   * The bands around the median, in any order; they are read outermost
+   * first. Required: a fan chart without its bands is the line it is drawn
+   * as.
+   */
+  bands: PercentileBandRef[];
 }
 
 /**

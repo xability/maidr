@@ -12,13 +12,14 @@
 import type { ChoroplethPoint, HeatmapData, MaidrLayer, NetworkPoint } from '@type/grammar';
 import type { AmDeclaredLayer } from './declaration';
 import type { ChoroplethFields } from './extractor';
-import type { AmChart, AmDataItem, AmSprite, AmXYSeries } from './types';
+import type { AmChart, AmDataItem, AmPoint, AmSprite, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
 import {
   choroplethFields,
   extractCloudMarks,
   extractErrorBarSamples,
   extractForestSamples,
+  extractPercentileBand,
   extractPrCurves,
   extractSurvivalArms,
   planDeclarations,
@@ -492,6 +493,104 @@ function buildPrCurveResolver(declared: AmDeclaredLayer | undefined): Resolver {
     const dataItem = items[row]?.[col];
     const owner = owners[row];
     return owner && dataItem ? [{ series: owner, dataItem, kind: 'point' }] : [];
+  };
+}
+
+/**
+ * The value axis a series is plotted against, narrowed to the two calls that
+ * place a value on it.
+ */
+interface AmValueAxisLike {
+  valueToPosition: (value: number) => number;
+  get: (key: string) => unknown;
+}
+
+/** The axis renderer that turns a position into a series-local coordinate. */
+interface AmAxisRendererLike {
+  positionToCoordinate: (position: number) => number;
+}
+
+/**
+ * Narrows the `yAxis` a series was given to one that can place a value.
+ *
+ * @param series - The series.
+ * @returns The axis and its renderer, or null when either is missing.
+ */
+function valueAxisOf(series: AmXYSeries): { axis: AmValueAxisLike; renderer: AmAxisRendererLike } | null {
+  const axis = series.get('yAxis') as Partial<AmValueAxisLike> | undefined;
+  if (typeof axis?.valueToPosition !== 'function' || typeof axis.get !== 'function') {
+    return null;
+  }
+  const renderer = axis.get('renderer') as Partial<AmAxisRendererLike> | undefined;
+  if (typeof renderer?.positionToCoordinate !== 'function') {
+    return null;
+  }
+  return { axis: axis as AmValueAxisLike, renderer: renderer as AmAxisRendererLike };
+}
+
+/**
+ * A band's low edge at one mark, as a point target.
+ *
+ * amCharts keeps one `point` per data item, at its `valueY`; the
+ * `openValueY` end of a range has none. So the low edge is placed the way
+ * amCharts placed the high one: the same x, and the y the value axis gives
+ * the open value, carried by the high point's own offset into the series.
+ * Measured on amCharts 5.21.0, on a plain and an inversed value axis, this
+ * matched to the pixel the point a line series plotting the low values drew.
+ *
+ * @param series - The band.
+ * @param item   - Its mark at the column.
+ * @returns The target, or null when the edge cannot be placed.
+ */
+function lowEdgeTarget(series: AmXYSeries, item: AmDataItem): NavItemTarget | null {
+  const point = item.get('point') as AmPoint | undefined;
+  const open = Number(item.get('openValueY'));
+  const high = Number(item.get('valueY'));
+  const placed = valueAxisOf(series);
+  if (!point || !placed || !Number.isFinite(open) || !Number.isFinite(high)) {
+    return null;
+  }
+  const at = (value: number): number =>
+    placed.renderer.positionToCoordinate(placed.axis.valueToPosition(value));
+  const low: AmPoint = { x: point.x, y: at(open) + (point.y - at(high)) };
+  const dataItem: AmDataItem = {
+    get: (key: string) => (key === 'point' ? low : item.get(key)),
+  };
+  return { series, dataItem, kind: 'point' };
+}
+
+/**
+ * Build a resolver for a declared fan chart.
+ *
+ * Rows are the quantile levels, lowest first, as `PercentileBandTrace` sorts
+ * them: the outermost band's low edge first, the median in the middle, and
+ * the outermost band's high edge last. A high edge is the band's own mark;
+ * a low edge is placed by {@link lowEdgeTarget}; the median is its line's
+ * mark. Columns are the median's marks, which the bands were matched to.
+ */
+function buildPercentileBandResolver(declared: AmDeclaredLayer | undefined): Resolver {
+  if (!declared) {
+    return () => [];
+  }
+  const { medians, bands } = extractPercentileBand(declared);
+  const resolved = declared.bands ?? [];
+  const count = resolved.length;
+  return (row, col) => {
+    if (row === count) {
+      const dataItem = medians[col];
+      return dataItem ? [{ series: declared.series, dataItem, kind: 'point' }] : [];
+    }
+    const band = row < count ? row : 2 * count - row;
+    const series = resolved[band]?.series;
+    const item = bands[band]?.[col];
+    if (!series || !item) {
+      return [];
+    }
+    if (row > count) {
+      return [{ series, dataItem: item, kind: 'point' }];
+    }
+    const low = lowEdgeTarget(series, item);
+    return low ? [low] : [];
   };
 }
 
@@ -1230,6 +1329,10 @@ function addEntryResolvers(
       }
       case TraceType.PR_CURVE: {
         register(layer.id, buildPrCurveResolver(nextDeclared(TraceType.PR_CURVE)));
+        break;
+      }
+      case TraceType.PERCENTILE_BAND: {
+        register(layer.id, buildPercentileBandResolver(nextDeclared(TraceType.PERCENTILE_BAND)));
         break;
       }
       case TraceType.ERROR_BAR:

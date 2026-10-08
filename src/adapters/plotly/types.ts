@@ -30,6 +30,13 @@ export interface PlotlyTrace {
    */
   fill?: string;
   /**
+   * The trace a `tonexty` fill reaches, as plotly links it on the resolved
+   * trace: the previous scatter trace of the same subplot. Measured on
+   * plotly.js 2.35.2, the fill between the two is drawn as the `path.js-fill`
+   * in that previous trace's group.
+   */
+  _prevtrace?: { index?: number };
+  /**
    * The stack this trace belongs to. Plotly stacks scatter traces that name
    * the same group, drawing them as an area chart whose bands sit on one
    * another; an empty or absent value means the trace stands alone.

@@ -19,6 +19,7 @@ import type {
   FieldRef,
   ForestDeclaration,
   MaidrTraceDeclaration,
+  PercentileBandDeclaration,
   PrCurveDeclaration,
   SeriesRef,
   SurvivalDeclaration,
@@ -48,6 +49,8 @@ import type {
   MaidrSubplot,
   MosaicPoint,
   NetworkPoint,
+  PercentileBandPoint,
+  PercentileBandQuantile,
   PiePoint,
   PrCurvePoint,
   ScatterPoint,
@@ -72,6 +75,7 @@ import {
   warnUnresolvedRef,
 } from '../shared/traceDeclaration';
 import {
+  bandAreaSelector,
   barPointSelector,
   barSelector,
   boxplotSelectors,
@@ -1595,6 +1599,9 @@ function convertDeclaredSeries(
       case TraceType.PR_CURVE:
         layer = convertPrCurveSeries(series, declaration, seriesList, chart, containerId, consumed);
         break;
+      case TraceType.PERCENTILE_BAND:
+        layer = convertPercentileBandSeries(series, declaration, seriesList, chart, containerId, consumed);
+        break;
       case TraceType.FOREST:
         layer = convertForestSeries(
           series,
@@ -2081,6 +2088,154 @@ function convertPrCurveSeries(
     },
     data,
   };
+}
+
+/** The series types a percentile band's bands are drawn with. */
+const BAND_RANGE_TYPES = new Set(['arearange', 'areasplinerange']);
+
+/** One band of a declared fan chart, resolved to the series drawing it. */
+interface ResolvedBand {
+  series: HighchartsSeries;
+  lower: number;
+  upper: number;
+}
+
+/**
+ * Converts a declared fan chart into one `percentile_band` layer: the median
+ * line the block is written on, and the range series it names as its bands.
+ *
+ * Highcharts draws a band as an `arearange` (or `areasplinerange`), whose
+ * points carry a `low` and a `high`, and says nothing about which quantiles
+ * those are: the same series draws a min-max envelope and a 95% interval.
+ * Undeclared, the median is a line and each band an area layer of its own.
+ * Declared, each band's edges become two quantiles at the levels the block
+ * gives, matched to the median by x, and the bands are absorbed so they are
+ * not announced again as areas.
+ *
+ * Measured on Highcharts 12.6.2 in Chromium: a range series draws one
+ * `path.highcharts-area` polygon in its `.highcharts-series-N` group (beside
+ * its two edge graphs, in one `path.highcharts-graph`), and a line one
+ * `path.highcharts-graph`. So the selectors are one area per band, outermost
+ * first, then the median's graph, the shape `PercentileBandTrace` reads as
+ * one element per band.
+ *
+ * @param series - The median line, carrying the block
+ * @param declaration - What the author said the series means
+ * @param seriesList - The panel's series, for the bands
+ * @param chart - The chart being converted
+ * @param containerId - The chart's render-target id
+ * @param consumed - The series the declared layers already announce
+ * @returns The layer, or null when the series cannot back it
+ */
+function convertPercentileBandSeries(
+  series: HighchartsSeries,
+  declaration: PercentileBandDeclaration,
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+  consumed: Set<HighchartsSeries>,
+): MaidrLayer | null {
+  if (!PR_CURVE_TYPES.has(resolveSeriesType(series, chart))) {
+    warnWrongConstruct(series, declaration.type, chart, 'a "line" or "spline" series drawing the median');
+    return null;
+  }
+
+  const bands = [...declaration.bands]
+    .sort((a, b) => a.lower - b.lower)
+    .map(band => resolveBand(series, band, seriesList, chart, consumed, declaration.type))
+    .filter((band): band is ResolvedBand => band !== undefined);
+  consumed.add(series);
+
+  const edges = bands.map((band) => {
+    const at = new Map<number, { low?: number; high?: number }>();
+    for (const point of band.series.data) {
+      at.set(point.x, { low: finiteNumber(point.low), high: finiteNumber(point.high) });
+    }
+    return at;
+  });
+
+  const data: PercentileBandPoint[] = [];
+  for (const point of series.data) {
+    const median = finiteNumber(point.y);
+    if (median === undefined) {
+      continue;
+    }
+    const quantiles: PercentileBandQuantile[] = [{ level: 0.5, value: median }];
+    bands.forEach((band, i) => {
+      const edge = edges[i].get(point.x);
+      quantiles.push(
+        { level: band.lower, value: edge?.low ?? null },
+        { level: band.upper, value: edge?.high ?? null },
+      );
+    });
+    data.push({ x: pointLabel(point), quantiles });
+  }
+
+  return {
+    id: [series, ...bands.map(band => band.series)].map(one => String(one.index)).join('-'),
+    type: TraceType.PERCENTILE_BAND,
+    title: declaration.title ?? series.name ?? undefined,
+    ...(declaration.name ? { name: declaration.name } : {}),
+    selectors: [
+      ...bands.map(band => bandAreaSelector(containerId, band.series.index)),
+      ...lineSelectors(containerId, [series.index]),
+    ],
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * The series one entry of a fan chart's `bands` names, when it draws a range.
+ *
+ * Named by `id`, as every companion is. A band that names no series, or a
+ * series that draws no range, is reported and left out: the layer keeps the
+ * bands it can read rather than announcing an area's single edge as two
+ * quantiles.
+ *
+ * @param parent - The median line
+ * @param band - The entry
+ * @param band.series - The band's series id
+ * @param band.lower - Its low edge's level
+ * @param band.upper - Its high edge's level
+ * @param seriesList - The panel's series
+ * @param chart - The chart, for resolving types
+ * @param consumed - The series the declared layers already announce
+ * @param type - The declared type, for the warning
+ * @returns The band, or undefined
+ */
+function resolveBand(
+  parent: HighchartsSeries,
+  band: { series: SeriesRef; lower: number; upper: number },
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  consumed: Set<HighchartsSeries>,
+  type: string,
+): ResolvedBand | undefined {
+  const found = seriesList.find(candidate =>
+    candidate !== parent && candidate.options.id === band.series);
+  if (found === undefined || consumed.has(found)) {
+    console.warn(
+      `[MAIDR ${ADAPTER}] maidr declaration for "${type}" on ${seriesRef(parent)} names `
+      + `series "${band.series}", which this chart does not have${found ? ' free' : ''}; `
+      + `emitting the layer without it.`,
+    );
+    return undefined;
+  }
+  const drawnAs = resolveSeriesType(found, chart);
+  if (!BAND_RANGE_TYPES.has(drawnAs)) {
+    console.warn(
+      `[MAIDR ${ADAPTER}] maidr declaration for "${type}" on ${seriesRef(parent)} names `
+      + `${seriesRef(found)} as a band, which needs an "arearange" or "areasplinerange" `
+      + `series and is drawn as "${drawnAs}"; emitting the layer without it.`,
+    );
+    return undefined;
+  }
+  consumed.add(found);
+  return { series: found, lower: band.lower, upper: band.upper };
 }
 
 /**

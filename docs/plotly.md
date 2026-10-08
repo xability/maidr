@@ -104,6 +104,8 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Choropleth [experimental] | `type: 'choropleth'` | [Choropleth map](examples.html) |
 | Contour [experimental] | `type: 'contour'` or `type: 'histogram2dcontour'` | [Contour plot](examples.html) |
 | Mosaic / Marimekko [experimental] | stacked `bar` traces declaring `meta: { maidr: { type: 'mosaic' } }` | [Mosaic plot](examples.html) |
+| Precision-Recall Curve [experimental] | `scatter` traces drawn with lines, one declaring `meta: { maidr: { type: 'pr_curve' } }` | — |
+| Percentile Band [experimental] | a median `scatter` line declaring `meta: { maidr: { type: 'percentile_band', bands: [...] } }`, and each band a trace filled `tonexty` to the one before it | — |
 
 ### Notes on chart-type detection
 
@@ -231,6 +233,16 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
   one of the panel's bar traces is what says otherwise; see
   [Declaring a mosaic](#declaring-a-mosaic).
 
+- A precision-recall curve is **declared** too. Plotly draws one as an
+  ordinary line of precision against recall, so undeclared it is a line layer,
+  correct about every number and silent about the thresholds, the average
+  precision and the chance baseline; see
+  [Declaring a precision-recall curve](#declaring-a-precision-recall-curve).
+
+- So is a fan chart. Its bands are traces filled `tonexty` to one another, and
+  nothing says which quantiles their edges are, so undeclared they are lines
+  and areas; see [Declaring a percentile band](#declaring-a-percentile-band).
+
 - Plotly sorts pie slices by descending value unless the trace sets
   `sort: false`, so the authored order is not necessarily the drawn order. The
   adapter reads the slices Plotly actually drew where the rendered chart exposes
@@ -293,6 +305,77 @@ read as something it is not. A declaration this adapter cannot honour is
 reported too: a `mosaic` on a trace that draws no bars, or on a panel whose
 bars Plotly drew side by side, leaves the panel read as the grouped bar chart
 it is.
+
+## Declaring a precision-recall curve
+
+A precision-recall curve is a `scatter` trace drawn with lines, recall along x
+and precision up y. Write the block on a curve's trace:
+
+```javascript
+{
+  type: 'scatter',
+  mode: 'lines',
+  name: 'Model A',
+  x: recall,
+  y: precision,
+  customdata: thresholds.map(threshold => ({ threshold })),
+  meta: { maidr: { type: 'pr_curve', prevalence: 0.3, ap: 0.82 } }
+}
+```
+
+- **The curves.** Every line trace of the panel is one curve of the layer, in
+  trace order, step traces included — scikit-learn's `PrecisionRecallDisplay`
+  draws its curve as a staircase. They are announced as one figure because they
+  are read against each other. With `merge: false` on the first declaring trace,
+  only the traces carrying a `pr_curve` block of their own join it, and the rest
+  stay lines.
+- **The threshold** each point was scored at is a column of the trace's
+  `customdata` rows — `threshold`, falling back to `thresholds` and `cutoff`, or
+  whatever `threshold:` names. As for a mosaic, the rows must be objects. A
+  named column no row carries is reported and left out.
+- **`prevalence` and `ap`** are values on the block, fractions from 0 to 1, and
+  describe the curve of the trace they are written on — never a curve merged in
+  without a block, which may have been scored on different data. A percentage
+  is refused with a warning rather than rescaled.
+- **The highlight** is the line's own: the trace's markers when it draws them,
+  and none for `mode: 'lines'`, exactly as for a line.
+
+A `pr_curve` written on a trace that draws no line — markers only, a bar — is
+reported, and that trace is read as the undeclared chart.
+
+## Declaring a percentile band
+
+A fan chart — a median with nested bands of quantiles around it — is drawn in
+plotly as a median line and, per band, two traces with the second filled
+`tonexty` to the first. Nothing in either says which quantiles they are, so
+the median declares them, naming each band by the `uid` or `name` of the trace
+that fills:
+
+```javascript
+[
+  { name: 'p5', y: p5, mode: 'lines', line: { width: 0 } },
+  { name: 'p95', y: p95, mode: 'lines', fill: 'tonexty', line: { width: 0 } },
+  { name: 'p25', y: p25, mode: 'lines', line: { width: 0 } },
+  { name: 'p75', y: p75, mode: 'lines', fill: 'tonexty', line: { width: 0 } },
+  { name: 'median', y: median, mode: 'lines',
+    meta: { maidr: { type: 'percentile_band', bands: [
+      { series: 'p95', lower: 0.05, upper: 0.95 },
+      { series: 'p75', lower: 0.25, upper: 0.75 },
+    ] } } },
+]
+```
+
+The trace it fills to — the one plotly links as the previous trace of the
+subplot — is the band's other edge, and which edge is the high one is read from
+the values; a pair that crosses is no band. The levels are fractions, each
+`lower` below 0.5 and each `upper` above it, and the bands must nest; a list
+that fails is refused and the chart reads as its lines. A band naming no trace,
+a trace not filled `tonexty`, or one another band already reads, is reported and
+left out, and the layer keeps the rest. The edges are matched to the median by
+`x`. Plotly draws the fill between a pair in the group of the trace filled to,
+so the highlight outlines that fill for a band's quantiles and the median's line
+for the median — measured on plotly.js 2.35.2, and emitted only when each
+resolves to exactly one element of the drawn chart.
 
 ## Code Examples
 

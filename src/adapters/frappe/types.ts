@@ -71,6 +71,8 @@ export interface FrappeChart {
  * - `'area'` — `type: 'line'` with `lineOptions.regionFill` (also inferred)
  * - `'bump'` — a multi-dataset `type: 'line'` chart whose y values are ranks
  * - `'diverging'` — a two-dataset `type: 'bar'` chart with signed values
+ * - `'pr_curve'` — a `type: 'line'` chart of precision, one dataset per
+ *   curve, over labels that are the recall
  *
  * `'percentage'` is Frappe's own name as well as the adapter's: it is the one
  * chart here that MAIDR reads as a different shape than Frappe draws it. See
@@ -90,6 +92,7 @@ export type FrappeChartType
     | 'line'
     | 'percentage'
     | 'pie'
+    | 'pr_curve'
     | 'scatter';
 
 /**

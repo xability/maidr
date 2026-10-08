@@ -591,6 +591,15 @@ const FULL_DECLARATIONS: readonly MaidrTraceDeclaration[] = [
     ap: 0.71,
     merge: false,
   },
+  {
+    type: TraceType.PERCENTILE_BAND,
+    title: 't',
+    name: 'n',
+    bands: [
+      { series: 'p25-75', lower: 0.25, upper: 0.75 },
+      { series: 'p5-95', lower: 0.05, upper: 0.95 },
+    ],
+  },
 ];
 
 describe('validateDeclaration — a valid block passes through untouched', () => {
@@ -601,8 +610,8 @@ describe('validateDeclaration — a valid block passes through untouched', () =>
     expect(warnings).toEqual([]);
   });
 
-  test('all fifteen variants are covered by the fixtures above', () => {
-    expect(new Set(FULL_DECLARATIONS.map(d => d.type)).size).toBe(15);
+  test('all sixteen variants are covered by the fixtures above', () => {
+    expect(new Set(FULL_DECLARATIONS.map(d => d.type)).size).toBe(16);
   });
 
   test('a survival curve may say its siblings are further arms of it', () => {
@@ -1053,5 +1062,54 @@ describe('validateDeclaration — a binder that throws takes the page down', () 
     ['a block whose dimensions hold themselves', { type: TraceType.PARALLEL, dimensions: [[]] }],
   ])('%s is handled rather than thrown on', (_label, raw) => {
     expect(() => validateDeclaration(raw, CONTEXT)).not.toThrow();
+  });
+});
+
+describe('validateDeclaration — a percentile band\'s bands', () => {
+  const band = (bands: unknown): unknown => validateDeclaration(
+    { type: TraceType.PERCENTILE_BAND, bands },
+    CONTEXT,
+  );
+
+  test('nested bands written in any order are accepted', () => {
+    expect(band([
+      { series: 'inner', lower: 0.25, upper: 0.75 },
+      { series: 'outer', lower: 0, upper: 1 },
+    ])).not.toBeNull();
+    expect(warnings).toEqual([]);
+  });
+
+  test('a band given in percentages is refused rather than rescaled', () => {
+    expect(band([{ series: 'p5-95', lower: 5, upper: 95 }])).toBeNull();
+    expect(warnings[0]).toContain('has bands[0] with levels 5 and 95');
+    expect(warnings[1]).toContain('missing required key "bands"');
+  });
+
+  test('a band that does not straddle the median is refused', () => {
+    expect(band([{ series: 'upper', lower: 0.5, upper: 0.9 }])).toBeNull();
+    expect(warnings[0]).toContain('expected a lower level from 0 to below 0.5');
+  });
+
+  test('bands that cross rather than nest are refused', () => {
+    expect(band([
+      { series: 'a', lower: 0.05, upper: 0.75 },
+      { series: 'b', lower: 0.25, upper: 0.95 },
+    ])).toBeNull();
+    expect(warnings[0]).toContain('has bands "a" and "b" that do not nest');
+  });
+
+  test('a band naming no series is refused', () => {
+    expect(band([{ lower: 0.05, upper: 0.95 }])).toBeNull();
+    expect(warnings[0]).toContain('has bands[0] naming no series');
+  });
+
+  test('an unknown key in a band is reported and the band still read', () => {
+    expect(band([{ series: 's', lower: 0.1, upper: 0.9, colour: 'red' }])).not.toBeNull();
+    expect(warnings[0]).toContain('has bands[0] with unknown key "colour"; ignored.');
+  });
+
+  test('an empty list is refused', () => {
+    expect(band([])).toBeNull();
+    expect(warnings[0]).toContain('expected a non-empty list of { series, lower, upper }');
   });
 });

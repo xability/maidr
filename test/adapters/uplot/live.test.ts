@@ -32,6 +32,23 @@ function figure(...layers: MaidrLayer[]): Maidr {
 }
 
 describe('planStream', () => {
+  it('plans a fan chart\'s new position as one appended point', () => {
+    const fan = (xs: number[]): MaidrLayer => ({
+      id: 'percentile_band-3',
+      type: TraceType.PERCENTILE_BAND,
+      data: xs.map(x => ({ x, quantiles: [{ level: 0.05, value: x - 1 }, { level: 0.5, value: x }, { level: 0.95, value: x + 1 }] })),
+    });
+
+    const plan = planStream(figure(fan([1, 2])), figure(fan([1, 2, 3])));
+
+    expect(plan?.appends).toEqual([{
+      point: { x: 3, quantiles: [{ level: 0.05, value: 2 }, { level: 0.5, value: 3 }, { level: 0.95, value: 4 }] },
+      layerId: 'percentile_band-3',
+      groupIndex: 0,
+      maxWidth: undefined,
+    }]);
+  });
+
   it('plans a pure tail append with no window', () => {
     const plan = planStream(
       figure(line('line-y', [[[1, 1], [2, 2]]])),

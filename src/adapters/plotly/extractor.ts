@@ -9,7 +9,7 @@
  * plotly.js charts and they become accessible automatically.
  */
 
-import type { MosaicDeclaration } from '../../type/declaration';
+import type { MosaicDeclaration, PercentileBandDeclaration, PrCurveDeclaration } from '../../type/declaration';
 import type {
   BarPoint,
   BoxPoint,
@@ -30,7 +30,10 @@ import type {
   MaidrLayer,
   MaidrSubplot,
   MosaicPoint,
+  PercentileBandPoint,
+  PercentileBandQuantile,
   PiePoint,
+  PrCurvePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -56,7 +59,7 @@ import type {
   PolarSeries,
 } from './types';
 import { Orientation, PieDirection, TraceType } from '../../type/grammar';
-import { readDeclarationSlot, resolveFieldRef, warnUnresolvedRef } from '../shared/traceDeclaration';
+import { readDeclarationSlot, resolveFieldRef, warnUnresolvedRef, warnWrongConstruct } from '../shared/traceDeclaration';
 import {
   barGroupSelector,
   barPointSelector,
@@ -733,6 +736,9 @@ function buildSubplotGrid(
   return grid.map(row => row.map(panel => panel.subplot));
 }
 
+/** The declarations a plotly trace can carry. */
+type PlotlyDeclaration = MosaicDeclaration | PrCurveDeclaration | PercentileBandDeclaration;
+
 /**
  * How a trace is named in a warning about its declaration.
  *
@@ -761,10 +767,14 @@ function declarationContext(trace: PlotlyTrace, traceIndex: number): Declaration
  * it reaches an extractor that is called from a DOM sweep the author never
  * touches.
  *
- * Only the mosaic is declarable here. Every other chart plotly can draw
- * either names itself in `trace.type` or is read from the figure's own
- * configuration, so a declaration of another type is reported rather than
- * quietly dropped: the author wrote it expecting it to do something.
+ * Three types are declarable here, each because nothing in plotly's own
+ * configuration states it: a marimekko, drawn as stacked bars of varying
+ * width, a precision-recall curve, drawn as an ordinary line, and a fan
+ * chart, drawn as a line and pairs of traces filled one to the next. Every other
+ * chart plotly can draw either names itself in `trace.type` or is read from
+ * the figure's own configuration, so a declaration of another type is
+ * reported rather than quietly dropped: the author wrote it expecting it to
+ * do something.
  *
  * @param trace      - The resolved plotly trace
  * @param traceIndex - Its index in `_fullData`
@@ -773,13 +783,15 @@ function declarationContext(trace: PlotlyTrace, traceIndex: number): Declaration
 function readTraceDeclaration(
   trace: PlotlyTrace,
   traceIndex: number,
-): MosaicDeclaration | null {
+): PlotlyDeclaration | null {
   const context = declarationContext(trace, traceIndex);
   const declaration = readDeclarationSlot(trace.meta, context);
   if (declaration === null) {
     return null;
   }
-  if (declaration.type === TraceType.MOSAIC) {
+  if (declaration.type === TraceType.MOSAIC
+    || declaration.type === TraceType.PR_CURVE
+    || declaration.type === TraceType.PERCENTILE_BAND) {
     return declaration;
   }
 
@@ -800,24 +812,24 @@ function readTraceDeclaration(
  * marimekko would announce every column's width as a share of all
  * observations — a number the chart does not contain.
  *
- * @param group      - The panel's traces
- * @param barTraces  - The bar traces among them
- * @param layout     - The resolved layout, for `barmode`
+ * @param group        - The panel's traces
+ * @param barTraces    - The bar traces among them
+ * @param layout       - The resolved layout, for `barmode`
+ * @param declarations - Each of the panel's traces' declaration, in order
  * @returns The declaration to read the panel by, or null
  */
 function declaredMosaic(
   group: SubplotGroup,
   barTraces: TraceEntry[],
   layout: PlotlyFullLayout,
+  declarations: readonly (PlotlyDeclaration | null)[],
 ): MosaicDeclaration | null {
   let declared: MosaicDeclaration | null = null;
   let declaredOnBars = false;
 
-  // Read once per trace per binding, which is what keeps each warning to one
-  // line however many layers the panel ends up with.
   for (let i = 0; i < group.traces.length; i++) {
-    const declaration = readTraceDeclaration(group.traces[i], group.traceIndices[i]);
-    if (declaration === null || declared !== null) {
+    const declaration = declarations[i];
+    if (declaration?.type !== TraceType.MOSAIC || declared !== null) {
       continue;
     }
     declared = declaration;
@@ -935,6 +947,36 @@ function buildSubplotLayers(
     }
   }
 
+  // Read once per trace per binding, which is what keeps each warning to one
+  // line however many layers the panel ends up with.
+  const declarations = group.traces.map((trace, i) =>
+    readTraceDeclaration(trace, group.traceIndices[i]));
+
+  // A declared precision-recall figure takes its curves out of the line and
+  // step buckets before either is built: a declaration beats every heuristic.
+  const prCurveLayer = extractDeclaredPrCurveLayer(
+    group,
+    declarations,
+    lineTraces,
+    stepTraces,
+    xLabel,
+    yLabel,
+    gd,
+  );
+  if (prCurveLayer)
+    layers.push(prCurveLayer);
+
+  // A declared fan chart takes its median and its bands' edge traces out of
+  // the line, step and area buckets for the same reason.
+  layers.push(...extractDeclaredPercentileBands(
+    group,
+    declarations,
+    [lineTraces, areaTraces, ...stepTraces.values()],
+    xLabel,
+    yLabel,
+    gd,
+  ));
+
   // Build multi-line layer if applicable.
   if (lineTraces.length > 0) {
     const layer = extractMultiLineLayer(lineTraces, xLabel, yLabel, gd);
@@ -944,6 +986,8 @@ function buildSubplotLayers(
 
   // One step layer per authored convention (usually exactly one).
   for (const [direction, traces] of stepTraces) {
+    if (traces.length === 0)
+      continue;
     const layer = extractMultiLineLayer(traces, xLabel, yLabel, gd, {
       type: TraceType.STEP,
       stepDirection: direction === '' ? undefined : direction,
@@ -1013,7 +1057,7 @@ function buildSubplotLayers(
 
   // A declared marimekko is read as one whatever else the panel's bars would
   // have been taken for: a declaration beats every heuristic.
-  const mosaic = declaredMosaic(group, barTraces, layout);
+  const mosaic = declaredMosaic(group, barTraces, layout, declarations);
   const mosaicLayer = mosaic && barTraces.length > 0
     ? extractSegmentedBarLayer(
         barTraces,
@@ -2519,6 +2563,336 @@ function extractMultiLineLayer(
     ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     data: points,
   };
+}
+
+/**
+ * The panel's precision-recall figure, when one of its traces declares it,
+ * read as one layer with a curve per trace.
+ *
+ * A precision-recall curve is drawn as an ordinary line, with recall along x
+ * and precision up y, so nothing in the trace says it is one; undeclared it
+ * is a line layer, correct about every number and silent about the
+ * thresholds, the average precision and the chance baseline the figure is
+ * read against. A curve drawn as a staircase -- scikit-learn's
+ * `PrecisionRecallDisplay` steps it -- is the same curve, so step traces count
+ * as well as lines.
+ *
+ * Following the other adapters reading this block, the curves of a figure
+ * are read against each other, so every line and step trace of the panel
+ * joins the layer, in trace order, unless the first declaring trace sets
+ * `merge: false`; then only the traces carrying a `pr_curve` block of their
+ * own do. Each curve's `threshold`, `prevalence` and `ap` come off its own
+ * block and are never lent to a curve that did not say them. The curves are
+ * taken out of `lineTraces` and `stepTraces`, so they are not announced a
+ * second time as lines.
+ *
+ * @param group        - The panel's traces
+ * @param declarations - Each trace's declaration, in panel order
+ * @param lineTraces   - The panel's line traces; the curves are removed
+ * @param stepTraces   - The panel's step traces by direction; likewise
+ * @param xLabel       - The x axis title
+ * @param yLabel       - The y axis title
+ * @param gd           - The graph div
+ * @returns The layer, or null when no line trace declares one
+ */
+function extractDeclaredPrCurveLayer(
+  group: SubplotGroup,
+  declarations: readonly (PlotlyDeclaration | null)[],
+  lineTraces: TraceEntry[],
+  stepTraces: Map<StepDirection | '', TraceEntry[]>,
+  xLabel: string | undefined,
+  yLabel: string | undefined,
+  gd: PlotlyGraphDiv,
+): MaidrLayer | null {
+  const lineShaped = [...lineTraces, ...[...stepTraces.values()].flat()]
+    .sort((a, b) => a.calcIdx - b.calcIdx);
+  const blockOf = (calcIdx: number): PrCurveDeclaration | undefined => {
+    const declaration = declarations[calcIdx];
+    return declaration?.type === TraceType.PR_CURVE ? declaration : undefined;
+  };
+
+  let first: PrCurveDeclaration | undefined;
+  for (let i = 0; i < group.traces.length; i++) {
+    const block = blockOf(i);
+    if (block === undefined)
+      continue;
+    if (!lineShaped.some(entry => entry.calcIdx === i)) {
+      const trace = group.traces[i];
+      warnWrongConstruct(
+        declarationContext(trace, group.traceIndices[i]),
+        block.type,
+        'a scatter trace drawn with lines',
+        `${trace.type ?? 'scatter'}${trace.mode ? ` (mode "${trace.mode}")` : ''}`,
+      );
+      continue;
+    }
+    first ??= block;
+  }
+  if (first === undefined)
+    return null;
+
+  const curves = first.merge === false
+    ? lineShaped.filter(entry => blockOf(entry.calcIdx) !== undefined)
+    : lineShaped;
+  const taken = new Set(curves);
+  const kept = lineTraces.filter(entry => !taken.has(entry));
+  lineTraces.splice(0, lineTraces.length, ...kept);
+  for (const [direction, traces] of stepTraces)
+    stepTraces.set(direction, traces.filter(entry => !taken.has(entry)));
+
+  const data = curves.map((entry, row) =>
+    prCurvePoints(entry.trace, blockOf(entry.calcIdx), entry.globalIdx, row));
+  if (data.every(curve => curve.length === 0))
+    return null;
+
+  // Read back to front on a reversed axis, for the reason the line layer is.
+  const reversed = axisRunsBackwards(gd._fullLayout, curves[0].trace.xaxis ?? 'x');
+  const names = curves.map(entry => entry.trace.name).filter(Boolean);
+
+  const axes: MaidrLayer['axes'] = {};
+  if (xLabel)
+    axes.x = { label: xLabel };
+  if (yLabel)
+    axes.y = { label: yLabel };
+
+  return {
+    id: String(curves[0].globalIdx),
+    type: TraceType.PR_CURVE,
+    title: first.title ?? (names.length === 1 ? names[0] : undefined),
+    ...(first.name !== undefined ? { name: first.name } : {}),
+    // The line's own selector: a curve is highlighted as its line would be.
+    selectors: generatePlotlySelectors(TraceType.PR_CURVE, curves[0].globalIdx, gd),
+    axes,
+    ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
+    data: reversed ? data.map(curve => [...curve].reverse()) : data,
+  };
+}
+
+/** One band of a declared fan chart, resolved to the two traces drawing its edges. */
+interface PlotlyBand {
+  lower: number;
+  upper: number;
+  /** The trace drawing the low edge. */
+  low: TraceEntry;
+  /** The trace drawing the high edge. */
+  high: TraceEntry;
+  /** The trace whose group holds the band's fill: the one filled to. */
+  filledTo: TraceEntry;
+}
+
+/**
+ * The y values of a trace, keyed by the x each is drawn at.
+ *
+ * @param trace - The trace
+ * @returns Its finite values by position
+ */
+function valuesByX(trace: PlotlyTrace): Map<string, number> {
+  const at = new Map<string, number>();
+  const x = trace.x ?? [];
+  const y = trace.y ?? [];
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const value = y[i] == null ? undefined : finiteNumber(y[i]);
+    if (value !== undefined && x[i] != null)
+      at.set(String(x[i]), value);
+  }
+  return at;
+}
+
+/**
+ * The panel's fan charts: each line trace declaring `percentile_band`, with
+ * the bands it names resolved to the traces drawing their edges.
+ *
+ * Plotly has no range trace: a band is a trace filled `tonexty` down (or up)
+ * to the trace before it, which plotly links as `_prevtrace`. So an entry
+ * names, by `uid` or by `name`, the trace that fills, and the trace it fills
+ * to is the band's other edge; which is the high one is read from the values,
+ * and a pair that crosses is no band. An entry naming no trace, a trace not
+ * filled `tonexty` to another line trace, or traces another band already
+ * reads, is reported and left out.
+ *
+ * Measured on plotly.js 2.35.2: the fill between a `tonexty` pair is the one
+ * `path.js-fill` in the group of the trace filled to, spanning the two edges
+ * exactly, and a `lines`-mode trace draws one `path.js-line`. Those are the
+ * selectors, one per band outermost first and then the median's line, kept
+ * only when each matches exactly one element of the drawn chart.
+ *
+ * @param group        - The panel's traces
+ * @param declarations - Each trace's declaration, in panel order
+ * @param buckets      - The line, area and step buckets; the fan's traces are removed
+ * @param xLabel       - The x axis title
+ * @param yLabel       - The y axis title
+ * @param gd           - The graph div
+ * @returns One layer per fan chart
+ */
+function extractDeclaredPercentileBands(
+  group: SubplotGroup,
+  declarations: readonly (PlotlyDeclaration | null)[],
+  buckets: TraceEntry[][],
+  xLabel: string | undefined,
+  yLabel: string | undefined,
+  gd: PlotlyGraphDiv,
+): MaidrLayer[] {
+  const entries = buckets.flat();
+  const entryAt = (calcIdx: number): TraceEntry | undefined =>
+    entries.find(entry => entry.calcIdx === calcIdx);
+  const used = new Set<TraceEntry>();
+  const layers: MaidrLayer[] = [];
+
+  for (let i = 0; i < group.traces.length; i++) {
+    const declaration = declarations[i];
+    if (declaration?.type !== TraceType.PERCENTILE_BAND)
+      continue;
+    const trace = group.traces[i];
+    const context = declarationContext(trace, group.traceIndices[i]);
+    const median = entryAt(i);
+    if (!median || median.maidrType !== TraceType.LINE || used.has(median)) {
+      warnWrongConstruct(context, declaration.type, 'an unfilled scatter trace drawn with lines, as the median', trace.type ?? 'scatter');
+      continue;
+    }
+    used.add(median);
+
+    const refuse = (series: string, why: string): undefined => {
+      console.warn(
+        `[MAIDR Plotly] maidr declaration for "percentile_band" on ${context.seriesRef} names `
+        + `trace "${series}" as a band, ${why}; emitting the layer without it.`,
+      );
+      return undefined;
+    };
+    const bands = [...declaration.bands]
+      .sort((a, b) => a.lower - b.lower)
+      .map((band): PlotlyBand | undefined => {
+        const at = group.traces.findIndex((one, j) => j !== i && one.uid === band.series);
+        const named = at >= 0 ? at : group.traces.findIndex((one, j) => j !== i && one.name === band.series);
+        const filler = named >= 0 ? entryAt(named) : undefined;
+        if (!filler)
+          return refuse(band.series, 'which this panel draws no line or area trace for');
+        const prevIndex = filler.trace._prevtrace?.index;
+        const prevCalc = prevIndex === undefined ? -1 : group.traceIndices.indexOf(prevIndex);
+        const filledTo = filler.trace.fill === 'tonexty' ? entryAt(prevCalc) : undefined;
+        if (!filledTo)
+          return refuse(band.series, 'which is not filled "tonexty" to another line trace');
+        if (used.has(filler) || used.has(filledTo))
+          return refuse(band.series, 'whose edges another band or median already reads');
+        const a = valuesByX(filler.trace);
+        const b = valuesByX(filledTo.trace);
+        const shared = [...a.keys()].filter(x => b.has(x));
+        const above = shared.filter(x => (a.get(x) ?? 0) > (b.get(x) ?? 0)).length;
+        const below = shared.filter(x => (a.get(x) ?? 0) < (b.get(x) ?? 0)).length;
+        if ((above > 0) === (below > 0))
+          return refuse(band.series, 'whose two edges cross, which no band\'s do');
+        used.add(filler);
+        used.add(filledTo);
+        const fillerIsHigh = above > 0;
+        return {
+          lower: band.lower,
+          upper: band.upper,
+          low: fillerIsHigh ? filledTo : filler,
+          high: fillerIsHigh ? filler : filledTo,
+          filledTo,
+        };
+      })
+      .filter((band): band is PlotlyBand => band !== undefined);
+
+    const edges = bands.map(band => ({ low: valuesByX(band.low.trace), high: valuesByX(band.high.trace) }));
+    const x = trace.x ?? [];
+    const y = trace.y ?? [];
+    const data: PercentileBandPoint[] = [];
+    for (let k = 0; k < Math.min(x.length, y.length); k++) {
+      const value = y[k] == null ? undefined : finiteNumber(y[k]);
+      if (value === undefined || x[k] == null)
+        continue;
+      const quantiles: PercentileBandQuantile[] = [{ level: 0.5, value }];
+      bands.forEach((band, n) => {
+        quantiles.push(
+          { level: band.lower, value: edges[n].low.get(String(x[k])) ?? null },
+          { level: band.upper, value: edges[n].high.get(String(x[k])) ?? null },
+        );
+      });
+      data.push({ x: x[k] as number | string, quantiles });
+    }
+
+    const prefix = subplotCssPrefix(trace.xaxis, trace.yaxis);
+    const scoped = (entry: TraceEntry, marks: string): string | null => {
+      const uid = entry.trace.uid;
+      return uid && /^[\w-]+$/.test(uid) ? `${prefix}.scatterlayer g.trace.trace${uid} ${marks}` : null;
+    };
+    const candidates = [
+      ...bands.map(band => scoped(band.filledTo, 'path.js-fill')),
+      scoped(median, 'path.js-line'),
+    ];
+    const selectors = candidates.every(one => one !== null && gd.querySelectorAll(one).length === 1)
+      ? candidates as string[]
+      : undefined;
+
+    const axes: MaidrLayer['axes'] = {};
+    if (xLabel)
+      axes.x = { label: xLabel };
+    if (yLabel)
+      axes.y = { label: yLabel };
+
+    layers.push({
+      id: String(median.globalIdx),
+      type: TraceType.PERCENTILE_BAND,
+      title: declaration.title ?? trace.name,
+      ...(declaration.name !== undefined ? { name: declaration.name } : {}),
+      ...(selectors ? { selectors } : {}),
+      axes,
+      data,
+    });
+  }
+
+  for (const bucket of buckets) {
+    const kept = bucket.filter(entry => !used.has(entry));
+    bucket.splice(0, bucket.length, ...kept);
+  }
+  return layers;
+}
+
+/**
+ * Reads one precision-recall curve, with the threshold each point carries.
+ *
+ * The threshold is a column of the trace's `customdata` rows, read through
+ * the field the block names; `prevalence` and `ap` come off the block and
+ * ride on the curve's first point, where the grammar reads them. A point whose
+ * recall or precision is not a number is skipped, as a line skips a gap.
+ *
+ * @param trace      - The trace drawing the curve
+ * @param block      - The trace's own block, when it carries one
+ * @param traceIndex - Its index in `_fullData`, for a warning
+ * @param row        - Its position in the layer, to name it when unnamed
+ * @returns The curve's points
+ */
+function prCurvePoints(
+  trace: PlotlyTrace,
+  block: PrCurveDeclaration | undefined,
+  traceIndex: number,
+  row: number,
+): PrCurvePoint[] {
+  const x = trace.x ?? [];
+  const y = trace.y ?? [];
+  const z = trace.name ?? `Curve ${row + 1}`;
+  const points: PrCurvePoint[] = [];
+  let resolved = false;
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const recall = x[i] == null ? undefined : finiteNumber(x[i]);
+    const precision = y[i] == null ? undefined : finiteNumber(y[i]);
+    if (recall === undefined || precision === undefined)
+      continue;
+    const threshold = finiteNumber(resolveFieldRef(customRow(trace, i), block?.threshold, 'threshold'));
+    resolved ||= threshold !== undefined;
+    points.push({ x: recall, y: precision, z, ...(threshold === undefined ? {} : { threshold }) });
+  }
+
+  if (block?.threshold !== undefined && points.length > 0 && !resolved)
+    warnUnresolvedRef(declarationContext(trace, traceIndex), block.threshold, 'threshold');
+  if (points.length > 0 && block !== undefined) {
+    points[0] = {
+      ...points[0],
+      ...(block.prevalence === undefined ? {} : { prevalence: block.prevalence }),
+      ...(block.ap === undefined ? {} : { ap: block.ap }),
+    };
+  }
+  return points;
 }
 
 /**

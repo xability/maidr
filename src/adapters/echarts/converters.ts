@@ -1067,6 +1067,33 @@ function paired(marks: string[], drew: boolean[]): (string | null)[] {
   return drew.map(drawn => (drawn ? marks[mark++] ?? null : null));
 }
 
+/**
+ * Whether a line draws a precision-recall curve: recall along x, precision
+ * up y, every point a fraction of one.
+ *
+ * ECharts has no such series -- a curve redrawn in ECharts is a `line` over
+ * two value axes -- so the axes are the only thing that says so, as they are
+ * in the Vega-Lite reading of the same chart: the x axis named exactly
+ * `recall` and the y axis `precision`, case aside, on a value axis that is
+ * neither categorical nor dated, and every point a number from 0 to 1 on both.
+ * Anything less keeps the line reading, which is never wrong about a line.
+ *
+ * @param points - The line's points
+ * @param axes - The chart's axis names and kinds
+ * @returns True for a precision-recall curve
+ */
+function drawsPrCurve(points: LinePoint[], axes: Axes): boolean {
+  const named = (label: string | undefined, rate: string): boolean =>
+    typeof label === 'string' && label.trim().toLowerCase() === rate;
+  if (axes.horizontal || axes.categoricalX || axes.dated
+    || !named(axes.x, 'recall') || !named(axes.y, 'precision')) {
+    return false;
+  }
+  const isRate = (value: unknown): boolean =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+  return points.length > 0 && points.every(point => isRate(point.x) && isRate(point.y));
+}
+
 function lineLayer(
   seriesModel: EChartsSeriesModel,
   axes: Axes,
@@ -1088,16 +1115,17 @@ function lineLayer(
   const area = fillsBand(seriesModel);
   const step = seriesModel.get('step');
   const name = authoredName(seriesModel);
+  const prCurve = !area && drawsPrCurve(points, axes);
 
   return {
     id: nextId('layer'),
-    type: area ? TraceType.AREA : TraceType.LINE,
+    type: area ? TraceType.AREA : prCurve ? TraceType.PR_CURVE : TraceType.LINE,
     ...(name ? { name } : {}),
     ...(selector ? { selectors: selector } : {}),
     // A staircase holds its value across the interval and then jumps, which
     // the trace reads from `stepDirection` -- ECharts spells the same choices
     // `'start'`, `'middle'` and `'end'`.
-    ...(typeof step === 'string' ? { stepDirection: stepDirectionOf(step) } : {}),
+    ...(typeof step === 'string' && !prCurve ? { stepDirection: stepDirectionOf(step) } : {}),
     axes: axisConfig(axes, name),
     data: [points],
   };

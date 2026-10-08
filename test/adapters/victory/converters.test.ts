@@ -299,6 +299,24 @@ describe('computeSubplotGrid', () => {
 });
 
 describe('toMaidrLayer', () => {
+  it('reads a line of precision against recall as a precision-recall curve', () => {
+    const info: VictoryLayerInfo = {
+      id: '0_0',
+      victoryType: 'VictoryLine',
+      data: { kind: 'line', points: [[{ x: 0, y: 1 }, { x: 0.5, y: 0.8 }, { x: 1, y: 0.4 }]] },
+      xAxisLabel: 'Recall',
+      yAxisLabel: 'Precision',
+      dataCount: 3,
+    };
+
+    const curve = toMaidrLayer(info, '#mv path');
+    const line = toMaidrLayer({ ...info, xAxisLabel: 'Recall at k' }, '#mv path');
+
+    expect(curve.type).toBe(TraceType.PR_CURVE);
+    expect(curve.data).toEqual(info.data.points);
+    expect(line.type).toBe(TraceType.LINE);
+  });
+
   it('converts a bar layer preserving its id and axes', () => {
     const info: VictoryLayerInfo = {
       id: '1_0',

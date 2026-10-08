@@ -44,6 +44,7 @@ import { buildBoxenLayer } from './boxen';
 import { buildCandlestickLayer } from './candlestick';
 import { buildChoroplethLayer } from './choropleth';
 import { buildContourLayer } from './contour';
+import { buildDirectedGraphLayer } from './directedGraph';
 import { buildDumbbellLayer } from './dumbbell';
 import { buildErrorBarLayer, buildForestLayer } from './errorBar';
 import { buildFlowLayer } from './flow';
@@ -55,7 +56,9 @@ import { buildHistogramLayer } from './histogram';
 import { buildLineLayer } from './line';
 import { buildNetworkLayer } from './network';
 import { buildParallelLayer } from './parallel';
+import { buildPercentileBandLayer } from './percentileBand';
 import { buildPieLayer, buildPolarAreaLayer } from './pie';
+import { buildPrCurveLayer } from './prCurve';
 import { buildRidgelineLayer } from './ridgeline';
 import { buildScatterLayer } from './scatter';
 import { buildSegmentedLayer } from './segmented';
@@ -323,6 +326,12 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildTreemapLayer(root, spec.config, panel, TraceType.SUNBURST);
     case 'survival':
       return buildSurvivalLayer(root, spec.config, panel);
+    case 'prCurve':
+      return buildPrCurveLayer(root, spec.config, panel);
+    case 'percentileBand':
+      return buildPercentileBandLayer(root, spec.config, panel);
+    case 'directedGraph':
+      return buildDirectedGraphLayer(root, spec.config, panel);
     case 'treemap':
       return buildTreemapLayer(root, spec.config, panel);
     case 'volcano':

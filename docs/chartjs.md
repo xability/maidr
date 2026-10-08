@@ -99,6 +99,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Dot Plot [experimental] | `'line'` with `showLine: false` on a category axis | — | [Dot plot](examples.html) |
 | Survival [experimental] | `'line'` with `stepped` and a `maidr` declaration | — | [Survival curve](examples.html) |
 | Precision-Recall Curve [experimental] | `'line'` with a `maidr` declaration | — | — |
+| Percentile Band [experimental] | `'line'`: a median dataset with a `maidr` declaration, and each band a dataset filled to another | — | — |
 | Volcano [experimental] | `'scatter'` with a `maidr` declaration | — | [Volcano plot](examples.html) |
 | Manhattan [experimental] | `'scatter'` with a `maidr` declaration | — | [Manhattan plot](examples.html) |
 | Radar [experimental] | `'radar'` | — | [Radar chart](examples.html) |
@@ -214,6 +215,23 @@ Two rules are worth knowing before you write one:
 | `ap` | a number from 0 to 1 | The curve's average precision as the producer computed it. Left out, MAIDR measures it from the points. |
 | `merge` | a boolean | Accepted for the other adapters' sake; a Chart.js precision-recall chart is one figure and always reads as one layer. |
 | `title`, `name` | strings | The layer's announced title, and its name among sibling layers; the first block in chart order gives them. |
+
+**Percentile band** (`type: 'percentile_band'`) reads a fan chart — a median with nested bands of quantiles around it. Chart.js has no range dataset, so each band is two line datasets, one filled to the other with `fill` (`'-1'`, an absolute index, or `{ target }`), and nothing says which quantiles their edges are. The block goes on the **median** dataset and names each band by the `label` of the dataset that fills:
+
+```js
+datasets: [
+  { label: 'p5', data: p5, fill: false },
+  { label: 'p95', data: p95, fill: '-1' },     // the 90% band: p95 filled down to p5
+  { label: 'p25', data: p25, fill: false },
+  { label: 'p75', data: p75, fill: '-1' },     // the 50% band
+  { label: 'median', data: median, maidr: { type: 'percentile_band', bands: [
+    { series: 'p95', lower: 0.05, upper: 0.95 },
+    { series: 'p75', lower: 0.25, upper: 0.75 },
+  ] } },
+]
+```
+
+The dataset it fills to is the band's other edge, and which edge is the high one is read from the values; a pair that crosses is no band. The levels are fractions, each `lower` below 0.5 and each `upper` above it, and the bands must nest — a band in percentages or bands that cross are refused and the chart reads as the undeclared one. A band naming no dataset, one that fills to the axis or a constant rather than another dataset, or one whose datasets another band already reads, is reported and left out, and the layer keeps the rest. Every edge is matched to the median by position on a category axis and by `x` for `{x, y}` data, and an edge that draws nothing at one of the median's positions is a gap there. The layer takes only the datasets it names; every other dataset — the history a forecast's fan continues, say — keeps its own reading. The highlight outlines the quantile the reader is on as the point its own dataset draws there.
 
 A block whose type this adapter has no construct for (a `hexbin` on a scatter, a `volcano` on a bar chart) is reported and ignored. `type: 'survival'` on a `'line'` dataset reaches exactly the same reading `plugins.maidr.traceType: 'survival'` does, and `type: 'pr_curve'` the same as `plugins.maidr.traceType: 'pr_curve'`.
 

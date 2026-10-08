@@ -85,6 +85,8 @@ function AccessibleBarChart() {
 | `errorConfig` | `ErrorIntervalConfig` | Error bar/forest | Which field holds the interval, as an offset or as absolute bounds. |
 | `forestConfig` | `ForestPlotConfig` | Forest only | Study weights, the pooled row, and the null line. |
 | `survivalConfig` | `SurvivalCurveConfig` | Survival only | Per-arm censoring and confidence band keys, and the step direction. |
+| `prCurveConfig` | `PrCurveConfig` | Precision-recall only | Per-curve threshold keys, prevalence and average precision. |
+| `percentileBandConfig` | `PercentileBandConfig` | Percentile band only | Each band's range `<Area>` key and its two quantile levels. |
 | `parallelConfig` | `ParallelAxesConfig` | Parallel only | The axes in draw order, naming the raw fields, and the observation's label key. |
 | `ridgelineConfig` | `RidgelineCurveConfig` | Ridgeline only | Group key, value key, and the density key — the density BEFORE the ridge offset. |
 | `hexbinConfig` | `HexbinLatticeConfig` | Hexbin | Bin centre, count and lattice row keys. |
@@ -172,6 +174,8 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | `'polar_area'` [experimental] | `<Pie>` with equal angles and a per-datum `outerRadius` | Coxcomb/rose chart: a radar drawn as wedges |
 | `'bump'` [experimental] | `<LineChart>` + `<YAxis reversed>` | Bump chart: rank over time |
 | `'survival'` [experimental] | `<Line type="stepAfter">` | Kaplan-Meier curve (optional `survivalConfig`) |
+| `'pr_curve'` [experimental] | `<Line>` of precision against recall | Precision-recall curve (optional `prCurveConfig`) |
+| `'percentile_band'` [experimental] | a median `<Line>` and range `<Area>`s | Fan chart (`percentileBandConfig`) |
 | `'volcano'` [experimental] | `<ScatterChart>` + `<Scatter>` | Volcano plot: effect size against significance (`volcanoConfig`) |
 | `'manhattan'` [experimental] | `<ScatterChart>` + `<Scatter>` | Manhattan plot: genomic position against significance (`volcanoConfig`) |
 | `'error_bar'` [experimental] | `<ErrorBar>` inside `<Bar>`/`<Line>`/`<Scatter>` | An estimate with its interval (`errorConfig`) |
@@ -780,6 +784,60 @@ Censoring is not an event: the curve does not step at a censored time, which is 
 The layer declares `stepDirection: 'hv'`, which is what `type="stepAfter"` draws. Set `survivalConfig.stepDirection` to `'vh'` for a curve drawn with `type="stepBefore"`.
 
 Add a confidence band with `yMinKeys`/`yMaxKeys`; the bounds are absolute positions on the value axis, not offsets.
+
+#### Precision-Recall Curve [experimental]
+
+A precision-recall curve is a `<Line>` of precision against recall: `xKey` is the recall and each `yKeys` entry one curve's precision. The per-curve entries of `prCurveConfig` line up with `yKeys`, and each describes **that curve only**:
+
+```tsx
+<MaidrRecharts
+  id="pr-example"
+  data={data}
+  chartType="pr_curve"
+  xKey="recall"
+  yKeys={['logistic', 'forest']}
+  prCurveConfig={{ thresholdKeys: ['logisticCut', 'forestCut'], prevalence: [0.3, 0.3] }}
+>
+  <LineChart width={600} height={350} data={data}>
+    <XAxis dataKey="recall" type="number" domain={[0, 1]} />
+    <YAxis domain={[0, 1]} />
+    <Line dataKey="logistic" dot />
+    <Line dataKey="forest" dot />
+  </LineChart>
+</MaidrRecharts>
+```
+
+`prevalence` — the share of positives, which sets the chance baseline — and `ap`, the average precision as the producer computed it, are fractions from 0 to 1; a percentage is refused with a warning rather than rescaled, and a curve given none says none. A row missing either rate is skipped. A lone curve highlights through its line dots; several degrade the way every multi-series line does.
+
+#### Percentile Band [experimental]
+
+A fan chart is a median `<Line>` and one range `<Area>` per band — an `<Area>` whose `dataKey` holds a `[low, high]` pair on every row, which Recharts draws between the two. Nothing in a range area says which quantiles its edges are, so `percentileBandConfig` names each band's key and its two levels:
+
+```tsx
+<MaidrRecharts
+  id="fan-example"
+  data={data}
+  chartType="percentile_band"
+  xKey="step"
+  yKeys={['p50']}
+  percentileBandConfig={{
+    bands: [
+      { dataKey: 'p5_95', lower: 0.05, upper: 0.95 },
+      { dataKey: 'p25_75', lower: 0.25, upper: 0.75 },
+    ],
+  }}
+>
+  <ComposedChart width={600} height={350} data={data}>
+    <XAxis dataKey="step" />
+    <YAxis />
+    <Area dataKey="p5_95" />
+    <Area dataKey="p25_75" />
+    <Line dataKey="p50" />
+  </ComposedChart>
+</MaidrRecharts>
+```
+
+The bands are checked as the co-located `maidr` declaration's are: fractions, each `lower` below 0.5 and each `upper` above it, nesting one inside the next. A config that fails is reported and the chart reads as its median alone. A row whose band value is not a two-number pair is a gap in that band. Recharts gives a range area no class of its own, so the layer carries no selectors and is not highlighted unless the bands are named through `selectorOverride`.
 
 #### Volcano and Manhattan Plots [experimental]
 
@@ -1457,6 +1515,8 @@ import {
   type ErrorIntervalConfig,    // Error bar / forest interval configuration
   type ForestPlotConfig,       // Forest plot weights, pooled row and null line
   type SurvivalCurveConfig,    // Survival censoring and confidence band keys
+  type PrCurveConfig,          // Precision-recall thresholds and baselines
+  type PercentileBandConfig,   // Fan chart bands and their quantile levels
 } from 'maidr/recharts';
 ```
 
@@ -1486,6 +1546,8 @@ type RechartsChartType =
   | 'polar_area'
   | 'bump'
   | 'survival'
+  | 'pr_curve'
+  | 'percentile_band'
   | 'scatter'
   | 'volcano'
   | 'manhattan'
@@ -1597,6 +1659,28 @@ interface SurvivalCurveConfig {
   yMinKeys?: string[];      // Keys for the lower confidence band, 1:1 with yKeys
   yMaxKeys?: string[];      // Keys for the upper confidence band, 1:1 with yKeys
   stepDirection?: StepDirection; // Where the curve jumps (defaults to 'hv')
+}
+```
+
+### `PrCurveConfig`
+
+```typescript
+interface PrCurveConfig {
+  thresholdKeys?: string[];            // Keys holding each point's threshold, 1:1 with yKeys
+  prevalence?: (number | undefined)[]; // Each curve's share of positives, 0 to 1
+  ap?: (number | undefined)[];         // Each curve's average precision, 0 to 1
+}
+```
+
+### `PercentileBandConfig`
+
+```typescript
+interface PercentileBandConfig {
+  bands: {
+    dataKey: string; // The range <Area>'s key, holding [low, high] on every row
+    lower: number;   // The low edge's quantile, below 0.5
+    upper: number;   // The high edge's quantile, above 0.5
+  }[];
 }
 ```
 

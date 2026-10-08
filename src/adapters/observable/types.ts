@@ -97,11 +97,15 @@ export interface ObservablePlotOptions {
    * Forces the MAIDR trace type of a mark, keyed by the mark's Plot
    * `aria-label`.
    *
-   * Only `rect` is read today, and only to say `TraceType.HISTOGRAM`: a `rect`
-   * mark is otherwise taken for a histogram when both axes are continuous and
-   * for a bar chart when one is categorical, which is right for the marks
-   * Plot's own examples produce. A binned rect drawn against a categorical axis
-   * is the case that needs telling.
+   * Three keys are read. `rect` takes `TraceType.HISTOGRAM`: a `rect` mark is
+   * otherwise taken for a histogram when both axes are continuous and for a
+   * bar chart when one is categorical, which is right for the marks Plot's own
+   * examples produce. A binned rect drawn against a categorical axis is the
+   * case that needs telling. `dot` takes `TraceType.HEXBIN`, for hexagons a
+   * `symbol: 'hexagon'` scatter draws just the same. `line` takes
+   * `TraceType.PR_CURVE`, for a precision-recall curve whose axes are not
+   * labelled `recall` and `precision`; its points must still be fractions of
+   * one on both axes.
    *
    * Other keys are accepted and ignored, so a future release can honour them
    * without breaking a caller that set one.

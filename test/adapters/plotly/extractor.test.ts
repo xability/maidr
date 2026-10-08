@@ -1,5 +1,5 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyHierarchyNode, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, BoxPoint, BoxSelector, ChoroplethPoint, ContourPoint, ErrorBarPoint, GanttData, GaugePoint, HeatmapData, LinePoint, MaidrLayer, MosaicPoint, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, ChoroplethPoint, ContourPoint, ErrorBarPoint, GanttData, GaugePoint, HeatmapData, LinePoint, MaidrLayer, MosaicPoint, PercentileBandPoint, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -5102,6 +5102,239 @@ describe('plotly extractor', () => {
 
       expect(layer.type).toBe(TraceType.STACKED);
       expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+  });
+
+  describe('percentile_band declaration', () => {
+    const XS = [0, 1, 2];
+    const BANDS = [
+      { series: 'p95', lower: 0.05, upper: 0.95 },
+      { series: 'p25', lower: 0.25, upper: 0.75 },
+    ];
+
+    /**
+     * A fan as plotly resolves it: each band a trace filled `tonexty` to the
+     * one before it, linked through `_prevtrace` -- the 90% band filled up
+     * from its low edge, the 50% band down from its high one.
+     */
+    function fanTraces(block: unknown = { type: 'percentile_band', bands: BANDS }): PlotlyTrace[] {
+      return [
+        { type: 'scatter', mode: 'lines', name: 'p5', uid: 'u0', x: XS, y: XS.map(x => x - 2), fill: 'none' },
+        { type: 'scatter', mode: 'lines', name: 'p95', uid: 'u1', x: XS, y: XS.map(x => x + 2), fill: 'tonexty', _prevtrace: { index: 0 } },
+        { type: 'scatter', mode: 'lines', name: 'p75', uid: 'u2', x: XS, y: XS.map(x => x + 1), fill: 'none' },
+        { type: 'scatter', mode: 'lines', name: 'p25', uid: 'u3', x: XS, y: XS.map(x => x - 1), fill: 'tonexty', _prevtrace: { index: 2 } },
+        { type: 'scatter', mode: 'lines', name: 'median', uid: 'u4', x: XS, y: XS, fill: 'none', meta: { maidr: block } },
+      ] as PlotlyTrace[];
+    }
+
+    function fanGd(traces: PlotlyTrace[]): PlotlyGraphDiv {
+      return createGraphDiv({
+        traces,
+        layout: { xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+    }
+
+    /** Draws the marks plotly would: a fill in the group of each trace filled to, a line per trace. */
+    function drawMarks(gd: PlotlyGraphDiv, fills: string[]): void {
+      const doc = gd.ownerDocument;
+      const subplot = doc.createElementNS(SVG_NS, 'g');
+      subplot.setAttribute('class', 'subplot xy');
+      const layer = doc.createElementNS(SVG_NS, 'g');
+      layer.setAttribute('class', 'scatterlayer');
+      for (const uid of ['u0', 'u1', 'u2', 'u3', 'u4']) {
+        const group = doc.createElementNS(SVG_NS, 'g');
+        group.setAttribute('class', `trace scatter trace${uid}`);
+        if (fills.includes(uid)) {
+          const fill = doc.createElementNS(SVG_NS, 'path');
+          fill.setAttribute('class', 'js-fill');
+          group.appendChild(fill);
+        }
+        const line = doc.createElementNS(SVG_NS, 'path');
+        line.setAttribute('class', 'js-line');
+        group.appendChild(line);
+        layer.appendChild(group);
+      }
+      subplot.appendChild(layer);
+      gd.querySelector('svg')?.appendChild(subplot);
+    }
+
+    it('reads the median and the filled pairs it names as one fan chart', () => {
+      const maidr = extractPlotlyData(fanGd(fanTraces()));
+      const layers = maidr!.subplots[0][0].layers;
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.PERCENTILE_BAND);
+      expect((layers[0].data as PercentileBandPoint[])[1]).toEqual({
+        x: 1,
+        quantiles: [
+          { level: 0.5, value: 1 },
+          { level: 0.05, value: -1 },
+          { level: 0.95, value: 3 },
+          { level: 0.25, value: 0 },
+          { level: 0.75, value: 2 },
+        ],
+      });
+    });
+
+    it('outlines each band\'s fill, outermost first, and the median\'s line', () => {
+      const gd = fanGd(fanTraces());
+      drawMarks(gd, ['u0', 'u2']);
+
+      const [layer] = extractPlotlyData(gd)!.subplots[0][0].layers;
+
+      expect(layer.selectors).toEqual([
+        '.subplot.xy .scatterlayer g.trace.traceu0 path.js-fill',
+        '.subplot.xy .scatterlayer g.trace.traceu2 path.js-fill',
+        '.subplot.xy .scatterlayer g.trace.traceu4 path.js-line',
+      ]);
+    });
+
+    it('emits no selectors when a band\'s fill is not where plotly draws it', () => {
+      const gd = fanGd(fanTraces());
+      drawMarks(gd, ['u1', 'u3']);
+
+      const [layer] = extractPlotlyData(gd)!.subplots[0][0].layers;
+
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('refuses a band whose trace is not filled to another, and keeps the rest', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const traces = fanTraces();
+      traces[1] = { ...traces[1], fill: 'tozeroy', _prevtrace: undefined };
+
+      const layers = extractPlotlyData(fanGd(traces))!.subplots[0][0].layers;
+      const band = layers.find(layer => layer.type === TraceType.PERCENTILE_BAND);
+
+      expect((band?.data as PercentileBandPoint[])[0].quantiles.map(q => q.level)).toEqual([0.5, 0.25, 0.75]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('names trace "p95" as a band, which is not filled "tonexty"'));
+      warn.mockRestore();
+    });
+
+    it('leaves a chart with no declaration as its lines and areas', () => {
+      const traces = fanTraces();
+      traces[4] = { ...traces[4], meta: undefined };
+
+      const types = extractPlotlyData(fanGd(traces))!.subplots[0][0].layers.map(layer => layer.type);
+
+      expect(types).not.toContain(TraceType.PERCENTILE_BAND);
+    });
+  });
+
+  describe('pr_curve declaration', () => {
+    function prGd(traces: PlotlyTrace[], layout: Partial<PlotlyFullLayout> = {}): PlotlyGraphDiv {
+      return createGraphDiv({
+        traces,
+        layout: {
+          xaxis: { title: { text: 'Recall' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Precision' }, domain: [0, 1] },
+          ...layout,
+        },
+        bgRects: [{ x: 0, y: 0 }],
+      });
+    }
+
+    function curve(name: string, overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
+      return {
+        type: 'scatter',
+        mode: 'lines',
+        name,
+        x: [0, 0.5, 1],
+        y: [1, 0.8, 0.4],
+        ...overrides,
+      };
+    }
+
+    function layersOf(traces: PlotlyTrace[]): MaidrLayer[] {
+      const maidr = extractPlotlyData(prGd(traces));
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers;
+    }
+
+    it('reads a declared line as a precision-recall curve with its thresholds and baseline', () => {
+      const layers = layersOf([
+        curve('Model A', {
+          meta: { maidr: { type: 'pr_curve', prevalence: 0.3, ap: 0.82 } },
+          customdata: [{ threshold: 0.9 }, { threshold: 0.5 }, {}],
+        }),
+      ]);
+
+      expect(layers).toHaveLength(1);
+      expect(layers[0].type).toBe(TraceType.PR_CURVE);
+      expect(layers[0].data).toEqual([[
+        { x: 0, y: 1, z: 'Model A', threshold: 0.9, prevalence: 0.3, ap: 0.82 },
+        { x: 0.5, y: 0.8, z: 'Model A', threshold: 0.5 },
+        { x: 1, y: 0.4, z: 'Model A' },
+      ]]);
+    });
+
+    it('merges the panel\'s other curves, lending none of them the block\'s baseline', () => {
+      const layers = layersOf([
+        curve('Model A', { meta: { maidr: { type: 'pr_curve', prevalence: 0.3 } } }),
+        curve('Model B', { line: { shape: 'hv' } }),
+      ]);
+
+      expect(layers).toHaveLength(1);
+      const data = layers[0].data as LinePoint[][];
+      expect(data).toHaveLength(2);
+      expect(data[1][0]).toEqual({ x: 0, y: 1, z: 'Model B' });
+    });
+
+    it('keeps undeclared curves as lines when merge is off', () => {
+      const layers = layersOf([
+        curve('Model A', { meta: { maidr: { type: 'pr_curve', merge: false } } }),
+        curve('Baseline'),
+      ]);
+
+      expect(layers.map(layer => layer.type)).toEqual([TraceType.PR_CURVE, TraceType.LINE]);
+    });
+
+    it('highlights a curve drawn with markers through its line\'s markers', () => {
+      const layers = layersOf([
+        curve('Model A', { mode: 'lines+markers', meta: { maidr: { type: 'pr_curve' } } }),
+      ]);
+
+      expect(layers[0].selectors).toBe('.subplot.xy .trace.scatter .point');
+    });
+
+    it('refuses a declaration on a trace that draws no line, and reports it', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layers = layersOf([
+        curve('Points', { mode: 'markers', meta: { maidr: { type: 'pr_curve' } } }),
+      ]);
+
+      expect(layers[0].type).toBe(TraceType.SCATTER);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('needs a scatter trace drawn with lines'));
+      warn.mockRestore();
+    });
+
+    it('reports a threshold field no row carries', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layers = layersOf([
+        curve('Model A', {
+          meta: { maidr: { type: 'pr_curve', threshold: 'cut' } },
+          customdata: [{ threshold: 0.9 }],
+        }),
+      ]);
+
+      expect((layers[0].data as LinePoint[][])[0][0]).not.toHaveProperty('threshold');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('names "cut" for threshold'));
+      warn.mockRestore();
+    });
+
+    it('refuses a percentage written as the prevalence', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layers = layersOf([
+        curve('Model A', { meta: { maidr: { type: 'pr_curve', prevalence: 30 } } }),
+      ]);
+
+      expect((layers[0].data as LinePoint[][])[0][0]).not.toHaveProperty('prevalence');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('expected a number from 0 to 1'));
       warn.mockRestore();
     });
   });

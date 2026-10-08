@@ -23,6 +23,7 @@ import type {
   MuiSeriesConfig,
 } from './types';
 import { isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
+import { drawsPrCurves } from '@adapters/shared/prCurveAxes';
 import { Orientation, TraceType } from '@type/grammar';
 import { Children, cloneElement, isValidElement } from 'react';
 import {
@@ -678,14 +679,19 @@ function convertLine(props: MuiChartProps, scope: string): MuiConvertedChart {
   const titled = buckets.size > 1;
   const layers = [...buckets.values()].map((bucket, index): MaidrLayer => {
     const stacked = bucket.type === TraceType.STACKED_AREA || bucket.type === TraceType.NORMALIZED_AREA;
+    const data = bucket.entries.map(entry => points(entry, stacked));
+    // A precision-recall curve is drawn as an ordinary line, and the axis
+    // labels are the only thing on an MUI X chart that says so.
+    const prCurve = (bucket.type === TraceType.LINE || bucket.type === TraceType.STEP)
+      && drawsPrCurves(axes?.x?.label, axes?.y?.label, data);
     return {
       id: String(index),
-      type: bucket.type,
+      type: prCurve ? TraceType.PR_CURVE : bucket.type,
       ...(titled ? { title: bucket.entries.map(entry => entry.label).join(', ') } : {}),
-      ...(bucket.step ? { stepDirection: bucket.step } : {}),
+      ...(bucket.step && !prCurve ? { stepDirection: bucket.step } : {}),
       axes,
       selectors: bucket.entries.map(entry => lineSeriesSelector(scope, entry.id)),
-      data: bucket.entries.map(entry => points(entry, stacked)),
+      data,
     };
   });
   const legend = entries.length > 1 ? entries.map(entry => entry.label) : undefined;

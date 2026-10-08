@@ -451,6 +451,20 @@ describe('convertExcelChart', () => {
       expect(layer.type).toBe(TraceType.LINE);
       expect(layer.data).toEqual([[{ x: 3, y: 30 }, { x: 1, y: null }, { x: 2, y: 20 }]]);
     });
+
+    it('reads a scatter with lines titled Recall and Precision as a precision-recall curve', () => {
+      const curve = { name: 'Model', xValues: ['0', '0.5', '1'], yValues: ['1', '0.8', '0.4'] };
+      const titled = (x: string, y: string): Partial<ExcelChartSnapshot> => ({
+        axes: { category: { title: { text: x, visible: true } }, value: { title: { text: y, visible: true } } },
+      });
+
+      const layer = onlyLayer(convert(chart('XYScatterLines', [curve], titled('Recall', 'Precision'))));
+      const swapped = onlyLayer(convert(chart('XYScatterLines', [curve], titled('Precision', 'Recall'))));
+
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+      expect(layer.data).toEqual([[{ x: 0, y: 1 }, { x: 0.5, y: 0.8 }, { x: 1, y: 0.4 }]]);
+      expect(swapped.type).toBe(TraceType.LINE);
+    });
   });
 
   describe('radar charts', () => {

@@ -120,6 +120,23 @@ afterEach(() => {
 });
 
 describe('the real uPlot package', () => {
+  it('reads a fan chart from the bands uPlot was given', async () => {
+    const u = await make({
+      bands: [{ series: [2, 1] }],
+      series: [
+        {},
+        { label: 'p5' },
+        { label: 'p95' },
+        { label: 'Median', maidr: { bands: [{ band: 0, lower: 0.05, upper: 0.95 }] } },
+      ],
+    }, [[1, 2], [0, 1], [4, 5], [2, 3]]);
+
+    const { maidr, sources } = extractUPlotData(u, 'real');
+    const layers = maidr.subplots[0][0].layers;
+    expect(layers.map(l => [l.id, l.type])).toEqual([['percentile_band-3', TraceType.PERCENTILE_BAND]]);
+    expect(sources.get('percentile_band-3')?.seriesIdxs).toEqual([1, 3, 2]);
+  });
+
   it('leaves the path flags the kind inference reads', async () => {
     const u = await make({
       series: [

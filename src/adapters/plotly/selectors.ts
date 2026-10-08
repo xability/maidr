@@ -103,7 +103,10 @@ export function generatePlotlySelectors(
     // A step trace is a scatter trace plotly drew as a staircase, and an area
     // is one it filled in underneath, so their markers — when they have any —
     // are the same `.point` elements.
+    // A precision-recall curve is a line plotly drew like any other, so it is
+    // highlighted through the same markers.
     case TraceType.LINE:
+    case TraceType.PR_CURVE:
     case TraceType.STEP:
     case TraceType.AREA:
     case TraceType.STACKED_AREA:
