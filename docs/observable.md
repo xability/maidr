@@ -148,13 +148,14 @@ the tab order — reveal's own inline style overrides the attribute. On a deck
 with a chart on every slide, a single **Tab** therefore lands on an off-screen
 slide's chart rather than the one in front of the reader. This is
 [hakimel/reveal.js#1587](https://github.com/hakimel/reveal.js/issues/1587),
-open since 2016.
+reported in 2016.
 
-The fix is now on reveal.js `master`, which marks every slide but the current
-one `inert`. It has not reached a published release yet, and Quarto carries its
-own copy of reveal.js — Quarto 1.10 ships 5.1.0 — so it will arrive in a Quarto
-release some time after reveal.js cuts one. Nothing will need to change in your
-deck when it does.
+reveal.js 6.0.2 fixes it by marking every slide but the current one `inert`.
+Quarto carries its own copy of reveal.js, though, and Quarto 1.10 still ships
+5.1.0, so a Quarto deck keeps the problem until Quarto moves to 6.0.2 or applies
+the same rule itself, which
+[quarto-dev/quarto-cli#14795](https://github.com/quarto-dev/quarto-cli/issues/14795)
+tracks. Nothing will need to change in your deck when it does.
 
 Until then,
 [quarto-revealjs-a11y](https://github.com/mcanouil/quarto-revealjs-a11y) does
