@@ -56,6 +56,7 @@ export type {
   ForestDeclaration,
   MaidrTraceDeclaration,
   ManhattanDeclaration,
+  PrCurveDeclaration,
   ScatterDeclaration,
   SeriesRef,
   SurvivalDeclaration,

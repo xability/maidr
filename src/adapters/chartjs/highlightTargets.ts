@@ -11,7 +11,7 @@
 import type { ChoroplethPoint, GanttData, HeatmapData, MaidrLayer, TreemapPoint } from '../../type/grammar';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
-import { drawnBoxCells, drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, drawnViolinCurveCells, isMatrixValue, isPointValue, isRangeValue, parallelGrid, toFiniteNumber } from './extractor';
+import { drawnBoxCells, drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, drawnPrCurveReads, drawnViolinCurveCells, isMatrixValue, isPointValue, isRangeValue, parallelGrid, toFiniteNumber } from './extractor';
 
 /**
  * Figure-unique layer id → original Chart.js dataset indices backing that
@@ -413,6 +413,17 @@ export function computeTargetMaps(
         barLineIndices.set(
           layer.id,
           dsIndices.map(dsIdx => finiteIndices(datasets[dsIdx]?.data ?? [])),
+        );
+        break;
+      }
+      // A declared precision-recall figure is a curve per dataset, read by a
+      // walk of its own that also skips a datum naming no recall -- so the
+      // walk is shared, as the interval chart's below is.
+      case TraceType.PR_CURVE: {
+        const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
+        barLineIndices.set(
+          layer.id,
+          dsIndices.map(dsIdx => drawnPrCurveReads(chart, dsIdx).map(read => read.index)),
         );
         break;
       }

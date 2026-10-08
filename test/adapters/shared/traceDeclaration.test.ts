@@ -582,6 +582,15 @@ const FULL_DECLARATIONS: readonly MaidrTraceDeclaration[] = [
     label: 'activity',
     unit: 'days',
   },
+  {
+    type: TraceType.PR_CURVE,
+    title: 't',
+    name: 'n',
+    threshold: 'cut',
+    prevalence: 0.3,
+    ap: 0.71,
+    merge: false,
+  },
 ];
 
 describe('validateDeclaration — a valid block passes through untouched', () => {
@@ -592,8 +601,8 @@ describe('validateDeclaration — a valid block passes through untouched', () =>
     expect(warnings).toEqual([]);
   });
 
-  test('all fourteen variants are covered by the fixtures above', () => {
-    expect(new Set(FULL_DECLARATIONS.map(d => d.type)).size).toBe(14);
+  test('all fifteen variants are covered by the fixtures above', () => {
+    expect(new Set(FULL_DECLARATIONS.map(d => d.type)).size).toBe(15);
   });
 
   test('a survival curve may say its siblings are further arms of it', () => {
@@ -749,6 +758,9 @@ describe('validateDeclaration — a value of the wrong kind is dropped, not pass
     ['a fractional row index', TraceType.FOREST, 'pooledIndex', 2.5],
     ['a significance that is not finite', TraceType.MANHATTAN, 'significance', Number.NaN],
     ['an effect given as a string', TraceType.MANHATTAN, 'effect', '1.5'],
+    ['a prevalence given as a percentage', TraceType.PR_CURVE, 'prevalence', 30],
+    ['an average precision below zero', TraceType.PR_CURVE, 'ap', -0.1],
+    ['a prevalence given as a string', TraceType.PR_CURVE, 'prevalence', '0.3'],
   ];
 
   test.each(WRONG_VALUES)('%s is warned about and left out', (_label, type, key, value) => {

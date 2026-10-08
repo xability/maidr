@@ -18,8 +18,8 @@
  * the navigation they need.
  */
 
-import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DirectedGraphPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, NetworkPoint, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
+import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, PrCurveDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
+import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DirectedGraphPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, NetworkPoint, PiePoint, PrCurvePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsGeoValue, ChartJsGraphValue, ChartJsParsedValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -622,6 +622,7 @@ type DatasetDeclarations = readonly (MaidrTraceDeclaration | null)[];
  */
 const DECLARED_TYPE_CONSTRUCTS: Partial<Record<TraceType, readonly string[]>> = {
   [TraceType.SURVIVAL]: ['line'],
+  [TraceType.PR_CURVE]: ['line'],
   [TraceType.SCATTER]: ['scatter', 'bubble'],
   [TraceType.VOLCANO]: ['scatter', 'bubble'],
   [TraceType.MANHATTAN]: ['scatter', 'bubble'],
@@ -1933,6 +1934,136 @@ function extractSurvivalLayer(
   };
 }
 
+/**
+ * The recall a precision-recall datum was drawn at, when it is a number.
+ *
+ * The datum's own `x` on a linear scale, which is how a curve is drawn, and
+ * the label at its position on a category one -- the same preference
+ * {@link survivalTime} makes. A label that is not a number names no recall.
+ *
+ * @param value - The datum
+ * @param labels - The chart's category labels
+ * @param i - The datum's position in its dataset
+ * @returns The recall, or `null` when the datum names none
+ */
+function prRecall(
+  value: ChartJsDataValue,
+  labels: (string | number)[],
+  i: number,
+): number | null {
+  const raw = isPointValue(value) ? value.x : labels[i];
+  const recall = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw;
+  return typeof recall === 'number' && Number.isFinite(recall) ? recall : null;
+}
+
+/** One datum a declared precision-recall curve reads, and where it sits. */
+interface PrCurveRead {
+  /** The datum's position in its dataset, which is its Chart.js element index. */
+  index: number;
+  /** The recall. */
+  x: number;
+  /** The precision. */
+  y: number;
+}
+
+/**
+ * The data of a dataset that a declared precision-recall curve reads, in the
+ * order it reads them: every datum carrying both a recall and a precision.
+ *
+ * Exported because the highlight half walks the same list, as
+ * {@link drawnErrorBarIndices} is: the curve's `col` is a position in this
+ * list, and a table built by a different walk would outline a different point
+ * from the one announced (#1024).
+ *
+ * @param chart - The Chart.js chart
+ * @param datasetIndex - Which dataset to walk
+ * @returns Its read data, in written order
+ */
+export function drawnPrCurveReads(chart: ChartJsChart, datasetIndex: number): PrCurveRead[] {
+  const labels = chart.data.labels ?? [];
+  const data = chart.data.datasets[datasetIndex]?.data ?? [];
+  const reads: PrCurveRead[] = [];
+  data.forEach((value, index) => {
+    const y = toFiniteNumber(value);
+    const x = prRecall(value, labels, index);
+    if (x !== null && y !== null)
+      reads.push({ index, x, y });
+  });
+  return reads;
+}
+
+/**
+ * Extracts a declared precision-recall figure as one layer, a curve per row.
+ *
+ * A precision-recall curve is drawn as an ordinary line, with recall along x
+ * and precision up y, so nothing in a Chart.js config says it is one; this is
+ * reached only by declaration -- a dataset's `maidr` block, or
+ * `plugins.maidr.traceType`. Every line dataset is one curve of the figure,
+ * gathered into one layer the way a survival curve's arms are, because the
+ * curves are read against each other.
+ *
+ * The threshold rides on the datum, as a survival curve's censoring does,
+ * under the name the dataset's own block gives it. `prevalence` and `ap`
+ * come off that block too and describe that dataset's curve alone: a curve
+ * whose dataset declares none says no baseline rather than borrowing a
+ * neighbour's, which may have been scored on different data.
+ *
+ * @param chart - The chart to read
+ * @param declarations - Every dataset's validated block, in chart order
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns A single precision-recall layer holding every curve
+ */
+function extractPrCurveLayer(
+  chart: ChartJsChart,
+  declarations: DatasetDeclarations,
+  pluginOptions?: MaidrPluginOptions,
+): MaidrLayer {
+  const blocks = declarations.map(one =>
+    one?.type === TraceType.PR_CURVE ? one : undefined);
+
+  const curves: PrCurvePoint[][] = chart.data.datasets.map((dataset, dsIdx) => {
+    const block: PrCurveDeclaration | undefined = blocks[dsIdx];
+    const z = dataset.label ?? `Curve ${dsIdx + 1}`;
+    let resolved = false;
+    const curve = drawnPrCurveReads(chart, dsIdx).map(({ index, x, y }): PrCurvePoint => {
+      const threshold = resolveFieldRef<unknown>(dataset.data[index], block?.threshold, 'threshold');
+      resolved ||= threshold !== undefined;
+      return {
+        x,
+        y,
+        z,
+        ...(typeof threshold === 'number' && Number.isFinite(threshold) ? { threshold } : {}),
+      };
+    });
+
+    if (block?.threshold !== undefined && curve.length > 0 && !resolved)
+      warnUnresolvedRef(declarationContext(dataset, dsIdx), block.threshold, 'threshold');
+    if (curve.length > 0 && block !== undefined) {
+      curve[0] = {
+        ...curve[0],
+        ...(block.prevalence !== undefined ? { prevalence: block.prevalence } : {}),
+        ...(block.ap !== undefined ? { ap: block.ap } : {}),
+      };
+    }
+    return curve;
+  });
+
+  // Only one whole-chart reading can win, so the first block in chart order
+  // names the layer, as it decides the type.
+  const first = blocks.find(one => one !== undefined);
+  return {
+    id: '0',
+    type: TraceType.PR_CURVE,
+    ...(first?.title !== undefined ? { title: first.title } : {}),
+    ...(first?.name !== undefined ? { name: first.name } : {}),
+    axes: {
+      x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+      y: { label: getAxisLabel(chart, 'y', pluginOptions) },
+    },
+    data: curves,
+  };
+}
+
 function extractLineLayers(
   chart: ChartJsChart,
   declarations: DatasetDeclarations,
@@ -1963,6 +2094,8 @@ function extractLineLayers(
   const declared = declaredType(declarations, pluginOptions);
   if (declared === TraceType.SURVIVAL)
     return [extractSurvivalLayer(chart, pluginOptions)];
+  if (declared === TraceType.PR_CURVE)
+    return [extractPrCurveLayer(chart, declarations, pluginOptions)];
 
   if (isDotPlot(chart, declared))
     return extractDotLayers(chart, pluginOptions, datasetIndices);

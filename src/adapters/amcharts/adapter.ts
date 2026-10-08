@@ -57,6 +57,7 @@ import {
   choroplethFields,
   extractErrorBarSamples,
   extractForestSamples,
+  extractPrCurves,
   extractScatterPoints,
   extractSurvivalArms,
   extractVolcanoPoints,
@@ -649,6 +650,27 @@ function buildDeclaredLayer(
         title: declaration.title ?? armTitle(arms),
         ...(selectors.length > 0 ? { selectors } : {}),
         ...(declaration.stepDirection ? { stepDirection: declaration.stepDirection } : {}),
+        axes,
+        data,
+      };
+    }
+    // A curve per row, each with the line's own selector: the points and the
+    // marks are a line's, and only what is announced about them changes.
+    case TraceType.PR_CURVE: {
+      const { data } = extractPrCurves(declared);
+      if (data.length === 0) {
+        return null;
+      }
+      const curves = [declared.series, ...declared.arms];
+      const selectors = curves
+        .map(series => buildLineSelector(series, containerEl))
+        .filter((selector): selector is string => selector !== undefined);
+
+      return {
+        ...named,
+        type: TraceType.PR_CURVE,
+        title: declaration.title ?? armTitle(curves),
+        ...(selectors.length > 0 ? { selectors } : {}),
         axes,
         data,
       };

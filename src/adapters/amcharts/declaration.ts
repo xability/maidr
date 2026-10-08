@@ -34,6 +34,7 @@ import type {
   ForestDeclaration,
   MaidrTraceDeclaration,
   ManhattanDeclaration,
+  PrCurveDeclaration,
   ScatterDeclaration,
   SurvivalDeclaration,
   VolcanoDeclaration,
@@ -41,6 +42,7 @@ import type {
 import type {
   EstimatedPoint,
   ForestPoint,
+  PrCurvePoint,
   ScatterPoint,
   SurvivalPoint,
   ThresholdOptions,
@@ -97,6 +99,7 @@ export type AmDeclaration
     | ErrorBarDeclaration
     | ForestDeclaration
     | ManhattanDeclaration
+    | PrCurveDeclaration
     | ScatterDeclaration
     | SurvivalDeclaration
     | VolcanoDeclaration;
@@ -124,7 +127,8 @@ export interface AmDeclaredLayer {
   pooled?: AmXYSeries;
   /**
    * Following siblings folded into this layer by `merge`: further arms of one
-   * survival figure, or further chromosomes of one Manhattan cloud.
+   * survival figure, further curves of one precision-recall figure, or
+   * further chromosomes of one Manhattan cloud.
    */
   arms: AmXYSeries[];
 }
@@ -161,9 +165,13 @@ export interface DeclaredSamples<T> {
   owners: AmXYSeries[];
 }
 
-/** A survival figure's arms: one row of points, and one row of marks, each. */
-export interface DeclaredArms {
-  data: SurvivalPoint[][];
+/**
+ * A figure read as several rows of one layer -- a survival figure's arms, a
+ * precision-recall figure's curves: one row of points, and one row of marks,
+ * each.
+ */
+export interface DeclaredArms<T = SurvivalPoint> {
+  data: T[][];
   items: AmDataItem[][];
 }
 
@@ -274,6 +282,7 @@ function isDeclarable(declaration: MaidrTraceDeclaration): declaration is AmDecl
     case TraceType.ERROR_BAR:
     case TraceType.FOREST:
     case TraceType.MANHATTAN:
+    case TraceType.PR_CURVE:
     case TraceType.SCATTER:
     case TraceType.SURVIVAL:
     case TraceType.VOLCANO:
@@ -510,6 +519,10 @@ function backsDeclaration(series: AmXYSeries, declaration: AmDeclaration): boole
       return series.dataItems.some(item =>
         readXValue(item, series) != null && item.get('valueY') != null
         && toNumber(item.get('valueY')) != null);
+    // Both rates are numbers: a curve drawn against categories names no
+    // recall, whatever its labels look like.
+    case TraceType.PR_CURVE:
+      return series.dataItems.some(item => readRates(item, series) !== null);
     case TraceType.ERROR_BAR:
     case TraceType.FOREST: {
       const horizontal = declaredHorizontal(series, declaration);
@@ -538,6 +551,7 @@ function backsDeclaration(series: AmXYSeries, declaration: AmDeclaration): boole
 function mergesSiblings(declaration: AmDeclaration): boolean {
   switch (declaration.type) {
     case TraceType.SURVIVAL:
+    case TraceType.PR_CURVE:
     case TraceType.MANHATTAN:
       return declaration.merge !== false;
     case TraceType.VOLCANO:
@@ -546,6 +560,33 @@ function mergesSiblings(declaration: AmDeclaration): boolean {
     default:
       return false;
   }
+}
+
+/**
+ * Whether a following sibling may join a declared layer as a further row.
+ *
+ * A sibling that declares nothing joins, for every figure that merges. A
+ * sibling that declares a layer of its own keeps it -- except a further
+ * precision-recall curve declaring `pr_curve` too, which joins: a curve's
+ * `prevalence` and `ap` can only be said on its own block, and a figure whose
+ * every curve said them would otherwise be split into a layer per curve,
+ * putting the comparison the chart is drawn for behind a layer switch.
+ *
+ * @param declared - The layer absorbing siblings.
+ * @param sibling  - The series that might join it.
+ * @param plan     - The chart's plan, for the sibling's own declaration.
+ * @returns True when the sibling joins as a further row.
+ */
+function joinsAsArm(
+  declared: AmDeclaredLayer,
+  sibling: AmXYSeries,
+  plan: AmDeclarationPlan,
+): boolean {
+  if (readDeclaration(sibling) === null) {
+    return true;
+  }
+  return declared.declaration.type === TraceType.PR_CURVE
+    && plan.declared.get(sibling)?.declaration.type === TraceType.PR_CURVE;
 }
 
 /**
@@ -687,7 +728,7 @@ export function planDeclarations(chart: AmChart): AmDeclarationPlan {
     // the question being asked of the siblings.
     const drawn = classifySeriesKind(series);
     for (const sibling of seriesList.slice(seriesList.indexOf(series) + 1)) {
-      if (plan.absorbed.has(sibling) || readDeclaration(sibling) !== null) {
+      if (plan.absorbed.has(sibling) || !joinsAsArm(declared, sibling, plan)) {
         continue;
       }
       if (classifySeriesKind(sibling) !== drawn) {
@@ -695,6 +736,9 @@ export function planDeclarations(chart: AmChart): AmDeclarationPlan {
       }
       declared.arms.push(sibling);
       plan.absorbed.add(sibling);
+      // A further curve that said what it is joins as a curve rather than
+      // standing as a layer of its own; see `joinsAsArm`.
+      plan.declared.delete(sibling);
     }
   }
 
@@ -827,6 +871,90 @@ export function extractSurvivalArms(declared: AmDeclaredLayer): DeclaredArms {
 
   reportMisses(declared, misses);
   return { data, items };
+}
+
+// ---------------------------------------------------------------------------
+// Precision-recall
+// ---------------------------------------------------------------------------
+
+/**
+ * The recall and the precision one mark of a precision-recall curve was drawn
+ * at, when both are numbers.
+ *
+ * @param item   - The live data item.
+ * @param series - The series it belongs to.
+ * @returns The two rates, or `null` when either is missing.
+ */
+function readRates(item: AmDataItem, series: AmXYSeries): { x: number; y: number } | null {
+  const x = declaredNumber(readXValue(item, series));
+  const y = declaredNumber(item.get('valueY'));
+  return x === null || y === null ? null : { x, y };
+}
+
+/**
+ * Read a declared precision-recall figure: one row of points per curve.
+ *
+ * The curve is read exactly as a line is, with the recall on x and the
+ * precision on y; what a precision-recall figure carries beyond one comes off
+ * each curve's own rows (the threshold) and off **its own** block (the
+ * prevalence and the average precision, on its first point). A curve merged
+ * in without a block of its own says neither, rather than borrowing the
+ * declaring curve's, which may have been scored on different data.
+ *
+ * @param declared - The declared layer and the curves merged into it.
+ * @returns The curves' points, the live marks behind them, and the series
+ *   drawing each row -- a curve with no readable mark is left out, so a row
+ *   is not always the series at the same position.
+ */
+export function extractPrCurves(
+  declared: AmDeclaredLayer,
+): DeclaredArms<PrCurvePoint> & { owners: AmXYSeries[] } {
+  const data: PrCurvePoint[][] = [];
+  const items: AmDataItem[][] = [];
+  const owners: AmXYSeries[] = [];
+
+  for (const [row, series] of [declared.series, ...declared.arms].entries()) {
+    const own = row === 0 ? declared.declaration : readDeclaration(series);
+    const block = own?.type === TraceType.PR_CURVE ? own : undefined;
+    const misses = block ? explicitRefs(block, ['threshold']) : new Map<string, string>();
+    const name = series.get('name');
+    const curve: PrCurvePoint[] = [];
+    const marks: AmDataItem[] = [];
+
+    for (const item of series.dataItems) {
+      const rates = readRates(item, series);
+      if (rates === null) {
+        continue;
+      }
+      const threshold = declaredNumber(
+        readField(item.dataContext, block?.threshold, 'threshold', misses),
+      );
+      curve.push({
+        ...rates,
+        ...(typeof name === 'string' && name.length > 0 ? { z: name } : {}),
+        ...(threshold === null ? {} : { threshold }),
+      });
+      marks.push(item);
+    }
+
+    if (block) {
+      reportMisses({ ...declared, series, declaration: block }, misses);
+    }
+    if (curve.length > 0) {
+      if (block) {
+        curve[0] = {
+          ...curve[0],
+          ...(block.prevalence === undefined ? {} : { prevalence: block.prevalence }),
+          ...(block.ap === undefined ? {} : { ap: block.ap }),
+        };
+      }
+      data.push(curve);
+      items.push(marks);
+      owners.push(series);
+    }
+  }
+
+  return { data, items, owners };
 }
 
 // ---------------------------------------------------------------------------

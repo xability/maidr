@@ -148,6 +148,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Bump (rank over time) [experimental] | `LineSeries` | value axis renderer `inversed: true` **and** values that are a ranking; or the `bump` option |
 | Gauge [experimental] | *no series* — an `am5radar.ClockHand` on a `RadarChart` axis | chart class `RadarChart` + a `ClockHand` bullet, asked only when the chart's series produced no layer (requires `radar.js`) |
 | Survival (Kaplan-Meier) [experimental] | `StepLineSeries` | **declared** — `userData: { maidr: { type: "survival" } }` |
+| Precision-Recall Curve [experimental] | `LineSeries` on two value axes, recall on x | **declared** — `{ type: "pr_curve" }` |
 | Error bar [experimental] | any XY series, with a floating column behind it | **declared** — `{ type: "error_bar" }` |
 | Forest (meta-analysis) [experimental] | horizontal `openValueXField` columns plus estimate marks | **declared** — `{ type: "forest" }` |
 | Volcano [experimental] | hidden-stroke `LineSeries` with bullets, two value axes | **declared** — `{ type: "volcano" }` |
@@ -201,6 +202,7 @@ A field you leave out falls back to its canonical name and then to a short list 
 | type | fields |
 |---|---|
 | `"survival"` | `censored`, `yMin`, `yMax`, `stepDirection`, `censoredSeries`, `bandSeries`, `merge` (default `true`) |
+| `"pr_curve"` | `threshold`, `prevalence`, `ap`, `merge` (default `true`) |
 | `"error_bar"` | `yMin`, `yMax`, `error`, `intervalSeries`, `orientation` |
 | `"forest"` | everything `error_bar` takes, plus `weight`, `pooled`, `pooledIndex`, `pooledSeries`, `nullValue` |
 | `"manhattan"` | `label`, `group`, `significance`, `significanceDirection`, `effect`, `merge` (default `true`) |
@@ -243,6 +245,8 @@ On a forest plot declaring both `intervalSeries` and `pooledSeries`, the interva
 ### Merging siblings
 
 A Manhattan is usually drawn as one series per chromosome, and a survival figure as one per arm. Both are **one** layer: `merge` folds every *following* sibling of the same drawn kind that carries no declaration of its own into the declared layer, so a reader gets one navigable trace rather than twenty-two layers to switch between. It is on by default for `survival` and `manhattan`, and off for `volcano` and `point`, whose sibling series are usually the comparison a reader wants kept apart. Set `merge: false` (or `true`) to say otherwise.
+
+A precision-recall figure merges by default too — its curves are read against each other — with one difference: a following curve that declares `pr_curve` itself also joins the layer rather than standing on its own. `prevalence` (the share of positives, which sets the chance baseline) and `ap` (the average precision) are values on a block and describe **that series' curve only**, both as fractions from 0 to 1; so a figure whose every curve states its own puts a block on each, and they stay one layer. A curve merged in without a block of its own states neither rather than borrowing its neighbour's. The threshold is a column of each curve's own rows (`threshold`, falling back to `thresholds` and `cutoff`). Recall must be a number, so a curve drawn against a category axis is refused with a warning.
 
 ### Highlighting a declared layer
 

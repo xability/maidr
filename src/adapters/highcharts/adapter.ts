@@ -19,6 +19,7 @@ import type {
   FieldRef,
   ForestDeclaration,
   MaidrTraceDeclaration,
+  PrCurveDeclaration,
   SeriesRef,
   SurvivalDeclaration,
 } from '../../type/declaration';
@@ -48,6 +49,7 @@ import type {
   MosaicPoint,
   NetworkPoint,
   PiePoint,
+  PrCurvePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -1590,6 +1592,9 @@ function convertDeclaredSeries(
           consumed,
         );
         break;
+      case TraceType.PR_CURVE:
+        layer = convertPrCurveSeries(series, declaration, seriesList, chart, containerId, consumed);
+        break;
       case TraceType.FOREST:
         layer = convertForestSeries(
           series,
@@ -1997,6 +2002,128 @@ function convertSurvivalSeries(
     ...(stepDirection ? { stepDirection } : {}),
     data,
   };
+}
+
+/**
+ * The series types a precision-recall curve is drawn with: a line, joined
+ * straight or smoothed. Anything else drawing rates against each other -- a
+ * scatter of operating points -- is a different chart.
+ */
+const PR_CURVE_TYPES = new Set(['line', 'spline']);
+
+/**
+ * Converts a declared precision-recall curve into a `pr_curve` layer.
+ *
+ * Drawn as an ordinary `line` or `spline`, with recall along x and precision
+ * up y, so nothing on the series says it is one; undeclared it is a line
+ * layer, correct about every number and silent about the thresholds, the
+ * average precision and the chance baseline the figure is read against. The
+ * points and the selectors are the line's own -- one path per curve -- so only
+ * what is announced changes.
+ *
+ * Following curves merge into the layer as further rows, as a survival
+ * curve's arms do: undeclared line series, and line series declaring a
+ * `pr_curve` of their own, which is how each curve says its own prevalence
+ * and average precision. Neither is ever lent to a curve that did not say it.
+ *
+ * @param series - The declaring series
+ * @param declaration - What the author said the series means
+ * @param seriesList - The panel's series, for further curves
+ * @param chart - The chart being converted
+ * @param containerId - The chart's render-target id
+ * @param consumed - The series the declared layers already announce
+ * @returns The precision-recall layer, or null when the series cannot back it
+ */
+function convertPrCurveSeries(
+  series: HighchartsSeries,
+  declaration: PrCurveDeclaration,
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+  consumed: Set<HighchartsSeries>,
+): MaidrLayer | null {
+  if (!PR_CURVE_TYPES.has(resolveSeriesType(series, chart))) {
+    warnWrongConstruct(series, declaration.type, chart, 'a "line" or "spline" series');
+    return null;
+  }
+
+  consumed.add(series);
+  const curves = [series];
+  if (declaration.merge !== false) {
+    for (const candidate of seriesList.slice(seriesList.indexOf(series) + 1)) {
+      const own = declarationOf(candidate);
+      if (consumed.has(candidate)
+        || (own !== null && own.type !== TraceType.PR_CURVE)
+        || !PR_CURVE_TYPES.has(resolveSeriesType(candidate, chart))
+        || linkedParentOf(candidate, chart) !== undefined) {
+        continue;
+      }
+      consumed.add(candidate);
+      curves.push(candidate);
+    }
+  }
+
+  const data = curves.map((curve, row) => {
+    const own = row === 0 ? declaration : declarationOf(curve);
+    return prCurvePoints(curve, own?.type === TraceType.PR_CURVE ? own : undefined);
+  });
+  const names = curves.map(curve => curve.name).filter(Boolean);
+
+  return {
+    id: curves.map(curve => String(curve.index)).join('-'),
+    type: TraceType.PR_CURVE,
+    title: declaration.title ?? (names.join(', ') || undefined),
+    ...(declaration.name ? { name: declaration.name } : {}),
+    selectors: lineSelectors(containerId, curves.map(curve => curve.index)),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Reads one precision-recall curve, with the threshold each point carries.
+ *
+ * The threshold is a column of the curve's own rows, read through the field
+ * the block names; `prevalence` and `ap` come off the block and ride on the
+ * curve's first point, where the grammar reads them. A point whose precision
+ * is not a number is skipped, as a line skips it.
+ *
+ * @param curve - The series drawing the curve
+ * @param declaration - The curve's own block, when it carries one
+ * @returns The curve's points
+ */
+function prCurvePoints(
+  curve: HighchartsSeries,
+  declaration: PrCurveDeclaration | undefined,
+): PrCurvePoint[] {
+  const thresholds = readSeriesField(curve, declaration?.threshold, 'threshold');
+  const points: PrCurvePoint[] = [];
+  curve.data.forEach((point, index) => {
+    const x = finiteNumber(point.x);
+    const y = finiteNumber(point.y);
+    if (x === undefined || y === undefined) {
+      return;
+    }
+    const threshold = finiteNumber(thresholds[index]);
+    points.push({
+      x,
+      y,
+      ...(curve.name ? { z: curve.name } : {}),
+      ...(threshold === undefined ? {} : { threshold }),
+    });
+  });
+
+  if (points.length > 0 && declaration !== undefined) {
+    points[0] = {
+      ...points[0],
+      ...(declaration.prevalence === undefined ? {} : { prevalence: declaration.prevalence }),
+      ...(declaration.ap === undefined ? {} : { ap: declaration.ap }),
+    };
+  }
+  return points;
 }
 
 /**

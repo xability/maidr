@@ -30,7 +30,7 @@
  * option blocks would become a second grammar that can drift from the first.
  */
 
-import type { AlluvialDeclaration, BoxenDeclaration, ChoroplethDeclaration, ErrorBarDeclaration, FieldRef, ForestDeclaration, GanttDeclaration, HexbinDeclaration, MaidrTraceDeclaration, ManhattanDeclaration, MosaicDeclaration, ParallelDeclaration, RidgelineDeclaration, ScatterDeclaration, SurvivalDeclaration, VolcanoDeclaration } from '../../type/declaration';
+import type { AlluvialDeclaration, BoxenDeclaration, ChoroplethDeclaration, ErrorBarDeclaration, FieldRef, ForestDeclaration, GanttDeclaration, HexbinDeclaration, MaidrTraceDeclaration, ManhattanDeclaration, MosaicDeclaration, ParallelDeclaration, PrCurveDeclaration, RidgelineDeclaration, ScatterDeclaration, SurvivalDeclaration, VolcanoDeclaration } from '../../type/declaration';
 import { Orientation, TraceType } from '../../type/grammar';
 
 /** The `type` values {@link MaidrTraceDeclaration} covers. */
@@ -127,6 +127,9 @@ export const FIELD_REF_FALLBACKS: Readonly<Record<string, readonly string[]>> = 
   levels: ['letterValues', 'letter_values', 'quantiles', 'ladder'],
   lon: ['longitude', 'long'],
   lat: ['latitude'],
+  // `thresholds` is what `precision_recall_curve` calls its third array, and
+  // so the column a data frame built from it carries.
+  threshold: ['thresholds', 'cutoff'],
 };
 
 /**
@@ -466,6 +469,7 @@ type ValueKind
     | 'series'
     | 'text'
     | 'number'
+    | 'fraction'
     | 'index'
     | 'boolean'
     | 'dimensions'
@@ -626,6 +630,16 @@ const DECLARATION_KEYS: Readonly<Record<DeclaredType, Readonly<Record<string, Ke
     // their numbers measure.
     unit: 'text',
   } satisfies FieldKeySet<GanttDeclaration>,
+  [TraceType.PR_CURVE]: {
+    title: 'text',
+    name: 'text',
+    threshold: 'field',
+    // Fractions, not numbers: both are rates, and a percentage written here
+    // would put the chance baseline thirty times above the chart.
+    prevalence: 'fraction',
+    ap: 'fraction',
+    merge: 'boolean',
+  } satisfies FieldKeySet<PrCurveDeclaration>,
 };
 
 /**
@@ -642,6 +656,7 @@ const VALUE_EXPECTATIONS: Readonly<Record<ValueKind, string>> = {
   series: 'a series id',
   text: 'a string',
   number: 'a number',
+  fraction: 'a number from 0 to 1',
   index: 'a row index',
   boolean: 'a boolean',
   dimensions: 'a non-empty list of axes',
@@ -669,6 +684,8 @@ function isValidValue(kind: Exclude<ValueKind, 'dimensions'>, value: unknown): b
       return typeof value === 'string';
     case 'number':
       return typeof value === 'number' && Number.isFinite(value);
+    case 'fraction':
+      return typeof value === 'number' && value >= 0 && value <= 1;
     case 'index':
       return typeof value === 'number' && Number.isInteger(value) && value >= 0;
     case 'boolean':

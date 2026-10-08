@@ -3,6 +3,7 @@ import type {
   ErrorBarPoint,
   ForestPoint,
   MaidrLayer,
+  PrCurvePoint,
   ScatterPoint,
   SurvivalPoint,
   VolcanoPoint,
@@ -524,6 +525,77 @@ describe('declared survival curves', () => {
   });
 });
 
+describe('declared precision-recall curves', () => {
+  const RATES = [
+    { valueX: 0, valueY: 1 },
+    { valueX: 0.6, valueY: 0.8 },
+    { valueX: 1, valueY: 0.3 },
+  ];
+  const THRESHOLDS = [{}, { threshold: 0.5 }, { threshold: 0 }];
+
+  it('reads a declared line as a curve, with the threshold off the author\'s row', () => {
+    const layer = layerOf([cloudSeries('Logistic', RATES, {
+      maidr: { type: 'pr_curve', prevalence: 0.3 },
+      rows: THRESHOLDS,
+    })]);
+    const curves = layer.data as PrCurvePoint[][];
+
+    expect(layer.type).toBe(TraceType.PR_CURVE);
+    expect(curves).toEqual([[
+      { x: 0, y: 1, z: 'Logistic', prevalence: 0.3 },
+      { x: 0.6, y: 0.8, z: 'Logistic', threshold: 0.5 },
+      { x: 1, y: 0.3, z: 'Logistic', threshold: 0 },
+    ]]);
+  });
+
+  it('stays the undeclared reading without a block', () => {
+    expect(layerOf([cloudSeries('Logistic', RATES)]).type).not.toBe(TraceType.PR_CURVE);
+  });
+
+  it('folds following curves in, each keeping only its own block\'s facts', () => {
+    const layer = layerOf([
+      cloudSeries('Logistic', RATES, { maidr: { type: 'pr_curve', prevalence: 0.3 } }),
+      cloudSeries('Forest', RATES),
+      cloudSeries('Boosted', RATES, { maidr: { type: 'pr_curve', prevalence: 0.3, ap: 0.9 } }),
+    ]);
+    const curves = layer.data as PrCurvePoint[][];
+
+    expect(curves.map(curve => curve[0].z)).toEqual(['Logistic', 'Forest', 'Boosted']);
+    expect(curves.map(curve => curve[0].prevalence)).toEqual([0.3, undefined, 0.3]);
+    expect(curves.map(curve => curve[0].ap)).toEqual([undefined, undefined, 0.9]);
+  });
+
+  it('leaves following curves alone when merge is off', () => {
+    const layers = layersOf([
+      cloudSeries('Logistic', RATES, { maidr: { type: 'pr_curve', merge: false } }),
+      cloudSeries('Boosted', RATES, { maidr: { type: 'pr_curve' } }),
+    ]);
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.PR_CURVE, TraceType.PR_CURVE]);
+  });
+
+  it('uses an explicit threshold name verbatim and reports one that misses', () => {
+    const layer = layerOf([cloudSeries('Logistic', RATES, {
+      maidr: { type: 'pr_curve', threshold: 'cut' },
+      rows: THRESHOLDS,
+    })]);
+    const curves = layer.data as PrCurvePoint[][];
+
+    expect(curves[0].every(point => point.threshold === undefined)).toBe(true);
+    expect(warnings()).toContain('names "cut" for threshold');
+  });
+
+  it('refuses a curve drawn against categories, which name no recall', () => {
+    const layers = layersOf([stepSeries('Arm A', [
+      { categoryX: 'low', valueY: 1 },
+      { categoryX: 'high', valueY: 0.4 },
+    ], { maidr: { type: 'pr_curve' } })]);
+
+    expect(layers[0].type).not.toBe(TraceType.PR_CURVE);
+    expect(warnings()).toContain('declares "pr_curve", but no mark of it carries');
+  });
+});
+
 describe('declared error bars', () => {
   const ESTIMATES = [
     { categoryX: 'A', valueY: 1.4 },
@@ -930,6 +1002,25 @@ describe('declared layers and the highlight', () => {
     expect(targets).toHaveLength(1);
     expect(targets[0].series).toBe(control);
     expect(itemOf(targets[0])).toBe(control.dataItems[1]);
+  });
+
+  it('points a precision-recall position at the mark of that curve and that threshold', () => {
+    const logistic = cloudSeries('Logistic', [
+      { valueX: 0, valueY: 1 },
+      { valueX: 0.6, valueY: 0.8 },
+    ], { maidr: { type: 'pr_curve' } });
+    const boosted = cloudSeries('Boosted', [
+      { valueX: 0, valueY: 1 },
+      { valueX: 0.7, valueY: 0.9 },
+    ], { maidr: { type: 'pr_curve', ap: 0.9 } });
+    const navMap = navMapOf([logistic, boosted]);
+    const layerId = layersOf([logistic, boosted])[0].id;
+
+    const targets = navMap.resolve(layerId, 1, 1);
+
+    expect(targets).toHaveLength(1);
+    expect(targets[0].series).toBe(boosted);
+    expect(itemOf(targets[0])).toBe(boosted.dataItems[1]);
   });
 
   it('points every section of an error bar at the sample it belongs to', () => {
