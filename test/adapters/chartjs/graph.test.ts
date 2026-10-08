@@ -30,11 +30,13 @@
  *     {@link TraceType.NETWORK} is the grammar's own word for it.
  */
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsMetaElement } from '@adapters/chartjs/types';
-import type { DirectedGraphPoint, NetworkPoint, TreemapPoint } from '@type/grammar';
+import type { DirectedGraphPoint, NavigateCallback, NetworkPoint, TreemapPoint } from '@type/grammar';
 import { extractChartData } from '@adapters/chartjs/extractor';
 import { computeTargetMaps, resolveActiveTargets } from '@adapters/chartjs/highlightTargets';
 import { describe, expect, it } from '@jest/globals';
+import { DirectedGraphTrace } from '@model/directedGraph';
 import { TraceType } from '@type/grammar';
+import { createNavigateObserver } from '@util/navigateObserver';
 
 type GraphType = 'tree' | 'dendrogram' | 'forceDirectedGraph';
 
@@ -226,9 +228,11 @@ describe('chart.js graph', () => {
     expect(layer.type).toBe(TraceType.TREE);
   });
 
-  it('outlines nothing on a directed graph rather than the node at the cursor s column', () => {
-    // `DirectedGraphTrace` addresses a node by scope and topological order,
-    // which is not the dataset position `setActiveElements` takes.
+  it('outlines the node a directed graph s cursor is on, by its declared index', () => {
+    // `DirectedGraphTrace` walks in topological order -- c feeds b feeds a,
+    // so c comes first -- and names the node it is on by its index in
+    // `layer.data`, which is the dataset order the plugin draws its node
+    // elements in. The cursor's row and column are -1 and say nothing.
     const chart = graphChart('forceDirectedGraph', [null, null, null], {
       labels: ['a', 'b', 'c'],
       edges: [[2, 1], [1, 0]],
@@ -237,11 +241,55 @@ describe('chart.js graph', () => {
     const extraction = extractChartData(chart);
     const layers = extraction.maidr.subplots[0][0].layers;
     const maps = computeTargetMaps(chart, layers, extraction.layerDatasetIndices);
+    const trace = new DirectedGraphTrace(layers[0]);
+    const events: Parameters<NavigateCallback>[0][] = [];
+    trace.addObserver(createNavigateObserver(trace, event => events.push(event)));
 
-    const targets = [0, 1, 2].map(col =>
-      resolveActiveTargets(layers, maps, extraction.layerDatasetIndices, layers[0].id, 0, col));
+    const outlined: string[] = [];
+    for (let step = 0; step < 3; step++) {
+      trace.moveOnce('FORWARD');
+      const event = events[events.length - 1];
+      const targets = event === null
+        ? []
+        : resolveActiveTargets(
+            layers,
+            maps,
+            extraction.layerDatasetIndices,
+            event.layerId,
+            event.row,
+            event.col,
+            event.pointIndices,
+          );
+      outlined.push(targets.map(target => `${target.datasetIndex}:${target.index}`).join(','));
+    }
 
-    expect(targets).toEqual([[], [], []]);
+    expect(outlined).toEqual(['0:2', '0:1', '0:0']);
+  });
+
+  it('outlines nothing on a directed graph whose drawn nodes no longer match its payload', () => {
+    // A node added after extraction shifts nothing in `layer.data` but would
+    // leave the table naming elements by a stale count.
+    const chart = graphChart('forceDirectedGraph', [null, null], {
+      labels: ['a', 'b'],
+      edges: [[0, 1]],
+      edgeOptions: [{ directed: true }],
+    });
+    const extraction = extractChartData(chart);
+    const layers = extraction.maidr.subplots[0][0].layers;
+    chart.getDatasetMeta(0).data.push({} as ChartJsMetaElement);
+    const maps = computeTargetMaps(chart, layers, extraction.layerDatasetIndices);
+
+    const targets = resolveActiveTargets(
+      layers,
+      maps,
+      extraction.layerDatasetIndices,
+      layers[0].id,
+      -1,
+      -1,
+      [0],
+    );
+
+    expect(targets).toEqual([]);
   });
 
   it('names a graph by what a reader is after at a node', () => {
