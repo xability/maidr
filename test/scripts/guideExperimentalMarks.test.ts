@@ -111,6 +111,7 @@ const VOCABULARY: Record<string, string[]> = {
   'directed graph': ['directed_graph'],
   'precision-recall curve': ['pr_curve'],
   'percentile band': ['percentile_band'],
+  'fan chart': ['percentile_band'],
   'fan charts': ['percentile_band'],
   'tree': ['tree'],
   'pack': ['pack'],

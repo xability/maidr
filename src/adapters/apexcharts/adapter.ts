@@ -37,8 +37,15 @@ import type {
   StepDirection,
   TreemapPoint,
 } from '../../type/grammar';
+import type { PercentileBandPlan, ResolvedBandEdges } from '../shared/percentileBandOption';
 import type { ApexChartsAdapterOptions, ApexChartsInstance } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+import {
+  percentileBandPoints,
+  readPercentileBandOptions,
+  warnUnreadBand,
+  warnUnreadMedian,
+} from '../shared/percentileBandOption';
 import { isAngle, pieGeometry } from '../shared/pieGeometry';
 import {
   authoredX,
@@ -73,6 +80,7 @@ import {
   partSelector,
   pieSelector,
   radarMarkerSelector,
+  rangeAreaSelector,
   rangeBarSelector,
   rootSelector,
   seriesGroupSelector,
@@ -101,6 +109,8 @@ interface Context {
   yOverride: boolean;
   /** How many layers have been given an id. */
   layerCount: number;
+  /** The fan charts the caller declared, validated. */
+  fans: PercentileBandPlan[];
 }
 
 /**
@@ -164,10 +174,13 @@ function warnOnce(chart: ApexChartsInstance, key: string, message: string): void
  * - `treemap` → {@link TraceType.TREEMAP}
  * - `radialBar` → {@link TraceType.GAUGE}, one layer per ring
  *
+ * - a `line` median with `rangeArea` bands named in `options.percentileBands`
+ *   → {@link TraceType.PERCENTILE_BAND}
+ *
  * A combo chart (`series[i].type` differing) becomes one subplot holding a
- * layer per group of series. Series of any other type (`rangeArea`, for one)
- * are skipped with a console warning, as are series hidden through the
- * legend.
+ * layer per group of series. Series of any other type (a `rangeArea` no fan
+ * chart names, for one) are skipped with a console warning, as are series
+ * hidden through the legend.
  *
  * On a box plot or candlestick chart the conversion changes the chart's DOM:
  * it adds a hidden path per part next to each box or candle, and keeps them
@@ -218,6 +231,7 @@ export function apexchartsToMaidr(
     },
     yOverride: options.axes?.y !== undefined,
     layerCount: 0,
+    fans: readPercentileBandOptions(options.percentileBands, 'ApexCharts'),
   };
 
   const subplot: MaidrSubplot = { layers: buildLayers(ctx) };
@@ -535,10 +549,20 @@ function cartesianLayers(ctx: Context): MaidrLayer[] {
 
   const visible = visibleSeries(chart);
   warnNormalizedLines(chart, visible);
+  const fans = planFans(ctx, visible);
+  const absorbed = new Set(fans.flatMap(fan => fan.bands.map(band => band.index)));
   const boxes = visible.filter(i => seriesType(chart, i) === 'boxPlot');
   const outliers = boxes.length === 1 ? foldOutliers(ctx, boxes[0], visible) : null;
 
   for (const i of visible) {
+    const fan = fans.find(one => one.median === i);
+    if (fan) {
+      buckets.set(`fan:${i}`, { kind: 'fan', indices: [i, ...fan.bands.map(band => band.index)], fan });
+      continue;
+    }
+    if (absorbed.has(i)) {
+      continue;
+    }
     const type = seriesType(chart, i);
     switch (type) {
       case 'bar':
@@ -583,6 +607,119 @@ function cartesianLayers(ctx: Context): MaidrLayer[] {
   return [...buckets.values()].flatMap(bucket => bucketLayers(ctx, bucket, outliers?.byBox));
 }
 
+/** A declared fan chart, resolved to the series that draw it. */
+interface ApexFan {
+  plan: PercentileBandPlan;
+  /** The median's series. */
+  median: number;
+  /** The bands that could be read, outermost first. */
+  bands: { lower: number; upper: number; index: number }[];
+}
+
+/**
+ * Resolves each declared fan chart to its series, by name.
+ *
+ * The median has to be a drawn `line` series and each band a drawn
+ * `rangeArea` one, the only series that draws an area between two values. A
+ * band naming nothing, drawing something else, or already read is reported
+ * and left out; a fan whose median cannot be read is reported and its series
+ * are read as they were.
+ *
+ * @param ctx - The conversion context
+ * @param visible - The drawn series
+ * @returns The fans that can be read
+ */
+function planFans(ctx: Context, visible: number[]): ApexFan[] {
+  const { chart } = ctx;
+  const used = new Set<number>();
+  const named = (name: string): number | undefined => visible.find(i => seriesName(chart, i) === name);
+  const fans: ApexFan[] = [];
+  for (const plan of ctx.fans) {
+    const median = named(plan.median);
+    if (median === undefined || seriesType(chart, median) !== 'line' || used.has(median)) {
+      warnUnreadMedian(
+        'ApexCharts',
+        plan,
+        median === undefined
+          ? 'this chart does not draw'
+          : used.has(median) ? 'another fan chart already reads' : `is drawn as "${seriesType(chart, median)}" rather than as a line`,
+      );
+      continue;
+    }
+    used.add(median);
+    const bands: ApexFan['bands'] = [];
+    for (const band of plan.bands) {
+      const index = named(band.series);
+      if (index === undefined) {
+        warnUnreadBand('ApexCharts', plan, band.series, 'this chart does not draw');
+      } else if (seriesType(chart, index) !== 'rangeArea') {
+        warnUnreadBand('ApexCharts', plan, band.series, `is drawn as "${seriesType(chart, index)}" rather than as a rangeArea`);
+      } else if (used.has(index)) {
+        warnUnreadBand('ApexCharts', plan, band.series, 'another band or median already reads');
+      } else {
+        used.add(index);
+        bands.push({ lower: band.lower, upper: band.upper, index });
+      }
+    }
+    fans.push({ plan, median, bands });
+  }
+  return fans;
+}
+
+/**
+ * Builds a declared fan chart's `percentile_band` layer.
+ *
+ * The median's values are its line's, and each band's edges are the low and
+ * high values its `rangeArea` was drawn from, matched to the median by x.
+ * Highlighted as a fan is: each band's filled path, outermost first, then the
+ * median's line -- the elements ApexCharts 7.6.0 draws, one
+ * `path.apexcharts-rangeArea` per range series and one `path.apexcharts-line`
+ * per line, in each series' own group.
+ *
+ * @param ctx - The conversion context
+ * @param fan - The fan chart
+ * @returns The layer, or null when the median has no points
+ */
+function fanLayer(ctx: Context, fan: ApexFan): MaidrLayer | null {
+  const { chart } = ctx;
+  const { globals } = chart.w;
+  const values = seriesValues(chart, fan.median);
+  const xs = categoriesOf(chart, fan.median, values.length);
+  const medians = values.map((raw, j) => ({ x: xs[j], value: toNumber(raw) }));
+  if (medians.every(point => point.value === null)) {
+    return null;
+  }
+  const bands: ResolvedBandEdges[] = fan.bands.map((band) => {
+    const lows = globals.seriesRangeStart?.[band.index] ?? [];
+    const highs = globals.seriesRangeEnd?.[band.index] ?? [];
+    const at = new Map<string | number, readonly [number | null, number | null]>();
+    categoriesOf(chart, band.index, Math.max(lows.length, highs.length)).forEach((x, j) => {
+      if (!at.has(x)) {
+        at.set(x, [toNumber(lows[j]), toNumber(highs[j])]);
+      }
+    });
+    return { lower: band.lower, upper: band.upper, edgesAt: position => at.get(medians[position].x) };
+  });
+
+  const title = fan.plan.title ?? seriesName(chart, fan.median);
+  return {
+    id: nextLayerId(ctx),
+    type: TraceType.PERCENTILE_BAND,
+    title,
+    ...(fan.plan.name ? { name: fan.plan.name } : {}),
+    axes: { x: positionalXAxis(ctx, [medians]), y: axis(yLabelOf(ctx, [fan.median])) },
+    ...(ctx.wrap
+      ? {
+          selectors: [
+            ...fan.bands.map(band => rangeAreaSelector(ctx.root, band.index)),
+            linePathSelector(ctx.root, fan.median),
+          ],
+        }
+      : {}),
+    data: percentileBandPoints(medians, bands),
+  };
+}
+
 /**
  * Warns, once per chart, that ApexCharts 7.6.0 draws 100% stacked lines and
  * areas outside the plot.
@@ -614,7 +751,7 @@ function warnNormalizedLines(chart: ApexChartsInstance, visible: number[]): void
 /**
  * The kinds of series group a cartesian chart is split into.
  */
-type BucketKind = 'bar' | 'funnel' | 'line' | 'area' | 'scatter' | 'candlestick' | 'box' | 'rangeBar';
+type BucketKind = 'bar' | 'funnel' | 'line' | 'area' | 'scatter' | 'candlestick' | 'box' | 'rangeBar' | 'fan';
 
 /**
  * A group of series that become one layer (or, for bars, one family).
@@ -624,6 +761,8 @@ interface Bucket {
   /** The step direction shared by a group of step lines. */
   step?: StepDirection;
   indices: number[];
+  /** A fan chart's plan and bands, for the `fan` kind. */
+  fan?: ApexFan;
 }
 
 /**
@@ -653,6 +792,8 @@ function bucketLayers(ctx: Context, bucket: Bucket, outliers?: Map<number, BoxOu
       return compact([boxLayer(ctx, first, outliers)]);
     case 'rangeBar':
       return compact([ganttLayer(ctx, bucket.indices)]);
+    case 'fan':
+      return bucket.fan ? compact([fanLayer(ctx, bucket.fan)]) : [];
   }
 }
 

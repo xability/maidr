@@ -12,6 +12,7 @@
  */
 
 import type { Maidr } from '../../type/grammar';
+import type { PercentileBandOption } from '../shared/percentileBandOption';
 
 /**
  * A category label as ApexCharts stores it: a string, a number (an index or
@@ -94,9 +95,9 @@ export interface ApexGlobals {
   seriesCandleL?: ApexValue[][];
   /** Candlestick close, or box plot maximum. */
   seriesCandleC?: ApexValue[][];
-  /** Range bar starts per series and point. */
+  /** Range bar starts per series and point; a `rangeArea` series' low edge. */
   seriesRangeStart?: ApexValue[][];
-  /** Range bar ends per series and point. */
+  /** Range bar ends per series and point; a `rangeArea` series' high edge. */
   seriesRangeEnd?: ApexValue[][];
   /** The series as first rendered; survives a legend collapse. */
   initialSeries?: ApexSeriesOption[];
@@ -292,6 +293,23 @@ export interface ApexChartsAdapterOptions {
     y?: string;
     z?: string;
   };
+  /**
+   * Fan charts drawn on the chart, each read as one `percentile_band` layer.
+   *
+   * A `rangeArea` series is a band between two values, and nothing in it says
+   * which quantiles those are; ApexCharts gives a series no slot to say so in.
+   * So they are stated here: `median` names the median's `line` series and
+   * each band's `series` a `rangeArea` series, both by series `name`, with the
+   * band's two levels as fractions. The bands' edges are the low and high
+   * values ApexCharts drew, matched to the median by x.
+   *
+   * @example
+   * percentileBands: [{
+   *   median: 'Median',
+   *   bands: [{ series: '90% interval', lower: 0.05, upper: 0.95 }],
+   * }]
+   */
+  percentileBands?: PercentileBandOption[];
 }
 
 /**

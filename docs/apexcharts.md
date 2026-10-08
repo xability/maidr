@@ -157,6 +157,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Radial Bar (Gauge) [experimental] | `type: 'radialBar'` | `gauge`, one layer per ring | [apexcharts-gauge.html](examples/apexcharts-gauge.html) |
 | Funnel [experimental] | `type: 'bar'` + `plotOptions.bar.isFunnel: true` | `funnel` | [apexcharts-funnel.html](examples/apexcharts-funnel.html) |
 | Precision-Recall Curve [experimental] | `type: 'line'` over a numeric x axis titled `Recall`, y axis titled `Precision` | `pr_curve` | — |
+| Fan Chart [experimental] | a `line` median and `rangeArea` bands, named in `percentileBands` | `percentile_band` | — |
 
 ### Notes on these chart types
 
@@ -180,11 +181,13 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 
 > **Precision-recall note:** ApexCharts has no precision-recall series and no slot on a series to say one is, so the axis titles are what say so, as in the Vega-Lite reading of the same chart: a line layer whose x axis is titled exactly `Recall` and whose y axis is titled `Precision`, case aside, with every point a number from 0 to 1 on both, is read as precision-recall curves, one per series, with the line's own highlight. A stepped curve announces no step convention. Nothing on the chart says a curve's thresholds or prevalence, so neither is announced. Anything less, rates in percent included, stays a line.
 
+> **Fan chart note:** a `rangeArea` series is a band between two values, and nothing in it says which quantiles those are -- the same series draws a min-max envelope and a 90% interval -- and ApexCharts 7.6.0 gives a series no metadata slot to say so in (only a data point carries `meta`). So it is said in the adapter's options: `percentileBands` names the median's `line` series and each band's `rangeArea` series, by series `name`, with the band's two levels as fractions (`0.05`, not `5`). The median and its bands become one `percentile_band` layer, each band's edges the low and high values ApexCharts drew, matched to the median by x. The levels go through the same validator as the co-located `maidr` declaration other adapters read: every `lower` below 0.5, every `upper` above it, and the bands nested; an entry that fails is refused with a console warning and its series are read as without it. A band naming no series, or a series that is not a `rangeArea`, is reported and left out, and the fan keeps the rest. Each band is outlined as its filled `path.apexcharts-rangeArea`, outermost first, and the median as its line -- measured against ApexCharts 7.6.0 in Chromium, where the five levels of a two-band fan outlined the outer band, the inner band, the median, the inner band and the outer band. See [Fan chart](#fan-chart-experimental).
+
 > **Mixed chart note:** a combo chart, where each series names its own `type`, is one subplot with a layer per kind of mark: the column series become one bar layer (grouped or stacked as the chart says), the lines one line layer, and so on. Page Up / Page Down moves between the layers.
 
 ### Chart types that are not read
 
-`rangeArea` and any other series type not in the table above is skipped with a `console.warn` naming the series, and the rest of the chart is still converted. A `rangeArea` is a band between two values, and nothing in it says which quantiles those are; ApexCharts 7.6.0 gives a series no metadata slot to declare them in (only a data point carries `meta`), so a fan chart cannot be read as a percentile band.
+Any series type not in the table above, a `rangeArea` that no `percentileBands` entry names included, is skipped with a `console.warn` naming the series, and the rest of the chart is still converted.
 
 ## Turn Off ApexCharts' Keyboard Navigation
 
@@ -314,6 +317,7 @@ maidrApexCharts.removeSplitParts(chart.el);
 | `subtitle` | `string` | `subtitle.text` |
 | `caption` | `string` | none |
 | `axes` | `{ x?: string; y?: string; z?: string }` | `xaxis.title.text`, and the `title.text` of the y axis each series is drawn against (`yaxis[0]` by default) |
+| `percentileBands` | `{ median: string; bands: { series: string; lower: number; upper: number }[]; title?: string; name?: string }[]` | none; see the fan chart note |
 
 Pie, donut, polar area and radar charts have no axis titles to read, so MAIDR announces "X" and "Y" unless you name them with `axes`; so does any chart whose `xaxis` or `yaxis` has no title. A few types have defaults of their own:
 
@@ -781,6 +785,31 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
+#### Fan Chart [experimental]
+
+```js
+const chart = new ApexCharts(document.querySelector('#chart'), {
+  chart: { type: 'rangeArea', height: 350, accessibility: { enabled: false }, toolbar: { show: false } },
+  title: { text: 'Forecast' },
+  series: [
+    { type: 'rangeArea', name: '90% interval', data: [{ x: 'Q1', y: [8, 16] }, { x: 'Q2', y: [9, 19] }, { x: 'Q3', y: [10, 22] }] },
+    { type: 'rangeArea', name: '50% interval', data: [{ x: 'Q1', y: [10, 14] }, { x: 'Q2', y: [12, 16] }, { x: 'Q3', y: [13, 19] }] },
+    { type: 'line', name: 'Median', data: [{ x: 'Q1', y: 12 }, { x: 'Q2', y: 14 }, { x: 'Q3', y: 16 }] },
+  ],
+  stroke: { curve: 'straight', width: [0, 0, 2] },
+});
+chart.render();
+maidrApexCharts.bindApexCharts(chart, {
+  percentileBands: [{
+    median: 'Median',
+    bands: [
+      { series: '90% interval', lower: 0.05, upper: 0.95 },
+      { series: '50% interval', lower: 0.25, upper: 0.75 },
+    ],
+  }],
+});
+```
+
 ## Limitations
 
 - **Line and area charts with gaps need markers.** ApexCharts draws a line or area series as one path and, with the default `markers.size: 0`, no element per point. Without gaps MAIDR finds each point on that path. With a `null` in the data the path jumps over the gap, and an isolated point between two gaps is not on it at all, so the points and the path's vertices no longer line up. Set `markers: { size: 4 }` (or any size above 0) on such a chart: the adapter then highlights the markers, one per non-null point. Without markers a series with gaps is still read and announced, but none of its points are highlighted, and the adapter says so in the console.
@@ -794,7 +823,7 @@ maidrApexCharts.bindApexCharts(chart);
 - **Range bar lengths need `unsafe-eval` to be read in days.** A datetime range bar's positions are restated in days, hours, minutes or seconds, so each task's length is read in that unit, and turned back into dates by a `format.function` MAIDR evaluates with `new Function`. On a page whose Content Security Policy forbids `unsafe-eval`, the adapter leaves the positions in milliseconds instead: the dates are still read as dates, but each length is read in milliseconds.
 - **Several y axes are named per layer.** A layer mixing series on differently titled y axes is given no y title; pass `axes: { y: '...' }` to name it yourself.
 - **Mixed point formats in one chart are dropped by ApexCharts.** A chart whose series mix the array and object point forms has one of them left out by ApexCharts itself; MAIDR reads what was drawn.
-- **Unsupported types** — `rangeArea` and anything else not in the [table](#supported-chart-types) — are skipped with a console warning.
+- **Unsupported types** — anything not in the [table](#supported-chart-types), a `rangeArea` no fan chart names included — are skipped with a console warning.
 - **Charts drawn on a canvas are read but not highlighted.** ApexCharts' optional canvas renderer (`chart.renderer: 'canvas'`, or `'auto'` above its threshold) draws no SVG element per point, so there is nothing for MAIDR to outline.
 - **A bubble's size is not announced.** A bubble chart is read as a scatter plot of its x and y values.
 
