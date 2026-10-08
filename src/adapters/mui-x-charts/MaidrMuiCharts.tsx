@@ -53,9 +53,10 @@ export function MaidrMuiCharts({
   caption,
   children,
   chartType,
+  percentileBands,
 }: MaidrMuiChartsProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
-  const maidrData = useMuiChartsAdapter({ id, title, subtitle, caption, children, chartType }, containerRef);
+  const maidrData = useMuiChartsAdapter({ id, title, subtitle, caption, children, chartType, percentileBands }, containerRef);
   const chart = useMemo(() => withMuiKeyboardNavigationDisabled(children), [children]);
 
   return (
