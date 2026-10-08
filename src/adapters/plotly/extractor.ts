@@ -9,7 +9,7 @@
  * plotly.js charts and they become accessible automatically.
  */
 
-import type { MosaicDeclaration, PrCurveDeclaration } from '../../type/declaration';
+import type { MosaicDeclaration, PercentileBandDeclaration, PrCurveDeclaration } from '../../type/declaration';
 import type {
   BarPoint,
   BoxPoint,
@@ -30,6 +30,8 @@ import type {
   MaidrLayer,
   MaidrSubplot,
   MosaicPoint,
+  PercentileBandPoint,
+  PercentileBandQuantile,
   PiePoint,
   PrCurvePoint,
   ScatterPoint,
@@ -735,7 +737,7 @@ function buildSubplotGrid(
 }
 
 /** The declarations a plotly trace can carry. */
-type PlotlyDeclaration = MosaicDeclaration | PrCurveDeclaration;
+type PlotlyDeclaration = MosaicDeclaration | PrCurveDeclaration | PercentileBandDeclaration;
 
 /**
  * How a trace is named in a warning about its declaration.
@@ -765,9 +767,10 @@ function declarationContext(trace: PlotlyTrace, traceIndex: number): Declaration
  * it reaches an extractor that is called from a DOM sweep the author never
  * touches.
  *
- * Two types are declarable here, each because nothing in plotly's own
+ * Three types are declarable here, each because nothing in plotly's own
  * configuration states it: a marimekko, drawn as stacked bars of varying
- * width, and a precision-recall curve, drawn as an ordinary line. Every other
+ * width, a precision-recall curve, drawn as an ordinary line, and a fan
+ * chart, drawn as a line and pairs of traces filled one to the next. Every other
  * chart plotly can draw either names itself in `trace.type` or is read from
  * the figure's own configuration, so a declaration of another type is
  * reported rather than quietly dropped: the author wrote it expecting it to
@@ -786,7 +789,9 @@ function readTraceDeclaration(
   if (declaration === null) {
     return null;
   }
-  if (declaration.type === TraceType.MOSAIC || declaration.type === TraceType.PR_CURVE) {
+  if (declaration.type === TraceType.MOSAIC
+    || declaration.type === TraceType.PR_CURVE
+    || declaration.type === TraceType.PERCENTILE_BAND) {
     return declaration;
   }
 
@@ -960,6 +965,17 @@ function buildSubplotLayers(
   );
   if (prCurveLayer)
     layers.push(prCurveLayer);
+
+  // A declared fan chart takes its median and its bands' edge traces out of
+  // the line, step and area buckets for the same reason.
+  layers.push(...extractDeclaredPercentileBands(
+    group,
+    declarations,
+    [lineTraces, areaTraces, ...stepTraces.values()],
+    xLabel,
+    yLabel,
+    gd,
+  ));
 
   // Build multi-line layer if applicable.
   if (lineTraces.length > 0) {
@@ -2650,6 +2666,186 @@ function extractDeclaredPrCurveLayer(
     ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     data: reversed ? data.map(curve => [...curve].reverse()) : data,
   };
+}
+
+/** One band of a declared fan chart, resolved to the two traces drawing its edges. */
+interface PlotlyBand {
+  lower: number;
+  upper: number;
+  /** The trace drawing the low edge. */
+  low: TraceEntry;
+  /** The trace drawing the high edge. */
+  high: TraceEntry;
+  /** The trace whose group holds the band's fill: the one filled to. */
+  filledTo: TraceEntry;
+}
+
+/**
+ * The y values of a trace, keyed by the x each is drawn at.
+ *
+ * @param trace - The trace
+ * @returns Its finite values by position
+ */
+function valuesByX(trace: PlotlyTrace): Map<string, number> {
+  const at = new Map<string, number>();
+  const x = trace.x ?? [];
+  const y = trace.y ?? [];
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const value = y[i] == null ? undefined : finiteNumber(y[i]);
+    if (value !== undefined && x[i] != null)
+      at.set(String(x[i]), value);
+  }
+  return at;
+}
+
+/**
+ * The panel's fan charts: each line trace declaring `percentile_band`, with
+ * the bands it names resolved to the traces drawing their edges.
+ *
+ * Plotly has no range trace: a band is a trace filled `tonexty` down (or up)
+ * to the trace before it, which plotly links as `_prevtrace`. So an entry
+ * names, by `uid` or by `name`, the trace that fills, and the trace it fills
+ * to is the band's other edge; which is the high one is read from the values,
+ * and a pair that crosses is no band. An entry naming no trace, a trace not
+ * filled `tonexty` to another line trace, or traces another band already
+ * reads, is reported and left out.
+ *
+ * Measured on plotly.js 2.35.2: the fill between a `tonexty` pair is the one
+ * `path.js-fill` in the group of the trace filled to, spanning the two edges
+ * exactly, and a `lines`-mode trace draws one `path.js-line`. Those are the
+ * selectors, one per band outermost first and then the median's line, kept
+ * only when each matches exactly one element of the drawn chart.
+ *
+ * @param group        - The panel's traces
+ * @param declarations - Each trace's declaration, in panel order
+ * @param buckets      - The line, area and step buckets; the fan's traces are removed
+ * @param xLabel       - The x axis title
+ * @param yLabel       - The y axis title
+ * @param gd           - The graph div
+ * @returns One layer per fan chart
+ */
+function extractDeclaredPercentileBands(
+  group: SubplotGroup,
+  declarations: readonly (PlotlyDeclaration | null)[],
+  buckets: TraceEntry[][],
+  xLabel: string | undefined,
+  yLabel: string | undefined,
+  gd: PlotlyGraphDiv,
+): MaidrLayer[] {
+  const entries = buckets.flat();
+  const entryAt = (calcIdx: number): TraceEntry | undefined =>
+    entries.find(entry => entry.calcIdx === calcIdx);
+  const used = new Set<TraceEntry>();
+  const layers: MaidrLayer[] = [];
+
+  for (let i = 0; i < group.traces.length; i++) {
+    const declaration = declarations[i];
+    if (declaration?.type !== TraceType.PERCENTILE_BAND)
+      continue;
+    const trace = group.traces[i];
+    const context = declarationContext(trace, group.traceIndices[i]);
+    const median = entryAt(i);
+    if (!median || median.maidrType !== TraceType.LINE || used.has(median)) {
+      warnWrongConstruct(context, declaration.type, 'an unfilled scatter trace drawn with lines, as the median', trace.type ?? 'scatter');
+      continue;
+    }
+    used.add(median);
+
+    const refuse = (series: string, why: string): undefined => {
+      console.warn(
+        `[MAIDR Plotly] maidr declaration for "percentile_band" on ${context.seriesRef} names `
+        + `trace "${series}" as a band, ${why}; emitting the layer without it.`,
+      );
+      return undefined;
+    };
+    const bands = [...declaration.bands]
+      .sort((a, b) => a.lower - b.lower)
+      .map((band): PlotlyBand | undefined => {
+        const at = group.traces.findIndex((one, j) => j !== i && one.uid === band.series);
+        const named = at >= 0 ? at : group.traces.findIndex((one, j) => j !== i && one.name === band.series);
+        const filler = named >= 0 ? entryAt(named) : undefined;
+        if (!filler)
+          return refuse(band.series, 'which this panel draws no line or area trace for');
+        const prevIndex = filler.trace._prevtrace?.index;
+        const prevCalc = prevIndex === undefined ? -1 : group.traceIndices.indexOf(prevIndex);
+        const filledTo = filler.trace.fill === 'tonexty' ? entryAt(prevCalc) : undefined;
+        if (!filledTo)
+          return refuse(band.series, 'which is not filled "tonexty" to another line trace');
+        if (used.has(filler) || used.has(filledTo))
+          return refuse(band.series, 'whose edges another band or median already reads');
+        const a = valuesByX(filler.trace);
+        const b = valuesByX(filledTo.trace);
+        const shared = [...a.keys()].filter(x => b.has(x));
+        const above = shared.filter(x => (a.get(x) ?? 0) > (b.get(x) ?? 0)).length;
+        const below = shared.filter(x => (a.get(x) ?? 0) < (b.get(x) ?? 0)).length;
+        if ((above > 0) === (below > 0))
+          return refuse(band.series, 'whose two edges cross, which no band\'s do');
+        used.add(filler);
+        used.add(filledTo);
+        const fillerIsHigh = above > 0;
+        return {
+          lower: band.lower,
+          upper: band.upper,
+          low: fillerIsHigh ? filledTo : filler,
+          high: fillerIsHigh ? filler : filledTo,
+          filledTo,
+        };
+      })
+      .filter((band): band is PlotlyBand => band !== undefined);
+
+    const edges = bands.map(band => ({ low: valuesByX(band.low.trace), high: valuesByX(band.high.trace) }));
+    const x = trace.x ?? [];
+    const y = trace.y ?? [];
+    const data: PercentileBandPoint[] = [];
+    for (let k = 0; k < Math.min(x.length, y.length); k++) {
+      const value = y[k] == null ? undefined : finiteNumber(y[k]);
+      if (value === undefined || x[k] == null)
+        continue;
+      const quantiles: PercentileBandQuantile[] = [{ level: 0.5, value }];
+      bands.forEach((band, n) => {
+        quantiles.push(
+          { level: band.lower, value: edges[n].low.get(String(x[k])) ?? null },
+          { level: band.upper, value: edges[n].high.get(String(x[k])) ?? null },
+        );
+      });
+      data.push({ x: x[k] as number | string, quantiles });
+    }
+
+    const prefix = subplotCssPrefix(trace.xaxis, trace.yaxis);
+    const scoped = (entry: TraceEntry, marks: string): string | null => {
+      const uid = entry.trace.uid;
+      return uid && /^[\w-]+$/.test(uid) ? `${prefix}.scatterlayer g.trace.trace${uid} ${marks}` : null;
+    };
+    const candidates = [
+      ...bands.map(band => scoped(band.filledTo, 'path.js-fill')),
+      scoped(median, 'path.js-line'),
+    ];
+    const selectors = candidates.every(one => one !== null && gd.querySelectorAll(one).length === 1)
+      ? candidates as string[]
+      : undefined;
+
+    const axes: MaidrLayer['axes'] = {};
+    if (xLabel)
+      axes.x = { label: xLabel };
+    if (yLabel)
+      axes.y = { label: yLabel };
+
+    layers.push({
+      id: String(median.globalIdx),
+      type: TraceType.PERCENTILE_BAND,
+      title: declaration.title ?? trace.name,
+      ...(declaration.name !== undefined ? { name: declaration.name } : {}),
+      ...(selectors ? { selectors } : {}),
+      axes,
+      data,
+    });
+  }
+
+  for (const bucket of buckets) {
+    const kept = bucket.filter(entry => !used.has(entry));
+    bucket.splice(0, bucket.length, ...kept);
+  }
+  return layers;
 }
 
 /**
