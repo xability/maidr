@@ -149,6 +149,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Gauge [experimental] | *no series* — an `am5radar.ClockHand` on a `RadarChart` axis | chart class `RadarChart` + a `ClockHand` bullet, asked only when the chart's series produced no layer (requires `radar.js`) |
 | Survival (Kaplan-Meier) [experimental] | `StepLineSeries` | **declared** — `userData: { maidr: { type: "survival" } }` |
 | Precision-Recall Curve [experimental] | `LineSeries` on two value axes, recall on x | **declared** — `{ type: "pr_curve" }` |
+| Percentile Band [experimental] | a median `LineSeries` plus one series per band bound to `openValueYField` and `valueYField` | **declared** — `{ type: "percentile_band", bands: [...] }` |
 | Error bar [experimental] | any XY series, with a floating column behind it | **declared** — `{ type: "error_bar" }` |
 | Forest (meta-analysis) [experimental] | horizontal `openValueXField` columns plus estimate marks | **declared** — `{ type: "forest" }` |
 | Volcano [experimental] | hidden-stroke `LineSeries` with bullets, two value axes | **declared** — `{ type: "volcano" }` |
@@ -203,6 +204,7 @@ A field you leave out falls back to its canonical name and then to a short list 
 |---|---|
 | `"survival"` | `censored`, `yMin`, `yMax`, `stepDirection`, `censoredSeries`, `bandSeries`, `merge` (default `true`) |
 | `"pr_curve"` | `threshold`, `prevalence`, `ap`, `merge` (default `true`) |
+| `"percentile_band"` | `bands` (required): `[{ series, lower, upper }]`, one entry per band |
 | `"error_bar"` | `yMin`, `yMax`, `error`, `intervalSeries`, `orientation` |
 | `"forest"` | everything `error_bar` takes, plus `weight`, `pooled`, `pooledIndex`, `pooledSeries`, `nullValue` |
 | `"manhattan"` | `label`, `group`, `significance`, `significanceDirection`, `effect`, `merge` (default `true`) |
@@ -238,9 +240,25 @@ var estimate = chart.series.push(am5xy.LineSeries.new(root, {
 
 An absorbed companion is merged into the parent layer **by position**, not by index — a companion carrying fewer rows than the series it decorates still lines up — and it does not become a layer of its own. `openValueY` maps to `yMin` and `valueY` to `yMax` (`openValueX`/`valueX` on a horizontal chart); the bounds are **absolute positions** on the value axis, never offsets. An interval your data holds as an offset instead is declared with `error`, which takes a number for a symmetric interval or a `[lower, upper]` pair for an asymmetric one, both as positive magnitudes.
 
-The four roles are `intervalSeries` (error bar, forest), `censoredSeries` and `bandSeries` (survival), and `pooledSeries` (forest). A role naming no series is reported and the layer is emitted without that half — as is a role naming a series that declares a layer of its own, or one another declaration has already absorbed, since reading a series into two layers would announce the same rows twice over.
+The roles are `intervalSeries` (error bar, forest), `censoredSeries` and `bandSeries` (survival), `pooledSeries` (forest), and each entry of `bands` (percentile band). A role naming no series is reported and the layer is emitted without that half — as is a role naming a series that declares a layer of its own, or one another declaration has already absorbed, since reading a series into two layers would announce the same rows twice over.
 
 On a forest plot declaring both `intervalSeries` and `pooledSeries`, the interval companion covers the summary too: the join is by position, so a chart drawing every interval in one column series, the summary's included, has already said where the summary's interval is. The pooled series' own row fields and `error` offset still outrank it.
+
+### Percentile bands
+
+A fan chart — a median with nested bands of quantiles around it, as a forecast's prediction intervals are drawn — is a median `LineSeries` and one series per band filled between `openValueYField` and `valueYField`. A band says nothing about which quantiles its edges are, so the median declares them:
+
+```js
+var median = chart.series.push(am5xy.LineSeries.new(root, {
+  xAxis: xAxis, yAxis: yAxis, valueXField: "step", valueYField: "p50",
+  userData: { maidr: { type: "percentile_band", bands: [
+    { series: "p5-95", lower: 0.05, upper: 0.95 },
+    { series: "p25-75", lower: 0.25, upper: 0.75 },
+  ] } },
+}));
+```
+
+Each band names its series by `id`, and its `openValueY` edge is read as the `lower` quantile and its `valueY` edge as the `upper` one, matched to the median by position; where a band draws nothing at one of the median's positions, both its quantiles are a gap there. The levels are fractions, each `lower` below 0.5 and each `upper` above it, and the bands must nest — a band in percentages, or bands that cross, is refused with a warning and the series stay what they are drawn as. A band naming no series, or a series bound to a single value, is reported and left out, and the layer keeps the rest. The overlay outlines the quantile the reader is on at its own edge: the median's mark, a band's mark for its high edge, and the matching point on the value axis for its low edge, which amCharts keeps no mark for.
 
 ### Merging siblings
 

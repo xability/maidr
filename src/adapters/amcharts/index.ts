@@ -56,6 +56,8 @@ export type {
   ForestDeclaration,
   MaidrTraceDeclaration,
   ManhattanDeclaration,
+  PercentileBandDeclaration,
+  PercentileBandRef,
   PrCurveDeclaration,
   ScatterDeclaration,
   SeriesRef,

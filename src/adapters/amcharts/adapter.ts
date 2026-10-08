@@ -57,6 +57,7 @@ import {
   choroplethFields,
   extractErrorBarSamples,
   extractForestSamples,
+  extractPercentileBand,
   extractPrCurves,
   extractScatterPoints,
   extractSurvivalArms,
@@ -671,6 +672,23 @@ function buildDeclaredLayer(
         type: TraceType.PR_CURVE,
         title: declaration.title ?? armTitle(curves),
         ...(selectors.length > 0 ? { selectors } : {}),
+        axes,
+        data,
+      };
+    }
+    // A fan chart: the median line and the range series it named, one layer.
+    // No selectors -- the bands are painted into a canvas, and a fill's own
+    // bounds come back as a point (measured on amCharts 5.21.0) -- so the
+    // overlay outlines each quantile at its edge instead.
+    case TraceType.PERCENTILE_BAND: {
+      const { data } = extractPercentileBand(declared);
+      if (data.length === 0) {
+        return null;
+      }
+      return {
+        ...named,
+        type: TraceType.PERCENTILE_BAND,
+        title: declaration.title ?? seriesName(declared.series),
         axes,
         data,
       };

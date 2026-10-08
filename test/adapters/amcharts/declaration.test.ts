@@ -3,6 +3,7 @@ import type {
   ErrorBarPoint,
   ForestPoint,
   MaidrLayer,
+  PercentileBandPoint,
   PrCurvePoint,
   ScatterPoint,
   SurvivalPoint,
@@ -593,6 +594,121 @@ describe('declared precision-recall curves', () => {
 
     expect(layers[0].type).not.toBe(TraceType.PR_CURVE);
     expect(warnings()).toContain('declares "pr_curve", but no mark of it carries');
+  });
+});
+
+describe('declared percentile bands', () => {
+  const MEDIAN = [0, 1, 2].map(x => ({ valueX: x, valueY: x }));
+
+  /** A band series: a `LineSeries` filled between two bound fields. */
+  function bandSeries(id: string, spread: number, range = true, at = [0, 1, 2]): AmXYSeries {
+    return fakeSeries({
+      className: 'LineSeries',
+      name: id,
+      id,
+      settings: range ? { openValueYField: 'low', valueYField: 'high' } : { valueYField: 'high' },
+      data: at.map(x => ({ valueX: x, openValueY: x - spread, valueY: x + spread })),
+    });
+  }
+
+  const BANDS = [
+    { series: 'p25-75', lower: 0.25, upper: 0.75 },
+    { series: 'p5-95', lower: 0.05, upper: 0.95 },
+  ];
+
+  it('reads the median and the range series it names as one fan chart', () => {
+    const layer = layerOf([
+      bandSeries('p5-95', 2),
+      bandSeries('p25-75', 1),
+      cloudSeries('Median', MEDIAN, { maidr: { type: 'percentile_band', bands: BANDS } }),
+    ]);
+
+    expect(layer.type).toBe(TraceType.PERCENTILE_BAND);
+    expect((layer.data as PercentileBandPoint[])[1]).toEqual({
+      x: 1,
+      quantiles: [
+        { level: 0.5, value: 1 },
+        { level: 0.05, value: -1 },
+        { level: 0.95, value: 3 },
+        { level: 0.25, value: 0 },
+        { level: 0.75, value: 2 },
+      ],
+    });
+    // Painted into a canvas: the overlay outlines it, not a selector.
+    expect(layer.selectors).toBeUndefined();
+  });
+
+  it('leaves a gap where a band draws nothing at the median\'s x', () => {
+    const layer = layerOf([
+      bandSeries('p5-95', 2, true, [1, 2]),
+      cloudSeries('Median', MEDIAN, {
+        maidr: { type: 'percentile_band', bands: [{ series: 'p5-95', lower: 0.05, upper: 0.95 }] },
+      }),
+    ]);
+
+    expect((layer.data as PercentileBandPoint[])[0].quantiles).toEqual([
+      { level: 0.5, value: 0 },
+      { level: 0.05, value: null },
+      { level: 0.95, value: null },
+    ]);
+  });
+
+  it('reports and leaves out a band bound to one value, which draws no range', () => {
+    const layers = layersOf([
+      bandSeries('p5-95', 2, false),
+      bandSeries('p25-75', 1),
+      cloudSeries('Median', MEDIAN, { maidr: { type: 'percentile_band', bands: BANDS } }),
+    ]);
+    const band = layers.find(layer => layer.type === TraceType.PERCENTILE_BAND);
+
+    expect((band?.data as PercentileBandPoint[])[0].quantiles.map(q => q.level))
+      .toEqual([0.5, 0.25, 0.75]);
+    expect(warnings()).toContain('names bands[1] "p5-95", which is bound to no openValueYField');
+    // Not absorbed, so it is still announced as what it draws.
+    expect(layers).toHaveLength(2);
+  });
+
+  it('reports a band naming no series', () => {
+    layerOf([
+      cloudSeries('Median', MEDIAN, {
+        maidr: { type: 'percentile_band', bands: [{ series: 'nope', lower: 0.1, upper: 0.9 }] },
+      }),
+    ]);
+
+    expect(warnings()).toContain('names bands[0] "nope", which is not another series\' id');
+  });
+
+  it('outlines each quantile at its own edge, lowest level first', () => {
+    // A value axis whose coordinate is ten pixels per unit, upwards.
+    const yAxis = {
+      valueToPosition: (value: number) => value,
+      get: () => ({ positionToCoordinate: (position: number) => -10 * position }),
+    };
+    const located = (series: AmXYSeries): AmXYSeries => {
+      const items = series.dataItems.map(item => ({
+        ...item,
+        get: (key: string) => key === 'point'
+          ? { x: Number(item.get('valueX')), y: -10 * Number(item.get('valueY')) }
+          : item.get(key),
+      }));
+      return { ...series, dataItems: items, get: (key: string) => key === 'yAxis' ? yAxis : series.get(key) } as AmXYSeries;
+    };
+    const outer = located(bandSeries('p5-95', 2));
+    const inner = located(bandSeries('p25-75', 1));
+    const median = located(cloudSeries('Median', MEDIAN, { maidr: { type: 'percentile_band', bands: BANDS } }));
+    const chart = fakeChart({ series: [outer, inner, median] });
+    const layers = fromXYChart(chart, CONTAINER).subplots[0][0].layers;
+    const map = buildNavigationMap([{ layers, groups: groupSeries(chart), chart }]);
+
+    const at = [0, 1, 2, 3, 4].map((row) => {
+      const [target] = map.resolve(layers[0].id, row, 1);
+      return target && 'dataItem' in target
+        ? [target.series, (target.dataItem.get('point') as { y: number }).y]
+        : null;
+    });
+
+    // Levels 0.05, 0.25, 0.5, 0.75, 0.95 at x = 1: -1, 0, 1, 2, 3.
+    expect(at).toEqual([[outer, 10], [inner, 0], [median, -10], [inner, -20], [outer, -30]]);
   });
 });
 
