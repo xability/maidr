@@ -110,6 +110,7 @@ const VOCABULARY: Record<string, string[]> = {
   'network': ['network'],
   'directed graph': ['directed_graph'],
   'precision-recall curve': ['pr_curve'],
+  'percentile band': ['percentile_band'],
   'tree': ['tree'],
   'pack': ['pack'],
   'gauge': ['gauge'],

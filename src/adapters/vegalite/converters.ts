@@ -32,6 +32,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PercentileBandPoint,
   PiePoint,
   RugPoint,
   ScatterPoint,
@@ -65,7 +66,7 @@ import {
   scopeSelector,
   substituteRepeatFields,
 } from './facets';
-import { buildLineSelectors, buildSelector } from './selectors';
+import { buildLineSelectors, buildSelector, markToCssClass } from './selectors';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -174,6 +175,12 @@ export function vegaLiteToMaidr(
     const overlays = labelOverlays(layerSpecs, spec.encoding);
     const rawLayers: ConvertedLayer[] = [];
     for (let i = 0; i < layerSpecs.length;) {
+      const band = convertMedianBand(layerSpecs, i, view, spec.encoding);
+      if (band) {
+        rawLayers.push({ layer: band, spec: layerSpecs[i] });
+        i += 2;
+        continue;
+      }
       const paired = convertPairedLayers(layerSpecs, i, view, spec.encoding);
       if (paired) {
         rawLayers.push({ layer: paired, spec: layerSpecs[i] });
@@ -3359,6 +3366,166 @@ function convertPairedLayers(
   if (channels.isHorizontal)
     layer.orientation = Orientation.HORIZONTAL;
   return layer;
+}
+
+/**
+ * Whether an `errorband` draws the interquartile range.
+ *
+ * Measured on vega-lite 5.23.0 (`compositemark/errorbar.js`): an `extent`
+ * of `iqr` aggregates `lower_<field>` as `q1`, `upper_<field>` as `q3` and
+ * `center_<field>` as the `median`, whatever `center` says -- and a `center`
+ * of `median` with no `extent` picks `iqr` for it. Every other extent is a
+ * mean plus or minus a spread, which no quantile names.
+ *
+ * @param spec - The candidate layer
+ * @returns True for an interquartile band
+ */
+function isInterquartileBand(spec: VegaLiteSpec): boolean {
+  if (getMarkType(spec) !== 'errorband' || !spec.mark || typeof spec.mark === 'string')
+    return false;
+  const { extent, center } = spec.mark;
+  return extent === 'iqr' || (extent === undefined && center === 'median');
+}
+
+/**
+ * Whether an encoding draws one series: no channel but the two positions
+ * and the tooltip is bound to a field, so nothing splits the rows.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns True when the layer draws one band or one line
+ */
+function drawsOneSeries(encoding: VegaLiteEncoding): boolean {
+  return Object.entries(encoding).every(([channel, def]) =>
+    channel === 'x' || channel === 'y' || channel === 'tooltip'
+    || !hasField(def as VegaLiteChannelDef | undefined));
+}
+
+/**
+ * Convert an interquartile `errorband` and the median line drawn through it
+ * into the one percentile band they draw together.
+ *
+ * Vega-Lite's own recipe for a band around a centre line is a `layer:` of
+ * an `errorband` and a `line`, and read layer by layer it loses what the
+ * chart is for: the band announces a mean with an interval it is not, and
+ * the line is a second series sounding the same median again. When the band
+ * is the interquartile range and the line is the median of the same column
+ * over the same x, the pair *is* a fan chart with one band -- quantiles
+ * 0.25, 0.5 and 0.75 at every x -- which `percentile_band` reads.
+ *
+ * Every condition is one the chart states rather than one inferred:
+ *
+ *   - the band's `extent` is `iqr` (see {@link isInterquartileBand});
+ *   - the line's y is the `median` of the band's y field, over the band's x
+ *     field, quantitative, and the two layers share their data and add no
+ *     transform of their own;
+ *   - neither layer splits into series, so there is one band and one line;
+ *   - the compiled band rows carry `lower_`, `center_` and `upper_` columns
+ *     for the y field -- which also proves the band is vertical -- and the
+ *     line's median at every x is the band's centre there. Without a
+ *     compiled view there are no such columns, and no quartile is computed
+ *     here: Vega's quartile method is Vega's to apply.
+ *
+ * Measured on vega-lite 5.23.0 with vega 5.33.1, `[band, line]` compiles
+ * the band's area into `g.mark-area.layer_0_layer_0_marks` -- a composite
+ * mark is a layer of its own, so its part is nested one level down -- and
+ * the line into `g.mark-line.layer_1_marks`; both mark datasets carry the
+ * same aggregated rows, `{step, median_loss, center_loss, lower_loss,
+ * upper_loss}`. The selectors are the band outermost first, then the median
+ * line, which is the per-band shape `PercentileBandTrace` reads.
+ *
+ * @param specs - The layered spec's children, with the parent's data inherited
+ * @param index - Position of the first layer of the candidate pair
+ * @param view - The compiled view, when one was supplied
+ * @param parentEncoding - Encoding hoisted onto the layered parent
+ * @returns The band, or `null` when this is not such a pair
+ */
+function convertMedianBand(
+  specs: VegaLiteSpec[],
+  index: number,
+  view: VegaView | undefined,
+  parentEncoding: VegaLiteEncoding | undefined,
+): MaidrLayer | null {
+  const first = specs[index];
+  const second = specs[index + 1];
+  if (!view || !second)
+    return null;
+
+  const bandAt = isInterquartileBand(first) ? index : isInterquartileBand(second) ? index + 1 : -1;
+  const lineAt = bandAt === index ? index + 1 : index;
+  if (bandAt < 0 || getMarkType(specs[lineAt]) !== 'line')
+    return null;
+  const bandSpec = specs[bandAt];
+  const lineSpec = specs[lineAt];
+  if (bandSpec.transform || lineSpec.transform || bandSpec.data !== lineSpec.data)
+    return null;
+
+  const bandEncoding: VegaLiteEncoding = { ...parentEncoding, ...bandSpec.encoding };
+  const lineEncoding: VegaLiteEncoding = { ...parentEncoding, ...lineSpec.encoding };
+  const xField = bandEncoding.x?.field;
+  const yField = bandEncoding.y?.field;
+  if (!xField || !yField
+    || bandEncoding.x?.type !== 'quantitative' || lineEncoding.x?.type !== 'quantitative'
+    || bandEncoding.x?.aggregate != null || bandEncoding.x?.bin
+    || bandEncoding.y?.aggregate != null || bandEncoding.y?.bin
+    || lineEncoding.x?.field !== xField || lineEncoding.x?.aggregate != null || lineEncoding.x?.bin
+    || lineEncoding.y?.field !== yField || lineEncoding.y?.aggregate !== 'median'
+    || !drawsOneSeries(bandEncoding) || !drawsOneSeries(lineEncoding)
+    || getStepDirection(lineSpec)) {
+    return null;
+  }
+
+  const bandRows = resolveMarkItemData(view, `layer_${bandAt}_layer_0_marks`) ?? [];
+  const lineRows = resolveMarkItemData(view, `layer_${lineAt}_marks`) ?? [];
+  if (bandRows.length === 0 || bandRows.length !== lineRows.length)
+    return null;
+
+  const medians = new Map<number, number>();
+  for (const row of lineRows) {
+    const x = row[xField];
+    const median = Number(readEncodedValue(row, lineEncoding.y, yField));
+    if (typeof x !== 'number' || !Number.isFinite(x) || !Number.isFinite(median) || medians.has(x))
+      return null;
+    medians.set(x, median);
+  }
+
+  const points: PercentileBandPoint[] = [];
+  for (const row of bandRows) {
+    const x = row[xField];
+    const lower = row[`lower_${yField}`];
+    const center = row[`center_${yField}`];
+    const upper = row[`upper_${yField}`];
+    if (typeof x !== 'number' || typeof lower !== 'number' || typeof center !== 'number'
+      || typeof upper !== 'number') {
+      return null;
+    }
+    const median = medians.get(x);
+    if (median === undefined || Math.abs(median - center) > 1e-9 * Math.max(1, Math.abs(center)))
+      return null;
+    points.push({
+      x,
+      quantiles: [
+        { level: 0.25, value: lower },
+        { level: 0.5, value: median },
+        { level: 0.75, value: upper },
+      ],
+    });
+  }
+  // In the order the line joins them, which is along x.
+  points.sort((a, b) => (a.x as number) - (b.x as number));
+
+  return {
+    id: String(index),
+    type: TraceType.PERCENTILE_BAND,
+    selectors: [
+      `g.${markToCssClass('errorband')}.role-mark.layer_${bandAt}_layer_0_marks > path`,
+      `g.${markToCssClass('line')}.role-mark.layer_${lineAt}_marks > path`,
+    ],
+    axes: {
+      x: getAxisConfig(bandEncoding.x),
+      y: getAxisConfig(bandEncoding.y),
+    },
+    data: points,
+  };
 }
 
 // ---------------------------------------------------------------------------
