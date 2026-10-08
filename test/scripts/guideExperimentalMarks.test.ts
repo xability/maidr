@@ -108,6 +108,7 @@ const VOCABULARY: Record<string, string[]> = {
   'chord': ['chord'],
   'alluvial': ['alluvial'],
   'network': ['network'],
+  'directed graph': ['directed_graph'],
   'tree': ['tree'],
   'pack': ['pack'],
   'gauge': ['gauge'],

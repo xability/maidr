@@ -470,8 +470,15 @@ export interface ChartJsDatasetMeta {
    * controllers and whether the author declared `edges` or left the plugin to
    * derive them from `parent`. The ends are **elements**, so a reader pairs
    * them back to node positions by identity against {@link data}.
+   *
+   * `options` is the edge's resolved `edgeLine` options: `directed` draws an
+   * arrowhead at the `target` end, `arrowHeadSize` long.
    */
-  edges?: { source: ChartJsMetaElement; target: ChartJsMetaElement }[];
+  edges?: {
+    source: ChartJsMetaElement;
+    target: ChartJsMetaElement;
+    options?: { directed?: unknown; arrowHeadSize?: unknown };
+  }[];
 }
 
 /**

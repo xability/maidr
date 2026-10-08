@@ -656,6 +656,14 @@ export function resolveActiveTargets(
   if (layer.type === TraceType.NETWORK)
     return [];
 
+  // Directed graph: nothing is outlined, for the reason the sankey declines.
+  // `DirectedGraphTrace` addresses a node by its scope and its place in
+  // topological order, not by its position in the dataset, and nothing in
+  // `NavigateCallback` carries which node that is -- the bottom branch would
+  // answer `{ index: col }` and outline whichever node sits at that position.
+  if (layer.type === TraceType.DIRECTED_GRAPH)
+    return [];
+
   // Choropleth / bubble map: `col` is the region, but only when the model
   // left the regions where the payload put them.
   //
