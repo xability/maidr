@@ -282,6 +282,7 @@ const GUIDES: Record<string, Guide> = {
       'stacked_bar': ['stacked_bar'],
       // A step is a `line` trace carrying `stepDirection`.
       'line + stepdirection': ['line'],
+      'pr_curve': ['pr_curve'],
       'single-value charts': ['pie', 'funnel', 'gauge'],
       'grid-value charts': ['heat', 'candlestick', 'box'],
       'hierarchies and graphs': ['treemap', 'sunburst', 'tree', 'sankey', 'network', 'directed_graph'],
