@@ -34,6 +34,7 @@
  * @packageDocumentation
  */
 
+import type { PercentileBandPlan, ResolvedBandEdges } from '@adapters/shared/percentileBandOption';
 import type {
   AxisConfig,
   BarPoint,
@@ -54,6 +55,12 @@ import type {
 } from '@type/grammar';
 import type { BoxComposite, MarkFacet, TreeComposite } from './introspect';
 import type { MarkDatum, ObservablePlotOptions, PlotScale, PlotScales } from './types';
+import {
+  percentileBandPoints,
+  readPercentileBandOptions,
+  warnUnreadBand,
+  warnUnreadMedian,
+} from '@adapters/shared/percentileBandOption';
 import { ensureContainerId, nextId } from '@adapters/shared/selectorUtil';
 import { Orientation, TraceType } from '@type/grammar';
 import { toCategoryShares, toSegmentedShares } from '../shared/normalize';
@@ -110,6 +117,8 @@ interface ConversionContext {
    * needs no entry here; {@link markName} finds those on the element.
    */
   pointNames: Map<Element, string>;
+  /** The fan charts the caller declared, validated. */
+  fans: PercentileBandPlan[];
 }
 
 /**
@@ -143,6 +152,7 @@ export function observablePlotToMaidr(
     temporal: { x: isTemporal(scales.x), y: isTemporal(scales.y) },
     layerCount: 0,
     pointNames: new Map<Element, string>(),
+    fans: readPercentileBandOptions(options.percentileBands, 'Observable Plot'),
   };
 
   const cells = collectFacetCells(svg, context);
@@ -256,6 +266,17 @@ function collectFacetCells(svg: Element, context: ConversionContext): FacetCell[
 
   for (const composite of composites) {
     for (const { facet, converted } of convertBoxComposite(composite, groups, context))
+      place(facet, converted);
+  }
+
+  // A fan chart is a line and the areas around it, which only the caller can
+  // say belong together; its marks are read as one layer and skipped below,
+  // where each band would otherwise be passed over as an interval (#1092).
+  for (const fan of planFans(groups, claimed, context)) {
+    claimed.add(fan.median);
+    for (const band of fan.bands)
+      claimed.add(band.index);
+    for (const { facet, converted } of convertFan(fan, groups, context))
       place(facet, converted);
   }
 
@@ -484,6 +505,177 @@ function convertMark(
     default:
       return null;
   }
+}
+
+/** A declared fan chart, resolved to its mark groups. */
+interface PlotFan {
+  plan: PercentileBandPlan;
+  /** The median's `line` group. */
+  median: number;
+  /** The bands' `area` groups that could be read, outermost first. */
+  bands: { series: string; lower: number; upper: number; index: number }[];
+}
+
+/**
+ * The one mark group of a kind carrying a class, when exactly one does.
+ *
+ * @param groups - The plot's mark groups
+ * @param label - The mark's kind, as Plot labels its group
+ * @param name - The `className` the author gave the mark
+ * @returns The group's index, `undefined` for none and `null` for several
+ */
+function groupNamed(
+  groups: readonly { label: string; group: Element }[],
+  label: string,
+  name: string,
+): number | undefined | null {
+  const found = groups
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => entry.label === label && entry.group.classList.contains(name));
+  if (found.length === 0)
+    return undefined;
+  return found.length === 1 ? found[0].index : null;
+}
+
+/**
+ * Resolves each declared fan chart to its mark groups.
+ *
+ * The median has to be one `line` mark and each band one `area` mark, each
+ * named by the `className` Plot stamps on its group. A band naming nothing,
+ * or a mark another reading has claimed, is reported and left out; a fan
+ * whose median cannot be read is reported and its marks are read as before.
+ *
+ * @param groups - The plot's mark groups
+ * @param claimed - Groups another reading has already taken
+ * @param context - The conversion context
+ * @returns The fans that can be read
+ */
+function planFans(
+  groups: readonly { label: string; group: Element }[],
+  claimed: ReadonlySet<number>,
+  context: ConversionContext,
+): PlotFan[] {
+  const used = new Set<number>(claimed);
+  const fans: PlotFan[] = [];
+  const why = (found: number | null | undefined, kind: string): string =>
+    found === undefined
+      ? `no ${kind} mark of this plot carries as its className`
+      : found === null ? `more than one ${kind} mark carries as its className` : 'another reading already takes';
+  for (const plan of context.fans) {
+    const median = groupNamed(groups, 'line', plan.median);
+    if (median === undefined || median === null || used.has(median)) {
+      warnUnreadMedian('Observable Plot', plan, why(median, 'line'));
+      continue;
+    }
+    used.add(median);
+    const bands: PlotFan['bands'] = [];
+    for (const band of plan.bands) {
+      const index = groupNamed(groups, 'area', band.series);
+      if (index === undefined || index === null || used.has(index)) {
+        warnUnreadBand('Observable Plot', plan, band.series, why(index, 'area'));
+        continue;
+      }
+      used.add(index);
+      bands.push({ series: band.series, lower: band.lower, upper: band.upper, index });
+    }
+    fans.push({ plan, median, bands });
+  }
+  return fans;
+}
+
+/**
+ * The one path a mark drew in a facet, when it drew exactly one.
+ *
+ * A mark split by `z`, `stroke` or `fill` draws a path per series, and which
+ * of a median's series a band surrounds is nothing the drawing says.
+ *
+ * @param facet - The mark's elements in one facet
+ * @returns The path, or null
+ */
+function onlyPath(facet: MarkFacet | undefined): Element | null {
+  const paths = facet?.elements.filter(element => element.tagName.toLowerCase() === 'path') ?? [];
+  return paths.length === 1 ? paths[0] : null;
+}
+
+/**
+ * Reads one declared fan chart, facet by facet, as `percentile_band` layers.
+ *
+ * The median is read back out of its line's path and each band's two edges
+ * out of its area's outline -- the top edge and the floor walked back --
+ * through the plot's scales, and matched to the median by x. A band that drew
+ * no single closed outline in a facet is a gap there. The layer is outlined
+ * as a fan is: each band's path, outermost first, then the median's.
+ *
+ * @param fan - The fan chart
+ * @param groups - The plot's mark groups
+ * @param context - The conversion context
+ * @returns One layer per facet the median drew in
+ */
+function convertFan(
+  fan: PlotFan,
+  groups: readonly { label: string; group: Element }[],
+  context: ConversionContext,
+): { facet: MarkFacet; converted: ConvertedMark }[] {
+  const { scales } = context;
+  const bandFacets = fan.bands.map(band => splitFacets(groups[band.index].group));
+  const results: { facet: MarkFacet; converted: ConvertedMark }[] = [];
+
+  splitFacets(groups[fan.median].group).forEach((facet, f) => {
+    const medianPath = onlyPath(facet);
+    const line = medianPath ? parsePathVertices(medianPath, false) : null;
+    if (!medianPath || !line) {
+      warnUnreadMedian('Observable Plot', fan.plan, 'did not draw a single unbroken path');
+      return;
+    }
+    const medians = line.vertices.map(vertex => ({
+      x: pathValue(scales.x, vertex.x, line.pixelError),
+      value: toNumber(pathValue(scales.y, vertex.y, line.pixelError)),
+    })).filter((point): point is { x: string | number; value: number | null } => point.x !== null);
+
+    const paths: Element[] = [];
+    const bands: ResolvedBandEdges[] = [];
+    fan.bands.forEach((band, b) => {
+      const path = onlyPath(bandFacets[b][f]);
+      const area = path ? parsePathVertices(path, true) : null;
+      if (!path || !area?.lower) {
+        warnUnreadBand('Observable Plot', fan.plan, band.series, 'did not draw a single closed outline');
+        return;
+      }
+      const edges = new Map<string, readonly [number | null, number | null]>();
+      area.vertices.forEach((vertex, i) => {
+        const x = pathValue(scales.x, vertex.x, area.pixelError);
+        const floor = area.lower?.[i];
+        const top = toNumber(pathValue(scales.y, vertex.y, area.pixelError));
+        const bottom = floor ? toNumber(pathValue(scales.y, floor.y, area.pixelError)) : null;
+        if (x === null || edges.has(String(x)))
+          return;
+        edges.set(String(x), top === null || bottom === null
+          ? [null, null]
+          : [Math.min(top, bottom), Math.max(top, bottom)]);
+      });
+      paths.push(path);
+      bands.push({ lower: band.lower, upper: band.upper, edgesAt: position => edges.get(String(medians[position].x)) });
+    });
+
+    const token = `L${context.layerCount++}`;
+    const title = fan.plan.title;
+    results.push({
+      facet,
+      converted: {
+        legend: [],
+        layer: {
+          id: token,
+          type: TraceType.PERCENTILE_BAND,
+          ...(title ? { title } : {}),
+          ...(fan.plan.name ? { name: fan.plan.name } : {}),
+          selectors: stampSeries([...paths, medianPath].map(path => [path]), context.containerId, token),
+          axes: axisConfig(context),
+          data: percentileBandPoints(medians, bands),
+        },
+      },
+    });
+  });
+  return results;
 }
 
 /**

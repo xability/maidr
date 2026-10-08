@@ -24,6 +24,12 @@ import type {
   VictoryPanelLayout,
   VictorySubplotInfo,
 } from './types';
+import {
+  percentileBandPoints,
+  readPercentileBandOptions,
+  warnUnreadBand,
+  warnUnreadMedian,
+} from '@adapters/shared/percentileBandOption';
 import { isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
 import { drawsPrCurves } from '@adapters/shared/prCurveAxes';
 import { Orientation, TraceType } from '@type/grammar';
@@ -406,7 +412,18 @@ function extractAreaData(
   if (!points)
     return null;
 
-  return { data: { kind: 'area', points: [points] }, count: points.length };
+  // An area drawn between two values carries its floor as `y0`, through the
+  // accessor prop or on each datum -- the band a fan chart is drawn with.
+  const rows = props.data as Record<string, unknown>[];
+  const getY0 = resolveAccessor(props.y0, 'y0');
+  const floors = rows.map((d) => {
+    const raw = getY0(d);
+    const value = raw === null || raw === undefined ? Number.NaN : Number(raw);
+    return Number.isFinite(value) ? value : null;
+  });
+  const lower = floors.some(floor => floor !== null) ? floors : undefined;
+
+  return { data: { kind: 'area', points: [points], ...(lower ? { lower } : {}) }, count: points.length };
 }
 
 /**
@@ -933,6 +950,7 @@ function extractLayerFromElement(
     xAxisLabel: axisLabels.x,
     yAxisLabel: axisLabels.y,
     dataCount: extracted.count,
+    ...(typeof props.name === 'string' && props.name !== '' ? { componentName: props.name } : {}),
     ...(horizontal && isOrientedKind(extracted.data.kind)
       ? { orientation: Orientation.HORIZONTAL }
       : {}),
@@ -1845,4 +1863,105 @@ export function toMaidrLayer(
         data: horizontal ? data.points.map(swapSeries) : data.points,
       };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Percentile band (fan chart)
+// ---------------------------------------------------------------------------
+
+/**
+ * Folds each declared fan chart's layers into one `percentile_band` layer.
+ *
+ * Runs on a panel's layers after they were tagged, so each band keeps the
+ * path its own `<VictoryArea>` drew and the median the path its
+ * `<VictoryLine>` drew: the fan's selectors are the bands', outermost first,
+ * then the median's, which is how the trace outlines a fan. The median's
+ * layer becomes the fan; its bands' layers are dropped.
+ *
+ * The median has to be a `<VictoryLine>` and each band a `<VictoryArea>`
+ * drawn with `y0`, each named by its `name` prop. A band naming nothing, or
+ * drawn down to the baseline, is reported and left out; a fan whose median
+ * cannot be found is reported and the panel is read as before.
+ *
+ * @param infos - The panel's extracted layers
+ * @param layers - The same layers as MAIDR layers, tagged
+ * @param option - The caller's `percentileBands`
+ * @returns The panel's layers
+ */
+export function foldPercentileBands(
+  infos: VictoryLayerInfo[],
+  layers: MaidrLayer[],
+  option: unknown,
+): MaidrLayer[] {
+  const plans = readPercentileBandOptions(option, 'Victory');
+  if (plans.length === 0)
+    return layers;
+
+  const replaced = new Map<number, MaidrLayer>();
+  const dropped = new Set<number>();
+  const used = new Set<number>();
+  const named = (name: string, kind: VictoryLayerData['kind']): number =>
+    infos.findIndex((info, i) => !used.has(i) && info.componentName === name && info.data.kind === kind);
+
+  for (const plan of plans) {
+    const median = named(plan.median, 'line');
+    const line = infos[median]?.data;
+    if (median < 0 || line?.kind !== 'line' || line.points.length !== 1) {
+      warnUnreadMedian('Victory', plan, 'names no <VictoryLine> of this chart');
+      continue;
+    }
+    used.add(median);
+    const medians = line.points[0].map(point => ({
+      x: point.x,
+      value: typeof point.y === 'number' && Number.isFinite(point.y) ? point.y : null,
+    }));
+
+    const bandSelectors: string[] = [];
+    const bands = plan.bands.flatMap((band) => {
+      const index = named(band.series, 'area');
+      const area = infos[index]?.data;
+      if (index < 0 || area?.kind !== 'area') {
+        warnUnreadBand('Victory', plan, band.series, 'names no <VictoryArea> of this chart');
+        return [];
+      }
+      if (!area.lower) {
+        warnUnreadBand('Victory', plan, band.series, 'is drawn down to the baseline rather than from a y0');
+        return [];
+      }
+      used.add(index);
+      dropped.add(index);
+      const selector = (layers[index].selectors as string[] | undefined)?.[0];
+      if (selector)
+        bandSelectors.push(selector);
+      const floors = area.lower;
+      const edges = new Map<string, readonly [number | null, number | null]>();
+      area.points[0].forEach((point, j) => {
+        const key = String(point.x);
+        if (edges.has(key))
+          return;
+        const top = typeof point.y === 'number' && Number.isFinite(point.y) ? point.y : null;
+        const floor = floors[j] ?? null;
+        edges.set(key, top === null || floor === null ? [null, null] : [Math.min(top, floor), Math.max(top, floor)]);
+      });
+      return [{ lower: band.lower, upper: band.upper, edgesAt: (position: number) => edges.get(String(medians[position].x)) }];
+    });
+
+    const medianSelector = (layers[median].selectors as string[] | undefined)?.[0];
+    const selectors = medianSelector && bandSelectors.length === bands.length
+      ? [...bandSelectors, medianSelector]
+      : undefined;
+    const { selectors: _lineSelectors, domMapping: _lineOrder, stepDirection: _step, ...base } = layers[median];
+    replaced.set(median, {
+      ...base,
+      type: TraceType.PERCENTILE_BAND,
+      ...(plan.title ? { title: plan.title } : {}),
+      ...(plan.name ? { name: plan.name } : {}),
+      ...(selectors ? { selectors } : {}),
+      data: percentileBandPoints(medians, bands),
+    });
+  }
+
+  return layers
+    .map((layer, i) => replaced.get(i) ?? layer)
+    .filter((_, i) => !dropped.has(i));
 }

@@ -146,6 +146,21 @@ export function linePathSelector(root: string, realIndex: number): string {
 }
 
 /**
+ * The selector for a `rangeArea` series' filled band.
+ *
+ * Measured on ApexCharts 7.6.0: each range series draws one
+ * `path.apexcharts-rangeArea` in its own group, the band's top edge and then
+ * its bottom edge as two subpaths of one filled outline.
+ *
+ * @param root      - The chart's {@link rootSelector}
+ * @param realIndex - The series' index in `w.config.series`
+ * @returns A selector matching the series' one band
+ */
+export function rangeAreaSelector(root: string, realIndex: number): string {
+  return `${seriesGroupSelector(root, realIndex)} path.apexcharts-rangeArea${NOT_OWNED}`;
+}
+
+/**
  * The selector for an area series' top edge.
  *
  * Each area series draws two `path.apexcharts-area`: the fill and then the

@@ -8,6 +8,7 @@ import type {
   SegmentedPoint,
   TreemapPoint,
 } from '@type/grammar';
+import type { PercentileBandOption, PercentileBandPlan, ResolvedBandEdges } from '../shared/percentileBandOption';
 import type { AxisCategories } from './grid';
 import type { ChartBox } from './selectors';
 import type {
@@ -18,6 +19,12 @@ import type {
   EChartsSeriesModel,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import {
+  percentileBandPoints,
+  readPercentileBandOptions,
+  warnUnreadBand,
+  warnUnreadMedian,
+} from '../shared/percentileBandOption';
 import { nextId } from '../shared/selectorUtil';
 import { drawCanvasMarks, inPaintOrder } from './canvas';
 import { dimensionOf } from './dimension';
@@ -51,6 +58,9 @@ import { isMarkPaint, markLegends, markPerDatum, markPerSeries } from './selecto
 import { drawnValueCount, SINGLE_VALUE, singleValueLayers } from './single';
 import { drawnStepCount, isRangeWaterfall, paintedClear, placeholderWaterfall, restatesTotals, waterfallLayer } from './waterfall';
 
+/** The adapter's name in the `[MAIDR <Adapter>]` warning prefix. */
+const ADAPTER = 'ECharts';
+
 /**
  * Options accepted by {@link createMaidrFromEChart}.
  */
@@ -59,6 +69,25 @@ export interface EChartsAdapterOptions {
   id?: string;
   /** The figure's title. Defaults to the chart's own `title.text`. */
   title?: string;
+  /**
+   * Fan charts drawn on the chart, each read as one `percentile_band` layer.
+   *
+   * ECharts has no range series: a band is a `line` with `areaStyle` stacked
+   * on an invisible `line` holding its lower edge, so the filled area runs
+   * between the two. Nothing on either says which quantiles those edges are,
+   * so they are stated here: `median` names the median's `line` and each
+   * band's `series` the filled series of its stack, both by the series'
+   * `name` (or `id`), with the band's two levels as fractions. The band's
+   * edges are read from the stack ECharts computed -- the bottom it rests on
+   * and the top it reaches -- so they are the values the chart draws.
+   *
+   * @example
+   * percentileBands: [{
+   *   median: 'Median',
+   *   bands: [{ series: '90% interval', lower: 0.05, upper: 0.95 }],
+   * }]
+   */
+  percentileBands?: PercentileBandOption[];
 }
 
 /**
@@ -239,7 +268,13 @@ export function createMaidrFromEChart(
     // never meet. A chart that declares both families anyway is read as the
     // owning half and says so, rather than dropping the other in silence.
     ? readOwning(owning, readable, container, model)
-    : buildLayers(readable, axisNames(model, readable), categories(model), container);
+    : buildLayers(
+        readable,
+        axisNames(model, readable),
+        categories(model),
+        container,
+        readPercentileBandOptions(options.percentileBands, ADAPTER),
+      );
   const title = options.title ?? componentText(model, 'title', 'text');
   const subplot: MaidrSubplot = { layers };
 
@@ -508,6 +543,7 @@ function buildLayers(
   axes: Axes,
   grid: AxisCategories,
   container: HTMLElement,
+  plans: PercentileBandPlan[] = [],
 ): MaidrLayer[] {
   // A series that draws nothing visible is counted -- it draws a mark, however
   // faint -- but not read; see `drawsNothingVisible`.
@@ -567,7 +603,17 @@ function buildLayers(
 
   const lines = inPaintOrder(series.filter(seriesModel => seriesModel.subType === 'line'));
   const polylines = markPerSeries(container, lines.length);
+  const fans = planFans(plans, read, series, axes);
+  const absorbed = new Set(fans.flatMap(fan => fan.absorbed));
   for (const seriesModel of others) {
+    const fan = fans.find(one => one.median === seriesModel);
+    if (fan) {
+      layers.push(fanLayer(fan, axes, polylines?.[lines.indexOf(seriesModel)], eachMarkOf));
+      continue;
+    }
+    if (absorbed.has(seriesModel)) {
+      continue;
+    }
     const layer = otherLayer(
       seriesModel,
       axes,
@@ -1092,6 +1138,189 @@ function drawsPrCurve(points: LinePoint[], axes: Axes): boolean {
   const isRate = (value: unknown): boolean =>
     typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
   return points.length > 0 && points.every(point => isRate(point.x) && isRate(point.y));
+}
+
+/** One declared fan chart, resolved to the series that draw it. */
+interface Fan {
+  plan: PercentileBandPlan;
+  /** The median's line. */
+  median: EChartsSeriesModel;
+  /** The bands that could be read, outermost first. */
+  bands: { lower: number; upper: number; series: EChartsSeriesModel }[];
+  /** Every series the layer stands for, which become no layer of their own. */
+  absorbed: EChartsSeriesModel[];
+}
+
+/**
+ * Whether a series is the one an option names: by its `name`, or its `id`.
+ *
+ * @param seriesModel - The series
+ * @param name - The name the author wrote
+ * @returns True when the series answers to it
+ */
+function answersTo(seriesModel: EChartsSeriesModel, name: string): boolean {
+  return text(seriesModel.get('name')) === name || text(seriesModel.get('id')) === name;
+}
+
+/**
+ * The series a stacked series rests on, when ECharts stacked it on one.
+ *
+ * @param seriesModel - The series
+ * @returns The series below it, or undefined
+ */
+function stackedOn(seriesModel: EChartsSeriesModel): EChartsSeriesModel | undefined {
+  const below = seriesModel.getData().getCalculationInfo?.('stackedOnSeries');
+  return typeof below === 'object' && below !== null ? below as EChartsSeriesModel : undefined;
+}
+
+/**
+ * Resolves each declared fan chart to its series.
+ *
+ * The median has to be a drawn `line`; each band a `line` with `areaStyle`
+ * stacked on another series, since that stack is what draws the area between
+ * two edges. A band naming nothing, drawing no area, resting on nothing, or
+ * already read by another fan is reported and left out; a fan whose median
+ * cannot be read is reported and its series are read as they were.
+ *
+ * @param plans - The validated options
+ * @param read - The series the chart reads
+ * @param all - Every series, the invisible ones included
+ * @param axes - The chart's axes
+ * @returns The fans that can be read
+ */
+function planFans(
+  plans: PercentileBandPlan[],
+  read: EChartsSeriesModel[],
+  all: EChartsSeriesModel[],
+  axes: Axes,
+): Fan[] {
+  const used = new Set<EChartsSeriesModel>();
+  const fans: Fan[] = [];
+  for (const plan of plans) {
+    const median = read.find(seriesModel => answersTo(seriesModel, plan.median));
+    if (!median || median.subType !== 'line' || fillsBand(median)) {
+      warnUnreadMedian(ADAPTER, plan, median ? 'is not drawn as a line without an area' : 'this chart does not draw');
+      continue;
+    }
+    if (axes.horizontal) {
+      warnUnreadMedian(ADAPTER, plan, 'is drawn on a chart turned on its side, which this reading does not cover');
+      continue;
+    }
+    if (used.has(median)) {
+      warnUnreadMedian(ADAPTER, plan, 'another fan chart already reads');
+      continue;
+    }
+    used.add(median);
+    const absorbed = [median];
+    const bands: Fan['bands'] = [];
+    for (const band of plan.bands) {
+      const found = all.find(seriesModel => seriesModel !== median && answersTo(seriesModel, band.series));
+      const base = found && stackedOn(found);
+      if (!found) {
+        warnUnreadBand(ADAPTER, plan, band.series, 'this chart does not draw');
+      } else if (found.subType !== 'line' || !fillsBand(found)) {
+        warnUnreadBand(ADAPTER, plan, band.series, 'is not a line drawn with areaStyle');
+      } else if (!base) {
+        warnUnreadBand(ADAPTER, plan, band.series, 'is stacked on no other series, so its area runs down to the axis rather than between two edges');
+      } else if (used.has(found)) {
+        warnUnreadBand(ADAPTER, plan, band.series, 'another band or median already reads');
+      } else {
+        used.add(found);
+        absorbed.push(found);
+        // The series the band rests on draws its lower edge, and is the band
+        // rather than a line of its own -- as is anything under it.
+        for (let below: EChartsSeriesModel | undefined = base; below; below = stackedOn(below)) {
+          if (!used.has(below)) {
+            used.add(below);
+            absorbed.push(below);
+          }
+        }
+        bands.push({ lower: band.lower, upper: band.upper, series: found });
+      }
+    }
+    fans.push({ plan, median, bands, absorbed });
+  }
+  return fans;
+}
+
+/**
+ * One band's edges by position: the bottom of the stacked area and its top,
+ * as ECharts computed them for drawing.
+ *
+ * A position where either edge is not a finite number -- a gap in the data,
+ * or a sign the default `stackStrategy: 'samesign'` would not stack -- draws
+ * no band between two edges, and is a gap.
+ *
+ * @param seriesModel - The band's filled series
+ * @param axes - The chart's axes
+ * @returns Each position's two edges
+ */
+function bandEdges(
+  seriesModel: EChartsSeriesModel,
+  axes: Axes,
+): Map<string | number, readonly [number | null, number | null]> {
+  const data = seriesModel.getData();
+  const top = data.getCalculationInfo?.('stackResultDimension');
+  const bottom = data.getCalculationInfo?.('stackedOverDimension');
+  const edges = new Map<string | number, readonly [number | null, number | null]>();
+  if (typeof top !== 'string' || typeof bottom !== 'string') {
+    return edges;
+  }
+  for (let index = 0; index < data.count(); index++) {
+    const low = data.get(bottom, index);
+    const high = data.get(top, index);
+    const usable = typeof low === 'number' && Number.isFinite(low)
+      && typeof high === 'number' && Number.isFinite(high);
+    edges.set(positionOf(data, index, axes), usable ? [low, high] : [null, null]);
+  }
+  return edges;
+}
+
+/**
+ * A declared fan chart as one `percentile_band` layer.
+ *
+ * Highlighted as the trace outlines a fan: one selector per band, outermost
+ * first -- the band's stamped area -- then the median's line. Emitted only
+ * when every one of them was found.
+ *
+ * @param fan - The fan chart
+ * @param axes - The chart's axes
+ * @param polyline - The median's stroked line, when it was found
+ * @param eachMarkOf - Each series' stamped marks
+ * @returns The layer
+ */
+function fanLayer(
+  fan: Fan,
+  axes: Axes,
+  polyline: string | undefined,
+  eachMarkOf: (seriesModel: EChartsSeriesModel) => string[] | undefined,
+): MaidrLayer {
+  const data = fan.median.getData();
+  const medians: { x: string | number; value: number | null }[] = [];
+  for (let index = 0; index < data.count(); index++) {
+    const value = magnitudeOf(data, index, axes.horizontal);
+    medians.push({ x: positionOf(data, index, axes), value: measured(value) ? value : null });
+  }
+  const bands: ResolvedBandEdges[] = fan.bands.map((band) => {
+    const edges = bandEdges(band.series, axes);
+    return { lower: band.lower, upper: band.upper, edgesAt: position => edges.get(medians[position].x) };
+  });
+
+  const areas = fan.bands.map(band => eachMarkOf(band.series));
+  const selectors = polyline && areas.every(marks => marks?.length === 1)
+    ? [...areas.map(marks => (marks as string[])[0]), polyline]
+    : undefined;
+  const name = authoredName(fan.median);
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.PERCENTILE_BAND,
+    ...(fan.plan.title ?? name ? { title: fan.plan.title ?? name } : {}),
+    ...(fan.plan.name ? { name: fan.plan.name } : {}),
+    ...(selectors ? { selectors } : {}),
+    axes: axisConfig(axes),
+    data: percentileBandPoints(medians, bands),
+  };
 }
 
 function lineLayer(

@@ -180,6 +180,13 @@ export interface EChartsList {
    * coordinate; `canvas.ts` records what was measured for each.
    */
   getItemLayout?: (index: number) => unknown;
+  /**
+   * What ECharts computed about the list -- on a stacked series,
+   * `'stackResultDimension'` and `'stackedOverDimension'` name the columns
+   * holding the top and the bottom of the band it draws, and
+   * `'stackedOnSeries'` the series it rests on. Measured on echarts 6.1.0.
+   */
+  getCalculationInfo?: (key: string) => unknown;
   /** A layout of the whole series -- a line's `'points'`, flat `[x0, y0, …]`. */
   getLayout?: (key: string) => unknown;
   /** One resolved visual of one datum -- its `'style'`, its `'symbolSize'`. */

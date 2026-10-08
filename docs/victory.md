@@ -56,6 +56,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 | `subtitle` | `string` | No | Chart subtitle. |
 | `caption` | `string` | No | Chart caption. |
 | `layout` | `{ rows?: number; columns?: number }` | No | Row-major grid for [multi-panel figures](#multi-panel-figures). Only consulted with two or more `<VictoryChart>` children. |
+| `percentileBands` | `{ median: string; bands: { series: string; lower: number; upper: number }[]; title?: string; name?: string }[]` | No | Fan charts: a `<VictoryLine>` median and `<VictoryArea>` bands drawn with `y0`, each named by its `name` prop. See [Fan Chart](#fan-chart-experimental). |
 
 ## Supported Chart Types
 
@@ -71,6 +72,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 | `VictoryBoxPlot` | Box plot | ✅ | Per-section highlight (min, Q1, median, Q3, max). Requires pre-computed statistics. |
 | `VictoryCandlestick` | Candlestick chart | ✅ | Per-section highlight (open, high, low, close, volatility). |
 | `VictoryPie` | Pie chart | ✅ | A doughnut is the same component with an `innerRadius`. Standing alone it has no `VictoryAxis` to read labels from, so the axes are named `Category` and `Value`; wrap it in a `<VictoryChart>` with axis labels to override. |
+| `VictoryLine` + `VictoryArea` with `y0` | Percentile band (fan chart) [experimental] | ✅ | Only when named in `percentileBands`; see [Fan Chart](#fan-chart-experimental). |
 | `VictoryLine` | Precision-recall curve [experimental] | ✅ | Read off the axes: the x `VictoryAxis` labelled exactly `Recall`, the dependent axis `Precision` (case aside), and every point from 0 to 1. Anything else, rates in percent included, stays a line. |
 
 > Box and candlestick are composite shapes (rects + lines) with no semantic classes, so the adapter classifies their parts by geometry. If a future Victory version changes that layout, highlighting degrades gracefully — audio, text, and braille are unaffected.
@@ -265,6 +267,34 @@ Provide pre-computed quartile statistics. The adapter reads these directly and d
 ```
 
 Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Category is Apples, Value is 30, Percentage is 30.0%". Victory renders the wedges in data order, so highlighting is index-aligned with no extra configuration, and an `innerRadius` makes it a doughnut without changing any of that.
+
+### Fan Chart [experimental]
+
+A `<VictoryArea>` given `y0` fills between two values -- a fan chart's band -- and nothing on it says which quantiles those are: the same area draws a min-max envelope and a 90% interval. Name each component with its own `name` prop and say what the bands are:
+
+```tsx
+<MaidrVictory
+  id="forecast"
+  title="Forecast"
+  percentileBands={[{
+    median: 'median',
+    bands: [
+      { series: 'p90', lower: 0.05, upper: 0.95 },
+      { series: 'p50', lower: 0.25, upper: 0.75 },
+    ],
+  }]}
+>
+  <VictoryChart>
+    <VictoryArea name="p90" data={rows} x="step" y0="p5" y="p95" style={{ data: { fillOpacity: 0.2 } }} />
+    <VictoryArea name="p50" data={rows} x="step" y0="p25" y="p75" style={{ data: { fillOpacity: 0.4 } }} />
+    <VictoryLine name="median" data={rows} x="step" y="p50" />
+  </VictoryChart>
+</MaidrVictory>
+```
+
+`median` names a `<VictoryLine>` and each band's `series` a `<VictoryArea>` drawn with `y0` (as an accessor prop or on each datum). They become one percentile band layer: the median's values, and each band's `y0` and `y` as its two edges, matched to the median by x. The levels are fractions (`0.05`, not `5`), every `lower` below 0.5 and every `upper` above it, and the bands must nest; the same validator as the co-located `maidr` declaration other adapters read refuses an entry that fails, with a console warning. A band naming no `<VictoryArea>`, or one drawn down to the baseline without `y0`, is reported and left out, and stays an area layer of its own; a median naming no `<VictoryLine>` leaves the chart read as before.
+
+Each band is outlined as the path its `<VictoryArea>` draws, outermost first, and the median as its line -- verified against the markup Victory 37.3.6 renders, where the five levels of a two-band fan outlined the outer band, the inner band, the median, the inner band and the outer band.
 
 ## Multi-Panel Figures
 

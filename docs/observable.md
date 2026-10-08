@@ -258,6 +258,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | `area` / `areaY` | Area [experimental] | |
 | `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area [experimental] | Announced as percentages |
 | `dot` under `hexbin` | Hexbin [experimental] | Only when declared — see below |
+| `areaY` bands given `y1`/`y2` around a `lineY` median | Percentile band (fan chart) [experimental] | Only when named in `percentileBands` — see below |
 | `line` of `precision` against `recall` | Precision-recall curve [experimental] | From the axis labels, or declared; see below |
 | `link` / `arrow` whose ends share a coordinate | Gantt [experimental] | An interval in a lane; see below |
 | `ruleX` / `ruleY` carrying an interval | Gantt [experimental] | The same reading off a `<line>`; a rule that agrees with itself is refused — see below |
@@ -463,6 +464,33 @@ observablePlotToMaidr(chart, { markTypes: { line: 'pr_curve' } });
 
 Either way every point has to be a number from 0 to 1 on both axes: rates written as percentages stay a line. The points and the highlight are the line's own, one curve per drawn path, and a stepped curve is read the same. The rendered chart carries no thresholds, prevalence or average precision, so none is announced; MAIDR measures the average precision from the points.
 
+### Fan charts [experimental]
+
+A fan chart in Plot is a median `lineY` and an `areaY` per band, each band given its two edges as `y1` and `y2`. Undeclared, the bands are intervals and are not read (see [What it does not read](#what-it-does-not-read)), because nothing in the drawn chart says which quantiles their edges are: the same area draws a min-max envelope and a 90% interval. Name the marks with Plot's own `className` option and say what they are:
+
+```js
+const chart = Plot.plot({
+  marks: [
+    Plot.areaY(rows, { x: 'step', y1: 'p5', y2: 'p95', fillOpacity: 0.2, className: 'p90' }),
+    Plot.areaY(rows, { x: 'step', y1: 'p25', y2: 'p75', fillOpacity: 0.4, className: 'p50' }),
+    Plot.lineY(rows, { x: 'step', y: 'p50', className: 'median' }),
+  ],
+});
+observablePlotToMaidr(chart, {
+  percentileBands: [{
+    median: 'median',
+    bands: [
+      { series: 'p90', lower: 0.05, upper: 0.95 },
+      { series: 'p50', lower: 0.25, upper: 0.75 },
+    ],
+  }],
+});
+```
+
+`median` names the one `line` mark carrying that class, and each band's `series` the one `area` mark carrying its class. They become one `percentile_band` layer per facet: the median read back out of its path, and each band's two edges out of its outline -- the top edge and the floor walked back -- matched to the median by x, to the precision the path's coordinates carry, as every line and area is. The levels are fractions (`0.05`, not `5`), every `lower` below 0.5 and every `upper` above it, and the bands must nest; they are checked by the same validator as the co-located `maidr` declaration other adapters read, and an entry that fails is refused with a console warning. A band no `area` mark carries, or one that does not draw a single closed outline, is reported and left out; a median no single `line` mark carries leaves the marks read as before. A mark split into several series by `z`, `stroke` or `fill` draws a path per series, and is not read as a fan.
+
+Each band is outlined as its own path, outermost first, and the median as its line. Verified against Plot 0.6.17 in Chromium: the five levels of a two-band fan outlined the outer band, the inner band, the median, the inner band and the outer band.
+
 ### Hexbins [experimental]
 
 `Plot.dot(data, Plot.hexbin({ r: 'count' }, { x, y }))` is read as a lattice of bins — but **only when you say so**:
@@ -554,7 +582,7 @@ No node carries a magnitude. A tree layout sizes nothing by value and every dot 
 - **A `tick` with no cross-channel.** `Plot.tickX(data, {x: 'v'})` draws every tick across the whole frame, which is a one-dimensional distribution with no category to announce — and a dot plot's point has a second field the chart has nothing to put in. A tick given a categorical `y` (or `x`) is read; one without is not.
 - **Lines whose path does not pass through the data.** `curveBasis` and `curveBundle` draw through control points that are not data points. The adapter detects the mismatch — Plot binds the datum indices to the path, so the expected vertex count is known — and skips the mark rather than announcing the smoothing. `curveLinear` (the default), `curveCatmullRom`, `curveMonotoneX`, `curveNatural` and `curveCardinal` are read normally, and the step curves are read as **step charts** (below).
 - **A stack whose rows were not aggregated.** Two rows sharing a category and a series draw two segments that the stack transform left separate; there is one cell in a stacked layer for them and two marks on screen. The layer is read as a plain bar chart instead, which announces both.
-- **An area whose floor follows the data.** Given `y1` and `y2` off the data an area is an interval — a confidence band, a min/max range, `Plot.bollingerY`'s band — and the distance from its lower bound to its upper one is the interval's width, not a value. Read as a magnitude, a band drawn at 8/12, 11/15, 9/13 and 13/17 announced a flat 4, which its own y axis contradicts. What separates that from an ordinary area is whether the floor moves: a level floor is one the chart chose — the baseline, which Plot draws at the value zero whatever the y domain says, or a constant `y1` — and the height above it is a magnitude, which is why an area raised onto a fixed base is still read. A stack's floors move too, and there they really are data, which the stack test settles first. MAIDR has a shape for a value with an interval around it, `SmoothPoint`'s `yMin`/`yMax`, but a band on its own has no centre to carry one, so the mark is handed back rather than given a value it does not state. A `bollingerY` chart's moving average is an ordinary line beside the band and is still read.
+- **An area whose floor follows the data.** Given `y1` and `y2` off the data an area is an interval — a confidence band, a min/max range, `Plot.bollingerY`'s band — and the distance from its lower bound to its upper one is the interval's width, not a value. Read as a magnitude, a band drawn at 8/12, 11/15, 9/13 and 13/17 announced a flat 4, which its own y axis contradicts. What separates that from an ordinary area is whether the floor moves: a level floor is one the chart chose — the baseline, which Plot draws at the value zero whatever the y domain says, or a constant `y1` — and the height above it is a magnitude, which is why an area raised onto a fixed base is still read. A stack's floors move too, and there they really are data, which the stack test settles first. MAIDR has a shape for a value with an interval around it, `SmoothPoint`'s `yMin`/`yMax`, but a band on its own has no centre to carry one, so the mark is handed back rather than given a value it does not state. Bands drawn around a median line as a fan chart are read when named in `percentileBands`; see [Fan charts](#fan-charts-experimental). A `bollingerY` chart's moving average is an ordinary line beside the band and is still read.
 - **A line or area with a gap in it.** Plot ends the series at a missing value and starts a new subpath after it, so one `d` holds several. The vertices are then a subpath's opening move, the corners, and whichever samples fall in between — and pairing them off with the samples announces a corner as data and drops the gap. The count that catches the smoothed curves above cannot catch this one, because a break moves the vertex count and leaves it matching by coincidence: measured on 0.6.17, a `step-after` or `step-before` line whose `y` goes null lands back on its own sample count, and so does a `step-after` area whose `x` does. What the drawing says instead is in the `M` commands, and a mark drawn in more than one piece is turned away. Nothing drawn without a gap is affected — every whole line and area Plot draws is a single subpath — and a gap in one mark does not stop the others on the chart being read.
 
 A chart whose marks are all unread is left alone; other charts on the page are unaffected.
@@ -610,6 +638,7 @@ Script-tag users get the same functions on `window.maidrObservable`.
 | `title` / `subtitle` / `caption` | `string` | Override what Plot rendered. |
 | `axes` | `{ x?, y?, z? }` | Override the drawn axis labels. |
 | `markTypes` | `Record<string, string>` | Force a mark's trace type, keyed by its Plot `aria-label`. |
+| `percentileBands` | `{ median, bands: { series, lower, upper }[], title?, name? }[]` | Read a median `line` and `area` bands, each named by its `className`, as one fan chart. See [Fan charts](#fan-charts-experimental). |
 | `autoApply` | `boolean` | `false` returns the schema without writing it to the DOM. |
 
 ### Turning auto-binding off

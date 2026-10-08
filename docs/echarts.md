@@ -230,6 +230,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | `line` over value axes named `recall` and `precision` | `pr_curve` [experimental] | Every point a number from 0 to 1 on both; see below |
 | `bar` ×N in one stack over a transparent placeholder | `waterfall` [experimental] | ECharts' waterfall recipe, and Superset's; each step's direction comes from the running total |
 | `custom` encoding two columns onto the value axis | `waterfall` [experimental] | Metabase's waterfall. Any other `custom` series is not read |
+| a median `line` and stacked `line` + `areaStyle` bands, named in `percentileBands` | `percentile_band` [experimental] | A fan chart; see [Fan charts](#fan-charts-experimental) |
 
 ### Notes on these chart types
 
@@ -353,6 +354,53 @@ the scatter's selectors onto the wrong elements.
 ## Experimental chart types
 
 These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+### Fan charts [experimental]
+
+ECharts has no range series. A fan chart's band is drawn the way ECharts'
+own confidence-band example draws one: a `line` holding the band's lower edge,
+hidden, and a `line` with `areaStyle` stacked on it holding the band's width,
+so the filled area runs between the two edges. Nothing on either series says
+which quantiles those edges are -- the same stack draws a min-max envelope and
+a 90% interval -- so the adapter is told, in the options it is called with:
+
+```js
+const options = {
+  percentileBands: [{
+    median: 'Median',
+    bands: [
+      { series: '90% interval', lower: 0.05, upper: 0.95 },
+      { series: '50% interval', lower: 0.25, upper: 0.75 },
+    ],
+  }],
+};
+maidrECharts.bindEChart(chart, options);
+// or: maidrECharts.createMaidrFromEChart(chart, container, options)
+```
+
+`median` names the median's `line`, and each band's `series` names the filled
+series of its stack, both by the series' `name` (or its `id`). The median and
+every band, the hidden base under it included, become one `percentile_band`
+layer, read at every position the median draws: each band's lower edge is the
+bottom its area rests on and its upper edge the top it reaches, both as
+ECharts computed them for drawing, so a band whose width series does not stack
+-- the default `stackStrategy: 'samesign'` will not stack a positive width on
+a negative base; use `stackStrategy: 'all'` -- reads as a gap where the chart
+draws no band. An optional `title` and `name` override the layer's.
+
+The levels are fractions -- `0.05`, not `5` -- every `lower` below 0.5 and
+every `upper` above it, and the bands must nest. They are checked by the same
+validator as the co-located `maidr` declaration other adapters read, and an
+entry that fails is refused with a warning, its series read as the undeclared
+chart. A band naming no series, a series without `areaStyle`, or one stacked
+on nothing is reported and left out, and the fan keeps the rest; a median the
+chart does not draw as a plain line leaves the whole entry unread. A chart
+turned on its side is not read as a fan.
+
+Highlighting outlines each band's area, outermost first, then the median's
+line, so a quantile is outlined as the band it bounds. Verified against
+echarts 6.1.0's SVG renderer: the five levels of a two-band fan outlined the
+outer band, the inner band, the median, the inner band and the outer band.
 
 ### Hierarchies and graphs [experimental]
 

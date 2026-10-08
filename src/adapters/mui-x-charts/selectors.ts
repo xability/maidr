@@ -108,6 +108,22 @@ export function lineSeriesSelector(scope: string, seriesId: string): string {
 }
 
 /**
+ * The fill of one `area` series of a LineChart.
+ *
+ * Drawn between the series' own top and the top of the series stacked below
+ * it (`d3.area().y0(d => y(d[0])).y1(d => y(d[1]))` in MUI's
+ * `useAreaPlotData`), so in a stack it is the band between two edges. Only a
+ * fan chart's band names it: everywhere else the fill runs to the baseline,
+ * and its vertices are not the samples.
+ *
+ * @param scope - Container scope, e.g. `"#chart "`
+ * @param seriesId - The series id MUI stamped on the path
+ */
+export function areaSeriesSelector(scope: string, seriesId: string): string {
+  return `${scope}path.MuiLineChart-area[data-series=${attrValue(seriesId)}]`;
+}
+
+/**
  * Every marker of one scatter series.
  *
  * @param scope - Container scope, e.g. `"#chart "`

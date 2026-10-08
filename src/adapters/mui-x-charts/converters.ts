@@ -17,16 +17,24 @@ import type {
   MuiAxisConfig,
   MuiChartKind,
   MuiChartProps,
+  MuiChartsAdapterConfig,
   MuiColorMap,
   MuiRadarMetric,
   MuiSankeySeries,
   MuiSeriesConfig,
 } from './types';
+import {
+  percentileBandPoints,
+  readPercentileBandOptions,
+  warnUnreadBand,
+  warnUnreadMedian,
+} from '@adapters/shared/percentileBandOption';
 import { isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
 import { drawsPrCurves } from '@adapters/shared/prCurveAxes';
 import { Orientation, TraceType } from '@type/grammar';
 import { Children, cloneElement, isValidElement } from 'react';
 import {
+  areaSeriesSelector,
   barCellSelector,
   barSeriesSelector,
   funnelSeriesSelector,
@@ -622,9 +630,13 @@ function stepDirection(curve: string | undefined): StepDirection | undefined {
  * Every series is highlighted through its line path, never its fill: the fill
  * runs down to the baseline and back, so its vertices are not the samples.
  */
-function convertLine(props: MuiChartProps, scope: string): MuiConvertedChart {
+function convertLine(
+  props: MuiChartProps,
+  scope: string,
+  percentileBands?: MuiChartsAdapterConfig['percentileBands'],
+): MuiConvertedChart {
   const xAxis = props.xAxis?.[0];
-  const entries: SeriesEntry[] = seriesList(props).map((series, index) => ({
+  const all: SeriesEntry[] = seriesList(props).map((series, index) => ({
     series,
     id: muiSeriesId(series, index),
     label: seriesLabel(series, index),
@@ -632,6 +644,8 @@ function convertLine(props: MuiChartProps, scope: string): MuiConvertedChart {
   }));
   const rawX = axisValues(xAxis, props.dataset);
   const axes = layerAxes(props);
+  const fans = fanLayers(all, rawX, xAxis, axes, scope, percentileBands);
+  const entries = all.filter(entry => !fans.absorbed.has(entry));
 
   const points = (entry: SeriesEntry, stacked: boolean): LinePoint[] => {
     const length = rawX ? Math.min(rawX.length, entry.values.length) : entry.values.length;
@@ -676,8 +690,8 @@ function convertLine(props: MuiChartProps, scope: string): MuiConvertedChart {
     }
   }
 
-  const titled = buckets.size > 1;
-  const layers = [...buckets.values()].map((bucket, index): MaidrLayer => {
+  const titled = buckets.size + fans.layers.length > 1;
+  const lines = [...buckets.values()].map((bucket, index): MaidrLayer => {
     const stacked = bucket.type === TraceType.STACKED_AREA || bucket.type === TraceType.NORMALIZED_AREA;
     const data = bucket.entries.map(entry => points(entry, stacked));
     // A precision-recall curve is drawn as an ordinary line, and the axis
@@ -694,8 +708,104 @@ function convertLine(props: MuiChartProps, scope: string): MuiConvertedChart {
       data,
     };
   });
-  const legend = entries.length > 1 ? entries.map(entry => entry.label) : undefined;
+  const layers = [...fans.layers, ...lines].map((layer, index) => ({ ...layer, id: String(index) }));
+  const legend = all.length > 1 ? all.map(entry => entry.label) : undefined;
   return { layers, legend };
+}
+
+/**
+ * A `<LineChart>`'s declared fan charts, each as one `percentile_band` layer.
+ *
+ * The median is a series drawn as a plain line; each band an `area` series
+ * on top of a stack of two or more, whose fill MUI draws between the stack
+ * below it and its own top. The band's lower edge is that running total and
+ * its upper edge the total with its own value added -- a missing value adding
+ * nothing, as MUI stacks it -- and every series of its stack is the band
+ * rather than a series of its own. A band naming nothing, not filled, not on
+ * top of a stack, or already read is reported and left out; a median that is
+ * not a plain line is reported and the chart is read as before.
+ *
+ * Highlighted as a fan is: each band's fill, outermost first, then the
+ * median's line.
+ *
+ * @param entries - Every series of the chart
+ * @param rawX - The x axis' values, when it has them
+ * @param xAxis - The x axis
+ * @param axes - The layer axes
+ * @param scope - Selector prefix naming the chart's container
+ * @param option - The caller's `percentileBands`
+ * @returns The fan layers, and the series they absorbed
+ */
+function fanLayers(
+  entries: SeriesEntry[],
+  rawX: readonly unknown[] | undefined,
+  xAxis: MuiAxisConfig | undefined,
+  axes: MaidrLayer['axes'],
+  scope: string,
+  option: MuiChartsAdapterConfig['percentileBands'],
+): { layers: MaidrLayer[]; absorbed: Set<SeriesEntry> } {
+  const absorbed = new Set<SeriesEntry>();
+  const layers: MaidrLayer[] = [];
+  const named = (name: string): SeriesEntry | undefined =>
+    entries.find(entry => entry.id === name) ?? entries.find(entry => entry.label === name);
+  const stackOf = (entry: SeriesEntry): SeriesEntry[] =>
+    entries.filter(one => one.series.stack !== undefined && one.series.stack === entry.series.stack);
+
+  for (const plan of readPercentileBandOptions(option, 'MUI X Charts')) {
+    const median = named(plan.median);
+    if (!median || median.series.stack !== undefined || median.series.area || absorbed.has(median)) {
+      warnUnreadMedian(
+        'MUI X Charts',
+        plan,
+        !median ? 'names no series of this chart' : absorbed.has(median) ? 'another fan chart already reads' : 'is not drawn as a plain line',
+      );
+      continue;
+    }
+    absorbed.add(median);
+    const length = rawX ? Math.min(rawX.length, median.values.length) : median.values.length;
+    const xs = Array.from({ length }, (_, i) => (rawX ? formatAxisValue(rawX[i], xAxis) : i));
+    const medians = xs.map((x, i) => ({ x, value: median.values[i] }));
+
+    const selectors: string[] = [];
+    const bands = plan.bands.flatMap((band) => {
+      const entry = named(band.series);
+      const stack = entry ? stackOf(entry) : [];
+      const why = !entry
+        ? 'names no series of this chart'
+        : !entry.series.area
+            ? 'is not drawn with area: true'
+            : stack.length < 2 || stack[stack.length - 1] !== entry
+              ? 'is not the top of a stack of two or more series, so its fill does not run between two edges'
+              : stack.some(one => absorbed.has(one)) ? 'another band or median already reads' : undefined;
+      if (!entry || why) {
+        warnUnreadBand('MUI X Charts', plan, band.series, why ?? '');
+        return [];
+      }
+      stack.forEach(one => absorbed.add(one));
+      selectors.push(areaSeriesSelector(scope, entry.id));
+      const below = stack.slice(0, -1);
+      return [{
+        lower: band.lower,
+        upper: band.upper,
+        edgesAt: (i: number): readonly [number | null, number | null] => {
+          const floor = below.reduce((total, one) => total + (one.values[i] ?? 0), 0);
+          const own = entry.values[i];
+          return own === null || own === undefined ? [null, null] : [Math.min(floor, floor + own), Math.max(floor, floor + own)];
+        },
+      }];
+    });
+
+    layers.push({
+      id: '',
+      type: TraceType.PERCENTILE_BAND,
+      title: plan.title ?? median.label,
+      ...(plan.name ? { name: plan.name } : {}),
+      axes,
+      selectors: [...selectors, lineSeriesSelector(scope, median.id)],
+      data: percentileBandPoints(medians, bands),
+    });
+  }
+  return { layers, absorbed };
 }
 
 /**
@@ -1166,6 +1276,7 @@ export function convertMuiChart(
   props: MuiChartProps,
   scope: string,
   chartId = 'chart',
+  percentileBands?: MuiChartsAdapterConfig['percentileBands'],
 ): MuiConvertedChart {
   // A sparkline draws a line or bar plot but is configured by one `data`
   // array; read off its drawing, its kind says `line` or `bar` instead.
@@ -1190,7 +1301,7 @@ export function convertMuiChart(
     case 'bar':
       return convertBar(props, scope);
     case 'line':
-      return convertLine(props, scope);
+      return convertLine(props, scope, percentileBands);
     case 'scatter':
       return convertScatter(props, scope);
     case 'pie':
@@ -1222,9 +1333,10 @@ export function convertMuiChartsToMaidr(
   kind: MuiChartKind | undefined,
   props: MuiChartProps | undefined,
   scope: string,
+  percentileBands?: MuiChartsAdapterConfig['percentileBands'],
 ): MaidrData {
   const { id, title, subtitle, caption } = meta;
-  const converted = kind && props ? convertMuiChart(kind, props, scope, id) : { layers: [] };
+  const converted = kind && props ? convertMuiChart(kind, props, scope, id, percentileBands) : { layers: [] };
   const subplot: MaidrSubplot = { layers: converted.layers };
   if (converted.legend)
     subplot.legend = converted.legend;

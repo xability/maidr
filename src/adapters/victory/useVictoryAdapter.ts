@@ -42,7 +42,7 @@ import type { RefObject } from 'react';
 import type { VictoryAdapterConfig, VictoryLayerInfo, VictoryPanelLayout, VictorySubplotInfo } from './types';
 import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { computeSubplotGrid, extractVictorySubplots, toMaidrLayer } from './converters';
+import { computeSubplotGrid, extractVictorySubplots, foldPercentileBands, toMaidrLayer } from './converters';
 import { clearTaggedElements, getTaggedElements, PANEL_ATTR, resolvePanelSvgs, tagLayerElements } from './selectors';
 
 /**
@@ -108,13 +108,14 @@ export function buildVictorySubplots(
   victorySubplots: VictorySubplotInfo[],
   scope: string,
   layout?: VictoryPanelLayout,
+  percentileBands?: VictoryAdapterConfig['percentileBands'],
 ): MaidrSubplot[][] {
   if (victorySubplots.length === 1) {
     const victoryLayers = victorySubplots[0].layers;
     const svg = container.querySelector('svg');
     const claimed = new Set<Element>();
-    const maidrLayers = victoryLayers.map((layer, index) =>
-      toMaidrLayer(layer, svg ? tagLayerElements(svg, layer, index, claimed, scope) : undefined));
+    const maidrLayers = foldPercentileBands(victoryLayers, victoryLayers.map((layer, index) =>
+      toMaidrLayer(layer, svg ? tagLayerElements(svg, layer, index, claimed, scope) : undefined)), percentileBands);
     return [[{ layers: maidrLayers, legend: collectLegend(victoryLayers) }]];
   }
 
@@ -147,10 +148,10 @@ export function buildVictorySubplots(
 
     const panelScope = panelSelector ? `${panelSelector} ` : undefined;
     const claimed = new Set<Element>();
-    const maidrLayers = info.layers.map((layer, layerIndex) =>
+    const maidrLayers = foldPercentileBands(info.layers, info.layers.map((layer, layerIndex) =>
       toMaidrLayer(layer, svg && panelScope
         ? tagLayerElements(svg, layer, layerIndex, claimed, panelScope, panelIndex)
-        : undefined));
+        : undefined)), percentileBands);
 
     // The first layer's title is the panel's display name in MAIDR's subplot
     // summaries (there is no subplot-level title field in the grammar).
@@ -181,7 +182,9 @@ export function useVictoryAdapter(
   config: VictoryAdapterConfig,
   containerRef: RefObject<HTMLDivElement | null>,
 ): MaidrData {
-  const { id, title, subtitle, caption, children, layout } = config;
+  const { id, title, subtitle, caption, children, layout, percentileBands } = config;
+  // Compared by content: an inline option literal is a new object every render.
+  const bandsKey = JSON.stringify(percentileBands ?? null);
   // Primitive layout deps: an inline `layout` object literal would re-run the
   // effect on every render.
   const layoutRows = layout?.rows;
@@ -239,6 +242,7 @@ export function useVictoryAdapter(
         title ?? null,
         subtitle ?? null,
         caption ?? null,
+        bandsKey,
         subplotFingerprint(victorySubplots, panelLayout),
       ]);
 
@@ -257,7 +261,7 @@ export function useVictoryAdapter(
 
       // Full pass: (re)apply tags to the current Victory nodes.
       clearTaggedElements(container);
-      const subplots = buildVictorySubplots(container, victorySubplots, scope, panelLayout);
+      const subplots = buildVictorySubplots(container, victorySubplots, scope, panelLayout, percentileBands);
       taggedElementsRef.current = getTaggedElements(container);
 
       // Selector strings are stable (`#<id> [data-maidr-victory-N]`), so update
@@ -297,7 +301,8 @@ export function useVictoryAdapter(
       if (frameId)
         cancelAnimationFrame(frameId);
     };
-  }, [children, id, title, subtitle, caption, layoutRows, layoutColumns]);
+    // `percentileBands` is read through `bandsKey`, which changes with its content.
+  }, [children, id, title, subtitle, caption, layoutRows, layoutColumns, bandsKey]);
 
   return maidrData;
 }

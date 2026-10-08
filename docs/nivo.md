@@ -86,6 +86,8 @@ Only the SVG components are supported. The `*Canvas` variants (`BarCanvas`, `Lin
 
 Series or keys hidden with `initialHiddenIds` are left out, as Nivo leaves them out of the drawing.
 
+**Fan charts (percentile bands) are not read**, because `@nivo/line` cannot draw a band. A line series is a list of `{ x, y }` points with nothing for a second edge, and every area fills down to one constant, `areaBaselineValue` -- in Nivo 0.99 the area generator is `area().y1(d => d.y).y0(yScale(areaBaselineValue))` -- so stacking (`yScale.stacked`) moves each line up but does not fill between two of them. A band drawn in a custom layer is the author's own drawing, which no prop describes. Other adapters take a `percentileBands` option naming the series a band is drawn with; here there would be no drawn band for it to name.
+
 ## Data Examples by Chart Type
 
 ### Bar Chart

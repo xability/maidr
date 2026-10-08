@@ -53,6 +53,7 @@ Axis labels come from each axis' `label`, series names from each series' `label`
 | `subtitle` | `string` | No | Chart subtitle. |
 | `caption` | `string` | No | Chart caption. |
 | `chartType` | `'bar' \| 'line' \| 'scatter' \| 'pie' \| 'sparkline' \| 'gauge' \| 'radar' \| 'heatmap' \| 'funnel' \| 'sankey'` | No | Which chart `children` is. Only needed when neither the component's name nor the rendered SVG says so. |
+| `percentileBands` | `{ median: string; bands: { series: string; lower: number; upper: number }[]; title?: string; name?: string }[]` | No | A `LineChart`'s fan charts: the median's series and each band's stacked `area` series, by `id` or `label`. See [Fan Chart](#fan-chart-experimental). |
 
 The kind of chart is read from the component's name (`BarChart`, `LineChart`, `ScatterChart`, `PieChart`, `SparkLineChart`, `Gauge`, `RadarChart`, `Heatmap`, `FunnelChart`, `SankeyChart`, and their `Pro`/`Premium` variants). A production build that minifies the name away still works: the adapter then reads the kind from the class names MUI puts on the rendered plot.
 
@@ -89,6 +90,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Radar chart [experimental] | `RadarChart` | ✅ | One row per series, one column per `radar.metrics` spoke. |
 | Funnel chart [experimental] | `FunnelChart` (Pro) | ✅ | One layer per series, stages in data order, named by each item's `label` or else `categoryAxis.categories`. The default vertical funnel draws each value as a width. |
 | Sankey [experimental] | `SankeyChart` (Pro) | ✅ | One flow per link, named by its nodes' `label`s (or ids; a label two nodes share is followed by the id). Two links between the same pair of nodes are both read, but not outlined. |
+| Percentile band (fan chart) [experimental] | `LineChart` | ✅ | A median line and bands drawn as stacked `area` series, named in `percentileBands`; see [Fan Chart](#fan-chart-experimental). |
 | Precision-recall curve [experimental] | `LineChart` | ✅ | Read off the axes: the x axis `label` exactly `Recall`, the y axis `Precision` (case aside), and every point from 0 to 1. Anything else, rates in percent included, stays a line. |
 
 ### Notes on these chart types
@@ -287,6 +289,44 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
   />
 </MaidrMuiCharts>
 ```
+
+#### Fan Chart [experimental]
+
+MUI X has no range series, but a stacked `area` series is filled between its own top and the top of the series below it. So a band is a base series holding its lower edge and an `area` series stacked on it holding its width, and nothing on either says which quantiles those edges are. Say it with `percentileBands`:
+
+```tsx
+const p5 = [8, 9, 10], p25 = [10, 12, 13], p50 = [12, 14, 16], p75 = [14, 16, 19], p95 = [16, 19, 22];
+const width = (lo: number[], hi: number[]) => hi.map((v, i) => v - lo[i]);
+
+<MaidrMuiCharts
+  id="fan-example"
+  title="Forecast"
+  percentileBands={[{
+    median: 'median',
+    bands: [
+      { series: 'p90', lower: 0.05, upper: 0.95 },
+      { series: 'p50', lower: 0.25, upper: 0.75 },
+    ],
+  }]}
+>
+  <LineChart
+    width={500}
+    height={300}
+    xAxis={[{ data: [1, 2, 3], label: 'Quarter' }]}
+    series={[
+      { id: 'p90-base', data: p5, stack: 'p90', showMark: false, color: 'transparent' },
+      { id: 'p90', data: width(p5, p95), stack: 'p90', area: true, showMark: false },
+      { id: 'p50-base', data: p25, stack: 'p50', showMark: false, color: 'transparent' },
+      { id: 'p50', data: width(p25, p75), stack: 'p50', area: true, showMark: false },
+      { id: 'median', label: 'Median', data: p50 },
+    ]}
+  />
+</MaidrMuiCharts>
+```
+
+`median` names a plain line series and each band's `series` the `area` series on top of its stack, by series `id` (or `label`). The median and every series of each named stack become one percentile band layer: each band's lower edge is the running total below it and its upper edge that total with its own value added -- a missing value adding nothing, as MUI stacks it -- matched to the median by position along x. The levels are fractions (`0.05`, not `5`), every `lower` below 0.5 and every `upper` above it, and the bands must nest; the same validator as the co-located `maidr` declaration other adapters read refuses an entry that fails, with a console warning. A band naming no series, one without `area: true`, or one that is not the top of a stack of two or more is reported and left out; a median that names no series, or one that is stacked or filled, leaves the chart read as before.
+
+Each band is outlined as its fill, `path.MuiLineChart-area`, outermost first, and the median as its line -- verified against the markup MUI X Charts 9.14 renders, where the area runs between the base series' line and its own, and the five levels of a two-band fan outlined the outer band, the inner band, the median, the inner band and the outer band.
 
 #### Gauge [experimental]
 

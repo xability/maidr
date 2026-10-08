@@ -69,7 +69,9 @@ export function useMuiChartsAdapter(
   config: MuiChartsAdapterConfig,
   containerRef: RefObject<HTMLDivElement | null>,
 ): MaidrData {
-  const { id, title, subtitle, caption, children, chartType } = config;
+  const { id, title, subtitle, caption, children, chartType, percentileBands } = config;
+  // Compared by content: an inline option literal is a new object every render.
+  const bandsKey = JSON.stringify(percentileBands ?? null);
   const fingerprintRef = useRef('');
   const [maidrData, setMaidrData] = useState<MaidrData>(() => ({
     id,
@@ -102,7 +104,7 @@ export function useMuiChartsAdapter(
 
     const apply = (): boolean => {
       const kind = chartType ?? chart?.kind ?? detectMuiChartKind(container);
-      const data = convertMuiChartsToMaidr({ id, title, subtitle, caption }, kind, chart?.props, scope);
+      const data = convertMuiChartsToMaidr({ id, title, subtitle, caption }, kind, chart?.props, scope, percentileBands);
       // `children` is a new object on every parent render, so the effect
       // re-runs often; only a payload that actually changed is published, or
       // every render would rebuild the MAIDR model.
@@ -126,7 +128,8 @@ export function useMuiChartsAdapter(
     });
     observer.observe(container, { childList: true, subtree: true });
     return () => observer.disconnect();
-  }, [children, chartType, id, title, subtitle, caption, containerRef]);
+    // `percentileBands` is read through `bandsKey`, which changes with its content.
+  }, [children, chartType, id, title, subtitle, caption, containerRef, bandsKey]);
 
   return maidrData;
 }

@@ -1,3 +1,4 @@
+import type { PercentileBandOption } from '@adapters/shared/percentileBandOption';
 import type { ReactNode } from 'react';
 
 /**
@@ -58,6 +59,29 @@ export interface MuiChartsAdapterConfig {
    * the component still leaves the second route open.
    */
   chartType?: MuiChartKind;
+  /**
+   * A `<LineChart>`'s fan charts, each read as one `percentile_band` layer.
+   *
+   * MUI X has no range series, but a stacked `area` series is filled between
+   * its own top and the top of the series below it -- so a band is a hidden
+   * base series holding its lower edge and an `area` series stacked on it
+   * holding its width. Nothing says which quantiles those edges are, so they
+   * are stated here: `median` names the median's series and each band's
+   * `series` the `area` series on top of its stack, both by series `id` (or
+   * `label`), with the band's two levels as fractions.
+   *
+   * @example
+   * // series: [
+   * //   { id: 'p90-base', data: p5, stack: 'p90', showMark: false },
+   * //   { id: 'p90', data: p95.map((v, i) => v - p5[i]), stack: 'p90', area: true },
+   * //   { id: 'median', data: p50 },
+   * // ]
+   * percentileBands: [{
+   *   median: 'median',
+   *   bands: [{ series: 'p90', lower: 0.05, upper: 0.95 }],
+   * }]
+   */
+  percentileBands?: PercentileBandOption[];
 }
 
 /**

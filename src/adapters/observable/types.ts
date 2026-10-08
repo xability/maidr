@@ -11,6 +11,7 @@
  * @packageDocumentation
  */
 
+import type { PercentileBandOption } from '@adapters/shared/percentileBandOption';
 import type { Maidr, MaidrLayer } from '@type/grammar';
 
 /**
@@ -114,6 +115,25 @@ export interface ObservablePlotOptions {
    * markTypes: { rect: TraceType.HISTOGRAM }
    */
   markTypes?: Record<string, string>;
+  /**
+   * Fan charts drawn on the plot, each read as one `percentile_band` layer.
+   *
+   * `Plot.areaY` given `y1` and `y2` draws a band, and nothing in the drawn
+   * chart says which quantiles its edges are, so a band is otherwise skipped.
+   * Each mark is named by the `className` Plot puts on its group: `median`
+   * names a `line` mark, and each band's `series` an `area` mark, with the
+   * band's two levels as fractions. The values are read back out of the
+   * paths, as every line and area is, and matched to the median by x.
+   *
+   * @example
+   * // Plot.areaY(rows, {x: 'step', y1: 'p5', y2: 'p95', className: 'p90'}),
+   * // Plot.lineY(rows, {x: 'step', y: 'p50', className: 'median'})
+   * percentileBands: [{
+   *   median: 'median',
+   *   bands: [{ series: 'p90', lower: 0.05, upper: 0.95 }],
+   * }]
+   */
+  percentileBands?: PercentileBandOption[];
   /**
    * When `false`, the schema is returned but not written to the DOM, and no
    * `maidr:bindchart` event fires. Use it to post-process the schema before

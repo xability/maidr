@@ -111,6 +111,9 @@ const VOCABULARY: Record<string, string[]> = {
   'directed graph': ['directed_graph'],
   'precision-recall curve': ['pr_curve'],
   'percentile band': ['percentile_band'],
+  'percentile band (fan chart)': ['percentile_band'],
+  'fan chart': ['percentile_band'],
+  'fan charts': ['percentile_band'],
   'tree': ['tree'],
   'pack': ['pack'],
   'gauge': ['gauge'],
@@ -283,6 +286,7 @@ const GUIDES: Record<string, Guide> = {
       // A step is a `line` trace carrying `stepDirection`.
       'line + stepdirection': ['line'],
       'pr_curve': ['pr_curve'],
+      'percentile_band': ['percentile_band'],
       'single-value charts': ['pie', 'funnel', 'gauge'],
       'grid-value charts': ['heat', 'candlestick', 'box'],
       'hierarchies and graphs': ['treemap', 'sunburst', 'tree', 'sankey', 'network', 'directed_graph'],

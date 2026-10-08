@@ -55,9 +55,10 @@ export function MaidrVictory({
   caption,
   children,
   layout,
+  percentileBands,
 }: MaidrVictoryProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
-  const maidrData = useVictoryAdapter({ id, title, subtitle, caption, children, layout }, containerRef);
+  const maidrData = useVictoryAdapter({ id, title, subtitle, caption, children, layout, percentileBands }, containerRef);
 
   return (
     <Maidr data={maidrData}>
