@@ -11,7 +11,7 @@
 import type { ChoroplethPoint, GanttData, HeatmapData, MaidrLayer, TreemapPoint } from '../../type/grammar';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
-import { drawnBoxCells, drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, drawnViolinCurveCells, isMatrixValue, isPointValue, isRangeValue, parallelGrid, toFiniteNumber } from './extractor';
+import { drawnBoxCells, drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, drawnPrCurveReads, drawnViolinCurveCells, isMatrixValue, isPointValue, isRangeValue, parallelGrid, toFiniteNumber } from './extractor';
 
 /**
  * Figure-unique layer id → original Chart.js dataset indices backing that
@@ -67,6 +67,15 @@ export interface TargetMaps {
    * reading of the box and not a mark of its own.
    */
   distributionTargets: Map<string, ChartJsActiveElement[]>;
+  /**
+   * Directed graph: `nodeTargets[layerId][i]` is the element drawing the
+   * layer's `data[i]` -- its i-th declared node.
+   *
+   * A directed graph names its highlight by data index, as a point cloud does
+   * (see `NavigateCallback.pointIndices`): its cursor is a scope and a place
+   * in topological order, and no row/column pair says which node that is.
+   */
+  nodeTargets: Map<string, ChartJsActiveElement[]>;
   /**
    * Parallel coordinates: `parallelTargets[layerId][row][col]` is the element
    * drawing observation `row` on axis `col`.
@@ -290,6 +299,7 @@ export function computeTargetMaps(
   const treemapIndices = new Map<string, Map<string, number>>();
   const distributionTargets = new Map<string, ChartJsActiveElement[]>();
   const parallelTargets = new Map<string, ChartJsActiveElement[][]>();
+  const nodeTargets = new Map<string, ChartJsActiveElement[]>();
   const datasets = chart.data.datasets;
 
   for (const layer of layers) {
@@ -416,6 +426,17 @@ export function computeTargetMaps(
         );
         break;
       }
+      // A declared precision-recall figure is a curve per dataset, read by a
+      // walk of its own that also skips a datum naming no recall -- so the
+      // walk is shared, as the interval chart's below is.
+      case TraceType.PR_CURVE: {
+        const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
+        barLineIndices.set(
+          layer.id,
+          dsIndices.map(dsIdx => drawnPrCurveReads(chart, dsIdx).map(read => read.index)),
+        );
+        break;
+      }
       // An interval chart is one MAIDR row per dataset, columns along the
       // category axis -- the shape a line has. It cannot borrow the line
       // branch's walk, though: that tests the raw entries with
@@ -488,6 +509,23 @@ export function computeTargetMaps(
         );
         break;
       }
+      // A directed graph declares every node of its dataset, in dataset
+      // order, and `chartjs-chart-graph` draws one element per node in that
+      // same order -- so declared node `i` is element `i`. Registered only
+      // when the two lists are the same length: a mismatch means the chart
+      // moved under the extraction, and outlining by a stale index would light
+      // up a node the reader was not told about.
+      case TraceType.DIRECTED_GRAPH: {
+        const datasetIndex = firstDatasetIndex(layerDatasetIndices, layer.id);
+        const drawn = chart.getDatasetMeta(datasetIndex)?.data?.length;
+        if (Array.isArray(layer.data) && drawn === layer.data.length) {
+          nodeTargets.set(
+            layer.id,
+            layer.data.map((_, index) => ({ datasetIndex, index })),
+          );
+        }
+        break;
+      }
       default:
         break;
     }
@@ -501,7 +539,31 @@ export function computeTargetMaps(
     treemapIndices,
     distributionTargets,
     parallelTargets,
+    nodeTargets,
   };
+}
+
+/**
+ * The elements a selection named by `layer.data` index covers.
+ *
+ * @param targets - The layer's elements, in `layer.data` order
+ * @param pointIndices - The indices the trace reported
+ * @returns The elements found, empty when the layer has no table or the
+ *   event carried no indices
+ */
+function targetsAt(
+  targets: readonly ChartJsActiveElement[] | undefined,
+  pointIndices: readonly number[] | undefined,
+): ChartJsActiveElement[] {
+  if (!targets || !pointIndices)
+    return [];
+  const active: ChartJsActiveElement[] = [];
+  for (const index of pointIndices) {
+    const target = targets[index];
+    if (target)
+      active.push(target);
+  }
+  return active;
 }
 
 /**
@@ -515,7 +577,8 @@ export function computeTargetMaps(
  * @param layerId - The layer the position belongs to
  * @param row - The MAIDR row, or `-1` when the event carries `pointIndices`
  * @param col - The MAIDR column, or `-1` when the event carries `pointIndices`
- * @param pointIndices - For a point cloud, the `layer.data` indices to outline
+ * @param pointIndices - For a point cloud or a directed graph, the
+ *   `layer.data` indices to outline
  * @returns The elements to highlight, empty when nothing resolves
  */
 export function resolveActiveTargets(
@@ -546,18 +609,16 @@ export function resolveActiveTargets(
   // y-bucket, flat point, grid cell, in-cell group) and no row/column pair can
   // say which one is live. Each entry carries its own dataset, so a merged
   // volcano or Manhattan highlights across the datasets it was folded from.
-  if (isPointCloudType(layer.type)) {
-    const targets = maps.pointTargets.get(layer.id);
-    if (!targets || !pointIndices)
-      return [];
-    const active: ChartJsActiveElement[] = [];
-    for (const index of pointIndices) {
-      const target = targets[index];
-      if (target)
-        active.push(target);
-    }
-    return active;
-  }
+  if (isPointCloudType(layer.type))
+    return targetsAt(maps.pointTargets.get(layer.id), pointIndices);
+
+  // Directed graph: the trace names the node it is on -- or every node of a
+  // closed scope -- by its index in `layer.data`, the declared node order,
+  // which is the order the plugin draws its node elements in. The row and
+  // column it reports are -1, which is why the bottom branch, which would
+  // answer `{ index: col }`, must never be reached for one.
+  if (layer.type === TraceType.DIRECTED_GRAPH)
+    return targetsAt(maps.nodeTargets.get(layer.id), pointIndices);
 
   // Gantt: MAIDR row = lane (the Chart.js element index), col = which dataset
   // booked that lane. Both halves come from the prebuilt pair.
@@ -654,14 +715,6 @@ export function resolveActiveTargets(
   // outlined is the one thing this cannot outline, and answering with a node
   // instead would light up a mark the reader was not told about.
   if (layer.type === TraceType.NETWORK)
-    return [];
-
-  // Directed graph: nothing is outlined, for the reason the sankey declines.
-  // `DirectedGraphTrace` addresses a node by its scope and its place in
-  // topological order, not by its position in the dataset, and nothing in
-  // `NavigateCallback` carries which node that is -- the bottom branch would
-  // answer `{ index: col }` and outline whichever node sits at that position.
-  if (layer.type === TraceType.DIRECTED_GRAPH)
     return [];
 
   // Choropleth / bubble map: `col` is the region, but only when the model

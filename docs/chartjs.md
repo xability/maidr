@@ -98,6 +98,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Bump [experimental] | `'line'` with `scales.y.reverse` and ranked values | — | [Bump chart](examples.html) |
 | Dot Plot [experimental] | `'line'` with `showLine: false` on a category axis | — | [Dot plot](examples.html) |
 | Survival [experimental] | `'line'` with `stepped` and a `maidr` declaration | — | [Survival curve](examples.html) |
+| Precision-Recall Curve [experimental] | `'line'` with a `maidr` declaration | — | — |
 | Volcano [experimental] | `'scatter'` with a `maidr` declaration | — | [Volcano plot](examples.html) |
 | Manhattan [experimental] | `'scatter'` with a `maidr` declaration | — | [Manhattan plot](examples.html) |
 | Radar [experimental] | `'radar'` | — | [Radar chart](examples.html) |
@@ -140,7 +141,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 >
 > A tree outlines the node it announces. A network outlines **nothing**, and deliberately: MAIDR names a network's highlight as one *link*, so that its audio, braille and visual channels cannot disagree about which line is live — and the elements Chart.js can activate here are the **nodes**. Outlining a node for a link would light up a mark the reader was never told about, which is the failure #814 named.
 >
-> A `forceDirectedGraph` whose every link resolves `directed: true` — on the dataset, in `options.elements.edgeLine`, as an array or as a scriptable function — is drawn with an arrowhead at each link's `target`, and is read as a **directed graph**: every node in dataset order, each with the nodes whose arrows point at it as its inputs. One link without a visible arrowhead (`directed` false, or `arrowHeadSize: 0`) keeps the whole chart a network. A directed graph outlines nothing either: MAIDR walks it by scope and topological order, and nothing the adapter is told says which dataset position that is.
+> A `forceDirectedGraph` whose every link resolves `directed: true` — on the dataset, in `options.elements.edgeLine`, as an array or as a scriptable function — is drawn with an arrowhead at each link's `target`, and is read as a **directed graph**: every node in dataset order, each with the nodes whose arrows point at it as its inputs. One link without a visible arrowhead (`directed` false, or `arrowHeadSize: 0`) keeps the whole chart a network. A directed graph does outline: MAIDR walks it in topological order rather than dataset order, but names the node it is on by its declared index, and the plugin draws one node element per row in dataset order — so the node announced is the node outlined.
 
 > **Error bar note:** the three cartesian controllers of `chartjs-chart-error-bars` all read the same way — an estimate and the interval around it — because the mark each draws at the estimate is not something a reader is told. Several datasets become one series each, every estimate naming its dataset, so a dodged interval chart keeps the comparison it was drawn for. A datum may carry **nested** intervals (`yMin: [8, 7]`); the outermost pair is announced, which is the interval the drawn whiskers reach, and the inner ones are not. A datum written as a plain number draws no whiskers and is announced as an estimate with no interval — which is not the same as an interval of width zero. `polarAreaWithErrorBars`, the plugin's fourth controller, is **not** read: a radial spoke has nowhere to carry a bound, so reading it would announce the estimate and drop the uncertainty.
 
@@ -166,6 +167,7 @@ Three readings are shape-identical to another recipe, so no test on the config o
 
 - **Dumbbell** (`traceType: 'dumbbell'`) — a horizontal floating bar chart, which is the same `[start, end]` datum a one-interval-per-lane gantt uses. `plugins.maidr.startLabel` and `endLabel` name the two ends ("1990", "2020"); without them the reader is told which dot they are on but not which year it is. Rows with no pair are skipped rather than kept as empty rows, unlike a gantt lane. A dumbbell is one pair per row, so only the first dataset is read — several intervals in the same row are a gantt.
 - **Survival** (`traceType: 'survival'`) — a `stepped: 'after'` line, which is how every staircase is drawn. Chart.js ignores properties it does not know, so ride the two things a survival figure carries and a step chart does not on the points themselves: `{x, y, censored: true}` for a censoring mark and `{yMin, yMax}` for the confidence band. Each dataset is one arm, gathered into a single layer.
+- **Precision-recall** (`traceType: 'pr_curve'`) — a line of precision against recall, which is how every line is drawn. Ride the threshold each point was scored at on the point itself, `{x: recall, y: precision, threshold}`; recall is read from `x`, or from a numeric label on a category axis. Each dataset is one curve, gathered into a single layer. To say a curve's `prevalence` (the share of positives, which sets the chance baseline) or its `ap`, give its dataset a `maidr` block — see below.
 - **Gauge** (`traceType: 'gauge'`) — for a dial the geometry above misses, and for the target and bands Chart.js records only as styling: `plugins.maidr.target` is the bullet marker and `plugins.maidr.bands` is a `[{ to, label }]` list in ascending order.
 
 ### The `maidr` Block on a Dataset
@@ -203,9 +205,19 @@ Two rules are worth knowing before you write one:
 
 `merge` is what makes a 22-dataset Manhattan one navigable trace. The declaration goes on the first dataset; every *following* dataset drawn the same way that carries no block of its own is folded into that layer, up to the next dataset that declares something. Highlighting follows the merge — a column reaches the points sharing that x in whichever dataset drew them.
 
-A block whose type this adapter has no construct for (a `hexbin` on a scatter, a `volcano` on a bar chart) is reported and ignored. `type: 'survival'` on a `'line'` dataset reaches exactly the same reading `plugins.maidr.traceType: 'survival'` does.
+**Precision-recall** (`type: 'pr_curve'`) is the reading this unlocks on a Chart.js line. Every line dataset of the chart is one curve of the layer, and what a block says is about **its own dataset's curve** — a curve whose dataset carries no block gets no baseline rather than a neighbour's, since curves are not always scored on the same data:
 
-The readings that take the whole chart at once — a survival curve, a dumbbell, a waterfall, a gantt, a gauge — are one figure, so they take one answer. Several datasets may carry a block (a survival curve's arms each say what they are), but where two name *different* types the first in chart order wins and MAIDR names every type it found, the same way it does when a block and `plugins.maidr.traceType` disagree. Volcano, Manhattan and scatter are read per dataset instead, so each block there is honoured on its own dataset.
+| key | what it takes | what it does |
+|---|---|---|
+| `threshold` | a property name on your datum | The decision threshold the point was scored at. Defaults to `threshold`, then `thresholds`, `cutoff`. A datum with none is announced without one. |
+| `prevalence` | a number from 0 to 1 | The share of positives in the data the curve was scored on — the precision a classifier that guesses keeps, and so the height of the chance baseline. Never inferred; a percentage is refused rather than rescaled. |
+| `ap` | a number from 0 to 1 | The curve's average precision as the producer computed it. Left out, MAIDR measures it from the points. |
+| `merge` | a boolean | Accepted for the other adapters' sake; a Chart.js precision-recall chart is one figure and always reads as one layer. |
+| `title`, `name` | strings | The layer's announced title, and its name among sibling layers; the first block in chart order gives them. |
+
+A block whose type this adapter has no construct for (a `hexbin` on a scatter, a `volcano` on a bar chart) is reported and ignored. `type: 'survival'` on a `'line'` dataset reaches exactly the same reading `plugins.maidr.traceType: 'survival'` does, and `type: 'pr_curve'` the same as `plugins.maidr.traceType: 'pr_curve'`.
+
+The readings that take the whole chart at once — a survival curve, a precision-recall figure, a dumbbell, a waterfall, a gantt, a gauge — are one figure, so they take one answer. Several datasets may carry a block (a survival curve's arms each say what they are), but where two name *different* types the first in chart order wins and MAIDR names every type it found, the same way it does when a block and `plugins.maidr.traceType` disagree. Volcano, Manhattan and scatter are read per dataset instead, so each block there is honoured on its own dataset.
 
 `plugins.maidr.traceType: 'volcano'` or `'manhattan'` still reads a chart whose datasets carry no block of their own: it names the trace type and the default chains still find an identity on each point. What it cannot carry is a cutoff, so a figure with one — which is most of them — wants the block.
 

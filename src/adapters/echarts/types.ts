@@ -121,6 +121,11 @@ export interface EChartsGraphEdge {
    * `symbol` has overridden the series' `edgeSymbol`.
    */
   getVisual?: (key: string) => unknown;
+  /**
+   * Where the link was drawn: its two ends, `node1`'s first, then the
+   * control point of a curved link -- in the chart's pixels.
+   */
+  getLayout?: () => unknown;
 }
 
 /** A graph series' nodes and links. */

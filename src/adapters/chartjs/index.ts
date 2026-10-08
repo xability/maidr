@@ -41,6 +41,7 @@ export type {
   FieldRef,
   MaidrTraceDeclaration,
   ManhattanDeclaration,
+  PrCurveDeclaration,
   ScatterDeclaration,
   SurvivalDeclaration,
   VolcanoDeclaration,

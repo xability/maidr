@@ -151,7 +151,8 @@ export type MaidrTraceDeclaration
     | RidgelineDeclaration
     | HexbinDeclaration
     | BoxenDeclaration
-    | GanttDeclaration;
+    | GanttDeclaration
+    | PrCurveDeclaration;
 
 /**
  * A Kaplan-Meier survival curve drawn as a step line.
@@ -233,6 +234,78 @@ export interface SurvivalDeclaration extends DeclarationBase {
    *
    * Set `false` for the rare figure whose curves are genuinely separate
    * charts. A second arm needs no declaration block of its own.
+   *
+   * @default true
+   */
+  merge?: boolean;
+}
+
+/**
+ * A precision-recall curve drawn as an ordinary line: a classifier's precision
+ * against its recall, one point per decision threshold.
+ *
+ * Nothing in a line series says its two axes are rates a classifier traded
+ * against each other, so read undeclared the curve is a line chart, correct
+ * about every number and silent about what the figure is read for: the
+ * threshold behind each point, the average precision, and how far the curve
+ * stands above a classifier that guesses. The series is read exactly as its
+ * line would be -- the same points, the same marks -- with `x` the recall and
+ * `y` the precision.
+ *
+ * Several curves are one figure, compared against each other, so following
+ * line series merge into this layer as further curves by default, as a
+ * survival curve's arms do. A following series carrying a `pr_curve` block of
+ * its own joins the layer too rather than starting another, so that each curve
+ * can say its own `prevalence` and `ap`: both are facts about **the curve the
+ * block is written on**, never about a curve merged in without one.
+ *
+ * @example
+ * // Highcharts, one classifier scored on data that is 30% positive
+ * { custom: { maidr: { type: 'pr_curve', prevalence: 0.3 } } }
+ */
+export interface PrCurveDeclaration extends DeclarationBase {
+  /** `TraceType.PR_CURVE` — the string `'pr_curve'`. */
+  type: TraceType.PR_CURVE;
+  /**
+   * Field holding the decision threshold each point was scored at. Maps to
+   * `PrCurvePoint.threshold`.
+   *
+   * The one number a reader can act on, and the one a line has nowhere to
+   * carry. Left out of a point where it resolves to no finite number --
+   * `precision_recall_curve` returns one threshold fewer than points, so the
+   * last point routinely has none.
+   *
+   * @default 'threshold', falling back to `thresholds` or `cutoff`
+   */
+  threshold?: FieldRef;
+  /**
+   * The share of positives in the data this curve was scored on, as a
+   * **fraction of one**. Maps to `PrCurvePoint.prevalence` on the curve's
+   * first point.
+   *
+   * The precision a classifier that guesses keeps at every recall, so it is
+   * the height of the chart's chance baseline. There is deliberately **no
+   * default**: it cannot be recovered from the curve, and a guessed baseline
+   * would tell a reader every curve beat it, or none did. A percentage is
+   * refused rather than rescaled, for the reason
+   * {@link ForestDeclaration.weight} gives.
+   */
+  prevalence?: number;
+  /**
+   * The average precision of this curve, as the producer computed it, as a
+   * fraction of one. Maps to `PrCurvePoint.ap` on the curve's first point.
+   *
+   * Omitted, MAIDR measures it from the curve's own points the way
+   * `sklearn.metrics.average_precision_score` does, which agrees with the
+   * producer's figure whenever the curve carries every threshold.
+   */
+  ap?: number;
+  /**
+   * Absorb *following* line series into this layer as further curves, as
+   * {@link SurvivalDeclaration.merge} absorbs further arms.
+   *
+   * On by default: the curves of a precision-recall figure are read against
+   * each other. Set `false` for curves that are genuinely separate charts.
    *
    * @default true
    */

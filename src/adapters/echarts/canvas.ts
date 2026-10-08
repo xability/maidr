@@ -21,6 +21,7 @@
  * | `candlestick` | `{ brushRect: { x, y, width, height }, … }`, the body |
  * | `radar` | `[[x, y], …]`, the datum's polygon, closed |
  * | `heatmap` | `undefined` -- placed through the grid instead |
+ * | `graph` | a node's `[x, y]`; a link's `getLayout()` is its two ends, then a curve's control point |
  *
  * all in the chart's CSS pixels from its top-left corner, and a datum with no
  * value comes back with a `null` coordinate rather than being left out --
@@ -45,6 +46,7 @@
 import type { AxisCategories } from './grid';
 import type { EChartsList, EChartsSeriesModel, EChartsTreeNode } from './types';
 import { placedCells } from './grid';
+import { drawnEnds, linkPaint, nodePaint } from './network';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -217,8 +219,69 @@ function drawSeries(
         }
       });
       return;
+    case 'graph':
+      drawGraph(overlay, seriesModel, data);
+      return;
     case 'line':
       drawLine(overlay, seriesModel, data);
+  }
+}
+
+/**
+ * Draws a graph's filled marks in the order the SVG renderer paints them:
+ * the symbol at each end of each link that draws one, in link order, then
+ * one symbol per node in data order -- see `network.ts`.
+ *
+ * Painted as the SVG renderer paints them, a link's end in the link's colour
+ * and a node in its own, so that the mark filter sets aside exactly what it
+ * would set aside in an SVG chart. Only a directed graph's marks are counted
+ * and named; the rest are drawn so that a canvas chart holds what an SVG one
+ * holds.
+ *
+ * A graph's layout is not in the chart's pixels but in its own view's, which
+ * a fitted, zoomed or panned graph scales and moves: measured, a node laid
+ * out at `[300, 250]` is drawn at `(350, 270)`. The view's `dataToPoint` is
+ * the transform the renderer applies, and it agreed with the SVG renderer's
+ * placement to the pixel for the `none`, `force` and `circular` layouts.
+ *
+ * @param overlay     - The overlay being built
+ * @param seriesModel - The graph series, for the view it is laid out in
+ * @param data        - Its data list
+ */
+function drawGraph(
+  overlay: SVGSVGElement,
+  seriesModel: EChartsSeriesModel,
+  data: EChartsList,
+): void {
+  const graph = data.graph;
+  const system = seriesModel.coordinateSystem;
+  if (!graph || !system?.dataToPoint) {
+    return;
+  }
+  // Called on the view rather than detached from it: it reads its transform
+  // off `this`.
+  const placed = (layout: unknown): [number, number] | undefined => {
+    const at = pointOf(layout);
+    return at ? pointOf(system.dataToPoint?.(at)) : undefined;
+  };
+
+  for (const edge of graph.edges) {
+    const layout = edge.getLayout?.();
+    const ends = Array.isArray(layout) ? [placed(layout[0]), placed(layout[1])] : [];
+    const paint = linkPaint(edge) ?? FALLBACK_PAINT;
+    for (const end of drawnEnds(edge)) {
+      const at = ends[end === 'from' ? 0 : 1];
+      if (at) {
+        overlay.appendChild(filled(overlay, 'circle', { cx: at[0], cy: at[1], r: 1 }, paint));
+      }
+    }
+  }
+  for (const node of graph.nodes) {
+    const at = placed(data.getItemLayout?.(node.dataIndex));
+    if (at) {
+      const circle = { cx: at[0], cy: at[1], r: radiusOf(data, node.dataIndex) };
+      overlay.appendChild(filled(overlay, 'circle', circle, nodePaint(data, node.dataIndex) ?? FALLBACK_PAINT));
+    }
   }
 }
 

@@ -282,6 +282,63 @@ describe('a chart drawn to a canvas', () => {
     expect(drawn).toEqual(['75,280', '125,280', '75,240']);
   });
 
+  it('draws a directed graph s nodes through its view, after its arrowheads, and names them', () => {
+    // A graph is laid out in its own view, which a fitted graph scales and
+    // moves: measured, `[300, 250]` is drawn at `(350, 270)`. Each link draws
+    // its arrowhead before any node is drawn, as the SVG renderer paints them.
+    const root = canvasChart();
+    const toView = ([x, y]: number[]): number[] => [x * 1.2 - 10, y * 1.2 - 30];
+    const node = (dataIndex: number, id: string): { dataIndex: number; id: string } => ({ dataIndex, id });
+    const nodes = [node(0, 'output'), node(1, 'input')];
+    const layouts = [[300, 250], [50, 50]];
+    const chart: EChartsInstance = {
+      getModel: () => ({
+        eachSeries: (callback) => {
+          callback({
+            subType: 'graph',
+            name: 'series0',
+            get: () => undefined,
+            coordinateSystem: { dataToPoint: toView },
+            getData: () => ({
+              dimensions: ['value'],
+              count: () => 2,
+              getName: index => nodes[index].id,
+              get: () => null,
+              getItemLayout: index => layouts[index],
+              getItemVisual: (_, key) => (key === 'style' ? { fill: '#5070dd' } : key === 'symbol' ? 'circle' : 10),
+              graph: {
+                nodes,
+                edges: [{
+                  node1: nodes[1],
+                  node2: nodes[0],
+                  getValue: () => null,
+                  getLayout: () => [[50, 50], [296.875, 246.875]],
+                  getVisual: (key: string) => ({
+                    fromSymbol: 'none',
+                    toSymbol: 'arrow',
+                    toSymbolSize: 10,
+                    style: { stroke: '#86878c' },
+                  } as Record<string, unknown>)[key],
+                }],
+              },
+            }),
+          } as EChartsSeriesModel, 0);
+        },
+        eachComponent: () => {},
+      }),
+    };
+
+    const [layer] = createMaidrFromEChart(chart, root).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    const drawn = Array.from(root.querySelectorAll('svg[data-maidr-echart-overlay] circle'))
+      .map(circle => `${circle.getAttribute('fill')}@${circle.getAttribute('cx')},${circle.getAttribute('cy')}`);
+    expect(drawn).toEqual(['#86878c@346.25,266.25', '#5070dd@350,270', '#5070dd@50,30']);
+    const named = (layer.selectors as string[]).map(selector =>
+      document.querySelector(selector)?.getAttribute('cx'));
+    expect(named).toEqual(['350', '50']);
+  });
+
   it('keeps the same overlay when a later reading would draw the same marks', () => {
     const root = canvasChart();
     const chart = fakeInstance([{ type: 'bar', values: [1], layouts: [BAR] }]);

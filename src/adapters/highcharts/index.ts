@@ -42,6 +42,7 @@ export type {
   FieldRef,
   ForestDeclaration,
   MaidrTraceDeclaration,
+  PrCurveDeclaration,
   SeriesRef,
   SurvivalDeclaration,
 } from '../../type/declaration';

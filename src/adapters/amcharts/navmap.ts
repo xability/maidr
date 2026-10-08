@@ -19,6 +19,7 @@ import {
   extractCloudMarks,
   extractErrorBarSamples,
   extractForestSamples,
+  extractPrCurves,
   extractSurvivalArms,
   planDeclarations,
 } from './declaration';
@@ -471,6 +472,25 @@ function buildSurvivalResolver(declared: AmDeclaredLayer | undefined): Resolver 
   return (row, col) => {
     const dataItem = arms[row]?.[col];
     const owner = series[row];
+    return owner && dataItem ? [{ series: owner, dataItem, kind: 'point' }] : [];
+  };
+}
+
+/**
+ * Build a resolver for a declared precision-recall figure.
+ *
+ * The same shape as {@link buildSurvivalResolver} -- a row per curve, a
+ * column per mark along it -- over the precision-recall extractor's own
+ * lists, which name the series drawing each row because a curve with no
+ * readable mark is left out of them.
+ */
+function buildPrCurveResolver(declared: AmDeclaredLayer | undefined): Resolver {
+  const { items, owners } = declared
+    ? extractPrCurves(declared)
+    : { items: [], owners: [] };
+  return (row, col) => {
+    const dataItem = items[row]?.[col];
+    const owner = owners[row];
     return owner && dataItem ? [{ series: owner, dataItem, kind: 'point' }] : [];
   };
 }
@@ -1206,6 +1226,10 @@ function addEntryResolvers(
       }
       case TraceType.SURVIVAL: {
         register(layer.id, buildSurvivalResolver(nextDeclared(TraceType.SURVIVAL)));
+        break;
+      }
+      case TraceType.PR_CURVE: {
+        register(layer.id, buildPrCurveResolver(nextDeclared(TraceType.PR_CURVE)));
         break;
       }
       case TraceType.ERROR_BAR:
