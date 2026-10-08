@@ -42,6 +42,8 @@ export type {
   FieldRef,
   ForestDeclaration,
   MaidrTraceDeclaration,
+  PercentileBandDeclaration,
+  PercentileBandRef,
   PrCurveDeclaration,
   SeriesRef,
   SurvivalDeclaration,
