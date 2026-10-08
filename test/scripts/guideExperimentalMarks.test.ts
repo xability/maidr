@@ -329,6 +329,7 @@ const GUIDES: Record<string, Guide> = {
       'subplots': [],
       // Example sections are named after Plot's marks, not charts.
       'hexbins': ['hexbin'],
+      'precision-recall curves': ['pr_curve'],
       'regression lines': ['smooth'],
       '100% stacked charts': ['stacked_normalized_bar', 'stacked_normalized_area'],
       'step curves': ['step'],

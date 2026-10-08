@@ -2526,23 +2526,67 @@ function convertLine(
   // by sample and described in runs. An area stays an area: its trace reads
   // the convention to tell a stepped band's risers from its samples, the way
   // `bindD3Area` does.
-  const kind = normalized
+  const lineKind = normalized
     ? TraceType.NORMALIZED_AREA
     : stacked
       ? TraceType.STACKED_AREA
       : (type === TraceType.LINE && stepDirection !== undefined ? TraceType.STEP : type);
+  // A precision-recall curve is drawn as a line, stepped or not, and keeps
+  // the line's points and marks; only what is announced changes.
+  const kind = type === TraceType.LINE && readsAsPrCurve(context, series)
+    ? TraceType.PR_CURVE
+    : lineKind;
 
   return {
     legend,
     layer: {
       id: token,
       type: kind,
-      ...(stepDirection !== undefined ? { stepDirection } : {}),
+      ...(stepDirection !== undefined && kind !== TraceType.PR_CURVE ? { stepDirection } : {}),
       selectors: stampSeries(elements, context.containerId, token),
       axes: axisConfig(context),
       data: series,
     },
   };
+}
+
+/**
+ * Whether a channel's axis label is exactly one rate, case aside.
+ *
+ * @param label - The axis label, with Plot's direction arrow already removed
+ * @param rate - The rate's name, in lower case
+ * @returns True when the label names that rate and nothing else
+ */
+function namesRate(label: string | undefined, rate: string): boolean {
+  return typeof label === 'string' && label.trim().toLowerCase() === rate;
+}
+
+/**
+ * Whether a line mark draws a precision-recall curve: recall along x and
+ * precision up y, every point a fraction of one.
+ *
+ * Plot has no such mark -- scikit-learn's curve redrawn in Plot is a
+ * `Plot.line` over two columns -- so it is either said, through
+ * `markTypes: { line: TraceType.PR_CURVE }`, or read off the two axis
+ * labels, which Plot writes from the channels' field names: `recall` on x and
+ * `precision` on y, the reading the Vega-Lite adapter gives the same chart.
+ * Either way every point has to be a number from 0 to 1 on both axes, which a
+ * rate is and a percentage is not; anything less keeps the line reading,
+ * which is never wrong about a line.
+ *
+ * @param context - The conversion context, for the option and the labels
+ * @param series - The line's points, one array per series
+ * @returns True for a precision-recall curve
+ */
+function readsAsPrCurve(context: ConversionContext, series: LinePoint[][]): boolean {
+  const declared = context.markTypes.line === TraceType.PR_CURVE;
+  const named = namesRate(context.axes.x, 'recall') && namesRate(context.axes.y, 'precision');
+  if (!declared && !named)
+    return false;
+  const isRate = (value: unknown): boolean =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+  return series.length > 0 && series.every(points =>
+    points.length > 0 && points.every(point => isRate(point.x) && isRate(point.y)));
 }
 
 /**

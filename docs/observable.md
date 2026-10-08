@@ -258,6 +258,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | `area` / `areaY` | Area [experimental] | |
 | `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area [experimental] | Announced as percentages |
 | `dot` under `hexbin` | Hexbin [experimental] | Only when declared — see below |
+| `line` of `precision` against `recall` | Precision-recall curve [experimental] | From the axis labels, or declared; see below |
 | `link` / `arrow` whose ends share a coordinate | Gantt [experimental] | An interval in a lane; see below |
 | `ruleX` / `ruleY` carrying an interval | Gantt [experimental] | The same reading off a `<line>`; a rule that agrees with itself is refused — see below |
 | `tree` / `cluster` | Tree [experimental] | Three marks read as one hierarchy, from the path in each node's `<title>`; see below |
@@ -451,6 +452,16 @@ Two details worth knowing:
 ## Experimental chart types
 
 These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+### Precision-recall curves [experimental]
+
+A precision-recall curve is a `Plot.line` of precision against recall, and Plot has no mark that says so. It is read as one when both axes say it — the x axis labelled exactly `recall` and the y axis `precision`, case aside, which is what Plot writes when the channels are those two columns — or when you declare it:
+
+```js
+observablePlotToMaidr(chart, { markTypes: { line: 'pr_curve' } });
+```
+
+Either way every point has to be a number from 0 to 1 on both axes: rates written as percentages stay a line. The points and the highlight are the line's own, one curve per drawn path, and a stepped curve is read the same. The rendered chart carries no thresholds, prevalence or average precision, so none is announced; MAIDR measures the average precision from the points.
 
 ### Hexbins [experimental]
 
