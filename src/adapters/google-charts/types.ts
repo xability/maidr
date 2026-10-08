@@ -19,6 +19,14 @@ export interface GoogleDataTable {
   getColumnLabel: (columnIndex: number) => string;
   getColumnType: (columnIndex: number) => 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'timeofday';
   getColumnRole?: (columnIndex: number) => string;
+  /** The column's id, when the table was given one. */
+  getColumnId?: (columnIndex: number) => string;
+  /**
+   * One of the column's custom properties -- the `p` map a column is given,
+   * Google's own slot for "custom values applied to the column", and where a
+   * co-located `maidr` declaration rides: `p: { maidr: { ... } }`.
+   */
+  getColumnProperty?: (columnIndex: number, name: string) => unknown;
 }
 
 /**
