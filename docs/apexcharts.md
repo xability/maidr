@@ -156,6 +156,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Treemap [experimental] | `type: 'treemap'` | `treemap` | [apexcharts-treemap.html](examples/apexcharts-treemap.html) |
 | Radial Bar (Gauge) [experimental] | `type: 'radialBar'` | `gauge`, one layer per ring | [apexcharts-gauge.html](examples/apexcharts-gauge.html) |
 | Funnel [experimental] | `type: 'bar'` + `plotOptions.bar.isFunnel: true` | `funnel` | [apexcharts-funnel.html](examples/apexcharts-funnel.html) |
+| Precision-Recall Curve [experimental] | `type: 'line'` over a numeric x axis titled `Recall`, y axis titled `Precision` | `pr_curve` | — |
 
 ### Notes on these chart types
 
@@ -177,11 +178,13 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 
 > **Funnel note:** a funnel is a horizontal bar chart with `isFunnel`; MAIDR reads each stage's count and announces the share of the stage before it that the stage retained, and its share of the first stage.
 
+> **Precision-recall note:** ApexCharts has no precision-recall series and no slot on a series to say one is, so the axis titles are what say so, as in the Vega-Lite reading of the same chart: a line layer whose x axis is titled exactly `Recall` and whose y axis is titled `Precision`, case aside, with every point a number from 0 to 1 on both, is read as precision-recall curves, one per series, with the line's own highlight. A stepped curve announces no step convention. Nothing on the chart says a curve's thresholds or prevalence, so neither is announced. Anything less, rates in percent included, stays a line.
+
 > **Mixed chart note:** a combo chart, where each series names its own `type`, is one subplot with a layer per kind of mark: the column series become one bar layer (grouped or stacked as the chart says), the lines one line layer, and so on. Page Up / Page Down moves between the layers.
 
 ### Chart types that are not read
 
-`rangeArea` and any other series type not in the table above is skipped with a `console.warn` naming the series, and the rest of the chart is still converted.
+`rangeArea` and any other series type not in the table above is skipped with a `console.warn` naming the series, and the rest of the chart is still converted. A `rangeArea` is a band between two values, and nothing in it says which quantiles those are; ApexCharts 7.6.0 gives a series no metadata slot to declare them in (only a data point carries `meta`), so a fan chart cannot be read as a percentile band.
 
 ## Turn Off ApexCharts' Keyboard Navigation
 

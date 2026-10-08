@@ -410,6 +410,33 @@ describe('bar', () => {
   });
 });
 
+describe('precision-recall curve', () => {
+  function curveChart(xTitle: string, yTitle: string, values = [1, 0.8, 0.4]): FakeChart {
+    return fakeChart({
+      type: 'line',
+      series: [{ name: 'Logistic', values, x: [0, 0.5, 1] }],
+      isXNumeric: true,
+      config: { xaxis: { title: { text: xTitle } }, yaxis: [{ title: { text: yTitle } }] },
+    });
+  }
+
+  it('should read a line of precision against recall as a curve', () => {
+    const layer = onlyLayer(curveChart('Recall', 'Precision'));
+
+    expect(layer.type).toBe(TraceType.PR_CURVE);
+    expect((layer.data as LinePoint[][])[0]).toEqual([
+      { x: 0, y: 1, z: 'Logistic' },
+      { x: 0.5, y: 0.8, z: 'Logistic' },
+      { x: 1, y: 0.4, z: 'Logistic' },
+    ]);
+  });
+
+  it('should keep the line reading when the titles name something else or the rates are percentages', () => {
+    expect(onlyLayer(curveChart('Threshold', 'Precision')).type).toBe(TraceType.LINE);
+    expect(onlyLayer(curveChart('Recall', 'Precision', [100, 80, 40])).type).toBe(TraceType.LINE);
+  });
+});
+
 describe('line and area', () => {
   const categories = { labels: [1, 2, 3], categoryLabels: ['a', 'b', 'c'], isXNumeric: true };
 
