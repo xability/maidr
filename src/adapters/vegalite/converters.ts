@@ -16,7 +16,7 @@
  * into one.
  */
 
-import type { ChoroplethDeclaration, MaidrTraceDeclaration } from '@type/declaration';
+import type { ChoroplethDeclaration, MaidrTraceDeclaration, PrCurveDeclaration } from '@type/declaration';
 import type {
   BarPoint,
   BoxPoint,
@@ -34,6 +34,7 @@ import type {
   MaidrSubplot,
   PercentileBandPoint,
   PiePoint,
+  PrCurvePoint,
   RugPoint,
   ScatterPoint,
   SegmentedPoint,
@@ -79,6 +80,9 @@ import { buildLineSelectors, buildSelector, markToCssClass } from './selectors';
  * merging sibling line layers needs the source spec to recover each
  * series' name, so the two travel together until the merge is done.
  */
+/** How the shared declaration reader names this adapter in its warnings. */
+const DECLARATION_ADAPTER = 'Vega-Lite';
+
 interface ConvertedLayer {
   layer: MaidrLayer;
   spec: VegaLiteSpec;
@@ -291,7 +295,9 @@ function coalesceSiblingLineLayers(
     // describe one of them wrongly.
     const run: ConvertedLayer[] = [current];
     let j = i + 1;
-    while (j < entries.length && entries[j].layer.type === current.layer.type
+    const joins = (next: MaidrLayer): boolean => next.type === current.layer.type
+      || (next.type === TraceType.LINE && declaredPrCurveMerges(current.spec));
+    while (j < entries.length && joins(entries[j].layer)
       && entries[j].layer.stepDirection === current.layer.stepDirection
       && axesAreCompatible(current.layer.axes, entries[j].layer.axes)) {
       run.push(entries[j]);
@@ -307,6 +313,23 @@ function coalesceSiblingLineLayers(
   }
 
   return out;
+}
+
+/**
+ * Whether a layer declared a precision-recall figure that takes in the plain
+ * lines layered after it as further curves.
+ *
+ * The block's `merge` defaults on, as every adapter reading it does: the
+ * curves of one figure are read against each other, and a curve layered in
+ * without a block of its own is still one of them. It borrows nothing from
+ * the block: its points are a line's, without a threshold or a baseline.
+ *
+ * @param spec - The layer's spec
+ * @returns True when following line layers join its run
+ */
+function declaredPrCurveMerges(spec: VegaLiteSpec): boolean {
+  const declared = spec.usermeta?.maidr;
+  return declared?.type === TraceType.PR_CURVE && declared.merge !== false;
 }
 
 function axesAreCompatible(
@@ -2012,6 +2035,98 @@ function readsAsPrCurve(encoding: VegaLiteEncoding, series: LinePoint[][]): bool
     points.length > 0 && points.every(point => isRate(point.x) && isRate(point.y)));
 }
 
+/**
+ * The rows a line layer drew, split into its series the way
+ * {@link extractLineData} splits them, so a series' i-th row is its i-th
+ * point.
+ *
+ * @param rows - The layer's resolved rows
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns One array of rows per series, in drawn order
+ */
+function lineSeriesRows(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+): Record<string, unknown>[][] {
+  const colorField = encoding.color?.field ?? encoding.fill?.field;
+  if (!colorField)
+    return [rows];
+  const groups = new Map<string, Record<string, unknown>[]>();
+  for (const row of rows) {
+    const key = String(row[colorField] ?? '');
+    const group = groups.get(key);
+    if (group)
+      group.push(row);
+    else
+      groups.set(key, [row]);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * A line layer declared a precision-recall figure, read as one: the line's
+ * own points, with the threshold each was scored at and the curve's baseline.
+ *
+ * The threshold is a column of the rows -- `threshold`, falling back to
+ * `thresholds` and `cutoff`, or whatever the block names -- read per point.
+ * `prevalence` and `ap` describe **one** curve, so they ride on the curve's
+ * first point only when the layer draws one; a layer split into several
+ * curves by colour (one per class, one-vs-rest) states one block for curves
+ * whose positives are rarely equally common, and lending them all one
+ * baseline would announce a gap above chance that is not there. Those are
+ * reported and left out: a layer per curve can say each its own.
+ *
+ * @param lineData - The line's points, one array per curve
+ * @param rows - The layer's resolved rows
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param declaration - The layer's block
+ * @param seriesRef - How the author can find this layer
+ * @returns The curves
+ */
+function declaredPrCurves(
+  lineData: LinePoint[][],
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+  declaration: PrCurveDeclaration,
+  seriesRef: string,
+): PrCurvePoint[][] {
+  const seriesRows = lineSeriesRows(rows, encoding);
+  let resolved = false;
+  const curves = lineData.map((series, s) => series.map((point, i): PrCurvePoint => {
+    const raw = resolveFieldRef<unknown>(seriesRows[s]?.[i], declaration.threshold, 'threshold');
+    const threshold = typeof raw === 'number' && Number.isFinite(raw) ? raw : undefined;
+    resolved ||= threshold !== undefined;
+    return {
+      ...point,
+      x: Number(point.x),
+      ...(threshold === undefined ? {} : { threshold }),
+    };
+  }));
+
+  const context = { adapter: DECLARATION_ADAPTER, seriesRef };
+  if (declaration.threshold !== undefined && rows.length > 0 && !resolved)
+    warnUnresolvedRef(context, declaration.threshold, 'threshold');
+
+  const baseline = {
+    ...(declaration.prevalence === undefined ? {} : { prevalence: declaration.prevalence }),
+    ...(declaration.ap === undefined ? {} : { ap: declaration.ap }),
+  };
+  if (Object.keys(baseline).length === 0 || curves.length === 0)
+    return curves;
+  if (curves.length > 1) {
+    console.warn(
+      `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration for "pr_curve" on ${seriesRef} `
+      + `gives prevalence or ap for a layer drawing ${curves.length} curves; `
+      + `they describe one curve, so they are left out. Draw each curve as its own `
+      + `layer to give each its own.`,
+    );
+    return curves;
+  }
+  if (curves[0].length > 0)
+    curves[0][0] = { ...curves[0][0], ...baseline };
+  return curves;
+}
+
 function extractLineData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
@@ -2796,9 +2911,6 @@ function extractDumbbellData(
 // Choropleth
 // ---------------------------------------------------------------------------
 
-/** How the shared declaration reader names this adapter in its warnings. */
-const DECLARATION_ADAPTER = 'Vega-Lite';
-
 /**
  * Where a `geoshape` layer's two facts live: what each region is called,
  * and the value it is shaded by.
@@ -3094,8 +3206,12 @@ function reportUnresolvedRefs(
  *
  * A declaration outranks every heuristic, but only where the library
  * construct can back it: Vega-Lite says what most of its marks are, and the
- * one thing a spec cannot say for itself here is that a `geoshape` is a
- * choropleth when no colour encoding shades it. Anything else declared is
+ * two things a spec cannot say for itself here are that a `geoshape` is a
+ * choropleth when no colour encoding shades it, and that a `line` (or a
+ * `trail`, or a stepped line) of precision against recall is a
+ * precision-recall curve. The curve keeps the line's own reading here -- the
+ * same points, the same paths -- and is announced as a curve by the line
+ * branch of {@link convertLayer}. Anything else declared is
  * reported against what was actually drawn and read as the undeclared
  * chart, per the disagreement rule — never thrown, and never announced as a
  * chart the marks do not draw.
@@ -3117,6 +3233,10 @@ function applyDeclaredType(
   }
   if (declaration.type === TraceType.CHOROPLETH && mark === 'geoshape') {
     return TraceType.CHOROPLETH;
+  }
+  if (declaration.type === TraceType.PR_CURVE
+    && (resolved === TraceType.LINE || resolved === TraceType.STEP)) {
+    return resolved;
   }
   console.warn(
     `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration for "${declaration.type}" `
@@ -3751,6 +3871,10 @@ function convertLayerSpec(
       if (traceType === TraceType.LINE && declaration?.type === undefined
         && readsAsPrCurve(encoding, lineData)) {
         announcedType = TraceType.PR_CURVE;
+      }
+      if (declaration?.type === TraceType.PR_CURVE) {
+        announcedType = TraceType.PR_CURVE;
+        data = declaredPrCurves(lineData, rows, encoding, declaration, seriesRef);
       }
       break;
     }

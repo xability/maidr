@@ -115,7 +115,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | `bar` | stacked, with each series wholly one side of the baseline | Diverging bar (pyramid, Likert) [experimental] | [vegalite-diverging.html](https://github.com/xability/maidr/blob/main/examples/vegalite-diverging.html) |
 | `line`, `trail` | a `window` `rank`/`dense_rank` whose output column is on `y` | Bump [experimental] | [vegalite-bump.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bump.html) |
 | `line`, `trail` | a `fold` transform with `detail` splitting the polylines | Parallel coordinates [experimental] | [vegalite-parallel.html](https://github.com/xability/maidr/blob/main/examples/vegalite-parallel.html) |
-| `line`, `trail` | `x` named or titled `recall` and `y` `precision`, every point from 0 to 1 | Precision-recall curve [experimental] | — |
+| `line`, `trail` | `x` named or titled `recall` and `y` `precision`, every point from 0 to 1, or declared with `usermeta.maidr: { type: 'pr_curve' }` | Precision-recall curve [experimental] | — |
 | `area` | a `row` facet over a `density` transform grouped by the facet field | Ridgeline [experimental] | [vegalite-ridgeline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-ridgeline.html) |
 | `bar` | `x` + `x2` (or `y` + `y2`) fields, other axis nominal/ordinal | Gantt (ranged bar) [experimental] | [vegalite-gantt.html](https://github.com/xability/maidr/blob/main/examples/vegalite-gantt.html) |
 | `bar` | the same, plus a `window` sum building a running total | Waterfall (either orientation) [experimental] | — |
@@ -530,7 +530,30 @@ Geometry the join left unmatched carries no value. Those regions are **dropped**
 
 `lon` and `lat` are what buy back everything spatial. With them the arrow keys move **across the map** — up is north, down is south, left is west, right is east — and the description names where the high values sit and which way the gradient runs. Without them the map is read as a region list in declared order, which is a poorer reading but the one the data supports. MAIDR does not invert the projection to synthesise the pair: degrees are the only accepted form, anything else is left out, and a coordinate that is not one is dropped rather than coerced — a wrong compass direction is worse than no compass at all.
 
-A declaration outranks every heuristic, but only where the marks can back it: a `maidr` block on a spec whose mark is not a `geoshape` is reported to the console and the chart is read as what was actually drawn. The block belongs on the spec node that becomes **one** layer — a single-view spec, a `layer[i]` child, a concat or facet leaf. One written on a composite parent — a `layer`, `concat`, `facet` or `repeat` node — names none of the layers below it and is ignored. `title` and `name` are accepted on any layer and override what it is announced as.
+##### Declaring a precision-recall curve
+
+The axis-name reading above is narrow on purpose. A curve whose columns are named otherwise, whose rates carry no title, or whose figure has a known baseline says so with `type: 'pr_curve'` on the `line` (or `trail`, or stepped `line`) layer:
+
+```js
+{
+  mark: 'line',
+  encoding: { x: { field: 'r', type: 'quantitative' }, y: { field: 'p', type: 'quantitative' } },
+  usermeta: { maidr: { type: 'pr_curve', threshold: 'cut', prevalence: 0.3, ap: 0.82 } },
+}
+```
+
+| field | what it carries | default |
+|---|---|---|
+| `threshold` | the column holding the decision threshold each point was scored at | a `threshold`, `thresholds` or `cutoff` column |
+| `prevalence` | the share of positives the curve was scored on, a number from 0 to 1 — the height of the chance baseline | none: never inferred, and a percentage is refused rather than rescaled |
+| `ap` | the average precision as the producer computed it, from 0 to 1 | measured from the points |
+| `merge` | whether plain `line` layers layered after this one join it as further curves | `true` |
+
+The points and the highlight are the line's own; only what is announced changes. `prevalence` and `ap` describe **one** curve, so they are used only on a layer that draws one: a layer split into several curves by `color` gives one block for curves that were rarely scored on equally common positives, so the two are reported and left out, and each curve that needs a baseline is drawn as its own layer with its own block. A line layered after the declared one, with matching axes, joins it as a further curve and borrows nothing from its block; set `merge: false` to keep it a line.
+
+##### Where a declaration is read
+
+A declaration outranks every heuristic, but only where the marks can back it: a `maidr` block declaring a choropleth on a spec whose mark is not a `geoshape`, or a precision-recall curve on one that draws no line, is reported to the console and the chart is read as what was actually drawn. The block belongs on the spec node that becomes **one** layer — a single-view spec, a `layer[i]` child, a concat or facet leaf. One written on a composite parent — a `layer`, `concat`, `facet` or `repeat` node — names none of the layers below it and is ignored. `title` and `name` are accepted on any layer and override what it is announced as.
 
 Field names given explicitly are used verbatim, with no fallback: a name that no row carries is a typo worth reporting, and MAIDR says so to the console rather than quietly substituting a column you did not ask for.
 
