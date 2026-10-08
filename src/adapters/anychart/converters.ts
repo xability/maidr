@@ -19,6 +19,7 @@
  * @packageDocumentation
  */
 
+import type { PercentileBandDeclaration, PrCurveDeclaration } from '@type/declaration';
 import type {
   BarPoint,
   BoxPoint,
@@ -38,7 +39,10 @@ import type {
   MaidrLayer,
   MaidrSubplot,
   MosaicPoint,
+  PercentileBandPoint,
+  PercentileBandQuantile,
   PiePoint,
+  PrCurvePoint,
   ScatterPoint,
   SegmentedPoint,
   TreemapPoint,
@@ -61,6 +65,7 @@ import type {
 } from './types';
 import { isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
 import { nextId } from '@adapters/shared/selectorUtil';
+import { readDeclarationSlot, resolveFieldRef, warnUnresolvedRef, warnWrongConstruct } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
 
 // ---------------------------------------------------------------------------
@@ -6523,13 +6528,26 @@ function buildSubplot(
   const divergings = collectDivergingSeries(chart, options);
   const divergingIndices = new Set(divergings.map(({ index }) => index));
 
+  // A declared fan chart takes its band series with it wherever they sit, so
+  // the fans are settled before any series is read.
+  const fans = planAnyChartFans(chart, seriesCount);
+  const fanBands = new Set([...fans.values()].flatMap(fan => fan.bands.map(band => band.index)));
+
   for (let i = 0; i < seriesCount; i++) {
     const series = chart.getSeriesAt(i);
     if (!series)
       continue;
 
-    if (divergingIndices.has(i))
+    if (divergingIndices.has(i) || fanBands.has(i))
       continue;
+
+    const fan = fans.get(i);
+    if (fan) {
+      const layer = buildFanLayer(series, i, fan);
+      attachAxes(layer);
+      layers.push(layer);
+      continue;
+    }
 
     // Guarded like every other `seriesType()` call in this file: the adapter
     // does not trust it, and unwrapped here the throw leaves `buildSubplot`,
@@ -6623,7 +6641,14 @@ function buildSubplot(
     // Attach axis labels.
     attachAxes(layer, AXIS_FALLBACKS_BY_TYPE[traceType]);
 
-    layers.push(layer);
+    // A line the series declared a precision-recall curve keeps its points
+    // and its marks; only what is announced changes.
+    const declared = (traceType === TraceType.LINE || traceType === TraceType.STEP)
+      ? readSeriesDeclaration(series, i)
+      : null;
+    layers.push(declared?.type === TraceType.PR_CURVE
+      ? asPrCurveLayer(layer, series, i, declared)
+      : layer);
   }
 
   if (stackedVariant !== null && stackedAreas.length > 0) {
@@ -6672,6 +6697,271 @@ function buildSubplot(
     return null;
 
   return finalize(layers);
+}
+
+// ---------------------------------------------------------------------------
+// Declared readings: series.meta('maidr')
+// ---------------------------------------------------------------------------
+
+/** How the shared declaration reader names this adapter in its warnings. */
+const DECLARATION_ADAPTER = 'AnyChart';
+
+/** The AnyChart series types a fan chart's bands are drawn with. */
+const RANGE_AREA_SERIES_TYPES = new Set(['range-area', 'range-spline-area', 'range-step-area']);
+
+/** The AnyChart series types a precision-recall curve or a fan's median is drawn with. */
+const CURVE_SERIES_TYPES = new Set(['line', 'spline', 'step-line']);
+
+/** How a warning names a series. */
+function seriesRefOf(series: AnyChartSeries, index: number): string {
+  let id: unknown;
+  try {
+    id = series.id();
+  } catch {
+    id = undefined;
+  }
+  return typeof id === 'string' && id !== '' ? `series "${id}"` : `series ${index}`;
+}
+
+/**
+ * The co-located declaration a series carries in AnyChart's own metadata
+ * slot, `series.meta('maidr', { ... })`, when it is one this adapter reads.
+ *
+ * Measured on AnyChart 8.14.1: `meta` keeps the object it was given and hands
+ * it back unchanged. Only the two readings an AnyChart series draws with an
+ * ordinary line are declarable -- a precision-recall curve and a fan chart's
+ * median -- and any other type is reported as undrawn by the shared reader.
+ *
+ * @param series - The series
+ * @param index - Its index, for a warning
+ * @returns The declaration, or null
+ */
+function readSeriesDeclaration(
+  series: AnyChartSeries,
+  index: number,
+): PrCurveDeclaration | PercentileBandDeclaration | null {
+  let raw: unknown;
+  try {
+    raw = series.meta?.('maidr');
+  } catch {
+    return null;
+  }
+  if (raw === undefined || raw === null)
+    return null;
+  return readDeclarationSlot(
+    { maidr: raw },
+    { adapter: DECLARATION_ADAPTER, seriesRef: seriesRefOf(series, index), binding: series },
+    [TraceType.PR_CURVE, TraceType.PERCENTILE_BAND],
+  );
+}
+
+/** The type a series reports, or `''` when it will not say. */
+function seriesTypeOf(series: AnyChartSeries): string {
+  try {
+    return series.seriesType();
+  } catch {
+    return '';
+  }
+}
+
+/** A finite number, from a number or a numeric string. */
+function finiteOrNull(value: unknown): number | null {
+  const number = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  return typeof number === 'number' && Number.isFinite(number) ? number : null;
+}
+
+/**
+ * Every row of a series, reading the given fields.
+ *
+ * @param series - The series
+ * @param fields - The fields to read
+ * @returns The rows
+ */
+function readSeriesFields(series: AnyChartSeries, fields: readonly string[]): Array<Record<string, unknown>> {
+  const iterator = resolveIterator(series);
+  if (!iterator)
+    return [];
+  const rows: Array<Record<string, unknown>> = [];
+  iterator.reset();
+  while (iterator.advance())
+    rows.push(Object.fromEntries(fields.map(field => [field, iterator.get(field)])));
+  return rows;
+}
+
+/** A declared fan chart: its median's series index and its bands, outermost first. */
+interface AnyChartFan {
+  declaration: PercentileBandDeclaration;
+  bands: { index: number; series: AnyChartSeries; lower: number; upper: number }[];
+}
+
+/**
+ * Every fan chart the chart's series declare, keyed by the median's index.
+ *
+ * AnyChart draws a band as a `rangeArea` (or its spline and step forms),
+ * whose rows carry a `low` and a `high`, and says nothing about which
+ * quantiles they are. The median's block names each band's series by its
+ * `id()`; one naming no range series, or one another fan already reads, is
+ * reported and left out.
+ *
+ * @param chart - The chart
+ * @param count - How many series it has
+ * @returns The fans
+ */
+function planAnyChartFans(chart: AnyChartInstance, count: number): Map<number, AnyChartFan> {
+  const fans = new Map<number, AnyChartFan>();
+  const used = new Set<number>();
+  const all = Array.from({ length: count }, (_, i) => chart.getSeriesAt(i));
+  all.forEach((series, index) => {
+    if (!series)
+      return;
+    const declaration = readSeriesDeclaration(series, index);
+    if (declaration?.type !== TraceType.PERCENTILE_BAND)
+      return;
+    const ref = seriesRefOf(series, index);
+    if (!CURVE_SERIES_TYPES.has(seriesTypeOf(series))) {
+      warnWrongConstruct(
+        { adapter: DECLARATION_ADAPTER, seriesRef: ref, binding: series },
+        declaration.type,
+        'a line, spline or step-line series drawing the median',
+        seriesTypeOf(series),
+      );
+      return;
+    }
+    used.add(index);
+    const bands = [...declaration.bands]
+      .sort((a, b) => a.lower - b.lower)
+      .flatMap((band) => {
+        const at = all.findIndex((one, i) => {
+          if (!one || i === index)
+            return false;
+          try {
+            return String(one.id()) === band.series;
+          } catch {
+            return false;
+          }
+        });
+        const target = at >= 0 ? all[at] : null;
+        if (!target || used.has(at) || !RANGE_AREA_SERIES_TYPES.has(seriesTypeOf(target))) {
+          console.warn(
+            `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration for "percentile_band" on ${ref} names `
+            + `series "${band.series}" as a band, which is not a range area series no other band reads; `
+            + 'emitting the layer without it.',
+          );
+          return [];
+        }
+        used.add(at);
+        return [{ index: at, series: target, lower: band.lower, upper: band.upper }];
+      });
+    fans.set(index, { declaration, bands });
+  });
+  return fans;
+}
+
+/**
+ * One declared fan chart as a `percentile_band` layer: a point per row of the
+ * median, carrying it at level 0.5 and each band's `low` and `high` at its
+ * levels, matched by `x`; a position a band draws nothing at is a gap.
+ * No selectors: a range area's fill has not been measured against the
+ * declared bands.
+ *
+ * @param median - The median series
+ * @param index - Its index
+ * @param fan - Its bands
+ * @returns The layer
+ */
+function buildFanLayer(median: AnyChartSeries, index: number, fan: AnyChartFan): MaidrLayer {
+  const edges = fan.bands.map((band) => {
+    const at = new Map<string, { low: number | null; high: number | null }>();
+    for (const row of readSeriesFields(band.series, ['x', 'low', 'high']))
+      at.set(String(row.x), { low: finiteOrNull(row.low), high: finiteOrNull(row.high) });
+    return at;
+  });
+  const data: PercentileBandPoint[] = [];
+  for (const row of readSeriesFields(median, ['x', 'value'])) {
+    const value = finiteOrNull(row.value);
+    if (value === null || row.x === undefined || row.x === null)
+      continue;
+    const quantiles: PercentileBandQuantile[] = [{ level: 0.5, value }];
+    fan.bands.forEach((band, n) => {
+      const edge = edges[n].get(String(row.x));
+      quantiles.push(
+        { level: band.lower, value: edge?.low ?? null },
+        { level: band.upper, value: edge?.high ?? null },
+      );
+    });
+    data.push({ x: row.x as string | number, quantiles });
+  }
+  return {
+    id: String(index),
+    type: TraceType.PERCENTILE_BAND,
+    ...(fan.declaration.title !== undefined
+      ? { title: fan.declaration.title }
+      : (readSeriesName(median) ? { title: readSeriesName(median) } : {})),
+    ...(fan.declaration.name !== undefined ? { name: fan.declaration.name } : {}),
+    data,
+  };
+}
+
+/**
+ * Re-reads a line layer a series declared a precision-recall curve as one:
+ * the same points and selectors, the recall made a number, each point's
+ * threshold read off its row by `x`, and the block's prevalence and average
+ * precision on the first point.
+ *
+ * A curve whose x is not a number on every point names no recall, and stays
+ * the line it is, with a warning.
+ *
+ * @param layer - The line layer built for the series
+ * @param series - The series
+ * @param index - Its index
+ * @param declaration - Its block
+ * @returns The curve, or the line unchanged
+ */
+function asPrCurveLayer(
+  layer: MaidrLayer,
+  series: AnyChartSeries,
+  index: number,
+  declaration: PrCurveDeclaration,
+): MaidrLayer {
+  const rows = layer.data as LinePoint[][];
+  const ref = seriesRefOf(series, index);
+  if (!Array.isArray(rows) || !rows.every(row => row.every(point => finiteOrNull(point.x) !== null))) {
+    console.warn(
+      `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration for "pr_curve" on ${ref} needs a number `
+      + 'for the recall at every point; reading it as the undeclared chart.',
+    );
+    return layer;
+  }
+  const field = typeof declaration.threshold === 'string' ? declaration.threshold : 'threshold';
+  const thresholds = new Map<string, number>();
+  for (const row of readSeriesFields(series, ['x', field, 'thresholds', 'cutoff'])) {
+    const threshold = finiteOrNull(resolveFieldRef(row, declaration.threshold, 'threshold'));
+    if (threshold !== null)
+      thresholds.set(String(row.x), threshold);
+  }
+  if (declaration.threshold !== undefined && thresholds.size === 0)
+    warnUnresolvedRef({ adapter: DECLARATION_ADAPTER, seriesRef: ref, binding: series }, declaration.threshold, 'threshold');
+
+  const curves: PrCurvePoint[][] = rows.map(row => row.map((point) => {
+    const threshold = thresholds.get(String(point.x));
+    return { ...point, x: finiteOrNull(point.x) as number, ...(threshold === undefined ? {} : { threshold }) };
+  }));
+  const first = curves[0]?.[0];
+  if (first) {
+    curves[0][0] = {
+      ...first,
+      ...(declaration.prevalence === undefined ? {} : { prevalence: declaration.prevalence }),
+      ...(declaration.ap === undefined ? {} : { ap: declaration.ap }),
+    };
+  }
+  const { stepDirection: _drawn, ...rest } = layer;
+  return {
+    ...rest,
+    type: TraceType.PR_CURVE,
+    ...(declaration.title !== undefined ? { title: declaration.title } : {}),
+    ...(declaration.name !== undefined ? { name: declaration.name } : {}),
+    data: curves,
+  };
 }
 
 /**

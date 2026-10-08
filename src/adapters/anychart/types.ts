@@ -80,6 +80,12 @@ export interface AnyChartSeries {
   name: () => string;
   seriesType: () => string;
   /**
+   * AnyChart's own metadata slot on a series, `series.meta(key, value)`, and
+   * where a co-located `maidr` declaration rides: `series.meta('maidr', {...})`.
+   * Read with one argument, it hands back what was stored.
+   */
+  meta?: (key: string) => unknown;
+  /**
    * Some AnyChart series expose `getIterator()` directly, while in
    * production builds the iterator must be obtained via the data view
    * returned by `series.data()`. The adapter handles both shapes.
