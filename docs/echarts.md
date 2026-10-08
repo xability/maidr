@@ -363,6 +363,7 @@ each maps onto a MAIDR trace that already exists.
 | `tree` [experimental] | `tree` | `TreemapPoint[]` | **no** — see below |
 | `sankey` [experimental] | `sankey` | `FlowPoint[]` | no |
 | `graph` | `network` [experimental] | `NetworkPoint[]` | no |
+| `graph` whose every link has one arrowhead | `directed_graph` [experimental] | `DirectedGraphPoint[]` | no |
 
 **The synthetic root is dropped.** Measured: `data.tree.root` is a node
 ECharts adds above whatever the author wrote — its name is the empty string
@@ -383,6 +384,16 @@ nothing declared) reports 3; `B` (declared 5, one child of 2) reports 5.
 name their two ends, so neither reading emits a node list — a separate one
 would be a second source of truth for something the links already say. Node
 names come from `data.getName(node.dataIndex)`; there is no `node.name`.
+
+**A graph is directed only when every link says so.** ECharts resolves the
+mark at each end of a link — the series' `edgeSymbol`, overridden end by end
+by a link's own `symbol` — and a graph where every link draws an `'arrow'` at
+exactly one end is read as a `directed_graph`: every node is declared, in data
+order and by the `id` the links name it by (its name when it has none), and a
+node's `inputs` are the nodes at the other end of the arrows pointing at it.
+A link with no arrow, with one at both ends, or with another symbol such as a
+`'triangle'` keeps the whole graph undirected: half a graph's links directed is
+not a directed graph, and a symbol is not a direction unless it is an arrow.
 
 #### Why only a sunburst is outlined
 

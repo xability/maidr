@@ -30,7 +30,7 @@
  *     {@link TraceType.NETWORK} is the grammar's own word for it.
  */
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsMetaElement } from '@adapters/chartjs/types';
-import type { NetworkPoint, TreemapPoint } from '@type/grammar';
+import type { DirectedGraphPoint, NetworkPoint, TreemapPoint } from '@type/grammar';
 import { extractChartData } from '@adapters/chartjs/extractor';
 import { computeTargetMaps, resolveActiveTargets } from '@adapters/chartjs/highlightTargets';
 import { describe, expect, it } from '@jest/globals';
@@ -43,6 +43,11 @@ interface GraphOptions {
   /** Which node pairs the plugin resolved, by position. */
   edges?: [number, number][];
   label?: string;
+  /**
+   * Each resolved edge's `edgeLine` options, by position -- what the plugin
+   * leaves on `meta.edges[i].options` after resolving `directed`.
+   */
+  edgeOptions?: { directed?: unknown; arrowHeadSize?: unknown }[];
 }
 
 /**
@@ -62,7 +67,7 @@ function graphChart(
   parents: (number | null)[],
   options: GraphOptions = {},
 ): ChartJsChart {
-  const { labels, edges, label } = options;
+  const { labels, edges, label, edgeOptions } = options;
   const rows = parents.map(parent =>
     (parent === null ? {} : { parent })) as unknown as ChartJsDataValue[];
   const elements = parents.map((_, index) => ({ index })) as unknown as ChartJsMetaElement[];
@@ -73,9 +78,12 @@ function graphChart(
   const meta = {
     data: elements,
     type: chartType,
-    edges: (edges ?? derived).map(([source, target]) => ({
+    edges: (edges ?? derived).map(([source, target], index) => ({
       source: elements[source],
       target: elements[target],
+      // Measured: every edge carries its resolved options, `directed: false`
+      // and `arrowHeadSize: 15` by default.
+      options: { directed: false, arrowHeadSize: 15, ...edgeOptions?.[index] },
     })),
   };
 
@@ -164,6 +172,76 @@ describe('chart.js graph', () => {
       { source: 'b', target: 'a2' },
       { source: 'a1', target: 'a2' },
     ]);
+  });
+
+  it('reads a force-directed graph whose every link has an arrowhead as a directed graph', () => {
+    // `directed` draws the head at the link's `target` end and nowhere else,
+    // so the target is the node the edge feeds. Every node is declared, the
+    // unlinked `a2` included, keyed by position and announced by name.
+    const layer = layerOf(graphChart('forceDirectedGraph', [null, null, null, null, null], {
+      labels: NAMES,
+      edges: [[0, 1], [0, 2], [1, 3], [2, 3]],
+      edgeOptions: [{ directed: true }, { directed: true }, { directed: true }, { directed: true }],
+      label: 'Model',
+    }));
+
+    expect(layer.type).toBe(TraceType.DIRECTED_GRAPH);
+    expect(layer.title).toBe('Model');
+    expect(layer.axes).toEqual({ x: { label: 'Node' } });
+    expect(layer.data as DirectedGraphPoint[]).toEqual([
+      { id: 0, label: 'root' },
+      { id: 1, label: 'a', inputs: [0] },
+      { id: 2, label: 'b', inputs: [0] },
+      { id: 3, label: 'a1', inputs: [1, 2] },
+      { id: 4, label: 'a2' },
+    ]);
+  });
+
+  it.each([
+    ['one link has no arrowhead', [{ directed: true }, { directed: false }]],
+    ['an arrowhead is drawn at no size', [{ directed: true }, { directed: true, arrowHeadSize: 0 }]],
+    ['`directed` is truthy but not true', [{ directed: true }, { directed: 'yes' }]],
+  ])('keeps a force-directed graph undirected when %s', (_case, edgeOptions) => {
+    const layer = layerOf(graphChart('forceDirectedGraph', [null, null, null], {
+      labels: ['a', 'b', 'c'],
+      edges: [[0, 1], [1, 2]],
+      edgeOptions,
+    }));
+
+    expect(layer.type).toBe(TraceType.NETWORK);
+    expect(layer.data as NetworkPoint[]).toEqual([
+      { source: 'a', target: 'b' },
+      { source: 'b', target: 'c' },
+    ]);
+  });
+
+  it('never reads a tree as a directed graph, whatever its links draw', () => {
+    // The hierarchy is the reading a tree is drawn for, and `parent` already
+    // says which way each link runs.
+    const layer = layerOf(graphChart('tree', [null, 0], {
+      labels: ['root', 'child'],
+      edgeOptions: [{ directed: true }],
+    }));
+
+    expect(layer.type).toBe(TraceType.TREE);
+  });
+
+  it('outlines nothing on a directed graph rather than the node at the cursor s column', () => {
+    // `DirectedGraphTrace` addresses a node by scope and topological order,
+    // which is not the dataset position `setActiveElements` takes.
+    const chart = graphChart('forceDirectedGraph', [null, null, null], {
+      labels: ['a', 'b', 'c'],
+      edges: [[2, 1], [1, 0]],
+      edgeOptions: [{ directed: true }, { directed: true }],
+    });
+    const extraction = extractChartData(chart);
+    const layers = extraction.maidr.subplots[0][0].layers;
+    const maps = computeTargetMaps(chart, layers, extraction.layerDatasetIndices);
+
+    const targets = [0, 1, 2].map(col =>
+      resolveActiveTargets(layers, maps, extraction.layerDatasetIndices, layers[0].id, 0, col));
+
+    expect(targets).toEqual([[], [], []]);
   });
 
   it('names a graph by what a reader is after at a node', () => {

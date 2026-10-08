@@ -115,13 +115,16 @@ export interface VegaLiteSpec {
    * purely visual, so the two convert identically. `extent` is how far a
    * composite mark's interval reaches — `stderr`, `ci`, `stdev`, `iqr` —
    * which the adapter reads only when it has to aggregate the raw
-   * observations itself.
+   * observations itself, or to tell an interquartile band from the rest.
+   * `center` is the statistic a composite mark's interval is centred on,
+   * `mean` or `median`.
    */
   mark?: string | {
     type: string;
     interpolate?: string;
     innerRadius?: number;
     extent?: string;
+    center?: string;
   };
   encoding?: VegaLiteEncoding;
   layer?: VegaLiteSpec[];

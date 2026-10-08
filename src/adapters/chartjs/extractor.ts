@@ -19,7 +19,7 @@
  */
 
 import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, NetworkPoint, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DirectedGraphPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, NetworkPoint, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsGeoValue, ChartJsGraphValue, ChartJsParsedValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -3473,6 +3473,18 @@ const GRAPH_LINK_AXIS = 'Links';
  *     own word for it: "nodes joined by undirected links, laid out by a force
  *     solver or similar".
  *
+ *   - **unless every link carries an arrowhead.** The plugin's `edgeLine`
+ *     element draws one at the link's `target` end when its `directed` option
+ *     is set, and only there -- measured on `chartjs-chart-graph@4.3.5`, the
+ *     option resolves per edge onto `meta.edges[i].options`, from the
+ *     dataset's `directed`, `options.elements.edgeLine.directed`, an array or
+ *     a scriptable function alike; an `edgeLine: { directed }` on the dataset
+ *     is not read by the plugin and resolves to `false`. A graph whose every
+ *     link is drawn with a visible arrowhead is a
+ *     {@link TraceType.DIRECTED_GRAPH}; one where any link has none keeps
+ *     the network reading, since half a graph's links directed is not a
+ *     directed graph.
+ *
  * **The links come from the metadata** rather than from `dataset.edges`,
  * because that is the one place both spellings arrive resolved: measured, a
  * `forceDirectedGraph` with no declared edges has them derived from `parent`
@@ -3504,9 +3516,13 @@ function extractGraphLayers(
     if (rows.length === 0)
       return;
     const names = rows.map((row, i) => graphNodeName(labels[i], i));
-    const data = chartType === 'forceDirectedGraph'
-      ? graphLinks(chart, index, names)
-      : treeNodes(rows, names);
+    const directed = chartType === 'forceDirectedGraph'
+      ? directedGraphNodes(chart, index, names)
+      : undefined;
+    const data = directed
+      ?? (chartType === 'forceDirectedGraph'
+        ? graphLinks(chart, index, names)
+        : treeNodes(rows, names));
     if (data.length === 0)
       return;
 
@@ -3515,14 +3531,18 @@ function extractGraphLayers(
     datasetIndices?.set(String(index), [index]);
     layers.push({
       id: String(index),
-      type: chartType === 'forceDirectedGraph' ? TraceType.NETWORK : TraceType.TREE,
+      type: directed
+        ? TraceType.DIRECTED_GRAPH
+        : chartType === 'forceDirectedGraph' ? TraceType.NETWORK : TraceType.TREE,
       title: dataset.label,
-      axes: chartType === 'forceDirectedGraph'
-        ? {
-            x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : GRAPH_NODE_AXIS },
-            y: { label: pluginOptions?.axes?.y ? pluginOptions.axes.y : GRAPH_LINK_AXIS },
-          }
-        : { x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : GRAPH_NODE_AXIS } },
+      axes: directed
+        ? { x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : GRAPH_NODE_AXIS } }
+        : chartType === 'forceDirectedGraph'
+          ? {
+              x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : GRAPH_NODE_AXIS },
+              y: { label: pluginOptions?.axes?.y ? pluginOptions.axes.y : GRAPH_LINK_AXIS },
+            }
+          : { x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : GRAPH_NODE_AXIS } },
       data,
     });
   });
@@ -3652,6 +3672,52 @@ function graphLinks(
   }
 
   return links;
+}
+
+/**
+ * A force-directed graph's nodes, when every link it drew carries an
+ * arrowhead -- see {@link extractGraphLayers}.
+ *
+ * Every node is declared, in dataset order, isolated ones included: a
+ * directed graph declares its nodes rather than deriving them from links. A
+ * node is keyed by its position, since two nodes may share a label, and
+ * announced by its name. Its `inputs` are the sources of the links whose
+ * arrowhead points at it, in link order.
+ *
+ * @param chart - The Chart.js chart
+ * @param datasetIndex - The dataset to read
+ * @param names - Each node's name, by position
+ * @returns The nodes, or `undefined` when the graph is not directed
+ */
+function directedGraphNodes(
+  chart: ChartJsChart,
+  datasetIndex: number,
+  names: (string | number)[],
+): DirectedGraphPoint[] | undefined {
+  const meta = chart.getDatasetMeta(datasetIndex);
+  const edges = meta?.edges ?? [];
+  if (edges.length === 0)
+    return undefined;
+
+  const position = new Map(meta.data.map((element, index) => [element, index]));
+  const inputs = names.map((): number[] => []);
+  for (const edge of edges) {
+    const size = edge.options?.arrowHeadSize;
+    // A zero-sized head is drawn as nothing, so it says nothing either.
+    if (edge.options?.directed !== true || (typeof size === 'number' && size <= 0))
+      return undefined;
+    const source = position.get(edge.source);
+    const target = position.get(edge.target);
+    if (source === undefined || target === undefined)
+      return undefined;
+    inputs[target].push(source);
+  }
+
+  return names.map((name, index) => ({
+    id: index,
+    label: name,
+    ...(inputs[index].length > 0 ? { inputs: inputs[index] } : {}),
+  }));
 }
 
 // ---------------------------------------------------------------------------

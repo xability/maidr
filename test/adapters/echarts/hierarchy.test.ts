@@ -19,7 +19,7 @@
  */
 
 import type { EChartsInstance, EChartsList, EChartsSeriesModel } from '@adapters/echarts/types';
-import type { FlowPoint, MaidrLayer, NetworkPoint, TreemapPoint } from '@type/grammar';
+import type { DirectedGraphPoint, FlowPoint, MaidrLayer, NetworkPoint, TreemapPoint } from '@type/grammar';
 import { createMaidrFromEChart } from '@adapters/echarts/converters';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import { TraceType } from '@type/grammar';
@@ -39,9 +39,28 @@ interface FakeSeries {
   /** The forest, for a hierarchy series. */
   nodes?: Node[];
   /** The links, for a graph series. */
-  links?: { source: string; target: string; value?: number }[];
+  links?: { source: string; target: string; value?: number; symbol?: string | string[] }[];
   /** The node names, for a graph series, in declaration order. */
   names?: string[];
+  /** The node ids, where a node declared one apart from its name. */
+  ids?: string[];
+  /** The series' `edgeSymbol`, which each link's `symbol` overrides end by end. */
+  edgeSymbol?: string | string[];
+}
+
+/**
+ * The marks ECharts resolves at a link's two ends, as `graph/edgeVisual.js`
+ * does: a string is both ends, and a link's own end wins over the series'.
+ */
+function endSymbols(
+  series: FakeSeries,
+  link: { symbol?: string | string[] },
+): [string, string] {
+  const both = (one: string | string[] | undefined): (string | undefined)[] =>
+    Array.isArray(one) ? one : [one, one];
+  const [seriesFrom, seriesTo] = both(series.edgeSymbol ?? 'none');
+  const [linkFrom, linkTo] = both(link.symbol);
+  return [linkFrom || seriesFrom || 'none', linkTo || seriesTo || 'none'];
 }
 
 /**
@@ -109,16 +128,32 @@ function fakeList(series: FakeSeries): EChartsList {
   }
 
   const links = series.links ?? [];
-  const at = (name: string): number => names.indexOf(name);
+  const ids = series.ids ?? names;
+  const at = (name: string): number => {
+    const byId = ids.indexOf(name);
+    return byId >= 0 ? byId : names.indexOf(name);
+  };
+  const node = (dataIndex: number): { dataIndex: number; id?: string } =>
+    dataIndex >= 0 ? { dataIndex, id: ids[dataIndex] } : { dataIndex };
   return {
     ...list,
     graph: {
-      nodes: names.map((_, dataIndex) => ({ dataIndex })),
-      edges: links.map(link => ({
-        node1: { dataIndex: at(link.source) },
-        node2: { dataIndex: at(link.target) },
-        getValue: () => link.value ?? null,
-      })),
+      nodes: names.map((_, dataIndex) => node(dataIndex)),
+      edges: links.map((link) => {
+        const [fromSymbol, toSymbol] = endSymbols(series, link);
+        const visuals: Record<string, unknown> = {
+          fromSymbol,
+          toSymbol,
+          fromSymbolSize: 10,
+          toSymbolSize: 10,
+        };
+        return {
+          node1: node(at(link.source)),
+          node2: node(at(link.target)),
+          getValue: () => link.value ?? null,
+          getVisual: (key: string) => visuals[key],
+        };
+      }),
     },
   };
 }
@@ -351,6 +386,94 @@ describe('an eCharts graph', () => {
 
     expect(layer.type).toBe(TraceType.NETWORK);
     expect(layer.data as NetworkPoint[]).toEqual([{ source: 'n1', target: 'n2' }]);
+  });
+
+  it('reads a graph whose every link has one arrowhead as a directed graph', () => {
+    // `edgeSymbol: ['none', 'arrow']` puts the head at each link's target,
+    // and a link's own `symbol` turns one round. Every node is declared, the
+    // isolated `d` included, in data order; a node's inputs are the tails of
+    // the arrows pointing at it, in link order.
+    const [layer] = layersOf(
+      [{
+        type: 'graph',
+        name: 'Model',
+        names: ['input', 'dense', 'output', 'd'],
+        edgeSymbol: ['none', 'arrow'],
+        links: [
+          { source: 'input', target: 'dense' },
+          { source: 'output', target: 'dense', symbol: ['arrow', 'none'] },
+          { source: 'input', target: 'output' },
+        ],
+      }],
+      drawnChart(4),
+    );
+
+    expect(layer.type).toBe(TraceType.DIRECTED_GRAPH);
+    expect(layer.name).toBe('Model');
+    expect(layer.selectors).toBeUndefined();
+    expect(layer.data as DirectedGraphPoint[]).toEqual([
+      { id: 'input' },
+      { id: 'dense', inputs: ['input'] },
+      { id: 'output', inputs: ['dense', 'input'] },
+      { id: 'd' },
+    ]);
+  });
+
+  it('names a directed graph s nodes by the id the links use, and labels them by name', () => {
+    const [layer] = layersOf(
+      [{
+        type: 'graph',
+        names: ['Input layer', 'Dense layer'],
+        ids: ['in', 'fc'],
+        edgeSymbol: ['none', 'arrow'],
+        links: [{ source: 'in', target: 'fc' }],
+      }],
+      drawnChart(2),
+    );
+
+    expect(layer.data as DirectedGraphPoint[]).toEqual([
+      { id: 'in', label: 'Input layer' },
+      { id: 'fc', label: 'Dense layer', inputs: ['in'] },
+    ]);
+  });
+
+  const UNDIRECTED: [string, string | string[] | undefined, (string | undefined)[]][] = [
+    ['no link has an arrow', undefined, [undefined, undefined]],
+    ['every link has an arrow at both ends', 'arrow', [undefined, undefined]],
+    ['one link has no arrow', ['none', 'arrow'], [undefined, 'none']],
+    ['an end carries a marker that is not an arrow', ['none', 'triangle'], [undefined, undefined]],
+  ];
+
+  it.each(UNDIRECTED)('keeps a graph undirected when %s', (_, edgeSymbol, symbols) => {
+    const [layer] = layersOf(
+      [{
+        type: 'graph',
+        names: ['a', 'b', 'c'],
+        edgeSymbol,
+        links: [
+          { source: 'a', target: 'b', symbol: symbols[0] },
+          { source: 'b', target: 'c', symbol: symbols[1] },
+        ],
+      }],
+      drawnChart(3),
+    );
+
+    expect(layer.type).toBe(TraceType.NETWORK);
+    expect(layer.data as NetworkPoint[]).toEqual([
+      { source: 'a', target: 'b' },
+      { source: 'b', target: 'c' },
+    ]);
+  });
+
+  it('never reads a sankey as a directed graph', () => {
+    // A sankey's links flow one way by construction, and its subject is how
+    // much: `FlowPoint` keeps the magnitude a directed graph has no field for.
+    const [layer] = layersOf(
+      [{ type: 'sankey', names: ['a', 'b', 'c'], edgeSymbol: ['none', 'arrow'], links: LINKS }],
+      drawnChart(3),
+    );
+
+    expect(layer.type).toBe(TraceType.SANKEY);
   });
 
   it('drops a flow with no magnitude, because that is a sankey s whole subject', () => {
