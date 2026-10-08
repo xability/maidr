@@ -45,7 +45,7 @@ import {
   THEME_RIVER,
   themeRiverLayer,
 } from './multiAxis';
-import { NETWORK, networkLayer } from './network';
+import { drawnGraphMarks, NETWORK, networkLayer, withNodeSelectors } from './network';
 import { drawnOutlineCount, RADAR, radarLayer } from './radar';
 import { isMarkPaint, markLegends, markPerDatum, markPerSeries } from './selectors';
 import { drawnValueCount, SINGLE_VALUE, singleValueLayers } from './single';
@@ -343,8 +343,14 @@ function readOwning(
   // already had.
   const nodes = owning.map(seriesModel =>
     HIERARCHY.has(seriesModel.subType) ? hierarchyNodes(seriesModel) : undefined);
+  // A graph is read before it is counted: only a directed one names its
+  // nodes, and so only a directed one has marks this pass can pair.
+  const graphs = owning.map(seriesModel =>
+    NETWORK.has(seriesModel.subType) ? networkLayer(seriesModel) : undefined);
   const counts = owning.map((seriesModel, index) =>
-    ownedMarkCount(seriesModel, nodes[index]));
+    graphs[index]?.type === TraceType.DIRECTED_GRAPH
+      ? drawnGraphMarks(seriesModel)
+      : ownedMarkCount(seriesModel, nodes[index]));
   const marks = markPerDatum(container, counts);
   const eachMarkOf = (index: number): string[] | undefined =>
     counts[index] > 0 ? marks?.points[index] : undefined;
@@ -356,8 +362,8 @@ function readOwning(
       return singleValueLayers(seriesModel, eachMarkOf(index), wholeSeriesOf(index));
     }
     if (NETWORK.has(seriesModel.subType)) {
-      const layer = networkLayer(seriesModel);
-      return layer ? [layer] : [];
+      const layer = graphs[index];
+      return layer ? [withNodeSelectors(layer, eachMarkOf(index))] : [];
     }
     if (THEME_RIVER.has(seriesModel.subType)) {
       const layer = themeRiverLayer(seriesModel, model, eachMarkOf(index));
@@ -382,8 +388,9 @@ function readOwning(
  *
  * Zero says the series has no mark this pass can pair, and every reading that
  * answers zero says so for a measured reason: a gauge draws a track and a
- * progress arc for its one datum, a graph and a parallel draw no filled
- * per-datum mark at all, and among the hierarchies only a sunburst's marks
+ * progress arc for its one datum, an undirected graph's marks are nodes while
+ * its trace walks links (a directed graph is counted by `drawnGraphMarks`
+ * before this is asked), a parallel draws no filled per-datum mark at all, and among the hierarchies only a sunburst's marks
  * can be paired -- see `hierarchy.ts` -- so a treemap's leaf-only painting is
  * never mistaken for a count that merely came out wrong.
  *

@@ -363,7 +363,7 @@ each maps onto a MAIDR trace that already exists.
 | `tree` [experimental] | `tree` | `TreemapPoint[]` | **no** — see below |
 | `sankey` [experimental] | `sankey` | `FlowPoint[]` | no |
 | `graph` | `network` [experimental] | `NetworkPoint[]` | no |
-| `graph` whose every link has one arrowhead | `directed_graph` [experimental] | `DirectedGraphPoint[]` | no |
+| `graph` whose every link has one arrowhead | `directed_graph` [experimental] | `DirectedGraphPoint[]` | yes — one selector per node |
 
 **The synthetic root is dropped.** Measured: `data.tree.root` is a node
 ECharts adds above whatever the author wrote — its name is the empty string
@@ -395,7 +395,7 @@ A link with no arrow, with one at both ends, or with another symbol such as a
 `'triangle'` keeps the whole graph undirected: half a graph's links directed is
 not a directed graph, and a symbol is not a direction unless it is an arrow.
 
-#### Why only a sunburst is outlined
+#### Why only a sunburst and a directed graph are outlined
 
 Established by giving every node an explicit `itemStyle.color` and reading the
 fills in document order — reading the default palette had suggested otherwise:
@@ -408,9 +408,21 @@ fills in document order — reading the default palette had suggested otherwise:
   the leaf order is not the walk order either.
 - **`tree`** draws its node symbols `#fff` whatever `itemStyle` says, and this
   adapter counts white as furniture — so there is nothing to name.
-- **`sankey` and `graph`** both navigate *links* while the marks are *nodes*.
-  There is no per-link element to name, so the cursor and the marks would be
-  addressing different things.
+- **`sankey` and an undirected `graph`** both navigate *links* while the
+  marks are *nodes*. There is no per-link element to name, so the cursor and
+  the marks would be addressing different things.
+- **A directed `graph`** navigates *nodes*, and names each by its declared
+  index. Measured on echarts 6.1.0 across the `none`, `force` and `circular`
+  layouts, with straight, curved and self-looping links, labels, edge labels,
+  categories and a `'source'` link colour, it always paints the same
+  sequence: per link its unfilled line and then a filled symbol at each end
+  that draws one, in the link's colour; then one filled symbol per node in
+  data order. So the series' filled marks are counted as the link ends plus
+  the nodes, and the nodes — the last of them — are the layer's selectors.
+  A graph whose nodes are drawn `empty*` (filled white) or pure black is left
+  without an outline, since the mark filter sets those paints aside; on a
+  canvas the overlay draws the same sequence, placed through the graph's own
+  view, which a fitted or zoomed graph scales and moves.
 
 ### Theme rivers, parallel coordinates and radars [experimental]
 
@@ -533,8 +545,12 @@ knows where every mark is. Measured on 6.1.0:
 | `candlestick` | `data.getItemLayout(i).brushRect` — the body |
 | `radar` | `data.getItemLayout(i)` — `[[x, y], …]`, the datum's closed polygon, stroked |
 | `heatmap` | nothing: `getItemLayout(i)` is `undefined`, so each cell is placed through the grid, centred on its category pair and sized by the axes' band widths |
+| `graph` | `data.getItemLayout(i)` — a node's `[x, y]`; a link's `getLayout()` — its two ends, then a curve's control point |
 
-All of these are in the chart's CSS pixels. A datum with no value comes back
+All of these but a graph's are in the chart's CSS pixels. A graph is laid out
+in its own view, which a fitted, zoomed or panned graph scales and moves, so
+its marks are placed through the view's `dataToPoint`, which agreed with the
+SVG renderer to the pixel on the `none`, `force` and `circular` layouts. A datum with no value comes back
 with a `null` coordinate rather than being left out, so "has a finite layout"
 is exactly "was drawn". A bar on a polar grid is laid out as a sector and
 drawn as one.

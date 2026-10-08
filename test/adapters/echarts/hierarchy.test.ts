@@ -22,6 +22,7 @@ import type { EChartsInstance, EChartsList, EChartsSeriesModel } from '@adapters
 import type { DirectedGraphPoint, FlowPoint, MaidrLayer, NetworkPoint, TreemapPoint } from '@type/grammar';
 import { createMaidrFromEChart } from '@adapters/echarts/converters';
 import { afterEach, describe, expect, it } from '@jest/globals';
+import { DirectedGraphTrace } from '@model/directedGraph';
 import { TraceType } from '@type/grammar';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -46,6 +47,12 @@ interface FakeSeries {
   ids?: string[];
   /** The series' `edgeSymbol`, which each link's `symbol` overrides end by end. */
   edgeSymbol?: string | string[];
+  /**
+   * What a graph's nodes and links resolved to paint with, for a graph whose
+   * marks are counted -- left out, the visuals are absent, as on a series the
+   * fake does not paint.
+   */
+  paint?: { symbol?: string; node: string; link: string };
 }
 
 /**
@@ -135,8 +142,15 @@ function fakeList(series: FakeSeries): EChartsList {
   };
   const node = (dataIndex: number): { dataIndex: number; id?: string } =>
     dataIndex >= 0 ? { dataIndex, id: ids[dataIndex] } : { dataIndex };
+  const paint = series.paint;
   return {
     ...list,
+    ...(paint
+      ? {
+          getItemVisual: (_index: number, key: string) =>
+            key === 'symbol' ? paint.symbol ?? 'circle' : key === 'style' ? { fill: paint.node } : undefined,
+        }
+      : {}),
     graph: {
       nodes: names.map((_, dataIndex) => node(dataIndex)),
       edges: links.map((link) => {
@@ -146,6 +160,7 @@ function fakeList(series: FakeSeries): EChartsList {
           toSymbol,
           fromSymbolSize: 10,
           toSymbolSize: 10,
+          ...(series.paint ? { style: { stroke: series.paint.link } } : {}),
         };
         return {
           node1: node(at(link.source)),
@@ -417,6 +432,84 @@ describe('an eCharts graph', () => {
       { id: 'output', inputs: ['dense', 'input'] },
       { id: 'd' },
     ]);
+  });
+
+  /**
+   * A directed graph as the SVG renderer paints it -- measured on echarts
+   * 6.1.0: per link its unfilled line and the filled arrow at its head, in
+   * the link's colour, then one filled symbol per node in data order.
+   */
+  function paintedGraph(links: number, nodes: string[], nodePaint = '#5070dd'): HTMLElement {
+    document.body.innerHTML = '<div id="chart"></div>';
+    const container = document.getElementById('chart') as HTMLElement;
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    const add = (fill: string, stroke?: string, node?: string): void => {
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('fill', fill);
+      if (stroke) {
+        path.setAttribute('stroke', stroke);
+      }
+      if (node) {
+        path.setAttribute('data-node', node);
+      }
+      svg.appendChild(path);
+    };
+    for (let link = 0; link < links; link++) {
+      add('none', '#86878c');
+      add('#86878c');
+    }
+    nodes.forEach(node => add(nodePaint, undefined, node));
+    container.appendChild(svg);
+    return container;
+  }
+
+  /** output <- relu <- input, declared output first. */
+  const PIPELINE: FakeSeries = {
+    type: 'graph',
+    names: ['output', 'relu', 'input'],
+    edgeSymbol: ['none', 'arrow'],
+    links: [{ source: 'input', target: 'relu' }, { source: 'relu', target: 'output' }],
+    paint: { node: '#5070dd', link: '#86878c' },
+  };
+
+  it('outlines the node a directed graph s cursor is on, past the arrowheads painted first', () => {
+    // The trace walks in topological order -- input, relu, output -- which
+    // is the reverse of the declared order, so a selector list off by the
+    // two arrowheads, or in the wrong order, outlines the wrong node.
+    const [layer] = layersOf([PIPELINE], paintedGraph(2, ['output', 'relu', 'input']));
+    const trace = new DirectedGraphTrace(layer);
+
+    const outlined: (string | null)[] = [];
+    for (let step = 0; step < 3; step++) {
+      trace.moveOnce('FORWARD');
+      const { highlight } = trace.state as { highlight?: { empty: boolean; elements?: Element | Element[] } };
+      const element = highlight && !highlight.empty ? [highlight.elements].flat()[0] : undefined;
+      outlined.push(element?.getAttribute('data-node') ?? null);
+    }
+
+    expect(layer.selectors).toHaveLength(3);
+    expect(outlined).toEqual(['input', 'relu', 'output']);
+  });
+
+  it('leaves a directed graph unoutlined when its nodes are painted white', () => {
+    // An `emptyCircle` node is filled `#fff`, which the mark filter sets
+    // aside as furniture, so no count could pair with it -- and none is
+    // attempted, so nothing is warned about either.
+    const [layer] = layersOf(
+      [{ ...PIPELINE, paint: { symbol: 'emptyCircle', node: '#5070dd', link: '#86878c' } }],
+      paintedGraph(2, ['output', 'relu', 'input'], '#fff'),
+    );
+
+    expect(layer.type).toBe(TraceType.DIRECTED_GRAPH);
+    expect(layer.selectors).toBeUndefined();
+  });
+
+  it('leaves a directed graph unoutlined when the drawing holds a mark it did not account for', () => {
+    // One arrowhead too many: the count disagrees and the graph is read
+    // without an outline rather than outlining each node's neighbour.
+    const [layer] = layersOf([PIPELINE], paintedGraph(3, ['output', 'relu', 'input']));
+
+    expect(layer.selectors).toBeUndefined();
   });
 
   it('names a directed graph s nodes by the id the links use, and labels them by name', () => {
