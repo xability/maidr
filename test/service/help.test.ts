@@ -33,6 +33,14 @@ function menuFor(scope: Scope): HelpMenuItem[] {
 }
 
 /**
+ * The keyboard keys a menu lists, leaving out the keys on a tactile display.
+ * @param items - The menu
+ */
+function keyboardKeys(items: HelpMenuItem[]): string[] {
+  return items.filter(item => item.device === undefined).map(item => item.key);
+}
+
+/**
  * Every key a scope actually reaches: its own bindings, plus the label-scope
  * bindings behind the `l` chord.
  */
@@ -52,7 +60,10 @@ function reachableKeys(scope: Scope, nested?: Scope): Set<string> {
 describe('help menu generation', () => {
   it.each(HELP_SCOPES)('$scope advertises no shortcut it cannot run', ({ scope, nested }) => {
     const reachable = reachableKeys(scope, nested);
+    // The keys on a tactile display are the display's, not the keyboard's;
+    // see "the tactile display group" below.
     const unreachable = menuFor(scope)
+      .filter(item => item.device === undefined)
       .filter(item => !reachable.has(item.key))
       .map(item => `${item.key} (${item.description})`);
 
@@ -143,7 +154,13 @@ describe('help menu generation', () => {
       setLocale('ko');
       const korean = help.getMenuItems();
 
-      expect(korean.map(item => item.key)).toEqual(english.map(item => item.key));
+      // A keyboard key is the same in every language; a key on a tactile
+      // display is named in the reader's.
+      expect(keyboardKeys(korean)).toEqual(keyboardKeys(english));
+      expect(korean).toContainEqual(expect.objectContaining({
+        device: 'monarch',
+        key: tIn('ko', 'keybinding.monarchPanKeys'),
+      }));
       expect(korean).toContainEqual(expect.objectContaining({
         key: 'b',
         description: tIn('ko', 'keybinding.toggleBrailleMode'),
@@ -189,5 +206,64 @@ describe('help menu generation', () => {
   it('returns an empty menu for scopes that cannot open help', () => {
     expect(menuFor(Scope.SETTINGS)).toEqual([]);
     expect(menuFor(Scope.COMMAND_PALETTE)).toEqual([]);
+  });
+});
+
+describe('the tactile display group', () => {
+  it.each(HELP_SCOPES)('$scope lists it last, after every other group', ({ scope }) => {
+    // Only a reader with a DotPad or a Monarch needs it, and it is a long
+    // group for everyone else to read past.
+    const sections = menuFor(scope).map(item => item.section);
+    const first = sections.indexOf('tactile');
+    const after = first === -1 ? [] : sections.slice(first);
+
+    expect(HELP_SECTIONS.at(-1)).toBe('tactile');
+    expect(after.every(section => section === 'tactile')).toBe(true);
+  });
+
+  it('lists the keys on a DotPad and on a Monarch after the keyboard\'s tactile keys', () => {
+    const tactile = menuFor(Scope.TRACE).filter(item => item.section === 'tactile');
+
+    expect(tactile.map(item => item.device ?? 'keyboard')).toEqual([
+      'keyboard',
+      'keyboard',
+      'keyboard',
+      'dotPad',
+      'dotPad',
+      'dotPad',
+      'monarch',
+      'monarch',
+      'monarch',
+    ]);
+    expect(tactile).toContainEqual({
+      description: 'DotPad: Scroll Braille Line Back or Forward',
+      key: 'Function 1, Function 4',
+      section: 'tactile',
+      device: 'dotPad',
+    });
+    expect(tactile).toContainEqual({
+      description: 'Monarch: Scroll Braille Line Back or Forward',
+      key: 'Right D-pad left or right, or Space + dot 1, Space + dot 4',
+      section: 'tactile',
+      device: 'monarch',
+    });
+  });
+
+  it.each(HELP_SCOPES)('$scope lists the displays\' keys exactly where it lists the keyboard\'s tactile keys', ({ scope }) => {
+    const menu = menuFor(scope);
+    const keyboard = menu.filter(item => item.section === 'tactile' && item.device === undefined);
+    const device = menu.filter(item => item.device !== undefined);
+
+    expect(device.length > 0).toBe(keyboard.length > 0);
+    expect(device.every(item => item.section === 'tactile')).toBe(true);
+  });
+
+  it('offers no key on a display for rebinding', () => {
+    const help = serviceFor(Scope.TRACE);
+
+    // Nothing is bound to a key on the display: the device reports it and the
+    // tactile service answers.
+    expect(menuFor(Scope.TRACE).filter(item => item.device !== undefined && item.commandKey !== undefined)).toEqual([]);
+    expect(help.getRebindableItems({}).filter(item => item.device !== undefined)).toEqual([]);
   });
 });

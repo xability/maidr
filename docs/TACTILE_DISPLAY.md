@@ -578,6 +578,9 @@ the device itself, without taking a hand off it:
 | Pan up     | Function 2           | Left D-pad up        |
 | Pan down   | Function 3           | Left D-pad down      |
 
+The help menu (**Control + /**, **Command + /** on a Mac) lists these keys and
+the braille line's below under **Tactile Display**, its last group.
+
 Each step moves half a window, so some of what you were reading stays in view.
 At an edge, MAIDR says there is no more chart that way rather than moving
 silently.
