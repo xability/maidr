@@ -16,7 +16,7 @@
  * into one.
  */
 
-import type { ChoroplethDeclaration, MaidrTraceDeclaration, PrCurveDeclaration } from '@type/declaration';
+import type { ChoroplethDeclaration, MaidrTraceDeclaration, PercentileBandDeclaration, PrCurveDeclaration } from '@type/declaration';
 import type {
   BarPoint,
   BoxPoint,
@@ -33,6 +33,7 @@ import type {
   MaidrLayer,
   MaidrSubplot,
   PercentileBandPoint,
+  PercentileBandQuantile,
   PiePoint,
   PrCurvePoint,
   RugPoint,
@@ -177,8 +178,22 @@ export function vegaLiteToMaidr(
     // be told to call its points. Computed once, before conversion, because
     // a layer has to know its names while its data is being read.
     const overlays = labelOverlays(layerSpecs, spec.encoding);
+    // A declared fan chart takes its band layers with it wherever they sit,
+    // so the fans are settled before any layer is converted.
+    const fans = convertDeclaredFans(layerSpecs, view, spec.encoding, spec.name);
+    const fanBands = new Set([...fans.values()].flatMap(fan => fan.bands));
     const rawLayers: ConvertedLayer[] = [];
     for (let i = 0; i < layerSpecs.length;) {
+      const fan = fans.get(i);
+      if (fan) {
+        rawLayers.push({ layer: fan.layer, spec: layerSpecs[i] });
+        i += 1;
+        continue;
+      }
+      if (fanBands.has(i)) {
+        i += 1;
+        continue;
+      }
       const band = convertMedianBand(layerSpecs, i, view, spec.encoding);
       if (band) {
         rawLayers.push({ layer: band, spec: layerSpecs[i] });
@@ -3220,6 +3235,7 @@ function reportUnresolvedRefs(
  * @param mark - The layer's mark
  * @param resolved - What the mark and its encoding resolved to
  * @param seriesRef - How the author can find this layer
+ * @param isLayered - Whether the layer is a child of a layered spec
  * @returns The type to read the layer as
  */
 function applyDeclaredType(
@@ -3227,6 +3243,7 @@ function applyDeclaredType(
   mark: string,
   resolved: TraceType | null,
   seriesRef: string,
+  isLayered = false,
 ): TraceType | null {
   if (!declaration || declaration.type === resolved) {
     return resolved;
@@ -3236,6 +3253,19 @@ function applyDeclaredType(
   }
   if (declaration.type === TraceType.PR_CURVE
     && (resolved === TraceType.LINE || resolved === TraceType.STEP)) {
+    return resolved;
+  }
+  // A fan chart is read before its layers are, by `convertDeclaredFans`,
+  // which has already said why one it could not read was refused; the line
+  // it was written on stays a line.
+  if (declaration.type === TraceType.PERCENTILE_BAND && resolved === TraceType.LINE) {
+    if (!isLayered) {
+      console.warn(
+        `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration for "percentile_band" on ${seriesRef} `
+        + 'names bands that are sibling layers, and this line has none; declare it on the median '
+        + 'line of a layered spec. Reading it as the undeclared chart.',
+      );
+    }
     return resolved;
   }
   console.warn(
@@ -3648,6 +3678,193 @@ function convertMedianBand(
   };
 }
 
+/** A declared fan chart, converted, and the layers it took its bands from. */
+interface DeclaredFan {
+  layer: MaidrLayer;
+  bands: number[];
+}
+
+/**
+ * The name Vega-Lite gives a layer's compiled marks: its own `name`, or the
+ * `layer_<i>` its parent gives it, through `varName` -- non-word characters
+ * to `_`, and a leading digit prefixed -- as vega-lite 5.23.0's
+ * `Model.getName` builds it.
+ *
+ * @param spec - The layer
+ * @param index - Its position among its siblings
+ * @param parentName - The layered parent's own `name`, when it has one
+ * @param part - What the marks are: `marks`, or `layer_0_marks` for the
+ *   area a composite `errorband` compiles into
+ * @returns The mark group's name
+ */
+function compiledMarkName(spec: VegaLiteSpec, index: number, parentName: string | undefined, part: string): string {
+  const own = spec.name ?? `${parentName ? `${parentName}_` : ''}layer_${index}`;
+  const name = `${own}_${part}`;
+  return (/^\d/.test(name) ? '_' : '') + name.replace(/\W/g, '_');
+}
+
+/**
+ * Every fan chart a layered spec declares: a `line` layer whose `usermeta`
+ * block is a `percentile_band`, with the sibling layers it names as its
+ * bands.
+ *
+ * A band is an `area` -- or an `errorband` given its own bounds -- whose `y`
+ * and `y2` are the band's two edges, named by the Vega-Lite `name` it was
+ * given. Nothing in it says which quantiles those edges are, so the median
+ * declares them, and the shared validator holds them to the co-located
+ * block's rules. The edges are matched to the median by x. A band naming no
+ * sibling, a sibling drawing no `y`/`y2` range over the median's x, or one
+ * another fan already reads, is reported and left out.
+ *
+ * Measured on vega-lite 5.23.0 with vega 5.33.1: a layer named `p5-95`
+ * compiles its marks into `g.mark-area.role-mark.p5_95_marks`, an `errorband`
+ * one level down into `p25_75_layer_0_marks`, and an unnamed line into
+ * `layer_<i>_marks`, each one `<path>`. Those are the selectors, one per band
+ * outermost first, then the median's line.
+ *
+ * @param specs - The layered spec's children, with the parent's data inherited
+ * @param view - The compiled view, when one was supplied
+ * @param parentEncoding - Encoding hoisted onto the layered parent
+ * @param parentName - The layered parent's own `name`, when it has one
+ * @returns The fans, keyed by the median layer's index
+ */
+function convertDeclaredFans(
+  specs: VegaLiteSpec[],
+  view: VegaView | undefined,
+  parentEncoding: VegaLiteEncoding | undefined,
+  parentName: string | undefined,
+): Map<number, DeclaredFan> {
+  const fans = new Map<number, DeclaredFan>();
+  const used = new Set<number>();
+  specs.forEach((spec, index) => {
+    if (spec.usermeta?.maidr?.type !== TraceType.PERCENTILE_BAND)
+      return;
+    const seriesRef = `layer ${index}`;
+    const declaration = readDeclarationSlot(spec.usermeta, { adapter: DECLARATION_ADAPTER, seriesRef });
+    if (declaration?.type !== TraceType.PERCENTILE_BAND)
+      return;
+    const encoding: VegaLiteEncoding = { ...parentEncoding, ...spec.encoding };
+    const xField = encoding.x?.field;
+    const yField = encoding.y?.field;
+    if (getMarkType(spec) !== 'line' || !xField || !yField || !drawsOneSeries(encoding)
+      || encoding.y?.aggregate != null || encoding.x?.aggregate != null) {
+      console.warn(
+        `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration for "percentile_band" on ${seriesRef} `
+        + 'needs an unaggregated line drawing one median; reading it as the undeclared chart.',
+      );
+      return;
+    }
+    const fan = convertDeclaredFan(specs, index, declaration, encoding, view, parentName, used);
+    used.add(index);
+    fan.bands.forEach(band => used.add(band));
+    fans.set(index, fan);
+  });
+  return fans;
+}
+
+/**
+ * One declared fan chart, its median at `index`. See {@link convertDeclaredFans}.
+ *
+ * @param specs - The layered spec's children
+ * @param index - The median layer's position
+ * @param declaration - Its validated block
+ * @param encoding - Its encoding, merged with the parent's
+ * @param view - The compiled view, when one was supplied
+ * @param parentName - The layered parent's own `name`, when it has one
+ * @param used - The layers other fans already read
+ * @returns The fan
+ */
+function convertDeclaredFan(
+  specs: VegaLiteSpec[],
+  index: number,
+  declaration: PercentileBandDeclaration,
+  encoding: VegaLiteEncoding,
+  view: VegaView | undefined,
+  parentName: string | undefined,
+  used: Set<number>,
+): DeclaredFan {
+  const spec = specs[index];
+  const xField = encoding.x?.field ?? 'x';
+  const yField = encoding.y?.field ?? 'y';
+  const refuse = (series: string, why: string): undefined => {
+    console.warn(
+      `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration for "percentile_band" on layer ${index} `
+      + `names layer "${series}" as a band, ${why}; emitting the layer without it.`,
+    );
+    return undefined;
+  };
+
+  const bands = [...declaration.bands]
+    .sort((a, b) => a.lower - b.lower)
+    .map((band) => {
+      const at = specs.findIndex((one, i) => i !== index && one.name === band.series);
+      if (at < 0)
+        return refuse(band.series, 'which no sibling layer is named');
+      if (used.has(at))
+        return refuse(band.series, 'which another fan already reads');
+      const mark = getMarkType(specs[at]);
+      const bandEncoding: VegaLiteEncoding = { ...specs[at].encoding };
+      const low = bandEncoding.y?.field;
+      const high = bandEncoding.y2?.field;
+      if ((mark !== 'area' && mark !== 'errorband') || !low || !high
+        || bandEncoding.x?.field !== xField || bandEncoding.y?.aggregate != null) {
+        return refuse(band.series, 'which draws no "y" to "y2" range over the median\'s x');
+      }
+      used.add(at);
+      const markName = compiledMarkName(specs[at], at, parentName, mark === 'area' ? 'marks' : 'layer_0_marks');
+      const rows = resolveData(specs[at], at, view, markName, [low, high]);
+      const edges = new Map<string, { low: number | null; high: number | null }>();
+      for (const row of rows) {
+        const lowValue = Number(row[low]);
+        const highValue = Number(row[high]);
+        edges.set(String(row[xField]), {
+          low: Number.isFinite(lowValue) ? lowValue : null,
+          high: Number.isFinite(highValue) ? highValue : null,
+        });
+      }
+      return { at, lower: band.lower, upper: band.upper, edges, selector: `g.${markToCssClass('area')}.role-mark.${markName} > path` };
+    })
+    .filter(band => band !== undefined);
+
+  const lineMark = compiledMarkName(spec, index, parentName, 'marks');
+  const medianRows = resolveData(spec, index, view, lineMark, [xField, yField]);
+  const data: PercentileBandPoint[] = [];
+  for (const row of medianRows) {
+    const x = row[xField];
+    const median = Number(readEncodedValue(row, encoding.y, yField));
+    if ((typeof x !== 'number' && typeof x !== 'string') || !Number.isFinite(median))
+      continue;
+    const quantiles: PercentileBandQuantile[] = [{ level: 0.5, value: median }];
+    for (const band of bands) {
+      const edge = band.edges.get(String(x));
+      quantiles.push(
+        { level: band.lower, value: edge?.low ?? null },
+        { level: band.upper, value: edge?.high ?? null },
+      );
+    }
+    data.push({ x, quantiles });
+  }
+  // In the order the line joins them, which is along x when x is a number.
+  if (data.every(point => typeof point.x === 'number'))
+    data.sort((a, b) => (a.x as number) - (b.x as number));
+
+  return {
+    layer: {
+      id: String(index),
+      type: TraceType.PERCENTILE_BAND,
+      ...(declaration.title !== undefined ? { title: declaration.title } : {}),
+      ...(declaration.name !== undefined ? { name: declaration.name } : {}),
+      selectors: [
+        ...bands.map(band => band.selector),
+        `g.${markToCssClass('line')}.role-mark.${lineMark} > path`,
+      ],
+      axes: { x: getAxisConfig(encoding.x), y: getAxisConfig(encoding.y) },
+      data,
+    },
+    bands: bands.map(band => band.at),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Layer conversion
 // ---------------------------------------------------------------------------
@@ -3698,6 +3915,7 @@ function convertLayerSpec(
     mark,
     resolveTraceType(mark, encoding, stepDirection, transform),
     seriesRef,
+    isLayered,
   );
 
   if (!traceType)

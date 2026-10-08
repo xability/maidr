@@ -16,7 +16,7 @@
 import type { VegaLiteSpec } from '@adapters/vegalite/types';
 import type { MaidrLayer, PercentileBandPoint } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { TraceType } from '@type/grammar';
 import { makeView } from './fixtures/testView';
 
@@ -142,5 +142,109 @@ describe('vega-lite interquartile band with its median line', () => {
     const layers = vegaLiteToMaidr(layered([BAND, MEDIAN])).subplots[0][0].layers;
 
     expect(layers.some(one => one.type === TraceType.PERCENTILE_BAND)).toBe(false);
+  });
+});
+
+describe('vega-lite percentile band, declared', () => {
+  const ROWS = [0, 1, 2].map(step => ({ step, p50: step, p5: step - 2, p95: step + 2, p25: step - 1, p75: step + 1 }));
+  const X = { field: 'step', type: 'quantitative' as const };
+  const BLOCK = {
+    maidr: {
+      type: TraceType.PERCENTILE_BAND,
+      bands: [
+        { series: 'p25_75', lower: 0.25, upper: 0.75 },
+        { series: 'p5-95', lower: 0.05, upper: 0.95 },
+      ],
+    },
+  };
+  const OUTER: VegaLiteSpec = { name: 'p5-95', mark: 'area', encoding: { x: X, y: { field: 'p5', type: 'quantitative' }, y2: { field: 'p95' } } };
+  const INNER: VegaLiteSpec = { name: 'p25_75', mark: 'errorband', encoding: { x: X, y: { field: 'p25', type: 'quantitative' }, y2: { field: 'p75' } } };
+  const LINE: VegaLiteSpec = { mark: 'line', encoding: { x: X, y: { field: 'p50', type: 'quantitative' } }, usermeta: BLOCK as VegaLiteSpec['usermeta'] };
+
+  function layersOf(layer: VegaLiteSpec[], name?: string): MaidrLayer[] {
+    return vegaLiteToMaidr({ data: { values: ROWS }, layer, ...(name ? { name } : {}) }).subplots[0][0].layers;
+  }
+
+  it('reads the median and the named range layers as one fan chart', () => {
+    const layers = layersOf([OUTER, INNER, LINE]);
+
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.PERCENTILE_BAND);
+    expect((layers[0].data as PercentileBandPoint[])[1]).toEqual({
+      x: 1,
+      quantiles: [
+        { level: 0.5, value: 1 },
+        { level: 0.05, value: -1 },
+        { level: 0.95, value: 3 },
+        { level: 0.25, value: 0 },
+        { level: 0.75, value: 2 },
+      ],
+    });
+  });
+
+  it('outlines each band by the marks its name compiles to, then the median line', () => {
+    // Measured on vega-lite 5.23.0 with vega 5.33.1: a named layer's marks
+    // take its name through varName, a composite errorband's sit one level
+    // down, and an unnamed child is `layer_<i>` of its parent.
+    expect(layersOf([OUTER, INNER, LINE])[0].selectors).toEqual([
+      'g.mark-area.role-mark.p5_95_marks > path',
+      'g.mark-area.role-mark.p25_75_layer_0_marks > path',
+      'g.mark-line.role-mark.layer_2_marks > path',
+    ]);
+    expect((layersOf([LINE, OUTER, INNER], 'forecast')[0].selectors as string[])[2])
+      .toBe('g.mark-line.role-mark.forecast_layer_0_marks > path');
+  });
+
+  it('reports a band naming no layer, and keeps the rest', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const layers = layersOf([{ ...OUTER, name: 'other' }, INNER, LINE]);
+    const band = layers.find(one => one.type === TraceType.PERCENTILE_BAND);
+
+    expect((band?.data as PercentileBandPoint[])[0].quantiles.map(q => q.level)).toEqual([0.5, 0.25, 0.75]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('names layer "p5-95" as a band, which no sibling layer is named'));
+    warn.mockRestore();
+  });
+
+  it('refuses a band layer that draws no range', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    layersOf([{ ...OUTER, mark: 'line', encoding: { x: X, y: { field: 'p5', type: 'quantitative' } } }, INNER, LINE]);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('which draws no "y" to "y2" range'));
+    warn.mockRestore();
+  });
+
+  it('stays a line when the bands do not nest', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const layers = layersOf([OUTER, INNER, {
+      ...LINE,
+      usermeta: { maidr: { type: TraceType.PERCENTILE_BAND, bands: [
+        { series: 'p5-95', lower: 0.05, upper: 0.75 },
+        { series: 'p25_75', lower: 0.25, upper: 0.95 },
+      ] } } as VegaLiteSpec['usermeta'],
+    }]);
+
+    expect(layers.map(one => one.type)).not.toContain(TraceType.PERCENTILE_BAND);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('do not nest'));
+    warn.mockRestore();
+  });
+});
+
+describe('vega-lite percentile band declared on a lone line', () => {
+  it('says the bands have to be sibling layers, and reads the line', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const [layer] = vegaLiteToMaidr({
+      data: { values: [{ step: 0, p50: 1 }, { step: 1, p50: 2 }] },
+      mark: 'line',
+      encoding: { x: { field: 'step', type: 'quantitative' }, y: { field: 'p50', type: 'quantitative' } },
+      usermeta: { maidr: { type: TraceType.PERCENTILE_BAND, bands: [{ series: 'b', lower: 0.1, upper: 0.9 }] } },
+    }).subplots[0][0].layers;
+
+    expect(layer.type).toBe(TraceType.LINE);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('declare it on the median line of a layered spec'));
+    warn.mockRestore();
   });
 });

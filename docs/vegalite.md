@@ -121,6 +121,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | `bar` | the same, plus a `window` sum building a running total | Waterfall (either orientation) [experimental] | — |
 | `point`, `circle`, `square`, `tick` | one positional channel nominal/ordinal | Dot plot (vertical & horizontal) [experimental] | — |
 | `errorband` + `line` layers | the band's `extent: 'iqr'`, the line the `median` of the same `y` over the same quantitative `x` | Percentile band [experimental] | — |
+| `line` + named `area` / `errorband` layers | the line declaring `usermeta.maidr: { type: 'percentile_band', bands: [...] }` | Percentile band [experimental] | — |
 | `errorbar`, `errorband` | — | Error bar [experimental] | [vegalite-errorbar.html](https://github.com/xability/maidr/blob/main/examples/vegalite-errorbar.html) |
 | `arc` | `radius` bound to a field | Polar area (coxcomb, rose) [experimental] | — |
 | `geoshape` | a `color` or `fill` field, or a declared `value` | Choropleth map [experimental] | [vegalite-choropleth.html](https://github.com/xability/maidr/blob/main/examples/vegalite-choropleth.html) |
@@ -550,6 +551,30 @@ The axis-name reading above is narrow on purpose. A curve whose columns are name
 | `merge` | whether plain `line` layers layered after this one join it as further curves | `true` |
 
 The points and the highlight are the line's own; only what is announced changes. `prevalence` and `ap` describe **one** curve, so they are used only on a layer that draws one: a layer split into several curves by `color` gives one block for curves that were rarely scored on equally common positives, so the two are reported and left out, and each curve that needs a baseline is drawn as its own layer with its own block. A line layered after the declared one, with matching axes, joins it as a further curve and borrows nothing from its block; set `merge: false` to keep it a line.
+
+##### Declaring a fan chart
+
+Any other fan chart — a forecast's 50% and 90% intervals around its median, a distribution over training steps — is a `line` and one range layer per band, an `area` (or an `errorband` given its own bounds) with `y` and `y2` as its two edges. Nothing in a range says which quantiles its edges are, so the median line declares them, naming each band layer by its Vega-Lite `name`:
+
+```js
+{
+  data: { values: rows },
+  layer: [
+    { name: 'p5-95', mark: 'area', encoding: { x: { field: 'step', type: 'quantitative' }, y: { field: 'p5', type: 'quantitative' }, y2: { field: 'p95' } } },
+    { name: 'p25-75', mark: 'area', encoding: { x: { field: 'step', type: 'quantitative' }, y: { field: 'p25', type: 'quantitative' }, y2: { field: 'p75' } } },
+    {
+      mark: 'line',
+      encoding: { x: { field: 'step', type: 'quantitative' }, y: { field: 'p50', type: 'quantitative' } },
+      usermeta: { maidr: { type: 'percentile_band', bands: [
+        { series: 'p5-95', lower: 0.05, upper: 0.95 },
+        { series: 'p25-75', lower: 0.25, upper: 0.75 },
+      ] } },
+    },
+  ],
+}
+```
+
+The levels are fractions, each `lower` below 0.5 and each `upper` above it, and the bands must nest; a list that fails is reported and every layer is read as what it draws. A band naming no sibling layer, one that draws no `y`-to-`y2` range over the median's `x`, or one another fan already reads, is reported and left out. The edges are matched to the median by `x`, and the band layers become part of the fan rather than layers of their own. A named layer's marks are named after it — `p5_95_marks` for `p5-95`, through Vega-Lite's own `varName` — so the highlight outlines each band's area by that name and the median by its line, as measured on vega-lite 5.23.0 with vega 5.33.1. The declaration belongs on a line inside a layered spec; on a lone line it has no bands to name and is reported.
 
 ##### Where a declaration is read
 

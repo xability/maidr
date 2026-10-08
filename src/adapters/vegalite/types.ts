@@ -127,6 +127,13 @@ export interface VegaLiteSpec {
     center?: string;
   };
   encoding?: VegaLiteEncoding;
+  /**
+   * Vega-Lite's name for a view, "for later reference". It also names the
+   * view's compiled marks -- `p5_95_marks` rather than `layer_0_marks` for a
+   * layer named `p5-95`, through `varName` -- and it is what a fan chart's
+   * `percentile_band` declaration names its bands by.
+   */
+  name?: string;
   layer?: VegaLiteSpec[];
   hconcat?: VegaLiteSpec[];
   vconcat?: VegaLiteSpec[];
