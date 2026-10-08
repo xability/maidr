@@ -99,6 +99,12 @@ export interface EChartsTree {
 export interface EChartsGraphNode {
   /** Its index into the series' data list, which is how it is named. */
   dataIndex: number;
+  /**
+   * What the links name it by: the data item's `id`, or its name when it
+   * declared none. Measured unique within the series -- ECharts refuses a
+   * second node with the same id.
+   */
+  id?: string;
 }
 
 /** One link of a graph series. */
@@ -109,6 +115,12 @@ export interface EChartsGraphEdge {
   node2: EChartsGraphNode;
   /** One of the link's own dimensions -- `'value'` is the flow. */
   getValue: (dimension: string) => number | null | undefined;
+  /**
+   * One resolved visual of the link -- `'fromSymbol'` and `'toSymbol'` are
+   * the marks drawn at its `node1` and `node2` ends, after a link's own
+   * `symbol` has overridden the series' `edgeSymbol`.
+   */
+  getVisual?: (key: string) => unknown;
 }
 
 /** A graph series' nodes and links. */

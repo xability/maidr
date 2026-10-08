@@ -280,7 +280,7 @@ const GUIDES: Record<string, Guide> = {
       'line + stepdirection': ['line'],
       'single-value charts': ['pie', 'funnel', 'gauge'],
       'grid-value charts': ['heat', 'candlestick', 'box'],
-      'hierarchies and graphs': ['treemap', 'sunburst', 'tree', 'sankey', 'network'],
+      'hierarchies and graphs': ['treemap', 'sunburst', 'tree', 'sankey', 'network', 'directed_graph'],
       'theme rivers, parallel coordinates and radars': ['stacked_area', 'parallel_coordinates', 'radar'],
     },
   },
