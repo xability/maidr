@@ -222,6 +222,12 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'sunburst', config: props.config };
     case 'survival':
       return { chartType: 'survival', config: props.config };
+    case 'prCurve':
+      return { chartType: 'prCurve', config: props.config };
+    case 'percentileBand':
+      return { chartType: 'percentileBand', config: props.config };
+    case 'directedGraph':
+      return { chartType: 'directedGraph', config: props.config };
     case 'treemap':
       return { chartType: 'treemap', config: props.config };
     case 'volcano':

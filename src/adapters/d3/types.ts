@@ -194,7 +194,8 @@ export type LineMarkTraceType
     | typeof TraceType.RADAR
     | typeof TraceType.STACKED_AREA
     | typeof TraceType.STEP
-    | typeof TraceType.SURVIVAL;
+    | typeof TraceType.SURVIVAL
+    | typeof TraceType.PR_CURVE;
 
 /**
  * Area chart type: independent bands, stacked bands, or stacked bands scaled
@@ -1393,6 +1394,105 @@ export interface D3SurvivalConfig extends D3LineConfig {
 }
 
 /**
+ * Configuration for binding a D3 precision-recall curve.
+ *
+ * A precision-recall curve is a line -- `d3.line()` over one `<path>` per
+ * classifier, recall along x and precision up y -- so `selector`,
+ * `pointSelector` and the `x`/`y`/`fill` accessors are {@link D3LineConfig}'s,
+ * unchanged. What the figure carries beyond a line is the threshold behind
+ * each point and each curve's chance baseline.
+ */
+export interface D3PrCurveConfig extends D3LineConfig {
+  /**
+   * Accessor for the decision threshold each point was scored at.
+   * @default 'threshold', falling back to `thresholds` or `cutoff`
+   */
+  threshold?: DataAccessor<number>;
+  /**
+   * The share of positives a curve was scored on, as a fraction from 0 to 1:
+   * the height of its chance baseline. A number describes the one curve of a
+   * single-curve chart; a record keyed by the curve's `fill` name gives each
+   * curve its own. Never inferred, and a value outside 0 to 1 is refused with
+   * a warning rather than rescaled.
+   */
+  prevalence?: number | Record<string, number>;
+  /** A curve's average precision as the producer computed it, shaped as `prevalence` is. */
+  ap?: number | Record<string, number>;
+}
+
+/** One band of a {@link D3PercentileBandConfig}. */
+export interface D3PercentileBand {
+  /**
+   * CSS selector for the band's one `<path>`, drawn by `d3.area()` over the
+   * band's rows, which are its bound datum.
+   */
+  selector: string;
+  /** The quantile the band's low edge is, as a fraction below 0.5. */
+  lower: number;
+  /** The quantile the band's high edge is, as a fraction above 0.5. */
+  upper: number;
+  /** Accessor for the low edge. @default 'y0', falling back to `lower`, `low`, `lo` or `min`. */
+  y0?: DataAccessor<number>;
+  /** Accessor for the high edge. @default 'y1', falling back to `upper`, `high`, `hi` or `max`. */
+  y1?: DataAccessor<number>;
+}
+
+/**
+ * Configuration for binding a D3 percentile band (fan chart): a median line
+ * and nested bands of quantiles drawn around it, as a forecast's prediction
+ * intervals are.
+ *
+ * `selector` matches the median's one `<path>`, whose datum is its rows, and
+ * each band names its own `d3.area()` path. A band says nothing about which
+ * quantiles its edges are, so each states its two levels; they are checked
+ * as the co-located `maidr` declaration's bands are -- fractions, straddling
+ * the median, nesting.
+ */
+export interface D3PercentileBandConfig extends D3BinderConfig {
+  /** CSS selector for the median's line path. */
+  selector: string;
+  /** Accessor for the position. @default 'x' */
+  x?: DataAccessor<number | string>;
+  /** Accessor for the median. @default 'y' */
+  y?: DataAccessor<number>;
+  /** The bands, in any order. */
+  bands: D3PercentileBand[];
+}
+
+/**
+ * Configuration for binding a D3 directed graph: a node-link diagram whose
+ * links run one way, as a computation graph's do.
+ *
+ * Calling this binder is the declaration: d3 draws a link as a line or a
+ * path, and whether an arrowhead marker sits on it says nothing a binder can
+ * read reliably. The links are read as {@link D3NetworkConfig} reads them,
+ * each pointing from its `source` to its `target`.
+ */
+export interface D3DirectedGraphConfig extends D3BinderConfig {
+  /** CSS selector for the link elements (e.g. `'line.link'`). */
+  selector: string;
+  /** Accessor for the node a link leaves. @default 'source', falling back to `from` or `src`. */
+  source?: DataAccessor<unknown>;
+  /** Accessor for the node a link arrives at. @default 'target', falling back to `to` or `dst`. */
+  target?: DataAccessor<unknown>;
+  /**
+   * CSS selector for the node elements, one per node. When given, the nodes
+   * are read from these, in DOM order, and the layer outlines the node the
+   * reader is on. Without it the nodes are derived from the links, in the
+   * order they first appear, and nothing is outlined: a link is not a node.
+   */
+  nodeSelector?: string;
+  /**
+   * Accessor for a node element's id, which the links' ends name. @default
+   * the datum's `id`, `name`, `key` or `label`, as a `d3.forceLink` resolves
+   * an end.
+   */
+  node?: DataAccessor<unknown>;
+  /** Accessor for what a node element is announced as. @default its id. */
+  label?: DataAccessor<string | number>;
+}
+
+/**
  * Configuration for binding a D3 parallel coordinates plot.
  *
  * The chart draws one `<path>` (or `<polyline>`) per **observation** across
@@ -1694,6 +1794,9 @@ export type D3PanelChartSpec
     | { chartType: 'smooth'; config: D3SmoothConfig }
     | { chartType: 'sunburst'; config: D3TreemapConfig }
     | { chartType: 'survival'; config: D3SurvivalConfig }
+    | { chartType: 'prCurve'; config: D3PrCurveConfig }
+    | { chartType: 'percentileBand'; config: D3PercentileBandConfig }
+    | { chartType: 'directedGraph'; config: D3DirectedGraphConfig }
     | { chartType: 'treemap'; config: D3TreemapConfig }
     | { chartType: 'volcano'; config: D3VolcanoConfig }
     | { chartType: 'waterfall'; config: D3WaterfallConfig }

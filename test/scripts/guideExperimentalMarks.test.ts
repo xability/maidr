@@ -210,6 +210,7 @@ const GUIDES: Record<string, Guide> = {
       'radar / spider': ['radar'],
       'force-directed network': ['network'],
       'kaplan-meier survival curve': ['survival'],
+      'percentile band / fan chart': ['percentile_band'],
       'ridgeline / joy plot': ['ridgeline'],
       'hexbin density': ['hexbin'],
       'contour / density field': ['contour'],
