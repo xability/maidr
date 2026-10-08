@@ -24,6 +24,9 @@ import type {
   LinePoint,
   Maidr,
   MaidrLayer,
+  PercentileBandPoint,
+  PercentileBandQuantile,
+  PrCurvePoint,
   ScatterPoint,
   SegmentedPoint,
 } from '../../type/grammar';
@@ -35,6 +38,7 @@ import type {
   UPlotSeriesMaidrOptions,
 } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+import { validateDeclaration } from '../shared/traceDeclaration';
 
 /**
  * Where each MAIDR layer's marks came from, so a navigation position can be
@@ -189,24 +193,65 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
   // emitted where the first of them sat, so layer order follows series order.
   const groups = new Map<string, { layer: MaidrLayer; source: UPlotLayerSource }>();
 
+  // A fan chart's median takes its bands' edge series with it, wherever in
+  // the series order they sit, so they are settled before any series is read.
+  const fans = planFans(u, options);
+  const fanEdges = new Set([...fans.values()].flatMap(fan => fan.rows));
+
   for (let i = 1; i < u.series.length; i++) {
     const series = u.series[i];
     const ys = data[i];
     const kind = resolveKind(u, i, options);
-    if (!series || !ys || kind === null) {
+    if (!series || !ys || kind === null || (fanEdges.has(i) && !fans.has(i))) {
       continue;
     }
     const yScale = series.scale ?? 'y';
     const name = seriesName(series, i);
 
-    if (kind === 'line' || kind === 'area') {
+    const fan = fans.get(i);
+    if (fan) {
+      const idxs: number[] = [];
+      const points: PercentileBandPoint[] = [];
+      for (let k = 0; k < xs.length; k++) {
+        const x = toX.value(k);
+        if (x === null) {
+          continue;
+        }
+        const quantiles: PercentileBandQuantile[] = fan.rows.map((row, r) => ({
+          level: fan.levels[r],
+          value: toFinite(data[row]?.[k]),
+        }));
+        points.push({ x, quantiles });
+        idxs.push(k);
+      }
+      const layerId = `percentile_band-${i}`;
+      layers.push({
+        id: layerId,
+        type: TraceType.PERCENTILE_BAND,
+        title: name,
+        axes: layerAxes(u, toX.axis, yScale, series, options),
+        data: points,
+      });
+      // A row per quantile, lowest first, each its own series: the overlay
+      // marks the quantile the reader is on where that series draws it.
+      sources.set(layerId, {
+        kind: 'line',
+        seriesIdxs: [...fan.rows],
+        sourceIdxs: fan.rows.map(() => idxs),
+        xScale,
+        yScale,
+      });
+      continue;
+    }
+
+    if (kind === 'line' || kind === 'area' || kind === 'pr_curve') {
       const layerId = `${kind}-${yScale}`;
       let group = groups.get(layerId);
       if (!group) {
         group = {
           layer: {
             id: layerId,
-            type: kind === 'area' ? TraceType.AREA : TraceType.LINE,
+            type: kind === 'area' ? TraceType.AREA : kind === 'pr_curve' ? TraceType.PR_CURVE : TraceType.LINE,
             axes: layerAxes(u, toX.axis, yScale, series, options),
             data: [] as LinePoint[][],
           },
@@ -229,6 +274,9 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
         }
         row.push({ x, y: valueAt(i, k), z: name });
         idxs.push(k);
+      }
+      if (kind === 'pr_curve' && row.length > 0) {
+        row[0] = { ...row[0], ...curveBaseline(seriesOptions(series, i, options), name) };
       }
       (group.layer.data as LinePoint[][]).push(row);
       group.source.seriesIdxs.push(i);
@@ -394,6 +442,116 @@ function readFaceted(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
   }
 
   return { layers, sources };
+}
+
+// ---------------------------------------------------------------------------
+// Precision-recall curves and fan charts
+// ---------------------------------------------------------------------------
+
+/** How this adapter prefixes a warning. */
+const WARN_PREFIX = '[MAIDR uPlot]';
+
+/**
+ * The prevalence and average precision a `pr_curve` series declares, kept
+ * only where each is a fraction of one: a percentage would put the chance
+ * baseline far above the chart, so it is refused rather than rescaled.
+ *
+ * @param own - The series' maidr options
+ * @param name - The series' name, for the warning
+ * @returns The fields to put on the curve's first point
+ */
+function curveBaseline(own: UPlotSeriesMaidrOptions | false, name: string): Partial<PrCurvePoint> {
+  const baseline: Partial<PrCurvePoint> = {};
+  if (own === false) {
+    return baseline;
+  }
+  for (const field of ['prevalence', 'ap'] as const) {
+    const value = own[field];
+    if (value === undefined) {
+      continue;
+    }
+    if (typeof value === 'number' && value >= 0 && value <= 1) {
+      baseline[field] = value;
+    } else {
+      console.warn(`${WARN_PREFIX} ${field} ${String(value)} on series "${name}" is not a number from 0 to 1; ignored.`);
+    }
+  }
+  return baseline;
+}
+
+/** A fan chart: the series behind each quantile row, lowest level first, and those levels. */
+interface Fan {
+  rows: number[];
+  levels: number[];
+}
+
+/**
+ * Every fan chart the series declare, keyed by the median's series index.
+ *
+ * Each declared band names one of the chart's own `bands` by index, whose
+ * `series` pair is `[upper, lower]` -- the series uPlot fills between. The
+ * levels go through the shared declaration validator, so they are refused in
+ * the words the co-located block is. A band index naming nothing, a pair that
+ * is not two other series, or a series another fan already reads, is
+ * reported and left out.
+ *
+ * @param u - The chart
+ * @param options - The adapter options
+ * @returns The fans
+ */
+function planFans(u: UPlotInstance, options: MaidrUPlotOptions): Map<number, Fan> {
+  const fans = new Map<number, Fan>();
+  const used = new Set<number>();
+  for (let i = 1; i < u.series.length; i++) {
+    const series = u.series[i];
+    const own = series ? seriesOptions(series, i, options) : false;
+    if (own === false || own.bands === undefined || own.exclude === true) {
+      continue;
+    }
+    const name = series ? seriesName(series, i) : String(i);
+    const declared = validateDeclaration(
+      {
+        type: TraceType.PERCENTILE_BAND,
+        bands: own.bands.map(band => ({ series: `band ${band.band}`, lower: band.lower, upper: band.upper })),
+      },
+      { adapter: 'uPlot', seriesRef: `series "${name}"` },
+      [TraceType.PERCENTILE_BAND],
+    );
+    if (declared === null) {
+      continue;
+    }
+    used.add(i);
+    const resolved = [...own.bands]
+      .sort((a, b) => a.lower - b.lower)
+      .flatMap((band) => {
+        const [upper, lower] = u.bands?.[band.band]?.series ?? [];
+        const valid = [upper, lower].every(idx =>
+          Number.isInteger(idx) && idx > 0 && idx < u.series.length && idx !== i && !used.has(idx));
+        if (!valid || upper === lower) {
+          console.warn(
+            `${WARN_PREFIX} series "${name}" names band ${band.band} as a percentile band, `
+            + 'which is not a pair of two other series no other band reads; the layer is emitted without it.',
+          );
+          return [];
+        }
+        used.add(upper);
+        used.add(lower);
+        return [{ upper, lower, levels: band }];
+      });
+    fans.set(i, {
+      rows: [
+        ...resolved.map(band => band.lower),
+        i,
+        ...[...resolved].reverse().map(band => band.upper),
+      ],
+      levels: [
+        ...resolved.map(band => band.levels.lower),
+        0.5,
+        ...[...resolved].reverse().map(band => band.levels.upper),
+      ],
+    });
+  }
+  return fans;
 }
 
 // ---------------------------------------------------------------------------

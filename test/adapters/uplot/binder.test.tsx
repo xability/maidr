@@ -180,6 +180,29 @@ describe('navigation drawn onto the chart', () => {
     expect(u.setCursor).toHaveBeenLastCalledWith({ left: 120, top: 120 });
   });
 
+  it('boxes a fan chart\'s quantile where its own series draws it', () => {
+    const u = fakeUPlot({
+      data: [[2], [25], [75], [50]],
+      bands: [{ series: [2, 1] }],
+      series: [
+        {},
+        { label: 'p5', _paths: LINE_PATHS },
+        { label: 'p95', _paths: LINE_PATHS },
+        { label: 'Median', _paths: LINE_PATHS, maidr: { bands: [{ band: 0, lower: 0.05, upper: 0.95 }] } },
+      ],
+    });
+    place(u);
+    bind(u);
+
+    // Rows are the levels, lowest first: the 5th percentile, the median, the 95th.
+    act(() => onNavigate()({ layerId: 'percentile_band-3', row: 0, col: 0 }));
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 80, top: 150 });
+    act(() => onNavigate()({ layerId: 'percentile_band-3', row: 1, col: 0 }));
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 80, top: 100 });
+    act(() => onNavigate()({ layerId: 'percentile_band-3', row: 2, col: 0 }));
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 80, top: 50 });
+  });
+
   it('draws no box on a gap but still marks its x with the cursor', () => {
     const u = lineChart();
     place(u);

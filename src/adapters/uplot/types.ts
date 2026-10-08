@@ -130,7 +130,7 @@ export interface UPlotInstance {
 }
 
 /** What a series should be read as. */
-export type UPlotSeriesKind = 'line' | 'area' | 'bar' | 'scatter';
+export type UPlotSeriesKind = 'line' | 'area' | 'bar' | 'scatter' | 'pr_curve';
 
 /**
  * Per-series options, set on the series itself as `maidr: { ... }` or passed
@@ -147,6 +147,23 @@ export interface UPlotSeriesMaidrOptions {
   kind?: UPlotSeriesKind;
   /** Leave this series out of MAIDR entirely. */
   exclude?: boolean;
+  /**
+   * With `kind: 'pr_curve'`: the share of positives this curve was scored on,
+   * as a fraction from 0 to 1 -- the height of its chance baseline. Describes
+   * this series' curve only; never inferred, and a percentage is refused.
+   */
+  prevalence?: number;
+  /** With `kind: 'pr_curve'`: this curve's average precision, from 0 to 1. */
+  ap?: number;
+  /**
+   * Read this series as the median of a fan chart, with the uPlot bands
+   * around it as its percentile bands. Each entry names one of the chart's
+   * own `bands` by its index there -- `{ series: [upper, lower] }`, the pair
+   * uPlot fills between -- and the two quantile levels its edges are. The
+   * levels are checked as the co-located `maidr` declaration's are:
+   * fractions, straddling the median, nesting.
+   */
+  bands?: ReadonlyArray<{ band: number; lower: number; upper: number }>;
 }
 
 /**

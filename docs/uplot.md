@@ -127,6 +127,8 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Series | How uPlot draws it | MAIDR reads it as |
 |--------|--------------------|-------------------|
 | Area [experimental] | a line series with a `fill`, read with `areas: true`, or any series given `kind: 'area'` | one `area` layer per y scale, one row per series |
+| Precision-recall curve [experimental] | a line series given `kind: 'pr_curve'`, recall on x | one `pr_curve` layer per y scale, one curve per series |
+| Percentile band [experimental] | a median line series whose `bands` name the chart's own `bands` around it | one `percentile_band` layer, its band series absorbed |
 
 A filled line is read as a `line` unless you ask for areas: it navigates exactly as a line does, and `area` is an experimental MAIDR type. With `areas: true` every line series whose `fill` gives a color is read as an area; a series whose own `kind` is set keeps that kind.
 
@@ -154,10 +156,32 @@ maidrUPlot.maidrPlugin({ series: { 1: { kind: 'bar' }, 2: { exclude: true } } })
 
 | Key | Values | Meaning |
 |-----|--------|---------|
-| `kind` | `'line' \| 'area' \| 'bar' \| 'scatter'` | Read the series as this, whatever it draws. `'area'` reads as MAIDR's experimental `area` type. Ignored on a faceted chart, where every series is a scatter. |
+| `kind` | `'line' \| 'area' \| 'bar' \| 'scatter' \| 'pr_curve'` | Read the series as this, whatever it draws. `'area'` reads as MAIDR's experimental `area` type, and `'pr_curve'` as a precision-recall curve. Ignored on a faceted chart, where every series is a scatter. |
 | `exclude` | `boolean` | Leave the series out of MAIDR entirely. |
+| `prevalence`, `ap` | numbers from 0 to 1 | With `kind: 'pr_curve'`: this curve's share of positives (the height of its chance baseline) and its average precision. A percentage is refused with a warning. |
+| `bands` | `{ band, lower, upper }[]` | Read this series as the median of a fan chart; see [Fan Charts](#fan-charts). |
 
 A series keeps the kind it was last seen drawing, so hiding one from the legend does not change what it is read as. A series that has never been drawn — hidden from the legend from the start — has no path to read and is taken as a line, uPlot's default; give it a `kind` if it is something else. Hidden series are still read; exclude one that MAIDR should not announce.
+
+## Fan Charts
+
+A fan chart — a median with nested bands of quantiles around it — is a median line and the bands uPlot fills between pairs of series, `bands: [{ series: [upper, lower] }]`. A band says nothing about which quantiles its edges are, so the median's `maidr` options name each band by its index in the chart's own `bands` and give its two levels:
+
+```js
+new uPlot({
+  bands: [{ series: [2, 1] }, { series: [4, 3] }],
+  series: [
+    {},
+    { label: 'p5' }, { label: 'p95' }, { label: 'p25' }, { label: 'p75' },
+    { label: 'Median', maidr: { bands: [
+      { band: 0, lower: 0.05, upper: 0.95 },
+      { band: 1, lower: 0.25, upper: 0.75 },
+    ] } },
+  ],
+}, data, target);
+```
+
+The levels are fractions, each `lower` below 0.5 and each `upper` above it, and the bands must nest — checked as the co-located `maidr` declaration's bands are, and a list that fails leaves every series read as what it draws. A band index naming nothing, or a pair one band already reads, is reported and left out. The band series are absorbed into the one `percentile_band` layer, and the overlay marks the quantile the reader is on where its own series draws it.
 
 ## Stacked Charts
 
