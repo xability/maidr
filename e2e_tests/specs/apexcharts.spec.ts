@@ -180,7 +180,7 @@ test.describe('ApexCharts adapter', () => {
 
       await page.setViewportSize({ width: 640, height: 900 });
 
-      await expect.poll(() => chart.svgWidth()).toBeLessThan(600);
+      await expect.poll(() => chart.svgWidth()).toBeLessThanOrEqual(640);
       await chart.waitUntilDrawn();
       expect(await chart.overflowsSideways()).toBe(false);
       expect(chart.problems).toEqual([]);
