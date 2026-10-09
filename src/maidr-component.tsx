@@ -5,7 +5,7 @@ import { TraceType } from '@type/grammar';
 import { t } from '@util/i18n';
 import { formatPlotType, resolveOrientation } from '@util/orientation';
 import { plotTypeLabel } from '@util/plotTypeLabel';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { useLocale } from './state/hook/useLocale';
 import { useMaidrController } from './state/hook/useMaidrController';
 import { createMaidrStore } from './state/store';
@@ -115,6 +115,35 @@ function getInitialInstruction(data: MaidrData): string {
   });
 }
 
+/**
+ * Takes the browser's default side margins, 40px each, off MAIDR's figure.
+ * On a page that leaves figures unstyled they indent the chart, and they make
+ * a frame sized to fit the chart 80px wider than the chart (#1375).
+ *
+ * `:where()` gives the rule no specificity, so it only overrides the
+ * browser's default. Any margin a page sets on its figures still applies,
+ * such as `margin: auto` to centre them.
+ */
+const FIGURE_MARGIN_RULE = ':where(figure[id^="maidr-figure-"]) { margin-left: 0; margin-right: 0; }';
+
+/**
+ * Adds {@link FIGURE_MARGIN_RULE} to the head of the figure's document, once
+ * per document.
+ * @param figure - A MAIDR figure in its document
+ */
+function applyFigureMarginRule(figure: HTMLElement): void {
+  const head = figure.ownerDocument.head;
+  if (!head || head.querySelector('style[data-maidr-figure]')) {
+    return;
+  }
+  const style = figure.ownerDocument.createElement('style');
+  style.setAttribute('data-maidr-figure', '');
+  style.textContent = FIGURE_MARGIN_RULE;
+  // First in the head: a page rule of equal specificity, such as `*`, then
+  // comes later and wins.
+  head.prepend(style);
+}
+
 export function Maidr({ data, children }: MaidrProps): JSX.Element {
   // Each Maidr instance gets its own isolated Redux store.
   // useRef with lazy init guarantees the store persists for the component's
@@ -126,6 +155,13 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
 
   const { plotRef, figureRef, contextValue, onFocusIn, onFocusOut } = useMaidrController(data, store);
   const { locale, revision } = useLocale();
+
+  // Before the first paint, so the chart is never drawn indented.
+  useLayoutEffect(() => {
+    if (figureRef.current) {
+      applyFigureMarginRule(figureRef.current);
+    }
+  }, [figureRef]);
 
   // Compute the initial instruction once so the plot is discoverable by screen
   // readers (role="img" + aria-label) before any user interaction.

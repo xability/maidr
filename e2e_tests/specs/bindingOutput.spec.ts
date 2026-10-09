@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import type { Reading } from '../page-objects/plots/bindingOutput-page';
 import { expect, test } from '@playwright/test';
 import { BindingOutputPage } from '../page-objects/plots/bindingOutput-page';
@@ -74,6 +75,45 @@ function misranked(readings: Reading[]): string | null {
   }
   return null;
 }
+
+/**
+ * How far the chart starts from the left edge of MAIDR's article.
+ * @param page - A page with one MAIDR chart
+ * @returns The indent in pixels, or null when there is no chart
+ */
+async function chartIndent(page: Page): Promise<number | null> {
+  return page.evaluate(() => {
+    const article = document.querySelector('article[id^="maidr-article-"]');
+    const plot = article?.querySelector('figure[id^="maidr-figure-"] > [tabindex]');
+    if (!article || !plot) {
+      return null;
+    }
+    return plot.getBoundingClientRect().left - article.getBoundingClientRect().left;
+  });
+}
+
+test.describe('language binding layout', () => {
+  // None of these pages styles `figure`, so the browser's default margins
+  // reach MAIDR's: 40px on either side, which indent the chart and widen any
+  // frame sized to fit it (#1375).
+  for (const name of ['py-matplotlib-line', 'r-ggplot2-dodged']) {
+    test(`${name}: the chart starts at the edge of its article`, async ({ page }) => {
+      const binding = new BindingOutputPage(page);
+      await binding.open(name);
+
+      expect(await chartIndent(page)).toBe(0);
+    });
+  }
+
+  test('a margin the page sets on its figures still applies', async ({ page }) => {
+    const binding = new BindingOutputPage(page);
+    await binding.open('py-matplotlib-line');
+
+    await page.addStyleTag({ content: 'figure { margin-left: 24px; }' });
+
+    expect(await chartIndent(page)).toBe(24);
+  });
+});
 
 test.describe('language binding output', () => {
   for (const { name, check } of FIXTURES) {
