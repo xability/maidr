@@ -141,12 +141,6 @@ function onWarn(warning, warn) {
 }
 
 /**
- * Build configurations
- *
- * Exported so the build-config test can assert against the real array rather
- * than a fixture that could drift away from it.
- */
-/**
  * The React runtime, which the React-based ESM bundles leave to the host app.
  *
  * `use-sync-external-store` (CommonJS, reached through `react-redux`) calls
@@ -196,6 +190,12 @@ function localePackBuild(locale) {
   };
 }
 
+/**
+ * Build configurations
+ *
+ * Exported so the build-config test can assert against the real array rather
+ * than a fixture that could drift away from it.
+ */
 export const builds = [
   {
     name: 'core',

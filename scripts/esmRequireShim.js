@@ -17,7 +17,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** The text of the error rolldown's shim throws. */
+/**
+ * The text of the error rolldown's shim throws. The check is only as good as
+ * this string: if rolldown rewords the message it stops matching and every
+ * build passes, so re-read the shim in a fresh `dist/rolldown-runtime-*.js`
+ * when bumping vite.
+ */
 export const REQUIRE_SHIM_MARKER = 'in an environment that doesn\'t expose the `require` function';
 
 const RELATIVE_IMPORT = /(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)["'](\.\.?\/[^"']+)["']/g;
