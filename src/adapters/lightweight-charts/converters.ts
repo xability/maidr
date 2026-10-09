@@ -442,7 +442,11 @@ export function readLightweightChart(
       );
       const kind: SeriesKind = curve === null ? candidate.kind : 'pr_curve';
       const points: SeriesPoint[] = curve ?? read.points;
-      const start = maxWidth !== undefined ? Math.max(0, read.points.length - maxWidth) : 0;
+      // A curve is not a time series: windowing it would drop its low-recall
+      // end and announce an average precision over part of the curve.
+      const start = maxWidth !== undefined && kind !== 'pr_curve'
+        ? Math.max(0, read.points.length - maxWidth)
+        : 0;
       const reading: SeriesReading = {
         layerId: `pane${pane.paneIndex()}-series${candidate.index}`,
         series: candidate.series,

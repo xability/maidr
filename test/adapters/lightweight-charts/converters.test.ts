@@ -268,6 +268,15 @@ describe('readLightweightChart', () => {
       expect(layer.type).toBe(TraceType.LINE);
     });
 
+    it('keeps the whole curve under a maxWidth window', () => {
+      const chart = fakeChart([{ series: [fakeSeries('Line', rows, { title: 'Precision' })] }]);
+
+      const reading = readLightweightChart(chart, { axes: { x: 'Recall' }, maxWidth: 2 });
+
+      expect((reading.maidr.subplots[0][0].layers[0].data as unknown[][])[0]).toHaveLength(4);
+      expect(reading.series[0].items).toEqual(rows);
+    });
+
     it('never reads a histogram or candles as a curve', () => {
       const chart = fakeChart([{ series: [fakeSeries('Histogram', rows, { title: 'Precision' })] }]);
 
