@@ -28,9 +28,10 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
-import { build } from 'vite';
+import { build, esmExternalRequirePlugin } from 'vite';
 import dts from 'vite-plugin-dts';
 import { DIST_MANIFEST_NAME, publishManifest } from './dotPadSdk.js';
+import { assertNoRequireShim } from './esmRequireShim.js';
 import { mathStylesheet } from './vite-plugin-math-stylesheet.js';
 import { woff2OnlyFonts } from './vite-plugin-woff2-only.js';
 
@@ -145,6 +146,24 @@ function onWarn(warning, warn) {
  * Exported so the build-config test can assert against the real array rather
  * than a fixture that could drift away from it.
  */
+/**
+ * The React runtime, which the React-based ESM bundles leave to the host app.
+ *
+ * `use-sync-external-store` (CommonJS, reached through `react-redux`) calls
+ * `require("react")`. With `react` external, rolldown answers that call with a
+ * CJS shim that throws in a browser, which has no `require`, and the host page
+ * renders blank (#1370). `esmExternalRequirePlugin` rewrites the call into an
+ * ESM import -- but only for the externals it owns: a module listed both in
+ * its `external` and in `rollupOptions.external` is skipped and the raw
+ * `require` survives.
+ * So these move out of `rollupOptions.external` and into the plugin.
+ *
+ * Keep it to the React runtime. The plugin loads what it externalises, where
+ * top-level `external` stops at resolve time; handing it a peer such as
+ * `/^@nivo\//` pulls that whole tree into the graph.
+ */
+export const REACT_RUNTIME = ['react', 'react-dom', 'react/jsx-runtime'];
+
 /**
  * The locales that ship as packs beside `maidr.js`, one classic script and one
  * ES module each. English lives in the core bundle, so it is not here. Keep in
@@ -553,6 +572,11 @@ export function createViteConfig(config) {
   // bundle emits the same bytes and the merge step dedupes them.
   plugins.push(mathStylesheet());
 
+  const requireExternal = config.external.filter(id => REACT_RUNTIME.includes(id));
+  const external = config.external.filter(id => !REACT_RUNTIME.includes(id));
+  if (requireExternal.length > 0)
+    plugins.push(esmExternalRequirePlugin({ external: requireExternal }));
+
   // Workers build into an isolated outDir (passed via env) so parallel
   // vite-plugin-dts runs never clobber each other's intermediate .d.ts files
   // in the shared dist directory. vite-plugin-dts follows build.outDir —
@@ -583,7 +607,7 @@ export function createViteConfig(config) {
       sourcemap: 'hidden',
       outDir,
       emptyOutDir: config.emptyOutDir,
-      rollupOptions: { external: config.external, onwarn: onWarn },
+      rollupOptions: { external, onwarn: onWarn },
     },
     // `process.env.NODE_ENV` is spelled out alongside `process.env` because
     // rolldown only substitutes a `define` key that matches the whole member
@@ -894,6 +918,7 @@ async function main() {
       console.log('Building MAIDR library...\n');
     await runSequential(selected);
     if (!isWorker) {
+      assertNoRequireShim(path.resolve(rootDir, 'dist'));
       publishManifest(path.resolve(rootDir, 'dist'));
       console.log(`All builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
     }
@@ -920,6 +945,10 @@ async function main() {
     await fs.rm(path.join(outDir, '.tmp'), { recursive: true, force: true })
       .catch(() => {});
   }
+
+  // `vite build` exits 0 even when an ESM bundle would throw on its first
+  // render in a browser, so read the merged output for that (#1370).
+  assertNoRequireShim(outDir);
 
   // The DotPad SDK pin ships with the package (`dist/dotpad-sdk.json`) so the
   // bindings and the skill can copy it when they refresh the bundle. Written
