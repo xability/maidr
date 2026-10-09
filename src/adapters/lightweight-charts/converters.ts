@@ -11,6 +11,9 @@
  * | `Line`, `Area`, `Baseline`  | `line`        |
  * | `Histogram`                 | `bar`         |
  *
+ * A `Line`, `Area` or `Baseline` series is a `pr_curve` instead when the
+ * chart is a precision-recall curve by its own labels: see {@link readsPrCurve}.
+ *
  * Each pane becomes one subplot and each series in it one layer -- so a price
  * pane with a moving average and a volume pane below it is two subplots, the
  * price one with two layers. The panes are stacked bottom-first, as the
@@ -27,6 +30,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PrCurvePoint,
 } from '@type/grammar';
 import type {
   LwcBusinessDay,
@@ -36,6 +40,7 @@ import type {
   LwcSeriesOptions,
   LwcTime,
 } from './types';
+import { drawsPrCurves } from '@adapters/shared/prCurveAxes';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -77,10 +82,10 @@ export interface LightweightChartsOptions {
 }
 
 /** How a series is read, by the MAIDR layer it becomes. */
-export type SeriesKind = 'candlestick' | 'line' | 'bar';
+export type SeriesKind = 'candlestick' | 'line' | 'bar' | 'pr_curve';
 
-/** A MAIDR point of any of the three layer kinds the adapter emits. */
-export type SeriesPoint = CandlestickPoint | LinePoint | BarPoint;
+/** A MAIDR point of any of the layer kinds the adapter emits. */
+export type SeriesPoint = CandlestickPoint | LinePoint | BarPoint | PrCurvePoint;
 
 /**
  * One series as read, with what the highlight needs to find it again.
@@ -252,6 +257,54 @@ function formatOf(options: LwcSeriesOptions): AxisFormat | undefined {
 }
 
 /**
+ * The label of a series' value axis: its own `title`, else the chart's
+ * `axes.y`, else a default by kind.
+ */
+function valueLabel(kind: SeriesKind, options: LwcSeriesOptions, chartOptions: LightweightChartsOptions): string {
+  return options.title?.trim()
+    || (chartOptions.axes?.y
+      ?? (kind === 'candlestick' ? 'Price' : 'Value'));
+}
+
+/**
+ * A line series' rows as a precision-recall curve, or `null` when it is not
+ * one.
+ *
+ * Lightweight Charts has no precision-recall series, and its horizontal scale
+ * is a time scale whose axis carries no title. A curve reaches it only as a
+ * line whose `time` is the recall, so what says it is one is what the page
+ * says: the chart's `axes.x` named exactly `recall`, the series' `title` (or
+ * `axes.y`) `precision`, case aside, and every row's time and value a number
+ * from 0 to 1 -- the rule every adapter shares. The default `Time` label never
+ * passes, so an ordinary chart cannot be read this way.
+ *
+ * The recall is the row's `time` itself, not the date label a time series
+ * announces. The chart spaces its rows evenly, whatever the gap between their
+ * times, so the line on screen is not drawn to scale; MAIDR's reading, which
+ * places each point at its recall, is.
+ *
+ * @param kind - How the series is read otherwise
+ * @param items - The series' rows, each with the line point read from it
+ * @param points - Those line points, by the same index
+ * @param yLabel - The series' value label
+ * @param chartOptions - The chart's options
+ * @returns The curve's points, or `null`
+ */
+function readsPrCurve(
+  kind: SeriesKind,
+  items: readonly LwcDataItem[],
+  points: readonly SeriesPoint[],
+  yLabel: string,
+  chartOptions: LightweightChartsOptions,
+): PrCurvePoint[] | null {
+  if (kind !== 'line') {
+    return null;
+  }
+  const curve = items.map((item, index) => ({ x: item.time, y: (points[index] as LinePoint).y }));
+  return drawsPrCurves(chartOptions.axes?.x, yLabel, [curve]) ? curve as PrCurvePoint[] : null;
+}
+
+/**
  * Builds one layer from a series' points.
  */
 function toLayer(
@@ -261,9 +314,7 @@ function toLayer(
   chartOptions: LightweightChartsOptions,
 ): MaidrLayer {
   const title = options.title?.trim() || undefined;
-  const yLabel = title
-    ?? chartOptions.axes?.y
-    ?? (reading.kind === 'candlestick' ? 'Price' : 'Value');
+  const yLabel = valueLabel(reading.kind, options, chartOptions);
   const format = formatOf(options);
   const axes = {
     x: { label: chartOptions.axes?.x ?? 'Time' },
@@ -287,6 +338,14 @@ function toLayer(
         title: layerTitle,
         axes,
         data: [reading.points as LinePoint[]],
+      };
+    case 'pr_curve':
+      return {
+        id: reading.layerId,
+        type: TraceType.PR_CURVE,
+        title: layerTitle,
+        axes,
+        data: [reading.points as PrCurvePoint[]],
       };
     case 'bar':
       return {
@@ -374,16 +433,25 @@ export function readLightweightChart(
       if (read.points.length === 0) {
         continue;
       }
+      const curve = readsPrCurve(
+        candidate.kind,
+        read.items,
+        read.points,
+        valueLabel(candidate.kind, candidate.seriesOptions, options),
+        options,
+      );
+      const kind: SeriesKind = curve === null ? candidate.kind : 'pr_curve';
+      const points: SeriesPoint[] = curve ?? read.points;
       const start = maxWidth !== undefined ? Math.max(0, read.points.length - maxWidth) : 0;
       const reading: SeriesReading = {
         layerId: `pane${pane.paneIndex()}-series${candidate.index}`,
         series: candidate.series,
-        kind: candidate.kind,
+        kind,
         paneIndex: pane.paneIndex(),
         subplotRow: subplots.length,
-        points: read.points.slice(start),
+        points: points.slice(start),
         items: read.items.slice(start),
-        total: read.points.length,
+        total: points.length,
       };
       readings.push(reading);
       layers.push(toLayer(reading, candidate.seriesType, candidate.seriesOptions, options));

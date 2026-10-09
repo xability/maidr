@@ -414,7 +414,7 @@ const GUIDES: Record<string, Guide> = {
   'lightweight-charts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: { stable: 6, experimental: 0 },
+    minRows: { stable: 6, experimental: 1 },
     examples: { after: '## Code Examples', before: '## Options', level: '###', min: 7 },
     labels: {
       // Named by the Lightweight Charts series type, read as the MAIDR layer.

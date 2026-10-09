@@ -51,7 +51,8 @@ function sameLabels(a: readonly SeriesPoint[], b: readonly SeriesPoint[]): boole
 
 /** A layer carrying other points, in the shape its type keeps them. */
 function withPoints(layer: MaidrLayer, points: SeriesPoint[]): MaidrLayer {
-  return { ...layer, data: layer.type === TraceType.LINE ? [points] : points } as MaidrLayer;
+  const nested = layer.type === TraceType.LINE || layer.type === TraceType.PR_CURVE;
+  return { ...layer, data: nested ? [points] : points } as MaidrLayer;
 }
 
 /**
@@ -82,6 +83,11 @@ export function planAppends(before: LightweightChartsReading, after: Lightweight
     const old = before.series[index];
     const next = after.series[index];
     if (old.layerId !== next.layerId || old.subplotRow !== next.subplotRow || old.kind !== next.kind) {
+      return null;
+    }
+    // MAIDR appends to a time series, not to a curve: a precision-recall
+    // curve that changed is replaced whole.
+    if (next.kind === 'pr_curve' && (next.total !== old.total || !samePoints(old.points, next.points))) {
       return null;
     }
     if (next.total === old.total) {

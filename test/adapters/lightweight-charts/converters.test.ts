@@ -220,6 +220,63 @@ describe('readLightweightChart', () => {
     expect((maidr.subplots[0][0].layers[0].data as CandlestickPoint[])[0].value).toBe(`t${day(2)}`);
   });
 
+  describe('precision-recall curves', () => {
+    const rows = [
+      { time: 0, value: 1 },
+      { time: 0.5, value: 0.9 },
+      { time: 0.5, value: 0.7 },
+      { time: 1, value: 0.4 },
+    ];
+
+    it('reads a line titled precision against an x axis named recall as a curve', () => {
+      const chart = fakeChart([{ series: [fakeSeries('Line', rows, { title: 'Precision' })] }]);
+
+      const reading = readLightweightChart(chart, { axes: { x: 'Recall' } });
+
+      const layer = reading.maidr.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+      expect(layer.axes).toEqual({ x: { label: 'Recall' }, y: { label: 'Precision' } });
+      // The recall is the row's time itself, repeated recalls included.
+      expect(layer.data).toEqual([[
+        { x: 0, y: 1 },
+        { x: 0.5, y: 0.9 },
+        { x: 0.5, y: 0.7 },
+        { x: 1, y: 0.4 },
+      ]]);
+      expect(reading.series[0].kind).toBe('pr_curve');
+      expect(reading.series[0].items).toEqual(rows);
+    });
+
+    it('takes the precision from the chart\'s y axis option too, case aside', () => {
+      const chart = fakeChart([{ series: [fakeSeries('Area', rows)] }]);
+
+      const layer = readLightweightChart(chart, { axes: { x: ' RECALL ', y: 'precision' } }).maidr.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+    });
+
+    it.each([
+      ['the default time axis', { title: 'Precision' }, undefined, rows],
+      ['a series titled otherwise', { title: 'Close' }, { x: 'Recall' }, rows],
+      ['rates in percent', { title: 'Precision' }, { x: 'Recall' }, rows.map(row => ({ ...row, value: row.value * 100 }))],
+      ['times that are dates', { title: 'Precision' }, { x: 'Recall' }, [{ time: day(2), value: 1 }, { time: day(3), value: 0.5 }]],
+    ])('keeps %s a line', (_, seriesOptions, axes, data) => {
+      const chart = fakeChart([{ series: [fakeSeries('Line', data, seriesOptions)] }]);
+
+      const layer = readLightweightChart(chart, { axes }).maidr.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.LINE);
+    });
+
+    it('never reads a histogram or candles as a curve', () => {
+      const chart = fakeChart([{ series: [fakeSeries('Histogram', rows, { title: 'Precision' })] }]);
+
+      const layer = readLightweightChart(chart, { axes: { x: 'Recall' } }).maidr.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.BAR);
+    });
+  });
+
   it('takes the figure id from the option, then the container', () => {
     const chart = fakeChart([{ series: [fakeSeries('Candlestick', ohlc)] }], { containerId: 'prices' });
     const anonymous = fakeChart([{ series: [fakeSeries('Candlestick', ohlc)] }]);
