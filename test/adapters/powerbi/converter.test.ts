@@ -17,6 +17,7 @@ import type {
   LinePoint,
   MaidrLayer,
   NavigateCallback,
+  PrCurvePoint,
   SegmentedPoint,
 } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
@@ -161,6 +162,52 @@ function scatterByLegend(): PowerBIDataView {
     { source: measure('Profit', { x: true }, 'Wholesale'), values: [null, null, 3, 4] },
     { source: measure('Units', { y: true }, 'Wholesale'), values: [null, null, 30, 40] },
   ], SEGMENT), STORE);
+}
+
+const RECALL: PowerBIMetadataColumn = {
+  displayName: 'Recall',
+  queryName: 'Scores.Recall',
+  roles: { category: true },
+  type: { numeric: true },
+};
+const MODEL: PowerBIMetadataColumn = { displayName: 'Model', roles: { series: true }, type: { text: true } };
+
+function precision(groupName?: string): PowerBIMetadataColumn {
+  return measure('Precision', { measure: true }, groupName);
+}
+
+/**
+ * One classifier's curve: two thresholds reach a recall of 0.5 at different
+ * precisions, as `precision_recall_curve` returns them.
+ */
+function prCurve(values: PowerBIPrimitiveValue[] = [1, 0.9, 0.7, 0.4]): PowerBIDataView {
+  return categorical([0, 0.5, 0.5, 1], valueColumns([{ source: precision(), values }]), RECALL);
+}
+
+/** Two classifiers by legend; each has rows only at its own recalls. */
+function prCurvesByModel(): PowerBIDataView {
+  return categorical([0, 0.25, 0.5, 1], valueColumns([
+    { source: precision('Logistic'), values: [1, null, 0.8, 0.3] },
+    { source: precision('Forest'), values: [1, 0.95, null, 0.3] },
+  ], MODEL), RECALL);
+}
+
+/** The same two curves as a table, a recall repeated within one curve. */
+function prCurvesTable(): PowerBIDataView {
+  return {
+    table: {
+      columns: [RECALL, MODEL, precision()],
+      rows: [
+        [1, 'Logistic', 0.3],
+        [0.5, 'Logistic', 0.8],
+        [0.5, 'Logistic', 0.6],
+        [0, 'Logistic', 1],
+        [0, 'Forest', 1],
+        [0.25, 'Forest', 0.95],
+        [1, 'Forest', 0.3],
+      ],
+    },
+  };
 }
 
 function convert(dataView: PowerBIDataView | undefined, options: PowerBIAdapterOptions): PowerBIConversion {
@@ -613,6 +660,93 @@ describe('convertPowerBIDataView', () => {
     });
   });
 
+  describe('precision-recall curve', () => {
+    it('reads a line of precision against recall as a curve, every threshold kept', () => {
+      const conversion = convert(prCurve(), { chartType: 'line' });
+
+      const layer = onlyLayer(conversion);
+
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+      expect(layer.axes).toEqual({ x: { label: 'Recall' }, y: { label: 'Precision' } });
+      expect(layer.data).toEqual([[
+        { x: 0, y: 1 },
+        { x: 0.5, y: 0.9 },
+        { x: 0.5, y: 0.7 },
+        { x: 1, y: 0.4 },
+      ]]);
+      expect(conversion.cells.get('0')).toEqual([[cat(0, 0), cat(1, 0), cat(2, 0), cat(3, 0)]]);
+    });
+
+    it('draws one named curve per series, leaving out where a series has no reading', () => {
+      const conversion = convert(prCurvesByModel(), { chartType: 'line' });
+
+      const layer = onlyLayer(conversion);
+
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+      expect(layer.axes).toEqual({ x: { label: 'Recall' }, y: { label: 'Precision' }, z: { label: 'Model' } });
+      expect(layer.data).toEqual([
+        [{ x: 0, y: 1, z: 'Logistic' }, { x: 0.5, y: 0.8, z: 'Logistic' }, { x: 1, y: 0.3, z: 'Logistic' }],
+        [{ x: 0, y: 1, z: 'Forest' }, { x: 0.25, y: 0.95, z: 'Forest' }, { x: 1, y: 0.3, z: 'Forest' }],
+      ]);
+      expect(conversion.maidr.subplots[0][0].legend).toEqual(['Logistic', 'Forest']);
+      expect(conversion.cells.get('0')).toEqual([
+        [cat(0, 0), cat(2, 0), cat(3, 0)],
+        [cat(0, 1), cat(1, 1), cat(3, 1)],
+      ]);
+    });
+
+    it('keeps every row of a table view, a repeated recall included', () => {
+      const conversion = convert(prCurvesTable(), { chartType: 'line' });
+
+      const layer = onlyLayer(conversion);
+
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+      expect(layer.data).toEqual([
+        [
+          { x: 0, y: 1, z: 'Logistic' },
+          { x: 0.5, y: 0.8, z: 'Logistic' },
+          { x: 0.5, y: 0.6, z: 'Logistic' },
+          { x: 1, y: 0.3, z: 'Logistic' },
+        ],
+        [{ x: 0, y: 1, z: 'Forest' }, { x: 0.25, y: 0.95, z: 'Forest' }, { x: 1, y: 0.3, z: 'Forest' }],
+      ]);
+      expect(conversion.cells.get('0')).toEqual([[row(3), row(1), row(2), row(0)], [row(4), row(5), row(6)]]);
+    });
+
+    it('reads the names the axes option gives', () => {
+      const dataView = categorical([0, 0.5, 1], valueColumns([
+        { source: measure('Score', { measure: true }), values: [1, 0.8, 0.4] },
+      ]), { ...RECALL, displayName: 'Hit rate' });
+
+      const layer = onlyLayer(convert(dataView, { chartType: 'line', axes: { x: ' recall ', y: 'PRECISION' } }));
+
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+    });
+
+    it.each([
+      ['a precision outside 0 to 1', prCurve([100, 90, 70, 40])],
+      ['a recall outside 0 to 1', categorical([0, 50, 100], valueColumns([{ source: precision(), values: [1, 0.8, 0.4] }]), RECALL)],
+      ['axes named otherwise', categorical([0, 0.5, 1], valueColumns([{ source: sales(), values: [1, 0.8, 0.4] }]), RECALL)],
+      ['a text category', categorical(['0', 'half', '1'], valueColumns([{ source: precision(), values: [1, 0.8, 0.4] }]), { ...REGION, displayName: 'Recall' })],
+    ])('keeps %s a line', (_, dataView) => {
+      const layer = onlyLayer(convert(dataView, { chartType: 'line' }));
+
+      expect(layer.type).toBe(TraceType.LINE);
+    });
+
+    it('keeps a table view out of range a line, pivoted as before', () => {
+      const dataView: PowerBIDataView = {
+        table: { columns: [RECALL, precision()], rows: [[0, 100], [50, 90], [50, 70], [100, 40]] },
+      };
+
+      const conversion = convert(dataView, { chartType: 'line' });
+
+      expect(onlyLayer(conversion).type).toBe(TraceType.LINE);
+      expect(onlyLayer(conversion).data).toEqual([[{ x: 0, y: 100 }, { x: 50, y: 90 }, { x: 100, y: 40 }]]);
+      expect(conversion.cells.get('0')).toEqual([[row(0), row(1), row(3)]]);
+    });
+  });
+
   describe('pie and donut', () => {
     it('makes one slice per category, skipping blank, zero and negative', () => {
       const conversion = convert(singleSeries([30, 0, -5, 70]), { chartType: 'donut' });
@@ -971,6 +1105,28 @@ describe('the ref index agrees with what MAIDR announces', () => {
     const last = steps.at(-1);
     expect(last?.text.z?.value).toBe('Profit');
     expect(last?.refs).toEqual([cat(last?.info.col ?? -1, 1)]);
+  });
+
+  it('precision-recall curves: each step resolves to the threshold announced', () => {
+    const dataView = prCurvesTable();
+    const conversion = convert(dataView, { chartType: 'line' });
+    const curves = conversion.maidr.subplots[0][0].layers[0].data as PrCurvePoint[][];
+    const { context, steps } = mount(conversion);
+
+    curves.forEach((curve, r) => curve.forEach((_, c) => context.moveToIndex(r, c)));
+
+    expect(steps).toHaveLength(7);
+    for (const { info, text, refs } of steps) {
+      expect(refs).toHaveLength(1);
+      const ref = refs[0];
+      const cells = ref.kind === 'table' ? dataView.table?.rows?.[ref.rowIndex] ?? [] : [];
+      // What MAIDR announces at the position is the row the ref names. Where
+      // the curves meet, `z` names the intersection, so the curve is checked
+      // against the layer's own point instead.
+      expect([cells[0], cells[2]]).toEqual([text.main.value, text.cross?.value]);
+      expect(curves[info.row][info.col]).toEqual({ x: cells[0], y: cells[2], z: cells[1] });
+    }
+    expect(steps.map(s => s.refs[0])).toEqual([3, 1, 2, 0, 4, 5, 6].map(row));
   });
 
   it('pie: one row, col is the slice in data order', () => {

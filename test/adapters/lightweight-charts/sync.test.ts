@@ -21,6 +21,20 @@ describe('planAppends', () => {
     return { candles, volume, read: () => readLightweightChart(chart, { maxWidth }) };
   };
 
+  it('replaces a precision-recall curve that changed rather than appending to it', () => {
+    const curve = fakeSeries('Line', [{ time: 0, value: 1 }, { time: 1, value: 0.4 }], { title: 'Precision' });
+    const chart = fakeChart([{ series: [curve] }]);
+    const read = (): ReturnType<typeof readLightweightChart> => readLightweightChart(chart, { axes: { x: 'Recall' } });
+    const before = read();
+
+    const unchanged = planAppends(before, read());
+    curve.setRows([...curve.data(), { time: 1, value: 0.3 }]);
+    const grown = planAppends(before, read());
+
+    expect(unchanged).toEqual({ appends: [], base: null });
+    expect(grown).toBeNull();
+  });
+
   it('finds nothing to do when nothing changed', () => {
     const { read } = setup();
 

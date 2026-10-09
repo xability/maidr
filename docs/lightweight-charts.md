@@ -72,6 +72,8 @@ Lightweight Charts draws onto canvases, so there is no element per bar for MAIDR
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | Series type | Lightweight Charts definition | MAIDR layer |
 |-------------|-------------------------------|-------------|
 | Candlestick | `CandlestickSeries` | `candlestick` |
@@ -81,7 +83,32 @@ Lightweight Charts draws onto canvases, so there is no element per bar for MAIDR
 | Baseline | `BaselineSeries` | `line` |
 | Histogram | `HistogramSeries` | `bar` |
 
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Series type | Lightweight Charts definition | MAIDR layer |
+|-------------|-------------------------------|-------------|
+| Precision-recall curve [experimental] | `LineSeries`, `AreaSeries` or `BaselineSeries` | `pr_curve` |
+
 A candle is read section by section, as every MAIDR candlestick is: Up and Down move through its open, high, low and close, and its trend, body shape and patterns with its neighbours are announced along the way. Whitespace items (a `time` with no `value`), which the chart leaves blank, are not in the series' data, so the reader moves from the bar before a gap to the bar after it; the time announced says how far it jumped.
+
+### Precision-recall curves
+
+Lightweight Charts has no precision-recall series, and its axes carry no titles, so a curve is read from the labels the page gives MAIDR. A line, area or baseline series is a `pr_curve` layer when the `axes.x` option is exactly `Recall`, the series' `title` (or, without one, `axes.y`) is `Precision`, case and surrounding space aside, and every row's `time` and `value` is a number from 0 to 1. The recall is the row's `time` itself, rather than the date a time series announces. The default `Time` label never matches, so an ordinary chart is never read this way, and rates in percent stay a line.
+
+```js
+const curve = chart.addSeries(LightweightCharts.LineSeries, { title: 'Precision' });
+curve.setData([ // ascending by recall, as the chart requires
+  { time: 0, value: 1 },
+  { time: 0.4, value: 0.92 },
+  { time: 0.8, value: 0.71 },
+  { time: 1, value: 0.45 },
+]);
+maidrLightweightCharts.bindLightweightChart(chart, { axes: { x: 'Recall' } });
+```
+
+Each series is its own layer, so two classifiers are two layers of the pane rather than two curves of one. Keep in mind what the chart draws: its horizontal scale spaces the rows evenly, whatever the gap between their times (measured on Lightweight Charts 5.2.1, the recalls 0, 0.5, 0.9 and 1 landed 6 pixels apart each), so the line on screen is not to scale, while MAIDR places each point at its recall. Two thresholds that reach the same recall are a problem for the chart rather than for MAIDR: the development build rejects the repeated time (`data must be asc ordered by time`), while the production build keeps both rows in `series.data()`, at one horizontal position, and MAIDR reads both. A curve whose data changes is replaced in MAIDR rather than appended to, so monitor mode announces nothing for it.
 
 ## Live and Streaming Data
 

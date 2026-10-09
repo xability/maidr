@@ -27,6 +27,7 @@ import type {
   MaidrLayer,
   MaidrSubplot,
   PiePoint,
+  PrCurvePoint,
   ScatterPoint,
   SegmentedPoint,
 } from '../../type/grammar';
@@ -41,6 +42,7 @@ import type {
   PowerBITable,
 } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+import { drawsPrCurves } from '../shared/prCurveAxes';
 
 const ADAPTER_PREFIX = '[MAIDR powerbi]';
 
@@ -324,8 +326,16 @@ function axisOrder(raws: readonly PowerBIPrimitiveValue[]): number[] {
  * category keeps the order of the rows, which is the order the visual sorts
  * by. When a (category, series) pair repeats, the first row wins:
  * summing would report a total the visual never drew.
+ *
+ * With `everyRow`, each row is a position of its own, in axis order, so a
+ * repeated category keeps every row: what a precision-recall curve needs,
+ * since two thresholds can reach the same recall at different precisions.
  */
-function frameFromTable(table: PowerBITable, roles: Required<PowerBIRoleNames>): Frame | null {
+function frameFromTable(
+  table: PowerBITable,
+  roles: Required<PowerBIRoleNames>,
+  everyRow = false,
+): Frame | null {
   const rows = table.rows ?? [];
   if (rows.length === 0) {
     return null;
@@ -360,7 +370,10 @@ function frameFromTable(table: PowerBITable, roles: Required<PowerBIRoleNames>):
       return rowIndex;
     }
     const raw = row[categoryColumn.index];
-    const id = raw instanceof Date ? `date:${raw.getTime()}` : `${typeof raw}:${String(raw)}`;
+    // Every row its own position: a curve may pass the same x twice.
+    const id = everyRow
+      ? `row:${rowIndex}`
+      : raw instanceof Date ? `date:${raw.getTime()}` : `${typeof raw}:${String(raw)}`;
     let position = positionOf.get(id);
     if (position === undefined) {
       position = raws.length;
@@ -635,16 +648,86 @@ function buildLine(frame: Frame, lines: readonly Line[], options: PowerBIAdapter
   if (!data.some(points => points.some(point => point.y !== null))) {
     return null;
   }
+  const axes = buildAxes(frame.category.displayName, sharedMeasureName(lines), frame.seriesField?.displayName, options);
+  const legend = named ? { legend: lines.map(line => line.name ?? line.column.source.displayName) } : {};
+  const curves = prCurvesOf(data, cells, axes);
+  if (curves !== null) {
+    return {
+      layer: { id: '0', type: TraceType.PR_CURVE, axes, data: curves.data },
+      cells: curves.cells,
+      ...legend,
+    };
+  }
   return {
-    layer: {
-      id: '0',
-      type: TraceType.LINE,
-      axes: buildAxes(frame.category.displayName, sharedMeasureName(lines), frame.seriesField?.displayName, options),
-      data,
-    },
+    layer: { id: '0', type: TraceType.LINE, axes, data },
     cells,
-    ...(named ? { legend: lines.map(line => line.name ?? line.column.source.displayName) } : {}),
+    ...legend,
   };
+}
+
+/**
+ * A line's series read as precision-recall curves, or `null` when they are
+ * not ones.
+ *
+ * Power BI has no precision-recall visual: the curve is a line chart whose
+ * category is the recall and whose measure is the precision, and the axis
+ * labels -- the fields' display names, or the `axes` option -- are the only
+ * thing that says so, as on every adapter that reads the chart off its axes.
+ * A curve has a point only where its series has a reading, so the gaps a line
+ * keeps (where another series, not this one, has a row) are left out, each
+ * point keeping the data point it came from.
+ *
+ * @param data - The line's points, one array per series
+ * @param cells - The data point of each of those points
+ * @param axes - The layer's axes
+ * @returns The curves and their data points, or `null`
+ */
+function prCurvesOf(
+  data: readonly LinePoint[][],
+  cells: readonly (PowerBIDataPointRef | null)[][],
+  axes: MaidrLayer['axes'],
+): { data: PrCurvePoint[][]; cells: (PowerBIDataPointRef | null)[][] } | null {
+  const kept = data.map(points => points.flatMap((point, col) => point.y === null ? [] : [col]));
+  const curves = kept.map((cols, row) => cols.map(col => data[row][col]));
+  if (!drawsPrCurves(axes?.x?.label, axes?.y?.label, curves)) {
+    return null;
+  }
+  return {
+    data: curves as PrCurvePoint[][],
+    cells: kept.map((cols, row) => cols.map(col => cells[row][col])),
+  };
+}
+
+/**
+ * A table view's line read as precision-recall curves, one position per row,
+ * or `null` when it is not one.
+ *
+ * Pivoting a table onto one position per distinct category keeps the first
+ * row of a repeated one, which on a precision-recall curve drops a threshold:
+ * two can reach the same recall at different precisions. So a table view is
+ * read a second time with every row kept, and that reading is used only when
+ * it is a curve; anything else is the line the pivoted frame reads.
+ *
+ * @param dataView - The data view
+ * @param roles - The role names
+ * @param options - The adapter options
+ * @returns The curves, or `null`
+ */
+function prCurvesFromRows(
+  dataView: PowerBIDataView,
+  roles: Required<PowerBIRoleNames>,
+  options: PowerBIAdapterOptions,
+): BuiltLayer | null {
+  if (dataView.categorical !== undefined || dataView.table === undefined) {
+    return null;
+  }
+  const frame = frameFromTable(dataView.table, roles, true);
+  if (frame === null || frame.category === null) {
+    return null;
+  }
+  const lines = linesOf(frame, roles);
+  const built = lines.length === 0 ? null : buildLine(frame, lines, options);
+  return built?.layer.type === TraceType.PR_CURVE ? built : null;
 }
 
 function buildPie(frame: Frame, lines: readonly Line[], options: PowerBIAdapterOptions): BuiltLayer | null {
@@ -815,7 +898,7 @@ export function convertPowerBIDataView(
         return null;
       }
       const layer = options.chartType === 'line'
-        ? buildLine(frame, lines, options)
+        ? prCurvesFromRows(dataView, roles, options) ?? buildLine(frame, lines, options)
         : options.chartType === 'pie' || options.chartType === 'donut'
           ? buildPie(frame, lines, options)
           : buildBar(frame, lines, options);
