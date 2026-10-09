@@ -223,6 +223,23 @@ When a visual specification *is* available, the mark type outranks the ladder ab
 
 A dual-axis worksheet reports one marks card per measure. Only the active card is read, and a warning names how many there were: nothing in the API says which axis a card belongs to, or which summary-data column came from it, so merging them into one figure would be invention.
 
+### Precision-recall curve [experimental]
+
+Tableau has no precision-recall mark. A classifier's curve is a `line` card with the recall, a continuous field, on Columns and the precision on Rows. Without help that view is misread: every numeric column is classified as a measure, so the line has no category, the `line` mark cannot be built and the ladder reads a point cloud, or, with a dimension on the card, a line along that dimension.
+
+So before the chart type is decided, a worksheet is read as a `pr_curve` layer when the visual specification says all of this:
+
+- the active card draws `line` marks;
+- Columns holds exactly one field named `Recall` and Rows exactly one named `Precision`, case and an aggregation wrapper such as `AVG(…)` aside;
+- two summary measures carry those names, and every row's recall and precision is a number from 0 to 1. An `overrides[name].axes` caption that names an axis anything else keeps the ordinary reading.
+
+Anything else keeps its reading: rates in percent, the axes the other way round, a second field on a shelf, other marks, or no visual specification at all, where nothing says the marks are a line. `overrides[name].traceType` outranks it, as it outranks every reading.
+
+- **One curve per line.** Tableau draws one line per value of the dimensions on the card, except a dimension on Path, which orders a line rather than splitting it. One such dimension names the curves; with two or more the worksheet keeps its ordinary reading.
+- **Every row is a point**, in view order, so two thresholds that reach the same recall are both kept. Aggregating the precision (`AVG`, `SUM`) merges the rows Tableau merged; a sum above 1 keeps the ordinary reading.
+- **Thresholds.** A measure named `Threshold`, `Thresholds` or `Cutoff`, on Path, Detail or Tooltip, is carried on each point.
+- **Highlighting** selects the mark by the dimensions of its row. A curve with no dimension at all (the recall and precision alone) has nothing to address a mark by, so it is read and announced but not highlighted.
+
 ### What the adapter refuses to guess
 
 Three readings are reachable only by declaring them (see [When The Heuristics Are Wrong](#when-the-heuristics-are-wrong)), and each refusal has a reason worth knowing:

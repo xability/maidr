@@ -38,6 +38,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  PrCurvePoint,
   ScatterPoint,
   SegmentedPoint,
 } from '../../type/grammar';
@@ -54,6 +55,7 @@ import type {
   WorksheetSnapshot,
 } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+import { drawsPrCurves, namesRate } from '../shared/prCurveAxes';
 import { classifyColumns, toCategoryKey, toDateValue, toFiniteNumber } from './fields';
 
 const ADAPTER_PREFIX = '[MAIDR tableau]';
@@ -1340,6 +1342,143 @@ function buildAxes(
   return axes;
 }
 
+/** The names a precision-recall point's threshold column goes by. */
+const THRESHOLD_NAMES = new Set(['threshold', 'thresholds', 'cutoff']);
+
+/**
+ * A field's name with any aggregation wrapper removed: `AVG(Precision)` is
+ * `Precision`, as a summary column's caption is.
+ *
+ * @param name - The field's name.
+ * @returns The name inside the wrapper, or the name itself.
+ */
+function unwrapped(name: string): string {
+  return /^[a-z]+\((.+)\)$/i.exec(name)?.[1] ?? name;
+}
+
+/**
+ * Read a worksheet as precision-recall curves, or `null` when it is not one.
+ *
+ * Tableau has no precision-recall mark: a classifier's curve is a line mark
+ * with a continuous recall on Columns and precision on Rows. That shape never
+ * reaches the line builder -- `classifyColumns` sends every numeric column to
+ * the measure rung, so the recall is a measure and the line has no category --
+ * and the ladder reads it as a point cloud instead, or, with a dimension on
+ * Color, as a line along that dimension. So it is recognised here, before the
+ * trace type is decided, from the facts the visual specification declares:
+ *
+ * - the active card draws `line` marks;
+ * - Columns holds exactly one field and Rows exactly one, named `recall` and
+ *   `precision` (case and an aggregation wrapper aside) -- the axes, which are
+ *   the only thing that says what the line is;
+ * - two summary measures carry those names, and every row's pair of them is a
+ *   number from 0 to 1, the rule every adapter shares (`drawsPrCurves`).
+ *
+ * Without a specification nothing says the marks are a line, so the ladder
+ * keeps the point cloud. Each curve is one value of the dimension that splits
+ * the line, and the whole worksheet when none does; points keep the order of
+ * the rows. A row missing either rate has no position and is
+ * left out. A point is addressed by every dimension of its row, as a
+ * point cloud's is, and names no mark when the row has none.
+ *
+ * @param snapshot - The worksheet snapshot.
+ * @param plan - The worksheet's column plan.
+ * @param override - The page's overrides for this worksheet.
+ * @param layerId - The layer id to stamp.
+ * @param warned - Per-extraction warning latch.
+ * @returns The layer and its cell index, or `null`.
+ */
+function buildPrCurveLayer(
+  snapshot: WorksheetSnapshot,
+  plan: ColumnPlan,
+  override: TableauWorksheetOverride,
+  layerId: string,
+  warned: Set<string>,
+): BuiltLayer | null {
+  const spec = snapshot.spec;
+  if (override.traceType !== undefined || spec === undefined) {
+    return null;
+  }
+  if (activeMarkType(spec, snapshot.name, warned) !== 'line') {
+    return null;
+  }
+  const [xField, ...moreX] = spec.columnFields;
+  const [yField, ...moreY] = spec.rowFields;
+  if (xField === undefined || yField === undefined || moreX.length > 0 || moreY.length > 0
+    || !namesRate(unwrapped(xField.name), 'recall') || !namesRate(unwrapped(yField.name), 'precision')) {
+    return null;
+  }
+  const recall = plan.measures.find(measure => namesRate(measure.caption, 'recall'));
+  const precision = plan.measures.find(measure => namesRate(measure.caption, 'precision'));
+  if (recall === undefined || precision === undefined) {
+    return null;
+  }
+
+  // Tableau draws one line per combination of the dimensions on the card,
+  // except those on Path, which order a line rather than split it. One such
+  // dimension names the curves; more would need a name made of several values
+  // and are left to the ordinary reading.
+  const card = spec.marksSpecifications[spec.activeMarksSpecificationIndex] ?? spec.marksSpecifications[0];
+  const paths = new Set((card?.encodings ?? [])
+    .filter(encoding => encoding.type === 'path')
+    .map(encoding => unwrapped(encoding.field.name)));
+  const splitting = plan.dimensions.filter(dimension => !paths.has(dimension.caption));
+  if (splitting.length > 1) {
+    return null;
+  }
+  const group = splitting[0] ?? null;
+
+  // A threshold on the card (on Path, Detail or Tooltip) is the one number a
+  // reader can act on, so a measure named as the other adapters name it is
+  // carried on each point.
+  const threshold = plan.measures.find(measure => measure !== recall && measure !== precision
+    && THRESHOLD_NAMES.has(measure.caption.trim().toLowerCase()));
+
+  const seriesIndex = new Map<string, number>();
+  const data: PrCurvePoint[][] = [];
+  const cells: (readonly TableauSelectionCriteria[] | null)[][] = [];
+  for (const row of snapshot.rows) {
+    const x = toFiniteNumber(row[recall.viewIndex]);
+    const y = toFiniteNumber(row[precision.viewIndex]);
+    if (x === null || y === null) {
+      continue;
+    }
+    const key = group === null ? '' : toCategoryKey(row[group.viewIndex]);
+    let index = seriesIndex.get(key);
+    if (index === undefined) {
+      index = data.length;
+      seriesIndex.set(key, index);
+      data.push([]);
+      cells.push([]);
+    }
+    const point: PrCurvePoint = { x, y };
+    const cutoff = threshold === undefined ? null : toFiniteNumber(row[threshold.viewIndex]);
+    if (cutoff !== null) {
+      point.threshold = cutoff;
+    }
+    if (group !== null) {
+      point.z = key;
+    }
+    data[index].push(point);
+    cells[index].push(rowCriteria(plan.dimensions, row));
+  }
+
+  const xLabel = override.axes?.x ?? recall.caption;
+  const yLabel = override.axes?.y ?? precision.caption;
+  if (!drawsPrCurves(xLabel, yLabel, data)) {
+    return null;
+  }
+  const axes: { x: AxisConfig; y: AxisConfig; z?: AxisConfig } = { x: { label: xLabel }, y: { label: yLabel } };
+  const zLabel = override.axes?.z ?? group?.caption;
+  if (zLabel !== undefined) {
+    axes.z = { label: zLabel };
+  }
+  return {
+    layer: { id: layerId, type: TraceType.PR_CURVE, title: override.title ?? snapshot.name, axes, data },
+    cells,
+  };
+}
+
 /**
  * Build the single layer one worksheet contributes.
  *
@@ -1365,6 +1504,10 @@ function buildLayer(
   }
 
   const plan = planColumns(snapshot, override, warned);
+  const prCurve = buildPrCurveLayer(snapshot, plan, override, layerId, warned);
+  if (prCurve !== null) {
+    return prCurve;
+  }
   const type = decideTraceType(snapshot, plan, override, warned);
   if (type === null) {
     return null;

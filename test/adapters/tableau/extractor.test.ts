@@ -11,6 +11,7 @@ import type {
   LinePoint,
   MaidrLayer,
   PiePoint,
+  PrCurvePoint,
   ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
@@ -845,6 +846,149 @@ describe('tableau extractor', () => {
 
       expect(layerOf(extraction).type).toBe(TraceType.DODGED);
       expect(warn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('precision-recall curves', () => {
+    const continuous = { columnType: 'continuous' as const, dataType: 'float' as const };
+    const recall = fakeField('Recall', { ...continuous, role: 'dimension' });
+    const precision = fakeField('AVG(Precision)', { ...continuous, role: 'measure', aggregation: 'avg' });
+
+    /** A line of precision against recall, as Tableau's shelves declare it. */
+    function curveSpec(
+      card = fakeMarksCard('line'),
+      shelves = { columnFields: [recall], rowFields: [precision] },
+    ): ReturnType<typeof fakeVisualSpec> {
+      return fakeVisualSpec([card], 0, shelves);
+    }
+
+    it('reads a line of precision against a continuous recall as a curve, every row kept', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'PR',
+          columns: [fakeColumn('Recall', 'float', 0), fakeColumn('AVG(Precision)', 'float', 1)],
+          rows: [[0, 1], [0.5, 0.9], [0.5, 0.7], [1, 0.4]],
+          spec: curveSpec(),
+        }),
+      ]);
+
+      const layer = layerOf(extraction);
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+      expect(layer.axes).toEqual({ x: { label: 'Recall' }, y: { label: 'Precision' } });
+      expect(layer.data).toEqual([[
+        { x: 0, y: 1 },
+        { x: 0.5, y: 0.9 },
+        { x: 0.5, y: 0.7 },
+        { x: 1, y: 0.4 },
+      ]]);
+      // No dimension to address a mark by, so no position selects one.
+      expect(extraction.selection.cells.get('0')).toEqual([[null, null, null, null]]);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('draws one named curve per value of the dimension that splits the line', () => {
+      const card = fakeMarksCard('line', [fakeEncoding('color', fakeField('Model'))]);
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [
+            fakeColumn('Model', 'string', 0),
+            fakeColumn('Recall', 'float', 1),
+            fakeColumn('Precision', 'float', 2),
+            fakeColumn('Threshold', 'float', 3),
+          ],
+          rows: [
+            ['Logistic', 0, 1, 0.9],
+            ['Logistic', 0.5, 0.8, 0.5],
+            ['Forest', 0, 1, 0.8],
+            ['Logistic', 1, 0.3, 0.1],
+            ['Forest', 1, 0.3, 0.2],
+          ],
+          spec: curveSpec(card, { columnFields: [recall], rowFields: [fakeField('Precision', continuous)] }),
+        }),
+      ]);
+
+      const layer = layerOf(extraction);
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+      expect(layer.axes?.z).toEqual({ label: 'Model' });
+      expect(layer.data as PrCurvePoint[][]).toEqual([
+        [
+          { x: 0, y: 1, threshold: 0.9, z: 'Logistic' },
+          { x: 0.5, y: 0.8, threshold: 0.5, z: 'Logistic' },
+          { x: 1, y: 0.3, threshold: 0.1, z: 'Logistic' },
+        ],
+        [{ x: 0, y: 1, threshold: 0.8, z: 'Forest' }, { x: 1, y: 0.3, threshold: 0.2, z: 'Forest' }],
+      ]);
+      expect(extraction.selection.cells.get('0')?.[1]).toEqual([
+        [{ fieldName: 'Model', value: 'Forest' }],
+        [{ fieldName: 'Model', value: 'Forest' }],
+      ]);
+    });
+
+    it('keeps a dimension on Path from splitting the curve', () => {
+      const card = fakeMarksCard('line', [fakeEncoding('path', fakeField('Step'))]);
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [fakeColumn('Step', 'string', 0), fakeColumn('Recall', 'float', 1), fakeColumn('AVG(Precision)', 'float', 2)],
+          rows: [['a', 0, 1], ['b', 0.5, 0.8], ['c', 1, 0.4]],
+          spec: curveSpec(card),
+        }),
+      ]);
+
+      const layer = layerOf(extraction);
+      expect(layer.type).toBe(TraceType.PR_CURVE);
+      expect((layer.data as PrCurvePoint[][])).toHaveLength(1);
+      expect(extraction.selection.cells.get('0')?.[0][1]).toEqual([{ fieldName: 'Step', value: 'b' }]);
+    });
+
+    it.each([
+      ['rates in percent', [[0, 100], [50, 80], [100, 40]], curveSpec()],
+      ['recall on Rows and precision on Columns', [[0, 1], [0.5, 0.8], [1, 0.4]], curveSpec(undefined, { columnFields: [precision], rowFields: [recall] })],
+      ['a second field on Columns', [[0, 1], [0.5, 0.8], [1, 0.4]], curveSpec(undefined, { columnFields: [recall, fakeField('Segment')], rowFields: [precision] })],
+      ['circle marks', [[0, 1], [0.5, 0.8], [1, 0.4]], curveSpec(fakeMarksCard('circle'))],
+      ['no visual specification', [[0, 1], [0.5, 0.8], [1, 0.4]], undefined],
+    ])('reads %s as it did before, a point cloud', (_, rows, spec) => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [fakeColumn('Recall', 'float', 0), fakeColumn('AVG(Precision)', 'float', 1)],
+          rows,
+          ...(spec === undefined ? {} : { spec }),
+        }),
+      ]);
+
+      expect(layerOf(extraction).type).toBe(TraceType.SCATTER);
+    });
+
+    it('leaves a line split by two dimensions to the ordinary reading', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [
+            fakeColumn('Model', 'string', 0),
+            fakeColumn('Fold', 'string', 1),
+            fakeColumn('Recall', 'float', 2),
+            fakeColumn('AVG(Precision)', 'float', 3),
+          ],
+          rows: [['A', '1', 0, 1], ['A', '1', 1, 0.4], ['A', '2', 0, 1], ['A', '2', 1, 0.5]],
+          spec: curveSpec(),
+        }),
+      ]);
+
+      expect(layerOf(extraction).type).not.toBe(TraceType.PR_CURVE);
+    });
+
+    it('lets the page\u2019s trace type outrank the curve', () => {
+      const extraction = extractTableau(
+        [
+          fakeSnapshot({
+            name: 'PR',
+            columns: [fakeColumn('Recall', 'float', 0), fakeColumn('AVG(Precision)', 'float', 1)],
+            rows: [[0, 1], [0.5, 0.8], [1, 0.4]],
+            spec: curveSpec(),
+          }),
+        ],
+        { overrides: { PR: { traceType: TraceType.SCATTER } } },
+      );
+
+      expect(layerOf(extraction).type).toBe(TraceType.SCATTER);
     });
   });
 
