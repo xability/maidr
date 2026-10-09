@@ -149,12 +149,22 @@ The data view alone does not say what a visual draws. One category and one measu
 | `bar` | Bar chart, drawn horizontally, one series | `bar` (horizontal) |
 | `bar` + `barMode: 'grouped'` / `'stacked'` | Clustered / stacked bar chart | `dodged_bar` / `stacked_bar` (horizontal) |
 | `line` | Line chart, one line per series or per measure | `line` |
+| `line` | Precision-recall curve [experimental], one curve per series | `pr_curve` |
 | `scatter` | Scatter chart, one layer per series | `point` |
 | `pie` / `donut` | Pie or donut chart | `pie` |
 
 "Several series" means either a field in the `series` (Legend) role or several measures in the Values well with no series field. Both are drawn by Power BI as a clustered chart, and both read as one here. `barMode` has no default guess from the data: a clustered and a stacked chart receive the same data view. MAIDR's segmented bar adds its *Total* row after the series in both cases, so the per-category sum is always available.
 
 `chartType` and `barMode` can change on any update, for example from a format-pane setting: `binding.update(dataView, { chartType: 'bar' })`.
+
+### Precision-recall curve [experimental]
+
+Power BI has no precision-recall visual: a classifier's curve is a line chart with the recall as its category and the precision as its measure, and the axis names are the only thing that says what it is. So a `line` is read as a `pr_curve` layer when its x axis is named exactly `Recall` and its y axis `Precision` (case and surrounding space aside), and every reading on both is a number from 0 to 1. The names are the category's and the measure's display names, or the `axes` option when it sets them. Anything else, rates in percent or a label such as "Recall at k" included, stays a line. The category has to be numeric for its values to be rates.
+
+- **One curve per series.** With a Legend field (or several measures), each series is one curve, named as the line's series are, and a curve keeps only the positions where its series has a reading: a recall another classifier reached is not a gap in this one.
+- **Every threshold is kept.** Two thresholds often reach the same recall at different precisions. A categorical view keeps every position it hands over. A table view is pivoted onto one position per distinct category (see [below](#how-the-data-view-is-read)), which would keep only the first such row, so a table view whose line reads as a curve is read with one position per row instead.
+- **Aggregation.** In a report, a categorical mapping groups the rows by category value and aggregates the measure, a sum by default, so thresholds that share a recall reach the visual as one value. A sum above 1 keeps the chart a line, which is never wrong about a line. A table mapping with the precision as an unsummarized column keeps one row per recall and precision, and every one of them is read.
+- **Highlighting** is the line's: each point names the data point it came from, so `onNavigate` reports the threshold's row.
 
 ## How the Data View Is Read
 
