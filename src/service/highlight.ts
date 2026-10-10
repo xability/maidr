@@ -30,7 +30,7 @@ type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
  *
  * @example
  * ```typescript
- * const highlightService = new HighlightService(settingsService);
+ * const highlightService = new HighlightService(settingsService, plot);
  *
  * // Subscribe to state changes
  * traceState.subscribe(highlightService);
@@ -50,6 +50,13 @@ implements Observer<HighlightStateUnion>, Disposable {
    */
   private readonly highlightedElements: Map<SVGElement, SVGElement>;
   private readonly settingsService: SettingsService;
+
+  /**
+   * The chart's own element. Its panels are counted, and its figure
+   * background read, inside it alone: another chart on the page has panels
+   * and a background of its own.
+   */
+  private readonly plot: Element;
 
   /**
    * Set of subplot elements that currently have highlight styling applied.
@@ -72,9 +79,11 @@ implements Observer<HighlightStateUnion>, Disposable {
    * Creates a new HighlightService instance.
    *
    * @param settings - The settings service used to retrieve highlight color preferences
+   * @param plot - The element MAIDR made focusable around the chart
    */
-  public constructor(settings: SettingsService) {
+  public constructor(settings: SettingsService, plot: Element) {
     this.settingsService = settings;
+    this.plot = plot;
 
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
@@ -239,12 +248,12 @@ implements Observer<HighlightStateUnion>, Disposable {
 
   /**
    * Determines if the current visualization contains multiple subplots.
-   * Checks the DOM for multiple axes groups to identify multi-plot scenarios.
+   * Checks the chart for multiple axes groups to identify multi-plot scenarios.
    *
    * @returns True if more than one subplot exists, false otherwise
    */
   private isMultiPlotScenario(): boolean {
-    const totalSubplots = document.querySelectorAll('g[id^="axes_"]').length;
+    const totalSubplots = this.plot.querySelectorAll('g[id^="axes_"]').length;
     return totalSubplots > 1;
   }
 
@@ -269,11 +278,15 @@ implements Observer<HighlightStateUnion>, Disposable {
    * Applies highlight styling to subplot-level SVG elements.
    * Uses adaptive color calculation based on the figure background.
    *
+   * The background is py-maidr's figure patch, whose group py-maidr gives a
+   * `maidr-<uuid>` id; a chart without one is measured against the highlight
+   * colour itself.
+   *
    * @param elements - Array of subplot SVG elements to highlight
    */
   private highlightSubplotElements(elements: SVGElement[]): void {
     this.unhighlightSubplotElements();
-    const figure = document.querySelector(
+    const figure = this.plot.querySelector(
       'g[id^="maidr-"] > path[style*="fill"]',
     )?.parentElement as SVGElement | null;
     const figureBgElement

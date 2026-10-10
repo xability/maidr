@@ -241,7 +241,7 @@ export class Controller implements Disposable {
       this.context,
       () => getPlotlyOverlayLayers(this.displayService.plot),
     );
-    this.highlightService = new HighlightService(this.settingsService);
+    this.highlightService = new HighlightService(this.settingsService, plot);
     this.tactileService = new TactileService(
       this.displayService,
       this.brailleService,
