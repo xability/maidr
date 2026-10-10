@@ -3,7 +3,7 @@ import type { StorageService } from '@service/storage';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { GeneralSettings, Settings } from '@type/settings';
+import type { GeneralSettings, HoverMode, Settings } from '@type/settings';
 import type { Locale } from '@util/i18n';
 import { Emitter, Scope } from '@type/event';
 import { DEFAULT_SETTINGS } from '@type/settings';
@@ -13,6 +13,16 @@ import { isLanguageSetting, resolveLocale, setLocale } from '@util/i18n';
 import { ensureLocalePack } from '@util/i18n/localePack';
 
 export const SETTINGS_KEY = 'maidr-settings';
+
+/**
+ * Saved beside the settings once the reader has changed the hover mode
+ * themselves, so a mode they picked -- the default among them -- is kept over
+ * a chart's.
+ */
+const HOVER_MODE_CHOSEN_KEY = 'hoverModeChosen';
+
+/** The settings as saved, with the mark that the reader chose a hover mode. */
+type StoredSettings = Settings & { [HOVER_MODE_CHOSEN_KEY]?: boolean };
 
 function getValue<T>(settings: any, key: string): T | undefined {
   return key.split('.').reduce((acc, part) => {
@@ -129,18 +139,72 @@ function speak(locale: Locale): void {
   void ensureLocalePack(locale);
 }
 
+const HOVER_MODES: readonly HoverMode[] = ['off', 'pointermove', 'click'];
+
+/**
+ * Whether a value is one of the hover modes MAIDR knows.
+ * @param value - The value to check
+ * @returns True for `off`, `pointermove` or `click`
+ */
+export function isHoverMode(value: unknown): value is HoverMode {
+  return HOVER_MODES.includes(value as HoverMode);
+}
+
+/**
+ * Settings a chart's author gives as the chart's own starting values, in place
+ * of MAIDR's defaults.
+ */
+export interface ChartSettingDefaults {
+  /** The chart's `hoverMode`, unchecked: it comes from the page. */
+  hoverMode?: unknown;
+}
+
+/**
+ * The chart's hover mode, if it gave a valid one.
+ * @param value - The chart's `hoverMode`, as the page gave it
+ * @returns The hover mode, or null when absent or invalid
+ */
+function readAuthorHoverMode(value: unknown): HoverMode | null {
+  if (value === undefined) {
+    return null;
+  }
+  if (!isHoverMode(value)) {
+    console.warn(
+      `[SettingsService] Ignoring the chart's hoverMode ${JSON.stringify(value)}: `
+      + `expected one of ${HOVER_MODES.join(', ')}.`,
+    );
+    return null;
+  }
+  return value;
+}
+
 export class SettingsService implements Disposable {
   private readonly storage: StorageService;
   private readonly display: DisplayService;
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
+  /** The hover mode the chart's author gave, if a valid one. */
+  private readonly authorHoverMode: HoverMode | null;
+  /** The hover mode storage holds for the reader, to keep when saving. */
+  private storedHoverMode: HoverMode;
+  /** Whether the reader has changed the hover mode themselves. */
+  private hoverModeChosen: boolean;
   private observers: Observer<Settings>[];
 
   private readonly onChangeEmitter: Emitter<SettingsChangedEvent>;
   public readonly onChange: Event<SettingsChangedEvent>;
 
-  public constructor(storage: StorageService, display: DisplayService) {
+  /**
+   * @param storage - Where settings are persisted
+   * @param display - The display the settings dialog is shown in
+   * @param chartDefaults - The chart's own starting values, from its schema
+   */
+  public constructor(
+    storage: StorageService,
+    display: DisplayService,
+    chartDefaults: ChartSettingDefaults = {},
+  ) {
     this.storage = storage;
     this.display = display;
     this.observers = [];
@@ -148,10 +212,11 @@ export class SettingsService implements Disposable {
     this.defaultSettings = structuredClone(DEFAULT_SETTINGS);
     this.onChangeEmitter = new Emitter<SettingsChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
-    const saved = this.storage.load<Settings>(SETTINGS_KEY);
+    const { [HOVER_MODE_CHOSEN_KEY]: hoverModeChosen, ...saved }
+      = this.storage.load<StoredSettings>(SETTINGS_KEY) ?? {};
     // Deep-merge so that newly added default settings are available even when
     // the user has an older saved object in localStorage that lacks the new keys.
-    const merged = saved ? deepMerge(this.defaultSettings, saved) : this.defaultSettings;
+    const merged = deepMerge(this.defaultSettings, saved);
     // Repair stale braille display kind / preset id before any consumer
     // (BrailleService, UI) reads the settings, so they see a coherent state
     // from page load — not just after the settings dialog opens.
@@ -166,7 +231,26 @@ export class SettingsService implements Disposable {
     if (!isLanguageSetting(this.currentSettings.general.language)) {
       this.currentSettings.general.language = DEFAULT_SETTINGS.general.language;
     }
+
+    this.authorHoverMode = readAuthorHoverMode(chartDefaults.hoverMode);
+    const stored = this.currentSettings.general.hoverMode;
+    this.storedHoverMode = isHoverMode(stored) ? stored : DEFAULT_SETTINGS.general.hoverMode;
+    // Settings saved before the mark existed: a mode other than the default
+    // can only have been the reader's.
+    this.hoverModeChosen = hoverModeChosen === true
+      || this.storedHoverMode !== DEFAULT_SETTINGS.general.hoverMode;
+    this.applyHoverMode();
     this.applyLanguage();
+  }
+
+  /**
+   * Puts the hover mode in force: the reader's, when they have chosen one,
+   * else the chart's, else the default.
+   */
+  private applyHoverMode(): void {
+    this.currentSettings.general.hoverMode = this.hoverModeChosen
+      ? this.storedHoverMode
+      : this.authorHoverMode ?? this.storedHoverMode;
   }
 
   /**
@@ -191,7 +275,7 @@ export class SettingsService implements Disposable {
     this.currentSettings = newSettings;
     this.applyLanguage();
 
-    this.storage.save(SETTINGS_KEY, this.currentSettings);
+    this.storage.save(SETTINGS_KEY, this.toStored(oldSettings, newSettings));
     this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, newSettings));
     // Notify Observer<Settings> registrants (e.g. Mousebindingservice) so that
     // observer-based consumers such as hover-mode react immediately. This is a
@@ -199,9 +283,44 @@ export class SettingsService implements Disposable {
     this.notifyStateUpdate();
   }
 
+  /**
+   * The settings as they are saved for the reader. A hover mode they change
+   * is theirs from then on, on every chart. Until they do, the one they had
+   * stays in storage while a chart's is in force, so one chart's mode does
+   * not follow them to every other chart.
+   * @param oldSettings - The settings in force before this save
+   * @param settings - The settings in force
+   * @returns The settings to save
+   */
+  private toStored(oldSettings: Settings, settings: Settings): StoredSettings {
+    // Another chart's dialog may have saved a mode since this service read
+    // storage; that choice must not be written over with a stale one.
+    const { [HOVER_MODE_CHOSEN_KEY]: chosenInStorage, general: storedGeneral }
+      = this.storage.load<Partial<StoredSettings>>(SETTINGS_KEY) ?? {};
+    const inStorage = storedGeneral?.hoverMode;
+    if (chosenInStorage === true && isHoverMode(inStorage)) {
+      this.hoverModeChosen = true;
+      this.storedHoverMode = inStorage;
+    }
+    const hoverMode = settings.general.hoverMode;
+    if (hoverMode !== oldSettings.general.hoverMode && isHoverMode(hoverMode)) {
+      this.hoverModeChosen = true;
+      this.storedHoverMode = hoverMode;
+    }
+    // Unless the reader changed it in this save, the mode on this chart may be
+    // the chart's own, or older than the one storage now holds.
+    const general = { ...settings.general, hoverMode: this.storedHoverMode };
+    return this.hoverModeChosen
+      ? { ...settings, general, [HOVER_MODE_CHOSEN_KEY]: true }
+      : { ...settings, general };
+  }
+
   public resetSettings(): Settings {
     const oldSettings = this.currentSettings;
-    this.currentSettings = this.defaultSettings;
+    this.currentSettings = structuredClone(this.defaultSettings);
+    this.storedHoverMode = DEFAULT_SETTINGS.general.hoverMode;
+    this.hoverModeChosen = false;
+    this.applyHoverMode();
     this.applyLanguage();
 
     this.storage.remove(SETTINGS_KEY);

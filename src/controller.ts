@@ -192,6 +192,7 @@ export class Controller implements Disposable {
     this.settingsService = new SettingsService(
       new LocalStorageService(),
       this.displayService,
+      { hoverMode: maidr.hoverMode },
     );
     // The WebMCP tools are shared by every chart on the page and outlive this
     // controller, so the setting is handed to them rather than observed: one
