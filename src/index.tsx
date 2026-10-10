@@ -1,6 +1,7 @@
 import type { MaidrLiveApi } from './service/liveData';
 import type { Maidr } from './type/grammar';
 import { claimPlotlyExamination, extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
+import { installHostGuards } from './service/hostGuard';
 import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
@@ -33,6 +34,19 @@ window.maidrLive = {
   // Only the id: a target the page sets is the host's, whatever else it passes.
   navigateTo: (target, options) => liveDataManager.navigateTo(target, { id: options?.id }),
 };
+
+// Now, while the page may still be loading: ioslides binds its key handler
+// when it builds the deck at DOMContentLoaded, and only a handler guarded
+// before then is guarded at all. Again once the page has loaded, for the
+// hosts that appear later in it, reveal.js and Quarto's search among them;
+// every chart's focus installs them once more, for a host built later still.
+installHostGuards();
+if (document.readyState === 'loading') {
+  document.addEventListener(DomEventType.DOM_LOADED, installHostGuards);
+}
+if (document.readyState !== 'complete') {
+  window.addEventListener('load', installHostGuards);
+}
 
 /** Stores active MutationObservers for cleanup. */
 let maidrAttributeObserver: MutationObserver | null = null;

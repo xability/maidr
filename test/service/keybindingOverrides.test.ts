@@ -118,6 +118,44 @@ describe('keybinding overrides', () => {
   });
 });
 
+describe('KeybindingService.isBound', () => {
+  let harness: Harness | null = null;
+
+  afterEach(() => {
+    harness?.service.unregister();
+    harness = null;
+  });
+
+  /** Ctrl+Shift+F, which reveal.js's search plugin also opens on. */
+  const searchKey = (): KeyboardEvent =>
+    new KeyboardEvent('keydown', { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true });
+
+  it('answers for the defaults of the scope in force', () => {
+    harness = createService();
+    harness.service.register(Scope.TRACE);
+
+    expect(harness.service.isBound(new KeyboardEvent('keydown', { key: 't', code: 'KeyT' }))).toBe(true);
+    expect(harness.service.isBound(searchKey())).toBe(false);
+
+    // The settings dialog binds no `t`.
+    harness.service.setScope(Scope.SETTINGS);
+    expect(harness.service.isBound(new KeyboardEvent('keydown', { key: 't', code: 'KeyT' }))).toBe(false);
+  });
+
+  it('answers for a shortcut the reader chose', () => {
+    harness = createService();
+    harness.service.register(Scope.TRACE, { TOGGLE_TEXT: 'ctrl+shift+f' });
+
+    expect(harness.service.isBound(searchKey())).toBe(true);
+  });
+
+  it('binds nothing before it is registered', () => {
+    harness = createService();
+
+    expect(harness.service.isBound(new KeyboardEvent('keydown', { key: 't', code: 'KeyT' }))).toBe(false);
+  });
+});
+
 describe('resolveOverrides', () => {
   it('keeps only string shortcuts for commands a reader may rebind', () => {
     expect(resolveOverrides({

@@ -22,6 +22,7 @@ import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
 import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
+import { HostGuardService } from '@service/hostGuard';
 import { KeybindingService, Mousebindingservice, resolveOverrides } from '@service/keybinding';
 import { appendedPointPosition, isAppendedPointFocused } from '@service/liveData';
 import { MonitorService } from '@service/monitor';
@@ -115,6 +116,7 @@ export class Controller implements Disposable {
   private readonly settingsService: SettingsService;
   private readonly formatterService: FormatterService;
   private readonly frameFocusService: FrameFocusService;
+  private readonly hostGuardService: HostGuardService;
 
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
@@ -451,6 +453,9 @@ export class Controller implements Disposable {
     );
     this.settingsService.addObserver(this.keybinding);
     this.mousebinding.registerEvents();
+    // After the keybindings: the one key it would keep from the page is let
+    // through when the reader has bound it to something here.
+    this.hostGuardService = new HostGuardService(plot, event => this.keybinding.isBound(event));
 
     // The modes are the reader's choices, not the position's, so they come
     // back even when the position could not.
@@ -890,6 +895,7 @@ export class Controller implements Disposable {
     this.audioService.dispose();
     this.formatterService.dispose();
     this.frameFocusService.dispose();
+    this.hostGuardService.dispose();
 
     this.settingsService.dispose();
     this.notificationService.dispose();
