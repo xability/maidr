@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  What maidr's Quarto extension (`_extensions/maidr/maidr.lua`) writes into a
+  page that a Jupyter render has also put require.js on: maidr.js and then
+  observable.js, after require.js and the named module Quarto defines inline.
+  Any Python document with `ojs_define` is such a page. `window.requireLater`
+  is the page's next `require()`.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>maidr's Quarto extension under require.js (regression fixture)</title>
+    <script src="require.min.js"></script>
+    <script>
+      define('jquery', [], function () {
+        return { stand_in: 'jquery' };
+      });
+    </script>
+    <script src="../../../dist/maidr.js"></script>
+    <script src="../../../dist/observable.js"></script>
+  </head>
+
+  <body>
+    <p>maidr.js and observable.js, loaded after require.js.</p>
+    <script>
+      // The page's own AMD code, run on demand by the spec. require.js's
+      // default onError is left in place, as on a Quarto page, so a mismatch
+      // throws here. A module that is one of the adapters' page globals is
+      // named after it, so the spec can tell the registration hands back the
+      // object the page reads.
+      window.requireLater = function (names) {
+        var globals = ['maidrObservable', 'maidrECharts', 'maidrHighcharts'];
+        function describe(module) {
+          for (var i = 0; i < globals.length; i++) {
+            if (module && module === window[globals[i]]) {
+              return 'window.' + globals[i];
+            }
+          }
+          return typeof module;
+        }
+        return new Promise(function (resolve) {
+          try {
+            require(names, function () {
+              resolve({ resolved: Array.prototype.map.call(arguments, describe) });
+            }, function (error) {
+              resolve({ failed: String(error.message) });
+            });
+          } catch (error) {
+            resolve({ threw: String(error.message) });
+          }
+        });
+      };
+    </script>
+  </body>
+</html>

@@ -30,9 +30,11 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { build, esmExternalRequirePlugin } from 'vite';
 import dts from 'vite-plugin-dts';
+import { assertNoAnonymousDefine, classicScripts } from './amdDefine.js';
 import { DIST_MANIFEST_NAME, publishManifest } from './dotPadSdk.js';
 import { assertNoRequireShim } from './esmRequireShim.js';
 import { mathStylesheet } from './vite-plugin-math-stylesheet.js';
+import { umdWithoutAmd } from './vite-plugin-umd-without-amd.js';
 import { woff2OnlyFonts } from './vite-plugin-woff2-only.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -195,6 +197,12 @@ function localePackBuild(locale) {
  *
  * Exported so the build-config test can assert against the real array rather
  * than a fixture that could drift away from it.
+ *
+ * `amdName` is the name a bundle's classic script registers under with an AMD
+ * loader on the page once it has run: its import path in package.json's
+ * `exports`. Every UMD bundle with exports needs one -- the build fails
+ * without it -- because its AMD branch is replaced by that registration (see
+ * vite-plugin-umd-without-amd.js).
  */
 export const builds = [
   {
@@ -238,6 +246,7 @@ export const builds = [
     name: 'google-charts',
     entry: 'src/google-charts-entry.ts',
     libName: 'maidrGoogleCharts',
+    amdName: 'maidr/google-charts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'google-charts.mjs' : 'google-charts.js',
     emptyOutDir: false,
@@ -253,6 +262,7 @@ export const builds = [
     name: 'frappe',
     entry: 'src/frappe-entry.ts',
     libName: 'maidrFrappe',
+    amdName: 'maidr/frappe',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'frappe.mjs' : 'frappe.js',
     emptyOutDir: false,
@@ -268,6 +278,7 @@ export const builds = [
     name: 'observable',
     entry: 'src/observable-entry.ts',
     libName: 'maidrObservable',
+    amdName: 'maidr/observable',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'observable.mjs' : 'observable.js',
     emptyOutDir: false,
@@ -285,6 +296,7 @@ export const builds = [
     name: 'echarts',
     entry: 'src/adapters/echarts/index.ts',
     libName: 'maidrECharts',
+    amdName: 'maidr/echarts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'echarts.mjs' : 'echarts.js',
     emptyOutDir: false,
@@ -303,6 +315,7 @@ export const builds = [
     name: 'd3',
     entry: 'src/adapters/d3/index.ts',
     libName: 'maidrD3',
+    amdName: 'maidr/d3',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'd3.mjs' : 'd3.js',
     emptyOutDir: false,
@@ -318,6 +331,7 @@ export const builds = [
     name: 'highcharts',
     entry: 'src/adapters/highcharts/index.ts',
     libName: 'maidrHighcharts',
+    amdName: 'maidr/highcharts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'highcharts.mjs' : 'highcharts.js',
     emptyOutDir: false,
@@ -333,6 +347,7 @@ export const builds = [
     name: 'apexcharts',
     entry: 'src/apexcharts-entry.ts',
     libName: 'maidrApexCharts',
+    amdName: 'maidr/apexcharts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'apexcharts.mjs' : 'apexcharts.js',
     emptyOutDir: false,
@@ -351,6 +366,7 @@ export const builds = [
     name: 'vegalite',
     entry: 'src/vegalite-entry.ts',
     libName: 'maidrVegaLite',
+    amdName: 'maidr/vegalite',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'vegalite.mjs' : 'vegalite.js',
     emptyOutDir: false,
@@ -363,6 +379,7 @@ export const builds = [
     name: 'chartjs',
     entry: 'src/adapters/chartjs/index.ts',
     libName: 'maidrChartjs',
+    amdName: 'maidr/chartjs',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'chartjs.mjs' : 'chartjs.js',
     emptyOutDir: false,
@@ -378,6 +395,7 @@ export const builds = [
     name: 'uplot',
     entry: 'src/adapters/uplot/index.ts',
     libName: 'maidrUPlot',
+    amdName: 'maidr/uplot',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'uplot.mjs' : 'uplot.js',
     emptyOutDir: false,
@@ -395,6 +413,7 @@ export const builds = [
     name: 'amcharts',
     entry: 'src/adapters/amcharts/index.ts',
     libName: 'maidrAmCharts',
+    amdName: 'maidr/amcharts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'amcharts.mjs' : 'amcharts.js',
     emptyOutDir: false,
@@ -412,6 +431,7 @@ export const builds = [
     name: 'lightweight-charts',
     entry: 'src/adapters/lightweight-charts/index.ts',
     libName: 'maidrLightweightCharts',
+    amdName: 'maidr/lightweight-charts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'lightweight-charts.mjs' : 'lightweight-charts.js',
     emptyOutDir: false,
@@ -468,6 +488,7 @@ export const builds = [
     name: 'anychart',
     entry: 'src/anychart-entry.ts',
     libName: 'maidrAnyChart',
+    amdName: 'maidr/anychart',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'anychart.mjs' : 'anychart.js',
     emptyOutDir: false,
@@ -484,6 +505,7 @@ export const builds = [
     name: 'tableau',
     entry: 'src/tableau-entry.ts',
     libName: 'maidrTableau',
+    amdName: 'maidr/tableau',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'tableau.mjs' : 'tableau.js',
     emptyOutDir: false,
@@ -503,6 +525,7 @@ export const builds = [
     name: 'powerbi',
     entry: 'src/powerbi-entry.ts',
     libName: 'maidrPowerBI',
+    amdName: 'maidr/powerbi',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'powerbi.mjs' : 'powerbi.js',
     emptyOutDir: false,
@@ -519,6 +542,7 @@ export const builds = [
     name: 'excel',
     entry: 'src/excel-entry.ts',
     libName: 'maidrExcel',
+    amdName: 'maidr/excel',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'excel.mjs' : 'excel.js',
     emptyOutDir: false,
@@ -535,6 +559,7 @@ export const builds = [
     name: 'office',
     entry: 'src/office-entry.ts',
     libName: 'maidrOffice',
+    amdName: 'maidr/office',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'office.mjs' : 'office.js',
     emptyOutDir: false,
@@ -572,6 +597,10 @@ export function createViteConfig(config) {
   // Its content is read from node_modules, not from the module graph, so every
   // bundle emits the same bytes and the merge step dedupes them.
   plugins.push(mathStylesheet());
+  // Registered for every bundle, like the two above: it rewrites only the UMD
+  // output of an entry with exports, and fails the build for one with no
+  // `amdName`, so a new adapter cannot ship the AMD branch by leaving it out.
+  plugins.push(umdWithoutAmd(config.amdName));
 
   const requireExternal = config.external.filter(id => REACT_RUNTIME.includes(id));
   const external = config.external.filter(id => !REACT_RUNTIME.includes(id));
@@ -920,6 +949,7 @@ async function main() {
     await runSequential(selected);
     if (!isWorker) {
       assertNoRequireShim(path.resolve(rootDir, 'dist'));
+      assertNoAnonymousDefine(path.resolve(rootDir, 'dist'), classicScripts(selected));
       publishManifest(path.resolve(rootDir, 'dist'));
       console.log(`All builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
     }
@@ -948,8 +978,10 @@ async function main() {
   }
 
   // `vite build` exits 0 even when an ESM bundle would throw on its first
-  // render in a browser, so read the merged output for that (#1370).
+  // render in a browser, so read the merged output for that (#1370), and for
+  // a classic script that an AMD loader on the page would take and never run.
   assertNoRequireShim(outDir);
+  assertNoAnonymousDefine(outDir, classicScripts(selected));
 
   // The DotPad SDK pin ships with the package (`dist/dotpad-sdk.json`) so the
   // bindings and the skill can copy it when they refresh the bundle. Written
