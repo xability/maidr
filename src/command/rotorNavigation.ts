@@ -1,4 +1,5 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { Command } from './command';
 
@@ -7,13 +8,20 @@ import type { Command } from './command';
  */
 export class RotorNavigationNextNavUnitCommand implements Command {
   private readonly rotorNavigationViewModel: RotorNavigationViewModel;
+  private readonly audioService: AudioService;
   /**
    * Creates an instance of RotorNavigationNextNavUnitCommand.
    * @param {Context} _context - The application context.
    * @param {RotorNavigationViewModel} rotorNavigationViewModel - The rotor navigation view model.
+   * @param {AudioService} audioService - Plays the rotor's ratchet cue.
    */
-  public constructor(_context: Context, rotorNavigationViewModel: RotorNavigationViewModel) {
+  public constructor(
+    _context: Context,
+    rotorNavigationViewModel: RotorNavigationViewModel,
+    audioService: AudioService,
+  ) {
     this.rotorNavigationViewModel = rotorNavigationViewModel;
+    this.audioService = audioService;
   }
 
   /**
@@ -21,6 +29,7 @@ export class RotorNavigationNextNavUnitCommand implements Command {
    */
   public execute(): void {
     this.rotorNavigationViewModel.moveToNextNavUnit();
+    this.audioService.playRotorTick('next');
   }
 }
 
@@ -29,13 +38,20 @@ export class RotorNavigationNextNavUnitCommand implements Command {
  */
 export class RotorNavigationPrevNavUnitCommand implements Command {
   private readonly rotorNavigationViewModel: RotorNavigationViewModel;
+  private readonly audioService: AudioService;
   /**
    * Creates an instance of RotorNavigationPrevNavUnitCommand.
    * @param {Context} _context - The application context.
    * @param {RotorNavigationViewModel} rotorNavigationViewModel - The rotor navigation view model.
+   * @param {AudioService} audioService - Plays the rotor's ratchet cue.
    */
-  public constructor(_context: Context, rotorNavigationViewModel: RotorNavigationViewModel) {
+  public constructor(
+    _context: Context,
+    rotorNavigationViewModel: RotorNavigationViewModel,
+    audioService: AudioService,
+  ) {
     this.rotorNavigationViewModel = rotorNavigationViewModel;
+    this.audioService = audioService;
   }
 
   /**
@@ -43,6 +59,7 @@ export class RotorNavigationPrevNavUnitCommand implements Command {
    */
   public execute(): void {
     this.rotorNavigationViewModel.moveToPrevNavUnit();
+    this.audioService.playRotorTick('prev');
   }
 }
 
