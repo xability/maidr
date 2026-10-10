@@ -115,6 +115,20 @@ describe('SettingsService hoverMode from the chart', () => {
       .toBe('off');
   });
 
+  it('should not write over a mode the reader picked on another chart since', () => {
+    const { storage, stored } = workingStorage();
+    const chartA = new SettingsService(storage, display, { hoverMode: 'off' });
+    const chartB = new SettingsService(storage, display);
+
+    saveGeneral(chartB, { hoverMode: 'click' });
+    saveGeneral(chartA, { volume: 20 });
+
+    expect(stored()?.general.hoverMode).toBe('click');
+    expect(stored()?.general.volume).toBe(20);
+    expect(new SettingsService(storage, display, { hoverMode: 'off' }).loadSettings().general.hoverMode)
+      .toBe('click');
+  });
+
   it('should come back to the chart\'s mode when the settings are reset', () => {
     const { storage, stored } = workingStorage({ general: { hoverMode: 'click' } });
     const service = new SettingsService(storage, display, { hoverMode: 'off' });

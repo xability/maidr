@@ -198,7 +198,9 @@ applies across all subplots:
   chart, their mode is kept on every chart, the default among them. Until
   then they see each chart's own mode, and saving other settings on a chart
   leaves their stored mode as it was, so one chart's mode does not follow
-  them to the next. Resetting the settings comes back to the chart's mode.
+  them to the next. Picking the mode the dialog already shows is not a
+  change, so it leaves them on each chart's own mode. Resetting the settings
+  comes back to the chart's mode.
   Any other value is ignored with a console warning.
 
 ### Top-Level Properties for Live Charts

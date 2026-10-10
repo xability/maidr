@@ -184,12 +184,6 @@ export class SettingsService implements Disposable {
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
-  /**
-   * The hover mode the chart's author gave, while it stands in for the
-   * reader's: cleared once the reader has a mode of their own, so it is
-   * never written to storage as theirs.
-   */
-  private chartHoverMode: HoverMode | null;
   /** The hover mode the chart's author gave, if a valid one. */
   private readonly authorHoverMode: HoverMode | null;
   /** The hover mode storage holds for the reader, to keep when saving. */
@@ -245,7 +239,6 @@ export class SettingsService implements Disposable {
     // can only have been the reader's.
     this.hoverModeChosen = hoverModeChosen === true
       || this.storedHoverMode !== DEFAULT_SETTINGS.general.hoverMode;
-    this.chartHoverMode = null;
     this.applyHoverMode();
     this.applyLanguage();
   }
@@ -255,8 +248,9 @@ export class SettingsService implements Disposable {
    * else the chart's, else the default.
    */
   private applyHoverMode(): void {
-    this.chartHoverMode = this.hoverModeChosen ? null : this.authorHoverMode;
-    this.currentSettings.general.hoverMode = this.chartHoverMode ?? this.storedHoverMode;
+    this.currentSettings.general.hoverMode = this.hoverModeChosen
+      ? this.storedHoverMode
+      : this.authorHoverMode ?? this.storedHoverMode;
   }
 
   /**
@@ -299,15 +293,23 @@ export class SettingsService implements Disposable {
    * @returns The settings to save
    */
   private toStored(oldSettings: Settings, settings: Settings): StoredSettings {
+    // Another chart's dialog may have saved a mode since this service read
+    // storage; that choice must not be written over with a stale one.
+    const { [HOVER_MODE_CHOSEN_KEY]: chosenInStorage, general: storedGeneral }
+      = this.storage.load<Partial<StoredSettings>>(SETTINGS_KEY) ?? {};
+    const inStorage = storedGeneral?.hoverMode;
+    if (chosenInStorage === true && isHoverMode(inStorage)) {
+      this.hoverModeChosen = true;
+      this.storedHoverMode = inStorage;
+    }
     const hoverMode = settings.general.hoverMode;
     if (hoverMode !== oldSettings.general.hoverMode && isHoverMode(hoverMode)) {
       this.hoverModeChosen = true;
       this.storedHoverMode = hoverMode;
-      this.chartHoverMode = null;
     }
-    const general = this.chartHoverMode === null
-      ? settings.general
-      : { ...settings.general, hoverMode: this.storedHoverMode };
+    // Unless the reader changed it in this save, the mode on this chart may be
+    // the chart's own, or older than the one storage now holds.
+    const general = { ...settings.general, hoverMode: this.storedHoverMode };
     return this.hoverModeChosen
       ? { ...settings, general, [HOVER_MODE_CHOSEN_KEY]: true }
       : { ...settings, general };
