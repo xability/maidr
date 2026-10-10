@@ -57,6 +57,18 @@ const MENU_CLOSE_FREQUENCIES = [990, 660]; // falling: menu retracts
 const SUBPLOT_ENTER_FREQUENCIES = [523.25, 659.25, 783.99]; // C5-E5-G5 rising
 const SUBPLOT_EXIT_FREQUENCIES = [783.99, 659.25, 523.25]; // G5-E5-C5 falling
 
+// Rotor cue: a clock being wound -- a few soft ratchet ticks, one per pawl
+// click, played when the reader cycles the rotor mode. Kept short and well
+// below the menu cues so it sits under the mode name the screen reader is
+// speaking rather than competing with it. The ticks drift up for the next
+// mode and down for the previous one, so the two directions are told apart
+// without a separate sound.
+const ROTOR_TICK_DURATION = 0.012; // a click, not a tone
+const ROTOR_TICK_SPACE = 0.035; // ratchet cadence between clicks
+const ROTOR_TICK_VOLUME_SCALE = 0.2; // quieter than the menu cues
+const ROTOR_NEXT_FREQUENCIES = [2400, 2600, 2800];
+const ROTOR_PREV_FREQUENCIES = [2800, 2600, 2400];
+
 // 60 ms is short enough that rapid beeps don't blur together at the fastest
 // throttle interval, while still being long enough to be clearly audible as
 // a discrete tone rather than a click.
@@ -1339,6 +1351,75 @@ export class AudioService implements Observer<PlotState>, Disposable {
    */
   public playSubplotExitTone(): void {
     this.playMenuTone(SUBPLOT_EXIT_FREQUENCIES);
+  }
+
+  /**
+   * Plays the rotor cue -- a few soft ratchet ticks, like a clock being
+   * wound -- when the reader cycles the rotor mode. A navigational
+   * affordance, so it plays in any audio mode except OFF, and it is kept
+   * short and quiet so it never covers the mode name being announced.
+   * @param direction - `next` for a forward cycle, `prev` for a backward one
+   */
+  public playRotorTick(direction: 'next' | 'prev'): void {
+    if (this.mode === AudioMode.OFF || this.volume <= 0) {
+      return;
+    }
+    const frequencies = direction === 'next' ? ROTOR_NEXT_FREQUENCIES : ROTOR_PREV_FREQUENCIES;
+    this.scheduleWhenRunning(() => this.scheduleRotorTick(frequencies));
+  }
+
+  /**
+   * Schedules the rotor cue's ticks from the current time. Re-checks
+   * mode/volume/context because it can run after an async
+   * {@link AudioContext.resume}.
+   * @param frequencies - Tick frequencies in play order.
+   */
+  private scheduleRotorTick(frequencies: number[]): void {
+    if (this.mode === AudioMode.OFF || this.volume <= 0) {
+      return;
+    }
+    if (this.audioContext.state !== 'running') {
+      return;
+    }
+
+    const now = this.audioContext.currentTime;
+    frequencies.forEach((freq, i) => {
+      this.playRotorClick(freq, now + i * ROTOR_TICK_SPACE);
+    });
+  }
+
+  /**
+   * Plays one ratchet click: a triangle burst that dies away almost at once,
+   * so it reads as a click rather than a pitch.
+   * @param freq - Oscillator frequency in Hz.
+   * @param startTime - AudioContext time at which to start the click.
+   */
+  private playRotorClick(freq: number, startTime: number): void {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+
+    const tickVolume = this.volume * ROTOR_TICK_VOLUME_SCALE;
+    gain.gain.setValueAtTime(tickVolume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001 * tickVolume, startTime + ROTOR_TICK_DURATION);
+
+    osc.connect(gain);
+    gain.connect(this.compressor);
+
+    osc.start(startTime);
+    osc.stop(startTime + ROTOR_TICK_DURATION);
+
+    // Registered like a menu beep so stopAll()/dispose() can cancel a click
+    // still waiting to start and disconnect the graph once it has played.
+    const startOffset = Math.max(0, startTime - this.audioContext.currentTime);
+    const nodes: AudioNode[] = [osc, gain];
+    const audioId = setTimeout(() => {
+      nodes.forEach(node => node.disconnect());
+      this.activeAudioIds.delete(audioId);
+    }, (startOffset + ROTOR_TICK_DURATION * 2) * 1000);
+    this.activeAudioIds.set(audioId, nodes);
   }
 
   /**
