@@ -30,8 +30,10 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { build, esmExternalRequirePlugin } from 'vite';
 import dts from 'vite-plugin-dts';
+import { assertClassicScriptsRunWithoutAmd } from './classicScriptAmd.js';
 import { DIST_MANIFEST_NAME, publishManifest } from './dotPadSdk.js';
 import { assertNoRequireShim } from './esmRequireShim.js';
+import { amdModuleName } from './vite-plugin-amd-name.js';
 import { mathStylesheet } from './vite-plugin-math-stylesheet.js';
 import { woff2OnlyFonts } from './vite-plugin-woff2-only.js';
 
@@ -168,9 +170,18 @@ export const LOCALE_PACKS = ['ko', 'ja', 'zh', 'es', 'de', 'fr', 'it', 'hi'];
 
 /**
  * A pack is a side-effect entry with no exports and no React, so it needs no
- * declaration file. Flat filenames rather than a `locale/` directory: each
- * pack builds in its own worker, and the merge step treats a directory two
- * workers both emit as a collision.
+ * declaration file. Its classic script is an IIFE, not UMD: a UMD wrapper
+ * hands an entry with no exports to any AMD `define` on the page -- require.js,
+ * which Quarto puts on every page a Jupyter render writes HTML into -- as an
+ * anonymous module that never runs, and require.js then throws "Mismatched
+ * anonymous define()" at the page's next `require()`. `amdName` registers the
+ * IIFE under its import path once it has run, so a loader that loads it as a
+ * module still resolves (see vite-plugin-amd-name.js). Vite requires a name
+ * for an IIFE; one with no exports never assigns it.
+ *
+ * Flat filenames rather than a `locale/` directory: each pack builds in its
+ * own worker, and the merge step treats a directory two workers both emit as
+ * a collision.
  * @param locale - The pack's locale code
  * @returns The build configuration for that pack
  */
@@ -180,7 +191,8 @@ function localePackBuild(locale) {
     name: `locale-${locale}`,
     entry: `src/locale/${locale}.ts`,
     libName: `maidrLocale${capitalised}`,
-    formats: ['es', 'umd'],
+    formats: ['es', 'iife'],
+    amdName: `maidr/locale/${locale}`,
     fileName: format => format === 'es' ? `locale-${locale}.mjs` : `locale-${locale}.js`,
     emptyOutDir: false,
     external: [],
@@ -201,10 +213,14 @@ export const builds = [
     name: 'core',
     entry: 'src/index.tsx',
     libName: 'maidr',
-    // UMD only: src/index.tsx is a pure side-effect entry with no exports, so
-    // an ES build has no consumer value. Adding 'es' back here would also make
-    // both formats resolve to the same fileName and silently overwrite.
-    formats: ['umd'],
+    // A classic script, IIFE only. src/index.tsx is a pure side-effect entry
+    // with no exports, so an ES build has no consumer value, and adding 'es'
+    // back would make both formats resolve to the same fileName and silently
+    // overwrite. Not UMD, for the reason given at localePackBuild: under
+    // require.js maidr never ran. Nor an IIFE with exports, whose `var maidr`
+    // would overwrite the chart data a page may still set as `window.maidr`.
+    formats: ['iife'],
+    amdName: 'maidr',
     fileName: () => 'maidr.js',
     emptyOutDir: true,
     external: [],
@@ -572,6 +588,8 @@ export function createViteConfig(config) {
   // Its content is read from node_modules, not from the module graph, so every
   // bundle emits the same bytes and the merge step dedupes them.
   plugins.push(mathStylesheet());
+  if (config.amdName)
+    plugins.push(amdModuleName(config.amdName));
 
   const requireExternal = config.external.filter(id => REACT_RUNTIME.includes(id));
   const external = config.external.filter(id => !REACT_RUNTIME.includes(id));
@@ -920,6 +938,7 @@ async function main() {
     await runSequential(selected);
     if (!isWorker) {
       assertNoRequireShim(path.resolve(rootDir, 'dist'));
+      assertClassicScriptsRunWithoutAmd(path.resolve(rootDir, 'dist'));
       publishManifest(path.resolve(rootDir, 'dist'));
       console.log(`All builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
     }
@@ -948,8 +967,10 @@ async function main() {
   }
 
   // `vite build` exits 0 even when an ESM bundle would throw on its first
-  // render in a browser, so read the merged output for that (#1370).
+  // render in a browser, so read the merged output for that (#1370), and for
+  // a classic script that an AMD loader on the page would swallow.
   assertNoRequireShim(outDir);
+  assertClassicScriptsRunWithoutAmd(outDir);
 
   // The DotPad SDK pin ships with the package (`dist/dotpad-sdk.json`) so the
   // bindings and the skill can copy it when they refresh the bundle. Written

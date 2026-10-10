@@ -57,6 +57,10 @@ the bundle adopts the queue. When the packs live somewhere else, name the
 directory in `window.maidrLocaleBaseUrl` before the bundle runs; when MAIDR
 cannot locate them at all, it warns once and stays in English.
 
+Both scripts also run on a page with an AMD loader, such as the require.js
+Quarto adds to Jupyter output or Observable's `require`, where each registers
+itself as the module named by its import path: `maidr`, `maidr/locale/ko`.
+
 ## Languages available
 
 | Code | Language  |
