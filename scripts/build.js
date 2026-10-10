@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { build, esmExternalRequirePlugin } from 'vite';
 import dts from 'vite-plugin-dts';
+import { assertNoDashboardPattern } from './dashboardPattern.js';
 import { DIST_MANIFEST_NAME, publishManifest } from './dotPadSdk.js';
 import { assertNoRequireShim } from './esmRequireShim.js';
 import { mathStylesheet } from './vite-plugin-math-stylesheet.js';
@@ -920,6 +921,7 @@ async function main() {
     await runSequential(selected);
     if (!isWorker) {
       assertNoRequireShim(path.resolve(rootDir, 'dist'));
+      assertNoDashboardPattern(path.resolve(rootDir, 'dist'));
       publishManifest(path.resolve(rootDir, 'dist'));
       console.log(`All builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
     }
@@ -950,6 +952,8 @@ async function main() {
   // `vite build` exits 0 even when an ESM bundle would throw on its first
   // render in a browser, so read the merged output for that (#1370).
   assertNoRequireShim(outDir);
+  // Nor does it know which text a Quarto dashboard lifts out of its cards.
+  assertNoDashboardPattern(outDir);
 
   // The DotPad SDK pin ships with the package (`dist/dotpad-sdk.json`) so the
   // bindings and the skill can copy it when they refresh the bundle. Written
