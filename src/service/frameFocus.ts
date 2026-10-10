@@ -1,4 +1,5 @@
 import type { Disposable } from '@type/disposable';
+import { Constant } from '@util/constant';
 
 /**
  * The message an embedded chart posts to its host when the reader tabs back
@@ -58,6 +59,9 @@ const TABBABLE_SELECTOR = [
  */
 const HOST_CONTAINER_SELECTOR = 'section,article,[role="region"]';
 
+/** The `<article>` MAIDR renders around a chart. */
+const CHART_ARTICLE_SELECTOR = `article[id^="${Constant.MAIDR_ARTICLE}-"]`;
+
 /**
  * Keeps a chart in a frame from stranding the reader when they tab back out.
  *
@@ -81,20 +85,34 @@ const HOST_CONTAINER_SELECTOR = 'section,article,[role="region"]';
  * somewhere real to go, the native tab order is left exactly as it was, and Tab
  * in the forward direction is never touched.
  *
- * Nothing happens outside a frame, and nothing here can trap a reader: if the
- * handoff cannot be completed, the focused element is blurred so the next
- * Shift + Tab does what the browser would have done in the first place.
+ * Nothing here can trap a reader: if the handoff cannot be completed, the
+ * focused element is blurred so the next Shift + Tab does what the browser
+ * would have done in the first place.
+ *
+ * A chart that is not in a frame of its own meets the same dead end in one
+ * place only: on a slide of a deck written into the page, where the chart is
+ * the first thing on the page and the deck's keys are held off while the
+ * chart has the focus (see `HostGuardService`). There the reader is handed to
+ * the slide itself, and to nothing else: on any other page the elements
+ * above the chart are its own wrappers or the page's, and the browser's own
+ * Shift + Tab is the right answer.
  */
 export class FrameFocusService implements Disposable {
+  private readonly plot: HTMLElement;
+  private readonly framed: boolean;
   private readonly onKeyDown: (event: KeyboardEvent) => void;
   private fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
-   * Creates the service and, when the document is framed, starts listening.
+   * Creates the service and, when the document is framed or the chart is on
+   * a deck's slide, starts listening.
+   * @param {HTMLElement} plot - The chart's focusable plot element
    */
-  public constructor() {
+  public constructor(plot: HTMLElement) {
+    this.plot = plot;
+    this.framed = FrameFocusService.isFramed();
     this.onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
-    if (FrameFocusService.isFramed()) {
+    if (this.framed || FrameFocusService.deckSlide(plot) !== null) {
       // Capture phase: `hotkeys-js` listens on `document` in the bubble phase,
       // and the modal components listen on their own subtrees. Neither binds
       // Tab today, but running first keeps this independent of that.
@@ -140,6 +158,10 @@ export class FrameFocusService implements Disposable {
     if (event.defaultPrevented || !this.isAtFirstTabStop()) {
       return;
     }
+    if (!this.framed) {
+      this.handOffToSlide(event);
+      return;
+    }
 
     const frame = FrameFocusService.hostFrameElement();
     if (frame !== null && FrameFocusService.hasTabStopBefore(frame)) {
@@ -149,6 +171,45 @@ export class FrameFocusService implements Disposable {
 
     event.preventDefault();
     this.requestHostFocus();
+  }
+
+  /**
+   * Hands the reader to the slide a chart in the page is on.
+   *
+   * Only from inside this chart: every chart on the page has a service of its
+   * own while it has focus, and a reader in another element of the page is
+   * none of this one's business. A slide that will not take the focus is left
+   * as it is, and so is the key, which the browser then handles as usual.
+   * @param {KeyboardEvent} event - The Shift + Tab keydown
+   */
+  private handOffToSlide(event: KeyboardEvent): void {
+    const article = this.plot.closest(CHART_ARTICLE_SELECTOR);
+    if (article === null || !article.contains(document.activeElement)) {
+      return;
+    }
+    const slide = FrameFocusService.deckSlide(this.plot);
+    if (slide !== null && FrameFocusService.takeFocus(slide)) {
+      event.preventDefault();
+    }
+  }
+
+  /**
+   * The slide of a deck written into this page that holds the chart, if any.
+   *
+   * Three decks, each by the markup only it writes: a reveal.js slide is a
+   * `<section>` in `.reveal .slides` (the innermost one, for a vertical
+   * stack), an ioslides slide a `<slide>` in `<slides>`, and a slidy slide a
+   * `.slide` -- a class name common enough elsewhere, a carousel's among
+   * them, that it counts only on a page slidy runs on.
+   * @param {Element} plot - The chart's plot element
+   * @returns {Element | null} The slide, or null when the chart is on none
+   */
+  private static deckSlide(plot: Element): Element | null {
+    const slide = plot.closest('.reveal .slides section') ?? plot.closest('slides > slide');
+    if (slide !== null) {
+      return slide;
+    }
+    return (window as unknown as { w3c_slidy?: unknown }).w3c_slidy ? plot.closest('.slide') : null;
   }
 
   /**

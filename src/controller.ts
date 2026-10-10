@@ -188,7 +188,7 @@ export class Controller implements Disposable {
 
     this.notificationService = new NotificationService();
     this.formatterService = new FormatterService(maidr);
-    this.frameFocusService = new FrameFocusService();
+    this.frameFocusService = new FrameFocusService(plot);
     this.textService = new TextService(this.notificationService, this.formatterService);
     this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(

@@ -87,7 +87,7 @@ afterEach(() => {
 describe('outside a frame', () => {
   it('leaves Shift + Tab alone', () => {
     Object.defineProperty(window, 'self', { value: window.top, configurable: true });
-    service = new FrameFocusService();
+    service = new FrameFocusService(plot);
 
     expect(pressShiftTab().defaultPrevented).toBe(false);
   });
@@ -96,7 +96,7 @@ describe('outside a frame', () => {
 describe('in a frame the host has nothing before', () => {
   beforeEach(() => {
     pretendFramedBy(hostFrame);
-    service = new FrameFocusService();
+    service = new FrameFocusService(plot);
   });
 
   it('hands focus to the element holding the frame, in the same event', () => {
@@ -157,7 +157,7 @@ describe('when the host element holding the frame cannot take focus', () => {
     wrapper.focus = (): void => {};
 
     pretendFramedBy(hostFrame);
-    service = new FrameFocusService();
+    service = new FrameFocusService(plot);
 
     expect(pressShiftTab().defaultPrevented).toBe(true);
 
@@ -174,7 +174,7 @@ describe('in a frame the host has something before', () => {
       hostDocument.body.firstChild,
     );
     pretendFramedBy(hostFrame);
-    service = new FrameFocusService();
+    service = new FrameFocusService(plot);
 
     expect(pressShiftTab().defaultPrevented).toBe(false);
   });
@@ -190,7 +190,7 @@ describe('in a frame the host has something before', () => {
     hostDocument.body.insertBefore(previousSlide, hostDocument.body.firstChild);
 
     pretendFramedBy(hostFrame);
-    service = new FrameFocusService();
+    service = new FrameFocusService(plot);
 
     expect(pressShiftTab().defaultPrevented).toBe(true);
   });
@@ -202,7 +202,7 @@ describe('with a host on another origin', () => {
     // `data:` URL, whose origin is opaque — so the message is the only channel.
     pretendFramedBy(null);
     const posted = jest.spyOn(window.parent, 'postMessage').mockImplementation(() => {});
-    service = new FrameFocusService();
+    service = new FrameFocusService(plot);
 
     expect(pressShiftTab().defaultPrevented).toBe(true);
     expect(posted).toHaveBeenCalledWith(
@@ -221,7 +221,7 @@ describe('with a host on another origin', () => {
   it('asks once while a handoff is in flight, however long the key is held', () => {
     pretendFramedBy(null);
     const posted = jest.spyOn(window.parent, 'postMessage').mockImplementation(() => {});
-    service = new FrameFocusService();
+    service = new FrameFocusService(plot);
 
     plot.focus();
     pressShiftTab();
@@ -233,5 +233,129 @@ describe('with a host on another origin', () => {
     expect(posted).toHaveBeenCalledTimes(1);
 
     posted.mockRestore();
+  });
+});
+
+describe('in a page of its own', () => {
+  /**
+   * Puts a chart into the test document itself, as a script tag or a binding
+   * writes one into a page, inside whatever `around` wraps it.
+   * @param {string} around - Markup with `{chart}` where the chart goes
+   * @returns {HTMLElement} The chart's plot element, focused
+   */
+  function chartIn(around: string): HTMLElement {
+    const chart = '<article id="maidr-article-c"><figure id="maidr-figure-c">'
+      + '<div id="plot" tabindex="0"></div></figure></article>';
+    document.body.innerHTML = around.replace('{chart}', chart);
+    const element = document.getElementById('plot');
+    if (element === null) {
+      throw new Error('fixture has no chart');
+    }
+    element.focus();
+    return element;
+  }
+
+  beforeEach(() => {
+    Object.defineProperty(window, 'self', { value: window.top, configurable: true });
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { w3c_slidy?: unknown }).w3c_slidy;
+  });
+
+  it('leaves Shift + Tab alone on a page that is not a deck, a section around the chart or not', () => {
+    // An article, a blog post, Power BI's companion pane: what is above the
+    // chart is the page's, or the chart's own wrappers, and the browser's own
+    // Shift + Tab is the answer there.
+    plot = chartIn('<section id="post"><div class="wrapper">{chart}</div></section>');
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(plot);
+    expect(document.getElementById('post')?.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it('hands the reader to the reveal.js slide the chart is the first thing on', () => {
+    plot = chartIn('<div class="reveal"><div class="slides"><section id="stack">'
+      + '<section id="slide"><div class="cell">{chart}</div></section></section></div></div>');
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(true);
+
+    // The innermost section: in a vertical stack, that is the slide in view.
+    const slide = document.getElementById('slide');
+    expect(document.activeElement).toBe(slide);
+    expect(slide?.getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('hands the reader to an ioslides slide', () => {
+    plot = chartIn('<slides><slide id="slide"><hgroup><h2>Title</h2></hgroup>'
+      + '<article id="content">{chart}</article></slide></slides>');
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(document.getElementById('slide'));
+  });
+
+  it('takes a .slide for a slide only on a page slidy runs on', () => {
+    // A carousel's `.slide` is no slide to hand a reader to.
+    plot = chartIn('<div class="slide" id="slide">{chart}</div>');
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(false);
+    service.dispose();
+
+    (window as unknown as { w3c_slidy?: unknown }).w3c_slidy = {};
+    plot.focus();
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(document.getElementById('slide'));
+  });
+
+  it('leaves the tab order alone when something reachable comes before the chart', () => {
+    plot = chartIn('<a href="#top">Top</a><div class="reveal"><div class="slides">'
+      + '<section>{chart}</section></div></div>');
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(false);
+  });
+
+  it('leaves a key inside one of MAIDR\'s dialogs to the dialog', () => {
+    plot = chartIn('<div class="reveal"><div class="slides"><section>{chart}</section></div></div>');
+    plot.insertAdjacentHTML('afterend', '<div role="dialog"><button id="close">Close</button></div>');
+    service = new FrameFocusService(plot);
+    // The dialog's button is the first tab stop, so only the dialog test
+    // keeps this from handing off.
+    plot.removeAttribute('tabindex');
+    document.getElementById('close')?.focus();
+
+    expect(pressShiftTab().defaultPrevented).toBe(false);
+  });
+
+  it('stands aside when another handler has already taken the key', () => {
+    // A binding's own handoff, at the window, runs first.
+    plot = chartIn('<div class="reveal"><div class="slides"><section>{chart}</section></div></div>');
+    service = new FrameFocusService(plot);
+    const takeIt = (event: KeyboardEvent): void => event.preventDefault();
+    window.addEventListener('keydown', takeIt, true);
+
+    pressShiftTab();
+
+    expect(document.activeElement).toBe(plot);
+    window.removeEventListener('keydown', takeIt, true);
+  });
+
+  it('leaves the key to the browser when the slide will not take focus', () => {
+    plot = chartIn('<div class="reveal"><div class="slides"><section id="slide">{chart}</section></div></div>');
+    const slide = document.getElementById('slide');
+    if (slide === null) {
+      throw new Error('fixture has no slide');
+    }
+    slide.focus = (): void => {};
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(false);
+    expect(slide.hasAttribute('tabindex')).toBe(false);
   });
 });
