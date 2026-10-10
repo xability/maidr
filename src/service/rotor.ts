@@ -137,6 +137,20 @@ export class RotorNavigationService {
   }
 
   /**
+   * The names of the modes the rotor cycles through for the active trace, in
+   * cycle order, with the index of the current one. Feeds the visual rotor
+   * dial; the announcement of a mode change does not depend on it.
+   * @returns The mode names and the current mode's index among them
+   */
+  public getModeLabels(): { labels: string[]; index: number } {
+    const modes = this.getAvailableModes();
+    return {
+      labels: modes.map(mode => mode.label),
+      index: this.rotorIndex % modes.length,
+    };
+  }
+
+  /**
    * Gets the current rotor mode index.
    * @returns The current rotor index
    */

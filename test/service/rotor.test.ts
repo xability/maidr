@@ -669,3 +669,31 @@ describe('RotorNavigationService mode identity', () => {
     expect(moveToRotorFilter).toHaveBeenCalledWith('twin', 'right');
   });
 });
+
+describe('RotorNavigationService mode labels', () => {
+  // The visual rotor dial draws the ring from these, so they must follow the
+  // cycle order and track the current mode as it wraps.
+
+  test('lists the modes in cycle order with the current one', () => {
+    const trace = createTraceWithIntersections();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+
+    const start = service.getModeLabels();
+    expect(start.index).toBe(0);
+    expect(start.labels[0]).toBe(trace.dataModeName());
+
+    service.moveToNextRotorUnit();
+    expect(service.getModeLabels().index).toBe(1);
+    expect(service.getModeLabels().labels[1]).toBe(service.getMode());
+
+    service.moveToPrevRotorUnit();
+    service.moveToPrevRotorUnit();
+    const wrapped = service.getModeLabels();
+    expect(wrapped.index).toBe(wrapped.labels.length - 1);
+    expect(wrapped.labels[wrapped.index]).toBe(service.getMode());
+  });
+});
