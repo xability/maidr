@@ -146,10 +146,11 @@ export function clearTaggedElements(container: HTMLElement): void {
  *
  * The emitted selectors are prefixed with `scope` (e.g. `#<containerId> `, or
  * `#<containerId> [data-maidr-victory-panel="i"] ` in multi-panel mode) so
- * that MAIDR — which resolves selectors via page-global `document.querySelector`
- * — cannot match another Victory chart's (or panel's) identically-indexed
- * tags. The per-element tag attributes only need to be unique within their
- * own container, which `scope` plus the panel-folded names guarantee.
+ * that they cannot match another Victory chart's identically-indexed tags
+ * wherever they are read, nor another panel's: the panels share the chart MAIDR
+ * resolves them in. The per-element tag attributes only need to be unique
+ * within their own container, which `scope` plus the panel-folded names
+ * guarantee.
  *
  * @param svg        - The panel's root svg element
  * @param layer      - The extracted layer info

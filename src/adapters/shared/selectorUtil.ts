@@ -58,11 +58,11 @@ export function cssEscape(value: string): string {
 /**
  * Ensures a container element has an `id`, generating one when missing.
  *
- * MAIDR resolves layer selectors via page-global `document.querySelector`, so
- * a bare selector like `"rect.bar"` would collide with any other chart on the
- * page. Stamping the container with a stable id and prefixing emitted
- * selectors with `#<id>` guarantees page-wide uniqueness without requiring
- * users to set the id themselves.
+ * MAIDR resolves a chart's selectors inside that chart, so a bare selector like
+ * `"rect.bar"` does not reach another chart's marks there. Stamping the
+ * container with a stable id and prefixing emitted selectors with `#<id>`
+ * makes each selector name this chart's marks alone wherever it is read,
+ * without requiring users to set the id themselves.
  *
  * Idempotent: re-calling on a container that already has an id is a no-op.
  *

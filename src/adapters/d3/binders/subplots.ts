@@ -12,8 +12,8 @@
  * - {@link bindD3Subplots} — DIFFERENT chart types per panel, each with its
  *   own config and DOM root.
  *
- * Panel isolation: MAIDR resolves selectors via page-global
- * `document.querySelector`, so each panel element is stamped with a
+ * Panel isolation: MAIDR resolves a chart's selectors inside that chart, and
+ * every panel is in the same chart, so each panel element is stamped with a
  * `data-maidr-panel="<i>"` attribute and every emitted layer selector is
  * prefixed `#<svgId> [data-maidr-panel="<i>"]` — panel A's selector can never
  * match panel B's marks. Panels that are anonymous `<g>` elements are

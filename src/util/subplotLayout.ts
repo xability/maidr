@@ -1,4 +1,6 @@
 import type { Subplot } from '@model/plot';
+import type { QueryRoot } from '@util/svg';
+import { Svg } from '@util/svg';
 
 /**
  * Pre-computed visual layout information for a multi-panel figure.
@@ -32,7 +34,7 @@ export interface SubplotLayout {
   invertVertical: boolean;
 
   /**
-   * Total number of `<g id="axes_*">` groups found in the SVG.
+   * Total number of `<g id="axes_*">` groups found in the chart.
    * Used by Figure.highlight to decide whether to show subplot outlines.
    */
   totalAxesCount: number;
@@ -66,17 +68,29 @@ interface AxesPosition {
  * The result is a plain data object that can be passed into the Figure model
  * without violating MVVC layer boundaries.
  *
+ * Every lookup is made inside `roots`, the chart's own element and the layers
+ * it draws outside it, so another chart's panels are neither counted nor
+ * measured. A layer selector that matches nothing there is looked up as
+ * {@link Svg.queryAll} does; the panel count is the chart's alone.
+ *
  * @param subplots - The 2D subplot array from the Figure (already constructed).
+ * @param roots - Where the chart is drawn; the whole page by default.
  * @returns A {@link SubplotLayout} containing pre-computed visual ordering,
  *          starting position, inversion flag, and axes element references.
  */
-export function resolveSubplotLayout(subplots: Subplot[][]): SubplotLayout {
-  const axesElements = collectAxesElements(subplots);
+export function resolveSubplotLayout(
+  subplots: Subplot[][],
+  roots: readonly QueryRoot[] = [document],
+): SubplotLayout {
+  const axesElements = collectAxesElements(subplots, roots);
   let positions = collectAxesPositions(subplots, axesElements);
-  const totalAxesCount = document.querySelectorAll('g[id^="axes_"]').length;
+  const totalAxesCount = roots.reduce(
+    (count, root) => count + root.querySelectorAll('g[id^="axes_"]').length,
+    0,
+  );
 
   if (positions.length === 0) {
-    positions = collectPanelPositions(subplots);
+    positions = collectPanelPositions(subplots, roots);
   }
 
   if (positions.length === 0) {
@@ -105,11 +119,13 @@ export function resolveSubplotLayout(subplots: Subplot[][]): SubplotLayout {
  *
  * @param highlightElement - The subplot's own SVG highlight element (may be null).
  * @param layerSelector    - CSS selector string from the first layer (may be null).
+ * @param roots            - Where the chart is drawn.
  * @returns The matching `<g>` element, or `null` if not found.
  */
 function findAxesElement(
   highlightElement: SVGElement | null,
   layerSelector: string | null,
+  roots: readonly QueryRoot[],
 ): SVGElement | null {
   if (highlightElement) {
     const axes = highlightElement.closest('g[id^="axes_"]') as SVGElement | null;
@@ -118,7 +134,7 @@ function findAxesElement(
   }
 
   if (layerSelector) {
-    const el = document.querySelector(layerSelector) as SVGElement | null;
+    const el = Svg.queryAll<SVGElement>(layerSelector, roots)[0] ?? null;
     if (el) {
       const axes = el.closest('g[id^="axes_"]') as SVGElement | null;
       if (axes)
@@ -133,7 +149,10 @@ function findAxesElement(
  * Resolves the axes element for every subplot and returns them in a map
  * keyed by `"row,col"`.
  */
-function collectAxesElements(subplots: Subplot[][]): Map<string, SVGElement | null> {
+function collectAxesElements(
+  subplots: Subplot[][],
+  roots: readonly QueryRoot[],
+): Map<string, SVGElement | null> {
   const map = new Map<string, SVGElement | null>();
 
   for (let r = 0; r < subplots.length; r++) {
@@ -142,6 +161,7 @@ function collectAxesElements(subplots: Subplot[][]): Map<string, SVGElement | nu
       const axesEl = findAxesElement(
         subplot.getHighlightElement(),
         subplot.getLayerSelector(),
+        roots,
       );
       map.set(`${r},${c}`, axesEl);
     }
@@ -309,12 +329,15 @@ function detectInversion(entries: AxesPosition[], numRows: number): boolean {
  * jsdom/test environments (all-zero rects) and partially-rendered charts on
  * the conservative path.
  */
-function collectPanelPositions(subplots: Subplot[][]): AxesPosition[] {
+function collectPanelPositions(
+  subplots: Subplot[][],
+  roots: readonly QueryRoot[],
+): AxesPosition[] {
   const positions: AxesPosition[] = [];
 
   for (let r = 0; r < subplots.length; r++) {
     for (let c = 0; c < subplots[r].length; c++) {
-      const el = resolvePanelElement(subplots[r][c]);
+      const el = resolvePanelElement(subplots[r][c], roots);
       if (!el) {
         return [];
       }
@@ -338,7 +361,7 @@ function collectPanelPositions(subplots: Subplot[][]): AxesPosition[] {
 /**
  * Resolves the DOM element that best represents a subplot's panel geometry.
  */
-function resolvePanelElement(subplot: Subplot): Element | null {
+function resolvePanelElement(subplot: Subplot, roots: readonly QueryRoot[]): Element | null {
   const highlight = subplot.getHighlightElement();
   if (highlight && hasGeometry(highlight)) {
     return highlight;
@@ -346,7 +369,7 @@ function resolvePanelElement(subplot: Subplot): Element | null {
 
   const selector = subplot.getLayerSelector();
   if (selector) {
-    const el = document.querySelector(selector);
+    const el = Svg.queryAll(selector, roots)[0] ?? null;
     if (el && hasGeometry(el)) {
       return el;
     }

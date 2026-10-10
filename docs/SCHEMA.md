@@ -342,8 +342,8 @@ treemap or the sankey.
 
 `selectors` tells MAIDR which drawn element each point of a layer is, so it can
 outline the one being read. It is the only part of a layer MAIDR matches
-against the page rather than reading as data, and its shape means different
-things to different layer types.
+against the rendered chart rather than reading as data, and its shape means
+different things to different layer types.
 
 A layer whose selectors resolve to nothing still announces every point, sounds
 every value and moves the braille cursor. It loses only the outline a sighted
@@ -360,11 +360,34 @@ before the chart finished drawing. The last one happens to a charting library
 that draws asynchronously, such as Plotly: attach the payload once the library
 reports the chart drawn, not when its first `<svg>` appears.
 
+### Where a selector is matched
+
+A selector is matched inside its own chart: the element carrying the `maidr`
+or `maidr-data` attribute, or the children of `<Maidr>`, and for a Plotly
+chart the layers Plotly stacks over it, where its titles, legend and gauges
+are drawn. Two charts on one page that share ids, such as one output shown
+twice, or whose selectors name no chart at all, as Plotly's do, each find
+their own marks. The selector is still tested against the whole document, so a
+part naming something round the chart -- `#vl-1 svg rect`,
+`[id="svg-id"] path` -- matches as it always did.
+
+When nothing inside the chart matches, the rest of the page is searched,
+leaving out every other chart MAIDR has bound, and the console says so once
+per selector:
+
+```
+[MAIDR] Selector "…" matches nothing inside its chart, so the elements it matches elsewhere on the page were used. …
+```
+
+Name elements inside the chart; the search beyond it is kept only so that a
+page which drew a chart's marks elsewhere keeps its highlight.
+
 ### The shapes
 
-- **A string** is one CSS selector, resolved with `querySelectorAll`. Several
-  elements can be named with a selector list, `"#a rect, #b rect"`; the
-  matches come back in document order whatever order the list is written in.
+- **A string** is one CSS selector, resolved with `querySelectorAll` where the
+  section above says. Several elements can be named with a selector list,
+  `"#a rect, #b rect"`; the matches come back in document order whatever order
+  the list is written in.
 - **A list of strings** means something different per layer type: one element
   per point, one per series, or each entry resolved and the results
   concatenated. The table says which.

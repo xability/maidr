@@ -27,6 +27,9 @@ const config: ReturnType<typeof antfu> = antfu({
     'test-results/',
     'examples/',
     'e2e_tests/specs/debug-review.spec.ts',
+    // A page as Quarto wrote it, which the fixture has to stay; the HTML
+    // formatter cannot parse Quarto's markup.
+    'e2e_tests/fixtures/multi-chart/py-quarto-inline.html',
   ],
   rules: {
     'style/brace-style': ['error', '1tbs'],

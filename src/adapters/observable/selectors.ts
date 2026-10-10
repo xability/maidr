@@ -52,7 +52,7 @@ export function stampLayer(
  *
  * MAIDR pairs a layer's single selector with its data by position — the nth
  * match is the nth datum — and a selector resolves through
- * `document.querySelectorAll`, which answers in *document* order no matter what
+ * `querySelectorAll`, which answers in *document* order no matter what
  * order the elements were stamped in. Sorting the data alone therefore does
  * nothing: it moves the values and leaves the highlight behind, so every
  * announcement stays correct while the wrong bar lights up.

@@ -1728,7 +1728,7 @@ function collectLayers(maidr: Maidr): MaidrLayer[] {
 /**
  * Prefix every selector in the schema with the chart container's scope
  * (`#<containerId>`) so several charts on one page never resolve each
- * other's DOM elements — MAIDR resolves all selectors document-globally.
+ * other's DOM elements, wherever a selector is read.
  *
  * Applies to subplot selectors and to string / string[] layer selectors.
  * BOX layers still carry their placeholder string selector at this point;
@@ -1849,7 +1849,7 @@ export function bindVegaLite(
     return;
   }
 
-  // Prefix every selector with the container id (page-global uniqueness).
+  // Prefix every selector with the container id (unique on the page).
   // Facet selectors already bake the chart id into their `data-maidr-cell`
   // attribute values, where the prefix is harmless; it is essential for
   // repeat / concat / single-view selectors, which are class-only and

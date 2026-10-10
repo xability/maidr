@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Two Plotly scatter charts</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../../../dist/maidr.js"></script>
+  </head>
+  <body>
+    <div id="first" style="width: 500px; height: 350px"></div>
+    <div id="second" style="width: 500px; height: 350px"></div>
+    <script>
+      Plotly.newPlot(
+        'first',
+        [
+          {
+            type: 'scatter',
+            mode: 'markers',
+            x: [1, 2, 3, 4],
+            y: [10, 20, 30, 40],
+            marker: { size: 10 },
+          },
+        ],
+        { title: { text: 'First scatter' } },
+      );
+      Plotly.newPlot(
+        'second',
+        [
+          {
+            type: 'scatter',
+            mode: 'markers',
+            x: [1, 2, 3, 4],
+            y: [5, 1, 4, 2],
+            marker: { size: 10 },
+          },
+        ],
+        { title: { text: 'Second scatter' } },
+      );
+    </script>
+  </body>
+</html>

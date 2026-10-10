@@ -290,3 +290,45 @@ describe('resolveSubplotLayout numbers cells nothing could be measured for', () 
     expect(layout.visualOrderMap.get('0,1')).toBe(4);
   });
 });
+
+/**
+ * Two charts on one page, each a single panel in an `<svg>` of its own. Their
+ * producer suffixed every id per chart but kept the `axes_` prefix MAIDR
+ * finds a matplotlib panel by, and their layer selectors match both charts.
+ */
+describe('resolveSubplotLayout keeps to its own chart', () => {
+  /**
+   * Builds the two charts.
+   * @returns Each chart's root, and the bar inside each
+   */
+  function twoCharts(): { roots: Element[]; bars: Element[] } {
+    const roots = ['mA', 'mB'].map((suffix) => {
+      const root = document.createElement('div');
+      root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">`
+        + `<g id="axes_1-${suffix}"><rect class="bar"/></g></svg>`;
+      document.body.appendChild(root);
+      return root;
+    });
+    return { roots, bars: roots.map(root => root.querySelector('.bar') as Element) };
+  }
+
+  it('counts only the chart\'s own panels', () => {
+    const { roots } = twoCharts();
+    const subplots = grid([[{}]]);
+
+    const alone = resolveSubplotLayout(subplots, [roots[0]]);
+    const pageWide = resolveSubplotLayout(subplots);
+
+    expect(alone.totalAxesCount).toBe(1);
+    expect(pageWide.totalAxesCount).toBe(2);
+  });
+
+  it('finds the panel a layer selector names inside the chart, not the first on the page', () => {
+    const { roots } = twoCharts();
+    const subplots = grid([[{ layerSelector: '.bar' }]]);
+
+    const layout = resolveSubplotLayout(subplots, [roots[1]]);
+
+    expect(layout.axesElements.get('0,0')).toBe(roots[1].querySelector('g[id^="axes_"]'));
+  });
+});
