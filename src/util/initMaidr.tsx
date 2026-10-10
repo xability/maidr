@@ -130,9 +130,9 @@ export function initMaidrOnElement(maidr: Maidr, plot: Element): void {
 
   const container = document.createElement(Constant.DIV);
   container.style.display = 'contents';
-  // Says the chart shares a page MAIDR did not write: `HostGuardService`
-  // keeps a `/` typed into MAIDR's fields from the page's own search
-  // shortcut here.
+  // Says the chart shares a page MAIDR did not write: its focus ring is made
+  // to outlast the page's stylesheets, and `HostGuardService` keeps a `/`
+  // typed into MAIDR's fields from the page's own search shortcut here.
   container.setAttribute(Constant.MAIDR_EMBED, '');
   plot.parentNode.replaceChild(container, plot);
 
