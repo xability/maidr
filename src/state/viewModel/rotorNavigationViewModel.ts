@@ -5,14 +5,52 @@ import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
 /**
+ * What the visual rotor dial draws: the modes around its ring, the current
+ * one, and how far the ring has turned.
+ */
+export interface RotorDialState {
+  /** Mode names, in cycle order, around the ring. */
+  labels: string[];
+  /** Index of the current mode in {@link labels}. */
+  index: number;
+  /**
+   * Steps the ring has turned in total, +1 per forward and -1 per backward
+   * cycle. Always congruent to {@link index} modulo the number of labels, but
+   * not wrapped, so the ring keeps turning the way the reader turned it
+   * instead of spinning back the long way when the cycle wraps.
+   */
+  turn: number;
+  /** Which way the last cycle turned the ring: +1 forward, -1 backward. */
+  direction: 1 | -1;
+  /** Bumped on every cycle, so the dial reappears even on the same mode. */
+  revision: number;
+}
+
+/**
  * State interface for rotor navigation containing the current rotor value.
  */
 export interface RotorState {
   rotor_value: string | null;
+  dial: RotorDialState | null;
 }
 const initialState: RotorState = {
   rotor_value: '',
+  dial: null,
 };
+
+interface TurnDialPayload {
+  labels: string[];
+  index: number;
+  step: 1 | -1;
+}
+
+/**
+ * Whether two lists of mode names are the same, so the ring the dial last
+ * drew is the ring it is turning now.
+ */
+function sameLabels(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((label, i) => label === b[i]);
+}
 const rotorNavigationSlice = createSlice({
   name: 'rotorNavigation',
   initialState,
@@ -20,6 +58,21 @@ const rotorNavigationSlice = createSlice({
     show(): RotorState {
       return {
         rotor_value: '',
+        dial: null,
+      };
+    },
+    turnDial(state, action: PayloadAction<TurnDialPayload>) {
+      const { labels, index, step } = action.payload;
+      const prev = state.dial;
+      // Keep turning the ring from where it is when it is the same ring;
+      // a new trace's modes start a fresh ring at the current mode.
+      const turn = prev && sameLabels(prev.labels, labels) ? prev.turn + step : index;
+      state.dial = {
+        labels,
+        index,
+        turn,
+        direction: step,
+        revision: (prev?.revision ?? 0) + 1,
       };
     },
     setValue(state, action: PayloadAction<string | null>) {
@@ -30,7 +83,7 @@ const rotorNavigationSlice = createSlice({
     },
   },
 });
-export const { setValue, reset } = rotorNavigationSlice.actions;
+export const { setValue, turnDial, reset } = rotorNavigationSlice.actions;
 /**
  * ViewModel for managing rotor-based navigation through plot elements.
  */
@@ -74,6 +127,7 @@ export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
   public moveToNextNavUnit(): void {
     const curr_mode = this.rotorService.moveToNextRotorUnit();
     this.store.dispatch(setValue(`${curr_mode}`));
+    this.turnDial(1);
   }
 
   /**
@@ -82,6 +136,16 @@ export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
   public moveToPrevNavUnit(): void {
     const curr_mode = this.rotorService.moveToPrevRotorUnit();
     this.store.dispatch(setValue(`${curr_mode}`));
+    this.turnDial(-1);
+  }
+
+  /**
+   * Turns the visual rotor dial to the mode the rotor just moved to.
+   * @param step - +1 for a forward cycle, -1 for a backward one
+   */
+  private turnDial(step: 1 | -1): void {
+    const { labels, index } = this.rotorService.getModeLabels();
+    this.store.dispatch(turnDial({ labels, index, step }));
   }
 
   /**

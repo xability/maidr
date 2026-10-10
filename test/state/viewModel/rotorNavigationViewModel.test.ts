@@ -20,6 +20,7 @@ function createMockService(
     moveRight: jest.fn(() => overrides.moveRight ?? null),
     moveToNextRotorUnit: jest.fn(() => 'HIGHER VALUE NAVIGATION'),
     moveToPrevRotorUnit: jest.fn(() => 'LOWER VALUE NAVIGATION'),
+    getModeLabels: jest.fn(() => ({ labels: ['DATA', 'LOWER', 'HIGHER'], index: 1 })),
   } as unknown as RotorNavigationService;
 }
 
@@ -65,5 +66,96 @@ describe('RotorNavigationViewModel boundary announcement (#630 item 3)', () => {
 
     vm.moveToPrevNavUnit();
     expect(store.getState().rotor.rotor_value).toBe('LOWER VALUE NAVIGATION');
+  });
+});
+
+describe('RotorNavigationViewModel rotor dial', () => {
+  /**
+   * A service stub whose current mode follows the cycles, over a fixed ring.
+   * @param labels - The modes around the ring
+   * @returns The stub, and a setter for swapping the ring as a trace change would
+   */
+  function createCyclingService(labels: string[]): {
+    service: RotorNavigationService;
+    setLabels: (next: string[]) => void;
+  } {
+    let ring = labels;
+    let index = 0;
+    const service = {
+      moveToNextRotorUnit: jest.fn(() => {
+        index = (index + 1) % ring.length;
+        return ring[index];
+      }),
+      moveToPrevRotorUnit: jest.fn(() => {
+        index = (index - 1 + ring.length) % ring.length;
+        return ring[index];
+      }),
+      getModeLabels: jest.fn(() => ({ labels: ring, index })),
+    } as unknown as RotorNavigationService;
+    return {
+      service,
+      setLabels: (next) => {
+        ring = next;
+        index = 0;
+      },
+    };
+  }
+
+  test('has no dial until the rotor is cycled', () => {
+    const store = createMaidrStore();
+    expect(store.getState().rotor.dial).toBeNull();
+  });
+
+  test('turns the ring one step per cycle, the way the reader turned it', () => {
+    const store = createMaidrStore();
+    const { service } = createCyclingService(['DATA', 'LOWER', 'HIGHER']);
+    const vm = new RotorNavigationViewModel(store, service);
+
+    vm.moveToNextNavUnit();
+    expect(store.getState().rotor.dial).toMatchObject({ labels: ['DATA', 'LOWER', 'HIGHER'], index: 1, turn: 1 });
+
+    vm.moveToNextNavUnit();
+    vm.moveToNextNavUnit();
+    // Wrapped back to DATA, but the ring keeps turning forward rather than
+    // spinning back the long way.
+    expect(store.getState().rotor.dial).toMatchObject({ index: 0, turn: 3 });
+
+    vm.moveToPrevNavUnit();
+    expect(store.getState().rotor.dial).toMatchObject({ index: 2, turn: 2, direction: -1 });
+  });
+
+  test('bumps the revision on every cycle, so the dial reappears', () => {
+    const store = createMaidrStore();
+    const { service } = createCyclingService(['DATA']);
+    const vm = new RotorNavigationViewModel(store, service);
+
+    vm.moveToNextNavUnit();
+    vm.moveToNextNavUnit();
+
+    expect(store.getState().rotor.dial?.revision).toBe(2);
+  });
+
+  test('starts a fresh ring at the current mode when the modes change', () => {
+    const store = createMaidrStore();
+    const { service, setLabels } = createCyclingService(['DATA', 'LOWER', 'HIGHER']);
+    const vm = new RotorNavigationViewModel(store, service);
+
+    vm.moveToNextNavUnit();
+    vm.moveToNextNavUnit();
+    setLabels(['ROW', 'GRID']);
+    vm.moveToNextNavUnit();
+
+    expect(store.getState().rotor.dial).toMatchObject({ labels: ['ROW', 'GRID'], index: 1, turn: 1 });
+  });
+
+  test('clears the dial on dispose', () => {
+    const store = createMaidrStore();
+    const { service } = createCyclingService(['DATA', 'LOWER']);
+    const vm = new RotorNavigationViewModel(store, service);
+
+    vm.moveToNextNavUnit();
+    vm.dispose();
+
+    expect(store.getState().rotor.dial).toBeNull();
   });
 });

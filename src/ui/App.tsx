@@ -15,6 +15,7 @@ import CommandPalette from './component/CommandPalette';
 import Description from './component/Description';
 import Help from './component/Help';
 import Review from './component/Review';
+import RotorDial from './component/RotorDial';
 import Settings from './component/Settings';
 import Text from './component/Text';
 import Tooltip from './component/Tooltip';
@@ -75,6 +76,7 @@ const App: FC<AppProps> = ({ plot }) => {
     <ThemeProvider theme={theme}>
       {tooltip.visible && <Tooltip plot={plot} />}
       <Text />
+      <RotorDial plot={plot} />
       {renderFocusedComponent(focus)}
     </ThemeProvider>
   );
