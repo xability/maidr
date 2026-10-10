@@ -539,8 +539,9 @@ export const builds = [
     fileName: format => format === 'es' ? 'office.mjs' : 'office.js',
     emptyOutDir: false,
     // `bindOffice` mounts the MAIDR React UI in an add-in's task pane for
-    // Excel, PowerPoint or Word, so React is bundled in and so is the Excel
-    // adapter it dispatches to (mirrors excel). Office.js is read
+    // Excel, PowerPoint or Word, and `bindSlideChart` in a content add-in on
+    // a PowerPoint slide, so React is bundled in and so is the Excel adapter
+    // `bindOffice` dispatches to (mirrors excel). Office.js is read
     // structurally, and presentations are unzipped with the browser's
     // DecompressionStream: nothing to externalize.
     external: [],

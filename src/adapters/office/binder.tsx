@@ -183,17 +183,20 @@ export interface OfficeBinding {
   dispose: () => Promise<void>;
 }
 
-/** What the pane's figure area shows. */
-type View
+/** What a figure area shows: MAIDR's figure, or a message. Shared with the slide's add-in (`./slide`). */
+export type FigureView
   = | { readonly kind: 'status'; readonly message: string }
     | { readonly kind: 'figure'; readonly maidr: MaidrData; readonly label: string; readonly note?: string };
+
+/** The wording a figure area uses for a chart it cannot show in full. */
+export type FigureLabels = Pick<OfficePaneLabels, 'noData' | 'unsupported' | 'unreadable' | 'partial'>;
 
 /** Everything the pane renders from. */
 interface PaneState {
   readonly charts: readonly OfficeChartInfo[];
   /** The chart on show, by id; `null` when none is. */
   readonly selected: string | null;
-  readonly view: View;
+  readonly view: FigureView;
   /** What the polite status line says: a read under way, or done. */
   readonly progress: string;
 }
@@ -205,6 +208,84 @@ interface PaneProps {
   readonly onRefresh: () => void;
 }
 
+interface ChartPickerProps {
+  readonly charts: readonly OfficeChartInfo[];
+  /** The chart chosen, by id; `null` when none is. */
+  readonly selected: string | null;
+  readonly labels: Pick<OfficePaneLabels, 'picker' | 'choose'>;
+  readonly onPick: (chartId: string) => void;
+}
+
+/**
+ * A labelled native `<select>` of the charts. While the chart chosen is not
+ * among them, an empty choice says to choose one. Shared with the slide's
+ * add-in.
+ */
+export function ChartPicker({ charts, selected, labels, onPick }: ChartPickerProps): JSX.Element {
+  const pickerId = useId();
+  const known = charts.some(chart => chart.id === selected);
+  return (
+    <div data-maidr-office-picker="">
+      <label htmlFor={pickerId}>{labels.picker}</label>
+      {' '}
+      <select id={pickerId} value={known ? selected ?? '' : ''} onChange={event => onPick(event.target.value)}>
+        {!known && <option value="" disabled>{labels.choose}</option>}
+        {charts.map(chart => <option key={chart.id} value={chart.id}>{chart.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+/**
+ * The figure area: MAIDR's figure, under a note when the chart is read in
+ * part, or a focusable status message. Shared with the slide's add-in.
+ *
+ * MAIDR's plot is named by its instructions, and its visible label is inside
+ * it, where a screen reader does not read it. So the figure area is a group
+ * named by the label, and described by the note: a reader moving into the
+ * figure hears which chart it is, and what it leaves out, before MAIDR's
+ * instructions.
+ */
+export function FigureArea({ view }: { readonly view: FigureView }): JSX.Element {
+  const labelId = useId();
+  const noteId = useId();
+  const group = view.kind === 'figure'
+    ? { 'role': 'group', 'aria-labelledby': labelId, ...(view.note === undefined ? {} : { 'aria-describedby': noteId }) }
+    : {};
+  return (
+    <div data-maidr-office-view="" {...group}>
+      {view.kind === 'figure'
+        ? (
+            <>
+              {view.note !== undefined && <p data-maidr-office-note="" id={noteId} role="status">{view.note}</p>}
+              <MaidrComponent data={view.maidr}>
+                <div data-maidr-office-anchor="" id={labelId}>{view.label}</div>
+              </MaidrComponent>
+            </>
+          )
+        : <div data-maidr-office-status="" role="status" tabIndex={0}>{view.message}</div>}
+    </div>
+  );
+}
+
+interface ReadAgainProps {
+  /** The button's text. */
+  readonly label: string;
+  /** What the polite status line says. */
+  readonly progress: string;
+  readonly onRefresh: () => void;
+}
+
+/** The button that reads the file again, and a polite status line for the reads. Shared with the slide's add-in. */
+export function ReadAgain({ label, progress, onRefresh }: ReadAgainProps): JSX.Element {
+  return (
+    <div data-maidr-office-actions="">
+      <button type="button" data-maidr-office-refresh="" onClick={onRefresh}>{label}</button>
+      <p data-maidr-office-progress="" role="status">{progress}</p>
+    </div>
+  );
+}
+
 /**
  * The pane: a labelled native `<select>` of the charts, the figure area --
  * MAIDR's figure, or a focusable status message -- and, after it, the button
@@ -213,42 +294,17 @@ interface PaneProps {
  * name reaches the chart, as in the Excel pane.
  */
 function OfficePane({ state, labels, onPick, onRefresh }: PaneProps): JSX.Element {
-  const pickerId = useId();
-  const { charts, selected, view } = state;
-  const known = charts.some(chart => chart.id === selected);
   return (
     <>
-      {charts.length > 0 && (
-        <div data-maidr-office-picker="">
-          <label htmlFor={pickerId}>{labels.picker}</label>
-          {' '}
-          <select id={pickerId} value={known ? selected ?? '' : ''} onChange={event => onPick(event.target.value)}>
-            {!known && <option value="" disabled>{labels.choose}</option>}
-            {charts.map(chart => <option key={chart.id} value={chart.id}>{chart.label}</option>)}
-          </select>
-        </div>
-      )}
-      <div data-maidr-office-view="">
-        {view.kind === 'figure'
-          ? (
-              <>
-                {view.note !== undefined && <p data-maidr-office-note="" role="status">{view.note}</p>}
-                <MaidrComponent data={view.maidr}>
-                  <div data-maidr-office-anchor="">{view.label}</div>
-                </MaidrComponent>
-              </>
-            )
-          : <div data-maidr-office-status="" role="status" tabIndex={0}>{view.message}</div>}
-      </div>
-      <div data-maidr-office-actions="">
-        <button type="button" data-maidr-office-refresh="" onClick={onRefresh}>{labels.refresh}</button>
-        <p data-maidr-office-progress="" role="status">{state.progress}</p>
-      </div>
+      {state.charts.length > 0 && <ChartPicker charts={state.charts} selected={state.selected} labels={labels} onPick={onPick} />}
+      <FigureArea view={state.view} />
+      <ReadAgain label={labels.refresh} progress={state.progress} onRefresh={onRefresh} />
     </>
   );
 }
 
-function warn(message: string, error?: unknown): void {
+/** Say something on the console, under the adapter's prefix. */
+export function warn(message: string, error?: unknown): void {
   if (error === undefined) {
     console.warn(`${ADAPTER_PREFIX} ${message}`);
   } else {
@@ -257,7 +313,7 @@ function warn(message: string, error?: unknown): void {
 }
 
 /** The Office.js globals the page has loaded. */
-function officeGlobals(): { office?: OfficeAppHost; powerpoint?: PowerPointHost; word?: WordHost } {
+export function officeGlobals(): { office?: OfficeAppHost; powerpoint?: PowerPointHost; word?: WordHost } {
   if (typeof window === 'undefined') {
     return {};
   }
@@ -274,16 +330,18 @@ function nextOfficeFigureId(): string {
 }
 
 /** The title a chart shows, when it shows one. */
-function shownTitle(chart: OfficeChart): string | undefined {
+export function shownTitle(chart: OfficeChart): string | undefined {
   const title = chart.snapshot?.title;
   const text = title?.visible === true ? title.text.trim() : '';
   return text === '' ? undefined : text;
 }
 
-/** What the picker says for a chart. */
-function chartInfo(chart: OfficeChart, host: OfficeDocumentHostName, labels: OfficePaneLabels): OfficeChartInfo {
+/**
+ * What the picker says for a chart: `template` is the wording, `{n}` its
+ * place and `{title}` the chart.
+ */
+export function chartInfo(chart: OfficeChart, template: string): OfficeChartInfo {
   const title = shownTitle(chart);
-  const template = host === 'Word' ? labels.documentChart : chart.hidden === true ? labels.hiddenSlide : labels.slide;
   const label = template
     .replace('{n}', String(chart.position))
     .replace('{title}', title ?? chart.description ?? chart.name);
@@ -302,6 +360,90 @@ function chartInfo(chart: OfficeChart, host: OfficeDocumentHostName, labels: Off
  */
 function omittedText(omitted: readonly ExcelOmittedSeries[]): string {
   return omitted.map(one => `"${one.name}" (${excelChartTypeName(one.chartType)})`).join(', ');
+}
+
+/**
+ * What a figure area shows for a chart: MAIDR's figure, labelled `label`, or
+ * why it cannot. The figure on show is kept when the chart reads the same, so
+ * MAIDR does not reset the reader's place for a read that found the same
+ * chart.
+ *
+ * @param chart - The chart, as read.
+ * @param label - The figure's visible label.
+ * @param figureId - The figure's id.
+ * @param labels - The wording for a chart that cannot be shown in full.
+ * @param shown - What the figure area shows now.
+ * @returns What it shows for this chart.
+ */
+export function chartView(chart: OfficeChart, label: string, figureId: string, labels: FigureLabels, shown: FigureView): FigureView {
+  if (chart.snapshot === null) {
+    return { kind: 'status', message: labels.unreadable };
+  }
+  const outcome = convertExcelChartOutcome(chart.snapshot, { id: figureId });
+  if (outcome.kind !== 'figure') {
+    const message = outcome.kind === 'unsupported'
+      ? labels.unsupported.replace('{type}', excelChartTypeName(outcome.chartType))
+      : labels.noData;
+    return { kind: 'status', message };
+  }
+  const previous = shown.kind === 'figure' ? shown.maidr : null;
+  const maidr = previous !== null && JSON.stringify(previous) === JSON.stringify(outcome.maidr) ? previous : outcome.maidr;
+  return {
+    kind: 'figure',
+    maidr,
+    label,
+    ...(outcome.omitted.length === 0 ? {} : { note: labels.partial.replace('{series}', omittedText(outcome.omitted)) }),
+  };
+}
+
+/**
+ * Render a pane into its root, at once, keeping focus in its figure area:
+ * swapping the figure for a message (or back) removes the element that had
+ * focus, so it is handed to whatever took its place. Focus anywhere else is
+ * left alone.
+ */
+export function renderKeepingFocus(root: ReactRoot, wrapper: HTMLElement, pane: JSX.Element): void {
+  const viewArea = (): HTMLElement | null => wrapper.querySelector<HTMLElement>('[data-maidr-office-view]');
+  const hadFocus = viewArea()?.contains(document.activeElement) === true;
+  flushSync(() => {
+    root.render(pane);
+  });
+  const view = viewArea();
+  if (hadFocus && view !== null && !view.contains(document.activeElement)) {
+    view.querySelector<HTMLElement>('[tabindex]')?.focus();
+  }
+}
+
+/**
+ * Wait for Office.js, and say which application the page runs in.
+ *
+ * @param office - The `Office` namespace.
+ * @returns `PowerPoint`, `Word`, ...; `null` or `undefined` when Office.js does
+ * not say.
+ */
+export async function readyHost(office: OfficeAppHost): Promise<string | null | undefined> {
+  let info: OfficeReadyInfo | undefined;
+  try {
+    info = (await office.onReady?.()) as OfficeReadyInfo | undefined;
+  } catch (error: unknown) {
+    warn('Office.js did not become ready.', error);
+  }
+  return info?.host ?? office.context?.host;
+}
+
+/**
+ * Why this PowerPoint cannot hand its presentation over to be read, or `null`
+ * when it can: it needs `Document.getFileAsync`, and the browser
+ * `DecompressionStream`.
+ */
+export function presentationUnreadable(office: OfficeAppHost): string | null {
+  if (office.context?.document?.getFileAsync === undefined) {
+    return 'this PowerPoint cannot hand its file to add-ins (no Document.getFileAsync).';
+  }
+  if (typeof DecompressionStream === 'undefined') {
+    return 'this browser cannot unzip a presentation (no DecompressionStream).';
+  }
+  return null;
 }
 
 /** How one application's charts are read and its selection found. */
@@ -352,8 +494,6 @@ async function bindDocument(
   let selectionTimer: ReturnType<typeof setTimeout> | null = null;
   let removeSelectionHandler: (() => Promise<void>) | null = null;
 
-  const viewArea = (): HTMLElement | null => wrapper.querySelector<HTMLElement>('[data-maidr-office-view]');
-
   // The picker's choice. Arrowing through a closed `<select>` changes it once
   // per option, and each change shows the chart chosen.
   const pick = (chartId: string): void => {
@@ -369,54 +509,22 @@ async function bindDocument(
       return;
     }
     rendered = key;
-    const hadFocus = viewArea()?.contains(document.activeElement) === true;
-    flushSync(() => {
-      root.render(<OfficePane state={state} labels={labels} onPick={pick} onRefresh={() => void refresh()} />);
-    });
-    // Swapping the figure for a message (or back) removes the element that
-    // had focus; hand it to whatever took its place.
-    const view = viewArea();
-    if (hadFocus && view !== null && !view.contains(document.activeElement)) {
-      view.querySelector<HTMLElement>('[tabindex]')?.focus();
-    }
+    renderKeepingFocus(root, wrapper, <OfficePane state={state} labels={labels} onPick={pick} onRefresh={() => void refresh()} />);
   };
 
-  const infos = (): OfficeChartInfo[] => charts.map(chart => chartInfo(chart, host, labels));
+  // What the picker says: by slide in a presentation, by number in a document.
+  const info = (chart: OfficeChart): OfficeChartInfo =>
+    chartInfo(chart, host === 'Word' ? labels.documentChart : chart.hidden === true ? labels.hiddenSlide : labels.slide);
+
+  const infos = (): OfficeChartInfo[] => charts.map(info);
 
   const showStatus = (message: string, selected: string | null = null): void => {
     state = { ...state, charts: infos(), selected, view: { kind: 'status', message } };
     render();
   };
 
-  // The chart on show is replaced only when its reading changed, so MAIDR does
-  // not reset the reader's place for a read that found the same chart.
   const apply = (chart: OfficeChart): void => {
-    const info = chartInfo(chart, host, labels);
-    if (chart.snapshot === null) {
-      showStatus(labels.unreadable, chart.id);
-      return;
-    }
-    const outcome = convertExcelChartOutcome(chart.snapshot, { id: figureId });
-    if (outcome.kind !== 'figure') {
-      const message = outcome.kind === 'unsupported'
-        ? labels.unsupported.replace('{type}', excelChartTypeName(outcome.chartType))
-        : labels.noData;
-      showStatus(message, chart.id);
-      return;
-    }
-    const previous = state.view.kind === 'figure' ? state.view.maidr : null;
-    const maidr = previous !== null && JSON.stringify(previous) === JSON.stringify(outcome.maidr) ? previous : outcome.maidr;
-    state = {
-      ...state,
-      charts: infos(),
-      selected: chart.id,
-      view: {
-        kind: 'figure',
-        maidr,
-        label: info.label,
-        ...(outcome.omitted.length === 0 ? {} : { note: labels.partial.replace('{series}', omittedText(outcome.omitted)) }),
-      },
-    };
+    state = { ...state, charts: infos(), selected: chart.id, view: chartView(chart, info(chart).label, figureId, labels, state.view) };
     render();
   };
 
@@ -565,13 +673,7 @@ async function bindDocument(
     showStatus(labels.noOffice);
     return binding;
   }
-  let info: OfficeReadyInfo | undefined;
-  try {
-    info = (await office.onReady?.()) as OfficeReadyInfo | undefined;
-  } catch (error: unknown) {
-    warn('Office.js did not become ready.', error);
-  }
-  const running = info?.host ?? office.context?.host;
+  const running = await readyHost(office);
   if (running !== undefined && running !== null && running !== host) {
     warn(`this page is running in ${running}, not ${host}.`);
     showStatus(labels.noOffice);
@@ -620,11 +722,9 @@ async function bindDocument(
  */
 export function bindPowerPoint(container: HTMLElement, options: OfficeBindOptions = {}): Promise<OfficeBinding> {
   return bindDocument(container, options, 'PowerPoint', (office) => {
-    if (office.context?.document?.getFileAsync === undefined) {
-      return 'this PowerPoint cannot hand its file to add-ins (no Document.getFileAsync).';
-    }
-    if (typeof DecompressionStream === 'undefined') {
-      return 'this browser cannot unzip a presentation (no DecompressionStream).';
+    const problem = presentationUnreadable(office);
+    if (problem !== null) {
+      return problem;
     }
     const powerpoint = options.powerpoint ?? officeGlobals().powerpoint;
     const follow = powerpoint !== undefined && office.context?.requirements?.isSetSupported('PowerPointApi', '1.5') === true;

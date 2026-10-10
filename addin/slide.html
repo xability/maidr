@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAIDR Chart on Slide</title>
+    <!--
+      The content add-in slide-manifest.xml points PowerPoint at, served at
+      https://maidr.ai/addin/slide.html. PowerPoint shows it in a box on a
+      slide, which the audience sees too. Office.js comes from Microsoft's
+      CDN, as an add-in must load it; MAIDR comes from the same site's dist/,
+      built from this repository. bindSlideChart reads the chart this add-in
+      is linked to, linking the one on its slide the first time.
+
+      No heading, link or control of the page's own: the first Tab into the
+      add-in reaches the chart, and in the slide show the chart is all there
+      is. The main region's name tells a screen reader what the add-in is.
+    -->
+    <script src="https://officeapis.public.onecdn.static.microsoft/1/office.js"></script>
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/office.js"></script>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        background: Canvas;
+        color: CanvasText;
+        font-family:
+          'Segoe UI',
+          system-ui,
+          -apple-system,
+          sans-serif;
+        font-size: 16px;
+        line-height: 1.3;
+        margin: 0;
+        overflow-wrap: anywhere;
+        padding: 0.5rem 0.75rem;
+      }
+
+      select,
+      button {
+        font: inherit;
+        max-width: 100%;
+      }
+
+      [data-maidr-office-view] figure {
+        margin: 0;
+      }
+
+      /* The chart's name, which the audience reads from the slide. */
+      [data-maidr-office-anchor] {
+        font-size: 1.75rem;
+        font-weight: 600;
+        line-height: 1.2;
+        padding: 0.25rem 0;
+      }
+
+      /*
+        Keeps the name's first line clear of the menu Office draws over a
+        content add-in's top right corner, up to 34 pixels from the edge on a
+        Mac; the body's own padding clears the rest of it.
+      */
+      [data-maidr-office-anchor]::before {
+        content: '';
+        float: right;
+        height: 1px;
+        width: calc(34px - 0.75rem);
+      }
+
+      /* In the text's own colour, which stands out in light and dark alike. */
+      [data-maidr-office-view] [tabindex]:focus-visible {
+        outline: 3px solid currentColor;
+        outline-offset: 2px;
+      }
+
+      #maidr-waiting,
+      [data-maidr-office-status] {
+        border: 1px solid currentColor;
+        border-radius: 4px;
+        margin: 0;
+        padding: 0.5rem 0.75rem;
+      }
+
+      [data-maidr-office-note] {
+        margin: 0 0 0.25rem;
+      }
+
+      [data-maidr-office-picker],
+      [data-maidr-office-actions] {
+        margin-top: 0.5rem;
+      }
+
+      [data-maidr-office-actions] {
+        align-items: baseline;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 0.75rem;
+      }
+
+      [data-maidr-office-progress] {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="maidr" aria-label="Accessible chart">
+      <p id="maidr-waiting" role="status">Connecting to PowerPoint…</p>
+    </main>
+
+    <script>
+      const waiting = document.getElementById('maidr-waiting');
+
+      // Office.js calls back once PowerPoint has the page open. Opened
+      // anywhere else it never does -- Microsoft's copy stops at "hostInfo
+      // validation failed" -- so the add-in cannot mount, and after a while
+      // the page says why nothing came.
+      const unanswered = setTimeout(() => {
+        waiting.textContent =
+          'PowerPoint has not answered. MAIDR Chart on Slide works inside PowerPoint: ' +
+          'insert it on a slide with Add-ins on the Home tab.';
+      }, 10000);
+
+      const bind = () => {
+        clearTimeout(unanswered);
+        waiting.remove();
+        window.maidrOffice.bindSlideChart(document.getElementById('maidr'));
+      };
+
+      // Without Office.js at all, which a blocked CDN leaves out, there is
+      // nothing to wait for: the add-in mounts and says it found no PowerPoint.
+      if (window.Office) {
+        Office.onReady(() => bind());
+      } else {
+        bind();
+      }
+    </script>
+  </body>
+</html>

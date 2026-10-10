@@ -93,8 +93,8 @@ const PAGE_DESCRIPTIONS = {
   'tableau': 'How to make embedded Tableau dashboards accessible with MAIDR: sonification, braille and screen-reader navigation for bar, line, scatter and pie worksheets.',
   'powerbi': 'How to build an accessible Power BI custom visual with MAIDR: sonification, braille and keyboard navigation for column, bar, line, scatter and pie charts.',
   'excel': 'How to read native Excel charts in an Office add-in task pane with MAIDR: sonification, braille and keyboard navigation for column, line, pie and more.',
-  'office': 'How to read the charts of PowerPoint presentations and Word documents in an Office add-in task pane with MAIDR: sonification, braille and keyboard navigation.',
-  'office-addin': 'MAIDR Accessible Charts for Excel, PowerPoint and Word: hear, braille and explore a file\'s charts by keyboard. Install steps and privacy.',
+  'office': 'How to read PowerPoint and Word charts with MAIDR in an Office add-in, in a task pane or on the slide: sonification, braille and keyboard navigation.',
+  'office-addin': 'MAIDR Accessible Charts for Excel, PowerPoint and Word, and MAIDR Chart on Slide for PowerPoint: hear, braille and explore charts. Install steps and privacy.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'The MAIDR JSON data schema: how to describe figures, subplots, layers, axes and data points for bar, box, heatmap, scatter, line and other chart types.',
   'Braille Generation': 'How MAIDR encodes bar, box, heatmap, line, scatter and other plots as braille characters for refreshable braille displays, with the rules for each plot type.',
@@ -622,12 +622,13 @@ if (fs.existsSync(examplesSource)) {
   });
 }
 
-// Copy the Office add-in MAIDR publishes to _site/addin/: the manifest, its
-// task pane and commands pages, and its icons. Every URL in addin/manifest.xml
-// is under the production site's /addin/, so this is where Office loads them
-// from, and the task pane loads MAIDR from the dist/ copied above. The README
-// is for the repository, not the site.
-console.log('Copying the Office add-in...');
+// Copy the Office add-ins MAIDR publishes to _site/addin/: the task pane
+// (manifest.xml, taskpane.html and commands.html), the add-in on the slide
+// (slide-manifest.xml and slide.html), and their icons. Both manifests point
+// Office at the production site's /addin/ for their pages and icons, so this
+// is where Office loads them from, and both pages load MAIDR from the dist/
+// copied above. The README is for the repository, not the site.
+console.log('Copying the Office add-ins...');
 const addinSource = path.join(ROOT, 'addin');
 if (fs.existsSync(addinSource)) {
   fs.cpSync(addinSource, path.join(SITE_DIR, 'addin'), {

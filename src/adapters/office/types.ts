@@ -1,8 +1,9 @@
 /**
- * The slice of the Office JavaScript API the PowerPoint and Word panes read.
+ * The slice of the Office JavaScript API the PowerPoint and Word panes, and
+ * the slide's add-in, read.
  *
  * Declared structurally, as the Excel adapter's types are: Office.js is loaded
- * by the add-in's task pane from Microsoft's CDN, so the real `Office`,
+ * by the add-in's page from Microsoft's CDN, so the real `Office`,
  * `PowerPoint` and `Word` objects are accepted as they are, and a test can
  * hand over plain fakes. Each member is named after the Office.js member it
  * stands for, with the requirement set that added it.
@@ -36,6 +37,43 @@ export interface OfficeFile {
   closeAsync: (callback?: (result: OfficeAsyncResult<void>) => void) => void;
 }
 
+/** What a document event's handler is given (`Office.ActiveViewChangedEventArgs`, ...). */
+export interface OfficeEventArgs {
+  /** The event, such as `activeViewChanged` (`Office.EventType`). */
+  readonly type?: string;
+  /** With `activeViewChanged`: the view now open, `edit` or `read` (`Office.ActiveView`). */
+  readonly activeView?: string;
+}
+
+/**
+ * An add-in's settings (`Office.Settings`; `Settings` requirement set): each
+ * instance of the add-in has its own, saved in the document. A value is
+ * anything JSON can hold.
+ */
+export interface OfficeSettings {
+  /** A setting's value; `null` or `undefined` when it is not set. */
+  get: (name: string) => unknown;
+  /** Set a setting, until the add-in closes; `saveAsync` keeps it. */
+  set: (name: string, value: unknown) => void;
+  remove: (name: string) => void;
+  /** Save the settings in the document, to be saved with it. */
+  saveAsync: (callback?: (result: OfficeAsyncResult<void>) => void) => void;
+}
+
+/** One slide of a slide range (`getSelectedDataAsync` with `Office.CoercionType.SlideRange`). */
+export interface OfficeSlideRangeSlide {
+  /** The slide's id, which is the file's `p:sldId/@id`. */
+  readonly id: number;
+  readonly title: string;
+  /** Its number in the presentation, from 1. */
+  readonly index: number;
+}
+
+/** The slides selected in PowerPoint (`Office.CoercionType.SlideRange`). */
+export interface OfficeSlideRange {
+  readonly slides: readonly OfficeSlideRangeSlide[];
+}
+
 /** The open document (`Office.Document`). */
 export interface OfficeDocument {
   /**
@@ -47,14 +85,35 @@ export interface OfficeDocument {
     options: { readonly sliceSize: number },
     callback: (result: OfficeAsyncResult<OfficeFile>) => void,
   ) => void;
-  /** Register a handler for a document event, such as `documentSelectionChanged`. */
-  addHandlerAsync?: (eventType: string, handler: () => void, callback?: (result: OfficeAsyncResult<void>) => void) => void;
+  /**
+   * Register a handler for a document event, such as `documentSelectionChanged`.
+   * Office.js hands the handler the event's arguments. They are optional
+   * here, so a stand-in for Office.js may call the handler with none.
+   */
+  addHandlerAsync?: (
+    eventType: string,
+    handler: (event?: OfficeEventArgs) => void,
+    callback?: (result: OfficeAsyncResult<void>) => void,
+  ) => void;
   /** Remove a handler registered by `addHandlerAsync`. */
   removeHandlerAsync?: (
     eventType: string,
-    options: { readonly handler: () => void },
+    options: { readonly handler: (event?: OfficeEventArgs) => void },
     callback?: (result: OfficeAsyncResult<void>) => void,
   ) => void;
+  /**
+   * Whether the document is being edited, `edit`, or presented, `read`
+   * (`ActiveView` requirement set): PowerPoint's Slide Show and Reading View
+   * are `read`. The event `activeViewChanged` says when it changes.
+   */
+  getActiveViewAsync?: (callback: (result: OfficeAsyncResult<string>) => void) => void;
+  /**
+   * The data selected (`Selection` requirement set); with `slideRange`, the
+   * slides selected in PowerPoint.
+   */
+  getSelectedDataAsync?: (coercionType: string, callback: (result: OfficeAsyncResult<OfficeSlideRange>) => void) => void;
+  /** This instance of the add-in's settings, saved in the document (`Settings` requirement set). */
+  readonly settings?: OfficeSettings;
 }
 
 /** What `Office.onReady` resolves with. */
