@@ -27,6 +27,11 @@ import { BindingOutputPage } from '../page-objects/plots/bindingOutput-page';
  * one -- a taller bar is a larger number on every chart here, so the heights
  * have to rank the way the announced values do. A highlight on the wrong bar
  * is worse than none, and #1135 produced exactly that.
+ *
+ * Each of these pages holds its chart and nothing else, so high contrast
+ * paints the whole page behind it. A page that shows something of its own
+ * keeps its colours and only the chart is painted; taking one of these for
+ * such a page would leave a light margin around every chart a binding saves.
  */
 
 /** How strictly a fixture's highlight is checked. */
@@ -117,7 +122,7 @@ test.describe('language binding layout', () => {
 
 test.describe('language binding output', () => {
   for (const { name, check } of FIXTURES) {
-    test(`${name}: an arrow key outlines the announced mark`, async ({ page }) => {
+    test(`${name}: an arrow key outlines the announced mark, and C paints the page`, async ({ page }) => {
       const errors: string[] = [];
       page.on('pageerror', error => errors.push(error.message));
       const binding = new BindingOutputPage(page);
@@ -139,6 +144,15 @@ test.describe('language binding output', () => {
         expect(new Set(boxes).size, `${name}: the outline stayed put while the reader moved`)
           .toBeGreaterThan(1);
       }
+
+      const before = await binding.readBackdrop();
+      const on = await binding.toggleHighContrast();
+      const off = await binding.toggleHighContrast();
+
+      expect(on.page, `${name}: high contrast did not paint the page`).toBe('rgb(0, 0, 0)');
+      expect(on.chartStyle, `${name}: high contrast painted the chart, not the page`).toBe('');
+      expect(off.pageStyle, `${name}: high contrast left the page painted`).toBe(before.pageStyle);
+      expect(off.page).toBe(before.page);
     });
   }
 });

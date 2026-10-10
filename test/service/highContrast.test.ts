@@ -139,6 +139,17 @@ interface HarnessOptions {
   unstyledText?: boolean;
   /** Runs once the page is built, before the service captures it. */
   beforeService?: () => void;
+  /**
+   * Mounts the plot as maidr does: a `display: contents` div holding
+   * `article#maidr-article-chart > figure#maidr-figure-chart`, the plot and
+   * the text maidr shows under it.
+   */
+  article?: boolean;
+  /**
+   * Adds page content around the chart before the service is built. Given the
+   * chart's outermost element, already in the body.
+   */
+  surround?: (chart: HTMLElement) => void;
 }
 
 interface Harness {
@@ -152,6 +163,8 @@ interface Harness {
    */
   display: { plot: HTMLElement };
   svg: SVGSVGElement;
+  /** maidr's article around the chart, when the harness built one. */
+  article: HTMLElement | null;
 }
 
 function createHarness(
@@ -202,7 +215,25 @@ function createHarness(
     wrapper.appendChild(svg);
     plot = wrapper;
   }
-  document.body.appendChild(plot);
+  let chart: Element = plot;
+  let article: HTMLElement | null = null;
+  if (options.article) {
+    const root = document.createElement('div');
+    root.style.display = 'contents';
+    article = document.createElement('article');
+    article.id = 'maidr-article-chart';
+    const figure = document.createElement('figure');
+    figure.id = 'maidr-figure-chart';
+    const text = document.createElement('div');
+    text.id = 'react-container-chart';
+    text.innerHTML = '<p>Bar 1 of 4. Day is Sat, Count is 87.</p>';
+    figure.append(plot, text);
+    article.appendChild(figure);
+    root.appendChild(article);
+    chart = root;
+  }
+  document.body.appendChild(chart);
+  options.surround?.(chart as HTMLElement);
 
   const display: Pick<DisplayService, 'plot'> = { plot: plot as HTMLElement };
   const displayService = display as unknown as DisplayService;
@@ -235,7 +266,7 @@ function createHarness(
     () => overlays,
   );
 
-  return { service, settings, marks, bar: marks[0], display, svg };
+  return { service, settings, marks, bar: marks[0], display, svg, article };
 }
 
 function turnHighContrastOff(settings: SettingsService): void {
@@ -243,6 +274,64 @@ function turnHighContrastOff(settings: SettingsService): void {
     ...settings.loadSettings(),
     general: { ...settings.loadSettings().general, highContrastMode: false },
   });
+}
+
+function turnHighContrastOn(settings: SettingsService): void {
+  settings.saveSettings({
+    ...settings.loadSettings(),
+    general: { ...settings.loadSettings().general, highContrastMode: true },
+  });
+}
+
+/** The default dark and light colours, as an inline style reports them. */
+const DARK = 'rgb(0, 0, 0)';
+const LIGHT = 'rgb(255, 255, 255)';
+
+/** The nodes some markup parses to, text and comments included. */
+function nodesOf(markup: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = markup;
+  return template.content;
+}
+
+/**
+ * Lays the body out from markup, with the chart where `<i data-chart></i>`
+ * stands.
+ */
+function pageAround(markup: string): (chart: HTMLElement) => void {
+  return (chart) => {
+    document.body.innerHTML = markup;
+    document.body.querySelector('[data-chart]')?.replaceWith(chart);
+  };
+}
+
+/**
+ * Gives an element the box a browser would lay it out in. jsdom lays out
+ * nothing, and reports every box at the origin with no size.
+ */
+function placeAt(element: Element, left: number, top: number, width: number, height: number): void {
+  const box = { x: left, y: top, left, top, width, height, right: left + width, bottom: top + height };
+  element.getBoundingClientRect = (): DOMRect => ({ ...box, toJSON: () => box }) as DOMRect;
+}
+
+/** An absolutely positioned link, such as a skip link, at a given place. */
+function positionedLink(left: number, top: number): HTMLElement {
+  const link = document.createElement('a');
+  link.href = '#main';
+  link.textContent = 'Skip to content';
+  link.style.position = 'absolute';
+  link.style.left = `${left}px`;
+  link.style.top = `${top}px`;
+  placeAt(link, left, top, 120, 20);
+  return link;
+}
+
+/** Which of the page and the chart's article carry the dark backdrop. */
+function paintedBackdrops(article: HTMLElement | null): string[] {
+  return [
+    ...(document.body.style.backgroundColor === DARK ? ['page'] : []),
+    ...(article?.style.backgroundColor === DARK ? ['chart'] : []),
+  ];
 }
 
 describe('highContrastService', () => {
@@ -667,5 +756,309 @@ describe('highContrastService', () => {
     turnHighContrastOff(harness.settings);
 
     expect(title.getAttribute('fill')).toBe('#444444');
+  });
+  it('marks only its own chart as a line chart, never another with the same id', () => {
+    // The class went to the first element on the page with the chart's id,
+    // which can be another chart's.
+    rebuild([{ fill: 'none', stroke: '#1f77b4' }], {
+      traceType: 'line',
+      wrapInDiv: true,
+      surround: pageAround('<svg id="chart"></svg><i data-chart></i>'),
+    });
+    const other = document.body.firstElementChild as Element;
+
+    harness.service.initializeHighContrast();
+
+    expect(harness.svg.classList.contains('high-contrast')).toBe(true);
+    expect(other.classList.contains('high-contrast')).toBe(false);
+
+    turnHighContrastOff(harness.settings);
+
+    expect(harness.svg.classList.contains('high-contrast')).toBe(false);
+  });
+
+  describe('what it paints behind the chart', () => {
+    it('paints the page behind a chart that has the document to itself', () => {
+      rebuild([{ fill: BAR_FILL }], {
+        article: true,
+        surround: pageAround('<script>var maidr = {};</script><i data-chart></i><script></script>'),
+      });
+
+      harness.service.initializeHighContrast();
+
+      expect(window.getComputedStyle(document.body).backgroundColor).toBe(DARK);
+      expect(harness.article?.style.backgroundColor).toBe('');
+    });
+
+    it('paints the chart, not a page it shares', () => {
+      rebuild([{ fill: BAR_FILL }], {
+        article: true,
+        surround: pageAround('<h1>Results</h1><i data-chart></i>'),
+      });
+      const article = harness.article as HTMLElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(window.getComputedStyle(document.body).backgroundColor).toBe(PAGE_BACKGROUND);
+      expect(document.body.style.backgroundColor).toBe('');
+      expect(article.style.backgroundColor).toBe(DARK);
+      expect(article.style.color).toBe(LIGHT);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(article.style.backgroundColor).toBe('');
+      expect(article.style.color).toBe('');
+    });
+
+    it('puts the chart\'s own inline colours back as they were', () => {
+      rebuild([{ fill: BAR_FILL }], {
+        article: true,
+        surround: (chart) => {
+          pageAround('<h1>Results</h1><i data-chart></i>')(chart);
+          chart.querySelector('article')?.style.setProperty('background-color', 'rgb(1, 2, 3)', 'important');
+        },
+      });
+      const article = harness.article as HTMLElement;
+
+      harness.service.initializeHighContrast();
+      turnHighContrastOff(harness.settings);
+
+      expect(article.style.getPropertyValue('background-color')).toBe('rgb(1, 2, 3)');
+      expect(article.style.getPropertyPriority('background-color')).toBe('important');
+    });
+
+    it('puts a property overridden twice back as it was', () => {
+      // With no article around it, the backdrop is the plot -- here the SVG,
+      // whose own CSS background is overridden as well.
+      rebuild([{ fill: BAR_FILL }], {
+        svgBackground: 'white',
+        surround: pageAround('<p>Results</p><i data-chart></i>'),
+      });
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.svg.style.backgroundColor).toBe(DARK);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(harness.svg.style.backgroundColor).toBe('white');
+    });
+
+    it('looks for what the page shows at every level up to the body', () => {
+      rebuild([{ fill: BAR_FILL }], {
+        article: true,
+        surround: pageAround(
+          '<main><p>Tips by day.</p><section><div class="cell"><div class="cell-output-display">'
+          + '<i data-chart></i></div></div></section></main>',
+        ),
+      });
+
+      harness.service.initializeHighContrast();
+
+      expect(paintedBackdrops(harness.article)).toEqual(['chart']);
+    });
+
+    it.each<[string, () => Node]>([
+      ['a script', () => nodesOf('<script>var x = 1;</script>')],
+      ['a style sheet', () => nodesOf('<style>p { color: red; }</style>')],
+      ['a link to one', () => nodesOf('<link rel="stylesheet" href="page.css">')],
+      ['a hidden element', () => nodesOf('<div hidden>Note</div>')],
+      ['an element not displayed', () => nodesOf('<p style="display: none">Note</p>')],
+      ['invisible text', () => nodesOf('<span style="visibility: hidden">Note</span>')],
+      ['an empty status line', () => nodesOf('<p role="status"></p>')],
+      ['a script in a wrapper', () => nodesOf('<div><script>var x = 1;</script></div>')],
+      ['white space', () => nodesOf('\n    ')],
+      ['a comment', () => nodesOf('<!-- chart -->')],
+      ['a line break', () => nodesOf('<br>')],
+      ['a link parked off the page', () => positionedLink(-10000, 0)],
+    ])('takes %s for nothing the page shows', (_, build) => {
+      rebuild([{ fill: BAR_FILL }], {
+        article: true,
+        surround: () => document.body.prepend(build()),
+      });
+
+      harness.service.initializeHighContrast();
+
+      expect(paintedBackdrops(harness.article)).toEqual(['page']);
+    });
+
+    it.each<[string, () => Node]>([
+      ['a line of text', () => nodesOf('Results')],
+      ['a paragraph', () => nodesOf('<p>Results</p>')],
+      ['an image', () => nodesOf('<img alt="">')],
+      ['a button', () => nodesOf('<button></button>')],
+      ['a canvas', () => nodesOf('<canvas></canvas>')],
+      [
+        'another chart',
+        () => nodesOf('<div style="display: contents"><article id="maidr-article-other"><figure>'
+          + '<div tabindex="0"><svg></svg></div></figure></article></div>'),
+      ],
+      ['a custom element', () => nodesOf('<my-banner></my-banner>')],
+      ['a link placed on the page', () => positionedLink(16, 16)],
+    ])('takes %s for something the page shows', (_, build) => {
+      rebuild([{ fill: BAR_FILL }], {
+        article: true,
+        surround: () => document.body.prepend(build()),
+      });
+
+      harness.service.initializeHighContrast();
+
+      expect(paintedBackdrops(harness.article)).toEqual(['chart']);
+    });
+
+    /**
+     * A page plotly.js drew one chart on: its title and legend layer and its
+     * toolbar beside maidr's article in the `.svg-container`, and the SVG it
+     * measures text in parked off the page, as `Plotly.newPlot` leaves it.
+     */
+    function plotlyPage(overlay: Element, before = ''): HarnessOptions {
+      return {
+        article: true,
+        overlays: [overlay],
+        surround: (chart) => {
+          pageAround(
+            `${before}<div id="graph" class="js-plotly-plot"><div class="plot-container plotly">`
+            + '<div class="svg-container"><i data-chart></i></div></div></div>'
+            + '<script>Plotly.newPlot("graph", data);</script>',
+          )(chart);
+          const modebar = document.createElement('div');
+          modebar.className = 'modebar-container';
+          modebar.innerHTML = '<div class="modebar"><a class="modebar-btn"><svg></svg></a></div>';
+          chart.after(overlay, modebar);
+          const tester = document.createElementNS(SVG_NAMESPACE, 'svg');
+          tester.id = 'js-plotly-tester';
+          tester.setAttribute(
+            'style',
+            'position: absolute; left: -10000px; top: -10000px; width: 9000px; height: 9000px',
+          );
+          placeAt(tester, -10000, -10000, 9000, 9000);
+          document.body.appendChild(tester);
+        },
+      };
+    }
+
+    it('counts the layers Plotly draws beside the chart as the chart\'s own', () => {
+      const overlay = document.createElementNS(SVG_NAMESPACE, 'svg');
+      overlay.classList.add('main-svg');
+      rebuild([{ fill: BAR_FILL }], plotlyPage(overlay));
+
+      harness.service.initializeHighContrast();
+
+      expect(paintedBackdrops(harness.article)).toEqual(['page']);
+    });
+
+    it('paints only a Plotly chart on a page that shows more than it', () => {
+      const overlay = document.createElementNS(SVG_NAMESPACE, 'svg');
+      overlay.classList.add('main-svg');
+      rebuild([{ fill: BAR_FILL }], plotlyPage(overlay, '<p>Tips by day.</p>'));
+
+      harness.service.initializeHighContrast();
+
+      expect(paintedBackdrops(harness.article)).toEqual(['chart']);
+    });
+
+    it('decides again each time it paints', () => {
+      rebuild([{ fill: BAR_FILL }], { article: true });
+      const note = document.createElement('p');
+      note.textContent = 'Updated hourly.';
+
+      harness.service.initializeHighContrast();
+      const alone = paintedBackdrops(harness.article);
+      turnHighContrastOff(harness.settings);
+      document.body.prepend(note);
+      turnHighContrastOn(harness.settings);
+      const shared = paintedBackdrops(harness.article);
+      turnHighContrastOff(harness.settings);
+      note.remove();
+      turnHighContrastOn(harness.settings);
+      const aloneAgain = paintedBackdrops(harness.article);
+
+      expect(alone).toEqual(['page']);
+      expect(shared).toEqual(['chart']);
+      expect(aloneAgain).toEqual(['page']);
+    });
+
+    it('puts the page back although it gained content while painted', () => {
+      rebuild([{ fill: BAR_FILL }], { article: true });
+
+      harness.service.initializeHighContrast();
+      document.body.prepend(nodesOf('<p>Updated hourly.</p>'));
+      turnHighContrastOff(harness.settings);
+
+      expect(document.body.style.backgroundColor).toBe('');
+      expect(document.body.style.color).toBe('');
+      expect(harness.article?.style.backgroundColor).toBe('');
+    });
+
+    it('keeps painting the chart, not the page, across a live update', () => {
+      rebuild([{ fill: BAR_FILL }], {
+        article: true,
+        surround: pageAround('<h1>Results</h1><i data-chart></i>'),
+      });
+      const article = harness.article as HTMLElement;
+
+      harness.service.initializeHighContrast();
+      harness.service.setFigure(createFigure());
+
+      expect(paintedBackdrops(article)).toEqual(['chart']);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(document.body.style.backgroundColor).toBe('');
+      expect(article.style.backgroundColor).toBe('');
+      expect(article.style.color).toBe('');
+    });
+
+    it.each([
+      [
+        'an r-maidr page',
+        '<div class="maidr-page"><i data-chart></i></div><script src="lib/maidr.js"></script>',
+      ],
+      [
+        'a py-maidr notebook frame',
+        '<div><script>(function () { run(); })();</script><div><i data-chart></i></div></div>',
+      ],
+      [
+        'an htmlwidget page',
+        '<div id="htmlwidget_container"><div class="html-widget"><i data-chart></i></div></div>'
+        + '<script type="application/json" data-for="htmlwidget-1">{"x": {}}</script>'
+        + '<script type="application/htmlwidget-sizing" data-for="htmlwidget-1">{}</script>',
+      ],
+      [
+        'the maidr-mcp view while idle',
+        '<div id="chart"><i data-chart></i></div><p id="status" role="status"></p>'
+        + '<script type="module">connect();</script>',
+      ],
+    ])('paints the page of %s', (_, markup) => {
+      rebuild([{ fill: BAR_FILL }], { article: true, surround: pageAround(markup) });
+
+      harness.service.initializeHighContrast();
+
+      expect(paintedBackdrops(harness.article)).toEqual(['page']);
+    });
+
+    it.each([
+      [
+        'the maidr-mcp view with a notice',
+        '<div id="chart"><i data-chart></i></div>'
+        + '<p id="status" role="status">Chart updated: Tips by day.</p>',
+      ],
+      [
+        'a Quarto page',
+        '<header><h1>Tips</h1></header><main><div class="cell"><div class="cell-output-display">'
+        + '<div class="maidr-inline"><i data-chart></i></div></div></div></main>',
+      ],
+      [
+        'a reveal.js deck',
+        '<div class="reveal"><div class="slides"><section><h2>Tips</h2><i data-chart></i>'
+        + '</section></div></div>',
+      ],
+    ])('paints only the chart on %s', (_, markup) => {
+      rebuild([{ fill: BAR_FILL }], { article: true, surround: pageAround(markup) });
+
+      harness.service.initializeHighContrast();
+
+      expect(paintedBackdrops(harness.article)).toEqual(['chart']);
+    });
   });
 });
