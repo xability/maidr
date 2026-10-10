@@ -691,14 +691,39 @@ export function findBindingConflict(
   return null;
 }
 
+/** One handler a service handed hotkeys-js, kept so it can take back exactly that one. */
+interface OwnBinding {
+  key: string;
+  scope: Scope;
+  method: (event: KeyboardEvent) => void;
+}
+
 /**
  * Service for registering and managing keyboard bindings across application scopes.
  *
  * Observes the settings so a shortcut the reader changes in the help menu
  * takes effect at once: the bindings are torn down and put back with the new
  * overrides, in the scope the reader is in, without the page reloading.
+ *
+ * hotkeys-js keeps one handler table and one active scope for the page, and
+ * every chart on it binds the same scope names there. So each service keeps
+ * the handlers it bound and takes back only those, and the {@link owner} --
+ * the service of the chart the reader entered last -- is the only one whose
+ * handlers act and the only one that moves the scope. Leaving, disposing or
+ * rebinding one chart then never takes another chart's keys or scope with it.
  */
 export class KeybindingService implements Observer<Settings> {
+  /**
+   * The service of the chart the reader entered last, or null once they have
+   * left it.
+   *
+   * One per bundle, as hotkeys-js is: each dist entry -- maidr.js,
+   * vegalite.js, react.mjs, recharts.mjs and the rest -- carries its own copy
+   * of both. Static rather than a module variable: assigning `this` to one
+   * trips `ts/no-this-alias`.
+   */
+  private static owner: KeybindingService | null = null;
+
   private readonly commandFactory: CommandFactory;
   private readonly invalidKeyCommand: InvalidKeyCommand;
 
@@ -715,6 +740,9 @@ export class KeybindingService implements Observer<Settings> {
    * tell an unassigned press from one a shortcut has just handled.
    */
   private lastBoundEvent: KeyboardEvent | null = null;
+
+  /** Every handler this service bound, so unbinding takes back only its own. */
+  private readonly bindings: OwnBinding[] = [];
 
   /**
    * Creates a new KeybindingService instance with command factory.
@@ -749,8 +777,39 @@ export class KeybindingService implements Observer<Settings> {
       }
     };
 
+    // A controller, and so this, is built only when the reader enters its
+    // chart, which makes it the one whose keys act from here on.
+    KeybindingService.owner = this;
     this.bindAll();
     this.setScope(initialScope);
+  }
+
+  /**
+   * Binds a handler that acts only while this service owns the keyboard, and
+   * records it so {@link unbindOwn} can take it back.
+   * @param key - The hotkeys-js key expression
+   * @param scope - The scope it is bound in
+   * @param handler - What the key does
+   */
+  private bind(key: string, scope: Scope, handler: (event: KeyboardEvent) => void): void {
+    const method = (event: KeyboardEvent): void => {
+      if (KeybindingService.owner === this) {
+        handler(event);
+      }
+    };
+    hotkeys(key, { scope }, method);
+    this.bindings.push({ key, scope, method });
+  }
+
+  /**
+   * Unbinds this service's handlers and no other chart's. hotkeys-js drops its
+   * listeners on the document once the last handler on the page goes.
+   */
+  private unbindOwn(): void {
+    for (const { key, scope, method } of this.bindings) {
+      hotkeys.unbind(key, scope, method);
+    }
+    this.bindings.length = 0;
   }
 
   /**
@@ -768,7 +827,7 @@ export class KeybindingService implements Observer<Settings> {
         // https://github.com/jaywcjlove/hotkeys-js/issues/172
         // Need to remove once the issue is resolved.
         if (commandName === 'STOP_AUTOPLAY') {
-          hotkeys('*', scope, (event: KeyboardEvent): void => {
+          this.bind('*', scope, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
               this.lastBoundEvent = event;
               const command = this.commandFactory.create(commandName);
@@ -777,7 +836,7 @@ export class KeybindingService implements Observer<Settings> {
           });
         }
 
-        hotkeys(hotkey, { scope }, (event: KeyboardEvent): void => {
+        this.bind(hotkey, scope, (event: KeyboardEvent): void => {
           this.lastBoundEvent = event;
           if (commandName !== 'ALLOW_DEFAULT') {
             event.preventDefault();
@@ -792,7 +851,7 @@ export class KeybindingService implements Observer<Settings> {
   }
 
   /**
-   * Re-binds everything when the reader's shortcuts change.
+   * Re-binds this chart's keys when the reader's shortcuts change.
    *
    * Nothing moves for a settings change that leaves the shortcuts alone --
    * volume, language, a braille display -- because unbinding and rebinding
@@ -808,7 +867,7 @@ export class KeybindingService implements Observer<Settings> {
     if (this.scope === null) {
       return;
     }
-    hotkeys.unbind();
+    this.unbindOwn();
     this.bindAll();
     this.setScope(this.scope);
   }
@@ -838,7 +897,7 @@ export class KeybindingService implements Observer<Settings> {
       return;
     }
 
-    hotkeys('*', scope, (event: KeyboardEvent): void => {
+    this.bind('*', scope, (event: KeyboardEvent): void => {
       queueMicrotask(() => {
         const claimed = this.lastBoundEvent === event;
         this.lastBoundEvent = null;
@@ -853,23 +912,35 @@ export class KeybindingService implements Observer<Settings> {
    * Activates a keyboard scope, so only that scope's bindings fire.
    *
    * `Context` decides which scope the reader is in and fires
-   * `onScopeChange`; this applies it. Keeping the call here leaves one writer
-   * to the hotkeys-js scope — the same object that binds the keys and unbinds
-   * them in {@link unregister}.
+   * `onScopeChange`; this applies it. Only this class writes the hotkeys-js
+   * scope, and of the services on the page only the {@link owner} does --
+   * or any of them while nobody owns the keyboard. A chart the reader has
+   * left still keeps its own scope, for a rebind to put back, but no longer
+   * moves the one the reader is in.
    *
    * @param scope - The scope to activate
    */
   public setScope(scope: Scope): void {
     this.scope = scope;
+    if (KeybindingService.owner !== null && KeybindingService.owner !== this) {
+      // Another chart has the keyboard.
+      return;
+    }
     hotkeys.setScope(scope);
   }
 
   /**
-   * Unregisters all keyboard bindings.
+   * Unregisters this chart's keyboard bindings, and no other chart's.
    */
   public unregister(): void {
     this.scope = null;
-    hotkeys.unbind();
+    this.unbindOwn();
+    if (KeybindingService.owner === this) {
+      KeybindingService.owner = null;
+      // No maidr handler is bound in 'all', but a page's own `*` handler
+      // there fires only while the scope is exactly 'all'.
+      hotkeys.setScope('all');
+    }
   }
 }
 

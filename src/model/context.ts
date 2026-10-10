@@ -76,10 +76,11 @@ export class Context implements Disposable {
    * Fires whenever the keyboard scope this context is in changes.
    *
    * The scope stack here is the authority on which scope is active;
-   * `KeybindingService` owns the hotkeys-js scope that decides which bindings
-   * fire. Announcing the change and applying it are two jobs, and only the
-   * first belongs to the model — so this notifies, and `Controller` hands the
-   * new scope to the service.
+   * `KeybindingService` applies it to the hotkeys-js scope that decides which
+   * bindings fire -- one scope for the page, held by the chart the reader
+   * entered last. Announcing the change and applying it are two jobs, and
+   * only the first belongs to the model — so this notifies, and `Controller`
+   * hands the new scope to the service.
    */
   public readonly onScopeChange: Event<Scope>;
   // Mutable: replaced in place on live data updates (see replaceFigure).
