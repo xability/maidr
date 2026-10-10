@@ -254,9 +254,8 @@ export interface Maidr {
    * `click` moves only on a click, and `off` leaves the pointer out of it.
    *
    * This is the chart's starting value for the reader's "Hover Mode" setting.
-   * A reader who has chosen a mode other than the default in the settings
-   * keeps theirs, and changing it in this chart's settings dialog applies as
-   * usual. Any other value is ignored with a console warning.
+   * A reader who has changed that setting keeps their mode on every chart.
+   * Any other value is ignored with a console warning.
    */
   hoverMode?: HoverMode;
   /**

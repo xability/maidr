@@ -86,11 +86,43 @@ describe('SettingsService hoverMode from the chart', () => {
       .toBe('click');
   });
 
+  it('should keep the default when the reader picks it over the chart\'s', () => {
+    const { storage, stored } = workingStorage();
+    const service = new SettingsService(storage, display, { hoverMode: 'off' });
+
+    saveGeneral(service, { hoverMode: 'pointermove' });
+
+    expect(stored()?.general.hoverMode).toBe('pointermove');
+    expect(new SettingsService(storage, display, { hoverMode: 'off' }).loadSettings().general.hoverMode)
+      .toBe('pointermove');
+  });
+
+  it('should keep the reader\'s mode through later saves', () => {
+    const { storage, stored } = workingStorage();
+    const service = new SettingsService(storage, display, { hoverMode: 'off' });
+
+    saveGeneral(service, { hoverMode: 'click' });
+    saveGeneral(service, { volume: 20 });
+
+    expect(stored()?.general.hoverMode).toBe('click');
+    expect(new SettingsService(storage, display).loadSettings().general.hoverMode).toBe('click');
+  });
+
+  it('should keep a mode saved before the reader\'s choice was marked', () => {
+    const { storage } = workingStorage({ general: { hoverMode: 'off' } });
+
+    expect(new SettingsService(storage, display, { hoverMode: 'click' }).loadSettings().general.hoverMode)
+      .toBe('off');
+  });
+
   it('should come back to the chart\'s mode when the settings are reset', () => {
-    const { storage } = workingStorage({ general: { hoverMode: 'click' } });
+    const { storage, stored } = workingStorage({ general: { hoverMode: 'click' } });
     const service = new SettingsService(storage, display, { hoverMode: 'off' });
 
     expect(service.resetSettings().general.hoverMode).toBe('off');
+    expect(stored()).toBeUndefined();
+    expect(new SettingsService(storage, display, { hoverMode: 'off' }).loadSettings().general.hoverMode)
+      .toBe('off');
   });
 
   it('should ignore a mode it does not know, with a warning', () => {

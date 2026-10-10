@@ -194,13 +194,12 @@ applies across all subplots:
   ```
 
   This is the chart's starting value for the reader's **Hover Mode** setting,
-  not a lock on it. A reader who has picked a mode other than the default in
-  the settings keeps theirs on every chart. A reader who has not sees the
-  chart's mode, and a mode they pick in this chart's settings is saved as
-  theirs from then on; saving any other setting there leaves their own hover
-  mode as it was, so one chart's mode does not follow them to the next.
-  Resetting the settings comes back to the chart's mode. Any other value is
-  ignored with a console warning.
+  not a lock on it. Once a reader changes Hover Mode in the settings, on any
+  chart, their mode is kept on every chart, the default among them. Until
+  then they see each chart's own mode, and saving other settings on a chart
+  leaves their stored mode as it was, so one chart's mode does not follow
+  them to the next. Resetting the settings comes back to the chart's mode.
+  Any other value is ignored with a console warning.
 
 ### Top-Level Properties for Live Charts
 
