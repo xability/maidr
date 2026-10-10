@@ -84,4 +84,28 @@ describe('RotorDial', () => {
     });
     expect(screen.getByTestId('maidr-rotor-dial')).not.toBeVisible();
   });
+
+  it('keeps the next mode anticlockwise of the top, so a forward cycle turns clockwise', () => {
+    const store = renderDial();
+    act(() => {
+      store.dispatch(turnDial({ labels: ['DATA', 'LOWER', 'HIGHER'], index: 1, step: 1 }));
+    });
+    act(() => {
+      // Let the fresh ring turn into place.
+      jest.advanceTimersByTime(100);
+    });
+
+    const dial = screen.getByTestId('maidr-rotor-dial');
+    const transformOf = (name: string): string => {
+      const label = Array.from(dial.querySelectorAll('div')).find(el => el.textContent === name
+        && getComputedStyle(el).transform.includes('rotate'));
+      return label ? getComputedStyle(label).transform : '';
+    };
+    // CSS rotate() turns clockwise for a positive angle: the current mode
+    // sits at 0deg, the next one a third of the way anticlockwise and the
+    // previous one a third of the way clockwise.
+    expect(transformOf('LOWER')).toContain('rotate(0deg)');
+    expect(transformOf('HIGHER')).toContain('rotate(-120deg)');
+    expect(transformOf('DATA')).toContain('rotate(120deg)');
+  });
 });

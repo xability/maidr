@@ -79,7 +79,9 @@ const RotorRing: React.FC<RotorRingProps> = ({ labels, index, turn, direction })
   return (
     <>
       {labels.map((label, i) => {
-        const angle = (i - shownTurn) * step;
+        // The next mode waits anticlockwise of the top, so a forward cycle
+        // turns the ring clockwise, as a clockwise twist does on iOS.
+        const angle = (shownTurn - i) * step;
         const distance = ringDistance(i, index, labels.length);
         return (
           <Box
@@ -117,7 +119,8 @@ const RotorRing: React.FC<RotorRingProps> = ({ labels, index, turn, direction })
 /**
  * A visual rotor dial, after the VoiceOver rotor on iOS: when the reader
  * cycles the rotor, a dial appears over the chart with the modes around its
- * ring, turns to put the new mode at the top, and fades out.
+ * ring, turns to put the new mode at the top -- clockwise for the next mode,
+ * anticlockwise for the previous one, as on iOS -- and fades out.
  *
  * Purely visual, so `aria-hidden`: the mode change is already announced
  * through the rotor area's live region, and a second announcement here would
