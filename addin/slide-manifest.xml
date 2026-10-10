@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MAIDR Chart on Slide: the content add-in MAIDR publishes for PowerPoint. It
+  sits on a slide as a shape, beside one of PowerPoint's own charts or over
+  it, and shows MAIDR's figure for that chart, in Normal view and in the
+  slide show. See docs/office-addin.md for installing it, and
+  addin/README.md for how it is built and served.
+
+  A separate add-in from the task pane's (manifest.xml), with an Id of its
+  own: one manifest describes a task pane add-in or a content add-in, never
+  both. It has no ribbon button. It is inserted on a slide from Insert >
+  Add-ins, and RequestedWidth and RequestedHeight are the size it starts at.
+
+  Every URL is on https://maidr.ai/addin/, where the documentation site
+  serves this folder (scripts/build-site.js). The page loads MAIDR from the
+  same site's dist/ and calls maidrOffice.bindSlideChart, which reads the
+  chart from the presentation file and keeps which chart it reads as one of
+  the add-in's settings, in the presentation.
+
+  ReadWriteDocument, although the add-in changes nothing on the slides:
+  reading the file (Document.getFileAsync) takes ReadAllDocument, and
+  following PowerPoint into the slide show (Document.addHandlerAsync) takes
+  ReadWriteDocument, as every event does.
+
+  AllowSnapshot, which is Office's default, saves a picture of the add-in
+  with the presentation, so a PowerPoint that cannot run it shows what it
+  last showed rather than an empty box. The picture holds nothing private:
+  the chart's label and the add-in's controls name only what the file holds
+  anyway.
+
+  Change the Version whenever this file changes, as Office and the Microsoft
+  Marketplace require. Keep the Id: it is the add-in's identity everywhere it
+  has been installed, and in every presentation it has been inserted in.
+-->
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:type="ContentApp">
+  <Id>fa16e8d3-7524-43fa-a436-3156caba8b6f</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>xability</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="MAIDR Chart on Slide" />
+  <Description DefaultValue="Hear, read in braille and explore with the keyboard a chart on a slide, in Normal view and in the slide show: MAIDR reads PowerPoint's own chart, for blind and low-vision presenters and readers." />
+  <IconUrl DefaultValue="https://maidr.ai/addin/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://maidr.ai/addin/assets/icon-64.png" />
+  <SupportUrl DefaultValue="https://maidr.ai/office-addin.html" />
+  <Hosts>
+    <Host Name="Presentation" />
+  </Hosts>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://maidr.ai/addin/slide.html" />
+    <RequestedWidth>480</RequestedWidth>
+    <RequestedHeight>270</RequestedHeight>
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  <AllowSnapshot>true</AllowSnapshot>
+</OfficeApp>

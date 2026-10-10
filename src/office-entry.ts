@@ -6,8 +6,9 @@
  * script-tag usage in an add-in's task pane. `bindOffice` mounts the pane for
  * whichever application the page is open in -- Excel's charts read live
  * through Office.js, PowerPoint's and Word's read from the file -- so this
- * bundle carries the Excel adapter too. A task pane built with a bundler
- * imports `maidr/office` instead.
+ * bundle carries the Excel adapter too. `bindSlideChart` mounts MAIDR in a
+ * PowerPoint content add-in instead, on the slide, for the one chart it is
+ * linked to. An add-in built with a bundler imports `maidr/office` instead.
  *
  * @remarks
  * No Office.js dependency, at compile time or at runtime: the `Office`,
@@ -36,8 +37,10 @@ import { bindExcel, convertExcelChart } from './adapters/excel';
 import {
   bindOffice,
   bindPowerPoint,
+  bindSlideChart,
   bindWord,
   DEFAULT_OFFICE_LABELS,
+  DEFAULT_SLIDE_CHART_LABELS,
   readChartExPart,
   readChartPart,
   readPowerPointCharts,
@@ -49,8 +52,10 @@ export type { ExcelBinding, ExcelBindOptions, ExcelChartSnapshot, ExcelPaneLabel
 export {
   bindOffice,
   bindPowerPoint,
+  bindSlideChart,
   bindWord,
   DEFAULT_OFFICE_LABELS,
+  DEFAULT_SLIDE_CHART_LABELS,
   OfficeReadError,
   readChartExPart,
   readChartPart,
@@ -71,14 +76,23 @@ export type {
   OfficeCollection,
   OfficeDocument,
   OfficeDocumentHostName,
+  OfficeEventArgs,
   OfficeFile,
   OfficePaneLabels,
   OfficeReadyInfo,
+  OfficeSettings,
   OfficeSlice,
+  OfficeSlideRange,
+  OfficeSlideRangeSlide,
   PowerPointHost,
   PowerPointRequestContext,
   PowerPointShape,
   PowerPointSlide,
+  SlideChartBinding,
+  SlideChartLabels,
+  SlideChartLink,
+  SlideChartOptions,
+  SlideChartView,
   WordHost,
   WordRange,
   WordRequestContext,
@@ -94,9 +108,11 @@ declare global {
       bindExcel: typeof bindExcel;
       bindOffice: typeof bindOffice;
       bindPowerPoint: typeof bindPowerPoint;
+      bindSlideChart: typeof bindSlideChart;
       bindWord: typeof bindWord;
       convertExcelChart: typeof convertExcelChart;
       DEFAULT_OFFICE_LABELS: typeof DEFAULT_OFFICE_LABELS;
+      DEFAULT_SLIDE_CHART_LABELS: typeof DEFAULT_SLIDE_CHART_LABELS;
       readChartExPart: typeof readChartExPart;
       readChartPart: typeof readChartPart;
       readPowerPointCharts: typeof readPowerPointCharts;
@@ -112,9 +128,11 @@ if (typeof window !== 'undefined') {
     bindExcel,
     bindOffice,
     bindPowerPoint,
+    bindSlideChart,
     bindWord,
     convertExcelChart,
     DEFAULT_OFFICE_LABELS,
+    DEFAULT_SLIDE_CHART_LABELS,
     readChartExPart,
     readChartPart,
     readPowerPointCharts,

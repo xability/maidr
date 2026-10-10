@@ -1,8 +1,9 @@
 /**
  * A stand-in for Office.js in PowerPoint and in Word, as much of it as the
- * Office adapter's panes use: the open document's file and selection event,
- * PowerPoint's selected slide and shape, and Word's body and selection as
- * flat packages.
+ * Office adapter's panes and slide add-in use: the open document's file and
+ * selection event, PowerPoint's selected slide and shape, and Word's body and
+ * selection as flat packages; and, for a content add-in, its settings, the
+ * view open and the slides selected.
  *
  * Like the real one, it answers asynchronous calls through callbacks with an
  * `AsyncResult`, hands a file over in slices, and lets only one file be open
@@ -12,8 +13,12 @@
 import type {
   OfficeAppHost,
   OfficeAsyncResult,
+  OfficeEventArgs,
   OfficeFile,
+  OfficeSettings,
   OfficeSlice,
+  OfficeSlideRange,
+  OfficeSlideRangeSlide,
   PowerPointHost,
   PowerPointRequestContext,
   PowerPointShape,
@@ -45,13 +50,33 @@ export interface FakeOfficeOptions {
   readonly file?: () => Uint8Array;
   /** Make `getFileAsync` fail. */
   readonly fileFails?: boolean;
+  /** The add-in's settings, as the file keeps them. */
+  readonly settings?: Readonly<Record<string, unknown>>;
+  /** Make `Settings.saveAsync` fail. */
+  readonly saveFails?: boolean;
+  /** The view open, `edit` or `read`; `null` leaves out `getActiveViewAsync`. Default `edit`. */
+  readonly activeView?: string | null;
+  /** Leave out `getSelectedDataAsync`. */
+  readonly noSelection?: boolean;
 }
 
 /** The `Office` namespace, with handles a test drives it by. */
 export class FakeOffice implements OfficeAppHost {
   readonly context: NonNullable<OfficeAppHost['context']>;
   /** The selection handlers registered, in order. */
-  readonly selectionHandlers: (() => void)[] = [];
+  readonly selectionHandlers: ((event: OfficeEventArgs) => void)[] = [];
+  /** The view handlers registered, in order. */
+  readonly viewHandlers: ((event: OfficeEventArgs) => void)[] = [];
+  /** The view open, `edit` or `read`. */
+  activeView: string;
+  /** The slides selected, as `getSelectedDataAsync('slideRange')` gives them. */
+  selectedSlides: OfficeSlideRangeSlide[] = [];
+  /** The add-in's settings, as `set` left them. */
+  readonly settingValues = new Map<string, unknown>();
+  /** The settings as last saved in the file; `null` before a save. */
+  savedSettings: Record<string, unknown> | null = null;
+  /** How many times the settings were saved, failed saves included. */
+  saves = 0;
   /** How many times the file was asked for. */
   fileReads = 0;
   /** Whether a file is open now. */
@@ -61,20 +86,45 @@ export class FakeOffice implements OfficeAppHost {
 
   constructor(private readonly options: FakeOfficeOptions = {}) {
     const sets = new Set(options.sets ?? []);
+    this.activeView = options.activeView ?? 'edit';
+    for (const [name, value] of Object.entries(options.settings ?? {})) {
+      this.settingValues.set(name, value);
+    }
+    const handlers = (eventType: string): ((event: OfficeEventArgs) => void)[] =>
+      eventType === 'activeViewChanged' ? this.viewHandlers : this.selectionHandlers;
     const document: NonNullable<OfficeAppHost['context']>['document'] = {
       addHandlerAsync: (eventType, handler, callback) => {
-        if (eventType === 'documentSelectionChanged') {
-          this.selectionHandlers.push(handler);
+        if (eventType === 'documentSelectionChanged' || eventType === 'activeViewChanged') {
+          handlers(eventType).push(handler);
         }
         callback?.(succeeded(undefined));
       },
       removeHandlerAsync: (eventType, { handler }, callback) => {
-        const at = this.selectionHandlers.indexOf(handler);
+        const registered = handlers(eventType);
+        const at = registered.indexOf(handler);
         if (at >= 0) {
-          this.selectionHandlers.splice(at, 1);
+          registered.splice(at, 1);
         }
         callback?.(succeeded(undefined));
       },
+      settings: this.settings(),
+      ...(options.activeView === null
+        ? {}
+        : {
+            getActiveViewAsync: (callback: (result: OfficeAsyncResult<string>) => void) => {
+              setTimeout(() => callback(succeeded(this.activeView)), 0);
+            },
+          }),
+      ...(options.noSelection === true
+        ? {}
+        : {
+            getSelectedDataAsync: (coercionType: string, callback: (result: OfficeAsyncResult<OfficeSlideRange>) => void) => {
+              const result = coercionType === 'slideRange'
+                ? succeeded({ slides: this.selectedSlides.map(slide => ({ ...slide })) })
+                : failed<OfficeSlideRange>('The specified data type is not supported.');
+              setTimeout(() => callback(result), 0);
+            },
+          }),
       ...(options.file === undefined && options.fileFails !== true ? {} : { getFileAsync: this.getFileAsync.bind(this) }),
     };
     this.context = {
@@ -95,8 +145,38 @@ export class FakeOffice implements OfficeAppHost {
   /** Fire the selection event, as the user selecting something would. */
   selectionChanged(): void {
     for (const handler of [...this.selectionHandlers]) {
-      handler();
+      handler({ type: 'documentSelectionChanged' });
     }
+  }
+
+  /** Switch views, as starting or ending the slide show would, and fire the view event. */
+  changeView(view: 'edit' | 'read'): void {
+    this.activeView = view;
+    for (const handler of [...this.viewHandlers]) {
+      handler({ type: 'activeViewChanged', activeView: view });
+    }
+  }
+
+  /** `Office.Settings`, kept until saved, as the real one keeps them. */
+  private settings(): OfficeSettings {
+    return {
+      get: name => this.settingValues.get(name) ?? null,
+      set: (name, value) => {
+        this.settingValues.set(name, value);
+      },
+      remove: (name) => {
+        this.settingValues.delete(name);
+      },
+      saveAsync: (callback) => {
+        this.saves += 1;
+        if (this.options.saveFails === true) {
+          setTimeout(() => callback?.(failed('The settings could not be saved.')), 0);
+          return;
+        }
+        this.savedSettings = Object.fromEntries(this.settingValues);
+        setTimeout(() => callback?.(succeeded(undefined)), 0);
+      },
+    };
   }
 
   private getFileAsync(
