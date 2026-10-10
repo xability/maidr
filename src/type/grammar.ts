@@ -1,3 +1,5 @@
+import type { HoverMode } from './settings';
+
 /**
  * Represents the trend direction for candlestick data points.
  * Used across the application for audio palette selection and data representation.
@@ -246,6 +248,17 @@ export interface Maidr {
    * points per series. Only applies to `appendData` updates.
    */
   maxWidth?: number;
+  /**
+   * How the pointer moves the reader's position in this chart, and so what it
+   * highlights: `pointermove` (the default) follows the pointer as it hovers,
+   * `click` moves only on a click, and `off` leaves the pointer out of it.
+   *
+   * This is the chart's starting value for the reader's "Hover Mode" setting.
+   * A reader who has chosen a mode other than the default in the settings
+   * keeps theirs, and changing it in this chart's settings dialog applies as
+   * usual. Any other value is ignored with a console warning.
+   */
+  hoverMode?: HoverMode;
   /**
    * Optional callback invoked when the active data point changes.
    * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting,

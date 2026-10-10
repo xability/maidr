@@ -3,7 +3,7 @@ import type { StorageService } from '@service/storage';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { GeneralSettings, Settings } from '@type/settings';
+import type { GeneralSettings, HoverMode, Settings } from '@type/settings';
 import type { Locale } from '@util/i18n';
 import { Emitter, Scope } from '@type/event';
 import { DEFAULT_SETTINGS } from '@type/settings';
@@ -129,18 +129,76 @@ function speak(locale: Locale): void {
   void ensureLocalePack(locale);
 }
 
+const HOVER_MODES: readonly HoverMode[] = ['off', 'pointermove', 'click'];
+
+/**
+ * Whether a value is one of the hover modes MAIDR knows.
+ * @param value - The value to check
+ * @returns True for `off`, `pointermove` or `click`
+ */
+export function isHoverMode(value: unknown): value is HoverMode {
+  return HOVER_MODES.includes(value as HoverMode);
+}
+
+/**
+ * Settings a chart's author gives as the chart's own starting values, in place
+ * of MAIDR's defaults.
+ */
+export interface ChartSettingDefaults {
+  /** The chart's `hoverMode`, unchecked: it comes from the page. */
+  hoverMode?: unknown;
+}
+
+/**
+ * The chart's hover mode, if it gave a valid one.
+ * @param value - The chart's `hoverMode`, as the page gave it
+ * @returns The hover mode, or null when absent or invalid
+ */
+function readAuthorHoverMode(value: unknown): HoverMode | null {
+  if (value === undefined) {
+    return null;
+  }
+  if (!isHoverMode(value)) {
+    console.warn(
+      `[SettingsService] Ignoring the chart's hoverMode ${JSON.stringify(value)}: `
+      + `expected one of ${HOVER_MODES.join(', ')}.`,
+    );
+    return null;
+  }
+  return value;
+}
+
 export class SettingsService implements Disposable {
   private readonly storage: StorageService;
   private readonly display: DisplayService;
 
   private readonly defaultSettings: Settings;
   private currentSettings: Settings;
+  /**
+   * The hover mode the chart's author gave, while it stands in for the
+   * reader's: cleared once the reader has a mode of their own, so it is
+   * never written to storage as theirs.
+   */
+  private chartHoverMode: HoverMode | null;
+  /** The hover mode the chart's author gave, if a valid one. */
+  private readonly authorHoverMode: HoverMode | null;
+  /** The hover mode storage holds for the reader, to keep when saving. */
+  private storedHoverMode: HoverMode;
   private observers: Observer<Settings>[];
 
   private readonly onChangeEmitter: Emitter<SettingsChangedEvent>;
   public readonly onChange: Event<SettingsChangedEvent>;
 
-  public constructor(storage: StorageService, display: DisplayService) {
+  /**
+   * @param storage - Where settings are persisted
+   * @param display - The display the settings dialog is shown in
+   * @param chartDefaults - The chart's own starting values, from its schema
+   */
+  public constructor(
+    storage: StorageService,
+    display: DisplayService,
+    chartDefaults: ChartSettingDefaults = {},
+  ) {
     this.storage = storage;
     this.display = display;
     this.observers = [];
@@ -166,7 +224,27 @@ export class SettingsService implements Disposable {
     if (!isLanguageSetting(this.currentSettings.general.language)) {
       this.currentSettings.general.language = DEFAULT_SETTINGS.general.language;
     }
+
+    this.authorHoverMode = readAuthorHoverMode(chartDefaults.hoverMode);
+    const stored = this.currentSettings.general.hoverMode;
+    this.storedHoverMode = isHoverMode(stored) ? stored : DEFAULT_SETTINGS.general.hoverMode;
+    this.chartHoverMode = null;
+    this.applyHoverMode();
     this.applyLanguage();
+  }
+
+  /**
+   * Puts the hover mode in force: the reader's, when they chose one other
+   * than the default, else the chart's, else the default.
+   *
+   * A stored mode equal to the default cannot be told apart from one the
+   * reader never chose, since the whole settings object is saved at once,
+   * so the chart's mode wins over it.
+   */
+  private applyHoverMode(): void {
+    const readerChose = this.storedHoverMode !== DEFAULT_SETTINGS.general.hoverMode;
+    this.chartHoverMode = readerChose ? null : this.authorHoverMode;
+    this.currentSettings.general.hoverMode = this.chartHoverMode ?? this.storedHoverMode;
   }
 
   /**
@@ -191,7 +269,7 @@ export class SettingsService implements Disposable {
     this.currentSettings = newSettings;
     this.applyLanguage();
 
-    this.storage.save(SETTINGS_KEY, this.currentSettings);
+    this.storage.save(SETTINGS_KEY, this.toStored(newSettings));
     this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, newSettings));
     // Notify Observer<Settings> registrants (e.g. Mousebindingservice) so that
     // observer-based consumers such as hover-mode react immediately. This is a
@@ -199,9 +277,30 @@ export class SettingsService implements Disposable {
     this.notifyStateUpdate();
   }
 
+  /**
+   * The settings as they are saved for the reader. While the chart's hover
+   * mode is in force, the reader's own stays in storage, so one chart's
+   * choice does not follow them to every other chart; a mode they pick here
+   * is theirs from then on.
+   * @param settings - The settings in force
+   * @returns The settings to save
+   */
+  private toStored(settings: Settings): Settings {
+    if (this.chartHoverMode === null) {
+      return settings;
+    }
+    if (settings.general.hoverMode !== this.chartHoverMode) {
+      this.chartHoverMode = null;
+      return settings;
+    }
+    return { ...settings, general: { ...settings.general, hoverMode: this.storedHoverMode } };
+  }
+
   public resetSettings(): Settings {
     const oldSettings = this.currentSettings;
-    this.currentSettings = this.defaultSettings;
+    this.currentSettings = structuredClone(this.defaultSettings);
+    this.storedHoverMode = DEFAULT_SETTINGS.general.hoverMode;
+    this.applyHoverMode();
     this.applyLanguage();
 
     this.storage.remove(SETTINGS_KEY);

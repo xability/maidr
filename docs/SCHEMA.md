@@ -177,6 +177,31 @@ applies across all subplots:
   inherently per-trace, so `l z` in the lobby always reports the focused
   subplot's own Z label.
 
+### Pointer Interaction
+
+- `hoverMode` (`"pointermove"`, `"click"` or `"off"`): how the pointer moves the
+  reader's position in the chart, and with it the highlight, sound and
+  announcement. `pointermove`, the default, follows the pointer as it hovers;
+  `click` moves only where the reader clicks; `off` leaves the pointer out of
+  it, so only the keyboard navigates.
+
+  ```javascript
+  var maidr = {
+    id: "quiet_chart",
+    hoverMode: "click",
+    subplots: [ /* ... */ ]
+  };
+  ```
+
+  This is the chart's starting value for the reader's **Hover Mode** setting,
+  not a lock on it. A reader who has picked a mode other than the default in
+  the settings keeps theirs on every chart. A reader who has not sees the
+  chart's mode, and a mode they pick in this chart's settings is saved as
+  theirs from then on; saving any other setting there leaves their own hover
+  mode as it was, so one chart's mode does not follow them to the next.
+  Resetting the settings comes back to the chart's mode. Any other value is
+  ignored with a console warning.
+
 ### Top-Level Properties for Live Charts
 
 The top-level `maidr` object accepts two optional properties for realtime/streaming scenarios (see the [Live & Streaming Data](LIVE_DATA.md) guide):
