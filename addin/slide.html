@@ -63,6 +63,18 @@
         padding: 0.25rem 0;
       }
 
+      /*
+        Keeps the name's first line clear of the menu Office draws over a
+        content add-in's top right corner, up to 34 pixels from the edge on a
+        Mac; the body's own padding clears the rest of it.
+      */
+      [data-maidr-office-anchor]::before {
+        content: '';
+        float: right;
+        height: 1px;
+        width: calc(34px - 0.75rem);
+      }
+
       /* In the text's own colour, which stands out in light and dark alike. */
       [data-maidr-office-view] [tabindex]:focus-visible {
         outline: 3px solid currentColor;
@@ -113,7 +125,7 @@
       const unanswered = setTimeout(() => {
         waiting.textContent =
           'PowerPoint has not answered. MAIDR Chart on Slide works inside PowerPoint: ' +
-          'insert it on a slide with Add-ins on the Insert tab.';
+          'insert it on a slide with Add-ins on the Home tab.';
       }, 10000);
 
       const bind = () => {

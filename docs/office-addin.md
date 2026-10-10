@@ -102,18 +102,20 @@ It is a separate add-in, with a manifest of its own.
 
 Add it in any of the ways under [Install](#install), with this manifest in place of the pane's: upload it in PowerPoint on the web, copy it into PowerPoint's add-ins folder on a Mac, add it from a shared folder catalog on Windows, or have an administrator deploy it from `https://maidr.ai/addin/slide-manifest.xml`. You can have both add-ins.
 
-It puts no button on the ribbon. You insert it on a slide, as below.
+It puts no button on the ribbon. You insert it on a slide, as below. Adding it from a shared folder catalog inserts it at once, on the slide open in PowerPoint, and uploading it in PowerPoint on the web may do the same, so go to the slide with the chart first. That box is then the one to keep.
+
+Each person who opens the presentation and wants to read the chart in the box needs MAIDR Chart on Slide added to their own PowerPoint, as above. The box goes with the presentation, but the add-in does not: without it, PowerPoint cannot run the box, and shows at most the picture of it saved with the presentation, which cannot be explored. They can read the chart in the pane instead.
 
 ### Put it on a slide
 
 1. **Go to the slide with the chart**, in Normal view.
-2. **Insert the add-in.** Select **Insert** > **Add-ins** (in some versions, **Home** > **Add-ins**), and choose **MAIDR Chart on Slide** from your add-ins.
+2. **Insert the add-in.** Select **Home** > **Add-ins**, and choose **MAIDR Chart on Slide** from your add-ins (in older versions, **Insert** > **My Add-ins**).
 3. **Let it find the chart.** The add-in looks at the slide it was inserted on.
    - If the slide has one chart, the add-in reads it at once.
    - If it has several, or none, the add-in asks which chart to read. Choose one from its **Chart** list, which names every chart in the presentation, this slide's first. If the chart is not there yet, insert it on the slide, then choose **Read again**.
 4. **Place it.** Move and size the box beside the chart, or over it. The audience sees the box in the slide show. It shows the chart's title, or, without one, its alternative text or its name.
 
-The add-in keeps which chart it reads in the presentation. Once you save the presentation, it reads the same chart each time you open it. To read another chart, choose it from the **Chart** list.
+The add-in keeps which chart it reads in the presentation. Once you save the presentation, it reads the same chart each time you open it. To read another chart, choose it from the **Chart** list. On Windows, the arrow keys change a closed list's choice directly, so each chart is linked as you reach it; to look through the list first, open it with <kbd>Alt</kbd>+<kbd>Down Arrow</kbd>.
 
 ### Read the chart on the slide
 
@@ -137,7 +139,7 @@ The add-ins do not collect or send your files or your data, and keep nothing of 
   - in Excel, through Office's own add-in interface;
   - in PowerPoint and Word, from the file Office hands the add-in.
   Nothing they read is kept after they close, but for the link below.
-- **MAIDR Chart on Slide keeps its link in the presentation.** Which chart it reads (the chart's slide, its shape and its name) is saved in the presentation, as the add-in's own setting. PowerPoint also saves a picture of the add-in, as it last looked, with the presentation. Both go wherever the file goes.
+- **MAIDR Chart on Slide keeps its link in the presentation.** Which chart it reads (the chart's slide, its shape and its name) is saved in the presentation, as the add-in's own setting. PowerPoint also saves a picture of the add-in, as it last looked, with the presentation: usually the chart's name and the add-in's controls, and any of MAIDR's dialogs left open in it, such as the AI chat with your questions. Both go wherever the file goes.
 - **Your settings stay in the add-in.** MAIDR's settings, such as your sound and braille preferences, are kept in the add-in's browser storage on your device.
 - **No accounts, no analytics, no tracking.**
 - **Loading the add-ins.** Opening the pane, or a slide with MAIDR Chart on Slide, downloads the add-in's pages and MAIDR's scripts from `maidr.ai`, which GitHub Pages serves, and Office's add-in library from Microsoft. Like any web request, these let GitHub and Microsoft see your IP address and browser, under their own privacy statements.

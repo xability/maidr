@@ -33,7 +33,7 @@ const GUID = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/;
  * The order the schema keeps a content add-in's elements in, those it may
  * leave out included. `VersionOverrides` is not among them on purpose: the
  * add-in on the slide has no button, and is inserted from Add-ins on the
- * Insert tab.
+ * Home tab.
  */
 const CONTENT_APP_ORDER = [
   'Id',

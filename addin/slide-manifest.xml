@@ -8,14 +8,17 @@
 
   A separate add-in from the task pane's (manifest.xml), with an Id of its
   own: one manifest describes a task pane add-in or a content add-in, never
-  both. It has no ribbon button. It is inserted on a slide from Insert >
-  Add-ins, and RequestedWidth and RequestedHeight are the size it starts at.
+  both. It has no ribbon button. It is inserted on a slide from Home >
+  Add-ins (Insert > My Add-ins in older versions), and RequestedWidth and
+  RequestedHeight are the size it starts at.
 
-  Every URL is on https://maidr.ai/addin/, where the documentation site
-  serves this folder (scripts/build-site.js). The page loads MAIDR from the
-  same site's dist/ and calls maidrOffice.bindSlideChart, which reads the
-  chart from the presentation file and keeps which chart it reads as one of
-  the add-in's settings, in the presentation.
+  Every URL is on https://maidr.ai/: the page and the icons are under
+  /addin/, where the documentation site serves this folder
+  (scripts/build-site.js), and the support page is the users' guide. The page
+  loads MAIDR from the same site's dist/ and calls
+  maidrOffice.bindSlideChart, which reads the chart from the presentation
+  file and keeps which chart it reads as one of the add-in's settings, in the
+  presentation.
 
   ReadWriteDocument, although the add-in changes nothing on the slides:
   reading the file (Document.getFileAsync) takes ReadAllDocument, and
@@ -24,9 +27,12 @@
 
   AllowSnapshot, which is Office's default, saves a picture of the add-in
   with the presentation, so a PowerPoint that cannot run it shows what it
-  last showed rather than an empty box. The picture holds nothing private:
-  the chart's label and the add-in's controls name only what the file holds
-  anyway.
+  last showed rather than an empty box. The picture is whatever the box
+  showed last: usually the chart's name and the add-in's controls, which name
+  only what the file holds anyway, but it can hold one of MAIDR's dialogs
+  left open there, such as the AI chat with the reader's questions, as
+  Microsoft warns (AllowSnapshot in the manifest reference). The users'
+  guide's privacy section says so.
 
   Change the Version whenever this file changes, as Office and the Microsoft
   Marketplace require. Keep the Id: it is the add-in's identity everywhere it

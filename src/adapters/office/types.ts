@@ -85,16 +85,20 @@ export interface OfficeDocument {
     options: { readonly sliceSize: number },
     callback: (result: OfficeAsyncResult<OfficeFile>) => void,
   ) => void;
-  /** Register a handler for a document event, such as `documentSelectionChanged`. */
+  /**
+   * Register a handler for a document event, such as `documentSelectionChanged`.
+   * Office.js hands the handler the event's arguments. They are optional
+   * here, so a stand-in for Office.js may call the handler with none.
+   */
   addHandlerAsync?: (
     eventType: string,
-    handler: (event: OfficeEventArgs) => void,
+    handler: (event?: OfficeEventArgs) => void,
     callback?: (result: OfficeAsyncResult<void>) => void,
   ) => void;
   /** Remove a handler registered by `addHandlerAsync`. */
   removeHandlerAsync?: (
     eventType: string,
-    options: { readonly handler: (event: OfficeEventArgs) => void },
+    options: { readonly handler: (event?: OfficeEventArgs) => void },
     callback?: (result: OfficeAsyncResult<void>) => void,
   ) => void;
   /**

@@ -12,10 +12,12 @@
  *
  * What it does, and when:
  *
- * - **Linking.** With no chart linked, the add-in reads the slide selected,
- *   which is the one it was just inserted on. One chart there is linked, and
- *   the link saved. Otherwise it asks which chart, with a picker of every
- *   chart in the presentation, that slide's first.
+ * - **Linking.** With no chart linked, the add-in opening in Normal view reads
+ *   the slide selected, which is the one it was just inserted on. One chart
+ *   there is linked, and the link saved. Otherwise it asks which chart, with a
+ *   picker of every chart in the presentation, that slide's first. Opening in
+ *   the slide show, it asks nothing: the slide selected there says nothing of
+ *   where the add-in is.
  * - **Normal view** (`edit`) shows the figure, then the picker and a button
  *   that reads the file again. PowerPoint says nothing when a chart's data is
  *   edited, so a chart edited in place is read again when the author asks.
@@ -34,7 +36,7 @@
  * <script src="https://officeapis.public.onecdn.static.microsoft/1/office.js"></script>
  * <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
  * <script src="https://cdn.jsdelivr.net/npm/maidr/dist/office.js"></script>
- * <main id="maidr" aria-label="Chart"></main>
+ * <main id="maidr" aria-label="Accessible chart"></main>
  * <script>
  *   Office.onReady(() => maidrOffice.bindSlideChart(document.getElementById('maidr')));
  * </script>
@@ -291,9 +293,9 @@ function officeCall<T>(what: string, start: (callback: (result: OfficeAsyncResul
  * offers on the web, on Windows, on Mac and on iPad, and unzipped with the
  * browser's `DecompressionStream`. The link is kept in `Document.settings`;
  * the view is asked of `Document.getActiveViewAsync` and followed through
- * `activeViewChanged`, and the slide the add-in is on of
- * `Document.getSelectedDataAsync`. Without any of those three, it does
- * without: no link kept, Normal view, or a picker to link a chart from.
+ * `activeViewChanged`, and, as it opens in Normal view, the slide the add-in
+ * is on of `Document.getSelectedDataAsync`. Without any of those three, it
+ * does without: no link kept, Normal view, or a picker to link a chart from.
  *
  * @param container - The element the add-in goes in. A wrapper is appended to it.
  * @param options - Where Office.js is, and what the add-in says.
@@ -322,12 +324,15 @@ export async function bindSlideChart(container: HTMLElement, options: SlideChart
   let disposed = false;
   // The charts as last read, each with its reading.
   let charts: OfficeChart[] = [];
+  // Whether the last read of the file succeeded: until one has, `charts` says
+  // nothing of the presentation.
+  let readOk = false;
   // The chart linked, and whether the presentation has it saved.
   let link: SlideChartLink | null = null;
   let saved = true;
   // The slide the add-in is on, as far as it is known: its chart's, or else
-  // the one selected as it opened. A chart alone there is linked when none
-  // is, and the picker offers this slide's charts first.
+  // the one selected as it opened in Normal view. A chart alone there is
+  // linked when none is, and the picker offers this slide's charts first.
   let home: string | null = null;
   // Saves run one at a time, each saving the link as it is then.
   let saving: Promise<void> = Promise.resolve();
@@ -449,8 +454,13 @@ export async function bindSlideChart(container: HTMLElement, options: SlideChart
   };
 
   // Show the chart linked. With none linked, link the one chart on the
-  // add-in's slide, or ask which.
+  // add-in's slide, or ask which. Until a read has succeeded, the figure area
+  // keeps saying the chart is being read, or could not be: the read under way,
+  // or the next, places the chart.
   async function place(): Promise<void> {
+    if (!readOk) {
+      return;
+    }
     let current = link;
     if (current === null) {
       const onSlide = charts.filter(chart => home !== null && chart.slideId === home);
@@ -470,11 +480,14 @@ export async function bindSlideChart(container: HTMLElement, options: SlideChart
     await save();
   }
 
-  async function readAll(): Promise<boolean> {
+  // Read the file. The polite status line says so only of a read the author
+  // asked for: the add-in reads by itself as it opens, wherever PowerPoint
+  // shows it, and as the slide show starts, and says nothing of those.
+  async function readAll(announce: boolean): Promise<boolean> {
     if (office === undefined) {
       return false;
     }
-    state = { ...state, progress: labels.reading };
+    state = { ...state, progress: announce ? labels.reading : '' };
     render();
     try {
       const read = await readPowerPointCharts(office);
@@ -482,22 +495,24 @@ export async function bindSlideChart(container: HTMLElement, options: SlideChart
         return false;
       }
       charts = read;
-      state = { ...state, charts: infos(), progress: labels.read.replace('{count}', String(read.length)) };
+      readOk = true;
+      state = { ...state, charts: infos(), progress: announce ? labels.read.replace('{count}', String(read.length)) : '' };
       render();
       return true;
     } catch (error: unknown) {
       warn('could not read the presentation.', error);
+      readOk = false;
       state = { ...state, progress: '' };
       showStatus(labels.readFailed);
       return false;
     }
   }
 
-  async function refresh(): Promise<void> {
+  async function refresh(announce = true): Promise<void> {
     if (disposed || !state.readable) {
       return;
     }
-    if (await readAll()) {
+    if (await readAll(announce)) {
       await place();
     }
   }
@@ -525,15 +540,16 @@ export async function bindSlideChart(container: HTMLElement, options: SlideChart
     state = { ...state, view };
     render();
     if (view === 'read') {
-      await refresh();
+      await refresh(false);
     } else {
       await place();
     }
   }
 
-  const onViewChanged = (event: OfficeEventArgs): void => {
-    if (event.activeView === 'edit' || event.activeView === 'read') {
-      void enter(event.activeView);
+  const onViewChanged = (event?: OfficeEventArgs): void => {
+    const view = event?.activeView;
+    if (view === 'edit' || view === 'read') {
+      void enter(view);
     } else {
       void activeView().then(enter);
     }
@@ -548,10 +564,17 @@ export async function bindSlideChart(container: HTMLElement, options: SlideChart
     }
     const added = await officeCall<void>(`Document.addHandlerAsync(${VIEW_CHANGED})`, callback => add.call(file, VIEW_CHANGED, onViewChanged, callback));
     const remove = file.removeHandlerAsync;
-    if (added !== undefined && remove !== undefined) {
-      removeViewHandler = async () => {
-        await officeCall<void>('Document.removeHandlerAsync', callback => remove.call(file, VIEW_CHANGED, { handler: onViewChanged }, callback));
-      };
+    if (added === undefined || remove === undefined) {
+      return;
+    }
+    const removeHandler = async (): Promise<void> => {
+      await officeCall<void>('Document.removeHandlerAsync', callback => remove.call(file, VIEW_CHANGED, { handler: onViewChanged }, callback));
+    };
+    if (disposed) {
+      // Disposed while the handler was being registered.
+      await removeHandler();
+    } else {
+      removeViewHandler = removeHandler;
     }
   };
 
@@ -569,7 +592,7 @@ export async function bindSlideChart(container: HTMLElement, options: SlideChart
       return state.view;
     },
     link: linkChart,
-    refresh,
+    refresh: () => refresh(),
     dispose: async (): Promise<void> => {
       if (disposed) {
         return;
@@ -600,13 +623,23 @@ export async function bindSlideChart(container: HTMLElement, options: SlideChart
     return binding;
   }
   link = savedLink();
-  home = link?.slideId ?? await selectedSlide();
-  state = { ...state, view: await activeView(), readable: true };
+  // Follow the view before asking which it is, so a change while the handler
+  // is being registered is in the answer, and one after it reaches the handler.
+  await listen();
   if (disposed) {
     return binding;
   }
-  await listen();
-  if (await readAll()) {
+  const view = await activeView();
+  state = { ...state, view };
+  // The slide selected is the add-in's own only as it opens in Normal view,
+  // just after it is inserted; in the slide show it says nothing of where the
+  // add-in is, so none is linked from it there.
+  home = link?.slideId ?? (view === 'edit' ? await selectedSlide() : null);
+  if (disposed) {
+    return binding;
+  }
+  state = { ...state, readable: true };
+  if (await readAll(false)) {
     await place();
   }
   return binding;

@@ -624,11 +624,11 @@ if (fs.existsSync(examplesSource)) {
 
 // Copy the Office add-ins MAIDR publishes to _site/addin/: the task pane
 // (manifest.xml, taskpane.html and commands.html), the add-in on the slide
-// (slide-manifest.xml and slide.html), and their icons. Every URL in either
-// manifest is under the production site's /addin/, so this is where Office
-// loads them from, and both pages load MAIDR from the dist/ copied above. The
-// README is for the repository, not the site.
-console.log('Copying the Office add-in...');
+// (slide-manifest.xml and slide.html), and their icons. Both manifests point
+// Office at the production site's /addin/ for their pages and icons, so this
+// is where Office loads them from, and both pages load MAIDR from the dist/
+// copied above. The README is for the repository, not the site.
+console.log('Copying the Office add-ins...');
 const addinSource = path.join(ROOT, 'addin');
 if (fs.existsSync(addinSource)) {
   fs.cpSync(addinSource, path.join(SITE_DIR, 'addin'), {

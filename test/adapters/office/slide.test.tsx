@@ -8,8 +8,9 @@ import type { ReactNode } from 'react';
 import { DecompressionStream, ReadableStream } from 'node:stream/web';
 import { TextDecoder, TextEncoder } from 'node:util';
 import { bindSlideChart } from '@adapters/office/slide';
-import { waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
+import { axIds, catAx, chartSpace, numRef, ser, strRef, valAx } from './chartXml';
 import { FakeOffice } from './fakeOffice';
 import { CHART_TYPE, columnChart, deck, DOCUMENT_TYPE, frame, NS, rels, slide, SLIDE_TYPE } from './officeFiles';
 import { zipFiles } from './zipFixture';
@@ -133,6 +134,28 @@ const picker = (): HTMLSelectElement | null => container.querySelector('select')
 const options = (): (string | null)[] => Array.from(picker()?.options ?? []).map(option => option.textContent);
 const refreshButton = (): HTMLButtonElement | null => container.querySelector('[data-maidr-office-refresh]');
 const status = (): HTMLElement | null => container.querySelector('[data-maidr-office-status]');
+const progress = (): HTMLElement | null => container.querySelector('[data-maidr-office-progress]');
+
+/**
+ * Every text `read` gives as the add-in changes, from now on: what a screen
+ * reader following a live region could have heard.
+ */
+function record(read: () => string | null | undefined): string[] {
+  const seen: string[] = [];
+  const note = (): void => {
+    const text = read() ?? '';
+    if (seen.at(-1) !== text) {
+      seen.push(text);
+    }
+  };
+  note();
+  new MutationObserver(note).observe(container, { subtree: true, childList: true, characterData: true });
+  return seen;
+}
+
+const LOADING = 'Reading the chart…';
+const NO_CHARTS = 'This presentation has no charts to read. Insert a chart, then choose Read again.';
+const READ_FAILED = 'MAIDR could not read the chart.';
 const shownValues = (binding: SlideChartBinding): unknown => binding.maidr?.subplots[0][0].layers[0].data;
 
 async function choose(chartId: string): Promise<void> {
@@ -156,6 +179,8 @@ describe('bindSlideChart', () => {
     expect(shownValues(binding)).toEqual([{ x: 'A', y: 80 }, { x: 'B', y: 95 }]);
     expect(office.savedSettings).toEqual({ [LINK]: { slideId: '257', shapeId: '4', name: 'Chart 4' } });
     expect(container.querySelector('[data-maidr-office-anchor]')?.textContent).toBe('Costs');
+    // The figure is named by the chart, which MAIDR's plot inside it is not.
+    expect(screen.getByRole('group', { name: 'Costs' }).contains(container.querySelector('[data-plot]'))).toBe(true);
     // The figure first, so the first Tab reaches it; then this slide's charts first.
     const parts = Array.from(container.firstElementChild?.children ?? []);
     expect(parts.map(part => part.getAttributeNames()[0])).toEqual([
@@ -236,12 +261,39 @@ describe('bindSlideChart', () => {
     expect(office.fileReads).toBe(2);
   });
 
-  it('should save a chart linked in the slide show once Normal view is back', async () => {
+  it('should not take the slide selected in the slide show for its own', async () => {
     const bytes = await twoSlides();
     const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes, activeView: 'read' });
     office.selectedSlides = [{ id: 256, title: 'Sales', index: 1 }];
     const binding = await mount(office);
-    expect(binding.chart?.label).toBe('Slide 1: Sales');
+    expect(binding.chart).toBeNull();
+    expect(status()?.textContent).toBe('No chart is linked to this add-in. Link one in Normal view.');
+
+    await act(async () => {
+      office.changeView('edit');
+    });
+    await settle();
+
+    expect(binding.chart).toBeNull();
+    expect(status()?.textContent).toBe('Choose the chart this add-in reads.');
+    expect(options()).toEqual(['Choose a chart', 'Slide 1: Sales', 'Slide 2: Costs']);
+    expect(office.saves).toBe(0);
+  });
+
+  it('should save a chart linked in the slide show once Normal view is back', async () => {
+    let bytes = await presentation([[], [[4, 'Chart 4', columnChart('Costs')]]]);
+    const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes });
+    office.selectedSlides = [{ id: 256, title: '', index: 1 }];
+    const binding = await mount(office);
+    expect(status()?.textContent).toBe('Choose the chart this add-in reads.');
+    bytes = await presentation([[[6, 'Chart 5', columnChart('New')]], [[4, 'Chart 4', columnChart('Costs')]]]);
+
+    await act(async () => {
+      office.changeView('read');
+    });
+
+    await waitFor(() => expect(binding.chart?.label).toBe('Slide 1: New'));
+    await settle();
     expect(office.saves).toBe(0);
 
     await act(async () => {
@@ -249,7 +301,7 @@ describe('bindSlideChart', () => {
     });
     await settle();
 
-    expect(office.savedSettings).toEqual({ [LINK]: { slideId: '256', shapeId: '4', name: 'Chart 3' } });
+    expect(office.savedSettings).toEqual({ [LINK]: { slideId: '256', shapeId: '6', name: 'Chart 5' } });
   });
 
   it('should say no chart is linked in the slide show when its slide has several', async () => {
@@ -365,6 +417,31 @@ describe('bindSlideChart', () => {
     expect(shownValues(binding)).toEqual([{ x: 'A', y: 120 }, { x: 'B', y: 135 }]);
   });
 
+  it('should try a failed save again the next time the chart is shown', async () => {
+    const bytes = await twoSlides();
+    const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes, saveFails: true });
+    office.selectedSlides = [{ id: 256, title: 'Sales', index: 1 }];
+    const binding = await mount(office);
+    expect(office.saves).toBe(1);
+
+    await act(async () => binding.refresh());
+    await settle();
+
+    expect(office.saves).toBe(2);
+  });
+
+  it('should show the chart, and keep it linked while open, where PowerPoint keeps no settings', async () => {
+    const bytes = await twoSlides();
+    const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes, noSettings: true });
+    office.selectedSlides = [{ id: 256, title: 'Sales', index: 1 }];
+
+    const binding = await mount(office);
+
+    expect(binding.chart?.label).toBe('Slide 1: Sales');
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/keeps no settings for add-ins/));
+    expect(office.saves).toBe(0);
+  });
+
   it('should take Normal view when PowerPoint cannot say which view is open', async () => {
     const bytes = await twoSlides();
     const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes, activeView: null });
@@ -437,6 +514,143 @@ describe('bindSlideChart', () => {
 
     expect(status()).not.toBeNull();
     expect(document.activeElement).toBe(refreshButton());
+  });
+
+  it('should say the file could not be read, in either view, and offer Read again in Normal view', async () => {
+    const office = new FakeOffice({ host: 'PowerPoint', fileFails: true, settings: { [LINK]: { slideId: '256', shapeId: '4', name: 'Chart 3' } } });
+    await mount(office);
+    expect(status()?.textContent).toBe(READ_FAILED);
+    expect(refreshButton()).not.toBeNull();
+    const said = record(() => status()?.textContent);
+
+    await act(async () => {
+      office.changeView('read');
+    });
+    await settle();
+    await act(async () => {
+      office.changeView('edit');
+    });
+    await settle();
+
+    expect(office.fileReads).toBe(2);
+    expect(said).toEqual([READ_FAILED]);
+    expect(refreshButton()).not.toBeNull();
+  });
+
+  it('should keep saying it could not read when Normal view comes back after a failed read', async () => {
+    const office = new FakeOffice({ host: 'PowerPoint', fileFails: true, activeView: 'read', settings: { [LINK]: { slideId: '256', shapeId: '4', name: 'Chart 3' } } });
+    await mount(office);
+    expect(status()?.textContent).toBe(READ_FAILED);
+
+    await act(async () => {
+      office.changeView('edit');
+    });
+    await settle();
+
+    expect(status()?.textContent).toBe(READ_FAILED);
+    expect(refreshButton()).not.toBeNull();
+  });
+
+  it('should keep saying it is reading when PowerPoint changes views during the first read', async () => {
+    const bytes = await twoSlides();
+    const office: FakeOffice = new FakeOffice({
+      host: 'PowerPoint',
+      activeView: 'read',
+      settings: { [LINK]: { slideId: '256', shapeId: '4', name: 'Chart 3' } },
+      // The slide show ends as the file is handed over.
+      file: () => {
+        if (office.activeView === 'read') {
+          office.changeView('edit');
+        }
+        return bytes;
+      },
+    });
+    const said = record(() => status()?.textContent ?? container.querySelector('[data-maidr-office-anchor]')?.textContent);
+
+    const binding = await mount(office);
+
+    expect(binding.view).toBe('edit');
+    expect(binding.chart?.label).toBe('Slide 1: Sales');
+    expect(said).not.toContain(NO_CHARTS);
+    expect(said.filter(text => text !== '')).toEqual([LOADING, 'Sales']);
+  });
+
+  it('should follow a change of view made just after it asked which view is open', async () => {
+    const bytes = await twoSlides();
+    const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes, settings: { [LINK]: { slideId: '256', shapeId: '4', name: 'Chart 3' } } });
+    office.viewAsked = () => {
+      office.viewAsked = null;
+      setTimeout(() => office.changeView('read'), 0);
+    };
+
+    const binding = await mount(office);
+
+    expect(binding.view).toBe('read');
+    expect(refreshButton()).toBeNull();
+    expect(binding.chart?.label).toBe('Slide 1: Sales');
+  });
+
+  it('should ask which view is open when the view event does not say', async () => {
+    const bytes = await twoSlides();
+    const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes, settings: { [LINK]: { slideId: '256', shapeId: '4', name: 'Chart 3' } } });
+    const binding = await mount(office);
+
+    await act(async () => {
+      office.changeView('read', { say: false });
+    });
+    await settle();
+
+    expect(binding.view).toBe('read');
+    expect(refreshButton()).toBeNull();
+  });
+
+  it('should read the chart as it opens where PowerPoint cannot say when the view changes', async () => {
+    const bytes = await twoSlides();
+    const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes, noEvents: true, settings: { [LINK]: { slideId: '256', shapeId: '4', name: 'Chart 3' } } });
+
+    const binding = await mount(office);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/cannot say when the slide show starts/));
+    expect(binding.chart?.label).toBe('Slide 1: Sales');
+    expect(refreshButton()).not.toBeNull();
+  });
+
+  it('should say nothing of the read it makes as it opens, and say what Read again found', async () => {
+    const bytes = await twoSlides();
+    const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes });
+    office.selectedSlides = [{ id: 256, title: 'Sales', index: 1 }];
+    const said = record(() => progress()?.textContent);
+    const binding = await mount(office);
+    expect(binding.chart?.label).toBe('Slide 1: Sales');
+    expect(progress()?.textContent).toBe('');
+    expect(said.filter(text => text !== '')).toEqual([]);
+
+    await act(async () => {
+      refreshButton()?.click();
+    });
+
+    await waitFor(() => expect(progress()?.textContent).toBe('Charts read: 2.'));
+    expect(said.filter(text => text !== '')).toEqual(['Reading the charts…', 'Charts read: 2.']);
+  });
+
+  it('should describe the figure by its note when a series is left out', async () => {
+    const bar = ser({ idx: 0, name: 'Sales', cat: strRef(['A', 'B']), val: numRef([1, 2]) });
+    // A pie of pie reads only as a chart of its own, so the combo is read without it.
+    const pie = ser({ idx: 1, name: 'Share', cat: strRef(['A', 'B']), val: numRef([3, 4]) });
+    const bytes = await deck([{
+      name: 'Chart 3',
+      part: chartSpace(`<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/>${bar}${axIds(1, 2)}</c:barChart>`
+        + `<c:ofPieChart><c:ofPieType val="pie"/><c:varyColors val="1"/>${pie}<c:splitType val="auto"/></c:ofPieChart>`
+        + `${catAx({ id: 1, cross: 2 })}${valAx({ id: 2, cross: 1 })}`, { title: 'Mixed' }),
+    }]);
+    const office = new FakeOffice({ host: 'PowerPoint', file: () => bytes, settings: { [LINK]: { slideId: '256', shapeId: '4', name: 'Chart 3' } } });
+
+    await mount(office);
+
+    const group = screen.getByRole('group', { name: 'Mixed' });
+    const note = document.getElementById(group.getAttribute('aria-describedby') ?? '');
+    expect(note?.textContent).toMatch(/^MAIDR reads this chart without "Share"/);
+    expect(group.contains(note)).toBe(true);
   });
 
   it('should stop following the view when disposed', async () => {

@@ -239,16 +239,27 @@ export function ChartPicker({ charts, selected, labels, onPick }: ChartPickerPro
 /**
  * The figure area: MAIDR's figure, under a note when the chart is read in
  * part, or a focusable status message. Shared with the slide's add-in.
+ *
+ * MAIDR's plot is named by its instructions, and its visible label is inside
+ * it, where a screen reader does not read it. So the figure area is a group
+ * named by the label, and described by the note: a reader moving into the
+ * figure hears which chart it is, and what it leaves out, before MAIDR's
+ * instructions.
  */
 export function FigureArea({ view }: { readonly view: FigureView }): JSX.Element {
+  const labelId = useId();
+  const noteId = useId();
+  const group = view.kind === 'figure'
+    ? { 'role': 'group', 'aria-labelledby': labelId, ...(view.note === undefined ? {} : { 'aria-describedby': noteId }) }
+    : {};
   return (
-    <div data-maidr-office-view="">
+    <div data-maidr-office-view="" {...group}>
       {view.kind === 'figure'
         ? (
             <>
-              {view.note !== undefined && <p data-maidr-office-note="" role="status">{view.note}</p>}
+              {view.note !== undefined && <p data-maidr-office-note="" id={noteId} role="status">{view.note}</p>}
               <MaidrComponent data={view.maidr}>
-                <div data-maidr-office-anchor="">{view.label}</div>
+                <div data-maidr-office-anchor="" id={labelId}>{view.label}</div>
               </MaidrComponent>
             </>
           )

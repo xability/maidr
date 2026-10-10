@@ -154,6 +154,9 @@ function zip(parts: Record<string, string>): number[] {
 
 const PRESENTATION = zip(PARTS);
 
+/** The presentation once Sales has been edited, to 150 and 165. */
+const EDITED = zip({ ...PARTS, 'ppt/charts/chart1.xml': columnChart('Sales', [150, 165]) });
+
 /** What the stand-in starts with. */
 interface StandIn {
   /** What PowerPoint has open. Default `edit`, Normal view. */
@@ -166,14 +169,14 @@ interface StandIn {
 
 /**
  * A stand-in for Office.js in PowerPoint, serving {@link PRESENTATION}. It
- * puts `window.fakeOffice` on the page, for the test to change the view and
- * see what the add-in saved.
+ * puts `window.fakeOffice` on the page, for the test to change the view, hand
+ * over an edited presentation, and see what the add-in saved.
  */
 function fakeOfficeJs({ view = 'edit', selected = [], settings = {} }: StandIn = {}): string {
   return `
     const succeeded = value => ({ status: 'succeeded', value });
     const info = { host: 'PowerPoint', platform: 'PC' };
-    const bytes = new Uint8Array(${JSON.stringify(PRESENTATION)});
+    let bytes = new Uint8Array(${JSON.stringify(PRESENTATION)});
     const handlers = new Set();
     const memory = ${JSON.stringify(settings)};
     const fake = {
@@ -184,6 +187,9 @@ function fakeOfficeJs({ view = 'edit', selected = [], settings = {} }: StandIn =
       changeView(view) {
         fake.view = view;
         handlers.forEach(handler => handler({ type: 'activeViewChanged', activeView: view }));
+      },
+      serve(next) {
+        bytes = new Uint8Array(next);
       },
     };
     window.fakeOffice = fake;
@@ -283,6 +289,11 @@ async function changeView(page: Page, view: 'edit' | 'read'): Promise<void> {
   await page.evaluate(to => (window as unknown as { fakeOffice: { changeView: (view: string) => void } }).fakeOffice.changeView(to), view);
 }
 
+/** Hand over another presentation from now on, as editing a chart would leave it. */
+async function serve(page: Page, bytes: readonly number[]): Promise<void> {
+  await page.evaluate(next => (window as unknown as { fakeOffice: { serve: (bytes: readonly number[]) => void } }).fakeOffice.serve(next), bytes);
+}
+
 /** The add-in's figure area: MAIDR's figure, or a message. */
 function view(page: Page): Locator {
   return page.locator('#maidr [data-maidr-office-view]');
@@ -293,8 +304,9 @@ function plot(page: Page): Locator {
   return view(page).locator('[tabindex="0"]').first();
 }
 
+/** The Chart list, by its label; exactly, as the figure is a group named by its chart. */
 function picker(page: Page): Locator {
-  return page.locator('#maidr').getByLabel('Chart');
+  return page.locator('#maidr').getByLabel('Chart', { exact: true });
 }
 
 function readAgain(page: Page): Locator {
@@ -332,6 +344,8 @@ test.describe('The published Office add-in on the slide (addin/slide.html)', () 
     await expect(page.locator('#maidr-waiting')).toHaveCount(0);
 
     await tabIntoFigure(page);
+    // The figure is a group named by the chart, which MAIDR's plot is not.
+    await expect(view(page).and(page.getByRole('group', { name: 'Sales', exact: true })).locator('[role="application"]')).toBeFocused();
     await page.keyboard.press('ArrowRight');
     await waitForText(page, 'Quarter is Q1, Sales is 120');
     await page.keyboard.press('ArrowRight');
@@ -367,15 +381,19 @@ test.describe('The published Office add-in on the slide (addin/slide.html)', () 
 
   test('reads the file again as the slide show starts, and brings the controls back after it', async ({ page }) => {
     await open(page, { selected: [256] });
+    await expect(view(page).locator('[data-maidr-office-anchor]')).toHaveText('Sales');
     await expect(readAgain(page)).toBeVisible();
-    await expect.poll(async () => (await seen(page)).reads).toBe(1);
+    expect((await seen(page)).reads).toBe(1);
+    await serve(page, EDITED);
 
     await changeView(page, 'read');
 
     await expect(readAgain(page)).toHaveCount(0);
     await expect(page.locator('#maidr select')).toHaveCount(0);
     await expect.poll(async () => (await seen(page)).reads).toBe(2);
-    await expect(view(page).locator('[data-maidr-office-anchor]')).toHaveText('Sales');
+    await tabIntoFigure(page);
+    await page.keyboard.press('ArrowRight');
+    await waitForText(page, 'Quarter is Q1, Sales is 150');
 
     await changeView(page, 'edit');
 
@@ -392,7 +410,7 @@ test.describe('The published Office add-in on the slide (addin/slide.html)', () 
     const waiting = page.locator('#maidr').getByRole('status');
     await expect(waiting).toHaveText('Connecting to PowerPoint…');
     await page.clock.runFor(10000);
-    await expect(waiting).toHaveText(/^PowerPoint has not answered\. .*Add-ins on the Insert tab\.$/);
+    await expect(waiting).toHaveText(/^PowerPoint has not answered\. .*Add-ins on the Home tab\.$/);
   });
 
   test('says it found no PowerPoint when Office.js cannot load', async ({ page }) => {

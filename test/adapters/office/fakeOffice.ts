@@ -52,23 +52,29 @@ export interface FakeOfficeOptions {
   readonly fileFails?: boolean;
   /** The add-in's settings, as the file keeps them. */
   readonly settings?: Readonly<Record<string, unknown>>;
+  /** Leave out `Document.settings`. */
+  readonly noSettings?: boolean;
   /** Make `Settings.saveAsync` fail. */
   readonly saveFails?: boolean;
   /** The view open, `edit` or `read`; `null` leaves out `getActiveViewAsync`. Default `edit`. */
   readonly activeView?: string | null;
   /** Leave out `getSelectedDataAsync`. */
   readonly noSelection?: boolean;
+  /** Leave out `addHandlerAsync` and `removeHandlerAsync`. */
+  readonly noEvents?: boolean;
 }
 
 /** The `Office` namespace, with handles a test drives it by. */
 export class FakeOffice implements OfficeAppHost {
   readonly context: NonNullable<OfficeAppHost['context']>;
   /** The selection handlers registered, in order. */
-  readonly selectionHandlers: ((event: OfficeEventArgs) => void)[] = [];
+  readonly selectionHandlers: ((event?: OfficeEventArgs) => void)[] = [];
   /** The view handlers registered, in order. */
-  readonly viewHandlers: ((event: OfficeEventArgs) => void)[] = [];
+  readonly viewHandlers: ((event?: OfficeEventArgs) => void)[] = [];
   /** The view open, `edit` or `read`. */
   activeView: string;
+  /** Called once `getActiveViewAsync` has answered: a test's way to change the view just after. */
+  viewAsked: (() => void) | null = null;
   /** The slides selected, as `getSelectedDataAsync('slideRange')` gives them. */
   selectedSlides: OfficeSlideRangeSlide[] = [];
   /** The add-in's settings, as `set` left them. */
@@ -90,29 +96,44 @@ export class FakeOffice implements OfficeAppHost {
     for (const [name, value] of Object.entries(options.settings ?? {})) {
       this.settingValues.set(name, value);
     }
-    const handlers = (eventType: string): ((event: OfficeEventArgs) => void)[] =>
+    const handlers = (eventType: string): ((event?: OfficeEventArgs) => void)[] =>
       eventType === 'activeViewChanged' ? this.viewHandlers : this.selectionHandlers;
     const document: NonNullable<OfficeAppHost['context']>['document'] = {
-      addHandlerAsync: (eventType, handler, callback) => {
-        if (eventType === 'documentSelectionChanged' || eventType === 'activeViewChanged') {
-          handlers(eventType).push(handler);
-        }
-        callback?.(succeeded(undefined));
-      },
-      removeHandlerAsync: (eventType, { handler }, callback) => {
-        const registered = handlers(eventType);
-        const at = registered.indexOf(handler);
-        if (at >= 0) {
-          registered.splice(at, 1);
-        }
-        callback?.(succeeded(undefined));
-      },
-      settings: this.settings(),
+      ...(options.noEvents === true
+        ? {}
+        : {
+            // Registered as the real one registers a handler: once the call
+            // has gone to the host and come back.
+            addHandlerAsync: (eventType: string, handler: (event?: OfficeEventArgs) => void, callback?: (result: OfficeAsyncResult<void>) => void) => {
+              setTimeout(() => {
+                if (eventType === 'documentSelectionChanged' || eventType === 'activeViewChanged') {
+                  handlers(eventType).push(handler);
+                }
+                callback?.(succeeded(undefined));
+              }, 0);
+            },
+            removeHandlerAsync: (
+              eventType: string,
+              { handler }: { readonly handler: (event?: OfficeEventArgs) => void },
+              callback?: (result: OfficeAsyncResult<void>) => void,
+            ) => {
+              const registered = handlers(eventType);
+              const at = registered.indexOf(handler);
+              if (at >= 0) {
+                registered.splice(at, 1);
+              }
+              callback?.(succeeded(undefined));
+            },
+          }),
+      ...(options.noSettings === true ? {} : { settings: this.settings() }),
       ...(options.activeView === null
         ? {}
         : {
             getActiveViewAsync: (callback: (result: OfficeAsyncResult<string>) => void) => {
-              setTimeout(() => callback(succeeded(this.activeView)), 0);
+              setTimeout(() => {
+                callback(succeeded(this.activeView));
+                this.viewAsked?.();
+              }, 0);
             },
           }),
       ...(options.noSelection === true
@@ -149,11 +170,14 @@ export class FakeOffice implements OfficeAppHost {
     }
   }
 
-  /** Switch views, as starting or ending the slide show would, and fire the view event. */
-  changeView(view: 'edit' | 'read'): void {
+  /**
+   * Switch views, as starting or ending the slide show would, and fire the
+   * view event; with `say: false`, an event that does not say which view.
+   */
+  changeView(view: 'edit' | 'read', { say = true }: { readonly say?: boolean } = {}): void {
     this.activeView = view;
     for (const handler of [...this.viewHandlers]) {
-      handler({ type: 'activeViewChanged', activeView: view });
+      handler(say ? { type: 'activeViewChanged', activeView: view } : { type: 'activeViewChanged' });
     }
   }
 

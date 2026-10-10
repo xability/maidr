@@ -31,9 +31,12 @@ async function waitForText(page: Page, expected: string): Promise<void> {
   );
 }
 
-/** The task pane's chart picker, found by its label. */
+/**
+ * The task pane's chart picker, found by its label. Exactly: the figure is a
+ * group named by its chart, such as `Chart 1: Sales by quarter`.
+ */
 function picker(page: Page): Locator {
-  return page.locator('#taskpane').getByLabel('Chart');
+  return page.locator('#taskpane').getByLabel('Chart', { exact: true });
 }
 
 /** MAIDR's plot element, whichever role it has at the moment. */
