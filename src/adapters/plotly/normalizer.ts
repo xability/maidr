@@ -61,14 +61,18 @@ export function normalizePlotlySvg(
   svg: SVGSVGElement,
   schema: Maidr,
 ): void {
-  // Resolve the plotly container for scoped queries.
+  // Every lookup below stays inside this chart, never the page: another
+  // chart's modebar, text and clicks are not this one's to change. A
+  // `main-svg` outside a graph div still sits in Plotly's `.svg-container`,
+  // which holds its modebar and overlay layers.
   const plotlyDiv = svg.closest('.js-plotly-plot') as HTMLElement | null;
+  const container = plotlyDiv ?? svg.closest<HTMLElement>('.svg-container');
 
   wrapSubplotBackgrounds(svg, schema);
   injectPlotlyStyles();
   setupLayoutObserver(svg, plotlyDiv);
-  fixModebarTabOrder(plotlyDiv);
-  setupClickToFocus(plotlyDiv);
+  fixModebarTabOrder(container);
+  setupClickToFocus(container);
 }
 
 // ---------------------------------------------------------------------------
@@ -387,12 +391,14 @@ const MAX_DETACHED_FRAMES = 60;
  * chart.  Watch for the react-container to appear and push it below
  * the chart with padding-top.
  *
+ * The article watched is the one maidr wraps this SVG in, found from the SVG
+ * itself: another chart's article, earlier on the page, is not this chart's.
+ *
  * @param svg        - The main-svg element.
- * @param plotlyDiv  - The `.js-plotly-plot` container (for scoped queries).
+ * @param plotlyDiv  - The `.js-plotly-plot` container, if any, which keeps
+ *                     the observer to one per chart.
  */
 function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null): void {
-  const scope = plotlyDiv ?? document;
-
   // Guard: install the layout observer at most once per chart. `normalizePlotlySvg`
   // re-runs on every maidr-attribute change; without this each re-init would spawn
   // another rAF polling loop and article MutationObserver that never get cleaned up.
@@ -402,8 +408,8 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
   }
   guardEl.setAttribute('data-maidr-layout-observer', '1');
 
-  function fix(): void {
-    const rc = scope.querySelector<HTMLElement>(
+  function fix(article: Element): void {
+    const rc = article.querySelector<HTMLElement>(
       'div[id^="react-container-"]',
     );
     if (rc && svg) {
@@ -450,14 +456,12 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
     }
     detachedFrames = 0;
 
-    const article = scope.querySelector(
-      'article[id^="maidr-article"]',
-    );
+    const article = svg.closest('article[id^="maidr-article"]');
     if (!article) {
       requestAnimationFrame(observe);
       return;
     }
-    const observer = new MutationObserver(() => fix());
+    const observer = new MutationObserver(() => fix(article));
     observer.observe(article, {
       childList: true,
       subtree: true,
@@ -468,7 +472,7 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
 
     // The container may already be in the article by the time this runs, in
     // which case no mutation will arrive to position it.
-    fix();
+    fix(article);
   }
 
   // Defer until maidr has created its article wrapper.
@@ -483,11 +487,11 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
  * Remove Plotly's modebar (toolbar) from the tab order and accessibility
  * tree so Tab goes directly to maidr's focusable div.
  *
- * @param plotlyDiv - The `.js-plotly-plot` container (for scoped queries).
+ * @param container - The chart's graph div or `.svg-container`; `null` when
+ *                    the SVG is in neither, and so has no modebar.
  */
-function fixModebarTabOrder(plotlyDiv: HTMLElement | null): void {
-  const scope = plotlyDiv ?? document;
-  const modebar = scope.querySelector('.modebar-container');
+function fixModebarTabOrder(container: HTMLElement | null): void {
+  const modebar = container?.querySelector('.modebar-container');
   if (!modebar)
     return;
 
@@ -511,12 +515,10 @@ function fixModebarTabOrder(plotlyDiv: HTMLElement | null): void {
  * wraps `svg.main-svg`, these overlays are siblings outside the wrapper.
  * Forward clicks to maidr's focusable div.
  *
- * @param plotlyDiv - The `.js-plotly-plot` container (for scoped queries).
+ * @param container - The chart's graph div or `.svg-container`; `null` when
+ *                    the SVG is in neither, and so has no overlays.
  */
-function setupClickToFocus(plotlyDiv: HTMLElement | null): void {
-  const container = plotlyDiv
-    ?? document.querySelector('.js-plotly-plot')
-    ?? document.querySelector('.svg-container');
+function setupClickToFocus(container: HTMLElement | null): void {
   if (!container)
     return;
 
