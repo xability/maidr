@@ -9,7 +9,8 @@
  * measured against when a panel is transparent. Both used to be read from
  * the whole page, so on a page of several charts a single-panel chart counted
  * its neighbours' panels, and a figure measured its outline against the first
- * chart's background. Each chart is read inside its own element now.
+ * chart's background. Each chart is read inside the elements it is drawn in
+ * now, the same ones its layout counts panels in.
  */
 
 import type { SettingsService } from '@service/settings';
@@ -69,10 +70,11 @@ function onPanel(panel: SVGElement): SubplotState {
 /**
  * Moves onto the first panel of a chart and reads the outline drawn there.
  * @param plot - The chart's plot element
+ * @param overlays - The chart's layers drawn outside its plot element
  * @returns The outline's stroke, or null when the panel is not outlined
  */
-function outlineOfFirstPanel(plot: HTMLElement): string | null {
-  const service = new HighlightService(settingsStub(), plot);
+function outlineOfFirstPanel(plot: HTMLElement, overlays: Element[] = []): string | null {
+  const service = new HighlightService(settingsStub(), () => [plot, ...overlays]);
   const panel = plot.querySelector('g[id^="axes_"]') as SVGElement;
 
   service.update(onPanel(panel));
@@ -116,5 +118,16 @@ describe('HighlightService beside another chart', () => {
 
     expect(beside).not.toBeNull();
     expect(beside).toBe(alone);
+  });
+
+  it('should count the panels in every element the chart is drawn in', () => {
+    const plot = addChart('mB', 1, '#ffffff');
+    const overlay = document.createElementNS(SVG_NAMESPACE, 'svg');
+    overlay.innerHTML = '<g id="axes_2-mB"><path style="fill: none"/></g>';
+    document.body.appendChild(overlay);
+
+    const stroke = outlineOfFirstPanel(plot, [overlay]);
+
+    expect(stroke).not.toBeNull();
   });
 });

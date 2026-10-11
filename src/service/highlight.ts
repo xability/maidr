@@ -10,6 +10,7 @@ import type {
   TraceState,
 } from '@type/state';
 import { Constant } from '@util/constant';
+import { countAxesGroups } from '@util/subplotLayout';
 import { Svg } from '@util/svg';
 
 /**
@@ -30,7 +31,7 @@ type HighlightStateUnion = SubplotState | TraceState | FigureState | Settings;
  *
  * @example
  * ```typescript
- * const highlightService = new HighlightService(settingsService, plot);
+ * const highlightService = new HighlightService(settingsService, () => [plot]);
  *
  * // Subscribe to state changes
  * traceState.subscribe(highlightService);
@@ -52,11 +53,11 @@ implements Observer<HighlightStateUnion>, Disposable {
   private readonly settingsService: SettingsService;
 
   /**
-   * The chart's own element. Its panels are counted, and its figure
-   * background read, inside it alone: another chart on the page has panels
-   * and a background of its own.
+   * The elements the chart is drawn in, the same ones its layout is resolved
+   * in. Its panels are counted, and its figure background read, inside them
+   * alone: another chart on the page has panels and a background of its own.
    */
-  private readonly plot: Element;
+  private readonly chartRoots: () => readonly Element[];
 
   /**
    * Set of subplot elements that currently have highlight styling applied.
@@ -79,11 +80,11 @@ implements Observer<HighlightStateUnion>, Disposable {
    * Creates a new HighlightService instance.
    *
    * @param settings - The settings service used to retrieve highlight color preferences
-   * @param plot - The element MAIDR made focusable around the chart
+   * @param chartRoots - The elements the chart is drawn in, its own first
    */
-  public constructor(settings: SettingsService, plot: Element) {
+  public constructor(settings: SettingsService, chartRoots: () => readonly Element[]) {
     this.settingsService = settings;
-    this.plot = plot;
+    this.chartRoots = chartRoots;
 
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
@@ -253,8 +254,7 @@ implements Observer<HighlightStateUnion>, Disposable {
    * @returns True if more than one subplot exists, false otherwise
    */
   private isMultiPlotScenario(): boolean {
-    const totalSubplots = this.plot.querySelectorAll('g[id^="axes_"]').length;
-    return totalSubplots > 1;
+    return countAxesGroups(this.chartRoots()) > 1;
   }
 
   /**
@@ -286,9 +286,10 @@ implements Observer<HighlightStateUnion>, Disposable {
    */
   private highlightSubplotElements(elements: SVGElement[]): void {
     this.unhighlightSubplotElements();
-    const figure = this.plot.querySelector(
-      'g[id^="maidr-"] > path[style*="fill"]',
-    )?.parentElement as SVGElement | null;
+    const figure = this.chartRoots()
+      .map(root => root.querySelector('g[id^="maidr-"] > path[style*="fill"]'))
+      .find(path => path !== null)
+      ?.parentElement as SVGElement | null;
     const figureBgElement
       = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
     for (const element of elements) {

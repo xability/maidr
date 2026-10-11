@@ -84,10 +84,7 @@ export function resolveSubplotLayout(
 ): SubplotLayout {
   const axesElements = collectAxesElements(subplots, roots);
   let positions = collectAxesPositions(subplots, axesElements);
-  const totalAxesCount = roots.reduce(
-    (count, root) => count + root.querySelectorAll('g[id^="axes_"]').length,
-    0,
-  );
+  const totalAxesCount = countAxesGroups(roots);
 
   if (positions.length === 0) {
     positions = collectPanelPositions(subplots, roots);
@@ -103,6 +100,21 @@ export function resolveSubplotLayout(
   const invertVertical = detectInversion(positions, subplots.length);
 
   return { visualOrderMap, topLeftRow, invertVertical, totalAxesCount, axesElements };
+}
+
+/**
+ * Counts a chart's `<g id="axes_*">` panel groups. The figure's layout and
+ * the panel outline both decide from this count whether a chart has several
+ * panels, so they read the same one.
+ *
+ * @param roots - Where the chart is drawn.
+ * @returns How many panel groups the chart has.
+ */
+export function countAxesGroups(roots: readonly QueryRoot[]): number {
+  return roots.reduce(
+    (count, root) => count + root.querySelectorAll('g[id^="axes_"]').length,
+    0,
+  );
 }
 
 // ---------------------------------------------------------------------------

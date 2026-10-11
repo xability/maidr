@@ -104,17 +104,27 @@ export interface ControllerSession {
 }
 
 /**
+ * The elements a chart is drawn in: its own element and, for Plotly, the
+ * layers drawn over it outside that element.
+ *
+ * @param plot - The element MAIDR made focusable around the chart
+ * @returns The chart's elements, its own first
+ */
+function chartRoots(plot: HTMLElement): Element[] {
+  return [plot, ...getPlotlyOverlayLayers(plot)];
+}
+
+/**
  * Builds a chart's model and lays out its panels, with every selector and
- * panel lookup resolved inside the chart: its own element and, for Plotly,
- * the layers drawn over it outside that element. Another chart on the page
- * that shares its ids or its selectors is out of reach.
+ * panel lookup resolved inside the {@link chartRoots | chart}. Another chart
+ * on the page that shares its ids or its selectors is out of reach.
  *
  * @param maidr - The chart's data
  * @param plot - The element MAIDR made focusable around the chart
  * @returns The laid-out figure
  */
 function buildFigure(maidr: Maidr, plot: HTMLElement): Figure {
-  const roots = [plot, ...getPlotlyOverlayLayers(plot)];
+  const roots = chartRoots(plot);
   const figure = Svg.withQueryRoots(roots, () => new Figure(maidr));
   figure.applyLayout(resolveSubplotLayout(figure.subplots, roots));
   return figure;
@@ -258,7 +268,10 @@ export class Controller implements Disposable {
       this.context,
       () => getPlotlyOverlayLayers(this.displayService.plot),
     );
-    this.highlightService = new HighlightService(this.settingsService, plot);
+    this.highlightService = new HighlightService(
+      this.settingsService,
+      () => chartRoots(this.displayService.plot),
+    );
     this.tactileService = new TactileService(
       this.displayService,
       this.brailleService,
