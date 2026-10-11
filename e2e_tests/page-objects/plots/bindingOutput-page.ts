@@ -18,6 +18,18 @@ export interface Reading {
 }
 
 /**
+ * What high contrast mode paints behind the chart.
+ */
+export interface Backdrop {
+  /** The page's background, as the body computes it. */
+  readonly page: string;
+  /** The body's own inline style. */
+  readonly pageStyle: string;
+  /** The inline style of MAIDR's article around the chart. */
+  readonly chartStyle: string;
+}
+
+/**
  * Page object for pages another producer wrote.
  *
  * Each fixture under `e2e_tests/fixtures/bindings/` is a binding's real output
@@ -68,6 +80,27 @@ export class BindingOutputPage extends BasePage {
     } catch (error) {
       throw new BindingOutputError('Failed to focus the chart', { cause: error });
     }
+  }
+
+  /**
+   * Reads what is painted behind the chart.
+   * @returns The page's background and the inline styles high contrast writes
+   */
+  public async readBackdrop(): Promise<Backdrop> {
+    return this.page.evaluate(() => ({
+      page: getComputedStyle(document.body).backgroundColor,
+      pageStyle: document.body.style.cssText,
+      chartStyle: document.querySelector<HTMLElement>('article[id^="maidr-article-"]')?.style.cssText ?? '',
+    }));
+  }
+
+  /**
+   * Turns high contrast mode on or off with its key, as a reader does.
+   * @returns What is painted behind the chart afterwards
+   */
+  public async toggleHighContrast(): Promise<Backdrop> {
+    await this.pressKey('c', 'toggle high contrast');
+    return this.readBackdrop();
   }
 
   /**

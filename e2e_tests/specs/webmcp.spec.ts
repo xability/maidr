@@ -601,6 +601,24 @@ test.describe('WebMCP tools', () => {
     );
   }
 
+  test('leaves the reader\'s keys with the chart the agent takes them into from another', async ({ page }) => {
+    await setUp(page, null);
+    await openTwoCharts(page, false);
+    await page.click('svg#bar');
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => chartText(page, 'bar')).toContain('Saturday');
+
+    const result = await callTool(page, 'maidr_navigate', { chartId: 'bar2', layerId: '0', row: 0, col: 0, focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'now', focused: true });
+    await expect.poll(() => chartText(page, 'bar2')).toContain('Saturday');
+    // The chart they were in goes behind its focus-out timer, after the one
+    // they were taken to has come up, and must take only its own keys.
+    await expect.poll(() => chartText(page, 'bar')).toBe('');
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => chartText(page, 'bar2')).toContain('Sunday');
+  });
+
   for (const setBy of ['agent', 'page'] as const) {
     const fate = setBy === 'agent' ? 'drops' : 'keeps';
     test(`switching the tools off ${fate} a move the ${setBy} left waiting in another chart`, async ({ page }) => {

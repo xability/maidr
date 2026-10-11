@@ -150,7 +150,10 @@ export class Controller implements Disposable {
 
   private readonly keybinding: KeybindingService;
   private readonly mousebinding: Mousebindingservice;
-  /** Carries `Context`'s scope changes to the service that owns the hotkeys scope. */
+  /**
+   * Carries `Context`'s scope changes to this chart's keybinding service,
+   * which applies them while the reader is in this chart.
+   */
   private readonly scopeSubscription: Disposable;
   private readonly agentToolsSubscription: Disposable;
   private readonly commandExecutor: CommandExecutor;
@@ -441,20 +444,17 @@ export class Controller implements Disposable {
       this.registerNavigateCallback(maidr.onNavigate);
     }
     // The model decides which scope the reader is in; the keybinding service
-    // owns the hotkeys-js scope that decides which bindings fire. `Context`
-    // announces the change and this hands it over, so the model never reaches
-    // for the keyboard library itself.
+    // applies it to hotkeys-js. Each chart's service owns its own bindings,
+    // and the page's one hotkeys-js scope belongs to the chart the reader
+    // entered last. `Context` announces the change and this hands it over,
+    // so the model never reaches for the keyboard library itself.
     this.scopeSubscription = this.context.onScopeChange(
       scope => this.keybinding.setScope(scope),
     );
-    this.keybinding.register(
-      this.context.scope,
-      resolveOverrides(this.settingsService.loadSettings().general.keybindings),
-    );
     this.settingsService.addObserver(this.keybinding);
     this.mousebinding.registerEvents();
-    // After the keybindings: the one key it would keep from the page is let
-    // through when the reader has bound it to something here.
+    // The one key it would keep from the page is let through when the reader
+    // has bound it to something here; the keymap is asked at key time.
     this.hostGuardService = new HostGuardService(plot, event => this.keybinding.isBound(event));
 
     // The modes are the reader's choices, not the position's, so they come
@@ -463,6 +463,14 @@ export class Controller implements Disposable {
       this.textViewModel.restoreMode(session.textMode);
       this.audioService.setOn(session.soundOn);
     }
+
+    // Last, because registering hands this chart the page's keyboard: a
+    // constructor that threw after it would leave a controller nobody holds,
+    // and so nobody can dispose, with its keys still acting.
+    this.keybinding.register(
+      this.context.scope,
+      resolveOverrides(this.settingsService.loadSettings().general.keybindings),
+    );
   }
 
   /**
