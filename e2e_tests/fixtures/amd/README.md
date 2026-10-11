@@ -6,7 +6,9 @@ UMD, and a UMD wrapper hands an entry with no exports to that `define` as an
 anonymous module instead of running it: maidr never booted, a pack never
 registered, and require.js threw "Mismatched anonymous define()" at the page's
 next `require()`. Quarto puts require.js on every page a Jupyter render writes
-HTML into, so this was every py-maidr chart in a Quarto page.
+HTML into. py-maidr's charts there run maidr.js through a `define` shim of
+their own (`withoutAmd` in its `maidr/assets/inline.js`); a load without one,
+such as maidr.js or a pack added to the page by hand, failed.
 
 | Fixture            | The `define` on the page                                        |
 | ------------------ | --------------------------------------------------------------- |

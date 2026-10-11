@@ -7,11 +7,13 @@ import { AmdHostPage } from '../page-objects/plots/amdHost-page';
  * Both used to ship as UMD. An entry with no exports gets a wrapper that, when
  * the page has an AMD `define`, hands the bundle to it as an anonymous module
  * instead of running it. Quarto loads require.js on every page a Jupyter
- * render writes HTML into, which every py-maidr chart does, so on those pages
- * maidr never booted, a Korean reader's pack never registered -- the article
- * said `lang="ko"` over English text -- and require.js threw "Mismatched
- * anonymous define()" at the page's next `require()`, breaking the page's own
- * widgets with it. Nothing failed: the chart was simply not there.
+ * render writes HTML into. py-maidr's charts there run maidr.js through a
+ * `define` shim of their own; a load without one -- maidr.js or a pack added
+ * to such a page by hand -- never booted maidr, a Korean reader's pack never
+ * registered (the article said `lang="ko"` over English text), and require.js
+ * threw "Mismatched anonymous define()" at the page's next `require()`,
+ * breaking the page's own widgets with it. maidr itself reported nothing: the
+ * chart was simply not there.
  *
  * They are IIFEs now, which run whatever the page has, and each registers
  * itself under its import path once it has run, so a loader that loads one as
