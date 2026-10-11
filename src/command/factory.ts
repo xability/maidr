@@ -371,11 +371,13 @@ export class CommandFactory {
         return new RotorNavigationNextNavUnitCommand(
           this.context,
           this.rotorNavigationViewModel,
+          this.audioService,
         );
       case 'ROTOR_PREV_NAV':
         return new RotorNavigationPrevNavUnitCommand(
           this.context,
           this.rotorNavigationViewModel,
+          this.audioService,
         );
 
       // Grid cell navigation
