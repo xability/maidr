@@ -326,6 +326,17 @@ function positionedLink(left: number, top: number): HTMLElement {
   return link;
 }
 
+/**
+ * A div drawing `markup` from an open shadow root, with `children` of its own
+ * for the root to slot in.
+ */
+function shadowHost(markup: string, children = ''): HTMLElement {
+  const host = document.createElement('div');
+  host.innerHTML = children;
+  host.attachShadow({ mode: 'open' }).innerHTML = markup;
+  return host;
+}
+
 /** Which of the page and the chart's article carry the dark backdrop. */
 function paintedBackdrops(article: HTMLElement | null): string[] {
   return [
@@ -871,6 +882,10 @@ describe('highContrastService', () => {
       ['a comment', () => nodesOf('<!-- chart -->')],
       ['a line break', () => nodesOf('<br>')],
       ['a link parked off the page', () => positionedLink(-10000, 0)],
+      [
+        'a shadow root of style sheets and an empty layer',
+        () => shadowHost('<style>:host { position: fixed; }</style><div></div>'),
+      ],
     ])('takes %s for nothing the page shows', (_, build) => {
       rebuild([{ fill: BAR_FILL }], {
         article: true,
@@ -895,6 +910,8 @@ describe('highContrastService', () => {
       ],
       ['a custom element', () => nodesOf('<my-banner></my-banner>')],
       ['a link placed on the page', () => positionedLink(16, 16)],
+      ['text in a shadow root', () => shadowHost('<style>p { margin: 0; }</style><p>Results</p>')],
+      ['text a shadow root slots in', () => shadowHost('<slot></slot>', 'Results')],
     ])('takes %s for something the page shows', (_, build) => {
       rebuild([{ fill: BAR_FILL }], {
         article: true,
@@ -1031,6 +1048,32 @@ describe('highContrastService', () => {
       ],
     ])('paints the page of %s', (_, markup) => {
       rebuild([{ fill: BAR_FILL }], { article: true, surround: pageAround(markup) });
+
+      harness.service.initializeHighContrast();
+
+      expect(paintedBackdrops(harness.article)).toEqual(['page']);
+    });
+
+    it('paints the page of a Bokeh chart', () => {
+      // BokehJS 3 adds two empty fixed layers and its notification area to the
+      // body, each drawing from an open shadow root that holds style sheets.
+      rebuild([{ fill: BAR_FILL }], {
+        article: true,
+        surround: (chart) => {
+          pageAround(
+            '<div><script src="bokeh.min.js"></script><div id="maidr-bokeh-1">'
+            + '<div id="maidr-bokeh-1-plot"><i data-chart></i></div></div>'
+            + '<script>embed();</script></div>',
+          )(chart);
+          const notifications = shadowHost('<style>.bk-notification { color: red; }</style>');
+          notifications.className = 'bk-Notifications';
+          document.body.append(
+            shadowHost('<style>:host { position: fixed; }</style><div></div>'),
+            shadowHost('<style>:host { position: fixed; }</style>'),
+            notifications,
+          );
+        },
+      });
 
       harness.service.initializeHighContrast();
 

@@ -143,8 +143,10 @@ function isOffCanvas(element: Element, style: CSSStyleDeclaration): boolean {
  * Whether a node shows a reader anything: text, or something drawn.
  *
  * Errs towards yes. Text hidden only visually, or at zero opacity, counts; so
- * does a custom element or a shadow host, whose content cannot be seen from
- * here.
+ * does a custom element, which may draw from a closed shadow root -- one that
+ * reads as no root at all. On any other element an open shadow root is read
+ * along with the element's own children, and a closed one cannot be seen
+ * from here.
  */
 function showsSomething(node: Node): boolean {
   const view = node.ownerDocument?.defaultView ?? null;
@@ -169,14 +171,20 @@ function showsSomething(node: Node): boolean {
   if (style !== null && isOffCanvas(element, style)) {
     return false;
   }
-  // Drawn from a tree this cannot see into: taken to show something.
-  if (element.shadowRoot !== null || element.localName.includes('-')) {
+  // May be drawn from a tree this cannot see into: taken to show something.
+  if (element.localName.includes('-')) {
     return true;
   }
   if (element.matches(DRAWING_SELECTOR)) {
     return style === null || !HIDDEN_VISIBILITY.has(style.visibility);
   }
-  return Array.from(element.childNodes).some(showsSomething);
+  // An open shadow root is read with the children it may slot in. BokehJS 3
+  // adds hosts to the body of a page it draws on whose roots hold only style
+  // sheets and empty layers.
+  const shadowChildren = element.shadowRoot === null
+    ? []
+    : Array.from(element.shadowRoot.childNodes);
+  return [...shadowChildren, ...Array.from(element.childNodes)].some(showsSomething);
 }
 
 /**
