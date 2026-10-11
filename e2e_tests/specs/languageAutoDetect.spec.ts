@@ -12,15 +12,17 @@ import { BarPlotPage } from '../page-objects/plots/barplot-page';
  *
  * The example pages load `maidr.js` alone, so every language but English
  * arrives through the locale pack MAIDR fetches from beside the bundle. The
- * article's `lang` flips the moment the language is chosen, and the label
- * follows once the pack registers, so both are awaited rather than read.
+ * article's `lang` flips the moment the language is chosen, and the
+ * instructions the wrapper is described by follow once the pack registers, so
+ * both are awaited rather than read.
  */
 
 /**
  * Opens the bar chart and waits for its language to settle.
  * @param page - The Playwright page
  * @param lang - The language the page is expected to settle on
- * @returns The wrapper's pre-activation instruction in that language
+ * @returns The wrapper's pre-activation instructions in that language, the
+ * text its `aria-describedby` points to
  */
 async function preActivationInstruction(page: Page, lang: string): Promise<string> {
   const barPlotPage = new BarPlotPage(page);
@@ -29,11 +31,15 @@ async function preActivationInstruction(page: Page, lang: string): Promise<strin
   const wrapper = article.locator('figure > div[tabindex="0"]').first();
   await expect(article).toHaveAttribute('lang', lang);
   if (lang === 'en') {
-    await expect(wrapper).toHaveAttribute('aria-label', /This is a maidr plot/);
+    await expect(wrapper).toHaveAccessibleDescription(/This is a maidr plot/);
   } else {
-    await expect(wrapper).not.toHaveAttribute('aria-label', /This is a maidr plot/);
+    await expect(wrapper).not.toHaveAccessibleDescription(/This is a maidr plot/);
   }
-  return (await wrapper.getAttribute('aria-label')) ?? '';
+  return wrapper.evaluate(element => (element.getAttribute('aria-describedby') ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(id => document.getElementById(id)?.textContent ?? '')
+    .join(' '));
 }
 
 test.describe('language from the browser', () => {

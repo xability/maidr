@@ -165,6 +165,10 @@ export const model = {
   // instructions above on one line.
   'model.initialInstructionFigure': 'Dies ist eine maidr-Abbildung mit {size} Teildiagrammen. {clickPrompt} Verwenden Sie die Pfeiltasten, um zwischen den Teildiagrammen zu navigieren, und drücken Sie Enter.',
   'model.initialInstructionSubplot': 'Dies ist ein maidr-Diagramm mit {size} Ebenen, und dies ist Ebene {index} von {size}: Diagramm vom Typ {plotType}. {clickPrompt} Verwenden Sie die Pfeiltasten, um durch die Datenpunkte zu navigieren. Drücken Sie B für Braille, T für Text, S für Sonifikation und R für den Überprüfungsmodus.',
+  'model.chartNameTitled': '{title}, {type}',
+  'model.chartNameLayers': 'Diagramm mit {size} Ebenen',
+  'model.chartNameFigure': 'Abbildung mit {size} Teildiagrammen',
+  'model.instructionKeyboardHelp': 'Drücken Sie {modifier} Schrägstrich für die Tastaturhilfe.',
   // Candlestick shapes and patterns (src/util/candlePattern.ts). German trading
   // usage keeps most pattern names in English; the established German names
   // are used where they exist.

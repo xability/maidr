@@ -4,6 +4,7 @@ import type { Disposable } from '@type/disposable';
 import type { Event, Focus } from '@type/event';
 import { Emitter, MODAL_SCOPES, Scope } from '@type/event';
 import { Constant } from '@util/constant';
+import { currentInstructionId, describeWithInstruction, initialInstructionId, withKeyboardHelp } from '@util/instruction';
 import { Stack } from '@util/stack';
 
 /**
@@ -33,7 +34,15 @@ interface FocusChangedEvent {
 }
 
 /**
- * Service for managing display focus, ARIA labels, and UI state transitions.
+ * Service for managing display focus, the plot's role and description, and UI
+ * state transitions.
+ *
+ * The plot's accessible name is the chart's title and type, which
+ * `maidr-component.tsx` gives it and nothing here changes (#1384). What this
+ * service manages is the description: the instructions for using the chart,
+ * given while the reader is entering it and taken away once they are using
+ * it, so a screen reader does not read them again each time focus returns to
+ * the plot.
  */
 export class DisplayService implements Disposable {
   private readonly context: Context;
@@ -50,6 +59,9 @@ export class DisplayService implements Disposable {
   private textChangeDisposer: Disposable | null = null;
   private hasClearedOnFirstNav: boolean = false;
   private pendingFocusChangeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Every id the plot's instructions may be under: the initial one, then this service's. */
+  private readonly instructionIds: readonly [string, string];
 
   /**
    * Creates a new DisplayService instance.
@@ -68,19 +80,22 @@ export class DisplayService implements Disposable {
     this.onChangeEmitter = new Emitter<FocusChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
 
+    this.instructionIds = [initialInstructionId(context.id), currentInstructionId(context.id)];
+
     this.removeInstruction();
 
-    // One-shot: clear aria-label on the first TextService-driven navigation update
+    // One-shot: stop describing the plot with its instructions on the first
+    // TextService-driven navigation update. The reader is using the chart.
     this.textChangeDisposer = this.textService.onChange(() => {
       if (!this.hasClearedOnFirstNav) {
-        this.plot.removeAttribute(Constant.ARIA_LABEL);
+        this.hideInstruction();
         this.hasClearedOnFirstNav = true;
       }
     });
   }
 
   /**
-   * Cleans up resources and restores initial ARIA labels.
+   * Cleans up resources and describes the plot with its instructions again.
    */
   public dispose(): void {
     this.addInstruction();
@@ -112,31 +127,76 @@ export class DisplayService implements Disposable {
   }
 
   /**
-   * Adds instruction ARIA labels to the plot element.
+   * Describes the plot with its instructions as it goes back to being an
+   * image: the reader has left it.
    */
   private addInstruction(): void {
-    this.plot.setAttribute(Constant.ARIA_LABEL, this.getInstruction());
     this.plot.setAttribute(Constant.TITLE, this.getInstruction());
+    this.describe(this.getInstruction());
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
     this.plot.tabIndex = 0;
   }
 
   /**
-   * Removes or updates instruction ARIA labels when entering interactive mode.
+   * Describes the plot with its instructions, without the click prompt, as it
+   * becomes an application: the reader is entering it.
    */
   private removeInstruction(): void {
-    const instruction = this.hasEnteredInteractive ? '' : this.getInstruction(false);
-    if (instruction) {
-      this.plot.setAttribute(Constant.ARIA_LABEL, instruction);
-      this.plot.removeAttribute(Constant.TITLE);
-      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
-      this.plot.tabIndex = 0;
+    if (this.hasEnteredInteractive) {
+      this.hideInstruction();
     } else {
-      this.plot.removeAttribute(Constant.ARIA_LABEL);
-      this.plot.removeAttribute(Constant.TITLE);
-      this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
-      this.plot.tabIndex = 0;
+      this.describe(this.getInstruction(false));
     }
+    this.plot.removeAttribute(Constant.TITLE);
+    this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
+    this.plot.tabIndex = 0;
+  }
+
+  /**
+   * Describes the plot by the given instructions, written into the element
+   * this service keeps beside it, never the one React renders.
+   * @param {string} instruction - The instructions for where the reader is
+   */
+  private describe(instruction: string): void {
+    const element = this.currentInstructionElement();
+    if (element === null) {
+      return;
+    }
+    element.textContent = withKeyboardHelp(instruction);
+    describeWithInstruction(this.plot, this.instructionIds, element.id);
+  }
+
+  /**
+   * Stops describing the plot by its instructions. Any other description a
+   * page gave it stays.
+   */
+  private hideInstruction(): void {
+    describeWithInstruction(this.plot, this.instructionIds, null);
+  }
+
+  /**
+   * This service's instruction element, created beside the plot the first
+   * time the chart is focused and kept for the next. Looked up among the
+   * plot's siblings rather than by document id, so a chart that shares its id
+   * with another on the page writes into its own figure.
+   * @returns {HTMLElement | null} The element, or null when the plot has no parent
+   */
+  private currentInstructionElement(): HTMLElement | null {
+    const parent = this.plot.parentElement;
+    if (parent === null) {
+      return null;
+    }
+    const [initialId, currentId] = this.instructionIds;
+    const siblings = Array.from(parent.children);
+    const existing = siblings.find(child => child.id === currentId);
+    if (existing instanceof HTMLElement) {
+      return existing;
+    }
+    const element = this.plot.ownerDocument.createElement('div');
+    element.id = currentId;
+    element.hidden = true;
+    (siblings.find(child => child.id === initialId) ?? this.plot).after(element);
+    return element;
   }
 
   /**
@@ -199,9 +259,10 @@ export class DisplayService implements Disposable {
     // Treat modal scopes as mode toggles so we suppress instruction re-announce on return
     this.isReturningFromModeToggle = MODAL_SCOPES.has(focus);
 
-    // Clear any existing instruction label when entering a modal
+    // Stop describing the plot by its instructions when entering a modal:
+    // focus comes back to the plot after it, and they would be read again.
     if (this.isReturningFromModeToggle) {
-      this.plot.removeAttribute(Constant.ARIA_LABEL);
+      this.hideInstruction();
     }
 
     if (!this.focusStack.removeLast(focus)) {
@@ -287,14 +348,15 @@ export class DisplayService implements Disposable {
           if (active && hasEnsureInitialized(active)) {
             active.ensureInitialized();
           }
-          // Clear initial instruction label on first entry into interactive
+          // Stop describing the plot by its instructions on first entry
+          // into interactive
           if (!this.hasEnteredInteractive) {
-            this.plot.removeAttribute(Constant.ARIA_LABEL);
+            this.hideInstruction();
           }
         } else {
-          // On return from modal, skip setting any aria-label and ensure it's cleared
+          // On return from modal, ensure the instructions stay off
           this.isReturningFromModeToggle = false;
-          this.plot.removeAttribute(Constant.ARIA_LABEL);
+          this.hideInstruction();
         }
 
         this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);

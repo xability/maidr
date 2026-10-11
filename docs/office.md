@@ -76,7 +76,7 @@ The pane follows the file:
 
 When there is nothing to read, the pane says why in a status message (`role="status"`, focusable with <kbd>Tab</kbd>) where the figure would be: a file with no charts, a chart whose every value is blank, a chart type MAIDR does not know, a chart whose data cannot be read, a PowerPoint or Word too old to hand its file to add-ins, or a page that is not running in Office at all. If the reader was in the figure when it gave way to a message, focus moves to the message, so they hear why the chart went. A combo chart read without one of its series has a note above the figure naming what was left out.
 
-MAIDR's plot is named by its instructions, and the chart's name shown in it is not read from there. So the figure area around it is a group (`role="group"`) named by the chart's name (`aria-labelledby`), and described by the note when there is one (`aria-describedby`): a screen reader moving into the figure says which chart it is.
+MAIDR's plot is named by the chart's title and type and described by its instructions, and the chart's name shown in it is not read from there. So the figure area around it is a group (`role="group"`) named by the chart's name (`aria-labelledby`), and described by the note when there is one (`aria-describedby`): a screen reader moving into the figure says which chart it is, in the pane's own words, and what was left out.
 
 ## On the Slide
 

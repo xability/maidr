@@ -162,6 +162,10 @@ export const model = {
   // on one line.
   'model.initialInstructionFigure': '这是一个包含 {size} 个子图的 maidr 图形。{clickPrompt} 使用方向键浏览子图，然后按 Enter。',
   'model.initialInstructionSubplot': '这是一个包含 {size} 个图层的 maidr 图表，当前是第 {index} 个图层，共 {size} 个：{plotType}图。{clickPrompt} 使用方向键浏览数据点。按 B 切换盲文，按 T 切换文本，按 S 切换声音化，按 R 切换查看模式。',
+  'model.chartNameTitled': '{title}，{type}',
+  'model.chartNameLayers': '包含 {size} 个图层的图表',
+  'model.chartNameFigure': '包含 {size} 个子图的图形',
+  'model.instructionKeyboardHelp': '按 {modifier} 加斜杠键可查看键盘帮助。',
   // Candlestick shapes and patterns. Each names what the candle is drawn
   // like, not a forecast.
   'model.candleShapeMarubozu': '光头光脚',

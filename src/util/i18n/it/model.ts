@@ -164,6 +164,10 @@ export const model = {
   // before the chart is focused.
   'model.initialInstructionFigure': 'Questa è una figura maidr che contiene {size} sottografici. {clickPrompt} Usare i tasti freccia per spostarsi tra i sottografici e premere Enter.',
   'model.initialInstructionSubplot': 'Questo è un grafico maidr che contiene {size} livelli, e questo è il livello {index} di {size}: grafico {plotType}. {clickPrompt} Usare le frecce per spostarsi tra i punti dati. Premere B per il braille, T per il testo, S per la sonificazione e R per la modalità revisione.',
+  'model.chartNameTitled': '{title}, {type}',
+  'model.chartNameLayers': 'Grafico con {size} livelli',
+  'model.chartNameFigure': 'Figura con {size} sottografici',
+  'model.instructionKeyboardHelp': 'Premere {modifier} barra per la guida della tastiera.',
   // Candlestick shapes and patterns (src/util/candlePattern.ts). Each names
   // what the candle is drawn like, not a forecast.
   'model.candleShapeMarubozu': 'marubozu',

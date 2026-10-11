@@ -164,6 +164,10 @@ export const model = {
   // instructions above on one line.
   'model.initialInstructionFigure': 'Ceci est une figure maidr contenant {size} sous-graphiques. {clickPrompt} Utilisez les flèches pour parcourir les sous-graphiques et appuyez sur Enter.',
   'model.initialInstructionSubplot': 'Ceci est un graphique maidr contenant {size} couches, et ceci est la couche {index} sur {size} : graphique de type {plotType}. {clickPrompt} Utilisez les flèches pour parcourir les points de données. Appuyez sur B pour le braille, T pour le texte, S pour la sonification et R pour le mode révision.',
+  'model.chartNameTitled': '{title}, {type}',
+  'model.chartNameLayers': 'Graphique contenant {size} couches',
+  'model.chartNameFigure': 'Figure contenant {size} sous-graphiques',
+  'model.instructionKeyboardHelp': 'Appuyez sur {modifier} barre oblique pour l\'aide clavier.',
   // Candlestick shapes and patterns (src/util/candlePattern.ts). Each names
   // what the candle is drawn like, not a forecast.
   'model.candleShapeMarubozu': 'marubozu',

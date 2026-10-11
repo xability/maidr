@@ -13,6 +13,8 @@ function createMockPlot(): HTMLElement {
     focus: jest.fn(),
     setAttribute: jest.fn(),
     removeAttribute: jest.fn(),
+    getAttribute: jest.fn(() => null),
+    parentElement: null,
     tabIndex: 0,
     classList: { contains: jest.fn(() => false) },
     closest: jest.fn(() => null),
@@ -24,6 +26,7 @@ function createMockPlot(): HTMLElement {
  */
 function createMockContext(scope: string = 'SUBPLOT'): Context {
   return {
+    id: 'test-chart',
     scope,
     state: { type: 'subplot', empty: true },
     getInstruction: jest.fn(() => 'test instruction'),

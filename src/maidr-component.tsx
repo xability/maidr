@@ -2,9 +2,11 @@ import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData } from '@type/grammar';
 import type { JSX, ReactNode, PointerEvent as ReactPointerEvent } from 'react';
 import { TraceType } from '@type/grammar';
+import { chartTypeLabel } from '@util/chartTypeLabel';
 import { Constant } from '@util/constant';
 import { ensureDocumentStyle } from '@util/documentStyle';
 import { t } from '@util/i18n';
+import { initialInstructionId, withKeyboardHelp } from '@util/instruction';
 import { formatPlotType, resolveOrientation } from '@util/orientation';
 import { plotTypeLabel } from '@util/plotTypeLabel';
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
@@ -44,11 +46,12 @@ export interface MaidrProps {
 /**
  * Derives a static instruction string from the MAIDR configuration for the
  * initial render. This replicates what the old throwaway Controller / Context
- * produced via {@link Context.getInstruction} so that screen readers can
- * discover the chart (e.g. NVDA "g" key) before the user focuses it.
+ * produced via {@link Context.getInstruction}, so that a screen reader can
+ * tell a reader how to use the chart before they focus it.
  *
- * Once the Controller is created on focus-in, {@link DisplayService} overwrites
- * these attributes with the authoritative values.
+ * It is the chart's description, not its name (#1384). Once the Controller is
+ * created on focus-in, {@link DisplayService} describes the chart with the
+ * authoritative instructions instead, for wherever the reader is.
  */
 function getInitialInstruction(data: MaidrData): string {
   const subplots = data.subplots;
@@ -115,6 +118,43 @@ function getInitialInstruction(data: MaidrData): string {
     groupCount: groupCountText,
     clickPrompt,
   });
+}
+
+/**
+ * The chart's accessible name: what it is, not how to use it (#1384). Its
+ * title and its type, or its type alone when it has none.
+ *
+ * A name is what a screen reader lists graphics by, jumps between them by
+ * and reads every time it reaches one, and what a braille display shows and
+ * voice control targets. The instructions used to be the name, so every chart
+ * read "This is a maidr plot of type: …", two charts of one type could not be
+ * told apart, and a reader who knew the keys could not stop hearing them.
+ * They are the chart's description now ({@link getInitialInstruction}).
+ *
+ * The title is the figure's, or, for a single panel, its first layer's:
+ * producers give every layer the chart's title. A figure of several panels
+ * with no title of its own is named by its panel count, as no one panel names
+ * it.
+ *
+ * @param data - The chart's MAIDR data
+ * @returns The name, e.g. `Tips by day, Bar Chart`
+ */
+function getChartName(data: MaidrData): string {
+  const subplots = data.subplots.flat();
+  const layers = subplots.length === 1 ? (subplots[0]?.layers ?? []) : [];
+
+  let type: string;
+  if (subplots.length > 1) {
+    type = t('model.chartNameFigure', { size: subplots.length });
+  } else if (layers.length > 1) {
+    type = t('model.chartNameLayers', { size: layers.length });
+  } else {
+    const traceType = layers[0]?.type;
+    type = traceType === undefined ? t('model.plotTypeUnknownChart') : chartTypeLabel(traceType);
+  }
+
+  const title = data.title?.trim() || layers[0]?.title?.trim() || '';
+  return title ? t('model.chartNameTitled', { title, type }) : type;
 }
 
 /**
@@ -218,12 +258,19 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
     }
   }, [figureRef]);
 
-  // Compute the initial instruction once so the plot is discoverable by screen
-  // readers (role="img" + aria-label) before any user interaction.
-  // `revision` is a dependency because the instruction is built from
-  // translated messages: it advances on a language change and when the
-  // language's pack arrives, which leaves `locale` itself unchanged.
+  // Compute the name and the initial instructions once, so a screen reader
+  // can name the chart (role="img" + aria-label) and say how to use it
+  // (aria-describedby) before any user interaction. `revision` is a
+  // dependency because both are built from translated messages: it advances
+  // on a language change and when the language's pack arrives, which leaves
+  // `locale` itself unchanged.
+  const chartName = useMemo(() => getChartName(data), [data, revision]);
   const initialInstruction = useMemo(() => getInitialInstruction(data), [data, revision]);
+  const initialDescription = useMemo(
+    () => withKeyboardHelp(initialInstruction),
+    [initialInstruction, revision],
+  );
+  const instructionId = initialInstructionId(data.id);
 
   // Click-to-activate shim: most chart libraries render the plot as inert SVG
   // children of our `tabIndex={0}` wrapper. Browsers do NOT auto-focus a
@@ -251,13 +298,18 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
           ref={plotRef}
           tabIndex={0}
           role="img"
-          aria-label={initialInstruction}
+          aria-label={chartName}
+          aria-describedby={instructionId}
           title={initialInstruction}
           style={{ width: 'fit-content' }}
           onPointerDown={handlePointerDown}
         >
           {children}
         </div>
+        {/* The instructions the plot is described by until it is first
+            focused; DisplayService describes it from an element of its own
+            after that. Hidden: read only as the plot's description. */}
+        <div id={instructionId} hidden>{initialDescription}</div>
         {contextValue && plotRef.current && (
           <div id={`react-container-${data.id}`}>
             <MaidrApp
