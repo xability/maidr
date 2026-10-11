@@ -43,6 +43,12 @@ interface FocusChangedEvent {
  * given while the reader is entering it and taken away once they are using
  * it, so a screen reader does not read them again each time focus returns to
  * the plot.
+ *
+ * The description is an element this service keeps beside the plot, as it
+ * keeps the plot's role and title, rather than one React renders: its text
+ * follows where the reader is, which only the controller knows, and it
+ * outlasts the controller, which takes React's tree inside the figure with it
+ * when the reader leaves.
  */
 export class DisplayService implements Disposable {
   private readonly context: Context;
