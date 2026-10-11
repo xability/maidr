@@ -76,8 +76,8 @@ every one of them at once.
 3. Add the `case` to `TraceFactory.create()` in `src/model/factory.ts` — an
    unregistered type throws `Invalid trace type`, and the throw propagates out
    of `new Figure(...)`, so nothing renders at all.
-4. Add the display name to `CHART_TYPE_LABEL` in `src/model/abstract.ts`. It is
-   a `Record<TraceType, string>`, so omitting it is a compile error.
+4. Add the display name to `CHART_TYPE_LABEL` in `src/util/chartTypeLabel.ts`.
+   It is a `Record<TraceType, string>`, so omitting it is a compile error.
 5. Answer `IS_ORIENTED` in `src/util/orientation.ts` — also a total `Record`,
    and also a compile error to omit. `true` means the trace resolves
    `layer.orientation` and swaps its main and cross axes; a pie is `false`,
