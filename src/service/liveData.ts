@@ -1073,7 +1073,12 @@ export interface MaidrRuntimeInfo {
      * hands Shift + Tab at the start of a deck's slide to the slide.
      */
     hostGuards: number;
-    /** Draws a focus ring on the chart and its fields that a page's styles cannot remove. */
+    /**
+     * Draws a focus ring on the chart. For a chart bound from the page it is
+     * `!important`, so a stylesheet that removes outlines does not take it,
+     * and it rings MAIDR's fields and buttons too; in a React app it has no
+     * specificity, and any focus style of the app's replaces it.
+     */
     focusRing: number;
   }>;
 }
