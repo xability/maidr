@@ -391,22 +391,30 @@ const MAX_DETACHED_FRAMES = 60;
  * chart.  Watch for the react-container to appear and push it below
  * the chart with padding-top.
  *
+ * Plotly's stylesheet positions a `main-svg` absolutely only inside a graph
+ * div. Anything else maidr is bound to -- the graph div itself, or a
+ * `main-svg` outside one, as a static export is -- keeps its height in the
+ * flow, so its text already sits below it, and padding the text would leave
+ * a gap the height of the chart.
+ *
  * The article watched is the one maidr wraps this SVG in, found from the SVG
  * itself: another chart's article, earlier on the page, is not this chart's.
  *
- * @param svg        - The main-svg element.
- * @param plotlyDiv  - The `.js-plotly-plot` container, if any, which keeps
- *                     the observer to one per chart.
+ * @param svg        - The element maidr is bound to, usually the main-svg.
+ * @param plotlyDiv  - The `.js-plotly-plot` container, if any.
  */
 function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null): void {
+  if (plotlyDiv === null || !svg.classList.contains('main-svg')) {
+    return;
+  }
+
   // Guard: install the layout observer at most once per chart. `normalizePlotlySvg`
   // re-runs on every maidr-attribute change; without this each re-init would spawn
   // another rAF polling loop and article MutationObserver that never get cleaned up.
-  const guardEl = plotlyDiv ?? svg;
-  if (guardEl.hasAttribute('data-maidr-layout-observer')) {
+  if (plotlyDiv.hasAttribute('data-maidr-layout-observer')) {
     return;
   }
-  guardEl.setAttribute('data-maidr-layout-observer', '1');
+  plotlyDiv.setAttribute('data-maidr-layout-observer', '1');
 
   function fix(article: Element): void {
     const rc = article.querySelector<HTMLElement>(

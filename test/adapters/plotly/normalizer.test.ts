@@ -360,6 +360,38 @@ describe('plotly layout observer', () => {
     expect(container.style.paddingTop).toBe('400px');
   });
 
+  it('leaves the text alone when maidr wraps the whole graph div', () => {
+    // A page may bind maidr to the graph div itself. maidr then wraps the
+    // whole div, which keeps its height in the flow, so the text already
+    // sits below the chart: padding it by the chart's height left a gap that
+    // tall above maidr's text.
+    const frames: FrameRequestCallback[] = [];
+    globals.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    const svg = createPlotlySvg([{ x: 0, y: 0 }]);
+    const graphDiv = svg.parentElement as HTMLElement;
+    graphDiv.getBoundingClientRect = () => ({ height: 300 }) as DOMRect;
+    const doc = dom.window.document;
+    normalizePlotlySvg(graphDiv as unknown as SVGSVGElement, createSchema([[undefined]]));
+    const article = doc.createElement('article');
+    article.id = 'maidr-article-chart';
+    graphDiv.replaceWith(article);
+    article.appendChild(graphDiv);
+    const container = doc.createElement('div');
+    container.id = 'react-container-chart';
+    article.appendChild(container);
+
+    for (let ran = 0; frames.length > 0 && ran < 100; ran++) {
+      frames.shift()?.(0);
+    }
+
+    expect(container.style.paddingTop).toBe('');
+    // Nor is a frame loop left polling for an article inside the div.
+    expect(frames).toHaveLength(0);
+  });
+
   it('does not queue a resize for a mutation that leaves the chart height unchanged', () => {
     // Every keypress swaps the highlight clone inside the article. Queuing a
     // window resize for each one invalidated every cached hover centre and
@@ -513,9 +545,12 @@ describe('plotly normalizer on a page with another Plotly chart', () => {
     expect(doc.querySelector('[data-maidr-click-focus]')).toBeNull();
   });
 
-  it('pushes down its own text, not the other chart\'s', () => {
+  it('pads neither its own text nor the other chart\'s', () => {
     // The layout observer watched the first maidr article on the page and
-    // padded the other chart's text by this chart's height.
+    // padded the other chart's text by this chart's height. This chart's own
+    // text needs no padding either: Plotly's stylesheet positions a
+    // `main-svg` absolutely only inside a graph div, so outside one the SVG
+    // keeps its height and its text already sits below it.
     const runFrame = queueFrames();
     const other = buildOtherChart();
     const doc = dom.window.document;
@@ -531,7 +566,7 @@ describe('plotly normalizer on a page with another Plotly chart', () => {
 
     runFrame();
 
-    expect(text.style.paddingTop).toBe('300px');
+    expect(text.style.paddingTop).toBe('');
     expect(other.text.style.paddingTop).toBe('');
   });
 
