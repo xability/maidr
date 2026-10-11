@@ -45,7 +45,7 @@ interface FocusChangedEvent {
  * the plot.
  *
  * The description is an element this service keeps beside the plot, as it
- * keeps the plot's role and title, rather than one React renders: its text
+ * keeps the plot's role, rather than one React renders: its text
  * follows where the reader is, which only the controller knows, and it
  * outlasts the controller, which takes React's tree inside the figure with it
  * when the reader leaves.
@@ -137,7 +137,6 @@ export class DisplayService implements Disposable {
    * image: the reader has left it.
    */
   private addInstruction(): void {
-    this.plot.setAttribute(Constant.TITLE, this.getInstruction());
     this.describe(this.getInstruction());
     this.plot.setAttribute(Constant.ROLE, Constant.IMAGE);
     this.plot.tabIndex = 0;
@@ -153,7 +152,6 @@ export class DisplayService implements Disposable {
     } else {
       this.describe(this.getInstruction(false));
     }
-    this.plot.removeAttribute(Constant.TITLE);
     this.plot.setAttribute(Constant.ROLE, Constant.APPLICATION);
     this.plot.tabIndex = 0;
   }

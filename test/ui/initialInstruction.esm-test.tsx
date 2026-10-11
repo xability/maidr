@@ -81,11 +81,11 @@ function createLineLayer(): MaidrLayer {
 
 /**
  * Renders a chart and reads the plot wrapper's pre-activation name and
- * description, the way a screen reader is given them.
+ * description, the way a screen reader is given them, and its title.
  * @param data - The chart
- * @returns The wrapper's accessible name and description
+ * @returns The wrapper's accessible name and description, and its title
  */
-function announcementOf(data: MaidrData): { name: string; description: string } {
+function announcementOf(data: MaidrData): { name: string; description: string; title: string | null } {
   const { unmount } = render(
     <Maidr data={data}>
       <svg />
@@ -98,8 +98,9 @@ function announcementOf(data: MaidrData): { name: string; description: string } 
     .filter(Boolean)
     .map(id => document.getElementById(id)?.textContent ?? '')
     .join(' ');
+  const title = plot.getAttribute('title');
   unmount();
-  return { name, description };
+  return { name, description, title };
 }
 
 /**
@@ -191,7 +192,7 @@ describe('pre-activation name', () => {
   });
 
   test('keeps the instructions out of the name and gives them as the description', () => {
-    const { name, description } = announcementOf({
+    const { name, description, title } = announcementOf({
       id: 'name-test',
       subplots: [[{ layers: [createBarLayer()] }]],
     });
@@ -202,5 +203,7 @@ describe('pre-activation name', () => {
       + 'Toggle B for Braille, T for Text, S for Sonification, and R for Review mode. '
       + 'Press Control Slash for keyboard help.',
     );
+    // Once: a title would be read as well by some screen readers.
+    expect(title).toBeNull();
   });
 });
