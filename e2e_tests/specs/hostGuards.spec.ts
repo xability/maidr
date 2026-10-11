@@ -114,6 +114,9 @@ test.describe('Host-page guards (host-guards.html)', () => {
   });
 
   test('Shift+Tab from the first thing on the slide lands on the slide, where the deck\'s keys work', async () => {
+    // The link on the echoed line of code above the chart has tabindex="-1":
+    // it matches `a[href]`, but Shift+Tab passes it by, so the chart is still
+    // the first tab stop on the slide.
     await host.tabIntoChart();
 
     await host.press('Shift+Tab');

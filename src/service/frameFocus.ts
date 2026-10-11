@@ -25,9 +25,12 @@ const HOST_RESPONSE_TIMEOUT_MS = 50;
 /**
  * Elements that can hold DOM focus by keyboard, as a selector.
  *
- * `[tabindex="-1"]` is deliberately absent: those take focus programmatically
- * but are not tab stops, so they are neither a boundary of this frame nor
- * somewhere Shift + Tab could land in the host.
+ * A negative `tabindex` takes any of them out of the tab order, and
+ * `isTabStop` drops those: they take focus programmatically but are not tab
+ * stops, so they are neither a boundary of this frame nor somewhere Shift +
+ * Tab could land in the host. They are common above a chart: pandoc's HTML 4
+ * writer, which slidy decks use, puts `<a href="#cb1-1" tabindex="-1">` on
+ * every line of echoed code, with no `aria-hidden`.
  */
 const TABBABLE_SELECTOR = [
   'a[href]',
@@ -40,7 +43,7 @@ const TABBABLE_SELECTOR = [
   'audio[controls]',
   'video[controls]',
   '[contenteditable]:not([contenteditable="false"])',
-  '[tabindex]:not([tabindex^="-"])',
+  '[tabindex]',
 ].join(',');
 
 /**
@@ -229,7 +232,7 @@ export class FrameFocusService implements Disposable {
     }
 
     const stops = Array.from(document.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR))
-      .filter(element => FrameFocusService.isReachable(element));
+      .filter(element => FrameFocusService.isTabStop(element));
     return stops.length > 0 && stops[0] === active;
   }
 
@@ -249,14 +252,38 @@ export class FrameFocusService implements Disposable {
     const index = stops.indexOf(frame);
     return stops
       .slice(0, index < 0 ? stops.length : index)
-      .some(stop => FrameFocusService.isReachable(stop));
+      .some(stop => FrameFocusService.isTabStop(stop));
   }
 
   /**
-   * Whether an element is on screen and exposed, and so a tab stop the reader
-   * can actually reach.
+   * Whether the reader can reach an element that matches the tabbable
+   * selector with Tab: whether it is in the tab order, and on screen.
    * @param {Element} element - The candidate tab stop
-   * @returns {boolean} True when the element takes part in the tab order
+   * @returns {boolean} True when Tab and Shift + Tab stop on the element
+   */
+  private static isTabStop(element: Element): boolean {
+    return !FrameFocusService.hasNegativeTabIndex(element) && FrameFocusService.isReachable(element);
+  }
+
+  /**
+   * Whether an element's `tabindex` attribute takes it out of the tab order.
+   *
+   * Read from the attribute, as the browser reads it, and not from the
+   * `tabIndex` property: that is -1 in Chromium for an editable element
+   * with no `tabindex`, which is a tab stop all the same.
+   * @param {Element} element - The candidate tab stop
+   * @returns {boolean} True when the attribute is a negative integer
+   */
+  private static hasNegativeTabIndex(element: Element): boolean {
+    const value = element.getAttribute('tabindex');
+    return value !== null && Number.parseInt(value, 10) < 0;
+  }
+
+  /**
+   * Whether an element is on screen and exposed, and so one the reader can
+   * actually reach.
+   * @param {Element} element - The candidate tab stop
+   * @returns {boolean} True when the element is on screen and exposed
    */
   private static isReachable(element: Element): boolean {
     if (element.closest('[hidden],[aria-hidden="true"],[inert]') !== null) {

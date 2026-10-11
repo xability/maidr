@@ -194,6 +194,20 @@ describe('in a frame the host has something before', () => {
 
     expect(pressShiftTab().defaultPrevented).toBe(true);
   });
+
+  it('steps in anyway when the only thing before it is out of the tab order', () => {
+    // A link with a negative tabindex is focusable from script but no tab
+    // stop, so Shift + Tab passes it by. It still matches `a[href]`.
+    const earlier = hostDocument.createElement('a');
+    earlier.href = '#earlier';
+    earlier.setAttribute('tabindex', '-1');
+    hostDocument.body.insertBefore(earlier, hostDocument.body.firstChild);
+
+    pretendFramedBy(hostFrame);
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(true);
+  });
 });
 
 describe('with a host on another origin', () => {
@@ -309,6 +323,32 @@ describe('in a page of its own', () => {
 
     expect(pressShiftTab().defaultPrevented).toBe(true);
     expect(document.activeElement).toBe(document.getElementById('slide'));
+  });
+
+  it('hands the reader to the slide past links and buttons taken out of the tab order', () => {
+    // pandoc's HTML 4 writer, which slidy decks use, puts a link with a
+    // negative tabindex and no aria-hidden on every line of echoed code. It
+    // matches `a[href]`, as such a button matches `button`, but Shift + Tab
+    // passes both by.
+    plot = chartIn('<div class="reveal"><div class="slides"><section id="slide">'
+      + '<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r">'
+      + '<span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>barplot(x)</span></code></pre></div>'
+      + '<button type="button" tabindex="-1">Download</button>'
+      + '{chart}</section></div></div>');
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(document.getElementById('slide'));
+  });
+
+  it('counts an editable element with no tabindex as a tab stop', () => {
+    // Read from the attribute: the `tabIndex` property of an editable element
+    // with no tabindex is -1 in Chromium, but Tab stops on it all the same.
+    plot = chartIn('<div class="reveal"><div class="slides"><section>'
+      + '<div contenteditable="true">Notes</div>{chart}</section></div></div>');
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(false);
   });
 
   it('takes a .slide for a slide only on a page slidy runs on', () => {

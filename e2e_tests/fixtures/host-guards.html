@@ -24,7 +24,10 @@
   The hosts write what they did to `window.hostLog`.
 
   The chart is the first tab stop on the page, on the first slide; the
-  button and the search box come after it.
+  button and the search box come after it. Above it on the slide is the code
+  that drew it, echoed as pandoc's HTML 4 writer (slidy's) writes code: a
+  link on each line, taken out of the tab order with `tabindex="-1"` and
+  not hidden, so it matches `a[href]` without being a tab stop.
 -->
 
   <head>
@@ -46,6 +49,11 @@
       <div class="slides">
         <section id="slide-1">
           <h2>A chart on a slide</h2>
+          <div class="sourceCode" id="cb1">
+            <pre
+              class="sourceCode r"
+            ><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>barplot(c(A = 30, B = 60, C = 90))</span></code></pre>
+          </div>
           <div id="card" data-full-screen="true">
             <svg
               id="host-guards"
