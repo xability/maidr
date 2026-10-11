@@ -1,6 +1,6 @@
 /**
- * Post-build guard: no classic script makes an anonymous AMD `define`, and
- * each one registers itself under its AMD name.
+ * Post-build guard: no classic script makes an anonymous AMD `define` that a
+ * script tag would reach, and each one registers itself under its AMD name.
  *
  * An anonymous `define` is what require.js -- which Quarto adds to every page
  * a Jupyter render writes HTML into -- takes as a module to run later, when
@@ -11,6 +11,12 @@
  * as soon as it loads, and then registers under that name, so a loader that
  * asks for it still gets it. `vite build` exits 0 either way, so this reads
  * the output.
+ *
+ * The one anonymous `define` allowed is the one the registration makes when
+ * require.js itself is loading the script, behind the test for the
+ * `data-requiremodule` attribute require.js marks its script elements with:
+ * require.js names that one after the module it asked for, so it never
+ * mismatches (see vite-plugin-umd-without-amd.js).
  *
  * Only the builds of this run are read: a selective build leaves the rest of
  * dist as an older build wrote it.
@@ -24,6 +30,12 @@ import path from 'node:path';
 
 /** A bare `define(` whose first argument is not a string literal. */
 const ANONYMOUS_DEFINE = /(?<![\w$.])define\s*\((?!\s*["'`])/;
+
+/**
+ * An anonymous `define(` made only while require.js is loading the script:
+ * the branch of a conditional on its `data-requiremodule` attribute.
+ */
+const REQUIREJS_LOAD_DEFINE = /getAttribute\(\s*(["'`])data-requiremodule\1\s*\)\s*\?\s*define\s*\(/g;
 
 /** A bare `define(` named by a string literal, capturing the name. */
 const NAMED_DEFINE = /(?<![\w$.])define\s*\(\s*(["'`])([^"'`]*)\1/g;
@@ -73,7 +85,7 @@ export function findAmdDefineProblems(distDir, scripts) {
       continue;
     }
     const source = fs.readFileSync(target, 'utf8');
-    if (ANONYMOUS_DEFINE.test(source))
+    if (ANONYMOUS_DEFINE.test(source.replace(REQUIREJS_LOAD_DEFINE, '')))
       problems.push({ file, problem: 'makes an anonymous `define` call' });
     const named = Array.from(source.matchAll(NAMED_DEFINE), match => match[2]);
     if (!named.includes(amdName))

@@ -8,10 +8,14 @@ require.js threw "Mismatched anonymous define()" at the page's next
 `require()`. Quarto puts require.js on every page a Jupyter render writes HTML
 into.
 
-| Fixture                           | What loads after require.js                                             |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| `adapters-requirejs.html`         | `observable.js`, `echarts.js` and `highcharts.js`                       |
-| `quarto-extension-requirejs.html` | `maidr.js` and `observable.js`, as maidr's Quarto extension writes them |
+| Fixture                           | What loads after require.js                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------ |
+| `adapters-requirejs.html`         | `observable.js`, `echarts.js` and `highcharts.js`                                    |
+| `quarto-extension-requirejs.html` | `maidr.js` and `observable.js`, as maidr's Quarto extension writes them              |
+| `requirejs-loads.html`            | Nothing: the spec has require.js load the adapters, under a `paths` alias and by URL |
+
+`require-later.js` is the page's own AMD code on each of them, the next
+`require()` the spec runs.
 
 ## `require.min.js`
 

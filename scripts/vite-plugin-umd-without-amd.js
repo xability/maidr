@@ -1,6 +1,6 @@
 /**
  * Keep a UMD bundle out of a page's AMD loader: it always runs, and sets its
- * page global, and only then registers itself with the loader by name.
+ * page global, and only then registers itself with the loader.
  *
  * Rolldown's UMD wrapper has three branches: CommonJS, then AMD, then the page
  * global. With an AMD `define` on the page it takes the AMD branch and hands
@@ -13,18 +13,27 @@
  * was never set, and require.js threw "Mismatched anonymous define()" at the
  * page's next `require()`, breaking the page's own AMD code as well.
  *
- * This removes the AMD branch and adds a named registration to the global
- * branch, after the bundle has run:
+ * This removes the AMD branch and adds a registration to the global branch,
+ * after the bundle has run. Which kind depends on who loaded the script:
  *
- *   typeof define === 'function' && define.amd &&
- *     define("maidr/echarts", [], function() { return global.maidrECharts; })
+ *   typeof define === 'function' && define.amd && (
+ *     <require.js is loading this script>
+ *       ? define([], function() { return global.maidrECharts; })
+ *       : define("maidr/echarts", [], function() { return global.maidrECharts; }))
  *
- * require.js raises the mismatch only for anonymous defines. A module load
- * still resolves to the bundle's exports: in require.js under `maidr/echarts`,
- * the package's import path, and in d3-require -- what Observable and Quarto
- * `{ojs}` cells call `require` -- from any URL, since it ignores the name. A
- * require.js load under any other module name now resolves to `undefined`; a
- * page that wants one maps the global with require.js's `shim` `exports`.
+ * - A script tag, or anything but require.js, gets the named registration.
+ *   require.js raises the mismatch only for anonymous defines, so the page's
+ *   AMD code keeps working, and `require(['maidr/echarts'])` -- the package's
+ *   import path -- resolves to the exports. d3-require, what Observable and
+ *   Quarto `{ojs}` cells call `require`, ignores the name and resolves a load
+ *   by any URL to them too.
+ * - require.js loading the script itself, under whatever module name or URL
+ *   the page asked for, gets an anonymous define, as from rolldown's wrapper:
+ *   require.js names it after the module it is loading, so that load resolves
+ *   to the exports exactly as before (a named one would leave it `undefined`,
+ *   or "No define call" under `enforceDefine`). It is told apart by the
+ *   `data-requiremodule` attribute require.js puts on the script element it
+ *   adds, which `document.currentScript` is while the script runs.
  *
  * The CommonJS branch, and the page global with the object it hands each
  * entry, are rolldown's own, unchanged: the entries merge their window
@@ -64,20 +73,23 @@ function rolldownUmdHeader(globalName) {
 }
 
 /**
- * The same opening with no AMD branch, registering the bundle by name once it
- * has run. It keeps the line count, so the source map rolldown made for the
- * body still lines up.
+ * The same opening with no AMD branch, registering the bundle once it has
+ * run: anonymously when require.js is the one loading it, by name otherwise.
+ * It keeps the line count, so the source map rolldown made for the body still
+ * lines up.
  *
  * @param {string} globalName - The page global, `build.lib.name`
  * @param {string} amdName - The AMD module name, the bundle's import path
  * @returns {string} The replacement opening
  */
 function amdSafeHeader(globalName, amdName) {
+  const value = `function() { return global.${globalName}; }`;
+  const requireJsLoading = 'typeof document !== \'undefined\' && document.currentScript && document.currentScript.getAttribute(\'data-requiremodule\')';
   return [
     '(function(global, factory) {',
     '  typeof exports === \'object\' && typeof module !== \'undefined\' ?  factory(exports) :',
     `  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory((global.${globalName} = {})),`,
-    `  typeof define === 'function' && define.amd && define(${JSON.stringify(amdName)}, [], function() { return global.${globalName}; }));`,
+    `  typeof define === 'function' && define.amd && (${requireJsLoading} ? define([], ${value}) : define(${JSON.stringify(amdName)}, [], ${value})));`,
     '})(this, function(exports) {',
     '',
   ].join('\n');
@@ -89,7 +101,7 @@ function amdSafeHeader(globalName, amdName) {
  * @param {string} code - The UMD chunk as rolldown rendered it
  * @param {string} globalName - The page global, `build.lib.name`
  * @param {string} amdName - The AMD module name, the bundle's import path
- * @returns {string} The chunk with no AMD branch and a named registration
+ * @returns {string} The chunk with no AMD branch, registering once it has run
  * @throws {Error} When the chunk does not open with the wrapper expected
  */
 export function withoutAmdBranch(code, globalName, amdName) {

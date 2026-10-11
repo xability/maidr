@@ -8,8 +8,9 @@ import type { Plugin } from 'vite';
 
 /**
  * Rewrite rolldown's UMD wrapper so the bundle never waits on an AMD loader:
- * no AMD branch, and a registration under `amdName` once it has run. Throws
- * when the chunk does not open with the wrapper expected.
+ * no AMD branch, and a registration once it has run -- anonymous when
+ * require.js is loading the script, under `amdName` otherwise. Throws when the
+ * chunk does not open with the wrapper expected.
  */
 export declare function withoutAmdBranch(code: string, globalName: string, amdName: string): string;
 

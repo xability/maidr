@@ -23,34 +23,6 @@
 
   <body>
     <p>maidr.js and observable.js, loaded after require.js.</p>
-    <script>
-      // The page's own AMD code, run on demand by the spec. require.js's
-      // default onError is left in place, as on a Quarto page, so a mismatch
-      // throws here. A module that is one of the adapters' page globals is
-      // named after it, so the spec can tell the registration hands back the
-      // object the page reads.
-      window.requireLater = function (names) {
-        var globals = ['maidrObservable', 'maidrECharts', 'maidrHighcharts'];
-        function describe(module) {
-          for (var i = 0; i < globals.length; i++) {
-            if (module && module === window[globals[i]]) {
-              return 'window.' + globals[i];
-            }
-          }
-          return typeof module;
-        }
-        return new Promise(function (resolve) {
-          try {
-            require(names, function () {
-              resolve({ resolved: Array.prototype.map.call(arguments, describe) });
-            }, function (error) {
-              resolve({ failed: String(error.message) });
-            });
-          } catch (error) {
-            resolve({ threw: String(error.message) });
-          }
-        });
-      };
-    </script>
+    <script src="require-later.js"></script>
   </body>
 </html>

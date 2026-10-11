@@ -16,9 +16,10 @@ import { expect, test } from '@playwright/test';
  * page's own widgets down with it.
  *
  * The bundles now always run and set their global, and then register with the
- * loader under their import path, which a module load resolves to. The
- * fixtures are under `e2e_tests/fixtures/amd/`; the README beside them says
- * where the require.js there comes from.
+ * loader: under their import path from a script tag, and anonymously when
+ * require.js loads them itself, so a load under any other name or by URL
+ * resolves as it did. The fixtures are under `e2e_tests/fixtures/amd/`; the
+ * README beside them says where the require.js there comes from.
  *
  * Like liveData.spec.ts, this drives the pages directly rather than through a
  * page object: what is under test is the loader and the page globals, and
@@ -52,14 +53,15 @@ async function open(page: Page, fixture: string): Promise<string[]> {
  * Run the page's next `require()`.
  * @param page - The Playwright page
  * @param names - The module names to require
+ * @param config - What to hand `require.config()` first, if anything
  * @returns What it settled to
  */
-async function requireLater(page: Page, names: string[]): Promise<RequireOutcome> {
+async function requireLater(page: Page, names: string[], config?: object): Promise<RequireOutcome> {
   return page.evaluate(
-    modules => (window as unknown as {
-      requireLater: (names: string[]) => Promise<RequireOutcome>;
-    }).requireLater(modules),
-    names,
+    ([modules, settings]) => (window as unknown as {
+      requireLater: (names: string[], config?: object) => Promise<RequireOutcome>;
+    }).requireLater(modules, settings),
+    [names, config] as const,
   );
 }
 
@@ -120,6 +122,40 @@ test.describe('adapter bundles after require.js 2.3.6, as Quarto loads it', () =
     expect(outcome).toEqual({
       resolved: ['window.maidrObservable', 'window.maidrECharts', 'window.maidrHighcharts'],
     });
+    expect(pageErrors).toEqual([]);
+  });
+});
+
+test.describe('adapter bundles that require.js loads itself', () => {
+  // `enforceDefine` fails a load the script makes no define for, so it also
+  // pins that the load is answered by the bundle, not simulated.
+  const config = {
+    enforceDefine: true,
+    paths: { maidrEC: '../../../dist/echarts', maidrObs: '../../../dist/observable' },
+  };
+
+  test('resolve under a paths alias or a URL, and set their page globals', async ({ page }) => {
+    const pageErrors = await open(page, 'requirejs-loads');
+
+    const outcome = await requireLater(page, ['maidrEC', 'maidrObs', '../../../dist/highcharts.js'], config);
+
+    expect(outcome).toEqual({
+      resolved: ['window.maidrECharts', 'window.maidrObservable', 'window.maidrHighcharts'],
+    });
+    expect(await hasQuartoAliases(page)).toBe(true);
+    expect(await requireLater(page, ['jquery'])).toEqual({ resolved: ['object'] });
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('resolve under their import path', async ({ page }) => {
+    const pageErrors = await open(page, 'requirejs-loads');
+
+    const outcome = await requireLater(page, ['maidr/echarts'], {
+      enforceDefine: true,
+      paths: { 'maidr/echarts': '../../../dist/echarts' },
+    });
+
+    expect(outcome).toEqual({ resolved: ['window.maidrECharts'] });
     expect(pageErrors).toEqual([]);
   });
 });

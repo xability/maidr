@@ -17,8 +17,10 @@ import vm from 'node:vm';
  * threw "Mismatched anonymous define()" at the page's next `require()`.
  *
  * `scripts/vite-plugin-umd-without-amd.js` removes that branch and registers
- * the bundle by name once it has run; `scripts/amdDefine.js` checks the output
- * after every build. The halves pinned here: the config, which names every UMD
+ * the bundle once it has run: by name from a script tag, and anonymously when
+ * require.js itself loads it, so that load resolves under whatever name the
+ * page asked for, as before. `scripts/amdDefine.js` checks the output after
+ * every build. The halves pinned here: the config, which names every UMD
  * bundle with exports; a real build of `observable.js` (what maidr's Quarto
  * extension loads) run against each kind of loader it meets; and the guard.
  *
@@ -65,20 +67,29 @@ function load(source: string, page: Globals = {}): Globals {
 }
 
 /**
- * A page with require.js's side of AMD: `define` records each call, and a
- * named module resolves to what its factory returns. An anonymous call is
- * what require.js answers with "Mismatched anonymous define()".
+ * A page with require.js's side of AMD: `define` records each call and what
+ * its factory returns. An anonymous call is what require.js answers with
+ * "Mismatched anonymous define()" -- unless require.js is loading the script
+ * itself, when it names the call after the module it asked for.
+ * @param loading - The module require.js is loading the script as, which it
+ *   writes on the script element as `data-requiremodule`; `null` for a script
+ *   tag of the page's own. Omitted, there is no `document`.
  * @returns The page's globals, and the calls made so far
  */
-function requireJsPage(): { page: Globals; calls: DefineCall[] } {
+function requireJsPage(loading?: string | null): { page: Globals; calls: DefineCall[] } {
   const calls: DefineCall[] = [];
   const define = (...args: unknown[]): void => {
     const name = typeof args[0] === 'string' ? args[0] : null;
     const factory = args[args.length - 1];
-    calls.push({ name, value: name !== null && typeof factory === 'function' ? factory() : undefined });
+    calls.push({ name, value: typeof factory === 'function' ? factory() : undefined });
   };
   define.amd = { jQuery: true };
-  return { page: { define }, calls };
+  if (loading === undefined)
+    return { page: { define }, calls };
+  const currentScript = {
+    getAttribute: (attribute: string) => attribute === 'data-requiremodule' ? loading : null,
+  };
+  return { page: { define, document: { currentScript } }, calls };
 }
 
 /**
@@ -213,6 +224,27 @@ describe('observable.js on a page with an AMD loader', () => {
     expect(calls).toEqual([{ name: 'maidr/observable', value: after.maidrObservable }]);
   });
 
+  it('should register by name from the page\'s own script tag', () => {
+    const { page, calls } = requireJsPage(null);
+
+    const after = load(source, page);
+
+    expectPageGlobal(after);
+    expect(calls).toEqual([{ name: 'maidr/observable', value: after.maidrObservable }]);
+  });
+
+  it('should register anonymously when require.js loads it, under any name', () => {
+    // A `paths` alias, or a URL: require.js names an anonymous define after
+    // the module it is loading, and a named one for another module would
+    // leave that load `undefined`.
+    const { page, calls } = requireJsPage('maidrObs');
+
+    const after = load(source, page);
+
+    expectPageGlobal(after);
+    expect(calls).toEqual([{ name: null, value: after.maidrObservable }]);
+  });
+
   it('should resolve a d3-require load to its global', () => {
     const { page, queue } = d3RequirePage();
 
@@ -303,6 +335,15 @@ describe('the wrapper rewrite', () => {
     expect(calls).toEqual([{ name: 'maidr/x', value: { answer: 42 } }]);
   });
 
+  it('should run the factory before registering with require.js loading it', () => {
+    const { page, calls } = requireJsPage('https://example.org/x.js');
+
+    const after = load(String(rewrite(ROLLDOWN_UMD).code), page);
+
+    expect(after.maidrX).toEqual({ answer: 42 });
+    expect(calls).toEqual([{ name: null, value: { answer: 42 } }]);
+  });
+
   it('should refuse a wrapper it does not know', () => {
     // What rolldown writes for a bundle that imports an external.
     const withExternal = ROLLDOWN_UMD
@@ -342,10 +383,18 @@ describe('post-build AMD define check', () => {
     ]);
   });
 
-  it('should pass a script that registers by name after running', () => {
-    writeFileSync(join(dist, 'echarts.js'), '(function(e,t){typeof exports==`object`&&typeof module<`u`?t(exports):(e=typeof globalThis<`u`?globalThis:e||self,t(e.maidrECharts={}),typeof define==`function`&&define.amd&&define(`maidr/echarts`,[],function(){return e.maidrECharts}))})(this,function(e){});');
+  it('should pass a script that registers after running, anonymously only for require.js', () => {
+    writeFileSync(join(dist, 'echarts.js'), '(function(e,t){typeof exports==`object`&&typeof module<`u`?t(exports):(e=typeof globalThis<`u`?globalThis:e||self,t(e.maidrECharts={}),typeof define==`function`&&define.amd&&(typeof document<`u`&&document.currentScript&&document.currentScript.getAttribute(`data-requiremodule`)?define([],function(){return e.maidrECharts}):define(`maidr/echarts`,[],function(){return e.maidrECharts})))})(this,function(e){});');
 
     expect(find(ECHARTS)).toEqual([]);
+  });
+
+  it('should flag an anonymous define outside the require.js branch', () => {
+    writeFileSync(join(dist, 'echarts.js'), 'document.currentScript.getAttribute(`data-requiremodule`)?define([],t):define(`maidr/echarts`,[],t);define([],t);');
+
+    expect(find(ECHARTS)).toEqual([
+      { file: 'echarts.js', problem: 'makes an anonymous `define` call' },
+    ]);
   });
 
   it('should flag a registration under another name', () => {
