@@ -1,10 +1,17 @@
 import { Color } from './color';
 import { Constant } from './constant';
+import { SELECTOR_CONTRACT_URL } from './selectors';
 
 /**
  * Edge positions for SVG bounding box calculations.
  */
 export type Edge = 'top' | 'bottom' | 'left' | 'right';
+
+/**
+ * Somewhere a chart's selectors are matched: the chart's own element, a layer
+ * it draws outside that element, or the whole page.
+ */
+export type QueryRoot = Element | Document;
 
 /**
  * One line to draw along one edge of one element's bounding box.
@@ -153,6 +160,103 @@ export abstract class Svg {
   }
 
   /**
+   * Where the chart whose model is being built is drawn, or null outside
+   * {@link withQueryRoots}.
+   */
+  private static queryRoots: readonly QueryRoot[] | null = null;
+
+  /**
+   * Builds a chart's model with its selectors resolved inside the chart.
+   *
+   * Every selector a model reads is looked up while `new Figure()` runs, so
+   * the chart's roots are set for that call rather than threaded through
+   * every trace constructor, and the model stays free of the DOM. Two charts
+   * whose producer gave them the same ids, or Plotly charts whose selectors
+   * name no chart at all, each find their own marks this way instead of the
+   * first chart's.
+   *
+   * @param roots - The chart's own element, and any layer it draws outside it
+   * @param build - Builds the model
+   * @returns What `build` returned
+   */
+  public static withQueryRoots<R>(roots: readonly QueryRoot[], build: () => R): R {
+    const previous = this.queryRoots;
+    this.queryRoots = roots;
+    try {
+      return build();
+    } finally {
+      this.queryRoots = previous;
+    }
+  }
+
+  /**
+   * The elements a selector matches, in document order.
+   *
+   * Inside `roots` when anything there matches. The selector is still matched
+   * against the whole document, so a part naming an ancestor of the chart --
+   * `#vl-1 svg rect`, `[id="svg-id"] path` -- matches as before. When nothing
+   * inside matches, the rest of the page is searched, leaving out what lies
+   * inside another chart, and the console says so once per selector: a chart
+   * whose marks sit outside its own element reads them as it always did.
+   *
+   * @param query - A usable CSS selector
+   * @param roots - Where the chart is drawn; null, the default outside
+   *   {@link withQueryRoots}, searches the whole page
+   * @returns The matches
+   */
+  public static queryAll<T extends Element>(
+    query: string,
+    roots: readonly QueryRoot[] | null = this.queryRoots,
+  ): T[] {
+    if (roots === null) {
+      return Array.from(document.querySelectorAll<T>(query));
+    }
+    const ordered = inDocumentOrder(roots);
+    const inside = ordered.flatMap(root => Array.from(root.querySelectorAll<T>(query)));
+    return inside.length > 0 ? inside : this.queryOutside<T>(query, ordered);
+  }
+
+  /**
+   * The first element {@link queryAll} would return, without collecting the
+   * rest.
+   *
+   * @param query - A usable CSS selector
+   * @returns The first match, or null
+   */
+  private static queryFirst<T extends Element>(query: string): T | null {
+    const roots = this.queryRoots;
+    if (roots === null) {
+      return document.querySelector<T>(query);
+    }
+    const ordered = inDocumentOrder(roots);
+    for (const root of ordered) {
+      const found = root.querySelector<T>(query);
+      if (found !== null) {
+        return found;
+      }
+    }
+    return this.queryOutside<T>(query, ordered)[0] ?? null;
+  }
+
+  /**
+   * The matches of a selector outside a chart that has none of its own,
+   * leaving out every element inside another chart.
+   *
+   * @param query - A usable CSS selector
+   * @param roots - Where the chart is drawn
+   * @returns The matches
+   */
+  private static queryOutside<T extends Element>(query: string, roots: readonly QueryRoot[]): T[] {
+    const found = Array
+      .from(document.querySelectorAll<T>(query))
+      .filter(element => !insideAnotherChart(element, roots));
+    if (found.length > 0) {
+      warnResolvedOutside(query);
+    }
+    return found;
+  }
+
+  /**
    * Selects all SVG elements matching a query and optionally clones them.
    * @template T - The type of SVG element to select
    * @param query - CSS selector string to query elements
@@ -164,8 +268,7 @@ export abstract class Svg {
       return [];
     }
 
-    return Array
-      .from(document.querySelectorAll<T>(query))
+    return this.queryAll<T>(query)
       .map((element) => {
         if (!shouldClone) {
           return element;
@@ -191,7 +294,7 @@ export abstract class Svg {
       return null;
     }
 
-    const element = document.querySelector<T>(query);
+    const element = this.queryFirst<T>(query);
     if (!shouldClone) {
       return element;
     }
@@ -250,8 +353,7 @@ export abstract class Svg {
       return null;
     }
 
-    const all = document.querySelectorAll<T>(query);
-    return all[n] ?? null;
+    return this.queryAll<T>(query)[n] ?? null;
   }
 
   /**
@@ -938,4 +1040,74 @@ function pathVertices(pathD: string): PathVertex[] {
   }
 
   return coordinates;
+}
+
+/** The element MAIDR wraps every chart it reads in. */
+const CHART_ARTICLE_SELECTOR = 'article[id^="maidr-article-"]';
+
+/**
+ * Roots in document order, leaving out any one another of them holds, so that
+ * the matches of each, one root after another, are in document order too.
+ *
+ * @param roots - Where a chart is drawn
+ * @returns The outermost roots, in document order
+ */
+function inDocumentOrder(roots: readonly QueryRoot[]): QueryRoot[] {
+  const distinct = Array.from(new Set(roots));
+  if (distinct.length === 1) {
+    return distinct;
+  }
+  return distinct
+    .filter(root => !distinct.some(other => other !== root && other.contains(root)))
+    .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+}
+
+/**
+ * The chart an element is drawn in: the article MAIDR wraps it in, or, for
+ * the layers Plotly draws over a chart outside that article, the graph div
+ * holding one.
+ *
+ * @param element - Any element on the page
+ * @returns The chart's outermost element, or null when it is in none
+ */
+function chartOf(element: Element): Element | null {
+  const article = element.closest(CHART_ARTICLE_SELECTOR);
+  if (article !== null) {
+    return article;
+  }
+  const graph = element.closest('.js-plotly-plot');
+  return graph?.querySelector(CHART_ARTICLE_SELECTOR) ? graph : null;
+}
+
+/**
+ * Whether an element belongs to a chart other than the one drawn in `roots`.
+ *
+ * @param element - A match found outside `roots`
+ * @param roots - Where the chart being built is drawn
+ * @returns True when the element is inside another chart
+ */
+function insideAnotherChart(element: Element, roots: readonly QueryRoot[]): boolean {
+  const chart = chartOf(element);
+  return chart !== null && !roots.some(root => chart.contains(root));
+}
+
+/** Selectors already reported as resolved outside their chart. */
+const resolvedOutside = new Set<string>();
+
+/**
+ * Tells a producer, once per selector, that a selector matched nothing in its
+ * chart and was answered from the rest of the page.
+ *
+ * @param query - The selector
+ */
+function warnResolvedOutside(query: string): void {
+  if (resolvedOutside.has(query)) {
+    return;
+  }
+  resolvedOutside.add(query);
+  console.warn(
+    `[MAIDR] Selector "${query}" matches nothing inside its chart, so the elements it `
+    + 'matches elsewhere on the page were used. Name elements inside the chart. '
+    + `See ${SELECTOR_CONTRACT_URL} for how selectors are resolved.`,
+  );
 }

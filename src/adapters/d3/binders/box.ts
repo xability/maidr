@@ -122,11 +122,11 @@ export function buildBoxLayer(root: Element, config: D3BoxConfig, panel?: D3Pane
     };
   });
 
-  // Ensure the SVG has a stable id so selectors can be absolutely scoped
-  // (consumers resolve selectors via global `document.querySelector`, so they
-  // must be unique page-wide). `selectorPrefix` auto-assigns an id when the
-  // container lacks one, mirroring `scopeSelector`'s behaviour, and appends
-  // the `data-maidr-panel` segment on multi-panel binds.
+  // Ensure the SVG has a stable id so selectors can be absolutely scoped, and
+  // name this chart's marks alone wherever they are read. `selectorPrefix`
+  // auto-assigns an id when the container lacks one, mirroring
+  // `scopeSelector`'s behaviour, and appends the `data-maidr-panel` segment
+  // on multi-panel binds.
   const prefix = selectorPrefix(root, panel);
 
   // BoxTrace.mapToSvgElements (src/model/box.ts) requires one BoxSelector

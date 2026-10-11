@@ -249,12 +249,12 @@ export function getPanelClassSelector(row: number, col: number): string {
  * cannot reliably target a specific series in Recharts' SVG structure.
  * See the module-level documentation for details.
  *
- * The generated selectors are bare page-global class selectors (e.g.
- * `.recharts-bar-rectangle .recharts-rectangle`). MAIDR resolves them via
- * page-global `document.querySelectorAll`, so with two or more Recharts charts
- * on one page they would cross-match. Pass `chartId` (the `<Maidr>` config id)
- * to scope every selector to that chart's own `#maidr-article-<id>` wrapper so
- * the charts cannot highlight one another's elements.
+ * The generated selectors are bare class selectors (e.g.
+ * `.recharts-bar-rectangle .recharts-rectangle`). MAIDR resolves a chart's
+ * selectors inside that chart, so they do not reach another chart's marks
+ * there. Pass `chartId` (the `<Maidr>` config id) to scope every selector to
+ * that chart's own `#maidr-article-<id>` wrapper as well, so it names this
+ * chart's elements alone wherever it is read.
  *
  * For multi-panel figures every panel lives inside the SAME article wrapper,
  * so `chartId` alone is not enough: pass `panelScope` (a selector matching
@@ -329,9 +329,9 @@ export function getRechartsSelector(
   if (base === undefined) {
     return base;
   }
-  // Scope to the chart's own `<Maidr>` article so multiple Recharts charts on
-  // one page cannot cross-highlight under page-global selector resolution,
-  // then to the panel's own container so sibling panels cannot either.
+  // Scope to the chart's own `<Maidr>` article, so the selector names this
+  // chart alone wherever it is read, then to the panel's own container: the
+  // panels share the chart, so only that keeps them from cross-highlighting.
   const scopes: string[] = [];
   if (chartId !== undefined) {
     scopes.push(`#maidr-article-${cssEscape(chartId)}`);
@@ -346,7 +346,7 @@ export function getRechartsSelector(
 }
 
 /**
- * Returns the unscoped, page-global leaf selector for a Recharts chart type.
+ * Returns the unscoped leaf selector for a Recharts chart type.
  */
 function baseRechartsSelector(chartType: RechartsChartType): string | undefined {
   switch (chartType) {

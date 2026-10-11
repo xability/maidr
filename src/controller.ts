@@ -52,6 +52,7 @@ import { DEFAULT_SETTINGS } from '@type/settings';
 import { t } from '@util/i18n';
 import { createNavigateObserver } from '@util/navigateObserver';
 import { resolveSubplotLayout } from '@util/subplotLayout';
+import { Svg } from '@util/svg';
 
 /** The scopes from which a keyboard move to another data point is possible. */
 const NAVIGABLE_SCOPES: ReadonlySet<Scope> = new Set<Scope>([
@@ -100,6 +101,33 @@ export interface ControllerSession {
   textMode: TextMode;
   soundOn: boolean;
   brailleOn: boolean;
+}
+
+/**
+ * The elements a chart is drawn in: its own element and, for Plotly, the
+ * layers drawn over it outside that element.
+ *
+ * @param plot - The element MAIDR made focusable around the chart
+ * @returns The chart's elements, its own first
+ */
+function chartRoots(plot: HTMLElement): Element[] {
+  return [plot, ...getPlotlyOverlayLayers(plot)];
+}
+
+/**
+ * Builds a chart's model and lays out its panels, with every selector and
+ * panel lookup resolved inside the {@link chartRoots | chart}. Another chart
+ * on the page that shares its ids or its selectors is out of reach.
+ *
+ * @param maidr - The chart's data
+ * @param plot - The element MAIDR made focusable around the chart
+ * @returns The laid-out figure
+ */
+function buildFigure(maidr: Maidr, plot: HTMLElement): Figure {
+  const roots = chartRoots(plot);
+  const figure = Svg.withQueryRoots(roots, () => new Figure(maidr));
+  figure.applyLayout(resolveSubplotLayout(figure.subplots, roots));
+  return figure;
 }
 
 /**
@@ -177,8 +205,7 @@ export class Controller implements Disposable {
     session: ControllerSession | null = null,
   ) {
     this.viewModelRegistry = new ViewModelRegistry();
-    this.figure = new Figure(maidr);
-    this.figure.applyLayout(resolveSubplotLayout(this.figure.subplots));
+    this.figure = buildFigure(maidr, plot);
     this.context = new Context(this.figure);
     // Before any service reads the position: the audio mode and the display's
     // focus stack are both taken from the level the reader is on. A figure
@@ -244,7 +271,10 @@ export class Controller implements Disposable {
       this.context,
       () => getPlotlyOverlayLayers(this.displayService.plot),
     );
-    this.highlightService = new HighlightService(this.settingsService);
+    this.highlightService = new HighlightService(
+      this.settingsService,
+      () => chartRoots(this.displayService.plot),
+    );
     this.tactileService = new TactileService(
       this.displayService,
       this.brailleService,
@@ -750,11 +780,10 @@ export class Controller implements Disposable {
     const activeColShift = this.resolveActiveColShift(appended);
     const activeRowShift = this.resolveActiveRowShift(appended);
 
-    this.figure = this.context.replaceFigure(() => {
-      const figure = new Figure(maidr);
-      figure.applyLayout(resolveSubplotLayout(figure.subplots));
-      return figure;
-    }, { activeColShift, activeRowShift });
+    this.figure = this.context.replaceFigure(
+      () => buildFigure(maidr, this.displayService.plot),
+      { activeColShift, activeRowShift },
+    );
 
     this.highContrastService.setFigure(this.figure);
     this.tactileService.setFigure(this.figure);

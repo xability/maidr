@@ -886,9 +886,9 @@ const PACK_RADIUS_TOLERANCE = 0.01;
  * {@link bindAnyCharts}. Its value is the panel token
  * (`<figureId>-<row>-<col>`), which uniquely identifies one chart's SVG
  * within the page. Every layer selector emitted for a multi-panel figure is
- * prefixed with `[data-maidr-anychart-panel="<token>"] ` so MAIDR's
- * document-global selector resolution can never leak into another panel
- * (or another figure).
+ * prefixed with `[data-maidr-anychart-panel="<token>"] ` so a selector can
+ * never leak into another panel, which shares the chart MAIDR resolves the
+ * figure's selectors in, nor into another figure on the page.
  */
 const PANEL_ATTR = 'data-maidr-anychart-panel';
 

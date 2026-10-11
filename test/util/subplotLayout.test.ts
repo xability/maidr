@@ -290,3 +290,72 @@ describe('resolveSubplotLayout numbers cells nothing could be measured for', () 
     expect(layout.visualOrderMap.get('0,1')).toBe(4);
   });
 });
+
+/**
+ * Two charts on one page, each a single panel in an `<svg>` of its own. Their
+ * producer suffixed every id per chart but kept the `axes_` prefix MAIDR
+ * finds a matplotlib panel by, and their layer selectors match both charts.
+ */
+describe('resolveSubplotLayout keeps to its own chart', () => {
+  /**
+   * Builds the two charts.
+   * @returns Each chart's root, and the bar inside each
+   */
+  function twoCharts(): { roots: Element[]; bars: Element[] } {
+    const roots = ['mA', 'mB'].map((suffix) => {
+      const root = document.createElement('div');
+      root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">`
+        + `<g id="axes_1-${suffix}"><rect class="bar"/></g></svg>`;
+      document.body.appendChild(root);
+      return root;
+    });
+    return { roots, bars: roots.map(root => root.querySelector('.bar') as Element) };
+  }
+
+  it('counts only the chart\'s own panels', () => {
+    const { roots } = twoCharts();
+    const subplots = grid([[{}]]);
+
+    const alone = resolveSubplotLayout(subplots, [roots[0]]);
+    const pageWide = resolveSubplotLayout(subplots);
+
+    expect(alone.totalAxesCount).toBe(1);
+    expect(pageWide.totalAxesCount).toBe(2);
+  });
+
+  it('finds the panel a layer selector names inside the chart, not the first on the page', () => {
+    const { roots } = twoCharts();
+    const subplots = grid([[{ layerSelector: '.bar' }]]);
+
+    const layout = resolveSubplotLayout(subplots, [roots[1]]);
+
+    expect(layout.axesElements.get('0,0')).toBe(roots[1].querySelector('g[id^="axes_"]'));
+  });
+
+  it('orders panels with no axes groups by the marks inside the chart, not the first on the page', () => {
+    // Two charts drawn from one spec, each two panels stacked; the first
+    // emits its top panel first, the second its bottom panel first.
+    const roots = [[0, 100], [300, 200]].map((tops) => {
+      const root = document.createElement('div');
+      root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">`
+        + `<rect class="panel-a-mark"/><rect class="panel-b-mark"/></svg>`;
+      document.body.appendChild(root);
+      mockRect(root.querySelector('.panel-a-mark') as Element, { top: tops[0], left: 0 });
+      mockRect(root.querySelector('.panel-b-mark') as Element, { top: tops[1], left: 0 });
+      return root;
+    });
+    const subplots = grid([
+      [{ layerSelector: '.panel-a-mark' }],
+      [{ layerSelector: '.panel-b-mark' }],
+    ]);
+
+    const first = resolveSubplotLayout(subplots, [roots[0]]);
+    const second = resolveSubplotLayout(subplots, [roots[1]]);
+
+    expect(first.topLeftRow).toBe(0);
+    expect(first.invertVertical).toBe(true);
+    expect(second.topLeftRow).toBe(1);
+    expect(second.invertVertical).toBe(false);
+    expect(second.visualOrderMap.get('1,0')).toBe(1);
+  });
+});

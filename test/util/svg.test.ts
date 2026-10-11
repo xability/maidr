@@ -17,7 +17,7 @@
  * throws.
  */
 
-import { beforeEach, describe, expect, it } from '@jest/globals';
+import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Svg } from '@util/svg';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
@@ -104,5 +104,168 @@ describe('svg selector guards', () => {
       expect(Svg.selectNthElement('#bars > rect', 1)).not.toBeNull();
       expect(Svg.selectNthElement('#bars > rect', 9)).toBeNull();
     });
+  });
+});
+
+/**
+ * Two charts on one page whose producer gave them the same ids: each is
+ * MAIDR's article round a plot holding an `<svg>` with three bars.
+ */
+function twoChartsWithTheSameIds(): { plotA: HTMLElement; plotB: HTMLElement } {
+  document.body.innerHTML = ['a', 'b'].map(chart => `
+    <article id="maidr-article-${chart}">
+      <figure><div id="wrap-${chart}" tabindex="0">
+        <svg xmlns="${SVG_NAMESPACE}"><g id="bars"><rect/><rect/><rect/></g></svg>
+      </div></figure>
+    </article>`).join('');
+  return {
+    plotA: document.getElementById('wrap-a') as HTMLElement,
+    plotB: document.getElementById('wrap-b') as HTMLElement,
+  };
+}
+
+// A selector resolved outside its chart warns on purpose. Silenced for the
+// file rather than per test, and handed back after.
+const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+afterAll(() => {
+  consoleWarn.mockRestore();
+});
+
+describe('selectors resolved inside a chart', () => {
+  beforeEach(() => {
+    consoleWarn.mockClear();
+  });
+
+  it('should find only the chart\'s own marks when another chart shares its ids', () => {
+    const { plotA, plotB } = twoChartsWithTheSameIds();
+
+    const rects = Svg.withQueryRoots([plotB], () => Svg.selectAllElements<SVGElement>('#bars rect', false));
+
+    expect(rects).toHaveLength(3);
+    expect(rects.every(rect => plotB.contains(rect))).toBe(true);
+    expect(rects.some(rect => plotA.contains(rect))).toBe(false);
+  });
+
+  it('should insert every hidden copy into the chart and none into the other', () => {
+    const { plotA, plotB } = twoChartsWithTheSameIds();
+
+    Svg.withQueryRoots([plotB], () => Svg.selectAllElements('#bars rect'));
+
+    expect(plotB.querySelectorAll('[data-maidr-owned]')).toHaveLength(3);
+    expect(plotA.querySelectorAll('[data-maidr-owned]')).toHaveLength(0);
+  });
+
+  it('should count only the chart\'s own matches for one element and the nth', () => {
+    const { plotB } = twoChartsWithTheSameIds();
+    const ownSecond = plotB.querySelectorAll('rect')[1];
+
+    const [first, second, beyond] = Svg.withQueryRoots([plotB], () => [
+      Svg.selectElement<SVGElement>('#bars rect', false),
+      Svg.selectNthElement<SVGElement>('#bars rect', 1),
+      Svg.selectNthElement<SVGElement>('#bars rect', 3),
+    ]);
+
+    expect(first).toBe(plotB.querySelector('rect'));
+    expect(second).toBe(ownSecond);
+    expect(beyond).toBeNull();
+  });
+
+  it('should still match a selector that names an ancestor of the chart', () => {
+    const { plotB } = twoChartsWithTheSameIds();
+    const svg = plotB.querySelector('svg') as SVGSVGElement;
+
+    const rects = Svg.withQueryRoots([svg], () => Svg.selectAllElements<SVGElement>('#wrap-b svg rect', false));
+
+    expect(rects).toEqual(Array.from(svg.querySelectorAll('rect')));
+  });
+
+  it('should resolve on the rest of the page, with one warning, when the chart has no match', () => {
+    const { plotB } = twoChartsWithTheSameIds();
+    const outside = document.createElementNS(SVG_NAMESPACE, 'svg');
+    outside.innerHTML = '<circle class="legend-mark"/>';
+    document.body.append(outside);
+
+    const found = Svg.withQueryRoots([plotB], () => [
+      Svg.selectAllElements<SVGElement>('.legend-mark', false),
+      Svg.selectElement<SVGElement>('.legend-mark', false),
+    ]);
+
+    expect(found).toEqual([[outside.firstElementChild], outside.firstElementChild]);
+    expect(consoleWarn).toHaveBeenCalledTimes(1);
+    expect(String(consoleWarn.mock.calls[0][0])).toContain('".legend-mark" matches nothing inside its chart');
+  });
+
+  it('should never fall back to the marks of another chart', () => {
+    const { plotB } = twoChartsWithTheSameIds();
+    plotB.querySelector('#bars')?.remove();
+
+    const [all, one] = Svg.withQueryRoots([plotB], () => [
+      Svg.selectAllElements<SVGElement>('#bars rect', false),
+      Svg.selectElement<SVGElement>('#bars rect'),
+    ]);
+
+    expect(all).toEqual([]);
+    expect(one).toBeNull();
+    expect(document.querySelectorAll('[data-maidr-owned]')).toHaveLength(0);
+    expect(consoleWarn).not.toHaveBeenCalled();
+  });
+
+  it('should never fall back to a layer Plotly draws over another chart', () => {
+    // Plotly's graph div holds MAIDR's article round the first `svg.main-svg`,
+    // and beside it the layers it draws over the chart.
+    document.body.innerHTML = ['a', 'b'].map(chart => `
+      <div class="js-plotly-plot" id="graph-${chart}"><div class="svg-container">
+        <article id="maidr-article-${chart}"><figure><div id="plot-${chart}">
+          <svg class="main-svg"><g class="cartesianlayer"><path class="point"/></g></svg>
+        </div></figure></article>
+        <svg class="main-svg"><g class="indicatorlayer"><path class="arc"/></g></svg>
+      </div></div>`).join('');
+    const plotB = document.getElementById('plot-b') as HTMLElement;
+    document.querySelector('#graph-b .indicatorlayer .arc')?.remove();
+
+    const arcs = Svg.withQueryRoots([plotB], () => Svg.selectAllElements<SVGElement>('.indicatorlayer .arc', false));
+
+    expect(arcs).toEqual([]);
+  });
+
+  it('should return the matches of several roots in document order', () => {
+    document.body.innerHTML = `
+      <div id="plot"><svg><rect id="r1"/><rect id="r2"/></svg></div>
+      <svg id="overlay"><rect id="r3"/></svg>`;
+    const plot = document.getElementById('plot') as HTMLElement;
+    const overlay = document.getElementById('overlay') as Element;
+
+    const ids = Svg.withQueryRoots([overlay, plot, plot], () => [
+      Svg.selectAllElements<SVGElement>('rect', false).map(rect => rect.id),
+      Svg.selectElement<SVGElement>('rect', false)?.id,
+      Svg.selectNthElement<SVGElement>('rect', 2)?.id,
+    ]);
+
+    expect(ids).toEqual([['r1', 'r2', 'r3'], 'r1', 'r3']);
+  });
+
+  it('should put the previous roots back when building throws, and after a nested build', () => {
+    const { plotA, plotB } = twoChartsWithTheSameIds();
+    const inA = (): boolean => plotA.contains(Svg.selectElement<SVGElement>('#bars rect', false));
+
+    const nested = Svg.withQueryRoots([plotB], () =>
+      Svg.withQueryRoots([plotA], inA) && !inA());
+    expect(() => Svg.withQueryRoots([plotB], () => {
+      throw new Error('construction failed');
+    })).toThrow('construction failed');
+
+    expect(nested).toBe(true);
+    expect(inA()).toBe(true);
+  });
+
+  it('should search the whole page outside a chart\'s build, as before', () => {
+    twoChartsWithTheSameIds();
+
+    const rects = Svg.selectAllElements<SVGElement>('#bars rect', false);
+
+    expect(rects).toEqual(Array.from(document.querySelectorAll('#bars rect')));
+    expect(rects).toHaveLength(6);
+    expect(consoleWarn).not.toHaveBeenCalled();
   });
 });

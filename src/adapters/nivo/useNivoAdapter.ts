@@ -123,7 +123,7 @@ export function useNivoAdapter(
       return;
 
     // Scope every selector to this chart's own container, so two charts on a
-    // page never cross-highlight (the model resolves selectors page-wide).
+    // page never cross-highlight wherever a selector is read.
     const scope = `#${cssEscape(ensureContainerId(container, 'mn'))} `;
     // The render that changed `input` wrote these; a later one with the same
     // `input` read the same chart.

@@ -31,10 +31,12 @@ import { TraceType } from '../../type/grammar';
  *
  * Unscoped by trace, because plotly appends each sankey's `g.sankey` straight
  * onto the paper beside groups of every other kind — there is no layer to
- * count within, the way `.pielayer` lets a pie be counted. A page with two
+ * count within, the way `.pielayer` lets a pie be counted. A figure with two
  * sankeys therefore matches both traces' ribbons, and `FlowTrace` withdraws
  * the highlight on the count mismatch that produces. That is the intended
- * outcome: the alternative is lighting up another chart's ribbon.
+ * outcome: the alternative is lighting up the other sankey's ribbon. A sankey
+ * in another chart on the page is not matched at all: MAIDR resolves a
+ * chart's selectors inside that chart.
  */
 const SANKEY_LINK_SELECTOR = '.sankey .sankey-links > path.sankey-link';
 

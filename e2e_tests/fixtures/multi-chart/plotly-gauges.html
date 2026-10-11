@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Two Plotly gauges</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../../../dist/maidr.js"></script>
+  </head>
+  <body>
+    <div id="first" style="width: 420px; height: 300px"></div>
+    <div id="second" style="width: 420px; height: 300px"></div>
+    <script>
+      Plotly.newPlot(
+        'first',
+        [
+          {
+            type: 'indicator',
+            mode: 'gauge+number',
+            value: 30,
+            title: { text: 'Load' },
+            gauge: { axis: { range: [0, 100] } },
+          },
+        ],
+        { title: { text: 'First gauge' } },
+      );
+      Plotly.newPlot(
+        'second',
+        [
+          {
+            type: 'indicator',
+            mode: 'gauge+number',
+            value: 70,
+            title: { text: 'Load' },
+            gauge: { axis: { range: [0, 100] } },
+          },
+        ],
+        { title: { text: 'Second gauge' } },
+      );
+    </script>
+  </body>
+</html>
