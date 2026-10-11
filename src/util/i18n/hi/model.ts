@@ -161,6 +161,10 @@ export const model = {
   // instructions above on one line.
   'model.initialInstructionFigure': 'यह एक maidr फ़िगर है जिसमें {size} सबप्लॉट हैं। {clickPrompt} सबप्लॉट में चलने के लिए तीर कुंजियाँ दबाएँ और Enter दबाएँ।',
   'model.initialInstructionSubplot': 'यह एक maidr प्लॉट है जिसमें {size} लेयर हैं, और यह {size} में से लेयर {index} है: {plotType} प्लॉट। {clickPrompt} डेटा बिंदुओं में चलने के लिए तीर कुंजियाँ दबाएँ। ब्रेल के लिए B, टेक्स्ट के लिए T, सोनिफिकेशन के लिए S और समीक्षा मोड के लिए R दबाएँ।',
+  'model.chartNameTitled': '{title}, {type}',
+  'model.chartNameLayers': '{size} लेयर वाला प्लॉट',
+  'model.chartNameFigure': '{size} सबप्लॉट वाला फ़िगर',
+  'model.instructionKeyboardHelp': 'कीबोर्ड सहायता के लिए {modifier} स्लैश दबाएँ।',
   // Candlestick shapes and patterns (src/util/candlePattern.ts).
   'model.candleShapeMarubozu': 'मारुबोज़ू',
   'model.candleShapeDoji': 'दोजी',

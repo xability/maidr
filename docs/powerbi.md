@@ -118,7 +118,7 @@ GitHub issue [#1305](https://github.com/xability/maidr/issues/1305) asked for a 
 
 What *does* work is a companion **custom** visual bound to the **same fields** as the native one. The author places a native clustered column chart and the MAIDR visual side by side and drags the same Axis, Legend and Values fields into both. Slicers and filters then reach both visuals the same way, and the companion reads the same numbers the native chart draws. In companion mode the binder renders no chart. It renders only MAIDR's keyboard entry point, showing the text set by [`label`](#powerbibindoptions). Size the companion visual small and place it next to the native chart. A reader tabs into it and hears the native chart's data.
 
-`label` is **visible text only**. The entry point sits inside MAIDR's focusable plot element, which has `role="img"` and an `aria-label` holding MAIDR's own instruction, so a screen reader announces that instruction and never reads the label. Use the label to tell sighted keyboard users what the box is; do not put anything in it that a screen-reader user needs to hear, and do not repeat keyboard instructions there.
+`label` is **visible text only**. The entry point sits inside MAIDR's focusable plot element, which has `role="img"`, is named by the chart's title and type, and is described by MAIDR's own instructions, so a screen reader announces those and never reads the label. Use the label to tell sighted keyboard users what the box is; do not put anything in it that a screen-reader user needs to hear, and do not repeat keyboard instructions there.
 
 ```ts
 this.maidr = bindPowerBI(options.element, {

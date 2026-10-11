@@ -33,9 +33,12 @@ async function text(page: Page): Promise<string> {
   return page.evaluate(() => document.querySelector('[id^="react-container"]')?.textContent ?? '');
 }
 
-/** The task pane's chart picker, found by its label. */
+/**
+ * The task pane's chart picker, found by its label. Exactly: the plot is named
+ * by its chart's title and type, such as `Sales by quarter, Bar Chart`.
+ */
 function picker(page: Page): Locator {
-  return page.locator('#taskpane').getByLabel('Chart');
+  return page.locator('#taskpane').getByLabel('Chart', { exact: true });
 }
 
 /** MAIDR's plot element, whichever role it has at the moment. */
@@ -73,7 +76,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
     ]);
     // No chart is active, so the first is shown, inside MAIDR's figure.
     await expect(picker(page)).toHaveValue('{chart-sales}');
-    await expect(plot(page)).toHaveAttribute('aria-label', /maidr plot of type: vertical dodged_bar/);
+    await expect(plot(page)).toHaveAccessibleDescription(/maidr plot of type: vertical dodged_bar/);
     await expect(plot(page).locator('img')).toHaveAttribute('src', /^data:image\/png;base64,/);
   });
 
@@ -110,7 +113,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
 
     await expect(picker(page)).toHaveValue('{chart-visits}');
     await expect(picker(page)).toBeFocused();
-    await expect(plot(page)).toHaveAttribute('aria-label', /maidr plot of type: multiline with 2 groups/);
+    await expect(plot(page)).toHaveAccessibleDescription(/maidr plot of type: multiline with 2 groups/);
     await tabIntoFigure(page, 'maidr plot of type: multiline with 2 groups');
     await page.keyboard.press('ArrowRight');
     // The category axis has no title; its header cell, "Month", names it.
@@ -119,10 +122,25 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
     await waitForText(page, 'Month is Jan, People is 80, Group is Sign-ups');
   });
 
+  test('a chart chosen after the reader left another is described as the one chosen', async ({ page }) => {
+    await open(page);
+    await tabIntoFigure(page, 'maidr plot of type: vertical dodged_bar');
+    await page.keyboard.press('ArrowRight');
+    await waitForText(page, 'Quarter is Q1');
+    await picker(page).focus();
+    await expect(plot(page)).toHaveAttribute('role', 'img');
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(picker(page)).toHaveValue('{chart-visits}');
+    await expect(plot(page)).toHaveAccessibleName(/Line Chart$/);
+    await expect(plot(page)).toHaveAccessibleDescription(/^This is a maidr plot of type: multiline with 2 groups\. Click to activate\./);
+  });
+
   test('a combo chart reads as a column layer and a line layer, each on its own axis', async ({ page }) => {
     await open(page);
     await picker(page).selectOption('{chart-combo}');
-    await expect(plot(page)).toHaveAttribute('aria-label', /containing 2 layers, and this is layer 1 of 2: vertical bar plot/);
+    await expect(plot(page)).toHaveAccessibleDescription(/containing 2 layers, and this is layer 1 of 2: vertical bar plot/);
     await tabIntoFigure(page, 'maidr plot containing 2 layers');
 
     await page.keyboard.press('ArrowRight');
@@ -139,7 +157,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
     await page.locator('#activate-share').click();
 
     await expect(picker(page)).toHaveValue('{chart-share}');
-    await expect(plot(page)).toHaveAttribute('aria-label', /maidr plot of type: pie/);
+    await expect(plot(page)).toHaveAccessibleDescription(/maidr plot of type: pie/);
   });
 
   test('moving out of the chart keeps it in the pane', async ({ page }) => {
@@ -151,7 +169,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
     await picker(page).focus();
 
     await expect(picker(page)).toHaveValue('{chart-visits}');
-    await expect(plot(page)).toHaveAttribute('aria-label', /multiline/);
+    await expect(plot(page)).toHaveAccessibleDescription(/multiline/);
   });
 
   test('an edit in the grid is read in place while the reader is in the chart', async ({ page }) => {
@@ -186,7 +204,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
     await page.keyboard.press('End');
 
     await expect(picker(page)).toHaveValue('{chart-sizes}');
-    await expect(plot(page)).toHaveAttribute('aria-label', /maidr plot of type: treemap/);
+    await expect(plot(page)).toHaveAccessibleDescription(/maidr plot of type: treemap/);
     await tabIntoFigure(page, 'maidr plot of type: treemap');
     await page.keyboard.press('ArrowRight');
     // The group cell beside Pears is blank: Fruit, carried down, holds both.

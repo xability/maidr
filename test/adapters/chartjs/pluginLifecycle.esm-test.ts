@@ -114,10 +114,11 @@ describe('when the Chart.js plugin binds', () => {
       maidrPlugin.afterUpdate?.(chart, {}, {});
     });
 
-    // The reader's own evidence: the instruction MAIDR renders names the
-    // chart. Built from an empty parse it announces no plot info at all.
-    const instruction = document.body.querySelector('[aria-label*="maidr plot"]')
-      ?.getAttribute('aria-label') ?? '';
+    // The reader's own evidence: the instructions MAIDR describes the chart
+    // by name its type. Built from an empty parse they announce no plot info
+    // at all.
+    const instruction = document.body.querySelector('[id^="maidr-instruction-"]')
+      ?.textContent ?? '';
 
     expect(instruction).toContain('box');
   });
@@ -134,7 +135,7 @@ describe('when the Chart.js plugin binds', () => {
       maidrPlugin.afterUpdate?.(chart, {}, {});
     });
 
-    expect(document.body.querySelectorAll('[aria-label*="maidr plot"]')).toHaveLength(1);
+    expect(document.body.querySelectorAll('figure[id^="maidr-figure-"] > [tabindex="0"]')).toHaveLength(1);
   });
 
   it('warns once for a chart it cannot read, not once per update', () => {

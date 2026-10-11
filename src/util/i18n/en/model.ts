@@ -165,6 +165,13 @@ export const model = {
   // before the chart is focused.
   'model.initialInstructionFigure': 'This is a maidr figure containing {size} subplots. {clickPrompt} Use arrow keys to navigate subplots and press \'ENTER\'.',
   'model.initialInstructionSubplot': 'This is a maidr plot containing {size} layers, and this is layer {index} of {size}: {plotType} plot. {clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
+  // The chart's accessible name (maidr-component.tsx): what it is, by its
+  // title and type. How to use it is its description: the instructions above,
+  // then the keyboard help that points to the rest of the keys (#1384).
+  'model.chartNameTitled': '{title}, {type}',
+  'model.chartNameLayers': 'Chart with {size} layers',
+  'model.chartNameFigure': 'Figure with {size} subplots',
+  'model.instructionKeyboardHelp': 'Press {modifier} Slash for keyboard help.',
   // Candlestick shapes and patterns (src/util/candlePattern.ts). Each names
   // what the candle is drawn like, not a forecast.
   'model.candleShapeMarubozu': 'marubozu',

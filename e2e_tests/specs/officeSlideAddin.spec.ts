@@ -361,7 +361,7 @@ test.describe('The published Office add-in on the slide (addin/slide.html)', () 
     await picker(page).selectOption({ label: 'Slide 2: Costs' });
 
     await expect(view(page).locator('[data-maidr-office-anchor]')).toHaveText('Costs');
-    await expect(plot(page)).toHaveAttribute('aria-label', /maidr plot of type: vertical bar/);
+    await expect(plot(page)).toHaveAccessibleDescription(/maidr plot of type: vertical bar/);
     await expect.poll(() => seen(page)).toMatchObject({ saved: { [LINK]: { slideId: '257', shapeId: '5', name: 'Chart 5' } }, saves: 1 });
   });
 

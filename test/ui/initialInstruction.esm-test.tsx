@@ -5,14 +5,16 @@
 /**
  * Component tests for the pre-activation announcement.
  *
- * `Maidr` labels the plot wrapper before any Controller exists, so a screen
- * reader can find the chart (NVDA "g") without focusing it first. That string
- * is built by a second instruction builder — the model's
- * `Context.getInstruction` produces the post-activation one — and the two have
- * to agree, or the announcement changes the moment the user focuses the chart.
+ * `Maidr` names and describes the plot wrapper before any Controller exists,
+ * so a screen reader can find the chart (NVDA "g") without focusing it first.
+ * The name says what the chart is, its title and type (#1384); the
+ * description says how to use it. The description is built by a second
+ * instruction builder — the model's `Context.getInstruction` produces the
+ * post-activation one — and the two have to agree, or the announcement
+ * changes the moment the user focuses the chart.
  *
  * The Controller is created on focus-in, not on mount, so rendering here
- * exercises the label alone.
+ * exercises the name and description alone.
  */
 
 import type { BoxPoint, Maidr as MaidrData, MaidrLayer } from '@type/grammar';
@@ -78,20 +80,36 @@ function createLineLayer(): MaidrLayer {
 }
 
 /**
- * Renders a figure of the given layers and returns its pre-activation label.
- * @param layers - The layers of the only subplot
- * @returns The wrapper's accessible name
+ * Renders a chart and reads the plot wrapper's pre-activation name and
+ * description, the way a screen reader is given them.
+ * @param data - The chart
+ * @returns The wrapper's accessible name and description
  */
-function labelFor(...layers: MaidrLayer[]): string {
-  const data: MaidrData = { id: 'label-test', subplots: [[{ layers }]] };
+function announcementOf(data: MaidrData): { name: string; description: string } {
   const { unmount } = render(
     <Maidr data={data}>
       <svg />
     </Maidr>,
   );
-  const label = screen.getByRole('img').getAttribute('aria-label') ?? '';
+  const plot = screen.getByRole('img');
+  const name = plot.getAttribute('aria-label') ?? '';
+  const description = (plot.getAttribute('aria-describedby') ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(id => document.getElementById(id)?.textContent ?? '')
+    .join(' ');
   unmount();
-  return label;
+  return { name, description };
+}
+
+/**
+ * Renders a figure of the given layers and returns its pre-activation
+ * instructions.
+ * @param layers - The layers of the only subplot
+ * @returns The wrapper's accessible description
+ */
+function labelFor(...layers: MaidrLayer[]): string {
+  return announcementOf({ id: 'label-test', subplots: [[{ layers }]] }).description;
 }
 
 describe('pre-activation instruction orientation', () => {
@@ -112,6 +130,77 @@ describe('pre-activation instruction orientation', () => {
   test('announces the orientation of layer 1 of a multi-layer plot', () => {
     expect(labelFor(createBarLayer(), createLineLayer())).toContain(
       'layer 1 of 2: vertical bar plot.',
+    );
+  });
+});
+
+describe('pre-activation name', () => {
+  test('names the chart by its title and type', () => {
+    const { name } = announcementOf({
+      id: 'name-test',
+      title: 'Tips by day',
+      subplots: [[{ layers: [createBarLayer()] }]],
+    });
+
+    expect(name).toBe('Tips by day, Bar Chart');
+  });
+
+  test('takes the title of a single panel from its layer', () => {
+    const { name } = announcementOf({
+      id: 'name-test',
+      subplots: [[{ layers: [{ ...createBarLayer(), title: 'Tips by day' }] }]],
+    });
+
+    expect(name).toBe('Tips by day, Bar Chart');
+  });
+
+  test('names a chart with no title by its type alone', () => {
+    expect(announcementOf({ id: 'name-test', subplots: [[{ layers: [createLineLayer()] }]] }).name)
+      .toBe('Line Chart');
+  });
+
+  test('names a chart whose producer sent a title that is not text by its type alone', () => {
+    // r-maidr writes a layer with no title as `"title": {}`, R's empty list.
+    const layer = { ...createBarLayer(), title: {} } as unknown as MaidrLayer;
+
+    const { name, description } = announcementOf({ id: 'name-test', subplots: [[{ layers: [layer] }]] });
+
+    expect(name).toBe('Bar Chart');
+    expect(description).toContain('This is a maidr plot of type: vertical bar.');
+  });
+
+  test('names a plot of several layers by their count', () => {
+    const { name } = announcementOf({
+      id: 'name-test',
+      subplots: [[{ layers: [createBarLayer(), createLineLayer()] }]],
+    });
+
+    expect(name).toBe('Chart with 2 layers');
+  });
+
+  test('names a figure of several panels by their count, not by one panel', () => {
+    const { name } = announcementOf({
+      id: 'name-test',
+      subplots: [[
+        { layers: [{ ...createBarLayer(), title: 'Panel A' }] },
+        { layers: [{ ...createLineLayer(), title: 'Panel B' }] },
+      ]],
+    });
+
+    expect(name).toBe('Figure with 2 subplots');
+  });
+
+  test('keeps the instructions out of the name and gives them as the description', () => {
+    const { name, description } = announcementOf({
+      id: 'name-test',
+      subplots: [[{ layers: [createBarLayer()] }]],
+    });
+
+    expect(name).not.toContain('Use Arrows');
+    expect(description).toBe(
+      'This is a maidr plot of type: vertical bar. Click to activate. Use Arrows to navigate data points. '
+      + 'Toggle B for Braille, T for Text, S for Sonification, and R for Review mode. '
+      + 'Press Control Slash for keyboard help.',
     );
   });
 });

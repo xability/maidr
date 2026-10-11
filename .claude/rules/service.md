@@ -61,7 +61,9 @@ so a leak here accumulates for the lifetime of the page.
 - **No Redux.** No `store.dispatch`, no slice imports. That is the ViewModel's job.
 - **No direct UI manipulation.** Fire an event and let the ViewModel and React
   render the result. Direct DOM writes are limited to services that own SVG
-  output, such as `highlight.ts`.
+  output, such as `highlight.ts`, and to `display.ts`, which owns the plot
+  element's focus, role, title and description: its description follows the
+  reader's place and outlasts the controller, which React's tree does not.
 - **No model mutation.** Services read `state`; commands drive movement.
 - **Inject dependencies through the constructor.** Base services
   (`notification.ts`, `settings.ts`) are constructed first in

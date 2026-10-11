@@ -111,7 +111,7 @@ test.describe('Office adapter: the PowerPoint task pane (office-taskpane.html)',
     await page.locator('#select-cash').click();
 
     await expect(picker(page)).toHaveValue('257:4');
-    await expect(plot(page)).toHaveAttribute('aria-label', /maidr plot of type: waterfall/);
+    await expect(plot(page)).toHaveAccessibleDescription(/maidr plot of type: waterfall/);
   });
 
   test('keeps the chart on show when what is selected is not a chart', async ({ page }) => {

@@ -16,7 +16,7 @@ import { t } from '@util/i18n';
  *
  * Keyed by every {@link TraceType} so a new trace type cannot be added without
  * answering the question here — the same reason `CHART_TYPE_LABEL` in
- * `src/model/abstract.ts` is a full record rather than a partial one.
+ * `src/util/chartTypeLabel.ts` is a full record rather than a partial one.
  *
  * This is not the question of what `orientation` does to a layer's *data*.
  * A type marked true here may or may not want its `x` and `y` exchanged when

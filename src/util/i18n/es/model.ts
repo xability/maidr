@@ -164,6 +164,10 @@ export const model = {
   // before the chart is focused.
   'model.initialInstructionFigure': 'Esta es una figura maidr que contiene {size} subgráficos. {clickPrompt} Use las flechas para navegar entre los subgráficos y presione ENTER.',
   'model.initialInstructionSubplot': 'Este es un gráfico maidr que contiene {size} capas, y esta es la capa {index} de {size}: gráfico {plotType}. {clickPrompt} Use las flechas para navegar por los puntos de datos. Presione B para braille, T para texto, S para sonificación y R para el modo de revisión.',
+  'model.chartNameTitled': '{title}, {type}',
+  'model.chartNameLayers': 'Gráfico con {size} capas',
+  'model.chartNameFigure': 'Figura con {size} subgráficos',
+  'model.instructionKeyboardHelp': 'Presione {modifier} y barra diagonal para ver la ayuda del teclado.',
   // Candlestick shapes and patterns (src/util/candlePattern.ts). Each names
   // what the candle is drawn like, not a forecast.
   'model.candleShapeMarubozu': 'marubozu',

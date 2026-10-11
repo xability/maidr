@@ -21,6 +21,8 @@ function createMockPlot(): HTMLElement {
     focus: jest.fn(),
     setAttribute: jest.fn(),
     removeAttribute: jest.fn(),
+    getAttribute: jest.fn(() => null),
+    parentElement: null,
     tabIndex: 0,
   } as unknown as HTMLElement;
 }

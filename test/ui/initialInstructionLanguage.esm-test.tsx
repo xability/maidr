@@ -6,8 +6,9 @@
  * The pre-activation announcement is the first thing a screen reader says
  * about a chart, before any focus-in builds a Controller and its
  * SettingsService. It has to be in the reader's stored language from the
- * very first render: the label is computed in that render, so a language
- * applied afterwards would leave one English frame in front of it.
+ * very first render: the name and the instructions it is described by are
+ * computed in that render, so a language applied afterwards would leave one
+ * English frame in front of them.
  */
 
 import type { Maidr as MaidrData } from '@type/grammar';
@@ -33,19 +34,23 @@ const data: MaidrData = {
 };
 
 /**
- * Renders the chart once, with no effects run, and reads the wrapper's label
- * and the article's language out of the markup.
- * @returns The `aria-label` and `lang` attributes of the first render
+ * Renders the chart once, with no effects run, and reads the wrapper's name,
+ * the instructions it is described by and the article's language out of the
+ * markup.
+ * @returns The wrapper's `aria-label`, the text of the element its
+ * `aria-describedby` names, and the article's `lang`, in the first render
  */
-function firstRender(): { label: string; lang: string } {
+function firstRender(): { name: string; description: string; lang: string } {
   const markup = renderToString(
     <Maidr data={data}>
       <svg />
     </Maidr>,
   );
-  const label = /aria-label="([^"]*)"/.exec(markup)?.[1] ?? '';
+  const name = /aria-label="([^"]*)"/.exec(markup)?.[1] ?? '';
+  const describedBy = /aria-describedby="([^"]*)"/.exec(markup)?.[1] ?? '';
+  const description = new RegExp(`<div id="${describedBy}" hidden="">([^<]*)</div>`).exec(markup)?.[1] ?? '';
   const lang = /<article[^>]*\slang="([^"]*)"/.exec(markup)?.[1] ?? '';
-  return { label, lang };
+  return { name, description, lang };
 }
 
 describe('pre-activation instruction language', () => {
@@ -57,17 +62,21 @@ describe('pre-activation instruction language', () => {
   test('speaks the stored language in the very first render', () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ general: { language: 'ko' } }));
 
-    const { label, lang } = firstRender();
+    const { name, description, lang } = firstRender();
 
     expect(lang).toBe('ko');
-    expect(label).toContain('maidr 그래프입니다');
-    expect(label).not.toContain('This is a maidr plot');
+    expect(name).toBe('막대 그래프');
+    expect(description).toContain('maidr 그래프입니다');
+    expect(description).toContain('키보드 도움말을 보려면');
+    expect(description).not.toContain('This is a maidr plot');
   });
 
   test('speaks English when nothing is stored', () => {
-    const { label, lang } = firstRender();
+    const { name, description, lang } = firstRender();
 
     expect(lang).toBe('en');
-    expect(label).toContain('This is a maidr plot of type: vertical bar.');
+    expect(name).toBe('Bar Chart');
+    expect(description).toContain('This is a maidr plot of type: vertical bar.');
+    expect(description).toContain('Press Control Slash for keyboard help.');
   });
 });

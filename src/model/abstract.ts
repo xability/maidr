@@ -16,9 +16,9 @@ import type {
   TraceEmptyState,
   TraceState,
 } from '@type/state';
-import type { MessageKey } from '@util/i18n';
 import type { Trace } from './plot';
 import { Orientation, TraceType } from '@type/grammar';
+import { chartTypeLabel } from '@util/chartTypeLabel';
 import { t } from '@util/i18n';
 import {
   extractXValueFromPoints,
@@ -65,92 +65,11 @@ export function named(label: string | undefined, fallback: string): string {
 }
 
 /**
- * Maps internal TraceType identifiers to human-readable chart type labels
- * for display in the chart description modal and other user-facing surfaces.
- */
-const CHART_TYPE_LABEL: Record<TraceType, MessageKey> = {
-  [TraceType.AREA]: 'model.chartTypeArea',
-  [TraceType.BAR]: 'model.chartTypeBar',
-  [TraceType.BUMP]: 'model.chartTypeBump',
-  [TraceType.BOX]: 'model.chartTypeBox',
-  [TraceType.BOXEN]: 'model.chartTypeBoxen',
-  [TraceType.ALLUVIAL]: 'model.chartTypeAlluvial',
-  [TraceType.CANDLESTICK]: 'model.chartTypeCandlestick',
-  [TraceType.CHORD]: 'model.chartTypeChord',
-  [TraceType.SANKEY]: 'model.chartTypeSankey',
-  [TraceType.NETWORK]: 'model.chartTypeNetwork',
-  [TraceType.DIRECTED_GRAPH]: 'model.chartTypeDirectedGraph',
-  [TraceType.CANDLESTICK_DELTA]: 'model.chartTypeCandlestickDelta',
-  [TraceType.CHOROPLETH]: 'model.chartTypeChoropleth',
-  [TraceType.CONTOUR]: 'model.chartTypeContour',
-  [TraceType.DIVERGING]: 'model.chartTypeDiverging',
-  [TraceType.DODGED]: 'model.chartTypeDodged',
-  [TraceType.DOT]: 'model.chartTypeDot',
-  [TraceType.DUMBBELL]: 'model.chartTypeDumbbell',
-  [TraceType.ERROR_BAR]: 'model.chartTypeErrorBar',
-  [TraceType.FOREST]: 'model.chartTypeForest',
-  [TraceType.GANTT]: 'model.chartTypeGantt',
-  [TraceType.FUNNEL]: 'model.chartTypeFunnel',
-  [TraceType.GAUGE]: 'model.chartTypeGauge',
-  [TraceType.HEATMAP]: 'model.chartTypeHeatmap',
-  [TraceType.HEXBIN]: 'model.chartTypeHexbin',
-  [TraceType.HISTOGRAM]: 'model.chartTypeHistogram',
-  [TraceType.LINE]: 'model.chartTypeLine',
-  [TraceType.LOLLIPOP]: 'model.chartTypeLollipop',
-  [TraceType.MOSAIC]: 'model.chartTypeMosaic',
-  [TraceType.NORMALIZED]: 'model.chartTypeNormalized',
-  [TraceType.NORMALIZED_AREA]: 'model.chartTypeNormalizedArea',
-  [TraceType.PARALLEL]: 'model.chartTypeParallel',
-  [TraceType.PERCENTILE_BAND]: 'model.chartTypePercentileBand',
-  [TraceType.PIE]: 'model.chartTypePie',
-  [TraceType.POLAR_AREA]: 'model.chartTypePolarArea',
-  [TraceType.PR_CURVE]: 'model.chartTypePrCurve',
-  [TraceType.RADAR]: 'model.chartTypeRadar',
-  [TraceType.RIDGELINE]: 'model.chartTypeRidgeline',
-  [TraceType.ROC]: 'model.chartTypeRoc',
-  [TraceType.RUG]: 'model.chartTypeRug',
-  [TraceType.SCATTER]: 'model.chartTypeScatter',
-  [TraceType.SUNFLOWER]: 'model.chartTypeSunflower',
-  [TraceType.SMOOTH]: 'model.chartTypeSmooth',
-  [TraceType.STACKED]: 'model.chartTypeStacked',
-  [TraceType.STACKED_AREA]: 'model.chartTypeStackedArea',
-  [TraceType.STEP]: 'model.chartTypeStep',
-  [TraceType.SURVIVAL]: 'model.chartTypeSurvival',
-  [TraceType.ICICLE]: 'model.chartTypeIcicle',
-  [TraceType.SUNBURST]: 'model.chartTypeSunburst',
-  [TraceType.TREE]: 'model.chartTypeTree',
-  [TraceType.PACK]: 'model.chartTypePack',
-  [TraceType.TREEMAP]: 'model.chartTypeTreemap',
-  [TraceType.VIOLIN_BOX]: 'model.chartTypeViolinBox',
-  [TraceType.VIOLIN_KDE]: 'model.chartTypeViolinKde',
-  [TraceType.MANHATTAN]: 'model.chartTypeManhattan',
-  [TraceType.VOLCANO]: 'model.chartTypeVolcano',
-  [TraceType.WATERFALL]: 'model.chartTypeWaterfall',
-  [TraceType.WORD_CLOUD]: 'model.chartTypeWordCloud',
-};
-
-/**
- * The human-readable name of a chart type, as the description dialog writes it.
- *
- * A free function beside the map because two callers need it and only one of
- * them holds a trace: `Figure.getSubplotSummaries` names the layers of panels
- * the reader has not entered, and has nothing but their {@link TraceType}. The
- * map is declared `Record<TraceType, MessageKey>`, so every member has an entry
- * and a lookup cannot miss.
- *
- * @param type - The layer's trace type
- * @returns The label, e.g. `Scatter Plot` for {@link TraceType.SCATTER}
- */
-export function chartTypeLabel(type: TraceType): string {
-  return t(CHART_TYPE_LABEL[type]);
-}
-
-/**
  * A plain-language introduction to a chart type: what it is, what it is for,
  * and what it looks like.
  *
- * Beside {@link chartTypeLabel} for the same reason that function is free: the
- * type is all it needs. The keys are built from the {@link TraceType} value,
+ * A free function for the same reason {@link chartTypeLabel} is one: the type
+ * is all it needs. The keys are built from the {@link TraceType} value,
  * so a type added without a guide fails the type check here rather than
  * rendering an empty section.
  *

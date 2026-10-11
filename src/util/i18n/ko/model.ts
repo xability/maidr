@@ -164,6 +164,10 @@ export const model = {
   // before the chart is focused.
   'model.initialInstructionFigure': '이것은 서브플롯 {size}개를 담은 maidr 그림입니다. {clickPrompt} 화살표 키로 서브플롯을 탐색하고 ENTER 키를 누르세요.',
   'model.initialInstructionSubplot': '이것은 레이어 {size}개를 담은 maidr 그래프이며, 지금은 {size}개 중 {index}번째 레이어인 {plotType} 그래프입니다. {clickPrompt} 화살표 키로 데이터 점을 탐색하세요. B는 점자, T는 텍스트, S는 소리 표현, R은 검토 모드를 전환합니다.',
+  'model.chartNameTitled': '{title}, {type}',
+  'model.chartNameLayers': '레이어 {size}개를 담은 그래프',
+  'model.chartNameFigure': '서브플롯 {size}개를 담은 그림',
+  'model.instructionKeyboardHelp': '키보드 도움말을 보려면 {modifier} 슬래시를 누르세요.',
   // Candlestick shapes and patterns (src/util/candlePattern.ts). Each names
   // what the candle is drawn like, not a forecast.
   'model.candleShapeMarubozu': '마루보즈',

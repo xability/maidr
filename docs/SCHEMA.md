@@ -143,7 +143,7 @@ Use the following to define the object properties:
 > that add up is the thing the missing page had left ambiguous.
 
 - `id`: the id that you added as an attribute of your main SVG.
-- `title`: the title of the plot. (optional)
+- `title`: the title of the plot. In a single-panel chart with no figure `title`, it also names the chart for screen readers (see below). (optional)
 - `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering; an axis without one announces numbers rounded to two decimals, with digits grouped in threes from 10,000 up, e.g. `1,234,567`, using `,` and `.` whatever the locale -- declare a `number` format with a `locale` for another convention; a numeric category such as an id or a `20240115` date key is grouped too, so declare `"format": { "function": "return String(value);" }` on that axis to keep it literal). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.
 - `data`: the main data for your plot. See below.
 
@@ -155,6 +155,15 @@ applies across all subplots:
 - `title`, `subtitle`, `caption` (string): figure-level text. In a multi-panel
   figure, `l t` in the lobby announces the figure `title`, falling back to the
   focused subplot's own title when no figure title is authored.
+
+  The title also names the chart. The element a reader focuses is named by
+  the title and the chart's type, such as `Tips by day, Bar Chart`, and by the
+  type alone when there is no title; a single-panel chart with no figure
+  `title` takes its first layer's. How to use the chart is its description
+  (`aria-describedby`), not its name, so a screen reader lists and moves
+  between charts by what they are. A page that describes the chart too, as
+  r-maidr does with an author's alt text and caption, puts its ids before
+  MAIDR's in that attribute: MAIDR keeps them, and keeps its own last.
 - `axes` (object): figure-wide axis labels shared by every subplot — e.g. a
   facet grid whose panels all sit on one common X and Y axis. Only `label` is
   honored at the figure level (the type is `Pick<AxisConfig, 'label'>`, so a
