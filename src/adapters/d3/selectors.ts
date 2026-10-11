@@ -24,11 +24,11 @@ export { cssEscape };
  * Ensures a container element has an `id` attribute, generating one (with the
  * D3 prefix) when missing. Returns the (possibly newly assigned) id.
  *
- * MAIDR resolves layer selectors via `document.querySelector`, which is
- * page-global — a bare selector like `"rect.bar"` would collide with any
- * other chart on the page. By stamping the container with a stable id and
- * prefixing all emitted selectors with `#<id>`, we guarantee page-wide
- * uniqueness without requiring users to set the id themselves.
+ * MAIDR resolves a chart's selectors inside that chart, so a bare selector
+ * like `"rect.bar"` does not reach another chart's marks there. By stamping
+ * the container with a stable id and prefixing all emitted selectors with
+ * `#<id>`, each selector names this chart's marks alone wherever it is read,
+ * without requiring users to set the id themselves.
  *
  * Idempotent: re-calling on a container that already has an id is a no-op.
  *
@@ -47,10 +47,10 @@ export const PANEL_ATTRIBUTE = 'data-maidr-panel';
  *
  * When a binder extracts one panel of a multi-panel figure, its extraction
  * root is the panel element — not the outer SVG. Emitted selectors must still
- * be anchored to the OUTER SVG's page-unique id (MAIDR resolves selectors via
- * `document.querySelector`) and additionally narrowed to the panel via the
- * `data-maidr-panel` attribute, so panel A's selector can never match panel
- * B's marks.
+ * be anchored to the OUTER SVG's page-unique id, which names the chart, and
+ * additionally narrowed to the panel via the `data-maidr-panel` attribute:
+ * every panel is in the same chart, so panel A's selector would otherwise
+ * match panel B's marks.
  */
 export interface D3PanelScope {
   /** The outer SVG (or container) whose id anchors all emitted selectors. */
@@ -78,8 +78,8 @@ export function selectorPrefix(container: Element, panel?: D3PanelScope): string
 
 /**
  * Scopes a user-provided selector to a container, prefixing the result with
- * the container's id so it resolves uniquely under page-global lookups
- * (`document.querySelectorAll`). When the container lacks an id, one is
+ * the container's id so it names this chart's marks alone wherever it is
+ * read. When the container lacks an id, one is
  * auto-assigned via {@link ensureContainerId} so every binder emits an
  * absolutely-scoped selector without per-binder boilerplate.
  *

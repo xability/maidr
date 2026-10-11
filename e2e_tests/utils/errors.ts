@@ -435,3 +435,19 @@ export class AmdHostError extends Error {
     this.name = 'AmdHostError';
   }
 }
+
+/**
+ * Error thrown when operations on a page holding several charts fail
+ */
+export class MultiChartError extends Error {
+  /**
+   * Creates a new MultiChartError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'MultiChartError';
+  }
+}

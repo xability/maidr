@@ -279,8 +279,7 @@ export function resolveDomainKeys(
 
 /**
  * Compute the `data-maidr-cell` attribute value for a facet cell. Includes
- * the chart id so several faceted charts on one page never share a value
- * (MAIDR resolves all selectors document-globally).
+ * the chart id so several faceted charts on one page never share a value.
  */
 export function facetCellAttrValue(chartId: string, row: number, col: number): string {
   const safeId = chartId.replace(/[^\w-]/g, '_');

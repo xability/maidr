@@ -219,8 +219,8 @@ export function useVictoryAdapter(
       return;
 
     // Scope every emitted selector to this chart's own container so two or more
-    // MaidrVictory charts on one page cannot cross-highlight (the model resolves
-    // selectors via page-global document.querySelector). Idempotent per chart.
+    // MaidrVictory charts on one page cannot cross-highlight wherever a selector
+    // is read. Idempotent per chart.
     const scope = `#${cssEscape(ensureContainerId(container, 'mv'))} `;
     const panelLayout: VictoryPanelLayout | undefined
       = layoutRows !== undefined || layoutColumns !== undefined

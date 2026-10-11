@@ -30,9 +30,9 @@ let selectorCounter = 0;
  * can be scoped to this specific chart.
  *
  * **Side effect:** If the element does not already have an `id`, this function
- * mutates the DOM by assigning a generated `id` (`maidr-hc-{n}`). This is
- * necessary because MAIDR's highlight system uses `document.querySelectorAll`
- * with selectors that must be scoped to a specific chart container.
+ * mutates the DOM by assigning a generated `id` (`maidr-hc-{n}`), which every
+ * selector is scoped to so it names this chart's container alone wherever it
+ * is read.
  *
  * @returns The element's `id` value (existing or newly assigned).
  */

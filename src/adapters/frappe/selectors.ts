@@ -28,7 +28,7 @@
  * valid CSS identifiers — `my.chart`, `2024-sales` — so the id is run through
  * `cssEscape` before it is embedded. Unescaped, the first silently matches
  * nothing (highlighting is dropped while every announcement stays correct) and
- * the second throws a `SyntaxError` out of `document.querySelectorAll`, which
+ * the second throws a `SyntaxError` out of `querySelectorAll`, which
  * aborts construction of the whole figure.
  */
 

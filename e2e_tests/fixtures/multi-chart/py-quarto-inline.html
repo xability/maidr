@@ -1,0 +1,2361 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Three charts on one page</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="py-quarto-inline_files/libs/clipboard/clipboard.min.js"></script>
+<script src="py-quarto-inline_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="py-quarto-inline_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="py-quarto-inline_files/libs/quarto-html/popper.min.js"></script>
+<script src="py-quarto-inline_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="py-quarto-inline_files/libs/quarto-html/anchor.min.js"></script>
+<link href="py-quarto-inline_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="py-quarto-inline_files/libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="py-quarto-inline_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="py-quarto-inline_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="py-quarto-inline_files/libs/bootstrap/bootstrap-f9b463eb5efed4b1ff5b70603328ced7.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Three charts on one page</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="a-chart-on-a-dark-background" class="level2">
+<h2 class="anchored" data-anchor-id="a-chart-on-a-dark-background">A chart on a dark background</h2>
+<div id="e2c732b5" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> plt.style.context(<span class="st">"dark_background"</span>):</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">5</span>, <span class="fl">3.5</span>))</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    ax.bar([<span class="st">"a"</span>, <span class="st">"b"</span>, <span class="st">"c"</span>, <span class="st">"d"</span>], [<span class="dv">3</span>, <span class="dv">1</span>, <span class="dv">4</span>, <span class="dv">2</span>])</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    ax.set_title(<span class="st">"Dark bars"</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div class="maidr-inline" role="img" aria-label="Dark bars, accessible chart" data-maidr-inline="" data-lm-suppress-shortcuts="">
+  <style data-maidr-inline-css="">.maidr-inline {
+margin: 0 0 1em;
+max-width: 100%;
+}
+.maidr-inline article,
+.maidr-inline figure {
+margin: 0;
+padding: 0;
+}
+.maidr-inline-svg {
+display: block;
+max-width: 100%;
+height: auto;
+}
+.quarto-figure-center .maidr-inline,
+.quarto-figure-right .maidr-inline {
+width: fit-content;
+}
+.quarto-figure-center .maidr-inline {
+margin-inline: auto;
+}
+.quarto-figure-right .maidr-inline {
+margin-inline-start: auto;
+}
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus {
+outline: 3px solid #1a5fb4 !important;
+outline-offset: -3px !important;
+}
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus .maidr-inline-svg {
+outline: 2px solid #ffffff !important;
+outline-offset: -5px !important;
+}
+.maidr-inline textarea,
+.maidr-inline input {
+max-width: 100%;
+box-sizing: border-box;
+}
+.maidr-inline textarea:focus,
+.maidr-inline input:focus,
+.maidr-inline select:focus,
+.maidr-inline button:focus-visible,
+.maidr-inline a:focus-visible,
+.maidr-inline [role="button"]:focus-visible {
+outline: 3px solid #1a5fb4 !important;
+outline-offset: 1px !important;
+}
+@media (forced-colors: active) {
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus,
+.maidr-inline textarea:focus,
+.maidr-inline input:focus,
+.maidr-inline select:focus,
+.maidr-inline button:focus-visible,
+.maidr-inline a:focus-visible,
+.maidr-inline [role="button"]:focus-visible {
+outline-color: Highlight !important;
+}
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus .maidr-inline-svg {
+outline: none !important;
+}
+}
+html.maidr-inline-contrast body {
+background-color: var(--maidr-inline-page-bg) !important;
+color: var(--maidr-inline-page-fg) !important;
+}
+.maidr-inline .MuiDialog-root {
+zoom: var(--maidr-inline-unzoom, 1);
+}
+.maidr-inline .MuiDialog-paper {
+zoom: var(--maidr-inline-zoom, 1);
+max-width: min(600px, calc((100vw - 64px) / var(--maidr-inline-zoom, 1)));
+max-height: calc((100vh - 64px) / var(--maidr-inline-zoom, 1));
+}
+.reveal .maidr-inline .MuiDialog-paper {
+max-height: min(calc(100% - 64px), calc((100vh - 64px) / var(--maidr-inline-zoom, 1)));
+}
+.reveal .slides:has(.maidr-inline .MuiDialog-root),
+.reveal .slides section:has(.maidr-inline .MuiDialog-root) {
+perspective: none !important;
+}
+.maidr-inline [role="dialog"] {
+text-align: start;
+font-size: var(--maidr-inline-rem, 1rem);
+line-height: 1.5;
+}
+.maidr-inline [role="dialog"] :is(h1, h2, h3, h4, h5, h6):not([class*="MuiTypography-"]) {
+font-size: inherit !important;
+line-height: inherit !important;
+margin: 0 !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-caption {
+font-size: calc(0.75 * var(--maidr-inline-rem, 1rem)) !important;
+line-height: 1.66 !important;
+}
+.maidr-inline [role="dialog"] :is(ul, ol) {
+display: block !important;
+margin: 0 !important;
+}
+.maidr-inline [role="dialog"] :is(h1, h2, h3, h4, h5, h6) {
+font-family: "Roboto", "Helvetica", "Arial", sans-serif !important;
+color: inherit !important;
+text-transform: none !important;
+text-shadow: none !important;
+word-wrap: normal !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-h6 {
+font-size: calc(1.25 * var(--maidr-inline-rem, 1rem)) !important;
+line-height: 1.6 !important;
+letter-spacing: 0.0075em !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-subtitle1 {
+font-size: var(--maidr-inline-rem, 1rem) !important;
+line-height: 1.75 !important;
+letter-spacing: 0.00938em !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-subtitle2 {
+font-size: calc(0.875 * var(--maidr-inline-rem, 1rem)) !important;
+line-height: 1.57 !important;
+letter-spacing: 0.00714em !important;
+}
+.html-fill-item:has(> .maidr-inline) {
+overflow: auto;
+}</style>
+  <style>.maidr-inline-m3be7079d6f59, .maidr-inline-m3be7079d6f59 * {stroke-linejoin: round; stroke-linecap: butt}</style>
+  <svg xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="360pt" height="252pt" viewbox="0 0 360 252" version="1.1" id="74e631b1-a255-4c5a-af1f-0ac262762624" class="maidr-inline-svg maidr-inline-m3be7079d6f59" aria-hidden="true" maidr="{&quot;id&quot;: &quot;74e631b1-a255-4c5a-af1f-0ac262762624&quot;, &quot;subplots&quot;: [[{&quot;id&quot;: &quot;e8de45e0-0aee-46d6-afeb-43ecf92d1c57&quot;, &quot;layers&quot;: [{&quot;id&quot;: &quot;a3167dcd-fdce-4989-9620-6628c4fecff7&quot;, &quot;type&quot;: &quot;bar&quot;, &quot;title&quot;: &quot;Dark bars&quot;, &quot;axes&quot;: {&quot;x&quot;: {&quot;label&quot;: &quot;X&quot;}, &quot;y&quot;: {&quot;label&quot;: &quot;Y&quot;}}, &quot;data&quot;: [{&quot;x&quot;: &quot;a&quot;, &quot;y&quot;: 3.0}, {&quot;x&quot;: &quot;b&quot;, &quot;y&quot;: 1.0}, {&quot;x&quot;: &quot;c&quot;, &quot;y&quot;: 4.0}, {&quot;x&quot;: &quot;d&quot;, &quot;y&quot;: 2.0}], &quot;selectors&quot;: &quot;g[maidr='0842ea13-7a09-4c57-aee3-8e1bf2056f90-m3be7079d6f59'] > path&quot;, &quot;orientation&quot;: &quot;vert&quot;}]}]]}"><defs></defs><g id="figure_1-m3be7079d6f59"><g id="maidr-f2bde349-4a11-47b4-90ec-38a16e09ceeb-m3be7079d6f59"><path d="M 0 252  L 360 252  L 360 0  L 0 0  z "></path></g><g id="axes_1-m3be7079d6f59"><g id="maidr-c1516efa-e548-4fc9-9fc6-2eba4bcbe4d7-m3be7079d6f59"><path d="M 45 224.28  L 324 224.28  L 324 30.24  L 45 30.24  z "></path></g><g id="maidr-03a89afe-e87a-48ef-aeba-cace7a6d237f-m3be7079d6f59" maidr="0842ea13-7a09-4c57-aee3-8e1bf2056f90-m3be7079d6f59"><path d="M 57.681818 224.28  L 111.078947 224.28  L 111.078947 85.68  L 57.681818 85.68  z " clip-path="url(#p122826c2e0-m3be7079d6f59)" style="fill: #8dd3c7"></path></g><g id="maidr-ad369113-f24a-4010-8f3e-f9c7457c3af1-m3be7079d6f59" maidr="0842ea13-7a09-4c57-aee3-8e1bf2056f90-m3be7079d6f59"><path d="M 124.42823 224.28  L 177.825359 224.28  L 177.825359 178.08  L 124.42823 178.08  z " clip-path="url(#p122826c2e0-m3be7079d6f59)" style="fill: #8dd3c7"></path></g><g id="maidr-9df578d5-b130-4d82-919e-5e92f4919b74-m3be7079d6f59" maidr="0842ea13-7a09-4c57-aee3-8e1bf2056f90-m3be7079d6f59"><path d="M 191.174641 224.28  L 244.57177 224.28  L 244.57177 39.48  L 191.174641 39.48  z " clip-path="url(#p122826c2e0-m3be7079d6f59)" style="fill: #8dd3c7"></path></g><g id="maidr-505d61c9-168b-4dd4-bd7f-42418f71ed4c-m3be7079d6f59" maidr="0842ea13-7a09-4c57-aee3-8e1bf2056f90-m3be7079d6f59"><path d="M 257.921053 224.28  L 311.318182 224.28  L 311.318182 131.88  L 257.921053 131.88  z " clip-path="url(#p122826c2e0-m3be7079d6f59)" style="fill: #8dd3c7"></path></g><g id="matplotlib.axis_1-m3be7079d6f59"><g id="xtick_1-m3be7079d6f59"><g id="maidr-4c91bb65-7977-4836-bc95-53bb7ee968c0-m3be7079d6f59"><defs><path id="mc2d8533f51-m3be7079d6f59" d="M 0 0  L 0 3.5  " style="stroke: #ffffff; stroke-width: 0.8"></path></defs><g><use href="#mc2d8533f51-m3be7079d6f59" x="84.380383" y="224.28" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_1-m3be7079d6f59"><!-- a --><g style="fill: #ffffff" transform="translate(81.57257 240.9675) scale(0.1 -0.1)"><defs><path id="Inter-Regular-1fc-m3be7079d6f59" d="M 1472 -81  C 2063 -81 2391 228 2509 475  L 2547 475  L 2547 0  L 3100 0  L 3100 2303  C 3100 3394 2259 3538 1791 3538  C 1250 3538 650 3344 381 2709  L 922 2531  C 1031 2775 1303 3044 1806 3044  C 2291 3044 2538 2794 2538 2359  L 2538 2341  C 2538 2081 2263 2100 1641 2022  C 994 1941 281 1794 281 994  C 281 306 809 -81 1472 -81  z M 1569 416  C 1150 416 847 603 847 966  C 847 1363 1206 1494 1616 1547  C 1831 1575 2444 1638 2538 1747  L 2538 1263  C 2538 834 2191 416 1569 416  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-1fc-m3be7079d6f59"></use></g></g></g><g id="xtick_2-m3be7079d6f59"><g id="maidr-89b1f9d6-b241-4fff-b212-382da834df6c-m3be7079d6f59"><g><use href="#mc2d8533f51-m3be7079d6f59" x="151.126794" y="224.28" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_2-m3be7079d6f59"><!-- b --><g style="fill: #ffffff" transform="translate(148.065076 240.9675) scale(0.1 -0.1)"><defs><path id="Inter-Regular-243-m3be7079d6f59" d="M 2116 -75  C 2988 -75 3594 625 3594 1738  C 3594 2844 2984 3538 2113 3538  C 1431 3538 1216 3119 1100 2934  L 1056 2934  L 1056 4656  L 494 4656  L 494 0  L 1038 0  L 1038 541  L 1100 541  C 1216 347 1450 -75 2116 -75  z M 2031 428  C 1397 428 1050 966 1050 1744  C 1050 2516 1388 3034 2031 3034  C 2694 3034 3022 2469 3022 1744  C 3022 1009 2684 428 2031 428  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-243-m3be7079d6f59"></use></g></g></g><g id="xtick_3-m3be7079d6f59"><g id="maidr-b1ddbba4-ee36-48fc-a227-4ce2b9da07cf-m3be7079d6f59"><g><use href="#mc2d8533f51-m3be7079d6f59" x="217.873206" y="224.28" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_3-m3be7079d6f59"><!-- c --><g style="fill: #ffffff" transform="translate(215.016956 240.9675) scale(0.1 -0.1)"><defs><path id="Inter-Regular-24b-m3be7079d6f59" d="M 1916 -75  C 2600 -75 3156 297 3344 919  L 2806 1072  C 2703 694 2384 428 1916 428  C 1219 428 897 1038 897 1725  C 897 2422 1219 3034 1916 3034  C 2375 3034 2688 2778 2791 2419  L 3331 2572  C 3141 3181 2591 3538 1916 3538  C 966 3538 325 2819 325 1725  C 325 647 966 -75 1916 -75  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-24b-m3be7079d6f59"></use></g></g></g><g id="xtick_4-m3be7079d6f59"><g id="maidr-d7f0a527-616d-4fb9-b7b1-5dc601cd6a1c-m3be7079d6f59"><g><use href="#mc2d8533f51-m3be7079d6f59" x="284.619617" y="224.28" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_4-m3be7079d6f59"><!-- d --><g style="fill: #ffffff" transform="translate(281.557898 240.9675) scale(0.1 -0.1)"><defs><path id="Inter-Regular-256-m3be7079d6f59" d="M 1803 -75  C 2469 -75 2703 347 2819 541  L 2881 541  L 2881 0  L 3425 0  L 3425 4656  L 2863 4656  L 2863 2934  L 2819 2934  C 2703 3119 2488 3538 1806 3538  C 934 3538 325 2844 325 1738  C 325 625 931 -75 1803 -75  z M 1888 428  C 1234 428 897 1009 897 1744  C 897 2469 1225 3034 1888 3034  C 2531 3034 2869 2516 2869 1744  C 2869 966 2522 428 1888 428  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-256-m3be7079d6f59"></use></g></g></g></g><g id="matplotlib.axis_2-m3be7079d6f59"><g id="ytick_1-m3be7079d6f59"><g id="maidr-4f8b8fb7-9702-4d20-8805-972c6b68f956-m3be7079d6f59"><defs><path id="mac5bb83eee-m3be7079d6f59" d="M 0 0  L -3.5 0  " style="stroke: #ffffff; stroke-width: 0.8"></path></defs><g><use href="#mac5bb83eee-m3be7079d6f59" x="45" y="224.28" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_5-m3be7079d6f59"><!-- 0.0 --><g style="fill: #ffffff" transform="translate(23.00625 229.12375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-53f-m3be7079d6f59" d="M 2019 -63  C 3059 -63 3656 809 3656 2325  C 3656 3834 3050 4719 2019 4719  C 988 4719 381 3834 381 2325  C 381 806 981 -63 2019 -63  z M 2019 456  C 1338 456 953 1144 953 2325  C 953 3509 1338 4203 2019 4203  C 2700 4203 3084 3513 3084 2325  C 3084 1144 2700 456 2019 456  z " transform="scale(0.015625)"></path><path id="Inter-Regular-5e0-m3be7079d6f59" d="M 922 -41  C 1156 -41 1344 147 1344 381  C 1344 616 1156 803 922 803  C 688 803 500 616 500 381  C 500 147 688 -41 922 -41  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-53f-m3be7079d6f59"></use><use href="#Inter-Regular-5e0-m3be7079d6f59" transform="translate(60.5625 0)"></use><use href="#Inter-Regular-53f-m3be7079d6f59" transform="translate(86.84375 0)"></use></g></g></g><g id="ytick_2-m3be7079d6f59"><g id="maidr-7776e5d8-6165-4ca0-be39-5f77b06c6dd1-m3be7079d6f59"><g><use href="#mac5bb83eee-m3be7079d6f59" x="45" y="201.18" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_6-m3be7079d6f59"><!-- 0.5 --><g style="fill: #ffffff" transform="translate(23.125 206.02375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-545-m3be7079d6f59" d="M 1956 -63  C 2853 -63 3509 594 3509 1488  C 3509 2388 2881 3047 2028 3047  C 1706 3047 1397 2934 1206 2775  L 1181 2775  L 1341 4134  L 3291 4134  L 3291 4656  L 841 4656  L 566 2350  L 1122 2281  C 1306 2422 1631 2525 1919 2525  C 2503 2525 2928 2078 2928 1478  C 2928 888 2519 459 1956 459  C 1488 459 1106 759 1069 1175  L 494 1175  C 525 463 1138 -63 1956 -63  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-53f-m3be7079d6f59"></use><use href="#Inter-Regular-5e0-m3be7079d6f59" transform="translate(60.5625 0)"></use><use href="#Inter-Regular-545-m3be7079d6f59" transform="translate(87.953125 0)"></use></g></g></g><g id="ytick_3-m3be7079d6f59"><g id="maidr-167c62a6-b9b4-4df5-8def-74382abafa3b-m3be7079d6f59"><g><use href="#mac5bb83eee-m3be7079d6f59" x="45" y="178.08" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_7-m3be7079d6f59"><!-- 1.0 --><g style="fill: #ffffff" transform="translate(24.995312 182.92375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-540-m3be7079d6f59" d="M 2041 4656  L 1313 4656  L 300 3909  L 300 3272  L 1425 4106  L 1456 4106  L 1456 0  L 2041 0  L 2041 4656  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-540-m3be7079d6f59"></use><use href="#Inter-Regular-5e0-m3be7079d6f59" transform="translate(40.671875 0)"></use><use href="#Inter-Regular-53f-m3be7079d6f59" transform="translate(66.953125 0)"></use></g></g></g><g id="ytick_4-m3be7079d6f59"><g id="maidr-43e0ab45-ed26-4a34-ac5a-99b60516d57a-m3be7079d6f59"><g><use href="#mac5bb83eee-m3be7079d6f59" x="45" y="154.98" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_8-m3be7079d6f59"><!-- 1.5 --><g style="fill: #ffffff" transform="translate(25.114062 159.82375) scale(0.1 -0.1)"><use href="#Inter-Regular-540-m3be7079d6f59"></use><use href="#Inter-Regular-5e0-m3be7079d6f59" transform="translate(40.671875 0)"></use><use href="#Inter-Regular-545-m3be7079d6f59" transform="translate(68.0625 0)"></use></g></g></g><g id="ytick_5-m3be7079d6f59"><g id="maidr-18c8d3d2-539a-4d40-bdad-0cc845e8124c-m3be7079d6f59"><g><use href="#mac5bb83eee-m3be7079d6f59" x="45" y="131.88" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_9-m3be7079d6f59"><!-- 2.0 --><g style="fill: #ffffff" transform="translate(22.964062 136.72375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-541-m3be7079d6f59" d="M 481 0  L 3447 0  L 3447 522  L 1300 522  L 1300 559  L 2319 1644  C 3141 2519 3369 2916 3369 3419  C 3369 4147 2778 4719 1947 4719  C 1119 4719 494 4159 494 3334  L 1063 3334  C 1063 3859 1400 4203 1931 4203  C 2428 4203 2806 3900 2806 3413  C 2806 2984 2544 2666 2028 2106  L 481 428  L 481 0  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-541-m3be7079d6f59"></use><use href="#Inter-Regular-5e0-m3be7079d6f59" transform="translate(60.984375 0)"></use><use href="#Inter-Regular-53f-m3be7079d6f59" transform="translate(87.265625 0)"></use></g></g></g><g id="ytick_6-m3be7079d6f59"><g id="maidr-1a700585-3cc5-4597-95ea-857f1cd2ad68-m3be7079d6f59"><g><use href="#mac5bb83eee-m3be7079d6f59" x="45" y="108.78" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_10-m3be7079d6f59"><!-- 2.5 --><g style="fill: #ffffff" transform="translate(23.082812 113.62375) scale(0.1 -0.1)"><use href="#Inter-Regular-541-m3be7079d6f59"></use><use href="#Inter-Regular-5e0-m3be7079d6f59" transform="translate(60.984375 0)"></use><use href="#Inter-Regular-545-m3be7079d6f59" transform="translate(88.375 0)"></use></g></g></g><g id="ytick_7-m3be7079d6f59"><g id="maidr-ab1c4bda-7444-4402-99d8-a33ad75b8fcd-m3be7079d6f59"><g><use href="#mac5bb83eee-m3be7079d6f59" x="45" y="85.68" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_11-m3be7079d6f59"><!-- 3.0 --><g style="fill: #ffffff" transform="translate(23.110937 90.52375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-543-m3be7079d6f59" d="M 1984 -63  C 2897 -63 3572 503 3572 1266  C 3572 1853 3225 2284 2631 2381  L 2631 2419  C 3106 2559 3403 2944 3403 3469  C 3403 4131 2872 4719 2003 4719  C 1184 4719 516 4216 491 3484  L 1063 3484  C 1081 3938 1516 4203 1991 4203  C 2497 4203 2822 3900 2822 3438  C 2822 2956 2447 2644 1903 2644  L 1525 2644  L 1525 2128  L 1903 2128  C 2594 2128 2984 1775 2984 1272  C 2984 788 2559 459 1975 459  C 1444 459 1025 731 991 1175  L 391 1175  C 422 438 1072 -63 1984 -63  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-543-m3be7079d6f59"></use><use href="#Inter-Regular-5e0-m3be7079d6f59" transform="translate(59.515625 0)"></use><use href="#Inter-Regular-53f-m3be7079d6f59" transform="translate(85.796875 0)"></use></g></g></g><g id="ytick_8-m3be7079d6f59"><g id="maidr-57c80f52-4fe2-470a-8838-ea253e022fb3-m3be7079d6f59"><g><use href="#mac5bb83eee-m3be7079d6f59" x="45" y="62.58" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_12-m3be7079d6f59"><!-- 3.5 --><g style="fill: #ffffff" transform="translate(23.229687 67.42375) scale(0.1 -0.1)"><use href="#Inter-Regular-543-m3be7079d6f59"></use><use href="#Inter-Regular-5e0-m3be7079d6f59" transform="translate(59.515625 0)"></use><use href="#Inter-Regular-545-m3be7079d6f59" transform="translate(86.90625 0)"></use></g></g></g><g id="ytick_9-m3be7079d6f59"><g id="maidr-8704ffdc-878c-4219-add1-d1fab0f8f08a-m3be7079d6f59"><g><use href="#mac5bb83eee-m3be7079d6f59" x="45" y="39.48" style="fill: #ffffff; stroke: #ffffff; stroke-width: 0.8"></use></g></g><g id="text_13-m3be7079d6f59"><!-- 4.0 --><g style="fill: #ffffff" transform="translate(22.940625 44.32375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-544-m3be7079d6f59" d="M 375 947  L 2566 947  L 2566 0  L 3134 0  L 3134 947  L 3766 947  L 3766 1469  L 3134 1469  L 3134 4656  L 2413 4656  L 375 1431  L 375 947  z M 2569 1469  L 1009 1469  L 1009 1506  L 2531 3913  L 2569 3913  L 2569 1469  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-544-m3be7079d6f59"></use><use href="#Inter-Regular-5e0-m3be7079d6f59" transform="translate(61.21875 0)"></use><use href="#Inter-Regular-53f-m3be7079d6f59" transform="translate(87.5 0)"></use></g></g></g></g><g id="maidr-12899d29-f844-45bc-b32a-9938dd8ba962-m3be7079d6f59"><path d="M 45 224.28  L 45 30.24  " style="fill: none; stroke: #ffffff; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-9133a543-8c51-4238-a1c9-d073d26bec0f-m3be7079d6f59"><path d="M 324 224.28  L 324 30.24  " style="fill: none; stroke: #ffffff; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-531d38a2-cfff-48a4-9f5e-05eea4f63c00-m3be7079d6f59"><path d="M 45 224.28  L 324 224.28  " style="fill: none; stroke: #ffffff; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-51e48a88-f99e-45f5-ba1e-cfcf25c0958c-m3be7079d6f59"><path d="M 45 30.24  L 324 30.24  " style="fill: none; stroke: #ffffff; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="text_14-m3be7079d6f59"><!-- Dark bars --><g style="fill: #ffffff" transform="translate(156.939375 24.24) scale(0.12 -0.12)"><defs><path id="Inter-Regular-54-m3be7079d6f59" d="M 2016 0  C 3434 0 4238 881 4238 2338  C 4238 3781 3434 4656 2075 4656  L 563 4656  L 563 0  L 2016 0  z M 1156 525  L 1156 4131  L 2034 4131  C 3113 4131 3663 3456 3663 2338  C 3663 1206 3113 525 1978 525  L 1156 525  z " transform="scale(0.015625)"></path><path id="Inter-Regular-356-m3be7079d6f59" d="M 494 0  L 1056 0  L 1056 2188  C 1056 2659 1425 3000 1928 3000  C 2078 3000 2231 2975 2266 2969  L 2266 3534  C 2200 3538 2063 3544 1981 3544  C 1566 3544 1203 3309 1075 2956  L 1038 2956  L 1038 3494  L 494 3494  L 494 0  z " transform="scale(0.015625)"></path><path id="Inter-Regular-2d9-m3be7079d6f59" d="M 494 0  L 1056 0  L 1056 1288  L 1425 1634  L 2703 0  L 3425 0  L 1853 1994  L 3316 3494  L 2619 3494  L 1125 1953  L 1056 1953  L 1056 4656  L 494 4656  L 494 0  z " transform="scale(0.015625)"></path><path id="Inter-Regular-6eb-m3be7079d6f59" transform="scale(0.015625)"></path><path id="Inter-Regular-369-m3be7079d6f59" d="M 1681 -75  C 2500 -75 3059 372 3059 984  C 3059 1463 2763 1778 2128 1928  L 1600 2053  C 1191 2150 1013 2294 1013 2553  C 1013 2844 1325 3059 1741 3059  C 2191 3059 2388 2816 2484 2566  L 2994 2697  C 2834 3188 2456 3538 1738 3538  C 994 3538 444 3119 444 2519  C 444 2028 747 1716 1381 1566  L 1963 1428  C 2306 1347 2475 1188 2475 947  C 2475 659 2163 419 1675 419  C 1256 419 972 591 872 975  L 338 847  C 463 244 963 -75 1681 -75  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-54-m3be7079d6f59"></use><use href="#Inter-Regular-1fc-m3be7079d6f59" transform="translate(72.171875 0)"></use><use href="#Inter-Regular-356-m3be7079d6f59" transform="translate(128.328125 0)"></use><use href="#Inter-Regular-2d9-m3be7079d6f59" transform="translate(167.53125 0)"></use><use href="#Inter-Regular-6eb-m3be7079d6f59" transform="translate(222.421875 0)"></use><use href="#Inter-Regular-243-m3be7079d6f59" transform="translate(250.546875 0)"></use><use href="#Inter-Regular-1fc-m3be7079d6f59" transform="translate(312.765625 0)"></use><use href="#Inter-Regular-356-m3be7079d6f59" transform="translate(368.921875 0)"></use><use href="#Inter-Regular-369-m3be7079d6f59" transform="translate(406.5625 0)"></use></g></g></g></g><defs><clippath id="p122826c2e0-m3be7079d6f59"><rect x="45" y="30.24" width="279" height="194.04"></rect></clippath></defs></svg><span id="74e631b1-a255-4c5a-af1f-0ac262762624-title" class="maidr-inline-title" hidden="">Dark bars</span>
+  <script>(function () {
+'use strict';
+if (window.__maidrInline) return;
+window.__maidrInline = true;
+var CHART = '.maidr-inline, article[id^="maidr-article-"]';
+var PLOT = 'figure[id^="maidr-figure"] > [tabindex]';
+function inChart(node) {
+return !!(node && node.closest && node.closest(CHART));
+}
+function focusInChart() {
+return inChart(document.activeElement);
+}
+function wrapperOf(node) {
+return node && node.closest ? node.closest('.maidr-inline') : null;
+}
+var noAmd = [];
+function withoutAmd(script) {
+var amd = window.define;
+if (typeof amd !== 'function' || !amd.amd) return;
+noAmd.push(script);
+if (amd.__maidrInline) return;
+var shim = function () {
+var factory = arguments[arguments.length - 1];
+if (noAmd.indexOf(document.currentScript) >= 0 && typeof factory === 'function') {
+return factory();
+}
+return amd.apply(this, arguments);
+};
+for (var key in amd) shim[key] = amd[key];
+shim.__maidrInline = true;
+window.define = shim;
+}
+window.__maidrInlineWithoutAmd = withoutAmd;
+var PACK = /\/locale-[a-z]{2,3}(?:-[A-Za-z0-9]+)?\.js(?:[?#]|$)/;
+function settle() {
+var wrappers = document.querySelectorAll('.maidr-inline[data-maidr-inline]');
+for (var i = 0; i < wrappers.length; i++) {
+var wrapper = wrappers[i];
+var plot = wrapper.querySelector(PLOT);
+if (!plot) continue;
+wrapper.removeAttribute('data-maidr-inline');
+wrapper.removeAttribute('role');
+wrapper.removeAttribute('aria-label');
+describe(plot);
+fitChart(wrapper);
+}
+liftStyles();
+}
+function liftStyles() {
+var styles = document.querySelectorAll('.maidr-inline > style');
+for (var i = 0; i < styles.length; i++) {
+var style = styles[i];
+if (style.hasAttribute('data-maidr-inline-css') &&
+document.head.querySelector('style[data-maidr-inline-css]')) {
+style.remove();
+} else {
+document.head.appendChild(style);
+}
+}
+}
+function describe(plot) {
+var wrapper = wrapperOf(plot);
+if (!wrapper) return;
+var ids = [];
+var title = wrapper.querySelector(':scope > .maidr-inline-title[id]');
+if (title) ids.push(title.id);
+var host = wrapper.parentNode && wrapper.parentNode.closest &&
+wrapper.parentNode.closest('[aria-describedby]');
+if (host && !inChart(host)) ids.push(host.getAttribute('aria-describedby'));
+var value = ids.join(' ');
+if (value && plot.getAttribute('aria-describedby') !== value) {
+plot.setAttribute('aria-describedby', value);
+}
+}
+var DIALOG_TEXT = '[role="dialog"] .MuiTypography-body1, [role="dialog"] .MuiTypography-body2, ' +
+'[role="dialog"] .MuiInputBase-root';
+function probeFontSize(className, fontSize) {
+var probe = document.createElement('maidr-inline-probe');
+probe.className = className;
+probe.style.setProperty('display', 'none', 'important');
+if (fontSize) probe.style.setProperty('font-size', fontSize, 'important');
+document.documentElement.appendChild(probe);
+try {
+return parseFloat(getComputedStyle(probe).fontSize);
+} finally {
+probe.remove();
+}
+}
+function sizeDialogs(wrapper) {
+if (!wrapper) return;
+var host = 1;
+for (var node = wrapper.parentElement; node; node = node.parentElement) {
+var z = parseFloat(getComputedStyle(node).zoom);
+if (z > 0) host *= z;
+}
+wrapper.style.setProperty('--maidr-inline-unzoom', String(1 / host));
+var text = wrapper.querySelector(DIALOG_TEXT);
+if (!text) return;
+var size = text.classList.contains('MuiTypography-body2') ? 0.875 : 1;
+var rem = Math.round(probeFontSize(text.className) / size * 100) / 100;
+var medium = probeFontSize('', 'medium');
+if (!(rem > 0) || !(medium > 0)) return;
+wrapper.style.setProperty('--maidr-inline-rem', rem + 'px');
+wrapper.style.setProperty('--maidr-inline-zoom', String(rem < medium ? medium / rem : 1));
+}
+var FITTED = '.html-fill-item > .maidr-inline';
+function fitChart(wrapper) {
+if (!wrapper || !wrapper.matches(FITTED)) return;
+var box = wrapper.parentElement;
+var svg = wrapper.querySelector('svg.maidr-inline-svg');
+if (!box || !svg) return;
+svg.style.maxHeight = '';
+svg.style.width = '';
+var over = box.scrollHeight - box.clientHeight;
+if (over <= 1) return;
+var line = 2.5 * parseFloat(getComputedStyle(wrapper).fontSize);
+var height = svg.getBoundingClientRect().height - over - line;
+svg.style.width = 'auto';
+svg.style.maxHeight = Math.max(height, 96) + 'px';
+}
+function fitCharts() {
+var wrappers = document.querySelectorAll(FITTED);
+if (!wrappers.length) return;
+var observer = window.ResizeObserver && new ResizeObserver(function (entries) {
+for (var i = 0; i < entries.length; i++) {
+var wrapper = entries[i].target.querySelector(':scope > .maidr-inline');
+if (wrapper) requestAnimationFrame(fitChart.bind(null, wrapper));
+}
+});
+for (var i = 0; i < wrappers.length; i++) {
+fitChart(wrappers[i]);
+if (observer) observer.observe(wrappers[i].parentElement);
+}
+}
+var painted = null;
+var pageInline = null;
+function bodyColours() {
+var style = document.body.style;
+return [style.getPropertyValue('background-color'), style.getPropertyValue('color')];
+}
+function unpaint() {
+var root = document.documentElement;
+root.classList.remove('maidr-inline-contrast');
+if (painted) {
+painted.style.removeProperty('background-color');
+painted.style.removeProperty('color');
+painted = null;
+}
+}
+function notePageColours() {
+if (!document.body || document.documentElement.classList.contains('maidr-inline-contrast')) return;
+var computed = getComputedStyle(document.body);
+var root = document.documentElement.style;
+root.setProperty('--maidr-inline-page-bg', computed.backgroundColor);
+root.setProperty('--maidr-inline-page-fg', computed.color);
+pageInline = bodyColours();
+}
+function followContrast() {
+var now = bodyColours();
+if (!pageInline || (now[0] === pageInline[0] && now[1] === pageInline[1])) {
+unpaint();
+return;
+}
+var wrapper = wrapperOf(document.activeElement);
+if (!wrapper) {
+unpaint();
+pageInline = now;
+return;
+}
+if (painted && painted !== wrapper) unpaint();
+wrapper.style.setProperty('background-color', now[0]);
+wrapper.style.setProperty('color', now[1]);
+painted = wrapper;
+document.documentElement.classList.add('maidr-inline-contrast');
+}
+function watchContrast() {
+if (!document.body || !window.MutationObserver) return;
+notePageColours();
+new MutationObserver(followContrast)
+.observe(document.body, { attributes: true, attributeFilter: ['style'] });
+}
+function shimReveal() {
+var reveal = window.Reveal;
+if (!reveal || reveal.__maidrInline || typeof reveal.configure !== 'function' ||
+typeof reveal.getConfig !== 'function') {
+return;
+}
+reveal.__maidrInline = true;
+function apply() {
+var previous = reveal.getConfig().keyboardCondition;
+reveal.configure({
+keyboardCondition: function () {
+if (focusInChart()) return false;
+if (typeof previous === 'function') return previous.apply(this, arguments);
+if (previous === 'focused') return reveal.isFocused();
+return true;
+}
+});
+}
+if (typeof reveal.isReady === 'function' && reveal.isReady()) {
+apply();
+} else if (typeof reveal.on === 'function') {
+reveal.on('ready', apply);
+} else {
+reveal.__maidrInline = false;
+}
+}
+function shimQuartoSearch() {
+var open = window.quartoOpenSearch;
+if (typeof open !== 'function' || open.__maidrInline) return;
+var guarded = function () {
+if (focusInChart()) return;
+return open.apply(this, arguments);
+};
+guarded.__maidrInline = true;
+window.quartoOpenSearch = guarded;
+}
+var BSLIB = 'bs' + 'lib';
+function shimCard(card) {
+var Card = window[BSLIB] && window[BSLIB].Card;
+var instance = Card && typeof Card.getInstance === 'function' && Card.getInstance(card);
+if (!instance || instance.__maidrInline || typeof instance._exitFullScreenOnEscape !== 'function') {
+return;
+}
+instance.__maidrInline = true;
+var previous = instance._exitFullScreenOnEscape;
+var guarded = function (event) {
+if (inChart(event.target)) return;
+return previous.call(instance, event);
+};
+if (card.getAttribute('data-full-screen') === 'true') {
+document.removeEventListener('keydown', previous, false);
+document.addEventListener('keydown', guarded, false);
+}
+instance._exitFullScreenOnEscape = guarded;
+}
+function shimCards(node) {
+for (var card = node.closest('.' + BSLIB + '-card'); card;
+card = card.parentElement && card.parentElement.closest('.' + BSLIB + '-card')) {
+shimCard(card);
+}
+}
+function shimHosts() {
+shimReveal();
+shimQuartoSearch();
+}
+var TABBABLE = 'a[href],area[href],button:not([disabled]),input:not([disabled]),' +
+'select:not([disabled]),textarea:not([disabled]),iframe,audio[controls],video[controls],' +
+'[contenteditable]:not([contenteditable="false"]),[tabindex]:not([tabindex^="-"])';
+function reachable(element) {
+if (element.closest('[hidden],[aria-hidden="true"],[inert]')) return false;
+var style = getComputedStyle(element);
+return style.display !== 'none' && style.visibility !== 'hidden';
+}
+function takeFocus(element) {
+var added = !element.hasAttribute('tabindex');
+if (added) element.setAttribute('tabindex', '-1');
+element.focus();
+if (document.activeElement === element) return true;
+if (added) element.removeAttribute('tabindex');
+return false;
+}
+function handOff(event) {
+if (event.key !== 'Tab' || !event.shiftKey || event.altKey || event.ctrlKey ||
+event.metaKey || event.defaultPrevented) {
+return;
+}
+var active = document.activeElement;
+var wrapper = wrapperOf(active);
+if (!wrapper || active.closest('[role="dialog"],[aria-modal="true"]')) return;
+var stops = document.querySelectorAll(TABBABLE);
+for (var i = 0; i < stops.length && stops[i] !== active; i++) {
+if (reachable(stops[i])) return;
+}
+event.preventDefault();
+var section = wrapper.closest('section,article,[role="region"]');
+var candidates = section ? [section] : [];
+for (var node = wrapper.parentElement; node; node = node.parentElement) {
+if (node !== section) candidates.push(node);
+}
+for (var j = 0; j < candidates.length; j++) {
+if (takeFocus(candidates[j])) return;
+}
+active.blur();
+}
+function quietPreview(root) {
+if (!root.querySelector(CHART + ', svg[maidr]')) return;
+root.setAttribute('inert', '');
+var nodes = root.querySelectorAll('[id], [tabindex], [maidr], [maidr-data]');
+for (var i = 0; i < nodes.length; i++) {
+var id = nodes[i].id;
+if (id && document.getElementById(id) !== nodes[i]) nodes[i].removeAttribute('id');
+nodes[i].removeAttribute('tabindex');
+nodes[i].removeAttribute('maidr');
+nodes[i].removeAttribute('maidr-data');
+}
+}
+var HELD = 'data-maidr-inline-held';
+var UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+function hold(svg) {
+if (!svg.id || document.querySelectorAll('[id="' + svg.id + '"]').length < 2) {
+return false;
+}
+svg.setAttribute(HELD, svg.getAttribute('maidr'));
+svg.removeAttribute('maidr');
+return true;
+}
+function hex(length) {
+var bytes = new Uint8Array(length);
+window.crypto.getRandomValues(bytes);
+var out = '';
+for (var i = 0; i < length; i++) out += (bytes[i] % 16).toString(16);
+return out;
+}
+function freshUuid() {
+var h = hex(32);
+return h.slice(0, 8) + '-' + h.slice(8, 12) + '-4' + h.slice(13, 16) + '-a' +
+h.slice(17, 20) + '-' + h.slice(20);
+}
+function rekey(svg) {
+var tokens = {};
+var key = /maidr-inline-(m[0-9a-f]{12})/.exec(svg.getAttribute('class') || '');
+if (key) tokens[key[1]] = 'm' + hex(12);
+var named = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('[id], [maidr]')));
+for (var i = 0; i < named.length; i++) {
+var found = (named[i].id + ' ' + (named[i] === svg ? '' : named[i].getAttribute('maidr') || ''))
+.match(UUID) || [];
+for (var j = 0; j < found.length; j++) {
+if (!tokens[found[j]]) tokens[found[j]] = freshUuid();
+}
+}
+var pattern = new RegExp(Object.keys(tokens).join('|'), 'g');
+var swap = function (value) {
+return value.replace(pattern, function (token) { return tokens[token]; });
+};
+var elements = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('*')));
+for (var k = 0; k < elements.length; k++) {
+var attributes = Array.prototype.slice.call(elements[k].attributes);
+for (var m = 0; m < attributes.length; m++) {
+if (attributes[m].name === 'class') continue;
+var swapped = swap(attributes[m].value);
+if (swapped !== attributes[m].value) elements[k].setAttribute(attributes[m].name, swapped);
+}
+}
+var wrapper = wrapperOf(svg);
+var title = wrapper && wrapper.querySelector(':scope > .maidr-inline-title[id]');
+if (title) title.id = swap(title.id);
+var schema = svg.getAttribute(HELD);
+svg.removeAttribute(HELD);
+svg.setAttribute('maidr', schema);
+}
+window.__maidrInlineClaim = function (script) {
+var wrapper = wrapperOf(script);
+var svg = wrapper && wrapper.querySelector('svg[' + HELD + ']');
+if (svg) rekey(svg);
+};
+function holdCopies(node) {
+var svgs = node.matches('.maidr-inline svg[maidr]') ? [node]
+: node.querySelectorAll('.maidr-inline svg[maidr]');
+for (var i = 0; i < svgs.length; i++) {
+if (hold(svgs[i]) && document.readyState !== 'loading') rekey(svgs[i]);
+}
+}
+var settling = false;
+function settleSoon() {
+if (settling) return;
+settling = true;
+requestAnimationFrame(function () {
+settling = false;
+settle();
+});
+}
+if (window.MutationObserver) {
+new MutationObserver(function (records) {
+for (var i = 0; i < records.length; i++) {
+var added = records[i].addedNodes;
+for (var j = 0; j < added.length; j++) {
+var node = added[j];
+if (node.nodeType !== 1) continue;
+if (node.tagName === 'SCRIPT' && PACK.test(node.src || '')) {
+withoutAmd(node);
+continue;
+}
+var root = node.closest('[data-tippy-root]') ||
+(node.querySelector && node.querySelector('[data-tippy-root]'));
+if (root) {
+quietPreview(root);
+continue;
+}
+holdCopies(node);
+}
+}
+settleSoon();
+}).observe(document.documentElement, { childList: true, subtree: true });
+}
+window.addEventListener('keydown', function (event) {
+if (!focusInChart()) return;
+shimHosts();
+handOff(event);
+if ((event.ctrlKey || event.metaKey) && event.shiftKey &&
+(event.key === 'F' || event.key === 'f')) {
+event.stopPropagation();
+}
+}, true);
+document.addEventListener('focusin', function (event) {
+var target = event.target;
+if (!inChart(target)) return;
+notePageColours();
+shimHosts();
+shimCards(target);
+if (target.matches && target.matches(PLOT)) describe(target);
+sizeDialogs(wrapperOf(target));
+}, true);
+function onReady() {
+shimHosts();
+watchContrast();
+settle();
+window.addEventListener('load', function () {
+shimHosts();
+settle();
+fitCharts();
+});
+}
+if (document.readyState === 'loading') {
+document.addEventListener('DOMContentLoaded', onReady);
+} else {
+onReady();
+}
+})();</script>
+  <script>(function () {
+  if (window.__maidrInlineClaim) window.__maidrInlineClaim(document.currentScript);
+  if (window.maidrLive || window.__maidrInlineLoader) return;
+  window.__maidrInlineLoader = true;
+  var noAmd = window.__maidrInlineWithoutAmd || function () {};
+
+  function fail(why) {
+    window.__maidrInlineLoader = false;
+    console.error('[maidr] The chart loaded but its runtime did not: ' + why +
+      '. Re-render with use_cdn=False to carry maidr.js in the page, which ' +
+      'works without network access.');
+  }
+
+
+  function fromStash(why) {
+    window.maidrLocaleBaseUrl = window.maidrLocaleBaseUrl || "https://cdn.jsdelivr.net/npm/maidr@4.14.0/dist/";
+    var source = window.__maidrJsSource;
+    if (!source) { fail(why); return; }
+    var css = window.__maidrMathCssSource;
+    if (css) {
+      var style = document.createElement('style');
+      style.textContent = css;
+      document.head.appendChild(style);
+      // maidr.js looks for a <link> with this attribute before it fetches
+      // maidr-math.css itself, which it cannot here.
+      var mark = document.createElement('link');
+      mark.setAttribute('data-maidr-math', '');
+      document.head.appendChild(mark);
+    }
+    var script = document.createElement('script');
+    script.text = source;
+    noAmd(script);
+    document.head.appendChild(script);
+  }
+
+
+  function fromUrl(url, onError) {
+    var script = document.createElement('script');
+    script.src = url;
+    script.onerror = onError;
+    noAmd(script);
+    document.head.appendChild(script);
+  }
+
+  fromUrl("../../../dist/maidr.js", function () { fromStash('it did not load from ' + "../../../dist/maidr.js" + ' and the page has no copy of the bundle'); });
+})();</script>
+</div>
+</div>
+</div>
+</section>
+<section id="a-chart-with-two-layers" class="level2">
+<h2 class="anchored" data-anchor-id="a-chart-with-two-layers">A chart with two layers</h2>
+<div id="898f8c1b" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">5</span>, <span class="fl">3.5</span>))</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>ax.bar([<span class="st">"a"</span>, <span class="st">"b"</span>, <span class="st">"c"</span>, <span class="st">"d"</span>], [<span class="dv">2</span>, <span class="dv">4</span>, <span class="dv">1</span>, <span class="dv">3</span>], label<span class="op">=</span><span class="st">"Count"</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>ax.plot([<span class="st">"a"</span>, <span class="st">"b"</span>, <span class="st">"c"</span>, <span class="st">"d"</span>], [<span class="fl">2.5</span>, <span class="dv">3</span>, <span class="dv">2</span>, <span class="fl">2.5</span>], color<span class="op">=</span><span class="st">"black"</span>, label<span class="op">=</span><span class="st">"Trend"</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="st">"Bars and a line"</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div class="maidr-inline" role="img" aria-label="Bars and a line, accessible chart" data-maidr-inline="" data-lm-suppress-shortcuts="">
+  <style data-maidr-inline-css="">.maidr-inline {
+margin: 0 0 1em;
+max-width: 100%;
+}
+.maidr-inline article,
+.maidr-inline figure {
+margin: 0;
+padding: 0;
+}
+.maidr-inline-svg {
+display: block;
+max-width: 100%;
+height: auto;
+}
+.quarto-figure-center .maidr-inline,
+.quarto-figure-right .maidr-inline {
+width: fit-content;
+}
+.quarto-figure-center .maidr-inline {
+margin-inline: auto;
+}
+.quarto-figure-right .maidr-inline {
+margin-inline-start: auto;
+}
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus {
+outline: 3px solid #1a5fb4 !important;
+outline-offset: -3px !important;
+}
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus .maidr-inline-svg {
+outline: 2px solid #ffffff !important;
+outline-offset: -5px !important;
+}
+.maidr-inline textarea,
+.maidr-inline input {
+max-width: 100%;
+box-sizing: border-box;
+}
+.maidr-inline textarea:focus,
+.maidr-inline input:focus,
+.maidr-inline select:focus,
+.maidr-inline button:focus-visible,
+.maidr-inline a:focus-visible,
+.maidr-inline [role="button"]:focus-visible {
+outline: 3px solid #1a5fb4 !important;
+outline-offset: 1px !important;
+}
+@media (forced-colors: active) {
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus,
+.maidr-inline textarea:focus,
+.maidr-inline input:focus,
+.maidr-inline select:focus,
+.maidr-inline button:focus-visible,
+.maidr-inline a:focus-visible,
+.maidr-inline [role="button"]:focus-visible {
+outline-color: Highlight !important;
+}
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus .maidr-inline-svg {
+outline: none !important;
+}
+}
+html.maidr-inline-contrast body {
+background-color: var(--maidr-inline-page-bg) !important;
+color: var(--maidr-inline-page-fg) !important;
+}
+.maidr-inline .MuiDialog-root {
+zoom: var(--maidr-inline-unzoom, 1);
+}
+.maidr-inline .MuiDialog-paper {
+zoom: var(--maidr-inline-zoom, 1);
+max-width: min(600px, calc((100vw - 64px) / var(--maidr-inline-zoom, 1)));
+max-height: calc((100vh - 64px) / var(--maidr-inline-zoom, 1));
+}
+.reveal .maidr-inline .MuiDialog-paper {
+max-height: min(calc(100% - 64px), calc((100vh - 64px) / var(--maidr-inline-zoom, 1)));
+}
+.reveal .slides:has(.maidr-inline .MuiDialog-root),
+.reveal .slides section:has(.maidr-inline .MuiDialog-root) {
+perspective: none !important;
+}
+.maidr-inline [role="dialog"] {
+text-align: start;
+font-size: var(--maidr-inline-rem, 1rem);
+line-height: 1.5;
+}
+.maidr-inline [role="dialog"] :is(h1, h2, h3, h4, h5, h6):not([class*="MuiTypography-"]) {
+font-size: inherit !important;
+line-height: inherit !important;
+margin: 0 !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-caption {
+font-size: calc(0.75 * var(--maidr-inline-rem, 1rem)) !important;
+line-height: 1.66 !important;
+}
+.maidr-inline [role="dialog"] :is(ul, ol) {
+display: block !important;
+margin: 0 !important;
+}
+.maidr-inline [role="dialog"] :is(h1, h2, h3, h4, h5, h6) {
+font-family: "Roboto", "Helvetica", "Arial", sans-serif !important;
+color: inherit !important;
+text-transform: none !important;
+text-shadow: none !important;
+word-wrap: normal !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-h6 {
+font-size: calc(1.25 * var(--maidr-inline-rem, 1rem)) !important;
+line-height: 1.6 !important;
+letter-spacing: 0.0075em !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-subtitle1 {
+font-size: var(--maidr-inline-rem, 1rem) !important;
+line-height: 1.75 !important;
+letter-spacing: 0.00938em !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-subtitle2 {
+font-size: calc(0.875 * var(--maidr-inline-rem, 1rem)) !important;
+line-height: 1.57 !important;
+letter-spacing: 0.00714em !important;
+}
+.html-fill-item:has(> .maidr-inline) {
+overflow: auto;
+}</style>
+  <style>.maidr-inline-m9e03afdc5f6e, .maidr-inline-m9e03afdc5f6e * {stroke-linejoin: round; stroke-linecap: butt}</style>
+  <svg xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="360pt" height="252pt" viewbox="0 0 360 252" version="1.1" id="79819581-7d53-45cd-81e6-2ba308eaabb8" class="maidr-inline-svg maidr-inline-m9e03afdc5f6e" aria-hidden="true" maidr="{&quot;id&quot;: &quot;79819581-7d53-45cd-81e6-2ba308eaabb8&quot;, &quot;subplots&quot;: [[{&quot;id&quot;: &quot;61cf9fc8-9733-497c-8112-62280ccee21b&quot;, &quot;layers&quot;: [{&quot;id&quot;: &quot;5e76c6ba-7eb1-4512-bda1-2f63fd7d65b3&quot;, &quot;type&quot;: &quot;bar&quot;, &quot;title&quot;: &quot;Bars and a line&quot;, &quot;axes&quot;: {&quot;x&quot;: {&quot;label&quot;: &quot;X&quot;}, &quot;y&quot;: {&quot;label&quot;: &quot;Y&quot;}}, &quot;data&quot;: [{&quot;x&quot;: &quot;a&quot;, &quot;y&quot;: 2.0}, {&quot;x&quot;: &quot;b&quot;, &quot;y&quot;: 4.0}, {&quot;x&quot;: &quot;c&quot;, &quot;y&quot;: 1.0}, {&quot;x&quot;: &quot;d&quot;, &quot;y&quot;: 3.0}], &quot;selectors&quot;: &quot;g[maidr='21080c42-92e6-45ef-8cca-0b5422976575-m9e03afdc5f6e'] > path&quot;, &quot;orientation&quot;: &quot;vert&quot;}, {&quot;id&quot;: &quot;e8869802-5026-41cd-b9a1-03ce84ffccd3&quot;, &quot;type&quot;: &quot;line&quot;, &quot;title&quot;: &quot;Bars and a line&quot;, &quot;axes&quot;: {&quot;x&quot;: {&quot;label&quot;: &quot;X&quot;}, &quot;y&quot;: {&quot;label&quot;: &quot;Y&quot;}}, &quot;data&quot;: [[{&quot;x&quot;: &quot;a&quot;, &quot;y&quot;: 2.5, &quot;z&quot;: &quot;Trend&quot;}, {&quot;x&quot;: &quot;b&quot;, &quot;y&quot;: 3.0, &quot;z&quot;: &quot;Trend&quot;}, {&quot;x&quot;: &quot;c&quot;, &quot;y&quot;: 2.0, &quot;z&quot;: &quot;Trend&quot;}, {&quot;x&quot;: &quot;d&quot;, &quot;y&quot;: 2.5, &quot;z&quot;: &quot;Trend&quot;}]], &quot;selectors&quot;: [&quot;g[id='maidr-5f01300f-a3e7-4f6d-a813-22335ba538f8-m9e03afdc5f6e'] path&quot;]}]}]]}"><defs></defs><g id="figure_1-m9e03afdc5f6e"><g id="maidr-a61460d8-4bdd-433a-bead-058be2e334a5-m9e03afdc5f6e"><path d="M 0 252  L 360 252  L 360 0  L 0 0  z " style="fill: #ffffff"></path></g><g id="axes_1-m9e03afdc5f6e"><g id="maidr-4227c25a-4ad6-44f7-bee2-5b9bd8d21f55-m9e03afdc5f6e"><path d="M 45 224.28  L 324 224.28  L 324 30.24  L 45 30.24  z " style="fill: #ffffff"></path></g><g id="maidr-4bac2c88-ab0f-4828-8d8c-9db1a42c240d-m9e03afdc5f6e" maidr="21080c42-92e6-45ef-8cca-0b5422976575-m9e03afdc5f6e"><path d="M 57.681818 224.28  L 111.078947 224.28  L 111.078947 131.88  L 57.681818 131.88  z " clip-path="url(#pec5caee512-m9e03afdc5f6e)" style="fill: #1f77b4"></path></g><g id="maidr-74eb830e-60ef-4b45-976c-51b4fab7e8a9-m9e03afdc5f6e" maidr="21080c42-92e6-45ef-8cca-0b5422976575-m9e03afdc5f6e"><path d="M 124.42823 224.28  L 177.825359 224.28  L 177.825359 39.48  L 124.42823 39.48  z " clip-path="url(#pec5caee512-m9e03afdc5f6e)" style="fill: #1f77b4"></path></g><g id="maidr-e9d948bc-23c1-49f3-9513-d2fc3c2a7d71-m9e03afdc5f6e" maidr="21080c42-92e6-45ef-8cca-0b5422976575-m9e03afdc5f6e"><path d="M 191.174641 224.28  L 244.57177 224.28  L 244.57177 178.08  L 191.174641 178.08  z " clip-path="url(#pec5caee512-m9e03afdc5f6e)" style="fill: #1f77b4"></path></g><g id="maidr-ef5909d2-dc09-4e0a-ba11-4fd74959da34-m9e03afdc5f6e" maidr="21080c42-92e6-45ef-8cca-0b5422976575-m9e03afdc5f6e"><path d="M 257.921053 224.28  L 311.318182 224.28  L 311.318182 85.68  L 257.921053 85.68  z " clip-path="url(#pec5caee512-m9e03afdc5f6e)" style="fill: #1f77b4"></path></g><g id="matplotlib.axis_1-m9e03afdc5f6e"><g id="xtick_1-m9e03afdc5f6e"><g id="maidr-fb51d033-450c-48a7-8255-fbff42edeaa9-m9e03afdc5f6e"><defs><path id="m5c22d70b6c-m9e03afdc5f6e" d="M 0 0  L 0 3.5  " style="stroke: #000000; stroke-width: 0.8"></path></defs><g><use href="#m5c22d70b6c-m9e03afdc5f6e" x="84.380383" y="224.28" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_1-m9e03afdc5f6e"><!-- a --><g transform="translate(81.57257 240.9675) scale(0.1 -0.1)"><defs><path id="Inter-Regular-1fc-m9e03afdc5f6e" d="M 1472 -81  C 2063 -81 2391 228 2509 475  L 2547 475  L 2547 0  L 3100 0  L 3100 2303  C 3100 3394 2259 3538 1791 3538  C 1250 3538 650 3344 381 2709  L 922 2531  C 1031 2775 1303 3044 1806 3044  C 2291 3044 2538 2794 2538 2359  L 2538 2341  C 2538 2081 2263 2100 1641 2022  C 994 1941 281 1794 281 994  C 281 306 809 -81 1472 -81  z M 1569 416  C 1150 416 847 603 847 966  C 847 1363 1206 1494 1616 1547  C 1831 1575 2444 1638 2538 1747  L 2538 1263  C 2538 834 2191 416 1569 416  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-1fc-m9e03afdc5f6e"></use></g></g></g><g id="xtick_2-m9e03afdc5f6e"><g id="maidr-b794a50e-0f27-4544-b813-b43daab9ccf0-m9e03afdc5f6e"><g><use href="#m5c22d70b6c-m9e03afdc5f6e" x="151.126794" y="224.28" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_2-m9e03afdc5f6e"><!-- b --><g transform="translate(148.065076 240.9675) scale(0.1 -0.1)"><defs><path id="Inter-Regular-243-m9e03afdc5f6e" d="M 2116 -75  C 2988 -75 3594 625 3594 1738  C 3594 2844 2984 3538 2113 3538  C 1431 3538 1216 3119 1100 2934  L 1056 2934  L 1056 4656  L 494 4656  L 494 0  L 1038 0  L 1038 541  L 1100 541  C 1216 347 1450 -75 2116 -75  z M 2031 428  C 1397 428 1050 966 1050 1744  C 1050 2516 1388 3034 2031 3034  C 2694 3034 3022 2469 3022 1744  C 3022 1009 2684 428 2031 428  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-243-m9e03afdc5f6e"></use></g></g></g><g id="xtick_3-m9e03afdc5f6e"><g id="maidr-0ac1c868-4e65-43e9-a768-86d50f0d68bc-m9e03afdc5f6e"><g><use href="#m5c22d70b6c-m9e03afdc5f6e" x="217.873206" y="224.28" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_3-m9e03afdc5f6e"><!-- c --><g transform="translate(215.016956 240.9675) scale(0.1 -0.1)"><defs><path id="Inter-Regular-24b-m9e03afdc5f6e" d="M 1916 -75  C 2600 -75 3156 297 3344 919  L 2806 1072  C 2703 694 2384 428 1916 428  C 1219 428 897 1038 897 1725  C 897 2422 1219 3034 1916 3034  C 2375 3034 2688 2778 2791 2419  L 3331 2572  C 3141 3181 2591 3538 1916 3538  C 966 3538 325 2819 325 1725  C 325 647 966 -75 1916 -75  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-24b-m9e03afdc5f6e"></use></g></g></g><g id="xtick_4-m9e03afdc5f6e"><g id="maidr-46f34009-aaa4-443b-b83d-ed462a11d375-m9e03afdc5f6e"><g><use href="#m5c22d70b6c-m9e03afdc5f6e" x="284.619617" y="224.28" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_4-m9e03afdc5f6e"><!-- d --><g transform="translate(281.557898 240.9675) scale(0.1 -0.1)"><defs><path id="Inter-Regular-256-m9e03afdc5f6e" d="M 1803 -75  C 2469 -75 2703 347 2819 541  L 2881 541  L 2881 0  L 3425 0  L 3425 4656  L 2863 4656  L 2863 2934  L 2819 2934  C 2703 3119 2488 3538 1806 3538  C 934 3538 325 2844 325 1738  C 325 625 931 -75 1803 -75  z M 1888 428  C 1234 428 897 1009 897 1744  C 897 2469 1225 3034 1888 3034  C 2531 3034 2869 2516 2869 1744  C 2869 966 2522 428 1888 428  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-256-m9e03afdc5f6e"></use></g></g></g></g><g id="matplotlib.axis_2-m9e03afdc5f6e"><g id="ytick_1-m9e03afdc5f6e"><g id="maidr-23212ebd-b1e0-477e-8635-23e70dc2fb9b-m9e03afdc5f6e"><defs><path id="m56734fc623-m9e03afdc5f6e" d="M 0 0  L -3.5 0  " style="stroke: #000000; stroke-width: 0.8"></path></defs><g><use href="#m56734fc623-m9e03afdc5f6e" x="45" y="224.28" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_5-m9e03afdc5f6e"><!-- 0.0 --><g transform="translate(23.00625 229.12375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-53f-m9e03afdc5f6e" d="M 2019 -63  C 3059 -63 3656 809 3656 2325  C 3656 3834 3050 4719 2019 4719  C 988 4719 381 3834 381 2325  C 381 806 981 -63 2019 -63  z M 2019 456  C 1338 456 953 1144 953 2325  C 953 3509 1338 4203 2019 4203  C 2700 4203 3084 3513 3084 2325  C 3084 1144 2700 456 2019 456  z " transform="scale(0.015625)"></path><path id="Inter-Regular-5e0-m9e03afdc5f6e" d="M 922 -41  C 1156 -41 1344 147 1344 381  C 1344 616 1156 803 922 803  C 688 803 500 616 500 381  C 500 147 688 -41 922 -41  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-53f-m9e03afdc5f6e"></use><use href="#Inter-Regular-5e0-m9e03afdc5f6e" transform="translate(60.5625 0)"></use><use href="#Inter-Regular-53f-m9e03afdc5f6e" transform="translate(86.84375 0)"></use></g></g></g><g id="ytick_2-m9e03afdc5f6e"><g id="maidr-cab768b2-a490-4df6-a1a4-dccca6a2ffc8-m9e03afdc5f6e"><g><use href="#m56734fc623-m9e03afdc5f6e" x="45" y="201.18" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_6-m9e03afdc5f6e"><!-- 0.5 --><g transform="translate(23.125 206.02375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-545-m9e03afdc5f6e" d="M 1956 -63  C 2853 -63 3509 594 3509 1488  C 3509 2388 2881 3047 2028 3047  C 1706 3047 1397 2934 1206 2775  L 1181 2775  L 1341 4134  L 3291 4134  L 3291 4656  L 841 4656  L 566 2350  L 1122 2281  C 1306 2422 1631 2525 1919 2525  C 2503 2525 2928 2078 2928 1478  C 2928 888 2519 459 1956 459  C 1488 459 1106 759 1069 1175  L 494 1175  C 525 463 1138 -63 1956 -63  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-53f-m9e03afdc5f6e"></use><use href="#Inter-Regular-5e0-m9e03afdc5f6e" transform="translate(60.5625 0)"></use><use href="#Inter-Regular-545-m9e03afdc5f6e" transform="translate(87.953125 0)"></use></g></g></g><g id="ytick_3-m9e03afdc5f6e"><g id="maidr-0f5a4555-a3f3-4891-a697-fc1d9889d285-m9e03afdc5f6e"><g><use href="#m56734fc623-m9e03afdc5f6e" x="45" y="178.08" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_7-m9e03afdc5f6e"><!-- 1.0 --><g transform="translate(24.995312 182.92375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-540-m9e03afdc5f6e" d="M 2041 4656  L 1313 4656  L 300 3909  L 300 3272  L 1425 4106  L 1456 4106  L 1456 0  L 2041 0  L 2041 4656  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-540-m9e03afdc5f6e"></use><use href="#Inter-Regular-5e0-m9e03afdc5f6e" transform="translate(40.671875 0)"></use><use href="#Inter-Regular-53f-m9e03afdc5f6e" transform="translate(66.953125 0)"></use></g></g></g><g id="ytick_4-m9e03afdc5f6e"><g id="maidr-5c3ce654-30d6-48eb-9d0f-0cae36c3e070-m9e03afdc5f6e"><g><use href="#m56734fc623-m9e03afdc5f6e" x="45" y="154.98" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_8-m9e03afdc5f6e"><!-- 1.5 --><g transform="translate(25.114062 159.82375) scale(0.1 -0.1)"><use href="#Inter-Regular-540-m9e03afdc5f6e"></use><use href="#Inter-Regular-5e0-m9e03afdc5f6e" transform="translate(40.671875 0)"></use><use href="#Inter-Regular-545-m9e03afdc5f6e" transform="translate(68.0625 0)"></use></g></g></g><g id="ytick_5-m9e03afdc5f6e"><g id="maidr-12931fb0-d94c-4d24-af72-f7d799b9fb02-m9e03afdc5f6e"><g><use href="#m56734fc623-m9e03afdc5f6e" x="45" y="131.88" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_9-m9e03afdc5f6e"><!-- 2.0 --><g transform="translate(22.964062 136.72375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-541-m9e03afdc5f6e" d="M 481 0  L 3447 0  L 3447 522  L 1300 522  L 1300 559  L 2319 1644  C 3141 2519 3369 2916 3369 3419  C 3369 4147 2778 4719 1947 4719  C 1119 4719 494 4159 494 3334  L 1063 3334  C 1063 3859 1400 4203 1931 4203  C 2428 4203 2806 3900 2806 3413  C 2806 2984 2544 2666 2028 2106  L 481 428  L 481 0  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-541-m9e03afdc5f6e"></use><use href="#Inter-Regular-5e0-m9e03afdc5f6e" transform="translate(60.984375 0)"></use><use href="#Inter-Regular-53f-m9e03afdc5f6e" transform="translate(87.265625 0)"></use></g></g></g><g id="ytick_6-m9e03afdc5f6e"><g id="maidr-a9c6efe1-8b01-4529-bbd7-d56d305dd187-m9e03afdc5f6e"><g><use href="#m56734fc623-m9e03afdc5f6e" x="45" y="108.78" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_10-m9e03afdc5f6e"><!-- 2.5 --><g transform="translate(23.082812 113.62375) scale(0.1 -0.1)"><use href="#Inter-Regular-541-m9e03afdc5f6e"></use><use href="#Inter-Regular-5e0-m9e03afdc5f6e" transform="translate(60.984375 0)"></use><use href="#Inter-Regular-545-m9e03afdc5f6e" transform="translate(88.375 0)"></use></g></g></g><g id="ytick_7-m9e03afdc5f6e"><g id="maidr-26d4c230-ea33-4b9c-85bc-db206e270098-m9e03afdc5f6e"><g><use href="#m56734fc623-m9e03afdc5f6e" x="45" y="85.68" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_11-m9e03afdc5f6e"><!-- 3.0 --><g transform="translate(23.110937 90.52375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-543-m9e03afdc5f6e" d="M 1984 -63  C 2897 -63 3572 503 3572 1266  C 3572 1853 3225 2284 2631 2381  L 2631 2419  C 3106 2559 3403 2944 3403 3469  C 3403 4131 2872 4719 2003 4719  C 1184 4719 516 4216 491 3484  L 1063 3484  C 1081 3938 1516 4203 1991 4203  C 2497 4203 2822 3900 2822 3438  C 2822 2956 2447 2644 1903 2644  L 1525 2644  L 1525 2128  L 1903 2128  C 2594 2128 2984 1775 2984 1272  C 2984 788 2559 459 1975 459  C 1444 459 1025 731 991 1175  L 391 1175  C 422 438 1072 -63 1984 -63  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-543-m9e03afdc5f6e"></use><use href="#Inter-Regular-5e0-m9e03afdc5f6e" transform="translate(59.515625 0)"></use><use href="#Inter-Regular-53f-m9e03afdc5f6e" transform="translate(85.796875 0)"></use></g></g></g><g id="ytick_8-m9e03afdc5f6e"><g id="maidr-fc2b8f33-fba0-48d8-ad90-89ae0c847d43-m9e03afdc5f6e"><g><use href="#m56734fc623-m9e03afdc5f6e" x="45" y="62.58" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_12-m9e03afdc5f6e"><!-- 3.5 --><g transform="translate(23.229687 67.42375) scale(0.1 -0.1)"><use href="#Inter-Regular-543-m9e03afdc5f6e"></use><use href="#Inter-Regular-5e0-m9e03afdc5f6e" transform="translate(59.515625 0)"></use><use href="#Inter-Regular-545-m9e03afdc5f6e" transform="translate(86.90625 0)"></use></g></g></g><g id="ytick_9-m9e03afdc5f6e"><g id="maidr-8b5dc24b-8b18-4212-900f-47d8a06f7f61-m9e03afdc5f6e"><g><use href="#m56734fc623-m9e03afdc5f6e" x="45" y="39.48" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_13-m9e03afdc5f6e"><!-- 4.0 --><g transform="translate(22.940625 44.32375) scale(0.1 -0.1)"><defs><path id="Inter-Regular-544-m9e03afdc5f6e" d="M 375 947  L 2566 947  L 2566 0  L 3134 0  L 3134 947  L 3766 947  L 3766 1469  L 3134 1469  L 3134 4656  L 2413 4656  L 375 1431  L 375 947  z M 2569 1469  L 1009 1469  L 1009 1506  L 2531 3913  L 2569 3913  L 2569 1469  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-544-m9e03afdc5f6e"></use><use href="#Inter-Regular-5e0-m9e03afdc5f6e" transform="translate(61.21875 0)"></use><use href="#Inter-Regular-53f-m9e03afdc5f6e" transform="translate(87.5 0)"></use></g></g></g></g><g id="maidr-5f01300f-a3e7-4f6d-a813-22335ba538f8-m9e03afdc5f6e" maidr="56d658f0-6429-485a-a606-99a2f61f1e97-m9e03afdc5f6e"><path d="M 84.380383 108.78  L 151.126794 85.68  L 217.873206 131.88  L 284.619617 108.78  " clip-path="url(#pec5caee512-m9e03afdc5f6e)" style="fill: none; stroke: #000000; stroke-width: 1.5; stroke-linecap: square"></path></g><g id="maidr-ffa1463a-0fa4-4770-baf8-c7d9981093ee-m9e03afdc5f6e"><path d="M 45 224.28  L 45 30.24  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-1506b921-8f66-4a24-869c-c6395b98a1d4-m9e03afdc5f6e"><path d="M 324 224.28  L 324 30.24  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-8a8f79bd-cb85-4c91-a1d0-39e88c185486-m9e03afdc5f6e"><path d="M 45 224.28  L 324 224.28  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-69c9b430-3eac-4edd-ad86-5155e43ba4e0-m9e03afdc5f6e"><path d="M 45 30.24  L 324 30.24  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="text_14-m9e03afdc5f6e"><!-- Bars and a line --><g transform="translate(142.810313 24.24) scale(0.12 -0.12)"><defs><path id="Inter-Regular-41-m9e03afdc5f6e" d="M 563 0  L 2266 0  C 3363 0 3825 538 3825 1241  C 3825 1972 3316 2372 2881 2400  L 2881 2444  C 3288 2553 3644 2825 3644 3422  C 3644 4103 3184 4656 2213 4656  L 563 4656  L 563 0  z M 1156 525  L 1156 2113  L 2281 2113  C 2878 2113 3253 1713 3253 1247  C 3253 844 2975 525 2250 525  L 1156 525  z M 1156 2613  L 1156 4131  L 2200 4131  C 2803 4131 3075 3813 3075 3409  C 3075 2928 2681 2613 2181 2613  L 1156 2613  z " transform="scale(0.015625)"></path><path id="Inter-Regular-356-m9e03afdc5f6e" d="M 494 0  L 1056 0  L 1056 2188  C 1056 2659 1425 3000 1928 3000  C 2078 3000 2231 2975 2266 2969  L 2266 3534  C 2200 3538 2063 3544 1981 3544  C 1566 3544 1203 3309 1075 2956  L 1038 2956  L 1038 3494  L 494 3494  L 494 0  z " transform="scale(0.015625)"></path><path id="Inter-Regular-369-m9e03afdc5f6e" d="M 1681 -75  C 2500 -75 3059 372 3059 984  C 3059 1463 2763 1778 2128 1928  L 1600 2053  C 1191 2150 1013 2294 1013 2553  C 1013 2844 1325 3059 1741 3059  C 2191 3059 2388 2816 2484 2566  L 2994 2697  C 2834 3188 2456 3538 1738 3538  C 994 3538 444 3119 444 2519  C 444 2028 747 1716 1381 1566  L 1963 1428  C 2306 1347 2475 1188 2475 947  C 2475 659 2163 419 1675 419  C 1256 419 972 591 872 975  L 338 847  C 463 244 963 -75 1681 -75  z " transform="scale(0.015625)"></path><path id="Inter-Regular-6eb-m9e03afdc5f6e" transform="scale(0.015625)"></path><path id="Inter-Regular-307-m9e03afdc5f6e" d="M 1056 2094  C 1056 2691 1434 3031 1938 3031  C 2425 3031 2725 2709 2725 2172  L 2725 0  L 3288 0  L 3288 2219  C 3288 3103 2813 3538 2106 3538  C 1638 3538 1263 3341 1038 2847  L 1034 3494  L 494 3494  L 494 0  L 1056 0  L 1056 2094  z " transform="scale(0.015625)"></path><path id="Inter-Regular-2e2-m9e03afdc5f6e" d="M 1056 4656  L 494 4656  L 494 0  L 1056 0  L 1056 4656  z " transform="scale(0.015625)"></path><path id="Inter-Regular-2b2-m9e03afdc5f6e" d="M 494 0  L 1056 0  L 1056 3494  L 494 3494  L 494 0  z M 778 4066  C 994 4066 1172 4231 1172 4438  C 1172 4644 994 4809 778 4809  C 566 4809 388 4644 388 4438  C 388 4231 566 4066 778 4066  z " transform="scale(0.015625)"></path><path id="Inter-Regular-267-m9e03afdc5f6e" d="M 1963 -75  C 2678 -75 3200 284 3363 813  L 2819 963  C 2688 606 2378 425 1966 425  C 1347 425 922 825 894 1556  L 3419 1556  L 3419 1791  C 3419 3081 2638 3538 1897 3538  C 944 3538 325 2791 325 1719  C 325 644 950 -75 1963 -75  z M 897 2031  C 931 2566 1297 3038 1897 3038  C 2472 3038 2794 2625 2847 2031  L 897 2031  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-41-m9e03afdc5f6e"></use><use href="#Inter-Regular-1fc-m9e03afdc5f6e" transform="translate(65.4375 0)"></use><use href="#Inter-Regular-356-m9e03afdc5f6e" transform="translate(121.59375 0)"></use><use href="#Inter-Regular-369-m9e03afdc5f6e" transform="translate(159.234375 0)"></use><use href="#Inter-Regular-6eb-m9e03afdc5f6e" transform="translate(212.015625 0)"></use><use href="#Inter-Regular-1fc-m9e03afdc5f6e" transform="translate(240.140625 0)"></use><use href="#Inter-Regular-307-m9e03afdc5f6e" transform="translate(296.296875 0)"></use><use href="#Inter-Regular-256-m9e03afdc5f6e" transform="translate(355.375 0)"></use><use href="#Inter-Regular-6eb-m9e03afdc5f6e" transform="translate(416.609375 0)"></use><use href="#Inter-Regular-1fc-m9e03afdc5f6e" transform="translate(444.734375 0)"></use><use href="#Inter-Regular-6eb-m9e03afdc5f6e" transform="translate(500.890625 0)"></use><use href="#Inter-Regular-2e2-m9e03afdc5f6e" transform="translate(529.015625 0)"></use><use href="#Inter-Regular-2b2-m9e03afdc5f6e" transform="translate(553.234375 0)"></use><use href="#Inter-Regular-307-m9e03afdc5f6e" transform="translate(577.453125 0)"></use><use href="#Inter-Regular-267-m9e03afdc5f6e" transform="translate(636.53125 0)"></use></g></g></g></g><defs><clippath id="pec5caee512-m9e03afdc5f6e"><rect x="45" y="30.24" width="279" height="194.04"></rect></clippath></defs></svg><span id="79819581-7d53-45cd-81e6-2ba308eaabb8-title" class="maidr-inline-title" hidden="">Bars and a line</span>
+  <script>(function () {
+'use strict';
+if (window.__maidrInline) return;
+window.__maidrInline = true;
+var CHART = '.maidr-inline, article[id^="maidr-article-"]';
+var PLOT = 'figure[id^="maidr-figure"] > [tabindex]';
+function inChart(node) {
+return !!(node && node.closest && node.closest(CHART));
+}
+function focusInChart() {
+return inChart(document.activeElement);
+}
+function wrapperOf(node) {
+return node && node.closest ? node.closest('.maidr-inline') : null;
+}
+var noAmd = [];
+function withoutAmd(script) {
+var amd = window.define;
+if (typeof amd !== 'function' || !amd.amd) return;
+noAmd.push(script);
+if (amd.__maidrInline) return;
+var shim = function () {
+var factory = arguments[arguments.length - 1];
+if (noAmd.indexOf(document.currentScript) >= 0 && typeof factory === 'function') {
+return factory();
+}
+return amd.apply(this, arguments);
+};
+for (var key in amd) shim[key] = amd[key];
+shim.__maidrInline = true;
+window.define = shim;
+}
+window.__maidrInlineWithoutAmd = withoutAmd;
+var PACK = /\/locale-[a-z]{2,3}(?:-[A-Za-z0-9]+)?\.js(?:[?#]|$)/;
+function settle() {
+var wrappers = document.querySelectorAll('.maidr-inline[data-maidr-inline]');
+for (var i = 0; i < wrappers.length; i++) {
+var wrapper = wrappers[i];
+var plot = wrapper.querySelector(PLOT);
+if (!plot) continue;
+wrapper.removeAttribute('data-maidr-inline');
+wrapper.removeAttribute('role');
+wrapper.removeAttribute('aria-label');
+describe(plot);
+fitChart(wrapper);
+}
+liftStyles();
+}
+function liftStyles() {
+var styles = document.querySelectorAll('.maidr-inline > style');
+for (var i = 0; i < styles.length; i++) {
+var style = styles[i];
+if (style.hasAttribute('data-maidr-inline-css') &&
+document.head.querySelector('style[data-maidr-inline-css]')) {
+style.remove();
+} else {
+document.head.appendChild(style);
+}
+}
+}
+function describe(plot) {
+var wrapper = wrapperOf(plot);
+if (!wrapper) return;
+var ids = [];
+var title = wrapper.querySelector(':scope > .maidr-inline-title[id]');
+if (title) ids.push(title.id);
+var host = wrapper.parentNode && wrapper.parentNode.closest &&
+wrapper.parentNode.closest('[aria-describedby]');
+if (host && !inChart(host)) ids.push(host.getAttribute('aria-describedby'));
+var value = ids.join(' ');
+if (value && plot.getAttribute('aria-describedby') !== value) {
+plot.setAttribute('aria-describedby', value);
+}
+}
+var DIALOG_TEXT = '[role="dialog"] .MuiTypography-body1, [role="dialog"] .MuiTypography-body2, ' +
+'[role="dialog"] .MuiInputBase-root';
+function probeFontSize(className, fontSize) {
+var probe = document.createElement('maidr-inline-probe');
+probe.className = className;
+probe.style.setProperty('display', 'none', 'important');
+if (fontSize) probe.style.setProperty('font-size', fontSize, 'important');
+document.documentElement.appendChild(probe);
+try {
+return parseFloat(getComputedStyle(probe).fontSize);
+} finally {
+probe.remove();
+}
+}
+function sizeDialogs(wrapper) {
+if (!wrapper) return;
+var host = 1;
+for (var node = wrapper.parentElement; node; node = node.parentElement) {
+var z = parseFloat(getComputedStyle(node).zoom);
+if (z > 0) host *= z;
+}
+wrapper.style.setProperty('--maidr-inline-unzoom', String(1 / host));
+var text = wrapper.querySelector(DIALOG_TEXT);
+if (!text) return;
+var size = text.classList.contains('MuiTypography-body2') ? 0.875 : 1;
+var rem = Math.round(probeFontSize(text.className) / size * 100) / 100;
+var medium = probeFontSize('', 'medium');
+if (!(rem > 0) || !(medium > 0)) return;
+wrapper.style.setProperty('--maidr-inline-rem', rem + 'px');
+wrapper.style.setProperty('--maidr-inline-zoom', String(rem < medium ? medium / rem : 1));
+}
+var FITTED = '.html-fill-item > .maidr-inline';
+function fitChart(wrapper) {
+if (!wrapper || !wrapper.matches(FITTED)) return;
+var box = wrapper.parentElement;
+var svg = wrapper.querySelector('svg.maidr-inline-svg');
+if (!box || !svg) return;
+svg.style.maxHeight = '';
+svg.style.width = '';
+var over = box.scrollHeight - box.clientHeight;
+if (over <= 1) return;
+var line = 2.5 * parseFloat(getComputedStyle(wrapper).fontSize);
+var height = svg.getBoundingClientRect().height - over - line;
+svg.style.width = 'auto';
+svg.style.maxHeight = Math.max(height, 96) + 'px';
+}
+function fitCharts() {
+var wrappers = document.querySelectorAll(FITTED);
+if (!wrappers.length) return;
+var observer = window.ResizeObserver && new ResizeObserver(function (entries) {
+for (var i = 0; i < entries.length; i++) {
+var wrapper = entries[i].target.querySelector(':scope > .maidr-inline');
+if (wrapper) requestAnimationFrame(fitChart.bind(null, wrapper));
+}
+});
+for (var i = 0; i < wrappers.length; i++) {
+fitChart(wrappers[i]);
+if (observer) observer.observe(wrappers[i].parentElement);
+}
+}
+var painted = null;
+var pageInline = null;
+function bodyColours() {
+var style = document.body.style;
+return [style.getPropertyValue('background-color'), style.getPropertyValue('color')];
+}
+function unpaint() {
+var root = document.documentElement;
+root.classList.remove('maidr-inline-contrast');
+if (painted) {
+painted.style.removeProperty('background-color');
+painted.style.removeProperty('color');
+painted = null;
+}
+}
+function notePageColours() {
+if (!document.body || document.documentElement.classList.contains('maidr-inline-contrast')) return;
+var computed = getComputedStyle(document.body);
+var root = document.documentElement.style;
+root.setProperty('--maidr-inline-page-bg', computed.backgroundColor);
+root.setProperty('--maidr-inline-page-fg', computed.color);
+pageInline = bodyColours();
+}
+function followContrast() {
+var now = bodyColours();
+if (!pageInline || (now[0] === pageInline[0] && now[1] === pageInline[1])) {
+unpaint();
+return;
+}
+var wrapper = wrapperOf(document.activeElement);
+if (!wrapper) {
+unpaint();
+pageInline = now;
+return;
+}
+if (painted && painted !== wrapper) unpaint();
+wrapper.style.setProperty('background-color', now[0]);
+wrapper.style.setProperty('color', now[1]);
+painted = wrapper;
+document.documentElement.classList.add('maidr-inline-contrast');
+}
+function watchContrast() {
+if (!document.body || !window.MutationObserver) return;
+notePageColours();
+new MutationObserver(followContrast)
+.observe(document.body, { attributes: true, attributeFilter: ['style'] });
+}
+function shimReveal() {
+var reveal = window.Reveal;
+if (!reveal || reveal.__maidrInline || typeof reveal.configure !== 'function' ||
+typeof reveal.getConfig !== 'function') {
+return;
+}
+reveal.__maidrInline = true;
+function apply() {
+var previous = reveal.getConfig().keyboardCondition;
+reveal.configure({
+keyboardCondition: function () {
+if (focusInChart()) return false;
+if (typeof previous === 'function') return previous.apply(this, arguments);
+if (previous === 'focused') return reveal.isFocused();
+return true;
+}
+});
+}
+if (typeof reveal.isReady === 'function' && reveal.isReady()) {
+apply();
+} else if (typeof reveal.on === 'function') {
+reveal.on('ready', apply);
+} else {
+reveal.__maidrInline = false;
+}
+}
+function shimQuartoSearch() {
+var open = window.quartoOpenSearch;
+if (typeof open !== 'function' || open.__maidrInline) return;
+var guarded = function () {
+if (focusInChart()) return;
+return open.apply(this, arguments);
+};
+guarded.__maidrInline = true;
+window.quartoOpenSearch = guarded;
+}
+var BSLIB = 'bs' + 'lib';
+function shimCard(card) {
+var Card = window[BSLIB] && window[BSLIB].Card;
+var instance = Card && typeof Card.getInstance === 'function' && Card.getInstance(card);
+if (!instance || instance.__maidrInline || typeof instance._exitFullScreenOnEscape !== 'function') {
+return;
+}
+instance.__maidrInline = true;
+var previous = instance._exitFullScreenOnEscape;
+var guarded = function (event) {
+if (inChart(event.target)) return;
+return previous.call(instance, event);
+};
+if (card.getAttribute('data-full-screen') === 'true') {
+document.removeEventListener('keydown', previous, false);
+document.addEventListener('keydown', guarded, false);
+}
+instance._exitFullScreenOnEscape = guarded;
+}
+function shimCards(node) {
+for (var card = node.closest('.' + BSLIB + '-card'); card;
+card = card.parentElement && card.parentElement.closest('.' + BSLIB + '-card')) {
+shimCard(card);
+}
+}
+function shimHosts() {
+shimReveal();
+shimQuartoSearch();
+}
+var TABBABLE = 'a[href],area[href],button:not([disabled]),input:not([disabled]),' +
+'select:not([disabled]),textarea:not([disabled]),iframe,audio[controls],video[controls],' +
+'[contenteditable]:not([contenteditable="false"]),[tabindex]:not([tabindex^="-"])';
+function reachable(element) {
+if (element.closest('[hidden],[aria-hidden="true"],[inert]')) return false;
+var style = getComputedStyle(element);
+return style.display !== 'none' && style.visibility !== 'hidden';
+}
+function takeFocus(element) {
+var added = !element.hasAttribute('tabindex');
+if (added) element.setAttribute('tabindex', '-1');
+element.focus();
+if (document.activeElement === element) return true;
+if (added) element.removeAttribute('tabindex');
+return false;
+}
+function handOff(event) {
+if (event.key !== 'Tab' || !event.shiftKey || event.altKey || event.ctrlKey ||
+event.metaKey || event.defaultPrevented) {
+return;
+}
+var active = document.activeElement;
+var wrapper = wrapperOf(active);
+if (!wrapper || active.closest('[role="dialog"],[aria-modal="true"]')) return;
+var stops = document.querySelectorAll(TABBABLE);
+for (var i = 0; i < stops.length && stops[i] !== active; i++) {
+if (reachable(stops[i])) return;
+}
+event.preventDefault();
+var section = wrapper.closest('section,article,[role="region"]');
+var candidates = section ? [section] : [];
+for (var node = wrapper.parentElement; node; node = node.parentElement) {
+if (node !== section) candidates.push(node);
+}
+for (var j = 0; j < candidates.length; j++) {
+if (takeFocus(candidates[j])) return;
+}
+active.blur();
+}
+function quietPreview(root) {
+if (!root.querySelector(CHART + ', svg[maidr]')) return;
+root.setAttribute('inert', '');
+var nodes = root.querySelectorAll('[id], [tabindex], [maidr], [maidr-data]');
+for (var i = 0; i < nodes.length; i++) {
+var id = nodes[i].id;
+if (id && document.getElementById(id) !== nodes[i]) nodes[i].removeAttribute('id');
+nodes[i].removeAttribute('tabindex');
+nodes[i].removeAttribute('maidr');
+nodes[i].removeAttribute('maidr-data');
+}
+}
+var HELD = 'data-maidr-inline-held';
+var UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+function hold(svg) {
+if (!svg.id || document.querySelectorAll('[id="' + svg.id + '"]').length < 2) {
+return false;
+}
+svg.setAttribute(HELD, svg.getAttribute('maidr'));
+svg.removeAttribute('maidr');
+return true;
+}
+function hex(length) {
+var bytes = new Uint8Array(length);
+window.crypto.getRandomValues(bytes);
+var out = '';
+for (var i = 0; i < length; i++) out += (bytes[i] % 16).toString(16);
+return out;
+}
+function freshUuid() {
+var h = hex(32);
+return h.slice(0, 8) + '-' + h.slice(8, 12) + '-4' + h.slice(13, 16) + '-a' +
+h.slice(17, 20) + '-' + h.slice(20);
+}
+function rekey(svg) {
+var tokens = {};
+var key = /maidr-inline-(m[0-9a-f]{12})/.exec(svg.getAttribute('class') || '');
+if (key) tokens[key[1]] = 'm' + hex(12);
+var named = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('[id], [maidr]')));
+for (var i = 0; i < named.length; i++) {
+var found = (named[i].id + ' ' + (named[i] === svg ? '' : named[i].getAttribute('maidr') || ''))
+.match(UUID) || [];
+for (var j = 0; j < found.length; j++) {
+if (!tokens[found[j]]) tokens[found[j]] = freshUuid();
+}
+}
+var pattern = new RegExp(Object.keys(tokens).join('|'), 'g');
+var swap = function (value) {
+return value.replace(pattern, function (token) { return tokens[token]; });
+};
+var elements = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('*')));
+for (var k = 0; k < elements.length; k++) {
+var attributes = Array.prototype.slice.call(elements[k].attributes);
+for (var m = 0; m < attributes.length; m++) {
+if (attributes[m].name === 'class') continue;
+var swapped = swap(attributes[m].value);
+if (swapped !== attributes[m].value) elements[k].setAttribute(attributes[m].name, swapped);
+}
+}
+var wrapper = wrapperOf(svg);
+var title = wrapper && wrapper.querySelector(':scope > .maidr-inline-title[id]');
+if (title) title.id = swap(title.id);
+var schema = svg.getAttribute(HELD);
+svg.removeAttribute(HELD);
+svg.setAttribute('maidr', schema);
+}
+window.__maidrInlineClaim = function (script) {
+var wrapper = wrapperOf(script);
+var svg = wrapper && wrapper.querySelector('svg[' + HELD + ']');
+if (svg) rekey(svg);
+};
+function holdCopies(node) {
+var svgs = node.matches('.maidr-inline svg[maidr]') ? [node]
+: node.querySelectorAll('.maidr-inline svg[maidr]');
+for (var i = 0; i < svgs.length; i++) {
+if (hold(svgs[i]) && document.readyState !== 'loading') rekey(svgs[i]);
+}
+}
+var settling = false;
+function settleSoon() {
+if (settling) return;
+settling = true;
+requestAnimationFrame(function () {
+settling = false;
+settle();
+});
+}
+if (window.MutationObserver) {
+new MutationObserver(function (records) {
+for (var i = 0; i < records.length; i++) {
+var added = records[i].addedNodes;
+for (var j = 0; j < added.length; j++) {
+var node = added[j];
+if (node.nodeType !== 1) continue;
+if (node.tagName === 'SCRIPT' && PACK.test(node.src || '')) {
+withoutAmd(node);
+continue;
+}
+var root = node.closest('[data-tippy-root]') ||
+(node.querySelector && node.querySelector('[data-tippy-root]'));
+if (root) {
+quietPreview(root);
+continue;
+}
+holdCopies(node);
+}
+}
+settleSoon();
+}).observe(document.documentElement, { childList: true, subtree: true });
+}
+window.addEventListener('keydown', function (event) {
+if (!focusInChart()) return;
+shimHosts();
+handOff(event);
+if ((event.ctrlKey || event.metaKey) && event.shiftKey &&
+(event.key === 'F' || event.key === 'f')) {
+event.stopPropagation();
+}
+}, true);
+document.addEventListener('focusin', function (event) {
+var target = event.target;
+if (!inChart(target)) return;
+notePageColours();
+shimHosts();
+shimCards(target);
+if (target.matches && target.matches(PLOT)) describe(target);
+sizeDialogs(wrapperOf(target));
+}, true);
+function onReady() {
+shimHosts();
+watchContrast();
+settle();
+window.addEventListener('load', function () {
+shimHosts();
+settle();
+fitCharts();
+});
+}
+if (document.readyState === 'loading') {
+document.addEventListener('DOMContentLoaded', onReady);
+} else {
+onReady();
+}
+})();</script>
+  <script>(function () {
+  if (window.__maidrInlineClaim) window.__maidrInlineClaim(document.currentScript);
+  if (window.maidrLive || window.__maidrInlineLoader) return;
+  window.__maidrInlineLoader = true;
+  var noAmd = window.__maidrInlineWithoutAmd || function () {};
+
+  function fail(why) {
+    window.__maidrInlineLoader = false;
+    console.error('[maidr] The chart loaded but its runtime did not: ' + why +
+      '. Re-render with use_cdn=False to carry maidr.js in the page, which ' +
+      'works without network access.');
+  }
+
+
+  function fromStash(why) {
+    window.maidrLocaleBaseUrl = window.maidrLocaleBaseUrl || "https://cdn.jsdelivr.net/npm/maidr@4.14.0/dist/";
+    var source = window.__maidrJsSource;
+    if (!source) { fail(why); return; }
+    var css = window.__maidrMathCssSource;
+    if (css) {
+      var style = document.createElement('style');
+      style.textContent = css;
+      document.head.appendChild(style);
+      // maidr.js looks for a <link> with this attribute before it fetches
+      // maidr-math.css itself, which it cannot here.
+      var mark = document.createElement('link');
+      mark.setAttribute('data-maidr-math', '');
+      document.head.appendChild(mark);
+    }
+    var script = document.createElement('script');
+    script.text = source;
+    noAmd(script);
+    document.head.appendChild(script);
+  }
+
+
+  function fromUrl(url, onError) {
+    var script = document.createElement('script');
+    script.src = url;
+    script.onerror = onError;
+    noAmd(script);
+    document.head.appendChild(script);
+  }
+
+  fromUrl("../../../dist/maidr.js", function () { fromStash('it did not load from ' + "../../../dist/maidr.js" + ' and the page has no copy of the bundle'); });
+})();</script>
+</div>
+</div>
+</div>
+</section>
+<section id="two-panels-with-transparent-axes" class="level2">
+<h2 class="anchored" data-anchor-id="two-panels-with-transparent-axes">Two panels with transparent axes</h2>
+<div id="b07bc27b" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>fig, (top, bottom) <span class="op">=</span> plt.subplots(<span class="dv">2</span>, <span class="dv">1</span>, figsize<span class="op">=</span>(<span class="dv">5</span>, <span class="dv">6</span>))</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>top.bar([<span class="st">"x"</span>, <span class="st">"y"</span>, <span class="st">"z"</span>], [<span class="dv">5</span>, <span class="dv">2</span>, <span class="dv">3</span>])</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>top.set_title(<span class="st">"Top panel"</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>bottom.plot([<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>], [<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">4</span>])</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>bottom.set_title(<span class="st">"Bottom panel"</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax <span class="kw">in</span> (top, bottom):</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    ax.set_facecolor(<span class="st">"none"</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>fig.tight_layout()</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div class="maidr-inline" role="img" aria-label="Accessible chart" data-maidr-inline="" data-lm-suppress-shortcuts="">
+  <style data-maidr-inline-css="">.maidr-inline {
+margin: 0 0 1em;
+max-width: 100%;
+}
+.maidr-inline article,
+.maidr-inline figure {
+margin: 0;
+padding: 0;
+}
+.maidr-inline-svg {
+display: block;
+max-width: 100%;
+height: auto;
+}
+.quarto-figure-center .maidr-inline,
+.quarto-figure-right .maidr-inline {
+width: fit-content;
+}
+.quarto-figure-center .maidr-inline {
+margin-inline: auto;
+}
+.quarto-figure-right .maidr-inline {
+margin-inline-start: auto;
+}
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus {
+outline: 3px solid #1a5fb4 !important;
+outline-offset: -3px !important;
+}
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus .maidr-inline-svg {
+outline: 2px solid #ffffff !important;
+outline-offset: -5px !important;
+}
+.maidr-inline textarea,
+.maidr-inline input {
+max-width: 100%;
+box-sizing: border-box;
+}
+.maidr-inline textarea:focus,
+.maidr-inline input:focus,
+.maidr-inline select:focus,
+.maidr-inline button:focus-visible,
+.maidr-inline a:focus-visible,
+.maidr-inline [role="button"]:focus-visible {
+outline: 3px solid #1a5fb4 !important;
+outline-offset: 1px !important;
+}
+@media (forced-colors: active) {
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus,
+.maidr-inline textarea:focus,
+.maidr-inline input:focus,
+.maidr-inline select:focus,
+.maidr-inline button:focus-visible,
+.maidr-inline a:focus-visible,
+.maidr-inline [role="button"]:focus-visible {
+outline-color: Highlight !important;
+}
+.maidr-inline figure[id^="maidr-figure"] > div[tabindex="0"]:focus .maidr-inline-svg {
+outline: none !important;
+}
+}
+html.maidr-inline-contrast body {
+background-color: var(--maidr-inline-page-bg) !important;
+color: var(--maidr-inline-page-fg) !important;
+}
+.maidr-inline .MuiDialog-root {
+zoom: var(--maidr-inline-unzoom, 1);
+}
+.maidr-inline .MuiDialog-paper {
+zoom: var(--maidr-inline-zoom, 1);
+max-width: min(600px, calc((100vw - 64px) / var(--maidr-inline-zoom, 1)));
+max-height: calc((100vh - 64px) / var(--maidr-inline-zoom, 1));
+}
+.reveal .maidr-inline .MuiDialog-paper {
+max-height: min(calc(100% - 64px), calc((100vh - 64px) / var(--maidr-inline-zoom, 1)));
+}
+.reveal .slides:has(.maidr-inline .MuiDialog-root),
+.reveal .slides section:has(.maidr-inline .MuiDialog-root) {
+perspective: none !important;
+}
+.maidr-inline [role="dialog"] {
+text-align: start;
+font-size: var(--maidr-inline-rem, 1rem);
+line-height: 1.5;
+}
+.maidr-inline [role="dialog"] :is(h1, h2, h3, h4, h5, h6):not([class*="MuiTypography-"]) {
+font-size: inherit !important;
+line-height: inherit !important;
+margin: 0 !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-caption {
+font-size: calc(0.75 * var(--maidr-inline-rem, 1rem)) !important;
+line-height: 1.66 !important;
+}
+.maidr-inline [role="dialog"] :is(ul, ol) {
+display: block !important;
+margin: 0 !important;
+}
+.maidr-inline [role="dialog"] :is(h1, h2, h3, h4, h5, h6) {
+font-family: "Roboto", "Helvetica", "Arial", sans-serif !important;
+color: inherit !important;
+text-transform: none !important;
+text-shadow: none !important;
+word-wrap: normal !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-h6 {
+font-size: calc(1.25 * var(--maidr-inline-rem, 1rem)) !important;
+line-height: 1.6 !important;
+letter-spacing: 0.0075em !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-subtitle1 {
+font-size: var(--maidr-inline-rem, 1rem) !important;
+line-height: 1.75 !important;
+letter-spacing: 0.00938em !important;
+}
+.maidr-inline [role="dialog"] .MuiTypography-subtitle2 {
+font-size: calc(0.875 * var(--maidr-inline-rem, 1rem)) !important;
+line-height: 1.57 !important;
+letter-spacing: 0.00714em !important;
+}
+.html-fill-item:has(> .maidr-inline) {
+overflow: auto;
+}</style>
+  <style>.maidr-inline-m33eaab449281, .maidr-inline-m33eaab449281 * {stroke-linejoin: round; stroke-linecap: butt}</style>
+  <svg xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="360pt" height="432pt" viewbox="0 0 360 432" version="1.1" id="bd6afb68-5c18-4bb3-ac79-92e08a3dc333" class="maidr-inline-svg maidr-inline-m33eaab449281" aria-hidden="true" maidr="{&quot;id&quot;: &quot;bd6afb68-5c18-4bb3-ac79-92e08a3dc333&quot;, &quot;subplots&quot;: [[{&quot;id&quot;: &quot;21770162-0fa3-43d4-a162-dba40b5cb34b&quot;, &quot;layers&quot;: [{&quot;id&quot;: &quot;dc4daf9c-de53-430f-9e50-5608806326c8&quot;, &quot;type&quot;: &quot;bar&quot;, &quot;title&quot;: &quot;Top panel&quot;, &quot;axes&quot;: {&quot;x&quot;: {&quot;label&quot;: &quot;X&quot;}, &quot;y&quot;: {&quot;label&quot;: &quot;Y&quot;}}, &quot;data&quot;: [{&quot;x&quot;: &quot;x&quot;, &quot;y&quot;: 5.0}, {&quot;x&quot;: &quot;y&quot;, &quot;y&quot;: 2.0}, {&quot;x&quot;: &quot;z&quot;, &quot;y&quot;: 3.0}], &quot;selectors&quot;: &quot;g[maidr='916a8037-48c1-408c-bdd5-79fb8c672c26-m33eaab449281'] > path&quot;, &quot;orientation&quot;: &quot;vert&quot;}]}], [{&quot;id&quot;: &quot;720f9ef0-4af6-464e-9ff3-3c66afe01bba&quot;, &quot;layers&quot;: [{&quot;id&quot;: &quot;44cb00af-ab20-4f71-8672-203f6d7e6884&quot;, &quot;type&quot;: &quot;line&quot;, &quot;title&quot;: &quot;Bottom panel&quot;, &quot;axes&quot;: {&quot;x&quot;: {&quot;label&quot;: &quot;X&quot;}, &quot;y&quot;: {&quot;label&quot;: &quot;Y&quot;}}, &quot;data&quot;: [[{&quot;x&quot;: 1.0, &quot;y&quot;: 1.0}, {&quot;x&quot;: 2.0, &quot;y&quot;: 3.0}, {&quot;x&quot;: 3.0, &quot;y&quot;: 2.0}, {&quot;x&quot;: 4.0, &quot;y&quot;: 4.0}]], &quot;selectors&quot;: [&quot;g[id='maidr-6bfa7392-2032-454d-bde8-ac355536486a-m33eaab449281'] path&quot;]}]}]]}"><defs></defs><g id="figure_1-m33eaab449281"><g id="maidr-bb34b36e-4b5e-4624-928d-7a9e1dd67f4c-m33eaab449281"><path d="M 0 432  L 360 432  L 360 0  L 0 0  z " style="fill: #ffffff"></path></g><g id="axes_1-m33eaab449281"><g id="maidr-7187300d-5126-4038-8f41-96caabe1f79a-m33eaab449281"><path d="M 32.846875 191.500391  L 349.2 191.500391  L 349.2 28.425  L 32.846875 28.425  L 32.846875 191.500391  z " style="fill: none"></path></g><g id="maidr-35888cde-b70f-4e74-abc9-44a99680f3de-m33eaab449281" maidr="916a8037-48c1-408c-bdd5-79fb8c672c26-m33eaab449281"><path d="M 47.226563 191.500391  L 129.396205 191.500391  L 129.396205 36.190495  L 47.226563 36.190495  z " clip-path="url(#p21d33c59da-m33eaab449281)" style="fill: #1f77b4"></path></g><g id="maidr-9911e04b-bd25-4a3b-ad43-b906027c94da-m33eaab449281" maidr="916a8037-48c1-408c-bdd5-79fb8c672c26-m33eaab449281"><path d="M 149.938616 191.500391  L 232.108259 191.500391  L 232.108259 129.376432  L 149.938616 129.376432  z " clip-path="url(#p21d33c59da-m33eaab449281)" style="fill: #1f77b4"></path></g><g id="maidr-10302979-6149-4cd5-a7df-2ece069459c4-m33eaab449281" maidr="916a8037-48c1-408c-bdd5-79fb8c672c26-m33eaab449281"><path d="M 252.65067 191.500391  L 334.820312 191.500391  L 334.820312 98.314453  L 252.65067 98.314453  z " clip-path="url(#p21d33c59da-m33eaab449281)" style="fill: #1f77b4"></path></g><g id="matplotlib.axis_1-m33eaab449281"><g id="xtick_1-m33eaab449281"><g id="maidr-b296e952-fdcb-4c5a-9500-0921fc195c9e-m33eaab449281"><defs><path id="m490389c2b2-m33eaab449281" d="M 0 0  L 0 3.5  " style="stroke: #000000; stroke-width: 0.8"></path></defs><g><use href="#m490389c2b2-m33eaab449281" x="88.311384" y="191.500391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_1-m33eaab449281"><!-- x --><g transform="translate(85.581696 208.187891) scale(0.1 -0.1)"><defs><path id="Inter-Regular-3e3-m33eaab449281" d="M 203 0  L 853 0  L 1372 784  C 1528 1022 1634 1234 1741 1431  C 1856 1234 1972 1022 2125 784  L 2638 0  L 3291 0  L 2066 1763  L 3234 3494  L 2591 3494  L 2147 2816  C 1984 2569 1878 2344 1766 2134  C 1644 2344 1525 2569 1366 2816  L 931 3494  L 275 3494  L 1431 1794  L 203 0  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-3e3-m33eaab449281"></use></g></g></g><g id="xtick_2-m33eaab449281"><g id="maidr-7ed7e64d-7b09-4214-a961-afe206215e96-m33eaab449281"><g><use href="#m490389c2b2-m33eaab449281" x="191.023437" y="191.500391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_2-m33eaab449281"><!-- y --><g transform="translate(188.213281 208.187891) scale(0.1 -0.1)"><defs><path id="Inter-Regular-3e8-m33eaab449281" d="M 438 -1266  C 497 -1294 650 -1331 850 -1331  C 1344 -1331 1681 -1078 1894 -522  L 3428 3494  L 2816 3494  L 2066 1422  C 1956 1119 1875 816 1797 525  C 1716 816 1638 1116 1528 1422  L 784 3494  L 169 3494  L 1503 -19  L 1403 -309  C 1231 -809 984 -884 641 -794  L 581 -778  L 438 -1266  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-3e8-m33eaab449281"></use></g></g></g><g id="xtick_3-m33eaab449281"><g id="maidr-8cac4914-adec-49f3-8393-5f2ced889e2e-m33eaab449281"><g><use href="#m490389c2b2-m33eaab449281" x="293.735491" y="191.500391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_3-m33eaab449281"><!-- z --><g transform="translate(290.974554 208.187891) scale(0.1 -0.1)"><defs><path id="Inter-Regular-400-m33eaab449281" d="M 394 0  L 3141 0  L 3141 522  L 1175 522  L 1175 556  L 3078 3047  L 3078 3494  L 456 3494  L 456 2972  L 2353 2972  L 2353 2938  L 394 419  L 394 0  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-400-m33eaab449281"></use></g></g></g></g><g id="matplotlib.axis_2-m33eaab449281"><g id="ytick_1-m33eaab449281"><g id="maidr-844191cc-69a4-45e6-9dab-23f9871e99ee-m33eaab449281"><defs><path id="m232e3abd3f-m33eaab449281" d="M 0 0  L -3.5 0  " style="stroke: #000000; stroke-width: 0.8"></path></defs><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="191.500391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_4-m33eaab449281"><!-- 0 --><g transform="translate(19.5375 196.344141) scale(0.1 -0.1)"><defs><path id="Inter-Regular-53f-m33eaab449281" d="M 2019 -63  C 3059 -63 3656 809 3656 2325  C 3656 3834 3050 4719 2019 4719  C 988 4719 381 3834 381 2325  C 381 806 981 -63 2019 -63  z M 2019 456  C 1338 456 953 1144 953 2325  C 953 3509 1338 4203 2019 4203  C 2700 4203 3084 3513 3084 2325  C 3084 1144 2700 456 2019 456  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-53f-m33eaab449281"></use></g></g></g><g id="ytick_2-m33eaab449281"><g id="maidr-075f834d-700b-464f-8619-cc81e4e3e346-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="160.438411" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_5-m33eaab449281"><!-- 1 --><g transform="translate(21.779688 165.282161) scale(0.1 -0.1)"><defs><path id="Inter-Regular-540-m33eaab449281" d="M 2041 4656  L 1313 4656  L 300 3909  L 300 3272  L 1425 4106  L 1456 4106  L 1456 0  L 2041 0  L 2041 4656  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-540-m33eaab449281"></use></g></g></g><g id="ytick_3-m33eaab449281"><g id="maidr-464c2722-ac73-48f0-a695-a419c25b4205-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="129.376432" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_6-m33eaab449281"><!-- 2 --><g transform="translate(19.748438 134.220182) scale(0.1 -0.1)"><defs><path id="Inter-Regular-541-m33eaab449281" d="M 481 0  L 3447 0  L 3447 522  L 1300 522  L 1300 559  L 2319 1644  C 3141 2519 3369 2916 3369 3419  C 3369 4147 2778 4719 1947 4719  C 1119 4719 494 4159 494 3334  L 1063 3334  C 1063 3859 1400 4203 1931 4203  C 2428 4203 2806 3900 2806 3413  C 2806 2984 2544 2666 2028 2106  L 481 428  L 481 0  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-541-m33eaab449281"></use></g></g></g><g id="ytick_4-m33eaab449281"><g id="maidr-4fa1ccac-6327-4440-afb5-8c5ea03b3cb5-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="98.314453" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_7-m33eaab449281"><!-- 3 --><g transform="translate(19.670313 103.158203) scale(0.1 -0.1)"><defs><path id="Inter-Regular-543-m33eaab449281" d="M 1984 -63  C 2897 -63 3572 503 3572 1266  C 3572 1853 3225 2284 2631 2381  L 2631 2419  C 3106 2559 3403 2944 3403 3469  C 3403 4131 2872 4719 2003 4719  C 1184 4719 516 4216 491 3484  L 1063 3484  C 1081 3938 1516 4203 1991 4203  C 2497 4203 2822 3900 2822 3438  C 2822 2956 2447 2644 1903 2644  L 1525 2644  L 1525 2128  L 1903 2128  C 2594 2128 2984 1775 2984 1272  C 2984 788 2559 459 1975 459  C 1444 459 1025 731 991 1175  L 391 1175  C 422 438 1072 -63 1984 -63  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-543-m33eaab449281"></use></g></g></g><g id="ytick_5-m33eaab449281"><g id="maidr-e6ce0f7a-f6fd-4654-abdb-be6a57dfd1d1-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="67.252474" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_8-m33eaab449281"><!-- 4 --><g transform="translate(19.3875 72.096224) scale(0.1 -0.1)"><defs><path id="Inter-Regular-544-m33eaab449281" d="M 375 947  L 2566 947  L 2566 0  L 3134 0  L 3134 947  L 3766 947  L 3766 1469  L 3134 1469  L 3134 4656  L 2413 4656  L 375 1431  L 375 947  z M 2569 1469  L 1009 1469  L 1009 1506  L 2531 3913  L 2569 3913  L 2569 1469  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-544-m33eaab449281"></use></g></g></g><g id="ytick_6-m33eaab449281"><g id="maidr-9f111aad-41f2-408a-b2af-cde8c965d121-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="36.190495" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_9-m33eaab449281"><!-- 5 --><g transform="translate(19.767188 41.034245) scale(0.1 -0.1)"><defs><path id="Inter-Regular-545-m33eaab449281" d="M 1956 -63  C 2853 -63 3509 594 3509 1488  C 3509 2388 2881 3047 2028 3047  C 1706 3047 1397 2934 1206 2775  L 1181 2775  L 1341 4134  L 3291 4134  L 3291 4656  L 841 4656  L 566 2350  L 1122 2281  C 1306 2422 1631 2525 1919 2525  C 2503 2525 2928 2078 2928 1478  C 2928 888 2519 459 1956 459  C 1488 459 1106 759 1069 1175  L 494 1175  C 525 463 1138 -63 1956 -63  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-545-m33eaab449281"></use></g></g></g></g><g id="maidr-56ced8df-f7bf-4add-851d-37cbc7ecbd7c-m33eaab449281"><path d="M 32.846875 191.500391  L 32.846875 28.425  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-2691a0fc-b9d2-4b33-80de-ba65baa4975c-m33eaab449281"><path d="M 349.2 191.500391  L 349.2 28.425  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-280d8987-d6d1-4110-a757-5214b70a9539-m33eaab449281"><path d="M 32.846875 191.500391  L 349.2 191.500391  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-6058c7fd-d984-4ffa-a767-cf711e6b2a3b-m33eaab449281"><path d="M 32.846875 28.425  L 349.2 28.425  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="text_10-m33eaab449281"><!-- Top panel --><g transform="translate(163.061563 22.425) scale(0.12 -0.12)"><defs><path id="Inter-Regular-19c-m33eaab449281" d="M 306 4131  L 1772 4131  L 1772 0  L 2366 0  L 2366 4131  L 3825 4131  L 3825 4656  L 306 4656  L 306 4131  z " transform="scale(0.015625)"></path><path id="Inter-Regular-318-m33eaab449281" d="M 1916 -75  C 2869 -75 3513 647 3513 1725  C 3513 2819 2869 3538 1916 3538  C 966 3538 325 2819 325 1725  C 325 647 966 -75 1916 -75  z M 1916 428  C 1219 428 897 1038 897 1725  C 897 2422 1219 3034 1916 3034  C 2622 3034 2944 2419 2944 1725  C 2944 1038 2622 428 1916 428  z " transform="scale(0.015625)"></path><path id="Inter-Regular-34d-m33eaab449281" d="M 494 -1306  L 1056 -1306  L 1056 541  L 1100 541  C 1216 347 1450 -75 2116 -75  C 2988 -75 3594 625 3594 1738  C 3594 2844 2984 3538 2113 3538  C 1431 3538 1216 3119 1100 2934  L 1038 2934  L 1038 3494  L 494 3494  L 494 -1306  z M 2031 428  C 1397 428 1050 966 1050 1744  C 1050 2516 1388 3034 2031 3034  C 2694 3034 3022 2469 3022 1744  C 3022 1009 2684 428 2031 428  z " transform="scale(0.015625)"></path><path id="Inter-Regular-6eb-m33eaab449281" transform="scale(0.015625)"></path><path id="Inter-Regular-1fc-m33eaab449281" d="M 1472 -81  C 2063 -81 2391 228 2509 475  L 2547 475  L 2547 0  L 3100 0  L 3100 2303  C 3100 3394 2259 3538 1791 3538  C 1250 3538 650 3344 381 2709  L 922 2531  C 1031 2775 1303 3044 1806 3044  C 2291 3044 2538 2794 2538 2359  L 2538 2341  C 2538 2081 2263 2100 1641 2022  C 994 1941 281 1794 281 994  C 281 306 809 -81 1472 -81  z M 1569 416  C 1150 416 847 603 847 966  C 847 1363 1206 1494 1616 1547  C 1831 1575 2444 1638 2538 1747  L 2538 1263  C 2538 834 2191 416 1569 416  z " transform="scale(0.015625)"></path><path id="Inter-Regular-307-m33eaab449281" d="M 1056 2094  C 1056 2691 1434 3031 1938 3031  C 2425 3031 2725 2709 2725 2172  L 2725 0  L 3288 0  L 3288 2219  C 3288 3103 2813 3538 2106 3538  C 1638 3538 1263 3341 1038 2847  L 1034 3494  L 494 3494  L 494 0  L 1056 0  L 1056 2094  z " transform="scale(0.015625)"></path><path id="Inter-Regular-267-m33eaab449281" d="M 1963 -75  C 2678 -75 3200 284 3363 813  L 2819 963  C 2688 606 2378 425 1966 425  C 1347 425 922 825 894 1556  L 3419 1556  L 3419 1791  C 3419 3081 2638 3538 1897 3538  C 944 3538 325 2791 325 1719  C 325 644 950 -75 1963 -75  z M 897 2031  C 931 2566 1297 3038 1897 3038  C 2472 3038 2794 2625 2847 2031  L 897 2031  z " transform="scale(0.015625)"></path><path id="Inter-Regular-2e2-m33eaab449281" d="M 1056 4656  L 494 4656  L 494 0  L 1056 0  L 1056 4656  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-19c-m33eaab449281"></use><use href="#Inter-Regular-318-m33eaab449281" transform="translate(56.734375 0)"></use><use href="#Inter-Regular-34d-m33eaab449281" transform="translate(116.703125 0)"></use><use href="#Inter-Regular-6eb-m33eaab449281" transform="translate(177.9375 0)"></use><use href="#Inter-Regular-34d-m33eaab449281" transform="translate(206.0625 0)"></use><use href="#Inter-Regular-1fc-m33eaab449281" transform="translate(268.28125 0)"></use><use href="#Inter-Regular-307-m33eaab449281" transform="translate(324.4375 0)"></use><use href="#Inter-Regular-267-m33eaab449281" transform="translate(383.515625 0)"></use><use href="#Inter-Regular-2e2-m33eaab449281" transform="translate(441.8125 0)"></use></g></g></g><g id="axes_2-m33eaab449281"><g id="maidr-9004bcd3-fd2a-48ed-ba60-00433e997da1-m33eaab449281"><path d="M 32.846875 402.100391  L 349.2 402.100391  L 349.2 239.025  L 32.846875 239.025  L 32.846875 402.100391  z " style="fill: none"></path></g><g id="matplotlib.axis_3-m33eaab449281"><g id="xtick_4-m33eaab449281"><g id="maidr-21bb58a2-788e-4e08-829b-b1e62d1ece0e-m33eaab449281"><g><use href="#m490389c2b2-m33eaab449281" x="47.226563" y="402.100391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_11-m33eaab449281"><!-- 1.0 --><g transform="translate(40.724219 418.787891) scale(0.1 -0.1)"><defs><path id="Inter-Regular-5e0-m33eaab449281" d="M 922 -41  C 1156 -41 1344 147 1344 381  C 1344 616 1156 803 922 803  C 688 803 500 616 500 381  C 500 147 688 -41 922 -41  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-540-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(40.671875 0)"></use><use href="#Inter-Regular-53f-m33eaab449281" transform="translate(66.953125 0)"></use></g></g></g><g id="xtick_5-m33eaab449281"><g id="maidr-939a6d00-28f1-4538-9236-f6236db35e4f-m33eaab449281"><g><use href="#m490389c2b2-m33eaab449281" x="95.158854" y="402.100391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_12-m33eaab449281"><!-- 1.5 --><g transform="translate(88.715885 418.787891) scale(0.1 -0.1)"><use href="#Inter-Regular-540-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(40.671875 0)"></use><use href="#Inter-Regular-545-m33eaab449281" transform="translate(68.0625 0)"></use></g></g></g><g id="xtick_6-m33eaab449281"><g id="maidr-ca237630-683a-451c-b391-4e47de073ae6-m33eaab449281"><g><use href="#m490389c2b2-m33eaab449281" x="143.091146" y="402.100391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_13-m33eaab449281"><!-- 2.0 --><g transform="translate(135.573177 418.787891) scale(0.1 -0.1)"><use href="#Inter-Regular-541-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(60.984375 0)"></use><use href="#Inter-Regular-53f-m33eaab449281" transform="translate(87.265625 0)"></use></g></g></g><g id="xtick_7-m33eaab449281"><g id="maidr-31641b65-49ea-4055-96a8-c8927557c746-m33eaab449281"><g><use href="#m490389c2b2-m33eaab449281" x="191.023438" y="402.100391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_14-m33eaab449281"><!-- 2.5 --><g transform="translate(183.564844 418.787891) scale(0.1 -0.1)"><use href="#Inter-Regular-541-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(60.984375 0)"></use><use href="#Inter-Regular-545-m33eaab449281" transform="translate(88.375 0)"></use></g></g></g><g id="xtick_8-m33eaab449281"><g id="maidr-3a88ea97-7d51-438b-8d03-dd1d299203e5-m33eaab449281"><g><use href="#m490389c2b2-m33eaab449281" x="238.955729" y="402.100391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_15-m33eaab449281"><!-- 3.0 --><g transform="translate(231.511198 418.787891) scale(0.1 -0.1)"><use href="#Inter-Regular-543-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(59.515625 0)"></use><use href="#Inter-Regular-53f-m33eaab449281" transform="translate(85.796875 0)"></use></g></g></g><g id="xtick_9-m33eaab449281"><g id="maidr-860f94b1-dc6c-412b-bbe3-9ab9aa4360f2-m33eaab449281"><g><use href="#m490389c2b2-m33eaab449281" x="286.888021" y="402.100391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_16-m33eaab449281"><!-- 3.5 --><g transform="translate(279.502865 418.787891) scale(0.1 -0.1)"><use href="#Inter-Regular-543-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(59.515625 0)"></use><use href="#Inter-Regular-545-m33eaab449281" transform="translate(86.90625 0)"></use></g></g></g><g id="xtick_10-m33eaab449281"><g id="maidr-c8ad86be-c2f2-4b06-9d3c-3a221570c5f8-m33eaab449281"><g><use href="#m490389c2b2-m33eaab449281" x="334.820312" y="402.100391" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_17-m33eaab449281"><!-- 4.0 --><g transform="translate(327.290625 418.787891) scale(0.1 -0.1)"><use href="#Inter-Regular-544-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(61.21875 0)"></use><use href="#Inter-Regular-53f-m33eaab449281" transform="translate(87.5 0)"></use></g></g></g></g><g id="matplotlib.axis_4-m33eaab449281"><g id="ytick_7-m33eaab449281"><g id="maidr-b1586379-66fc-4366-b050-cb7dbbf034ae-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="394.687873" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_18-m33eaab449281"><!-- 1.0 --><g transform="translate(12.842188 399.531623) scale(0.1 -0.1)"><use href="#Inter-Regular-540-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(40.671875 0)"></use><use href="#Inter-Regular-53f-m33eaab449281" transform="translate(66.953125 0)"></use></g></g></g><g id="ytick_8-m33eaab449281"><g id="maidr-6c7e6af2-1ec6-4659-9144-ba1090732d29-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="369.97948" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_19-m33eaab449281"><!-- 1.5 --><g transform="translate(12.960938 374.82323) scale(0.1 -0.1)"><use href="#Inter-Regular-540-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(40.671875 0)"></use><use href="#Inter-Regular-545-m33eaab449281" transform="translate(68.0625 0)"></use></g></g></g><g id="ytick_9-m33eaab449281"><g id="maidr-7b3a4ab1-51e6-4a8b-aca9-7838caa28ff2-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="345.271088" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_20-m33eaab449281"><!-- 2.0 --><g transform="translate(10.810938 350.114838) scale(0.1 -0.1)"><use href="#Inter-Regular-541-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(60.984375 0)"></use><use href="#Inter-Regular-53f-m33eaab449281" transform="translate(87.265625 0)"></use></g></g></g><g id="ytick_10-m33eaab449281"><g id="maidr-32afe6b0-fd2e-4b27-a494-4def676fcd5d-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="320.562695" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_21-m33eaab449281"><!-- 2.5 --><g transform="translate(10.929688 325.406445) scale(0.1 -0.1)"><use href="#Inter-Regular-541-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(60.984375 0)"></use><use href="#Inter-Regular-545-m33eaab449281" transform="translate(88.375 0)"></use></g></g></g><g id="ytick_11-m33eaab449281"><g id="maidr-3b8b3021-a177-41bb-8d6e-d80a6740de90-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="295.854303" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_22-m33eaab449281"><!-- 3.0 --><g transform="translate(10.957813 300.698053) scale(0.1 -0.1)"><use href="#Inter-Regular-543-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(59.515625 0)"></use><use href="#Inter-Regular-53f-m33eaab449281" transform="translate(85.796875 0)"></use></g></g></g><g id="ytick_12-m33eaab449281"><g id="maidr-5344e4e8-be00-4e08-ba13-5c61dccab7e1-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="271.14591" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_23-m33eaab449281"><!-- 3.5 --><g transform="translate(11.076563 275.98966) scale(0.1 -0.1)"><use href="#Inter-Regular-543-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(59.515625 0)"></use><use href="#Inter-Regular-545-m33eaab449281" transform="translate(86.90625 0)"></use></g></g></g><g id="ytick_13-m33eaab449281"><g id="maidr-58405fe6-def8-4216-8124-48bdac5f5e21-m33eaab449281"><g><use href="#m232e3abd3f-m33eaab449281" x="32.846875" y="246.437518" style="stroke: #000000; stroke-width: 0.8"></use></g></g><g id="text_24-m33eaab449281"><!-- 4.0 --><g transform="translate(10.7875 251.281268) scale(0.1 -0.1)"><use href="#Inter-Regular-544-m33eaab449281"></use><use href="#Inter-Regular-5e0-m33eaab449281" transform="translate(61.21875 0)"></use><use href="#Inter-Regular-53f-m33eaab449281" transform="translate(87.5 0)"></use></g></g></g></g><g id="maidr-6bfa7392-2032-454d-bde8-ac355536486a-m33eaab449281" maidr="f7539243-e426-426b-91df-f8ec277d6847-m33eaab449281"><path d="M 47.226563 394.687873  L 143.091146 295.854303  L 238.955729 345.271088  L 334.820312 246.437518  " clip-path="url(#pa37e068f48-m33eaab449281)" style="fill: none; stroke: #1f77b4; stroke-width: 1.5; stroke-linecap: square"></path></g><g id="maidr-506c2b6f-31fc-4016-aaa1-8ec44ad8b1e8-m33eaab449281"><path d="M 32.846875 402.100391  L 32.846875 239.025  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-ee8fb94c-c98c-47fe-b779-d2159dcf4cbd-m33eaab449281"><path d="M 349.2 402.100391  L 349.2 239.025  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-3762ec18-7e08-47a0-ae47-4e567996619b-m33eaab449281"><path d="M 32.846875 402.100391  L 349.2 402.100391  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="maidr-60887715-538f-4640-9c50-2825b7ee0461-m33eaab449281"><path d="M 32.846875 239.025  L 349.2 239.025  " style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"></path></g><g id="text_25-m33eaab449281"><!-- Bottom panel --><g transform="translate(153.637812 233.025) scale(0.12 -0.12)"><defs><path id="Inter-Regular-41-m33eaab449281" d="M 563 0  L 2266 0  C 3363 0 3825 538 3825 1241  C 3825 1972 3316 2372 2881 2400  L 2881 2444  C 3288 2553 3644 2825 3644 3422  C 3644 4103 3184 4656 2213 4656  L 563 4656  L 563 0  z M 1156 525  L 1156 2113  L 2281 2113  C 2878 2113 3253 1713 3253 1247  C 3253 844 2975 525 2250 525  L 1156 525  z M 1156 2613  L 1156 4131  L 2200 4131  C 2803 4131 3075 3813 3075 3409  C 3075 2928 2681 2613 2181 2613  L 1156 2613  z " transform="scale(0.015625)"></path><path id="Inter-Regular-37b-m33eaab449281" d="M 1869 3494  L 1150 3494  L 1150 4325  L 588 4325  L 588 3494  L 63 3494  L 63 3013  L 588 3013  L 588 863  C 588 291 944 -44 1547 -44  C 1691 -44 1850 -22 1966 19  L 1850 494  C 1756 475 1634 456 1563 456  C 1266 456 1150 594 1150 906  L 1150 3013  L 1869 3013  L 1869 3494  z " transform="scale(0.015625)"></path><path id="Inter-Regular-300-m33eaab449281" d="M 494 0  L 1056 0  L 1056 2200  C 1056 2756 1428 3044 1838 3044  C 2231 3044 2522 2784 2522 2397  L 2522 0  L 3084 0  L 3084 2281  C 3084 2722 3372 3044 3844 3044  C 4219 3044 4547 2844 4547 2341  L 4547 0  L 5113 0  L 5113 2356  C 5113 3166 4619 3556 4013 3556  C 3506 3556 3078 3284 2913 2844  C 2788 3275 2481 3556 2022 3556  C 1609 3556 1216 3325 1044 2853  L 1041 3494  L 494 3494  L 494 0  z " transform="scale(0.015625)"></path></defs><use href="#Inter-Regular-41-m33eaab449281"></use><use href="#Inter-Regular-318-m33eaab449281" transform="translate(65.4375 0)"></use><use href="#Inter-Regular-37b-m33eaab449281" transform="translate(125.40625 0)"></use><use href="#Inter-Regular-37b-m33eaab449281" transform="translate(155.6875 0)"></use><use href="#Inter-Regular-318-m33eaab449281" transform="translate(187.4375 0)"></use><use href="#Inter-Regular-300-m33eaab449281" transform="translate(247.40625 0)"></use><use href="#Inter-Regular-6eb-m33eaab449281" transform="translate(335 0)"></use><use href="#Inter-Regular-34d-m33eaab449281" transform="translate(363.125 0)"></use><use href="#Inter-Regular-1fc-m33eaab449281" transform="translate(425.34375 0)"></use><use href="#Inter-Regular-307-m33eaab449281" transform="translate(481.5 0)"></use><use href="#Inter-Regular-267-m33eaab449281" transform="translate(540.578125 0)"></use><use href="#Inter-Regular-2e2-m33eaab449281" transform="translate(598.875 0)"></use></g></g></g></g><defs><clippath id="p21d33c59da-m33eaab449281"><rect x="32.846875" y="28.425" width="316.353125" height="163.075391"></rect></clippath><clippath id="pa37e068f48-m33eaab449281"><rect x="32.846875" y="239.025" width="316.353125" height="163.075391"></rect></clippath></defs></svg>
+  <script>(function () {
+'use strict';
+if (window.__maidrInline) return;
+window.__maidrInline = true;
+var CHART = '.maidr-inline, article[id^="maidr-article-"]';
+var PLOT = 'figure[id^="maidr-figure"] > [tabindex]';
+function inChart(node) {
+return !!(node && node.closest && node.closest(CHART));
+}
+function focusInChart() {
+return inChart(document.activeElement);
+}
+function wrapperOf(node) {
+return node && node.closest ? node.closest('.maidr-inline') : null;
+}
+var noAmd = [];
+function withoutAmd(script) {
+var amd = window.define;
+if (typeof amd !== 'function' || !amd.amd) return;
+noAmd.push(script);
+if (amd.__maidrInline) return;
+var shim = function () {
+var factory = arguments[arguments.length - 1];
+if (noAmd.indexOf(document.currentScript) >= 0 && typeof factory === 'function') {
+return factory();
+}
+return amd.apply(this, arguments);
+};
+for (var key in amd) shim[key] = amd[key];
+shim.__maidrInline = true;
+window.define = shim;
+}
+window.__maidrInlineWithoutAmd = withoutAmd;
+var PACK = /\/locale-[a-z]{2,3}(?:-[A-Za-z0-9]+)?\.js(?:[?#]|$)/;
+function settle() {
+var wrappers = document.querySelectorAll('.maidr-inline[data-maidr-inline]');
+for (var i = 0; i < wrappers.length; i++) {
+var wrapper = wrappers[i];
+var plot = wrapper.querySelector(PLOT);
+if (!plot) continue;
+wrapper.removeAttribute('data-maidr-inline');
+wrapper.removeAttribute('role');
+wrapper.removeAttribute('aria-label');
+describe(plot);
+fitChart(wrapper);
+}
+liftStyles();
+}
+function liftStyles() {
+var styles = document.querySelectorAll('.maidr-inline > style');
+for (var i = 0; i < styles.length; i++) {
+var style = styles[i];
+if (style.hasAttribute('data-maidr-inline-css') &&
+document.head.querySelector('style[data-maidr-inline-css]')) {
+style.remove();
+} else {
+document.head.appendChild(style);
+}
+}
+}
+function describe(plot) {
+var wrapper = wrapperOf(plot);
+if (!wrapper) return;
+var ids = [];
+var title = wrapper.querySelector(':scope > .maidr-inline-title[id]');
+if (title) ids.push(title.id);
+var host = wrapper.parentNode && wrapper.parentNode.closest &&
+wrapper.parentNode.closest('[aria-describedby]');
+if (host && !inChart(host)) ids.push(host.getAttribute('aria-describedby'));
+var value = ids.join(' ');
+if (value && plot.getAttribute('aria-describedby') !== value) {
+plot.setAttribute('aria-describedby', value);
+}
+}
+var DIALOG_TEXT = '[role="dialog"] .MuiTypography-body1, [role="dialog"] .MuiTypography-body2, ' +
+'[role="dialog"] .MuiInputBase-root';
+function probeFontSize(className, fontSize) {
+var probe = document.createElement('maidr-inline-probe');
+probe.className = className;
+probe.style.setProperty('display', 'none', 'important');
+if (fontSize) probe.style.setProperty('font-size', fontSize, 'important');
+document.documentElement.appendChild(probe);
+try {
+return parseFloat(getComputedStyle(probe).fontSize);
+} finally {
+probe.remove();
+}
+}
+function sizeDialogs(wrapper) {
+if (!wrapper) return;
+var host = 1;
+for (var node = wrapper.parentElement; node; node = node.parentElement) {
+var z = parseFloat(getComputedStyle(node).zoom);
+if (z > 0) host *= z;
+}
+wrapper.style.setProperty('--maidr-inline-unzoom', String(1 / host));
+var text = wrapper.querySelector(DIALOG_TEXT);
+if (!text) return;
+var size = text.classList.contains('MuiTypography-body2') ? 0.875 : 1;
+var rem = Math.round(probeFontSize(text.className) / size * 100) / 100;
+var medium = probeFontSize('', 'medium');
+if (!(rem > 0) || !(medium > 0)) return;
+wrapper.style.setProperty('--maidr-inline-rem', rem + 'px');
+wrapper.style.setProperty('--maidr-inline-zoom', String(rem < medium ? medium / rem : 1));
+}
+var FITTED = '.html-fill-item > .maidr-inline';
+function fitChart(wrapper) {
+if (!wrapper || !wrapper.matches(FITTED)) return;
+var box = wrapper.parentElement;
+var svg = wrapper.querySelector('svg.maidr-inline-svg');
+if (!box || !svg) return;
+svg.style.maxHeight = '';
+svg.style.width = '';
+var over = box.scrollHeight - box.clientHeight;
+if (over <= 1) return;
+var line = 2.5 * parseFloat(getComputedStyle(wrapper).fontSize);
+var height = svg.getBoundingClientRect().height - over - line;
+svg.style.width = 'auto';
+svg.style.maxHeight = Math.max(height, 96) + 'px';
+}
+function fitCharts() {
+var wrappers = document.querySelectorAll(FITTED);
+if (!wrappers.length) return;
+var observer = window.ResizeObserver && new ResizeObserver(function (entries) {
+for (var i = 0; i < entries.length; i++) {
+var wrapper = entries[i].target.querySelector(':scope > .maidr-inline');
+if (wrapper) requestAnimationFrame(fitChart.bind(null, wrapper));
+}
+});
+for (var i = 0; i < wrappers.length; i++) {
+fitChart(wrappers[i]);
+if (observer) observer.observe(wrappers[i].parentElement);
+}
+}
+var painted = null;
+var pageInline = null;
+function bodyColours() {
+var style = document.body.style;
+return [style.getPropertyValue('background-color'), style.getPropertyValue('color')];
+}
+function unpaint() {
+var root = document.documentElement;
+root.classList.remove('maidr-inline-contrast');
+if (painted) {
+painted.style.removeProperty('background-color');
+painted.style.removeProperty('color');
+painted = null;
+}
+}
+function notePageColours() {
+if (!document.body || document.documentElement.classList.contains('maidr-inline-contrast')) return;
+var computed = getComputedStyle(document.body);
+var root = document.documentElement.style;
+root.setProperty('--maidr-inline-page-bg', computed.backgroundColor);
+root.setProperty('--maidr-inline-page-fg', computed.color);
+pageInline = bodyColours();
+}
+function followContrast() {
+var now = bodyColours();
+if (!pageInline || (now[0] === pageInline[0] && now[1] === pageInline[1])) {
+unpaint();
+return;
+}
+var wrapper = wrapperOf(document.activeElement);
+if (!wrapper) {
+unpaint();
+pageInline = now;
+return;
+}
+if (painted && painted !== wrapper) unpaint();
+wrapper.style.setProperty('background-color', now[0]);
+wrapper.style.setProperty('color', now[1]);
+painted = wrapper;
+document.documentElement.classList.add('maidr-inline-contrast');
+}
+function watchContrast() {
+if (!document.body || !window.MutationObserver) return;
+notePageColours();
+new MutationObserver(followContrast)
+.observe(document.body, { attributes: true, attributeFilter: ['style'] });
+}
+function shimReveal() {
+var reveal = window.Reveal;
+if (!reveal || reveal.__maidrInline || typeof reveal.configure !== 'function' ||
+typeof reveal.getConfig !== 'function') {
+return;
+}
+reveal.__maidrInline = true;
+function apply() {
+var previous = reveal.getConfig().keyboardCondition;
+reveal.configure({
+keyboardCondition: function () {
+if (focusInChart()) return false;
+if (typeof previous === 'function') return previous.apply(this, arguments);
+if (previous === 'focused') return reveal.isFocused();
+return true;
+}
+});
+}
+if (typeof reveal.isReady === 'function' && reveal.isReady()) {
+apply();
+} else if (typeof reveal.on === 'function') {
+reveal.on('ready', apply);
+} else {
+reveal.__maidrInline = false;
+}
+}
+function shimQuartoSearch() {
+var open = window.quartoOpenSearch;
+if (typeof open !== 'function' || open.__maidrInline) return;
+var guarded = function () {
+if (focusInChart()) return;
+return open.apply(this, arguments);
+};
+guarded.__maidrInline = true;
+window.quartoOpenSearch = guarded;
+}
+var BSLIB = 'bs' + 'lib';
+function shimCard(card) {
+var Card = window[BSLIB] && window[BSLIB].Card;
+var instance = Card && typeof Card.getInstance === 'function' && Card.getInstance(card);
+if (!instance || instance.__maidrInline || typeof instance._exitFullScreenOnEscape !== 'function') {
+return;
+}
+instance.__maidrInline = true;
+var previous = instance._exitFullScreenOnEscape;
+var guarded = function (event) {
+if (inChart(event.target)) return;
+return previous.call(instance, event);
+};
+if (card.getAttribute('data-full-screen') === 'true') {
+document.removeEventListener('keydown', previous, false);
+document.addEventListener('keydown', guarded, false);
+}
+instance._exitFullScreenOnEscape = guarded;
+}
+function shimCards(node) {
+for (var card = node.closest('.' + BSLIB + '-card'); card;
+card = card.parentElement && card.parentElement.closest('.' + BSLIB + '-card')) {
+shimCard(card);
+}
+}
+function shimHosts() {
+shimReveal();
+shimQuartoSearch();
+}
+var TABBABLE = 'a[href],area[href],button:not([disabled]),input:not([disabled]),' +
+'select:not([disabled]),textarea:not([disabled]),iframe,audio[controls],video[controls],' +
+'[contenteditable]:not([contenteditable="false"]),[tabindex]:not([tabindex^="-"])';
+function reachable(element) {
+if (element.closest('[hidden],[aria-hidden="true"],[inert]')) return false;
+var style = getComputedStyle(element);
+return style.display !== 'none' && style.visibility !== 'hidden';
+}
+function takeFocus(element) {
+var added = !element.hasAttribute('tabindex');
+if (added) element.setAttribute('tabindex', '-1');
+element.focus();
+if (document.activeElement === element) return true;
+if (added) element.removeAttribute('tabindex');
+return false;
+}
+function handOff(event) {
+if (event.key !== 'Tab' || !event.shiftKey || event.altKey || event.ctrlKey ||
+event.metaKey || event.defaultPrevented) {
+return;
+}
+var active = document.activeElement;
+var wrapper = wrapperOf(active);
+if (!wrapper || active.closest('[role="dialog"],[aria-modal="true"]')) return;
+var stops = document.querySelectorAll(TABBABLE);
+for (var i = 0; i < stops.length && stops[i] !== active; i++) {
+if (reachable(stops[i])) return;
+}
+event.preventDefault();
+var section = wrapper.closest('section,article,[role="region"]');
+var candidates = section ? [section] : [];
+for (var node = wrapper.parentElement; node; node = node.parentElement) {
+if (node !== section) candidates.push(node);
+}
+for (var j = 0; j < candidates.length; j++) {
+if (takeFocus(candidates[j])) return;
+}
+active.blur();
+}
+function quietPreview(root) {
+if (!root.querySelector(CHART + ', svg[maidr]')) return;
+root.setAttribute('inert', '');
+var nodes = root.querySelectorAll('[id], [tabindex], [maidr], [maidr-data]');
+for (var i = 0; i < nodes.length; i++) {
+var id = nodes[i].id;
+if (id && document.getElementById(id) !== nodes[i]) nodes[i].removeAttribute('id');
+nodes[i].removeAttribute('tabindex');
+nodes[i].removeAttribute('maidr');
+nodes[i].removeAttribute('maidr-data');
+}
+}
+var HELD = 'data-maidr-inline-held';
+var UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+function hold(svg) {
+if (!svg.id || document.querySelectorAll('[id="' + svg.id + '"]').length < 2) {
+return false;
+}
+svg.setAttribute(HELD, svg.getAttribute('maidr'));
+svg.removeAttribute('maidr');
+return true;
+}
+function hex(length) {
+var bytes = new Uint8Array(length);
+window.crypto.getRandomValues(bytes);
+var out = '';
+for (var i = 0; i < length; i++) out += (bytes[i] % 16).toString(16);
+return out;
+}
+function freshUuid() {
+var h = hex(32);
+return h.slice(0, 8) + '-' + h.slice(8, 12) + '-4' + h.slice(13, 16) + '-a' +
+h.slice(17, 20) + '-' + h.slice(20);
+}
+function rekey(svg) {
+var tokens = {};
+var key = /maidr-inline-(m[0-9a-f]{12})/.exec(svg.getAttribute('class') || '');
+if (key) tokens[key[1]] = 'm' + hex(12);
+var named = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('[id], [maidr]')));
+for (var i = 0; i < named.length; i++) {
+var found = (named[i].id + ' ' + (named[i] === svg ? '' : named[i].getAttribute('maidr') || ''))
+.match(UUID) || [];
+for (var j = 0; j < found.length; j++) {
+if (!tokens[found[j]]) tokens[found[j]] = freshUuid();
+}
+}
+var pattern = new RegExp(Object.keys(tokens).join('|'), 'g');
+var swap = function (value) {
+return value.replace(pattern, function (token) { return tokens[token]; });
+};
+var elements = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('*')));
+for (var k = 0; k < elements.length; k++) {
+var attributes = Array.prototype.slice.call(elements[k].attributes);
+for (var m = 0; m < attributes.length; m++) {
+if (attributes[m].name === 'class') continue;
+var swapped = swap(attributes[m].value);
+if (swapped !== attributes[m].value) elements[k].setAttribute(attributes[m].name, swapped);
+}
+}
+var wrapper = wrapperOf(svg);
+var title = wrapper && wrapper.querySelector(':scope > .maidr-inline-title[id]');
+if (title) title.id = swap(title.id);
+var schema = svg.getAttribute(HELD);
+svg.removeAttribute(HELD);
+svg.setAttribute('maidr', schema);
+}
+window.__maidrInlineClaim = function (script) {
+var wrapper = wrapperOf(script);
+var svg = wrapper && wrapper.querySelector('svg[' + HELD + ']');
+if (svg) rekey(svg);
+};
+function holdCopies(node) {
+var svgs = node.matches('.maidr-inline svg[maidr]') ? [node]
+: node.querySelectorAll('.maidr-inline svg[maidr]');
+for (var i = 0; i < svgs.length; i++) {
+if (hold(svgs[i]) && document.readyState !== 'loading') rekey(svgs[i]);
+}
+}
+var settling = false;
+function settleSoon() {
+if (settling) return;
+settling = true;
+requestAnimationFrame(function () {
+settling = false;
+settle();
+});
+}
+if (window.MutationObserver) {
+new MutationObserver(function (records) {
+for (var i = 0; i < records.length; i++) {
+var added = records[i].addedNodes;
+for (var j = 0; j < added.length; j++) {
+var node = added[j];
+if (node.nodeType !== 1) continue;
+if (node.tagName === 'SCRIPT' && PACK.test(node.src || '')) {
+withoutAmd(node);
+continue;
+}
+var root = node.closest('[data-tippy-root]') ||
+(node.querySelector && node.querySelector('[data-tippy-root]'));
+if (root) {
+quietPreview(root);
+continue;
+}
+holdCopies(node);
+}
+}
+settleSoon();
+}).observe(document.documentElement, { childList: true, subtree: true });
+}
+window.addEventListener('keydown', function (event) {
+if (!focusInChart()) return;
+shimHosts();
+handOff(event);
+if ((event.ctrlKey || event.metaKey) && event.shiftKey &&
+(event.key === 'F' || event.key === 'f')) {
+event.stopPropagation();
+}
+}, true);
+document.addEventListener('focusin', function (event) {
+var target = event.target;
+if (!inChart(target)) return;
+notePageColours();
+shimHosts();
+shimCards(target);
+if (target.matches && target.matches(PLOT)) describe(target);
+sizeDialogs(wrapperOf(target));
+}, true);
+function onReady() {
+shimHosts();
+watchContrast();
+settle();
+window.addEventListener('load', function () {
+shimHosts();
+settle();
+fitCharts();
+});
+}
+if (document.readyState === 'loading') {
+document.addEventListener('DOMContentLoaded', onReady);
+} else {
+onReady();
+}
+})();</script>
+  <script>(function () {
+  if (window.__maidrInlineClaim) window.__maidrInlineClaim(document.currentScript);
+  if (window.maidrLive || window.__maidrInlineLoader) return;
+  window.__maidrInlineLoader = true;
+  var noAmd = window.__maidrInlineWithoutAmd || function () {};
+
+  function fail(why) {
+    window.__maidrInlineLoader = false;
+    console.error('[maidr] The chart loaded but its runtime did not: ' + why +
+      '. Re-render with use_cdn=False to carry maidr.js in the page, which ' +
+      'works without network access.');
+  }
+
+
+  function fromStash(why) {
+    window.maidrLocaleBaseUrl = window.maidrLocaleBaseUrl || "https://cdn.jsdelivr.net/npm/maidr@4.14.0/dist/";
+    var source = window.__maidrJsSource;
+    if (!source) { fail(why); return; }
+    var css = window.__maidrMathCssSource;
+    if (css) {
+      var style = document.createElement('style');
+      style.textContent = css;
+      document.head.appendChild(style);
+      // maidr.js looks for a <link> with this attribute before it fetches
+      // maidr-math.css itself, which it cannot here.
+      var mark = document.createElement('link');
+      mark.setAttribute('data-maidr-math', '');
+      document.head.appendChild(mark);
+    }
+    var script = document.createElement('script');
+    script.text = source;
+    noAmd(script);
+    document.head.appendChild(script);
+  }
+
+
+  function fromUrl(url, onError) {
+    var script = document.createElement('script');
+    script.src = url;
+    script.onerror = onError;
+    noAmd(script);
+    document.head.appendChild(script);
+  }
+
+  fromUrl("../../../dist/maidr.js", function () { fromStash('it did not load from ' + "../../../dist/maidr.js" + ' and the page has no copy of the bundle'); });
+})();</script>
+</div>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

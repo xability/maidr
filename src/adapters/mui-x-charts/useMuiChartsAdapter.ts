@@ -82,9 +82,8 @@ export function useMuiChartsAdapter(
   }));
 
   // A layout effect so the container exists and carries its id before the
-  // payload is built: every selector is prefixed with that id, which keeps
-  // two charts on one page from highlighting each other's marks (the model
-  // resolves selectors with page-global `document.querySelectorAll`).
+  // payload is built: every selector is prefixed with that id, so it names
+  // this chart's marks alone wherever it is read.
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container)

@@ -397,7 +397,7 @@ export function markPerSeries(
  * author's, not the adapter's, and it is not necessarily a CSS identifier: a
  * React `useId()` answers `:r0:`, an id may begin with a digit, and one may
  * hold a `.` or a space. `Svg.selectElement` guards only on the query being a
- * string and then calls `document.querySelector`, which throws a SyntaxError
+ * string and then calls `querySelector`, which throws a SyntaxError
  * on an invalid selector -- and that throw propagates out of `new Figure(...)`
  * and takes the whole render with it, so the chart is not merely
  * unhighlighted but entirely inaccessible.
