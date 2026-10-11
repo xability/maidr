@@ -616,13 +616,14 @@ export class HostGuardService implements Disposable {
   }
 
   /**
-   * Whether a keydown is the reveal.js search plugin's shortcut.
+   * Whether a keydown opens the reveal.js search plugin, by the plugin's own
+   * test: a capital F with Ctrl or Cmd held. That is Ctrl+Shift+F, and also
+   * Ctrl+F with Caps Lock on, which the plugin opens on just the same.
    * @param {KeyboardEvent} event - The keydown
-   * @returns {boolean} True for Ctrl+Shift+F or Cmd+Shift+F
+   * @returns {boolean} True for a key the plugin acts on
    */
   private static isRevealSearchKey(event: KeyboardEvent): boolean {
-    return (event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey
-      && typeof event.key === 'string' && event.key.toLowerCase() === 'f';
+    return (event.ctrlKey || event.metaKey) && event.key === 'F';
   }
 
   /**

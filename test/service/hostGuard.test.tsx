@@ -632,6 +632,20 @@ describe('reveal.js\'s search plugin', () => {
     expect(reaching).toEqual([]);
   });
 
+  it('does not open on the key the plugin reads with Caps Lock on, either', () => {
+    // The plugin opens on a capital F with Ctrl or Cmd held, Shift or not.
+    globals.RevealSearch = {};
+    const reaching = keysReachingDocument();
+    plot.focus();
+    guardChart();
+
+    press(plot, { key: 'F', code: 'KeyF', ctrlKey: true });
+    // Caps Lock and Shift together type a small f, which the plugin ignores.
+    press(plot, { key: 'f', code: 'KeyF', ctrlKey: true, shiftKey: true });
+
+    expect(reaching).toEqual(['f']);
+  });
+
   it('is left alone on a page without the plugin', () => {
     globals.Reveal = { hasPlugin: () => false };
     const reaching = keysReachingDocument();
