@@ -47,7 +47,7 @@ test.describe('a page whose define counts the anonymous calls', () => {
       await host.open('define-stub');
 
       await expect(host.article).toHaveAttribute('lang', 'ko');
-      await expect(host.wrapper).toHaveAttribute('aria-label', KOREAN_INSTRUCTION);
+      await expect(host.wrapper).toHaveAccessibleDescription(KOREAN_INSTRUCTION);
       expect(await host.read<number>('__anonymousDefines')).toBe(0);
       expect(await host.read<string[]>('__namedDefines')).toEqual(['maidr', 'maidr/locale/ko']);
     });
@@ -79,7 +79,7 @@ test.describe('require.js 2.3.6, as Quarto loads it', () => {
 
       await host.open('requirejs');
       await expect(host.article).toHaveAttribute('lang', 'ko');
-      await expect(host.wrapper).toHaveAttribute('aria-label', KOREAN_INSTRUCTION);
+      await expect(host.wrapper).toHaveAccessibleDescription(KOREAN_INSTRUCTION);
       const outcome = await host.requireLater(['jquery', 'maidr/locale/ko']);
 
       expect(outcome).toEqual({ resolved: ['object', 'undefined'] });
@@ -150,7 +150,7 @@ test.describe('maidr.js and a pack that require.js loads itself', () => {
 
       expect(outcome).toEqual({ resolved: ['undefined'] });
       await expect(host.article).toHaveAttribute('lang', 'ko');
-      await expect(host.wrapper).toHaveAttribute('aria-label', KOREAN_INSTRUCTION);
+      await expect(host.wrapper).toHaveAccessibleDescription(KOREAN_INSTRUCTION);
       expect(await host.requireLater(['jquery'])).toEqual({ resolved: ['object'] });
       expect(pageErrors).toEqual([]);
     });

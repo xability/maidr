@@ -260,8 +260,11 @@ test.describe('Power BI adapter: companion mode (powerbi-line.html)', () => {
     const anchor = page.locator('#companion [data-maidr-powerbi-anchor]');
     await expect(anchor).toHaveText('Visits and sign-ups by month (accessible chart)');
     await expect(page.locator('#companion svg')).toHaveCount(0);
-    // Screen readers hear MAIDR's instruction, not the label.
-    await expect(page.locator('#companion [role="application"]')).toHaveAttribute('aria-label', /maidr plot of type: multiline/);
+    // Screen readers hear the chart's title and type, then MAIDR's
+    // instruction, not the label.
+    const plot = page.locator('#companion [role="application"]');
+    await expect(plot).toHaveAccessibleName('Visits and sign-ups by month, Line Chart');
+    await expect(plot).toHaveAccessibleDescription(/maidr plot of type: multiline/);
     expect(await nativeHighlights(page)).toEqual([]);
   });
 

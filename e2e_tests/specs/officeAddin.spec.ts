@@ -98,7 +98,7 @@ test.describe('The published Office add-in: its task pane (addin/taskpane.html)'
     const picker = page.locator('#maidr').getByLabel('Chart', { exact: true });
     await expect(picker.locator('option')).toHaveText(['Chart 1: Sales']);
     await expect(page.locator('#maidr [data-maidr-office-view] [tabindex="0"]').first())
-      .toHaveAttribute('aria-label', /maidr plot of type: vertical bar/);
+      .toHaveAccessibleDescription(/maidr plot of type: vertical bar/);
     await expect(page.locator('#maidr').getByRole('button', { name: 'Read again' })).toBeVisible();
     await expect(page.locator('#maidr-waiting')).toHaveCount(0);
   });
