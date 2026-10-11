@@ -4,21 +4,15 @@ import { AmdHostPage } from '../page-objects/plots/amdHost-page';
 /**
  * maidr.js and its locale packs on a page with an AMD loader.
  *
- * Both used to ship as UMD. An entry with no exports gets a wrapper that, when
- * the page has an AMD `define`, hands the bundle to it as an anonymous module
- * instead of running it. Quarto loads require.js on every page a Jupyter
- * render writes HTML into. py-maidr's charts there run maidr.js through a
- * `define` shim of their own; a load without one -- maidr.js or a pack added
- * to such a page by hand -- never booted maidr, a Korean reader's pack never
- * registered (the article said `lang="ko"` over English text), and require.js
- * threw "Mismatched anonymous define()" at the page's next `require()`,
- * breaking the page's own widgets with it. maidr itself reported nothing: the
- * chart was simply not there.
- *
- * They are IIFEs now, which run whatever the page has, and each registers
- * itself under its import path once it has run, so a loader that loads one as
- * a module still resolves. The fixtures are under `e2e_tests/fixtures/amd/`;
- * the README beside them says where the require.js there comes from.
+ * Built as UMD, neither ran there: maidr never booted, a Korean reader's pack
+ * never registered (the article said `lang="ko"` over English text), and
+ * require.js threw "Mismatched anonymous define()" at the page's next
+ * `require()`. maidr itself reported nothing: the chart was simply not there.
+ * Now each runs as soon as it loads and then registers itself -- by name from
+ * a script tag, anonymously when require.js loads it -- so the page's AMD code
+ * keeps working and a module load of either resolves. The README beside the
+ * fixtures (`e2e_tests/fixtures/amd/`) says more, and where the require.js
+ * there comes from; amdAdapters.spec.ts covers the adapter bundles.
  */
 
 const KOREAN_INSTRUCTION = /maidr 그래프입니다/;

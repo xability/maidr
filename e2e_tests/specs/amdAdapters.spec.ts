@@ -4,22 +4,17 @@ import { expect, test } from '@playwright/test';
 /**
  * maidr's adapter bundles on a page with require.js.
  *
- * Each adapter's classic script was rolldown's UMD. On a page with an AMD
- * `define`, its wrapper handed the bundle to require.js as an anonymous module
- * instead of running it, and require.js runs one only when something asks for
- * it. Nothing does: maidr's Quarto extension loads `observable.js` by a script
- * tag, r-maidr reads `window.maidrECharts` and `window.maidrHighcharts`, and
- * every guide says to use the page global. So under require.js -- which Quarto
- * puts on every page a Jupyter render writes HTML into -- the global was never
- * set, Observable Plot charts were never watched, and require.js threw
- * "Mismatched anonymous define()" at the page's next `require()`, taking the
- * page's own widgets down with it.
- *
- * The bundles now always run and set their global, and then register with the
- * loader: under their import path from a script tag, and anonymously when
- * require.js loads them itself, so a load under any other name or by URL
- * resolves as it did. The fixtures are under `e2e_tests/fixtures/amd/`; the
- * README beside them says where the require.js there comes from.
+ * Built as rolldown's UMD, an adapter never ran there: its page global was
+ * never set -- maidr's Quarto extension loads `observable.js` by a script tag,
+ * r-maidr reads `window.maidrECharts` and `window.maidrHighcharts`, and every
+ * guide uses the global -- Observable Plot charts were never watched, and
+ * require.js threw "Mismatched anonymous define()" at the page's next
+ * `require()`. Now each runs and sets its global as soon as it loads, and then
+ * registers itself: by its import path from a script tag, anonymously when
+ * require.js loads it, so a load under any name or by URL resolves to the
+ * global. The README beside the fixtures (`e2e_tests/fixtures/amd/`) says
+ * more, and where the require.js there comes from; amdHost.spec.ts covers
+ * maidr.js and the locale packs.
  *
  * Like liveData.spec.ts, this drives the pages directly rather than through a
  * page object: what is under test is the loader and the page globals, and

@@ -8,23 +8,15 @@ import vm from 'node:vm';
 /**
  * Keeps maidr's classic scripts out of a page's AMD loader.
  *
- * `maidr.js`, the locale packs and the adapter bundles were UMD. On a page
- * with a `define` that has `define.amd`, the wrapper handed each over as an
- * anonymous module that runs only when something asks the loader for it, and
- * nothing asks: every consumer loads them by a script tag. So under require.js
- * -- on every Quarto page a Jupyter render writes HTML into -- they never ran,
- * and require.js threw "Mismatched anonymous define()" at the page's next
- * `require()`.
- *
- * `scripts/vite-plugin-amd-registration.js` has each run first and register
- * afterwards: by name from a script tag, and anonymously when require.js
- * itself loads it, so that load resolves under whatever name or URL the page
- * asked for. The packs and maidr.js are IIFEs with the registration appended;
- * an adapter's UMD has its AMD branch replaced by it. Pinned here: the plugin,
- * a real build of a pack and of `observable.js` (what maidr's Quarto
- * extension loads beside maidr.js) run against each kind of loader they meet,
- * and the UMD wrapper rewrite. The config and the post-build check are in
- * test/scripts/classicScriptAmd.test.ts.
+ * `scripts/vite-plugin-amd-registration.js` has `maidr.js`, the locale packs
+ * and the adapter bundles run as soon as they load and register afterwards:
+ * by name from a script tag, and anonymously when require.js itself loads
+ * one, so that load resolves under whatever name or URL the page asked for.
+ * Its header says why. Pinned here: the plugin, a real build of a pack (an
+ * IIFE, as maidr.js is) and of `observable.js` (a UMD adapter, which maidr's
+ * Quarto extension loads beside maidr.js) run against each kind of loader
+ * they meet, and the UMD wrapper rewrite. The config and the post-build check
+ * are in test/scripts/classicScriptAmd.test.ts.
  *
  * `scripts/` is plain ESM JavaScript and `allowJs` is false, so the scripts
  * run in a node subprocess, as in esmRequireShim.test.

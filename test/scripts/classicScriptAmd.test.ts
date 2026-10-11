@@ -7,17 +7,11 @@ import { pathToFileURL } from 'node:url';
 /**
  * The build config and the post-build check that keep maidr's classic scripts
  * -- `maidr.js`, the locale packs and the adapter bundles -- out of a page's
- * AMD loader.
- *
- * Built as UMD, each was handed to any AMD `define` on the page as an
- * anonymous module instead of running, so under the require.js Quarto loads on
- * every page a Jupyter render writes HTML into, maidr never booted, a pack
- * never registered, an adapter's global was never set, and require.js threw
- * "Mismatched anonymous define()" at the page's next `require()`. Now each
- * runs first and then registers itself
- * (`scripts/vite-plugin-amd-registration.js`, test/scripts/amdRegistration.test.ts).
- * Pinned here: what the config builds and names, and the check
- * `scripts/build.js` runs on the classic scripts of every build.
+ * AMD loader, where as UMD they never ran. Each now runs first and then
+ * registers itself (`scripts/vite-plugin-amd-registration.js`, which says why,
+ * and test/scripts/amdRegistration.test.ts). Pinned here: what the config
+ * builds and names, and the check `scripts/build.js` runs on the classic
+ * scripts of every build.
  *
  * `scripts/` is plain ESM JavaScript and `allowJs` is false, so the config and
  * the check are read in a node subprocess, as in esmRequireShim.test.

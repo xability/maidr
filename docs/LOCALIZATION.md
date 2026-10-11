@@ -58,8 +58,8 @@ directory in `window.maidrLocaleBaseUrl` before the bundle runs; when MAIDR
 cannot locate them at all, it warns once and stays in English.
 
 Both scripts also run on a page with an AMD loader, such as the require.js
-Quarto adds to Jupyter output or Observable's `require`, where each registers
-itself as the module named by its import path: `maidr`, `maidr/locale/ko`.
+Quarto adds to Jupyter output; the [Usage](../README.md#usage) section of the
+README says how they register with it.
 
 ## Languages available
 

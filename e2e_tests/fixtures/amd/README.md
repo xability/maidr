@@ -2,15 +2,22 @@
 
 Pages that have an AMD `define` before maidr's classic scripts run, driven by
 `e2e_tests/specs/amdHost.spec.ts` (maidr.js and the locale packs) and
-`e2e_tests/specs/amdAdapters.spec.ts` (the adapter bundles). All of them used
-to be UMD, and a UMD wrapper hands the bundle to that `define` as an anonymous
-module instead of running it: maidr never booted, a pack never registered, an
-adapter's page global was never set, and require.js threw "Mismatched
-anonymous define()" at the page's next `require()`. Quarto puts require.js on
-every page a Jupyter render writes HTML into. py-maidr's charts there run
-maidr.js through a `define` shim of their own (`withoutAmd` in its
-`maidr/assets/inline.js`); a load without one, such as maidr.js or a pack
-added to the page by hand, failed.
+`e2e_tests/specs/amdAdapters.spec.ts` (the adapter bundles).
+
+All of them used to be UMD, and a UMD wrapper hands the bundle to that
+`define` as an anonymous module instead of running it: maidr never booted, a
+pack never registered, an adapter's page global was never set, and require.js
+threw "Mismatched anonymous define()" at the page's next `require()`. Quarto
+puts require.js on every page a Jupyter render writes HTML into. py-maidr's
+charts there run maidr.js through a `define` shim of their own (`withoutAmd`
+in its `maidr/assets/inline.js`); a load without one, such as maidr's own
+Quarto extension or a script added to the page by hand, failed.
+
+Now each runs as soon as it loads and then registers itself: by its import
+path (`maidr`, `maidr/locale/ko`, `maidr/echarts`) from a script tag or any
+other loader, and anonymously when require.js loads it, so that load resolves
+under whatever id or URL it asked for, `enforceDefine` included.
+`scripts/vite-plugin-amd-registration.js` says how.
 
 | Fixture                           | The `define` on the page, and what loads after it                                           |
 | --------------------------------- | ------------------------------------------------------------------------------------------- |

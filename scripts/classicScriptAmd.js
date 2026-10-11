@@ -3,14 +3,9 @@
  * locale packs and the adapter bundles -- runs on a page with an AMD loader,
  * and only then registers itself with it.
  *
- * Built as UMD, each handed itself to any AMD `define` on the page as an
- * anonymous module, which runs only when something asks the loader for it.
- * Nothing did: maidr.js, a pack and an adapter are all loaded by script tags.
- * So under require.js -- which Quarto loads on every page a Jupyter render
- * writes HTML into -- maidr never booted, a pack never translated anything,
- * an adapter's page global was never set, and require.js threw "Mismatched
- * anonymous define()" at the page's next `require()`, breaking the page's own
- * AMD code with it. `vite build` exits 0 either way, so this reads the output.
+ * Built as UMD, each waited on the page's AMD loader and never ran;
+ * `scripts/vite-plugin-amd-registration.js`, which writes the registration,
+ * says why and how. `vite build` exits 0 either way, so this reads the output.
  *
  * Each classic script of the builds this run made must:
  * - have been written;
@@ -25,7 +20,6 @@
  * - register itself both ways: under its `amdName`, its import path, and
  *   anonymously behind that test, so require.js loading it under any id or
  *   URL resolves, `enforceDefine` included.
- * `scripts/vite-plugin-amd-registration.js` writes the registration.
  *
  * Only the builds of this run are read: a selective build leaves the rest of
  * dist as an older build wrote it. Which files those are comes from each
