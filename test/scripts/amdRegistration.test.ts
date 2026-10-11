@@ -6,24 +6,25 @@ import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 
 /**
- * Keeps the adapter bundles out of a page's AMD loader.
+ * Keeps maidr's classic scripts out of a page's AMD loader.
  *
- * Rolldown's UMD wrapper takes its AMD branch whenever the page has a
- * `define` with `define.amd`, and hands the bundle over as an anonymous module
- * that runs only when something asks the loader for it. Nothing asks: every
- * consumer loads `observable.js`, `echarts.js` and the rest by a script tag
- * and reads the page global. So under require.js -- on every Quarto page a
- * Jupyter render writes HTML into -- the bundle never ran, and require.js
- * threw "Mismatched anonymous define()" at the page's next `require()`.
+ * `maidr.js`, the locale packs and the adapter bundles were UMD. On a page
+ * with a `define` that has `define.amd`, the wrapper handed each over as an
+ * anonymous module that runs only when something asks the loader for it, and
+ * nothing asks: every consumer loads them by a script tag. So under require.js
+ * -- on every Quarto page a Jupyter render writes HTML into -- they never ran,
+ * and require.js threw "Mismatched anonymous define()" at the page's next
+ * `require()`.
  *
- * `scripts/vite-plugin-umd-without-amd.js` removes that branch and registers
- * the bundle once it has run: by name from a script tag, and anonymously when
- * require.js itself loads it, so that load resolves under whatever name the
- * page asked for, as before. `scripts/classicScriptAmd.js` checks the output
- * after every build (test/scripts/classicScriptAmd.test.ts). Pinned here: the
- * config, which names every UMD bundle with exports, and a real build of
- * `observable.js` (what maidr's Quarto extension loads) run against each kind
- * of loader it meets.
+ * `scripts/vite-plugin-amd-registration.js` has each run first and register
+ * afterwards: by name from a script tag, and anonymously when require.js
+ * itself loads it, so that load resolves under whatever name or URL the page
+ * asked for. The packs and maidr.js are IIFEs with the registration appended;
+ * an adapter's UMD has its AMD branch replaced by it. Pinned here: the plugin,
+ * a real build of a pack and of `observable.js` (what maidr's Quarto
+ * extension loads beside maidr.js) run against each kind of loader they meet,
+ * and the UMD wrapper rewrite. The config and the post-build check are in
+ * test/scripts/classicScriptAmd.test.ts.
  *
  * `scripts/` is plain ESM JavaScript and `allowJs` is false, so the scripts
  * run in a node subprocess, as in esmRequireShim.test.
@@ -31,7 +32,7 @@ import vm from 'node:vm';
 
 const ROOT = resolve(__dirname, '../..');
 const BUILD_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/build.js')).href;
-const PLUGIN_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/vite-plugin-umd-without-amd.js')).href;
+const PLUGIN_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/vite-plugin-amd-registration.js')).href;
 const GUARD_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/classicScriptAmd.js')).href;
 
 function runModule<T>(source: string, env: Record<string, string> = {}): T {
@@ -124,63 +125,192 @@ function d3RequirePage(): { page: Globals; queue: Array<() => unknown> } {
   return { page: { define }, queue };
 }
 
-interface BuildConfig {
-  name: string;
-  entry: string;
-  formats: string[];
-  amdName: string | null;
+/**
+ * Build one bundle for real, by the real config, into a directory of its own.
+ * @param name - The build's name in scripts/build.js
+ * @param overrides - What to change in its config first, as JSON
+ * @returns The directory, and the message the build failed with, if it did
+ */
+function buildBundle(name: string, overrides: Record<string, unknown> = {}): { dist: string; error?: string } {
+  const dist = mkdtempSync(join(tmpdir(), `maidr-amd-${name}-`));
+  const outcome = runModule<{ error?: string }>(`
+    import { build } from 'vite';
+    import { builds, createViteConfig } from '${BUILD_SCRIPT}';
+    const config = builds.find(b => b.name === ${JSON.stringify(name)});
+    const overrides = JSON.parse(${JSON.stringify(JSON.stringify(overrides))});
+    try {
+      await build({
+        ...createViteConfig({ ...config, useDts: false, emptyOutDir: false, ...overrides }),
+        logLevel: 'silent',
+      });
+      console.log(JSON.stringify({}));
+    } catch (error) {
+      console.log(JSON.stringify({ error: error.message }));
+    }
+  `, { MAIDR_BUILD_OUTDIR: dist });
+  return { dist, ...outcome };
 }
 
-describe('the UMD bundles with exports', () => {
-  const configs = runModule<BuildConfig[]>(`
-    import { builds } from '${BUILD_SCRIPT}';
-    console.log(JSON.stringify(builds.map(b => ({
-      name: b.name,
-      entry: b.entry,
-      formats: b.formats ?? ['es', 'umd'],
-      amdName: b.amdName ?? null,
-    }))));
-  `);
-  const exportsMap = (JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
-    exports: Record<string, unknown>;
-  }).exports;
-  // The build also refuses one with no name, from the chunk's own exports;
-  // this says which bundles that is before anything is built.
-  const withExports = configs.filter(c => c.formats.includes('umd')
-    && /^export\b/m.test(readFileSync(resolve(ROOT, c.entry), 'utf8')));
-
-  it('should include every adapter a page loads by a script tag', () => {
-    const names = withExports.map(c => c.name);
-
-    expect(names).toEqual(expect.arrayContaining(['observable', 'echarts', 'highcharts']));
-  });
-
-  it.each(withExports.map(c => [c.name, c] as const))('should name %s by its import path', (name, config) => {
-    expect(config.amdName).toBe(`maidr/${name}`);
-    expect(exportsMap).toHaveProperty([`./${name}`]);
-  });
-
-  it('should refuse to build one with no name', () => {
-    const dist = mkdtempSync(join(tmpdir(), 'maidr-umd-unnamed-'));
+/**
+ * Run the plugin's `renderChunk` on a chunk, the way Vite calls it.
+ * @param amdName - The name the plugin is made with
+ * @param code - The chunk
+ * @param format - The output format
+ * @param chunk - What else Vite says about the chunk
+ * @param chunk.isEntry - Whether it is an entry chunk
+ * @param chunk.exports - The names it exports
+ * @returns The rewritten code, null when the chunk is left alone, or the
+ *   message the plugin failed the build with
+ */
+function renderChunk(
+  amdName: string | null,
+  code: string,
+  format: string,
+  chunk: { isEntry: boolean; exports: string[] } = { isEntry: true, exports: [] },
+): { code?: string | null; error?: string } {
+  return runModule(`
+    import { amdRegistration } from '${PLUGIN_SCRIPT}';
+    const plugin = amdRegistration(${JSON.stringify(amdName ?? undefined)});
+    const context = { error(message) { throw new Error(message); } };
     try {
-      const outcome = runModule<{ built?: true; error?: string }>(`
-        import { build } from 'vite';
-        import { builds, createViteConfig } from '${BUILD_SCRIPT}';
-        const frappe = builds.find(b => b.name === 'frappe');
-        const config = createViteConfig({ ...frappe, amdName: undefined, useDts: false, emptyOutDir: false });
-        try {
-          await build({ ...config, logLevel: 'silent' });
-          console.log(JSON.stringify({ built: true }));
-        } catch (error) {
-          console.log(JSON.stringify({ error: error.message }));
-        }
-      `, { MAIDR_BUILD_OUTDIR: dist });
-
-      expect(outcome.error).toMatch(/frappe\.js is a UMD bundle with exports and no `amdName`/);
-    } finally {
-      rmSync(dist, { recursive: true, force: true });
+      const result = plugin.renderChunk.call(
+        context,
+        ${JSON.stringify(code)},
+        { ...${JSON.stringify(chunk)}, fileName: 'x.js' },
+        { format: ${JSON.stringify(format)}, name: 'maidrX' },
+      );
+      console.log(JSON.stringify({ code: result === null ? null : result.code }));
+    } catch (error) {
+      console.log(JSON.stringify({ error: error.message }));
     }
+  `);
+}
+
+describe('the registration plugin', () => {
+  const IIFE = '(function(){globalThis.ran=(globalThis.ran||0)+1})();\n';
+
+  it('should register an IIFE after it has run, by name from a script tag', () => {
+    const { page, calls } = requireJsPage(null);
+
+    const after = load(String(renderChunk('maidr', IIFE, 'iife').code), page);
+
+    expect(after.ran).toBe(1);
+    expect(calls).toEqual([{ name: 'maidr', value: undefined }]);
+  });
+
+  it('should register an IIFE anonymously when require.js loads it', () => {
+    const { page, calls } = requireJsPage('../dist/maidr.js');
+
+    const after = load(String(renderChunk('maidr', IIFE, 'iife').code), page);
+
+    expect(after.ran).toBe(1);
+    expect(calls).toEqual([{ name: null, value: undefined }]);
+  });
+
+  it('should leave ES output, and chunks that are not entries, alone', () => {
+    expect(renderChunk('maidr/x', 'export {};', 'es').code).toBeNull();
+    expect(renderChunk('maidr', IIFE, 'iife', { isEntry: false, exports: [] }).code).toBeNull();
+  });
+
+  it('should refuse a classic script with no amdName', () => {
+    expect(renderChunk(null, IIFE, 'iife').error).toMatch(/x\.js is a classic script with no `amdName`/);
+    expect(renderChunk(null, 'exports.a=1;', 'umd', { isEntry: true, exports: ['a'] }).error)
+      .toMatch(/x\.js is a classic script with no `amdName`/);
+  });
+
+  it.each(['frappe', 'locale-ko'])('should fail a real build of %s with no amdName', (name) => {
+    const { dist, error } = buildBundle(name, { amdName: null });
+    rmSync(dist, { recursive: true, force: true });
+
+    expect(error).toMatch(/is a classic script with no `amdName`/);
   }, 120_000);
+});
+
+describe('a built locale pack on a page with an AMD loader', () => {
+  let dist: string;
+  let pack: string;
+
+  beforeAll(() => {
+    const built = buildBundle('locale-ko');
+    dist = built.dist;
+    if (built.error)
+      throw new Error(built.error);
+    pack = readFileSync(join(dist, 'locale-ko.js'), 'utf8');
+  }, 120_000);
+
+  afterAll(() => {
+    rmSync(dist, { recursive: true, force: true });
+  });
+
+  function queuedLocales(page: Globals): string[] {
+    const queue = (page.maidrLocales ?? []) as Array<[string, unknown]>;
+    return queue.map(([code]) => code);
+  }
+
+  it('should be an IIFE that assigns no global', () => {
+    expect(pack.startsWith('(function(){')).toBe(true);
+  });
+
+  it('should run, and register by name, from a script tag on a require.js page', () => {
+    // Anonymous is what require.js rejects with "Mismatched anonymous define()".
+    const { page, calls } = requireJsPage(null);
+
+    const after = load(pack, page);
+
+    expect(queuedLocales(after)).toEqual(['ko']);
+    expect(calls).toEqual([{ name: 'maidr/locale/ko', value: undefined }]);
+  });
+
+  it('should register by name where there is no document', () => {
+    const { page, calls } = requireJsPage();
+
+    const after = load(pack, page);
+
+    expect(queuedLocales(after)).toEqual(['ko']);
+    expect(calls).toEqual([{ name: 'maidr/locale/ko', value: undefined }]);
+  });
+
+  it('should run, and register anonymously, when require.js loads it by URL', () => {
+    // require.js names an anonymous define after the module it is loading;
+    // one named `maidr/locale/ko` would leave a load by URL `undefined`, and
+    // fail "No define call" under enforceDefine.
+    const { page, calls } = requireJsPage('../../dist/locale-ko.js');
+
+    const after = load(pack, page);
+
+    expect(queuedLocales(after)).toEqual(['ko']);
+    expect(calls).toEqual([{ name: null, value: undefined }]);
+  });
+
+  it('should resolve when d3-require loads it as a module', () => {
+    // d3-require rejects a script that defines nothing with "invalid module".
+    const { page, queue } = d3RequirePage();
+
+    const after = load(pack, page);
+
+    expect(queuedLocales(after)).toEqual(['ko']);
+    expect(queue).toHaveLength(1);
+    expect(queue[0]()).toBeUndefined();
+  });
+
+  it('should run where there is no define at all', () => {
+    expect(queuedLocales(load(pack))).toEqual(['ko']);
+  });
+
+  it('should pass the post-build check', () => {
+    const problems = runModule<unknown[]>(`
+      import { builds } from '${BUILD_SCRIPT}';
+      import { classicScripts, findClassicScriptAmdProblems } from '${GUARD_SCRIPT}';
+      const scripts = classicScripts(builds.filter(b => b.name === 'locale-ko'));
+      console.log(JSON.stringify(findClassicScriptAmdProblems(${JSON.stringify(dist)}, scripts)));
+    `);
+
+    expect(problems).toEqual([]);
+  });
+
+  it('should leave the ES pack alone', () => {
+    expect(readFileSync(join(dist, 'locale-ko.mjs'), 'utf8')).not.toMatch(/\bdefine\b/);
+  });
 });
 
 describe('observable.js on a page with an AMD loader', () => {
@@ -188,15 +318,10 @@ describe('observable.js on a page with an AMD loader', () => {
   let source: string;
 
   beforeAll(() => {
-    dist = mkdtempSync(join(tmpdir(), 'maidr-umd-amd-'));
-    runModule(`
-      import { build } from 'vite';
-      import { builds, createViteConfig } from '${BUILD_SCRIPT}';
-      const observable = builds.find(b => b.name === 'observable');
-      const config = createViteConfig({ ...observable, useDts: false, emptyOutDir: false });
-      await build({ ...config, logLevel: 'silent' });
-      console.log('true');
-    `, { MAIDR_BUILD_OUTDIR: dist });
+    const built = buildBundle('observable');
+    dist = built.dist;
+    if (built.error)
+      throw new Error(built.error);
     source = readFileSync(join(dist, 'observable.js'), 'utf8');
   }, 120_000);
 
@@ -216,7 +341,7 @@ describe('observable.js on a page with an AMD loader', () => {
     expect(api.TraceType).toEqual(expect.objectContaining({ BAR: 'bar' }));
   }
 
-  it('should run and set its global under require.js, registering only by name', () => {
+  it('should run and set its global, registering by name where there is no document', () => {
     const { page, calls } = requireJsPage();
 
     const after = load(source, page);

@@ -3,24 +3,21 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import vm from 'node:vm';
 
 /**
- * Guards `maidr.js` and the locale packs against an AMD loader on the page,
- * and holds the post-build check every classic script passes.
+ * The build config and the post-build check that keep maidr's classic scripts
+ * -- `maidr.js`, the locale packs and the adapter bundles -- out of a page's
+ * AMD loader.
  *
- * Both were UMD. An entry with no exports gets a wrapper that hands it to any
- * AMD `define` as an anonymous module instead of running it, so under the
- * require.js Quarto loads on every page a Jupyter render writes HTML into,
- * maidr never booted, a pack never registered, and require.js threw
- * "Mismatched anonymous define()" at the page's next `require()`.
- *
- * They are IIFEs now, and each registers itself under its import path once it
- * has run, so a loader that loads one as a module -- d3-require in Observable
- * and Quarto `{ojs}` cells rejects a script that defines nothing -- still
- * resolves. Pinned here: the config, a real pack evaluated the way each kind
- * of page runs it, and the post-build check that `scripts/build.js` runs on
- * the classic scripts of every build, the adapter bundles' among them.
+ * Built as UMD, each was handed to any AMD `define` on the page as an
+ * anonymous module instead of running, so under the require.js Quarto loads on
+ * every page a Jupyter render writes HTML into, maidr never booted, a pack
+ * never registered, an adapter's global was never set, and require.js threw
+ * "Mismatched anonymous define()" at the page's next `require()`. Now each
+ * runs first and then registers itself
+ * (`scripts/vite-plugin-amd-registration.js`, test/scripts/amdRegistration.test.ts).
+ * Pinned here: what the config builds and names, and the check
+ * `scripts/build.js` runs on the classic scripts of every build.
  *
  * `scripts/` is plain ESM JavaScript and `allowJs` is false, so the config and
  * the check are read in a node subprocess, as in esmRequireShim.test.
@@ -30,16 +27,12 @@ const ROOT = resolve(__dirname, '../..');
 const BUILD_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/build.js')).href;
 const GUARD_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/classicScriptAmd.js')).href;
 
-function runNode(source: string, env: NodeJS.ProcessEnv = process.env): string {
-  return execFileSync(
+function runModule<T>(source: string): T {
+  return JSON.parse(execFileSync(
     process.execPath,
     ['--input-type=module', '-e', source],
-    { cwd: ROOT, encoding: 'utf8', stdio: 'pipe', env },
-  );
-}
-
-function runModule<T>(source: string): T {
-  return JSON.parse(runNode(source).trim()) as T;
+    { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' },
+  ).trim()) as T;
 }
 
 interface Problem {
@@ -78,10 +71,7 @@ interface BundleConfig {
   name: string;
   entry: string;
   formats: string[];
-  /** What the AMD-name plugin appends to an `iife` entry chunk, if registered. */
-  iifeTail: string | null;
-  /** What it does to an `es` chunk: null leaves the chunk alone. */
-  esResult: unknown;
+  amdName: string | null;
 }
 
 /** A top-level `export` statement in an entry's source. */
@@ -89,25 +79,34 @@ const ENTRY_EXPORT = /^export\s/m;
 
 function bundleConfigs(): BundleConfig[] {
   return runModule<BundleConfig[]>(`
-    import { builds, createViteConfig } from '${BUILD_SCRIPT}';
-    const out = builds.map((b) => {
-      const plugin = createViteConfig(b).plugins.flat()
-        .find(p => p && p.name === 'maidr:amd-module-name');
-      return {
-        name: b.name,
-        entry: b.entry,
-        formats: b.formats,
-        iifeTail: plugin ? plugin.renderChunk('', { isEntry: true }, { format: 'iife' }).code : null,
-        esResult: plugin ? plugin.renderChunk('', { isEntry: true }, { format: 'es' }) : null,
-      };
-    });
-    console.log(JSON.stringify(out));
+    import { builds } from '${BUILD_SCRIPT}';
+    console.log(JSON.stringify(builds.map(b => ({
+      name: b.name,
+      entry: b.entry,
+      formats: b.formats,
+      amdName: b.amdName ?? null,
+    }))));
   `);
+}
+
+/**
+ * The subpath of package.json's `exports` an AMD name stands for.
+ * @param amdName - `maidr`, `maidr/locale/<code>` or `maidr/<adapter>`
+ * @returns `.`, `./locale/*` or `./<adapter>`
+ */
+function exportsSubpath(amdName: string): string {
+  if (amdName === 'maidr')
+    return '.';
+  return amdName.startsWith('maidr/locale/') ? './locale/*' : `./${amdName.slice('maidr/'.length)}`;
 }
 
 describe('classic script build config', () => {
   const configs = bundleConfigs();
   const packs = configs.filter(c => c.name.startsWith('locale-'));
+  const classic = configs.filter(c => c.formats.some(format => format !== 'es'));
+  const exportsMap = (JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
+    exports: Record<string, unknown>;
+  }).exports;
 
   it('should build maidr.js as an IIFE only', () => {
     const core = configs.find(c => c.name === 'core');
@@ -121,16 +120,6 @@ describe('classic script build config', () => {
       expect(pack.formats).toEqual(['es', 'iife']);
   });
 
-  it('should register the core and every pack under its import path', () => {
-    const core = configs.find(c => c.name === 'core');
-
-    expect(core?.iifeTail).toBe(';typeof define=="function"&&define.amd&&define("maidr",[],function(){});\n');
-    for (const pack of packs) {
-      const locale = pack.name.slice('locale-'.length);
-      expect(pack.iifeTail).toContain(`define("maidr/locale/${locale}",[],function(){})`);
-    }
-  });
-
   it('should build no entry without exports as UMD', () => {
     // A UMD wrapper hands an entry with no exports to an AMD define instead of
     // running it. The post-build check flags the bundle that comes out; this
@@ -142,135 +131,31 @@ describe('classic script build config', () => {
     expect(exportless.filter(c => c.formats.includes('umd')).map(c => c.name)).toEqual([]);
   });
 
-  it('should register no other bundle', () => {
-    const registered = configs.filter(c => c.iifeTail !== null).map(c => c.name);
+  it('should build the adapters a page loads by a script tag as UMD', () => {
+    const umd = classic.filter(c => c.formats.includes('umd')).map(c => c.name);
 
-    expect(registered).toEqual(['core', ...packs.map(p => p.name)]);
+    expect(umd).toEqual(expect.arrayContaining(['observable', 'echarts', 'highcharts']));
   });
 
-  it('should leave the ES output alone', () => {
-    for (const config of configs.filter(c => c.iifeTail !== null))
-      expect(config.esResult).toBeNull();
-  });
-});
+  it.each(classic.map(c => [c.name, c] as const))('should name %s by its import path', (name, config) => {
+    const expected = name === 'core'
+      ? 'maidr'
+      : name.startsWith('locale-') ? `maidr/locale/${name.slice('locale-'.length)}` : `maidr/${name}`;
 
-/** A `define` that records its calls, shaped like require.js's. */
-interface RecordingDefine {
-  (...args: unknown[]): void;
-  amd: object;
-  calls: unknown[][];
-}
-
-function recordingDefine(): RecordingDefine {
-  const calls: unknown[][] = [];
-  const define = ((...args: unknown[]) => {
-    calls.push(args);
-  }) as RecordingDefine;
-  define.amd = { jQuery: true };
-  define.calls = calls;
-  return define;
-}
-
-type Require = (name: unknown) => unknown;
-
-/**
- * d3-require's `define`, as bundled in Quarto's OJS runtime: each call queues a
- * loader, and `require` pops the last one once the script's `load` fires. A
- * script that defines nothing leaves the queue empty, and the pop then throws
- * -- which d3-require reports as "invalid module".
- * @param queue - Where each `define` call queues its loader
- * @returns The `define` d3-require installs while a script loads
- */
-function d3RequireDefine(queue: Array<(require: Require) => Promise<unknown>>) {
-  const define = (...args: unknown[]): void => {
-    let [name, dependencies, factory] = args;
-    if (args.length < 2) {
-      factory = name;
-      dependencies = [];
-    } else if (args.length < 3) {
-      factory = dependencies;
-      dependencies = typeof name === 'string' ? [] : name;
-    }
-    queue.push(require => Promise.all((dependencies as unknown[]).map(require)).then(deps =>
-      typeof factory === 'function' ? factory(...deps) : factory));
-  };
-  define.amd = {};
-  return define;
-}
-
-describe('a built locale pack', () => {
-  let dir: string;
-  let pack: string;
-
-  beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'maidr-pack-'));
-    // The real pack, built by the real config into a directory of its own.
-    runNode(`
-      import { build } from 'vite';
-      import { builds, createViteConfig } from '${BUILD_SCRIPT}';
-      const config = builds.find(b => b.name === 'locale-ko');
-      await build({ ...createViteConfig({ ...config, emptyOutDir: false }), logLevel: 'silent' });
-    `, { ...process.env, MAIDR_BUILD_OUTDIR: dir });
-    pack = readFileSync(join(dir, 'locale-ko.js'), 'utf8');
-  }, 60_000);
-
-  afterAll(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  function run(globals: Record<string, unknown>): vm.Context {
-    const context = vm.createContext({ ...globals });
-    vm.runInContext(pack, context);
-    return context;
-  }
-
-  function queuedLocales(context: vm.Context): string[] {
-    const queue = (context.maidrLocales ?? []) as Array<[string, unknown]>;
-    return queue.map(([code]) => code);
-  }
-
-  it('should be an IIFE that assigns no global', () => {
-    expect(pack.startsWith('(function(){')).toBe(true);
-  });
-
-  it('should run, and register by name, where require.js has defined define', () => {
-    const define = recordingDefine();
-
-    const context = run({ define });
-
-    // Anonymous is what require.js rejects with "Mismatched anonymous define()".
-    expect(define.calls.filter(args => typeof args[0] !== 'string')).toHaveLength(0);
-    expect(define.calls.map(([name, deps, factory]) => [name, Array.from(deps as unknown[]), typeof factory]))
-      .toEqual([['maidr/locale/ko', [], 'function']]);
-    expect(queuedLocales(context)).toEqual(['ko']);
-  });
-
-  it('should resolve when d3-require loads it as a module', async () => {
-    const queue: Array<(require: Require) => Promise<unknown>> = [];
-
-    const context = run({ define: d3RequireDefine(queue) });
-
-    expect(queuedLocales(context)).toEqual(['ko']);
-    expect(queue).toHaveLength(1);
-    await expect(queue.pop()?.(name => name)).resolves.toBeUndefined();
-  });
-
-  it('should run where there is no define at all', () => {
-    const context = run({});
-
-    expect(queuedLocales(context)).toEqual(['ko']);
-  });
-
-  it('should pass the post-build check', () => {
-    expect(findProblems(dir, classicScriptsOf(['locale-ko']))).toEqual([]);
+    expect(config.amdName).toBe(expected);
+    expect(exportsMap).toHaveProperty([exportsSubpath(expected)]);
   });
 });
 
 describe('post-build classic script check', () => {
   const BODY = 'var e=1;globalThis.maidrLocales??=[];';
   const UMD = `(function(e){typeof define==\`function\`&&define.amd?define([],e):e()})(function(){${BODY}});\n`;
+  // The registration as the minifier leaves it: anonymous while require.js
+  // loads the script, named otherwise.
+  const registration = (name: string, value: string): string =>
+    `typeof define==\`function\`&&define.amd&&(typeof document<\`u\`&&document.currentScript&&document.currentScript.getAttribute(\`data-requiremodule\`)?define([],${value}):define(\`${name}\`,[],${value}))`;
   const iife = (name: string): string =>
-    `(function(){${BODY}})(),typeof define==\`function\`&&define.amd&&define(\`${name}\`,[],function(){});\n`;
+    `(function(){${BODY}})(),${registration(name, 'function(){}')};\n`;
   const CORE: ClassicScript = { file: 'maidr.js', format: 'iife', amdName: 'maidr' };
   const pack = (locale: string): ClassicScript =>
     ({ file: `locale-${locale}.js`, format: 'iife', amdName: `maidr/locale/${locale}` });
@@ -308,6 +193,18 @@ describe('post-build classic script check', () => {
       'is not an IIFE starting `(function(){`',
       'makes an anonymous `define` call',
       'does not register itself as the AMD module "maidr"',
+      'does not register anonymously when require.js loads it',
+    ]);
+  });
+
+  it('should flag a script that registers only by name', () => {
+    // require.js loading it by URL, or under any id but its import path,
+    // would then resolve to undefined, or fail "No define call" under
+    // enforceDefine.
+    writeFileSync(join(dist, 'maidr.js'), `(function(){${BODY}})(),typeof define==\`function\`&&define.amd&&define(\`maidr\`,[],function(){});\n`);
+
+    expect(findProblems(dist, [CORE])).toEqual([
+      { file: 'maidr.js', problem: 'does not register anonymously when require.js loads it' },
     ]);
   });
 
@@ -357,11 +254,12 @@ describe('post-build classic script check', () => {
     expect(findProblems(dist, [ECHARTS])).toEqual([
       { file: 'echarts.js', problem: 'makes an anonymous `define` call' },
       { file: 'echarts.js', problem: 'does not register itself as the AMD module "maidr/echarts"' },
+      { file: 'echarts.js', problem: 'does not register anonymously when require.js loads it' },
     ]);
   });
 
   it('should pass a UMD bundle that registers after running, anonymously only for require.js', () => {
-    writeFileSync(join(dist, 'echarts.js'), '(function(e,t){typeof exports==`object`&&typeof module<`u`?t(exports):(e=typeof globalThis<`u`?globalThis:e||self,t(e.maidrECharts={}),typeof define==`function`&&define.amd&&(typeof document<`u`&&document.currentScript&&document.currentScript.getAttribute(`data-requiremodule`)?define([],function(){return e.maidrECharts}):define(`maidr/echarts`,[],function(){return e.maidrECharts})))})(this,function(e){});');
+    writeFileSync(join(dist, 'echarts.js'), `(function(e,t){typeof exports==\`object\`&&typeof module<\`u\`?t(exports):(e=typeof globalThis<\`u\`?globalThis:e||self,t(e.maidrECharts={}),${registration('maidr/echarts', 'function(){return e.maidrECharts}')})})(this,function(e){});`);
 
     expect(findProblems(dist, [ECHARTS])).toEqual([]);
   });

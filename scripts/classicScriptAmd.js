@@ -22,10 +22,10 @@
  *   require.js loading the script (the `data-requiremodule` attribute
  *   require.js puts on the script elements it adds): require.js names that one
  *   after the module it asked for, so it never mismatches;
- * - register itself under its `amdName`, its import path.
- * `scripts/vite-plugin-amd-name.js` writes the registration onto an IIFE, and
- * `scripts/vite-plugin-umd-without-amd.js` puts it in place of a UMD
- * wrapper's AMD branch.
+ * - register itself both ways: under its `amdName`, its import path, and
+ *   anonymously behind that test, so require.js loading it under any id or
+ *   URL resolves, `enforceDefine` included.
+ * `scripts/vite-plugin-amd-registration.js` writes the registration.
  *
  * Only the builds of this run are read: a selective build leaves the rest of
  * dist as an older build wrote it. Which files those are comes from each
@@ -98,9 +98,10 @@ export function findClassicScriptAmdProblems(distDir, scripts) {
       continue;
     }
     const source = fs.readFileSync(target, 'utf8');
+    const outsideRequireJsLoad = source.replace(REQUIREJS_LOAD_DEFINE, '');
     if (format === 'iife' && !IIFE_START.test(source))
       problems.push({ file, problem: 'is not an IIFE starting `(function(){`' });
-    if (ANONYMOUS_DEFINE.test(source.replace(REQUIREJS_LOAD_DEFINE, '')))
+    if (ANONYMOUS_DEFINE.test(outsideRequireJsLoad))
       problems.push({ file, problem: 'makes an anonymous `define` call' });
     if (!amdName) {
       problems.push({ file, problem: 'has no `amdName` to register under' });
@@ -109,6 +110,8 @@ export function findClassicScriptAmdProblems(distDir, scripts) {
     const named = Array.from(source.matchAll(NAMED_DEFINE), match => match[2]);
     if (!named.includes(amdName))
       problems.push({ file, problem: `does not register itself as the AMD module "${amdName}"` });
+    if (outsideRequireJsLoad === source)
+      problems.push({ file, problem: 'does not register anonymously when require.js loads it' });
   }
   return problems;
 }
@@ -132,7 +135,7 @@ export function assertClassicScriptsRunWithoutAmd(distDir, scripts) {
     + `${lines.join('\n')}\n`
     + 'Each build in scripts/build.js needs an `amdName`, and an entry with no exports '
     + 'is built as `iife` (a pack as `[\'es\', \'iife\']`), never `umd`. '
-    + 'If rolldown changed its UMD wrapper, scripts/vite-plugin-umd-without-amd.js '
-    + 'says so first.',
+    + 'scripts/vite-plugin-amd-registration.js writes the registration; if rolldown '
+    + 'changed its UMD wrapper, that plugin says so first.',
   );
 }

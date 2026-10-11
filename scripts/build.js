@@ -33,9 +33,8 @@ import dts from 'vite-plugin-dts';
 import { assertClassicScriptsRunWithoutAmd, classicScripts } from './classicScriptAmd.js';
 import { DIST_MANIFEST_NAME, publishManifest } from './dotPadSdk.js';
 import { assertNoRequireShim } from './esmRequireShim.js';
-import { amdModuleName } from './vite-plugin-amd-name.js';
+import { amdRegistration } from './vite-plugin-amd-registration.js';
 import { mathStylesheet } from './vite-plugin-math-stylesheet.js';
-import { umdWithoutAmd } from './vite-plugin-umd-without-amd.js';
 import { woff2OnlyFonts } from './vite-plugin-woff2-only.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -171,14 +170,11 @@ export const LOCALE_PACKS = ['ko', 'ja', 'zh', 'es', 'de', 'fr', 'it', 'hi'];
 
 /**
  * A pack is a side-effect entry with no exports and no React, so it needs no
- * declaration file. Its classic script is an IIFE, not UMD: a UMD wrapper
- * hands an entry with no exports to any AMD `define` on the page -- require.js,
- * which Quarto puts on every page a Jupyter render writes HTML into -- as an
- * anonymous module that never runs, and require.js then throws "Mismatched
- * anonymous define()" at the page's next `require()`. `amdName` registers the
- * IIFE under its import path once it has run, so a loader that loads it as a
- * module still resolves (see vite-plugin-amd-name.js). Vite requires a name
- * for an IIFE; one with no exports never assigns it.
+ * declaration file. Its classic script is an IIFE, not UMD: for an entry with
+ * no exports rolldown's UMD wrapper is nothing but an anonymous `define` when
+ * the page has an AMD loader, so under require.js the pack never ran (see
+ * vite-plugin-amd-registration.js). Vite requires a name for an IIFE; one
+ * with no exports never assigns it.
  *
  * Flat filenames rather than a `locale/` directory: each pack builds in its
  * own worker, and the merge step treats a directory two workers both emit as
@@ -209,11 +205,10 @@ function localePackBuild(locale) {
  * Exported so the build-config test can assert against the real array rather
  * than a fixture that could drift away from it.
  *
- * `amdName` is the name a bundle's classic script registers under with an AMD
- * loader on the page once it has run: its import path in package.json's
- * `exports`. Every UMD bundle with exports needs one -- the build fails
- * without it -- because its AMD branch is replaced by that registration (see
- * vite-plugin-umd-without-amd.js).
+ * `amdName` is the name a bundle's classic script (`iife` or `umd`) registers
+ * under with an AMD loader on the page once it has run: its import path in
+ * package.json's `exports`. Every classic script needs one, and the build
+ * fails without it (see vite-plugin-amd-registration.js).
  */
 export const builds = [
   {
@@ -612,14 +607,10 @@ export function createViteConfig(config) {
   // Its content is read from node_modules, not from the module graph, so every
   // bundle emits the same bytes and the merge step dedupes them.
   plugins.push(mathStylesheet());
-  // The adapters name an `amdName` too, for the UMD rewrite below; this one
-  // is only for the IIFE builds, maidr.js and the locale packs.
-  if (config.amdName && config.formats.includes('iife'))
-    plugins.push(amdModuleName(config.amdName));
-  // Registered for every bundle, like the two above: it rewrites only the UMD
-  // output of an entry with exports, and fails the build for one with no
-  // `amdName`, so a new adapter cannot ship the AMD branch by leaving it out.
-  plugins.push(umdWithoutAmd(config.amdName));
+  // Registered for every bundle, like the two above: it touches only the
+  // classic scripts, and fails the build for one with no `amdName`, so a new
+  // bundle cannot ship waiting on an AMD loader by leaving the name out.
+  plugins.push(amdRegistration(config.amdName));
 
   const requireExternal = config.external.filter(id => REACT_RUNTIME.includes(id));
   const external = config.external.filter(id => !REACT_RUNTIME.includes(id));
