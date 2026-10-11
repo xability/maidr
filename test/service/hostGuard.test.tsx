@@ -665,10 +665,52 @@ describe('reveal.js\'s search plugin', () => {
 
     expect(reaching).toEqual(['F']);
   });
+
+  it('reaches MAIDR\'s own fields first, so a reader can record it as a shortcut', () => {
+    // The shortcut recorder is a React handler, which React runs from the
+    // root it was created on, and which stops the key once it has it.
+    globals.RevealSearch = {};
+    const container = document.createElement('div');
+    container.setAttribute('data-maidr-embed', '');
+    document.body.appendChild(container);
+    const recorded: string[] = [];
+    /** A chart's article with a field that records the keys pressed in it. */
+    function Chart(): JSX.Element {
+      return (
+        <article id="maidr-article-r">
+          <figure id="maidr-figure-r">
+            <div id="react-plot" tabIndex={0}></div>
+            <button
+              id="recorder"
+              type="button"
+              onKeyDown={(event) => {
+                recorded.push(event.key);
+                event.stopPropagation();
+              }}
+            />
+            <button id="other" type="button" />
+          </figure>
+        </article>
+      );
+    }
+    render(<Chart />, { container });
+    const reaching = keysReachingDocument();
+    plot = byId('react-plot');
+    byId('recorder').focus();
+    guardChart();
+
+    press(byId('recorder'), searchKey);
+    byId('other').focus();
+    press(byId('other'), searchKey);
+
+    expect(recorded).toEqual(['F']);
+    // Nowhere else in the chart does the key reach the deck's search.
+    expect(reaching).toEqual([]);
+  });
 });
 
 describe('disposal', () => {
-  it('removes both listeners, and leaves the page-level guards in place', () => {
+  it('removes its listeners, and leaves the page-level guards in place', () => {
     globals.RevealSearch = {};
     document.body.insertAdjacentHTML('afterbegin', '<input id="search-input">');
     const open = jest.fn();

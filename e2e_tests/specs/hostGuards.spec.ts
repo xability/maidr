@@ -57,6 +57,24 @@ test.describe('Host-page guards (host-guards.html)', () => {
     ]);
   });
 
+  test('a reader can record the deck\'s search key as a shortcut, and the search stays shut', async ({ page }) => {
+    // The deck's search plugin hears Ctrl/Cmd+Shift+F on the document, and
+    // the shortcut recorder in MAIDR's settings is a React handler: holding
+    // the key off the deck must not hold it off the recorder too.
+    const modifier = await modifierKey(page);
+    await host.tabIntoChart();
+    await host.startRecording('Toggle Text Mode');
+
+    await host.press(`${modifier}+Shift+F`);
+
+    await expect(page.getByRole('status').filter({ hasText: 'Toggle Text Mode is now' })).toBeVisible();
+
+    // Pressed again in the dialog, with nothing recording it.
+    await host.press(`${modifier}+Shift+F`);
+
+    expect(await host.hostLog()).toEqual([]);
+  });
+
   test('Escape in braille mode leaves the full-screen card full screen', async () => {
     await host.tabIntoChart();
     await host.toggleBrailleMode();

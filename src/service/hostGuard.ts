@@ -472,6 +472,7 @@ export class HostGuardService implements Disposable {
   private readonly root: HTMLElement | null;
   private readonly isBound: (event: KeyboardEvent) => boolean;
   private readonly onWindowKeyDown: (event: KeyboardEvent) => void;
+  private readonly onPageKeyDown: (event: KeyboardEvent) => void;
   private readonly onRootKeyDown: (event: KeyboardEvent) => void;
 
   /**
@@ -484,6 +485,7 @@ export class HostGuardService implements Disposable {
     this.article = plot.closest(CHART_SELECTOR);
     this.isBound = isBound;
     this.onWindowKeyDown = (event: KeyboardEvent): void => this.handleWindowKeyDown(event);
+    this.onPageKeyDown = (event: KeyboardEvent): void => this.handlePageKeyDown(event);
     this.onRootKeyDown = (event: KeyboardEvent): void => HostGuardService.handleRootKeyDown(event);
 
     installHostGuards();
@@ -492,6 +494,11 @@ export class HostGuardService implements Disposable {
     // Window capture runs before every listener in the document, ioslides'
     // and pkgdown's capture-phase ones included.
     window.addEventListener('keydown', this.onWindowKeyDown, true);
+
+    // The root element, in the bubble phase, runs after React, which listens
+    // on the element its root was created on, inside the page; and before the
+    // document, where reveal.js's search plugin and MAIDR's shortcuts listen.
+    document.documentElement.addEventListener('keydown', this.onPageKeyDown);
 
     // Only a chart bound from the page, whose React root is the element
     // MAIDR made around the article. In a React app the root is the app's
@@ -507,6 +514,7 @@ export class HostGuardService implements Disposable {
    */
   public dispose(): void {
     window.removeEventListener('keydown', this.onWindowKeyDown, true);
+    document.documentElement.removeEventListener('keydown', this.onPageKeyDown);
     this.root?.removeEventListener('keydown', this.onRootKeyDown);
   }
 
@@ -538,33 +546,44 @@ export class HostGuardService implements Disposable {
   }
 
   /**
-   * Handles the keys no host asks about before acting, before any listener in
-   * the document hears them.
+   * Keeps pkgdown's search box from taking the focus on `/`, before any
+   * listener in the document hears the key.
+   *
+   * pkgdown moves the focus to the box on `/`, which MAIDR reads as "reset
+   * speed" on the chart, and from its braille field. The box cannot take the
+   * focus while it is disabled, for the one task in which pkgdown's handler
+   * runs.
    * @param {KeyboardEvent} event - A keydown anywhere in the page
    */
   private handleWindowKeyDown(event: KeyboardEvent): void {
+    if (event.key !== '/' || !this.article?.contains(document.activeElement)) {
+      return;
+    }
+    const search = document.getElementById('search-input');
+    if (search instanceof HTMLInputElement && !search.disabled) {
+      search.disabled = true;
+      setTimeout(() => {
+        search.disabled = false;
+      }, 0);
+    }
+  }
+
+  /**
+   * Keeps reveal.js's search plugin from opening on its shortcut, Ctrl+Shift+F
+   * (Cmd on a Mac), pressed in the chart. The plugin listens on the document,
+   * where `keyboardCondition` does not reach.
+   *
+   * Stopped only once MAIDR's own fields have had the key: a reader recording
+   * it as a shortcut of their own presses it in the settings dialog, whose
+   * recorder is a React handler. Stopping it hides it from MAIDR's shortcuts
+   * as well, so only when the deck has the plugin and the reader has not bound
+   * the key to something in MAIDR.
+   * @param {KeyboardEvent} event - A keydown that MAIDR's fields let through
+   */
+  private handlePageKeyDown(event: KeyboardEvent): void {
     if (!this.article?.contains(document.activeElement)) {
       return;
     }
-
-    // pkgdown moves the focus to its search box on `/`, which MAIDR reads as
-    // "reset speed" on the chart, and from its braille field. The box cannot
-    // take the focus while it is disabled, for the one task in which pkgdown's
-    // handler runs.
-    if (event.key === '/') {
-      const search = document.getElementById('search-input');
-      if (search instanceof HTMLInputElement && !search.disabled) {
-        search.disabled = true;
-        setTimeout(() => {
-          search.disabled = false;
-        }, 0);
-      }
-    }
-
-    // reveal.js's search plugin opens on Ctrl+Shift+F (Cmd on a Mac) from a
-    // listener of its own, which `keyboardCondition` does not reach. Stopping
-    // the key here hides it from MAIDR as well, so only when the deck has the
-    // plugin and the reader has not bound the key to something in MAIDR.
     if (HostGuardService.isRevealSearchKey(event) && HostGuardService.hasRevealSearch() && !this.isBound(event)) {
       event.stopPropagation();
     }

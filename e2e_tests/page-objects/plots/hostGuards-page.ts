@@ -152,6 +152,18 @@ export class HostGuardsPage extends BasePage {
   }
 
   /**
+   * Opens the settings dialog on its Keyboard Shortcuts tab and starts
+   * recording a new shortcut for one action, ready for the key to record.
+   * @param action - The action as the tab names it
+   */
+  public async startRecording(action: string): Promise<void> {
+    await this.openSettingsMenu();
+    await this.waitForElement(this.selectors.settingsModal);
+    await this.page.getByRole('tab', { name: 'Keyboard Shortcuts' }).click();
+    await this.page.getByRole('button', { name: `Change shortcut for ${action}` }).click();
+  }
+
+  /**
    * Presses a key, or a chord, wherever the focus is, without waiting for an
    * announcement: the keys the hosts would take announce nothing in MAIDR.
    * @param key - The key, in Playwright's spelling
