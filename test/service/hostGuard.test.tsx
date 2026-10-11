@@ -748,6 +748,42 @@ describe('disposal', () => {
   });
 });
 
+describe('a host object that will not take a mark', () => {
+  it.each([
+    ['Mousetrap 1.4', 'Mousetrap', () => ({ stopCallback: () => false }), 'stopCallback'],
+    ['slidy', 'w3c_slidy', () => ({ special_element: () => false }), 'special_element'],
+  ])('is not wrapped again on every install: %s', (_name, global, build, method) => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    cleanups.push(() => warn.mockRestore());
+    const target = build() as Record<string, unknown>;
+    const original = target[method];
+    Object.preventExtensions(target);
+    globals[global] = target;
+
+    installHostGuards();
+    installHostGuards();
+
+    // Left as it was, and said so, rather than wrapped once per install.
+    expect(target[method]).toBe(original);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it('is not wrapped again on every install: reveal.js', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    cleanups.push(() => warn.mockRestore());
+    const config: { keyboardCondition?: unknown } = {};
+    const reveal = { getConfig: () => config, isReady: () => true };
+    Object.preventExtensions(reveal);
+    globals.Reveal = reveal;
+
+    installHostGuards();
+    installHostGuards();
+
+    expect(config.keyboardCondition).toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+  });
+});
+
 describe('the page\'s window', () => {
   it('never carries a marker, which would stop a binding\'s script from running', () => {
     globals.Reveal = { getConfig: () => ({}), isReady: () => true };

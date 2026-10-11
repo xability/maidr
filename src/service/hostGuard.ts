@@ -156,11 +156,16 @@ function isGuarded(target: object): boolean {
 /**
  * Marks an object guarded, for this module and for both bindings.
  *
+ * Each guard marks its object before it wraps anything. An object that will
+ * not take the mark -- a frozen or sealed one -- then throws before it is
+ * wrapped, rather than after, when every later install would find it
+ * unmarked and wrap it again.
+ *
  * Not enumerable, so a host that copies its options or its instance with
  * `$.extend` or a spread does not carry the marker to an object nothing
  * guarded. Writable, because py-maidr clears its own marker when a deck turns
  * out to have no way to say it is ready.
- * @param {object} target - The object just guarded
+ * @param {object} target - The object about to be guarded
  */
 function markGuarded(target: object): void {
   for (const marker of GUARD_MARKERS) {
@@ -207,17 +212,19 @@ function guardReveal(): void {
 
   // Before `Reveal.initialize()`, reveal.js 4 and 5 answer `isReady()` with
   // false and queue `on()` until the deck exists; reveal.js 3 has no `on()`.
-  if (typeof reveal.isReady === 'function' && reveal.isReady()) {
-    apply();
-  } else if (typeof reveal.on === 'function') {
-    reveal.on('ready', apply);
-  } else if (typeof reveal.addEventListener === 'function') {
-    reveal.addEventListener('ready', apply);
-  } else {
+  const ready = typeof reveal.isReady === 'function' && reveal.isReady();
+  if (!ready && typeof reveal.on !== 'function' && typeof reveal.addEventListener !== 'function') {
     // Nothing to wait on: left unmarked, so a later install can try again.
     return;
   }
   markGuarded(reveal);
+  if (ready) {
+    apply();
+  } else if (typeof reveal.on === 'function') {
+    reveal.on('ready', apply);
+  } else {
+    reveal.addEventListener?.('ready', apply);
+  }
 }
 
 /**
@@ -259,13 +266,13 @@ function guardMousetrap(): void {
   if (typeof previous !== 'function') {
     return;
   }
+  markGuarded(mousetrap);
   owner.stopCallback = function (this: unknown, ...args: unknown[]): unknown {
     if (inChart(args[1]) || focusInChart()) {
       return true;
     }
     return previous.apply(this, args);
   };
-  markGuarded(mousetrap);
 }
 
 /**
@@ -285,13 +292,13 @@ function guardIoslides(): void {
   if (typeof previous !== 'function') {
     return;
   }
+  markGuarded(slideDeck);
   prototype.onBodyKeyDown_ = function (this: unknown, ...args: unknown[]): unknown {
     if (focusInChart()) {
       return undefined;
     }
     return previous.apply(this, args);
   };
-  markGuarded(slideDeck);
 }
 
 /**
@@ -309,10 +316,10 @@ function guardSlidy(): void {
   if (typeof previous !== 'function') {
     return;
   }
+  markGuarded(slidy);
   slidy.special_element = function (this: unknown, element: Element): unknown {
     return focusInChart() || inChart(element) || previous.call(this, element);
   };
-  markGuarded(slidy);
 }
 
 /**
@@ -368,13 +375,13 @@ function guardSlyOptions(options: object): void {
     };
   }
 
+  markGuarded(options);
   Object.defineProperty(options, 'keyboardNavBy', {
     configurable: true,
     enumerable: descriptor?.enumerable ?? true,
     get: (): unknown => (focusInChart() ? null : read()),
     set: write,
   });
-  markGuarded(options);
 }
 
 /** The page-level guards, in the order they are installed. */
@@ -434,12 +441,12 @@ function guardCard(card: NonNullable<CardNamespace['Card']>, element: Element): 
     }
     return previous.call(instance, event);
   };
+  markGuarded(instance);
   if (element.getAttribute('data-full-screen') === 'true') {
     document.removeEventListener('keydown', previous as EventListener, false);
     document.addEventListener('keydown', guarded, false);
   }
   instance._exitFullScreenOnEscape = guarded;
-  markGuarded(instance);
 }
 
 /**
