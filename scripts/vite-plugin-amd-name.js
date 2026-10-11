@@ -10,15 +10,21 @@
  * An IIFE calls no `define` at all, though, and a loader that loads one as a
  * module may expect it to. d3-require, which Observable and Quarto `{ojs}`
  * cells use, rejects `require("maidr")` with "invalid module" when the script
- * defined nothing, where it resolved the UMD to `undefined`; so does
- * require.js under `enforceDefine`. So this appends one named registration to
- * the IIFE output:
+ * defined nothing, where it resolved the UMD to `undefined`. So this appends
+ * one named registration to the IIFE output:
  *
  *   ;typeof define=="function"&&define.amd&&define("maidr",[],function(){});
  *
  * The bundle has already run by then, so maidr never waits on a loader, and
  * require.js raises the mismatch only for anonymous defines. The module value
  * is `undefined`, which is what the UMD wrapper resolved to.
+ *
+ * One load the UMD served still fails. require.js under `enforceDefine`
+ * accepts the script only when it is loaded under the name it registers
+ * (`maidr`, or `maidr/locale/<code>` for a pack): loaded by its URL or under
+ * another id, it fails "No define call for ...", where the UMD's anonymous
+ * define took whatever id it was loaded as. Without `enforceDefine`, which
+ * Quarto and Shiny do not set, every form resolves.
  *
  * Only the `iife` output is touched; the `.mjs` pack beside it is an ES module
  * and has no use for AMD. `scripts/classicScriptAmd.js` checks the result after
