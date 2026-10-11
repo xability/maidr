@@ -56,7 +56,10 @@
  * The first five lines of rolldown's UMD output for an entry with exports and
  * no external dependency, before minification. Matched whole, so a rolldown
  * that words its wrapper differently, or a bundle that gains an external,
- * fails the build here instead of shipping an AMD branch.
+ * fails the build here instead of shipping an AMD branch. This is rolldown
+ * 1.2.3's text, double space and all: a Vite upgrade that brings a rolldown
+ * wording it otherwise fails every adapter build with the message below, and
+ * this is what to update.
  *
  * @param {string} globalName - The page global, `build.lib.name`
  * @returns {string} The wrapper's opening, up to the factory's body
