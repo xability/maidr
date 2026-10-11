@@ -55,12 +55,16 @@ function findProblems(dir: string): Problem[] {
 
 interface BundleConfig {
   name: string;
+  entry: string;
   formats: string[];
   /** What the AMD-name plugin appends to an `iife` entry chunk, if registered. */
   iifeTail: string | null;
   /** What it does to an `es` chunk: null leaves the chunk alone. */
   esResult: unknown;
 }
+
+/** A top-level `export` statement in an entry's source. */
+const ENTRY_EXPORT = /^export\s/m;
 
 function bundleConfigs(): BundleConfig[] {
   return runModule<BundleConfig[]>(`
@@ -70,6 +74,7 @@ function bundleConfigs(): BundleConfig[] {
         .find(p => p && p.name === 'maidr:amd-module-name');
       return {
         name: b.name,
+        entry: b.entry,
         formats: b.formats,
         iifeTail: plugin ? plugin.renderChunk('', { isEntry: true }, { format: 'iife' }).code : null,
         esResult: plugin ? plugin.renderChunk('', { isEntry: true }, { format: 'es' }) : null,
@@ -103,6 +108,17 @@ describe('classic script build config', () => {
       const locale = pack.name.slice('locale-'.length);
       expect(pack.iifeTail).toContain(`define("maidr/locale/${locale}",[],function(){})`);
     }
+  });
+
+  it('should build no entry without exports as UMD', () => {
+    // A UMD wrapper hands an entry with no exports to an AMD define instead of
+    // running it. The post-build check reads maidr.js and the packs by name,
+    // so this is what catches a new export-less bundle under another name.
+    const exportless = configs.filter(c =>
+      !ENTRY_EXPORT.test(readFileSync(resolve(ROOT, c.entry), 'utf8')));
+
+    expect(exportless.map(c => c.name)).toEqual(expect.arrayContaining(['core', 'locale-ko']));
+    expect(exportless.filter(c => c.formats.includes('umd')).map(c => c.name)).toEqual([]);
   });
 
   it('should register no other bundle', () => {
