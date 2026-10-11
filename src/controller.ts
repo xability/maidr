@@ -148,7 +148,10 @@ export class Controller implements Disposable {
 
   private readonly keybinding: KeybindingService;
   private readonly mousebinding: Mousebindingservice;
-  /** Carries `Context`'s scope changes to the service that owns the hotkeys scope. */
+  /**
+   * Carries `Context`'s scope changes to this chart's keybinding service,
+   * which applies them while the reader is in this chart.
+   */
   private readonly scopeSubscription: Disposable;
   private readonly agentToolsSubscription: Disposable;
   private readonly commandExecutor: CommandExecutor;

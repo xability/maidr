@@ -161,10 +161,11 @@ const config: ReturnType<typeof antfu> = antfu({
   // branch matches `@state/`, not a path segment that happens to read `state`.
   //
   // `hotkeys-js` is here for the same reason under a different name.
-  // `KeybindingService` owns the hotkeys scope and unbinds it on teardown; a
-  // model that calls `hotkeys.setScope` becomes a second writer to that
-  // global, invisible to the service meant to manage it — and it forced five
-  // model tests to `jest.mock('hotkeys-js')` just to construct a `Context`.
+  // `KeybindingService` owns the hotkeys scope and unbinds its own handlers
+  // on teardown; a model that calls `hotkeys.setScope` becomes a second
+  // writer to that global, invisible to the service meant to manage it — and
+  // it forced five model tests to `jest.mock('hotkeys-js')` just to construct
+  // a `Context`.
   //
   // `test/model/layerBoundary.test.ts` lints a fixture through this config and
   // fails if any of it stops being reported.

@@ -717,10 +717,12 @@ export class KeybindingService implements Observer<Settings> {
    * The service of the chart the reader entered last, or null once they have
    * left it.
    *
-   * One per bundle, as hotkeys-js is: each dist entry -- maidr.js,
-   * vegalite.js, react.mjs, recharts.mjs and the rest -- carries its own copy
-   * of both. Static rather than a module variable: assigning `this` to one
-   * trips `ts/no-this-alias`.
+   * One per bundle that embeds the keyboard, as hotkeys-js is: maidr.js,
+   * vegalite.js, react.mjs, recharts.mjs and the like each carry their own
+   * copy of both, while the adapters that leave the chart to maidr.js --
+   * d3.js, echarts.js, highcharts.js and others -- share its owner. Static
+   * rather than a module variable: assigning `this` to one trips
+   * `ts/no-this-alias`.
    */
   private static owner: KeybindingService | null = null;
 
