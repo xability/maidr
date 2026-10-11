@@ -72,6 +72,25 @@ function createPlotlySvg(
   return svg;
 }
 
+/**
+ * Wraps `chart` the way maidr does, in an `<article>/<figure>` around the
+ * focusable plot div, and returns that div.
+ */
+function wrapInMaidrFigure(chart: Element, id: string, parent: Element): HTMLElement {
+  const doc = dom.window.document;
+  const article = doc.createElement('article');
+  article.id = `maidr-article-${id}`;
+  const figure = doc.createElement('figure');
+  figure.id = `maidr-figure-${id}`;
+  const plot = doc.createElement('div');
+  plot.tabIndex = 0;
+  plot.appendChild(chart);
+  figure.appendChild(plot);
+  article.appendChild(figure);
+  parent.appendChild(article);
+  return plot;
+}
+
 function createSchema(selectors: (string | undefined)[][]): Maidr {
   return {
     id: 'chart',
@@ -341,6 +360,38 @@ describe('plotly layout observer', () => {
     expect(container.style.paddingTop).toBe('400px');
   });
 
+  it('leaves the text alone when maidr wraps the whole graph div', () => {
+    // A page may bind maidr to the graph div itself. maidr then wraps the
+    // whole div, which keeps its height in the flow, so the text already
+    // sits below the chart: padding it by the chart's height left a gap that
+    // tall above maidr's text.
+    const frames: FrameRequestCallback[] = [];
+    globals.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    const svg = createPlotlySvg([{ x: 0, y: 0 }]);
+    const graphDiv = svg.parentElement as HTMLElement;
+    graphDiv.getBoundingClientRect = () => ({ height: 300 }) as DOMRect;
+    const doc = dom.window.document;
+    normalizePlotlySvg(graphDiv as unknown as SVGSVGElement, createSchema([[undefined]]));
+    const article = doc.createElement('article');
+    article.id = 'maidr-article-chart';
+    graphDiv.replaceWith(article);
+    article.appendChild(graphDiv);
+    const container = doc.createElement('div');
+    container.id = 'react-container-chart';
+    article.appendChild(container);
+
+    for (let ran = 0; frames.length > 0 && ran < 100; ran++) {
+      frames.shift()?.(0);
+    }
+
+    expect(container.style.paddingTop).toBe('');
+    // Nor is a frame loop left polling for an article inside the div.
+    expect(frames).toHaveLength(0);
+  });
+
   it('does not queue a resize for a mutation that leaves the chart height unchanged', () => {
     // Every keypress swaps the highlight clone inside the article. Queuing a
     // window resize for each one invalidated every cached hover centre and
@@ -379,25 +430,6 @@ describe('plotly layout observer', () => {
 });
 
 describe('plotly focus ring', () => {
-  /**
-   * Wraps `chart` the way maidr does, in an `<article>/<figure>` around the
-   * focusable plot div, and returns that div.
-   */
-  function wrapInMaidrFigure(chart: Element, id: string, parent: Element): HTMLElement {
-    const doc = dom.window.document;
-    const article = doc.createElement('article');
-    article.id = `maidr-article-${id}`;
-    const figure = doc.createElement('figure');
-    figure.id = `maidr-figure-${id}`;
-    const plot = doc.createElement('div');
-    plot.tabIndex = 0;
-    plot.appendChild(chart);
-    figure.appendChild(plot);
-    article.appendChild(figure);
-    parent.appendChild(article);
-    return plot;
-  }
-
   /** A Plotly chart and an SVG chart on one page, both bound by maidr. */
   function buildMixedPage(): { plotlyPlot: HTMLElement; svgPlot: HTMLElement } {
     const doc = dom.window.document;
@@ -436,5 +468,133 @@ describe('plotly focus ring', () => {
     plotlyPlot.focus();
 
     expect(dom.window.getComputedStyle(plotlyPlot).getPropertyValue('outline')).toBe('none');
+  });
+});
+
+describe('plotly normalizer on a page with another Plotly chart', () => {
+  /** Queues animation frames so a test can run them one at a time. */
+  function queueFrames(): () => void {
+    const frames: FrameRequestCallback[] = [];
+    globals.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    return () => {
+      const due = frames.splice(0);
+      for (const callback of due) {
+        callback(0);
+      }
+    };
+  }
+
+  /** Plotly's toolbar: a container holding a button. */
+  function createModebar(): HTMLElement {
+    const doc = dom.window.document;
+    const modebar = doc.createElement('div');
+    modebar.className = 'modebar-container';
+    modebar.appendChild(doc.createElement('button'));
+    return modebar;
+  }
+
+  /**
+   * A Plotly chart maidr has already bound, earlier on the page: its graph
+   * div, its `.svg-container` with the wrapped SVG and the text container
+   * below it, and its modebar.
+   */
+  function buildOtherChart(): { graphDiv: HTMLElement; modebar: HTMLElement; text: HTMLElement } {
+    const doc = dom.window.document;
+    const graphDiv = doc.createElement('div');
+    graphDiv.className = 'js-plotly-plot';
+    graphDiv.setAttribute('data-maidr-auto', '1');
+    const container = doc.createElement('div');
+    container.className = 'svg-container';
+    graphDiv.appendChild(container);
+    const svg = doc.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'main-svg');
+    const plot = wrapInMaidrFigure(svg, 'other', container);
+    const text = doc.createElement('div');
+    text.id = 'react-container-other';
+    plot.after(text);
+    const modebar = createModebar();
+    container.appendChild(modebar);
+    doc.body.appendChild(graphDiv);
+    return { graphDiv, modebar, text };
+  }
+
+  /** Asserts that nothing in `modebar` was taken out of the tab order. */
+  function expectUntouched(modebar: HTMLElement): void {
+    expect(modebar.hasAttribute('aria-hidden')).toBe(false);
+    expect(modebar.hasAttribute('tabindex')).toBe(false);
+    expect(modebar.querySelector('[tabindex]')).toBeNull();
+  }
+
+  it('leaves the other chart alone when the SVG is in no graph div', () => {
+    // An `svg.main-svg` outside `.js-plotly-plot` is still read as Plotly.
+    // Its lookups fell back to the whole page and took the first match there:
+    // the other chart's modebar left the accessibility tree, and the other
+    // chart's graph div took this chart's click listener.
+    const other = buildOtherChart();
+    const doc = dom.window.document;
+    const svg = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+    svg.setAttribute('class', 'main-svg');
+    doc.body.appendChild(svg);
+
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+
+    expectUntouched(other.modebar);
+    expect(doc.querySelector('[data-maidr-click-focus]')).toBeNull();
+  });
+
+  it('pads neither its own text nor the other chart\'s', () => {
+    // The layout observer watched the first maidr article on the page and
+    // padded the other chart's text by this chart's height. This chart's own
+    // text needs no padding either: Plotly's stylesheet positions a
+    // `main-svg` absolutely only inside a graph div, so outside one the SVG
+    // keeps its height and its text already sits below it.
+    const runFrame = queueFrames();
+    const other = buildOtherChart();
+    const doc = dom.window.document;
+    const svg = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+    svg.setAttribute('class', 'main-svg');
+    svg.setAttribute('height', '300');
+    doc.body.appendChild(svg);
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+    const plot = wrapInMaidrFigure(svg, 'own', doc.body);
+    const text = doc.createElement('div');
+    text.id = 'react-container-own';
+    plot.after(text);
+
+    runFrame();
+
+    expect(text.style.paddingTop).toBe('');
+    expect(other.text.style.paddingTop).toBe('');
+  });
+
+  it('hides the modebar and forwards clicks of an SVG in a bare .svg-container', () => {
+    // Without a graph div, the chart's modebar and overlay layers are in the
+    // `.svg-container` Plotly draws the SVG in: that is where to look, and
+    // not the page.
+    const other = buildOtherChart();
+    const doc = dom.window.document;
+    const container = doc.createElement('div');
+    container.className = 'svg-container';
+    const svg = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+    svg.setAttribute('class', 'main-svg');
+    const overlay = doc.createElementNS(SVG_NS, 'svg');
+    overlay.setAttribute('class', 'main-svg');
+    const modebar = createModebar();
+    container.append(svg, overlay, modebar);
+    doc.body.appendChild(container);
+
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+    const plot = wrapInMaidrFigure(svg, 'own', container);
+    overlay.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+
+    expect(modebar.getAttribute('aria-hidden')).toBe('true');
+    expect(modebar.getAttribute('tabindex')).toBe('-1');
+    expect(modebar.querySelector('button')?.getAttribute('tabindex')).toBe('-1');
+    expect(doc.activeElement).toBe(plot);
+    expectUntouched(other.modebar);
+    expect(other.graphDiv.hasAttribute('data-maidr-click-focus')).toBe(false);
   });
 });
