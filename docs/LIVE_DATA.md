@@ -153,6 +153,27 @@ Returns `true` when a registered chart accepted the target. A chart the reader i
 
 In-browser AI agents reach the same method. Where the browser offers the experimental [WebMCP tools](WEBMCP.html), the `maidr_navigate` tool calls `navigateTo` on the reader's behalf, so an agent's move is announced, kept for the next focus-in, or refused exactly as described here. `navigateTo` itself never moves keyboard focus; the agent's tool does, into the chart, only when it passes `focus: true` because the reader asked to be taken there, and the kept target is then applied by the focus-in that follows.
 
+### `window.maidrLive.version` and `window.maidrLive.features`
+
+What the script on the page is, and what it does for a chart that shares a page with other content: a Quarto or R Markdown slide, a site with a search box, a dashboard card. A binding that carries its own copy of the same work — py-maidr's and r-maidr's inline scripts do, for the maidr.js releases before these — reads them to stand its copy down.
+
+```javascript
+window.maidrLive.version;   // the release, such as '4.15.0'
+window.maidrLive.features;  // { hostGuards: 1, focusRing: 1 }, frozen
+
+const live = window.maidrLive;
+if (live && live.features && live.features.hostGuards >= 1) {
+  // maidr.js keeps the page's shortcuts off the chart's keys itself.
+}
+```
+
+| Feature | Since revision 1 |
+| --- | --- |
+| `hostGuards` | While a chart has focus, the page's own shortcuts leave its keys alone: reveal.js's slide keys and search plugin (Ctrl/Cmd+Shift+F, unless the reader has bound that key in MAIDR), Quarto's site search, the Escape of a full-screen dashboard card, gitbook's Mousetrap shortcuts, ioslides, slidy, a flexdashboard storyboard's arrow keys and pkgdown's `/`. Shift+Tab from a chart that is the first thing on a reveal.js, ioslides or slidy slide hands focus to the slide. |
+| `focusRing` | A visible focus ring on the chart and on MAIDR's fields and buttons, `!important` for a chart bound from the page so a stylesheet that removes outlines does not take it, and themeable through `--maidr-focus-ring-color` and `--maidr-focus-ring-inner`. |
+
+Each feature is a revision number that only goes up, when what it covers grows, so test with `>=`; a feature an older build does not have reads as `undefined`. Only the core script bundle (`maidr.js`) sets `window.maidrLive`: the adapter bundles do not, so a page that loads only an adapter bundle shows no flags, and a binding there keeps its own copies. The guards mark what they wrap, and honour the marks the bindings' copies leave, so the two never wrap the same thing twice.
+
 ### Complete streaming example
 
 ```html

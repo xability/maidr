@@ -2,6 +2,8 @@ import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData } from '@type/grammar';
 import type { JSX, ReactNode, PointerEvent as ReactPointerEvent } from 'react';
 import { TraceType } from '@type/grammar';
+import { Constant } from '@util/constant';
+import { ensureDocumentStyle } from '@util/documentStyle';
 import { t } from '@util/i18n';
 import { formatPlotType, resolveOrientation } from '@util/orientation';
 import { plotTypeLabel } from '@util/plotTypeLabel';
@@ -126,23 +128,74 @@ function getInitialInstruction(data: MaidrData): string {
  */
 const FIGURE_MARGIN_RULE = ':where(figure[id^="maidr-figure-"]) { margin-left: 0; margin-right: 0; }';
 
+/** The plot element MAIDR makes focusable around a chart. */
+const PLOT = 'figure[id^="maidr-figure-"] > div[tabindex="0"]';
+
 /**
- * Adds {@link FIGURE_MARGIN_RULE} to the head of the figure's document, once
- * per document.
- * @param figure - A MAIDR figure in its document
+ * A chart bound from the page -- by a script tag, or by r-maidr and
+ * py-maidr -- rather than rendered by a React app. `initMaidrOnElement` marks
+ * the element it mounts the chart in.
  */
-function applyFigureMarginRule(figure: HTMLElement): void {
-  const head = figure.ownerDocument.head;
-  if (!head || head.querySelector('style[data-maidr-figure]')) {
-    return;
-  }
-  const style = figure.ownerDocument.createElement('style');
-  style.setAttribute('data-maidr-figure', '');
-  style.textContent = FIGURE_MARGIN_RULE;
-  // First in the head: a page rule of equal specificity, such as `*`, then
-  // comes later and wins.
-  head.prepend(style);
+const EMBEDDED = `:where([${Constant.MAIDR_EMBED}]) > article[id^="maidr-article-"]`;
+
+/**
+ * A visible focus (WCAG 2.4.7) for the chart and for MAIDR's own fields.
+ *
+ * Two strengths. A React app has a focus design of its own, so its charts get
+ * a ring with no specificity at all, on keyboard focus only, which any rule
+ * of the app's replaces. A chart bound from the page shares it with
+ * stylesheets that were never written with a chart in mind, and some remove
+ * every outline (`*:focus { outline: none !important }`, or a slide theme's
+ * `.cell-output-display * { ... }`): there the ring is `!important` and
+ * specific enough to outlast them, and shows on every focus, a click
+ * included, as the bindings' own rings always have.
+ *
+ * The ring is drawn inside the plot, since a slide, a card or a notebook
+ * cell that clips its overflow would cut off one drawn outside it. A light
+ * band inside it, the outline of the chart's own `<svg>`, keeps it visible on
+ * a dark plot; the `<svg>` sits directly in the plot, or inside the
+ * `display: contents` element a chart bound from the page is adopted into.
+ * Both colours can be set by a page, through `--maidr-focus-ring-color` and
+ * `--maidr-focus-ring-inner`. Under forced colours the ring takes the
+ * system's highlight colour and the band goes.
+ *
+ * A Plotly chart draws its ring on Plotly's own container instead, and the
+ * Plotly adapter turns these off with a more specific rule.
+ */
+const FOCUS_RING_RULES = `
+:where(${PLOT}:focus-visible) {
+  outline: 3px solid var(--maidr-focus-ring-color, #1a5fb4);
+  outline-offset: -3px;
 }
+${EMBEDDED} > ${PLOT}:focus {
+  outline: 3px solid var(--maidr-focus-ring-color, #1a5fb4) !important;
+  outline-offset: -3px !important;
+}
+${EMBEDDED} > ${PLOT}:focus > svg,
+${EMBEDDED} > ${PLOT}:focus > div > svg {
+  outline: 2px solid var(--maidr-focus-ring-inner, #fff) !important;
+  outline-offset: -5px !important;
+}
+${EMBEDDED} :is(textarea, input, select):focus,
+${EMBEDDED} :is(button, a, [role="button"]):focus-visible {
+  outline: 3px solid var(--maidr-focus-ring-color, #1a5fb4) !important;
+  outline-offset: 1px !important;
+}
+@media (forced-colors: active) {
+  :where(${PLOT}:focus-visible) {
+    outline-color: Highlight;
+  }
+  ${EMBEDDED} > ${PLOT}:focus,
+  ${EMBEDDED} :is(textarea, input, select):focus,
+  ${EMBEDDED} :is(button, a, [role="button"]):focus-visible {
+    outline-color: Highlight !important;
+  }
+  ${EMBEDDED} > ${PLOT}:focus > svg,
+  ${EMBEDDED} > ${PLOT}:focus > div > svg {
+    outline: none !important;
+  }
+}
+`;
 
 export function Maidr({ data, children }: MaidrProps): JSX.Element {
   // Each Maidr instance gets its own isolated Redux store.
@@ -158,8 +211,10 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
 
   // Before the first paint, so the chart is never drawn indented.
   useLayoutEffect(() => {
-    if (figureRef.current) {
-      applyFigureMarginRule(figureRef.current);
+    const doc = figureRef.current?.ownerDocument;
+    if (doc) {
+      ensureDocumentStyle(doc, 'data-maidr-figure', FIGURE_MARGIN_RULE);
+      ensureDocumentStyle(doc, 'data-maidr-focus-ring', FOCUS_RING_RULES);
     }
   }, [figureRef]);
 

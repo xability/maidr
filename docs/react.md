@@ -460,6 +460,25 @@ Once a chart is focused, the following keyboard shortcuts are available:
 
 For a complete list, see the [Controls documentation](../README.md#controls).
 
+## Focus Ring
+
+MAIDR draws a 3px ring inside a chart when it takes keyboard focus. In a React
+app the rule has no specificity at all and applies on keyboard focus only
+(`:focus-visible`), so any focus style of your own replaces it. Its colour is
+`--maidr-focus-ring-color` (default `#1a5fb4`):
+
+```css
+:root {
+  --maidr-focus-ring-color: #c01c28;
+}
+```
+
+A chart bound from the page instead — the script tag, py-maidr, r-maidr —
+shares the page with stylesheets that may remove every outline, so there the
+ring is `!important`, shows on every focus, rings MAIDR's own fields and
+buttons as well, and has a light inner band, `--maidr-focus-ring-inner`
+(default `#fff`), that keeps it visible on a dark plot.
+
 ## Vanilla JS vs React
 
 MAIDR supports two usage modes:

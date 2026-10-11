@@ -11,7 +11,7 @@ import { InvalidKeyCommand } from '@command/invalidKey';
 import { PointerGuidanceCommand } from '@command/pointerGuidance';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
-import { combosOf, formatCombo, normalizeCombo } from '@util/keyCombo';
+import { comboFromKeyboardEvent, combosOf, formatCombo, normalizeCombo } from '@util/keyCombo';
 import { Platform } from '@util/platform';
 import hotkeys from 'hotkeys-js';
 
@@ -929,6 +929,25 @@ export class KeybindingService implements Observer<Settings> {
       return;
     }
     hotkeys.setScope(scope);
+  }
+
+  /**
+   * Whether the reader's keymap, in the scope they are in, binds the key a
+   * keydown carries -- the defaults, or a shortcut the reader chose instead.
+   *
+   * For a host-page guard deciding whether a key it would keep from the page
+   * is one MAIDR needs: stopping it before the document hides it from the
+   * bindings here as well.
+   * @param event - The keydown
+   * @returns True when a binding of the current scope would claim the key
+   */
+  public isBound(event: KeyboardEvent): boolean {
+    const combo = comboFromKeyboardEvent(event);
+    if (combo === null || this.scope === null) {
+      return false;
+    }
+    const keymap = getKeymapForScope(this.scope, this.overrides);
+    return Object.values(keymap).some(entry => combosOf(entry.hotkey).includes(combo));
   }
 
   /**

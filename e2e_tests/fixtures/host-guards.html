@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  Fixture for the host-page guards: a chart written into a page that has
+  shortcuts of its own.
+
+  Each host below is a stub shaped like the real one, listening where the real
+  one listens and asking what the real one asks before it acts:
+
+  - reveal.js: the slide keys, on the document in the bubble phase, after
+    asking the live config's `keyboardCondition`; `configure()` reshuffles
+    the deck, as a shuffled deck's does once it is ready, so a guard that
+    called it would show here. Ready one task after load, as a deck whose
+    plugins load is.
+  - reveal.js's search plugin: Ctrl/Cmd+Shift+F, from a listener of its own.
+  - Quarto's site search: `window.quartoOpenSearch`, looked up on keyup.
+  - A full-screen dashboard card: Escape anywhere leaves full screen, through
+    a document listener kept on the card's instance.
+  - gitbook's Mousetrap (1.6): asks `stopCallback` before each shortcut.
+  - slidy: leaves alone a key pressed on an element `special_element` names.
+  - pkgdown: `/` anywhere moves the focus to its search box.
+
+  And a stylesheet that removes every outline, as some slide themes do.
+  The hosts write what they did to `window.hostLog`.
+
+  The chart is the first tab stop on the page, on the first slide; the
+  button and the search box come after it. Above it on the slide is the code
+  that drew it, echoed as pandoc's HTML 4 writer (slidy's) writes code: a
+  link on each line, taken out of the tab order with `tabindex="-1"` and
+  not hidden, so it matches `a[href]` without being a tab stop.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>Host guards (keyboard fixture)</title>
+    <style>
+      *:focus {
+        outline: none !important;
+      }
+      .reveal .slides section[hidden] {
+        display: none;
+      }
+    </style>
+    <script type="text/javascript" src="../../dist/maidr.js"></script>
+  </head>
+
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section id="slide-1">
+          <h2>A chart on a slide</h2>
+          <div class="sourceCode" id="cb1">
+            <pre
+              class="sourceCode r"
+            ><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>barplot(c(A = 30, B = 60, C = 90))</span></code></pre>
+          </div>
+          <div id="card" data-full-screen="true">
+            <svg
+              id="host-guards"
+              xmlns="http://www.w3.org/2000/svg"
+              width="300"
+              height="200"
+              viewBox="0 0 300 200"
+              version="1.1"
+              maidr-data='{"id":"host-guards","title":"Host guards","subplots":[[{"id":"sp-host","selector":"#host-bars > rect","layers":[{"id":"layer-host","type":"bar","title":"Host guards","axes":{"x":{"label":"Slot"},"y":{"label":"Value"}},"data":[{"x":"A","y":30},{"x":"B","y":60},{"x":"C","y":90}],"selectors":"#host-bars > rect"}]}]]}'
+            >
+              <g id="host-bars">
+                <rect x="20" y="140" width="60" height="60" style="fill: #4477aa" />
+                <rect x="120" y="80" width="60" height="120" style="fill: #4477aa" />
+                <rect x="220" y="20" width="60" height="180" style="fill: #4477aa" />
+              </g>
+            </svg>
+          </div>
+        </section>
+        <section id="slide-2" hidden aria-hidden="true">
+          <h2>The next slide</h2>
+        </section>
+      </div>
+    </div>
+    <button id="outside" type="button">Outside the chart</button>
+    <input id="search-input" type="search" aria-label="Search the site" />
+
+    <script>
+      (function () {
+        var log = (window.hostLog = []);
+        var editable = function (element) {
+          return /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName) || element.isContentEditable;
+        };
+
+        // reveal.js
+        var config = { keyboardCondition: null, shuffle: true };
+        var ready = false;
+        var readyListeners = [];
+        window.reshuffles = 0;
+        window.Reveal = {
+          getConfig: function () {
+            return config;
+          },
+          isReady: function () {
+            return ready;
+          },
+          isFocused: function () {
+            return true;
+          },
+          hasPlugin: function (id) {
+            return id === 'search';
+          },
+          on: function (type, listener) {
+            if (type === 'ready') readyListeners.push(listener);
+          },
+          configure: function (options) {
+            Object.assign(config, options);
+            if (config.shuffle) {
+              window.reshuffles++;
+              var slides = document.querySelector('.reveal .slides');
+              slides.appendChild(slides.firstElementChild);
+            }
+          },
+        };
+        document.addEventListener('keydown', function (event) {
+          if (typeof config.keyboardCondition === 'function' && config.keyboardCondition(event) === false) return;
+          if (editable(event.target)) return;
+          if (event.key === 'ArrowRight' || event.key === ' ') log.push('reveal:' + event.key);
+        });
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'F' && (event.ctrlKey || event.metaKey)) log.push('reveal-search');
+        });
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            ready = true;
+            readyListeners.forEach(function (listener) {
+              listener();
+            });
+          }, 0);
+        });
+
+        // Quarto's site search
+        window.quartoOpenSearch = function () {
+          log.push('quarto-search');
+        };
+        document.addEventListener('keyup', function (event) {
+          if (editable(event.target)) return;
+          if (event.key === 'f' || event.key === 's') window.quartoOpenSearch();
+        });
+
+        // A full-screen dashboard card
+        var card = document.getElementById('card');
+        var instance = {
+          exitFullScreen: function () {
+            card.setAttribute('data-full-screen', 'false');
+            document.removeEventListener('keydown', instance._exitFullScreenOnEscape, false);
+            log.push('card-exit');
+          },
+        };
+        instance._exitFullScreenOnEscape = function (event) {
+          if (event.key === 'Escape') instance.exitFullScreen();
+        };
+        document.addEventListener('keydown', instance._exitFullScreenOnEscape, false);
+        window[['bs', 'lib'].join('')] = {
+          Card: {
+            getInstance: function (element) {
+              return element === card ? instance : undefined;
+            },
+          },
+        };
+
+        // gitbook's Mousetrap
+        function Mousetrap() {}
+        Mousetrap.prototype.stopCallback = function (event, element) {
+          return editable(element);
+        };
+        window.Mousetrap = Mousetrap;
+        var trap = new Mousetrap();
+        document.addEventListener('keydown', function (event) {
+          if (trap.stopCallback(event, event.target)) return;
+          if (event.key === 'ArrowRight') log.push('mousetrap:' + event.key);
+        });
+
+        // slidy
+        window.w3c_slidy = {
+          special_element: function (element) {
+            var tag = element.nodeName.toLowerCase();
+            return (
+              element.onkeydown ||
+              element.onclick ||
+              ['a', 'input', 'textarea', 'select', 'svg', 'canvas'].indexOf(tag) >= 0
+            );
+          },
+        };
+        document.addEventListener('keydown', function (event) {
+          if (window.w3c_slidy.special_element(event.target)) return;
+          if (event.key === 'ArrowRight') log.push('slidy:' + event.key);
+        });
+
+        // pkgdown
+        var search = document.getElementById('search-input');
+        document.addEventListener('keydown', function (event) {
+          if (event.key !== '/' || event.target === search) return;
+          event.preventDefault();
+          search.focus();
+          if (document.activeElement === search) log.push('pkgdown-search');
+        });
+      })();
+    </script>
+  </body>
+</html>

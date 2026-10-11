@@ -343,9 +343,12 @@ function setupStrokeMirror(bglayer: SVGGElement): void {
  *
  * The plot div maidr focuses wraps only Plotly's absolutely positioned SVG,
  * so it has no box of its own to draw a focus ring around: the ring goes on
- * Plotly's `.svg-container` instead, and the div's own is turned off. Only
- * inside a Plotly container, though — the stylesheet is page-wide, and every
- * other maidr chart on the page shows focus with its div's ring.
+ * Plotly's `.svg-container` instead, and the div's own is turned off, with
+ * the light band MAIDR draws on the chart's `<svg>` inside it. These rules
+ * have to stay more specific than MAIDR's own focus ring, `!important` on a
+ * chart bound from the page (see `maidr-component.tsx`). Only inside a Plotly
+ * container, though — the stylesheet is page-wide, and every other maidr
+ * chart on the page shows focus with its div's ring.
  */
 function injectPlotlyStyles(): void {
   if (document.querySelector('style[data-maidr-plotly]')) {
@@ -368,7 +371,8 @@ function injectPlotlyStyles(): void {
       outline: 2px solid #4A90D9;
       outline-offset: 2px;
     }
-    .js-plotly-plot .svg-container figure[id^="maidr-figure"] > div[tabindex="0"]:focus {
+    .js-plotly-plot .svg-container figure[id^="maidr-figure"] > div[tabindex="0"]:focus,
+    .js-plotly-plot .svg-container figure[id^="maidr-figure"] > div[tabindex="0"]:focus svg {
       outline: none !important;
     }
   `;

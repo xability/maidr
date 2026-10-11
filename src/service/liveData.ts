@@ -1043,6 +1043,47 @@ export interface MaidrLiveApi {
 }
 
 /**
+ * What the script bundle on the page is, and what it does for a chart that
+ * shares a page with other content, so a binding can tell whether it still
+ * needs its own copy of the same work. Set on `window.maidrLive` by the core
+ * script bundle only: the adapter bundles do not set `window.maidrLive`, and a
+ * page that loads only those keeps a binding's own copies.
+ *
+ * @example
+ * ```js
+ * const live = window.maidrLive;
+ * if (live && live.features && live.features.hostGuards >= 1) {
+ *   // maidr.js guards reveal.js, Quarto's search and the rest itself.
+ * }
+ * ```
+ */
+export interface MaidrRuntimeInfo {
+  /** The release of the bundle, such as `4.15.0`. */
+  readonly version: string;
+  /**
+   * One revision number per feature, frozen. A revision only goes up, when
+   * what the feature covers grows; a feature absent from an older build reads
+   * as `undefined`.
+   */
+  readonly features: Readonly<{
+    /**
+     * Keeps the shortcuts of a host page -- reveal.js, Quarto's search, a
+     * full-screen card, gitbook's Mousetrap, ioslides, slidy, a storyboard's
+     * Sly, pkgdown's search -- off the keys a reader presses in a chart, and
+     * hands Shift + Tab at the start of a deck's slide to the slide.
+     */
+    hostGuards: number;
+    /**
+     * Draws a focus ring on the chart. For a chart bound from the page it is
+     * `!important`, so a stylesheet that removes outlines does not take it,
+     * and it rings MAIDR's fields and buttons too; in a React app it has no
+     * specificity, and any focus style of the app's replaces it.
+     */
+    focusRing: number;
+  }>;
+}
+
+/**
  * Replaces all data for the chart identified by `maidr.id`.
  * Convenience wrapper around {@link liveDataManager}.
  *

@@ -1,10 +1,12 @@
-import type { MaidrLiveApi } from './service/liveData';
+import type { MaidrLiveApi, MaidrRuntimeInfo } from './service/liveData';
 import type { Maidr } from './type/grammar';
 import { claimPlotlyExamination, extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
+import { installHostGuards } from './service/hostGuard';
 import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
 import { disposeMaidrOnElement, initMaidrOnElement } from './util/initMaidr';
+import { MAIDR_VERSION } from './util/version';
 
 declare global {
   interface Window {
@@ -13,8 +15,10 @@ declare global {
      * Realtime/streaming data API. Use `setData` to replace chart data,
      * `appendData` to stream individual points into live charts, and
      * `navigateTo` to move a chart's cursor to a position the host chose.
+     * `version` and `features` say what this build is and does, for a
+     * binding deciding whether it still needs its own copy of something.
      */
-    maidrLive?: MaidrLiveApi;
+    maidrLive?: MaidrLiveApi & MaidrRuntimeInfo;
     /**
      * Disconnects all MAIDR MutationObservers to free memory.
      * Call this when cleaning up in SPAs or before page unload.
@@ -32,7 +36,25 @@ window.maidrLive = {
   appendData: (point, options) => liveDataManager.appendData(point, options),
   // Only the id: a target the page sets is the host's, whatever else it passes.
   navigateTo: (target, options) => liveDataManager.navigateTo(target, { id: options?.id }),
+  version: MAIDR_VERSION,
+  // Raised when what a feature covers grows, so a binding can tell a build
+  // that guards one more host from one that does not. Frozen: a binding reads
+  // these to decide whether to stand its own copy down.
+  features: Object.freeze({ hostGuards: 1, focusRing: 1 }),
 };
+
+// Now, while the page may still be loading: ioslides binds its key handler
+// when it builds the deck at DOMContentLoaded, and only a handler guarded
+// before then is guarded at all. Again once the page has loaded, for the
+// hosts that appear later in it, reveal.js and Quarto's search among them;
+// every chart's focus installs them once more, for a host built later still.
+installHostGuards();
+if (document.readyState === 'loading') {
+  document.addEventListener(DomEventType.DOM_LOADED, installHostGuards);
+}
+if (document.readyState !== 'complete') {
+  window.addEventListener('load', installHostGuards);
+}
 
 /** Stores active MutationObservers for cleanup. */
 let maidrAttributeObserver: MutationObserver | null = null;

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  Fixture for the ioslides guard: a chart on an ioslides slide, with maidr.js
+  loaded before the deck is built.
+
+  ioslides binds its key handler on the document, in the capture phase, when
+  it builds the deck at DOMContentLoaded -- and binding copies the method, so
+  the handler can only be guarded on the prototype before then. The stub of
+  slide-deck.js below is loaded first and builds its deck from a
+  DOMContentLoaded listener it adds before maidr.js runs, as rmarkdown's
+  ioslides output does, so only a guard installed while maidr.js is
+  evaluated reaches it. The deck writes what it did to `window.hostLog`.
+
+  The slides are laid out as ioslides lays them out: every one rendered, with
+  only a class saying which is in view and none of them marked hidden. The
+  chart is on the current slide, the second, after a link on the first.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>Host guards on ioslides (keyboard fixture)</title>
+    <style>
+      /* As ioslides' own stylesheet: every slide shown, those not in view faded out. */
+      slides > slide {
+        display: block;
+      }
+      slides > slide:not(.current) {
+        opacity: 0;
+      }
+    </style>
+    <script>
+      (function () {
+        var log = (window.hostLog = []);
+        function SlideDeck() {
+          document.addEventListener('keydown', this.onBodyKeyDown_.bind(this), true);
+        }
+        SlideDeck.prototype.onBodyKeyDown_ = function (event) {
+          if (/^(input|textarea)$/i.test(event.target.nodeName) || event.target.isContentEditable) return;
+          if (event.key === 'ArrowRight' || event.key === ' ') log.push('ioslides:' + event.key);
+        };
+        window.SlideDeck = SlideDeck;
+        document.addEventListener('DOMContentLoaded', function () {
+          window.slidedeck = new SlideDeck();
+        });
+      })();
+    </script>
+    <script type="text/javascript" src="../../dist/maidr.js"></script>
+  </head>
+
+  <body>
+    <slides>
+      <slide id="slide-1" class="past">
+        <hgroup><h2>The slide before</h2></hgroup>
+        <article><a href="#slide-1">A link on the slide before</a></article>
+      </slide>
+      <slide id="slide-2" class="current">
+        <hgroup><h2>A chart on a slide</h2></hgroup>
+        <article>
+          <svg
+            id="host-guards-ioslides"
+            xmlns="http://www.w3.org/2000/svg"
+            width="300"
+            height="200"
+            viewBox="0 0 300 200"
+            version="1.1"
+            maidr-data='{"id":"host-guards-ioslides","title":"Host guards","subplots":[[{"id":"sp-io","selector":"#io-bars > rect","layers":[{"id":"layer-io","type":"bar","title":"Host guards","axes":{"x":{"label":"Slot"},"y":{"label":"Value"}},"data":[{"x":"A","y":30},{"x":"B","y":60},{"x":"C","y":90}],"selectors":"#io-bars > rect"}]}]]}'
+          >
+            <g id="io-bars">
+              <rect x="20" y="140" width="60" height="60" style="fill: #4477aa" />
+              <rect x="120" y="80" width="60" height="120" style="fill: #4477aa" />
+              <rect x="220" y="20" width="60" height="180" style="fill: #4477aa" />
+            </g>
+          </svg>
+        </article>
+      </slide>
+      <slide id="slide-3" class="next">
+        <hgroup><h2>The next slide</h2></hgroup>
+      </slide>
+    </slides>
+  </body>
+</html>

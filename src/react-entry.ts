@@ -81,6 +81,7 @@ export {
   appendMaidrData,
   type LiveDataPoint,
   type MaidrLiveApi,
+  type MaidrRuntimeInfo,
   navigateMaidr,
   setMaidrData,
 } from './service/liveData';

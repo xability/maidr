@@ -31,6 +31,7 @@ import react from '@vitejs/plugin-react';
 import { build, esmExternalRequirePlugin } from 'vite';
 import dts from 'vite-plugin-dts';
 import { assertClassicScriptsRunWithoutAmd, classicScripts } from './classicScriptAmd.js';
+import { assertNoDashboardPattern } from './dashboardPattern.js';
 import { DIST_MANIFEST_NAME, publishManifest } from './dotPadSdk.js';
 import { assertNoRequireShim } from './esmRequireShim.js';
 import { amdRegistration } from './vite-plugin-amd-registration.js';
@@ -960,6 +961,7 @@ async function main() {
     if (!isWorker) {
       assertNoRequireShim(path.resolve(rootDir, 'dist'));
       assertClassicScriptsRunWithoutAmd(path.resolve(rootDir, 'dist'), classicScripts(selected));
+      assertNoDashboardPattern(path.resolve(rootDir, 'dist'));
       publishManifest(path.resolve(rootDir, 'dist'));
       console.log(`All builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
     }
@@ -992,6 +994,8 @@ async function main() {
   // a classic script that an AMD loader on the page would take and never run.
   assertNoRequireShim(outDir);
   assertClassicScriptsRunWithoutAmd(outDir, classicScripts(selected));
+  // Nor does it know which text a Quarto dashboard lifts out of its cards.
+  assertNoDashboardPattern(outDir);
 
   // The DotPad SDK pin ships with the package (`dist/dotpad-sdk.json`) so the
   // bindings and the skill can copy it when they refresh the bundle. Written

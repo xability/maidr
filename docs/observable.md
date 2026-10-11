@@ -137,9 +137,14 @@ maidr-version: "4.2.0"
 ### Reveal.js slides
 
 An `{ojs}` cell draws its chart straight into the slide, so the deck's own tab
-order is the browser's: **Tab** reaches the chart, the arrow keys explore it,
-and **Shift+Tab** goes back to whatever precedes it on the slide, from where
-**Space** advances the deck.
+order is the browser's: **Tab** reaches the chart, and the arrow keys explore
+it. While the chart has focus, MAIDR holds reveal.js's own keys off, so an
+arrow key or **Space** is the chart's and does not turn the slide, and
+**Ctrl+Shift+F** (**Cmd+Shift+F** on a Mac) does not open the deck's search.
+**Shift+Tab** goes back to whatever precedes the chart on the slide; when
+nothing does, because the chart is the first thing on the page, it takes you
+to the slide itself rather than out of the page. From there **Space** advances
+the deck.
 
 One reveal.js behaviour gets in the way, and it has nothing to do with MAIDR.
 reveal.js keeps the slides on either side of the current one rendered so that

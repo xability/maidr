@@ -79,6 +79,11 @@ export abstract class Constant {
   static readonly MAIDR_SUBPLOT = 'subplot';
   /** MAIDR attribute name */
   static readonly MAIDR = 'maidr';
+  /**
+   * Marks the container a chart bound from the page (a script tag, a binding)
+   * is mounted in, rather than one a React app renders itself
+   */
+  static readonly MAIDR_EMBED = 'data-maidr-embed';
   /** CSS selector for elements whose `maidr` attribute contains JSON (starts with '{') */
   static readonly MAIDR_JSON_SELECTOR = '[maidr^="{"]';
   // Attribute values.
