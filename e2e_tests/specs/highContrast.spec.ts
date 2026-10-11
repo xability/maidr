@@ -148,6 +148,8 @@ test.describe('High contrast mode', () => {
 
     expect(during.page).toBe(DARK);
     expect(during.chartStyle).toBe('');
+    // A guard: high contrast reads and paints only the chart's own document,
+    // never a parent frame's, so nothing it does reaches the host page.
     expect(hostDuring).toEqual(host);
     expect(after.pageStyle).toBe('');
   });

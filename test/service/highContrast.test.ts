@@ -832,8 +832,10 @@ describe('highContrastService', () => {
       const article = harness.article as HTMLElement;
 
       harness.service.initializeHighContrast();
+      const painted = article.style.backgroundColor;
       turnHighContrastOff(harness.settings);
 
+      expect(painted).toBe(DARK);
       expect(article.style.getPropertyValue('background-color')).toBe('rgb(1, 2, 3)');
       expect(article.style.getPropertyPriority('background-color')).toBe('important');
     });
