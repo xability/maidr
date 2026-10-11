@@ -61,10 +61,11 @@ export function normalizePlotlySvg(
   svg: SVGSVGElement,
   schema: Maidr,
 ): void {
-  // Every lookup below stays inside this chart, never the page: another
-  // chart's modebar, text and clicks are not this one's to change. A
-  // `main-svg` outside a graph div still sits in Plotly's `.svg-container`,
-  // which holds its modebar and overlay layers.
+  // Every lookup of the chart's own parts -- its modebar, its text, the
+  // target of its clicks -- stays inside this chart, never the page: another
+  // chart's are not this one's to change. A `main-svg` outside a graph div
+  // usually still sits in Plotly's `.svg-container`, which holds its modebar
+  // and overlay layers; a static export sits in neither and has none.
   const plotlyDiv = svg.closest('.js-plotly-plot') as HTMLElement | null;
   const container = plotlyDiv ?? svg.closest<HTMLElement>('.svg-container');
 
