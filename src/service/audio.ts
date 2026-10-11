@@ -62,12 +62,14 @@ const SUBPLOT_EXIT_FREQUENCIES = [783.99, 659.25, 523.25]; // G5-E5-C5 falling
 // below the menu cues so it sits under the mode name the screen reader is
 // speaking rather than competing with it. The ticks drift up for the next
 // mode and down for the previous one, so the two directions are told apart
-// without a separate sound.
+// without a separate sound. The clicks sit around 1.2-1.6 kHz rather than
+// higher: still a crisp tick, but inside the range high-frequency hearing
+// loss leaves intact, which many readers of this library live with.
 const ROTOR_TICK_DURATION = 0.012; // a click, not a tone
 const ROTOR_TICK_SPACE = 0.035; // ratchet cadence between clicks
 const ROTOR_TICK_VOLUME_SCALE = 0.2; // quieter than the menu cues
-const ROTOR_NEXT_FREQUENCIES = [2400, 2600, 2800];
-const ROTOR_PREV_FREQUENCIES = [2800, 2600, 2400];
+const ROTOR_NEXT_FREQUENCIES = [1200, 1400, 1600];
+const ROTOR_PREV_FREQUENCIES = [1600, 1400, 1200];
 
 // 60 ms is short enough that rapid beeps don't blur together at the fastest
 // throttle interval, while still being long enough to be clearly audible as

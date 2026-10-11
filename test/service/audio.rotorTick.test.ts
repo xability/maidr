@@ -203,4 +203,35 @@ describe('AudioService rotor ratchet cue', () => {
     expect(ctx.oscillators.length).toBe(before + 3);
     service.dispose();
   });
+
+  it('keeps the clicks below 2 kHz, where high-frequency hearing loss leaves them audible', async () => {
+    const ctx = installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playRotorTick('next');
+    service.playRotorTick('prev');
+
+    for (const osc of ctx.oscillators.slice(before)) {
+      expect(osc.frequency.value).toBeLessThan(2000);
+    }
+    service.dispose();
+  });
+
+  it('disconnects the clicks when the service is disposed', async () => {
+    const ctx = installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.playRotorTick('next');
+    service.dispose();
+
+    const clicks = ctx.oscillators.slice(before);
+    expect(clicks).toHaveLength(3);
+    for (const click of clicks) {
+      expect(click.disconnect).toHaveBeenCalled();
+    }
+  });
 });
