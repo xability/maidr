@@ -331,4 +331,31 @@ describe('resolveSubplotLayout keeps to its own chart', () => {
 
     expect(layout.axesElements.get('0,0')).toBe(roots[1].querySelector('g[id^="axes_"]'));
   });
+
+  it('orders panels with no axes groups by the marks inside the chart, not the first on the page', () => {
+    // Two charts drawn from one spec, each two panels stacked; the first
+    // emits its top panel first, the second its bottom panel first.
+    const roots = [[0, 100], [300, 200]].map((tops) => {
+      const root = document.createElement('div');
+      root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">`
+        + `<rect class="panel-a-mark"/><rect class="panel-b-mark"/></svg>`;
+      document.body.appendChild(root);
+      mockRect(root.querySelector('.panel-a-mark') as Element, { top: tops[0], left: 0 });
+      mockRect(root.querySelector('.panel-b-mark') as Element, { top: tops[1], left: 0 });
+      return root;
+    });
+    const subplots = grid([
+      [{ layerSelector: '.panel-a-mark' }],
+      [{ layerSelector: '.panel-b-mark' }],
+    ]);
+
+    const first = resolveSubplotLayout(subplots, [roots[0]]);
+    const second = resolveSubplotLayout(subplots, [roots[1]]);
+
+    expect(first.topLeftRow).toBe(0);
+    expect(first.invertVertical).toBe(true);
+    expect(second.topLeftRow).toBe(1);
+    expect(second.invertVertical).toBe(false);
+    expect(second.visualOrderMap.get('1,0')).toBe(1);
+  });
 });
