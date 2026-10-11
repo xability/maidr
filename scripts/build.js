@@ -30,9 +30,11 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { build, esmExternalRequirePlugin } from 'vite';
 import dts from 'vite-plugin-dts';
+import { assertClassicScriptsRunWithoutAmd, classicScripts } from './classicScriptAmd.js';
 import { assertNoDashboardPattern } from './dashboardPattern.js';
 import { DIST_MANIFEST_NAME, publishManifest } from './dotPadSdk.js';
 import { assertNoRequireShim } from './esmRequireShim.js';
+import { amdRegistration } from './vite-plugin-amd-registration.js';
 import { mathStylesheet } from './vite-plugin-math-stylesheet.js';
 import { woff2OnlyFonts } from './vite-plugin-woff2-only.js';
 
@@ -169,9 +171,15 @@ export const LOCALE_PACKS = ['ko', 'ja', 'zh', 'es', 'de', 'fr', 'it', 'hi'];
 
 /**
  * A pack is a side-effect entry with no exports and no React, so it needs no
- * declaration file. Flat filenames rather than a `locale/` directory: each
- * pack builds in its own worker, and the merge step treats a directory two
- * workers both emit as a collision.
+ * declaration file. Its classic script is an IIFE, not UMD: for an entry with
+ * no exports rolldown's UMD wrapper is nothing but an anonymous `define` when
+ * the page has an AMD loader, so under require.js the pack never ran (see
+ * vite-plugin-amd-registration.js). Vite requires a name for an IIFE; one
+ * with no exports never assigns it.
+ *
+ * Flat filenames rather than a `locale/` directory: each pack builds in its
+ * own worker, and the merge step treats a directory two workers both emit as
+ * a collision.
  * @param locale - The pack's locale code
  * @returns The build configuration for that pack
  */
@@ -181,7 +189,8 @@ function localePackBuild(locale) {
     name: `locale-${locale}`,
     entry: `src/locale/${locale}.ts`,
     libName: `maidrLocale${capitalised}`,
-    formats: ['es', 'umd'],
+    formats: ['es', 'iife'],
+    amdName: `maidr/locale/${locale}`,
     fileName: format => format === 'es' ? `locale-${locale}.mjs` : `locale-${locale}.js`,
     emptyOutDir: false,
     external: [],
@@ -196,16 +205,25 @@ function localePackBuild(locale) {
  *
  * Exported so the build-config test can assert against the real array rather
  * than a fixture that could drift away from it.
+ *
+ * `amdName` is the name a bundle's classic script (`iife` or `umd`) registers
+ * under with an AMD loader on the page once it has run: its import path in
+ * package.json's `exports`. Every classic script needs one, and the build
+ * fails without it (see vite-plugin-amd-registration.js).
  */
 export const builds = [
   {
     name: 'core',
     entry: 'src/index.tsx',
     libName: 'maidr',
-    // UMD only: src/index.tsx is a pure side-effect entry with no exports, so
-    // an ES build has no consumer value. Adding 'es' back here would also make
-    // both formats resolve to the same fileName and silently overwrite.
-    formats: ['umd'],
+    // A classic script, IIFE only. src/index.tsx is a pure side-effect entry
+    // with no exports, so an ES build has no consumer value, and adding 'es'
+    // back would make both formats resolve to the same fileName and silently
+    // overwrite. Not UMD, for the reason given at localePackBuild: under
+    // require.js maidr never ran. Nor an IIFE with exports, whose `var maidr`
+    // would overwrite the chart data a page may still set as `window.maidr`.
+    formats: ['iife'],
+    amdName: 'maidr',
     fileName: () => 'maidr.js',
     emptyOutDir: true,
     external: [],
@@ -239,6 +257,7 @@ export const builds = [
     name: 'google-charts',
     entry: 'src/google-charts-entry.ts',
     libName: 'maidrGoogleCharts',
+    amdName: 'maidr/google-charts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'google-charts.mjs' : 'google-charts.js',
     emptyOutDir: false,
@@ -254,6 +273,7 @@ export const builds = [
     name: 'frappe',
     entry: 'src/frappe-entry.ts',
     libName: 'maidrFrappe',
+    amdName: 'maidr/frappe',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'frappe.mjs' : 'frappe.js',
     emptyOutDir: false,
@@ -269,6 +289,7 @@ export const builds = [
     name: 'observable',
     entry: 'src/observable-entry.ts',
     libName: 'maidrObservable',
+    amdName: 'maidr/observable',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'observable.mjs' : 'observable.js',
     emptyOutDir: false,
@@ -286,6 +307,7 @@ export const builds = [
     name: 'echarts',
     entry: 'src/adapters/echarts/index.ts',
     libName: 'maidrECharts',
+    amdName: 'maidr/echarts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'echarts.mjs' : 'echarts.js',
     emptyOutDir: false,
@@ -304,6 +326,7 @@ export const builds = [
     name: 'd3',
     entry: 'src/adapters/d3/index.ts',
     libName: 'maidrD3',
+    amdName: 'maidr/d3',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'd3.mjs' : 'd3.js',
     emptyOutDir: false,
@@ -319,6 +342,7 @@ export const builds = [
     name: 'highcharts',
     entry: 'src/adapters/highcharts/index.ts',
     libName: 'maidrHighcharts',
+    amdName: 'maidr/highcharts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'highcharts.mjs' : 'highcharts.js',
     emptyOutDir: false,
@@ -334,6 +358,7 @@ export const builds = [
     name: 'apexcharts',
     entry: 'src/apexcharts-entry.ts',
     libName: 'maidrApexCharts',
+    amdName: 'maidr/apexcharts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'apexcharts.mjs' : 'apexcharts.js',
     emptyOutDir: false,
@@ -352,6 +377,7 @@ export const builds = [
     name: 'vegalite',
     entry: 'src/vegalite-entry.ts',
     libName: 'maidrVegaLite',
+    amdName: 'maidr/vegalite',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'vegalite.mjs' : 'vegalite.js',
     emptyOutDir: false,
@@ -364,6 +390,7 @@ export const builds = [
     name: 'chartjs',
     entry: 'src/adapters/chartjs/index.ts',
     libName: 'maidrChartjs',
+    amdName: 'maidr/chartjs',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'chartjs.mjs' : 'chartjs.js',
     emptyOutDir: false,
@@ -379,6 +406,7 @@ export const builds = [
     name: 'uplot',
     entry: 'src/adapters/uplot/index.ts',
     libName: 'maidrUPlot',
+    amdName: 'maidr/uplot',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'uplot.mjs' : 'uplot.js',
     emptyOutDir: false,
@@ -396,6 +424,7 @@ export const builds = [
     name: 'amcharts',
     entry: 'src/adapters/amcharts/index.ts',
     libName: 'maidrAmCharts',
+    amdName: 'maidr/amcharts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'amcharts.mjs' : 'amcharts.js',
     emptyOutDir: false,
@@ -413,6 +442,7 @@ export const builds = [
     name: 'lightweight-charts',
     entry: 'src/adapters/lightweight-charts/index.ts',
     libName: 'maidrLightweightCharts',
+    amdName: 'maidr/lightweight-charts',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'lightweight-charts.mjs' : 'lightweight-charts.js',
     emptyOutDir: false,
@@ -469,6 +499,7 @@ export const builds = [
     name: 'anychart',
     entry: 'src/anychart-entry.ts',
     libName: 'maidrAnyChart',
+    amdName: 'maidr/anychart',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'anychart.mjs' : 'anychart.js',
     emptyOutDir: false,
@@ -485,6 +516,7 @@ export const builds = [
     name: 'tableau',
     entry: 'src/tableau-entry.ts',
     libName: 'maidrTableau',
+    amdName: 'maidr/tableau',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'tableau.mjs' : 'tableau.js',
     emptyOutDir: false,
@@ -504,6 +536,7 @@ export const builds = [
     name: 'powerbi',
     entry: 'src/powerbi-entry.ts',
     libName: 'maidrPowerBI',
+    amdName: 'maidr/powerbi',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'powerbi.mjs' : 'powerbi.js',
     emptyOutDir: false,
@@ -520,6 +553,7 @@ export const builds = [
     name: 'excel',
     entry: 'src/excel-entry.ts',
     libName: 'maidrExcel',
+    amdName: 'maidr/excel',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'excel.mjs' : 'excel.js',
     emptyOutDir: false,
@@ -536,6 +570,7 @@ export const builds = [
     name: 'office',
     entry: 'src/office-entry.ts',
     libName: 'maidrOffice',
+    amdName: 'maidr/office',
     formats: ['es', 'umd'],
     fileName: format => format === 'es' ? 'office.mjs' : 'office.js',
     emptyOutDir: false,
@@ -573,6 +608,10 @@ export function createViteConfig(config) {
   // Its content is read from node_modules, not from the module graph, so every
   // bundle emits the same bytes and the merge step dedupes them.
   plugins.push(mathStylesheet());
+  // Registered for every bundle, like the two above: it touches only the
+  // classic scripts, and fails the build for one with no `amdName`, so a new
+  // bundle cannot ship waiting on an AMD loader by leaving the name out.
+  plugins.push(amdRegistration(config.amdName));
 
   const requireExternal = config.external.filter(id => REACT_RUNTIME.includes(id));
   const external = config.external.filter(id => !REACT_RUNTIME.includes(id));
@@ -921,6 +960,7 @@ async function main() {
     await runSequential(selected);
     if (!isWorker) {
       assertNoRequireShim(path.resolve(rootDir, 'dist'));
+      assertClassicScriptsRunWithoutAmd(path.resolve(rootDir, 'dist'), classicScripts(selected));
       assertNoDashboardPattern(path.resolve(rootDir, 'dist'));
       publishManifest(path.resolve(rootDir, 'dist'));
       console.log(`All builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
@@ -950,8 +990,10 @@ async function main() {
   }
 
   // `vite build` exits 0 even when an ESM bundle would throw on its first
-  // render in a browser, so read the merged output for that (#1370).
+  // render in a browser, so read the merged output for that (#1370), and for
+  // a classic script that an AMD loader on the page would take and never run.
   assertNoRequireShim(outDir);
+  assertClassicScriptsRunWithoutAmd(outDir, classicScripts(selected));
   // Nor does it know which text a Quarto dashboard lifts out of its cards.
   assertNoDashboardPattern(outDir);
 

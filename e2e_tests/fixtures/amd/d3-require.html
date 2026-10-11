@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  A page that loads maidr.js the way Observable notebooks and Quarto `{ojs}`
+  cells load a module: through d3-require, which installs its own AMD `define`
+  while the script loads and, once it has, pops the loader that `define`
+  queued. A script that defines nothing leaves it nothing to pop, and the
+  require rejects with "invalid module".
+
+  The loader below is d3-require's `define` and `requireAbsolute`, as Quarto
+  bundles them in quarto-ojs-runtime.js, without the name resolution: it is
+  handed the URL. `window.__required` is what `require("maidr")` settles to.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>d3-require host (regression fixture)</title>
+    <link rel="stylesheet" href="../../../dist/maidr.css" />
+  </head>
+
+  <body>
+    <svg
+      id="amd-host-bars"
+      xmlns="http://www.w3.org/2000/svg"
+      width="400"
+      height="300"
+      viewBox="0 0 400 300"
+      maidr='{"id":"amd-host-bars","title":"Fruit sold","subplots":[[{"layers":[{"id":"amd-host-layer","type":"bar","axes":{"x":{"label":"Fruit"},"y":{"label":"Boxes"}},"data":[{"x":"Apples","y":12},{"x":"Bananas","y":7},{"x":"Cherries","y":9}],"selectors":"#amd-host-marks > rect"}]}]]}'
+    >
+      <g id="amd-host-marks">
+        <rect x="40" y="60" width="80" height="240" style="fill: #4477aa" />
+        <rect x="160" y="160" width="80" height="140" style="fill: #4477aa" />
+        <rect x="280" y="120" width="80" height="180" style="fill: #4477aa" />
+      </g>
+    </svg>
+    <script>
+      (function () {
+        const queue = [];
+        let requestsInFlight = 0;
+        let prevDefine;
+
+        function define(name, dependencies, factory) {
+          const n = arguments.length;
+          if (n < 2) {
+            factory = name;
+            dependencies = [];
+          } else if (n < 3) {
+            factory = dependencies;
+            dependencies = typeof name === 'string' ? [] : name;
+          }
+          queue.push(function (require) {
+            return Promise.all(dependencies.map(require)).then(function (deps) {
+              return typeof factory === 'function' ? factory.apply(null, deps) : factory;
+            });
+          });
+        }
+        define.amd = {};
+
+        function require(url) {
+          return new Promise(function (resolve, reject) {
+            const script = document.createElement('script');
+            function done() {
+              script.remove();
+              requestsInFlight--;
+              if (requestsInFlight === 0) {
+                window.define = prevDefine;
+              }
+            }
+            script.onload = function () {
+              try {
+                resolve(queue.pop()(require));
+              } catch (error) {
+                reject(new Error('RequireError: invalid module'));
+              }
+              done();
+            };
+            script.onerror = function () {
+              reject(new Error('RequireError: unable to load module'));
+              done();
+            };
+            script.async = true;
+            script.src = url;
+            if (requestsInFlight === 0) {
+              prevDefine = window.define;
+              window.define = define;
+            }
+            requestsInFlight++;
+            document.head.appendChild(script);
+          });
+        }
+
+        window.__required = require('../../../dist/maidr.js').then(
+          function (module) {
+            return 'resolved to ' + typeof module;
+          },
+          function (error) {
+            return 'rejected: ' + error.message;
+          },
+        );
+      })();
+    </script>
+  </body>
+</html>

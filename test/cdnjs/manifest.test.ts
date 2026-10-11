@@ -112,7 +112,7 @@ function readBuildOutputs(): BuildOutputs {
       core: namesOf(builds.find(build => build.name === 'core')),
       localePacks: builds
         .filter(build => build.name.startsWith('locale-'))
-        .map(build => build.fileName('umd', entryNameOf(build))),
+        .map(build => build.fileName('iife', entryNameOf(build))),
       coreStylesheet: CORE_STYLESHEET_FILENAME,
       mathStylesheet: MATH_STYLESHEET_FILENAME,
       all: builds.flatMap(namesOf),
