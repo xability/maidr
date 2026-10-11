@@ -61,8 +61,6 @@ export abstract class Constant {
   static readonly STROKE = 'stroke';
   /** SVG stroke width attribute */
   static readonly STROKE_WIDTH = 'stroke-width';
-  /** HTML title attribute */
-  static readonly TITLE = 'title';
   /** SVG visibility attribute */
   static readonly VISIBILITY = 'visibility';
   /** SVG line x1 coordinate attribute */

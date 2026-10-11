@@ -132,7 +132,8 @@ describe('DisplayService describes the plot by its instructions', () => {
     expect(plot.getAttribute('role')).toBe('img');
     expect(plot.getAttribute('aria-label')).toBe(NAME);
     expect(descriptionOf(plot)).toBe(`Click to activate. Use Arrows. ${HELP}`);
-    expect(plot.getAttribute('title')).toBe('Click to activate. Use Arrows.');
+    // Not again as a title, which some screen readers read as well.
+    expect(plot.hasAttribute('title')).toBe(false);
   });
 
   test('leaves the description a page gave the plot first', () => {

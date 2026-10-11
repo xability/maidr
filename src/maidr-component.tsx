@@ -327,7 +327,6 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
           role="img"
           aria-label={chartName}
           aria-describedby={instructionId}
-          title={initialInstruction}
           style={{ width: 'fit-content' }}
           onPointerDown={handlePointerDown}
         >

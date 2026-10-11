@@ -39,6 +39,9 @@ test.describe('the chart\'s name and description', () => {
 
     await expect(plot).toHaveAccessibleName(NAME);
     await expect(plot).toHaveAccessibleDescription(BEFORE_FOCUS);
+    // The instructions are given once: a title would be read too by some
+    // screen readers.
+    await expect(plot).not.toHaveAttribute('title');
   });
 
   test('keeps the name and drops the click prompt once the chart is focused', async ({ page }) => {
@@ -69,5 +72,6 @@ test.describe('the chart\'s name and description', () => {
 
     await expect(plot).toHaveAccessibleName(NAME);
     await expect(plot).toHaveAccessibleDescription(BEFORE_FOCUS);
+    await expect(plot).not.toHaveAttribute('title');
   });
 });
