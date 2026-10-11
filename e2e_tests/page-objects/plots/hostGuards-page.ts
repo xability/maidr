@@ -75,6 +75,18 @@ export class HostGuardsPage extends BasePage {
   }
 
   /**
+   * Clicks into the chart, for a page whose first tab stop is elsewhere.
+   * @throws TestError if the chart does not take the focus
+   */
+  public async clickIntoChart(): Promise<void> {
+    try {
+      await super.activateMaidrOnClick(this.svgSelector, this.fixture);
+    } catch (error) {
+      throw new TestError('Failed to click into the chart', { cause: error });
+    }
+  }
+
+  /**
    * Moves the focus to the button after the chart, outside it.
    */
   public async focusOutside(): Promise<void> {

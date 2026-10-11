@@ -146,19 +146,21 @@ test.describe('Host-page guards on ioslides (host-guards-ioslides.html)', () => 
   });
 
   test('the deck built at DOMContentLoaded leaves the keys pressed in the chart alone', async () => {
-    await host.tabIntoChart();
+    await host.clickIntoChart();
 
     await host.moveToNextDataPoint();
 
     expect(await host.hostLog()).toEqual([]);
   });
 
-  test('Shift+Tab lands on the slide, where the deck\'s keys work again', async () => {
-    await host.tabIntoChart();
+  test('Shift+Tab lands on the slide, past a link on a slide out of view, and the deck\'s keys work again', async () => {
+    // The link on the slide before is a tab stop in document order, but not
+    // one on screen, so the chart is the first thing on the slide in view.
+    await host.clickIntoChart();
 
     await host.press('Shift+Tab');
 
-    expect(await host.focus()).toEqual({ tagName: 'SLIDE', id: 'slide-1', tabIndex: '-1', inChart: false });
+    expect(await host.focus()).toEqual({ tagName: 'SLIDE', id: 'slide-2', tabIndex: '-1', inChart: false });
 
     await host.press('ArrowRight');
 

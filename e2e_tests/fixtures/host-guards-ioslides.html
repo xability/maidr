@@ -11,11 +11,24 @@
   DOMContentLoaded listener it adds before maidr.js runs, as rmarkdown's
   ioslides output does, so only a guard installed while maidr.js is
   evaluated reaches it. The deck writes what it did to `window.hostLog`.
+
+  The slides are laid out as ioslides lays them out: every one rendered, with
+  only a class saying which is in view and none of them marked hidden. The
+  chart is on the current slide, the second, after a link on the first.
 -->
 
   <head>
     <meta charset="utf-8" />
     <title>Host guards on ioslides (keyboard fixture)</title>
+    <style>
+      /* As ioslides' own stylesheet: every slide shown, those not in view faded out. */
+      slides > slide {
+        display: block;
+      }
+      slides > slide:not(.current) {
+        opacity: 0;
+      }
+    </style>
     <script>
       (function () {
         var log = (window.hostLog = []);
@@ -37,7 +50,11 @@
 
   <body>
     <slides>
-      <slide id="slide-1">
+      <slide id="slide-1" class="past">
+        <hgroup><h2>The slide before</h2></hgroup>
+        <article><a href="#slide-1">A link on the slide before</a></article>
+      </slide>
+      <slide id="slide-2" class="current">
         <hgroup><h2>A chart on a slide</h2></hgroup>
         <article>
           <svg
@@ -57,7 +74,7 @@
           </svg>
         </article>
       </slide>
-      <slide id="slide-2" hidden>
+      <slide id="slide-3" class="next">
         <hgroup><h2>The next slide</h2></hgroup>
       </slide>
     </slides>

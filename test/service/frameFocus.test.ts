@@ -289,8 +289,22 @@ describe('in a page of its own', () => {
   });
 
   it('hands the reader to an ioslides slide', () => {
-    plot = chartIn('<slides><slide id="slide"><hgroup><h2>Title</h2></hgroup>'
+    plot = chartIn('<slides><slide id="slide" class="current"><hgroup><h2>Title</h2></hgroup>'
       + '<article id="content">{chart}</article></slide></slides>');
+    service = new FrameFocusService(plot);
+
+    expect(pressShiftTab().defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(document.getElementById('slide'));
+  });
+
+  it('hands the reader to an ioslides slide past the links on the slides before it', () => {
+    // ioslides renders every slide and fades out all but the current one,
+    // marking none of them hidden: a link on an earlier slide is a tab stop
+    // in document order, but not one on screen.
+    plot = chartIn('<slides><slide class="far-past"><a href="#a">First</a></slide>'
+      + '<slide class="past"><a href="#b">Second</a></slide>'
+      + '<slide id="slide" class="current"><article>{chart}</article></slide>'
+      + '<slide class="next"><a href="#c">Fourth</a></slide></slides>');
     service = new FrameFocusService(plot);
 
     expect(pressShiftTab().defaultPrevented).toBe(true);

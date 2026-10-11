@@ -253,12 +253,18 @@ export class FrameFocusService implements Disposable {
   }
 
   /**
-   * Whether an element is rendered and exposed, and so can be tabbed to.
+   * Whether an element is on screen and exposed, and so a tab stop the reader
+   * can actually reach.
    * @param {Element} element - The candidate tab stop
    * @returns {boolean} True when the element takes part in the tab order
    */
   private static isReachable(element: Element): boolean {
     if (element.closest('[hidden],[aria-hidden="true"],[inert]') !== null) {
+      return false;
+    }
+    // ioslides marks none of its slides hidden: it renders every one and
+    // fades out all but the current, so only the current slide is on screen.
+    if (element.closest('slides > slide:not(.current)') !== null) {
       return false;
     }
     const view = element.ownerDocument.defaultView;
