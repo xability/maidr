@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  A plotly.js chart alone on its page, as py-maidr's Plotly frames and
+  r-maidr's plotly htmlwidget pages hold one.
+
+  Plotly draws the chart's title and legend layer and its toolbar beside
+  MAIDR's article, and leaves an SVG it measures text with in the body, parked
+  at -10000px. None of that is the page's own content, so high contrast still
+  paints the whole page here.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>A Plotly chart alone (high contrast fixture)</title>
+    <script src="../../node_modules/plotly.js-dist-min/plotly.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../../dist/maidr.js"></script>
+  </head>
+
+  <body>
+    <div id="bar-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      Plotly.newPlot(
+        'bar-chart',
+        [
+          {
+            x: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+            y: [20, 14, 23, 25, 22],
+            type: 'bar',
+            name: 'Tips by Day',
+          },
+        ],
+        {
+          title: { text: 'Number of Tips by Day' },
+          xaxis: { title: { text: 'Day' } },
+          yaxis: { title: { text: 'Count' } },
+        },
+      );
+    </script>
+  </body>
+</html>

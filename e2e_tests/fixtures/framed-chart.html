@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  A chart in a frame of its own, on a page with prose around the frame, as a
+  notebook, an IDE viewer or a Shiny app shows a binding's chart.
+
+  The frame's document holds the chart and nothing else, so high contrast
+  paints its body, as it always has. The page around the frame is another
+  document, and is never painted.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>A framed chart (high contrast fixture)</title>
+    <style>
+      body {
+        background-color: rgb(250, 250, 250);
+        color: rgb(17, 17, 17);
+      }
+
+      iframe {
+        border: 0;
+        height: 700px;
+        width: 1000px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Tips by day</h1>
+    <p>The chart below is drawn in a frame of its own.</p>
+    <iframe src="../../examples/barplot.html" title="The number of tips by day"></iframe>
+    <p>Saturday had the most tips.</p>
+  </body>
+</html>

@@ -5,6 +5,7 @@ import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
 import { PatternService } from '@service/pattern';
+import { Constant } from '@util/constant';
 import { t } from '@util/i18n';
 
 /**
@@ -79,6 +80,147 @@ const TILED_TRACE_TYPES: ReadonlySet<string> = new Set([
 /** Elements that draw text rather than a shape. */
 const TEXT_TAGS: ReadonlySet<string> = new Set(['text', 'tspan', 'textPath']);
 
+/** The element maidr builds around a chart and everything it shows for it. */
+const CHART_ROOT_SELECTOR = `article[id^="${Constant.MAIDR_ARTICLE}-"]`;
+
+/** Elements that never draw anything themselves. */
+const UNDRAWN_TAGS: ReadonlySet<string> = new Set([
+  'script',
+  'style',
+  'link',
+  'meta',
+  'base',
+  'title',
+  'template',
+  'noscript',
+  'datalist',
+]);
+
+/** Elements that show something with no text in them. */
+const DRAWING_SELECTOR = [
+  'img',
+  'svg',
+  'canvas',
+  'video',
+  'audio[controls]',
+  'iframe',
+  'object',
+  'embed',
+  'input:not([type="hidden"])',
+  'select',
+  'textarea',
+  'button',
+  'hr',
+  'progress',
+  'meter',
+].join(', ');
+
+const HIDDEN_VISIBILITY: ReadonlySet<string> = new Set(['hidden', 'collapse']);
+
+/**
+ * Whether an element is positioned wholly where no scroll can reach: above
+ * the document's top, or before its start in a left-to-right page. Plotly
+ * keeps its text-measuring `svg#js-plotly-tester` at -10000px on every page,
+ * and visually hidden text is often parked the same way. Neither shows a
+ * reader anything.
+ */
+function isOffCanvas(element: Element, style: CSSStyleDeclaration): boolean {
+  if (style.position !== 'absolute' && style.position !== 'fixed') {
+    return false;
+  }
+  const view = element.ownerDocument.defaultView;
+  const rect = element.getBoundingClientRect();
+  // A fixed element keeps its place in the viewport whatever the scroll.
+  const scrolls = style.position === 'absolute' && view !== null;
+  const scrollX = scrolls ? view.scrollX : 0;
+  const scrollY = scrolls ? view.scrollY : 0;
+  const leftToRight = view === null
+    || view.getComputedStyle(element.ownerDocument.documentElement).direction !== 'rtl';
+  return rect.bottom + scrollY < 0 || (leftToRight && rect.right + scrollX < 0);
+}
+
+/**
+ * Whether a node shows a reader anything: text, or something drawn.
+ *
+ * Errs towards yes. Text hidden only visually, or at zero opacity, counts; so
+ * does a custom element, which may draw from a closed shadow root -- one that
+ * reads as no root at all. On any other element an open shadow root is read
+ * along with the element's own children, and a closed one cannot be seen
+ * from here.
+ */
+function showsSomething(node: Node): boolean {
+  const view = node.ownerDocument?.defaultView ?? null;
+  if (node.nodeType === Node.TEXT_NODE) {
+    const parent = node.parentElement;
+    return (node.textContent ?? '').trim() !== ''
+      && (parent === null || view === null
+        || !HIDDEN_VISIBILITY.has(view.getComputedStyle(parent).visibility));
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+
+  const element = node as Element;
+  if (UNDRAWN_TAGS.has(element.localName) || element.hasAttribute('hidden')) {
+    return false;
+  }
+  const style = view?.getComputedStyle(element) ?? null;
+  if (style?.display === 'none') {
+    return false;
+  }
+  if (style !== null && isOffCanvas(element, style)) {
+    return false;
+  }
+  // May be drawn from a tree this cannot see into: taken to show something.
+  if (element.localName.includes('-')) {
+    return true;
+  }
+  if (element.matches(DRAWING_SELECTOR)) {
+    return style === null || !HIDDEN_VISIBILITY.has(style.visibility);
+  }
+  // An open shadow root is read with the children it may slot in. BokehJS 3
+  // adds hosts to the body of a page it draws on whose roots hold only style
+  // sheets and empty layers.
+  const shadowChildren = element.shadowRoot === null
+    ? []
+    : Array.from(element.shadowRoot.childNodes);
+  return [...shadowChildren, ...Array.from(element.childNodes)].some(showsSomething);
+}
+
+/**
+ * Whether nothing outside `extent` shows in its document -- as in a frame
+ * built for one chart, or a page `save_html` wrote -- so that painting the
+ * body paints the chart's surroundings and nothing else.
+ *
+ * Only the chart's own document is read, never a parent frame's, so the
+ * answer is the same across origins. Whether the document is framed is not
+ * asked: a frame can hold a whole page (a Shiny app in an IDE viewer, an
+ * Office task pane), and a page opened in its own tab can hold one chart.
+ * In doubt the page counts as shared: painting the chart alone leaves a light
+ * margin in a frame, while painting the body of a page the chart shares
+ * repaints someone else's page.
+ */
+function hasDocumentToItself(extent: Element): boolean {
+  const body = extent.ownerDocument.body;
+  if (body === null || extent === body || !body.contains(extent)) {
+    return false;
+  }
+  let node: Element = extent;
+  while (node !== body) {
+    const parent = node.parentElement;
+    if (parent === null) {
+      return false;
+    }
+    for (const sibling of Array.from(parent.childNodes)) {
+      if (sibling !== node && showsSomething(sibling)) {
+        return false;
+      }
+    }
+    node = parent;
+  }
+  return true;
+}
+
 interface ElementColorInfo {
   element: SVGElement;
   /** The value as written, so it can be put back exactly. */
@@ -115,6 +257,8 @@ interface InlineStyleSnapshot {
  * - Applies high contrast on focus-in via initializeHighContrast()
  * - Restores original colors on blur via suspendHighContrast()
  * - Responds to settings changes (toggle via keyboard/UI)
+ * - Paints the backdrop behind the chart: the body of a document the chart
+ *   has to itself, its own article in a page it shares (see getBackdrop)
  */
 export class HighContrastService implements Disposable {
   private readonly settingsService: SettingsService;
@@ -131,13 +275,13 @@ export class HighContrastService implements Disposable {
   private settingsDisposable: Disposable | null = null;
 
   // Cached original colors - captured once on first application
-  private defaultBackgroundColor: string = '';
-  private defaultForegroundColor: string = '';
   private originalColorInfo: ElementColorInfo[] | null = null;
 
   // Inline declarations overridden while high contrast is painted: the
-  // plot's own CSS background and the fill of text the captured colours do
-  // not reach. Each is put back exactly as it was on restore.
+  // backdrop (see getBackdrop), the plot's own CSS background and the fill of
+  // text the captured colours do not reach. Each is put back exactly as it
+  // was on restore -- the inline value with its priority, or none, so the
+  // page's stylesheet, and a host's theme toggle, keep their say.
   private inlineStyleSnapshots: InlineStyleSnapshot[] = [];
 
   // Taken with the original colours, so an apply never reads its own output:
@@ -311,13 +455,6 @@ export class HighContrastService implements Disposable {
    * Capture original colors from the DOM before any high contrast changes.
    */
   private captureOriginalColors(): void {
-    // Capture the body's own inline declarations rather than its computed
-    // colors. Writing a computed value back on restore would leave a
-    // permanent inline style outranking the page's stylesheet, so a host
-    // theme toggle would stop changing the body after one on/off cycle.
-    this.defaultBackgroundColor = document.body.style.backgroundColor;
-    this.defaultForegroundColor = document.body.style.color;
-
     // Capture SVG element colors
     this.originalColorInfo = this.getOriginalColorInfo();
     this.captureSurfacesAndText();
@@ -473,10 +610,6 @@ export class HighContrastService implements Disposable {
     // Validate and re-capture colors if DOM has changed
     this.recaptureIfNeeded();
 
-    // Apply body styles
-    document.body.style.backgroundColor = this.highContrastDarkColor;
-    document.body.style.color = this.highContrastLightColor;
-
     // Whether an element sits under a text group is asked once per captured
     // fill or stroke below and again for the glow filter. One memo per apply
     // keeps the ancestor walk to one per element.
@@ -544,7 +677,7 @@ export class HighContrastService implements Disposable {
         this.context.instructionContext.type === 'line'
         || this.context.instructionContext.type === 'step'
       ) {
-        document.getElementById(this.context.id)?.classList.add('high-contrast');
+        this.getChartIdElement()?.classList.add('high-contrast');
       }
     }
 
@@ -584,10 +717,6 @@ export class HighContrastService implements Disposable {
       return;
     }
 
-    // Restore body styles
-    this.restoreBodyStyle('background-color', this.defaultBackgroundColor);
-    this.restoreBodyStyle('color', this.defaultForegroundColor);
-
     this.restoreInlineStyles();
 
     // Restore SVG element colors
@@ -617,10 +746,7 @@ export class HighContrastService implements Disposable {
         this.context.instructionContext.type === 'line'
         || this.context.instructionContext.type === 'step'
       ) {
-        document
-          .getElementById(this.context.id)
-          ?.classList
-          .remove('high-contrast');
+        this.getChartIdElement()?.classList.remove('high-contrast');
       }
     }
 
@@ -643,19 +769,6 @@ export class HighContrastService implements Disposable {
   // ========== Helper Methods ==========
 
   /**
-   * Puts one body color declaration back the way it was found. An empty
-   * captured value means the page declared nothing inline, so the property is
-   * removed rather than pinned to whatever it computed to.
-   */
-  private restoreBodyStyle(property: string, value: string): void {
-    if (value === '') {
-      document.body.style.removeProperty(property);
-    } else {
-      document.body.style.setProperty(property, value);
-    }
-  }
-
-  /**
    * The `<svg>` the chart draws into. The plot element is usually that SVG,
    * but can be an HTML wrapper around it, and definitions a fill or filter
    * refers to must live inside the SVG: a `<pattern>` or `<filter>` placed in
@@ -671,13 +784,20 @@ export class HighContrastService implements Disposable {
 
   /**
    * Overrides the inline declarations the captured fills and strokes cannot
-   * reach, recording each so restore can put it back: the chart's CSS
-   * background, and the fill of text coloured by a stylesheet rule -- which
-   * outranks both a fill attribute and the colour set on the plot, where an
-   * inline declaration outranks it.
+   * reach, recording each so restore can put it back: the backdrop behind the
+   * chart, the chart's CSS background, and the fill of text coloured by a
+   * stylesheet rule -- which outranks both a fill attribute and the colour
+   * set on the plot, where an inline declaration outranks it.
    */
   private overrideInlineStyles(): void {
     this.restoreInlineStyles();
+
+    // Asked again on every apply: the page may have gained or lost content
+    // since the last one. Restore needs no answer, since each snapshot names
+    // the element it was taken from.
+    const backdrop = this.getBackdrop();
+    this.overrideInlineStyle(backdrop, 'background-color', this.highContrastDarkColor);
+    this.overrideInlineStyle(backdrop, 'color', this.highContrastLightColor);
 
     for (const surface of this.backgroundSurfaces) {
       this.overrideInlineStyle(surface, 'background-color', this.highContrastDarkColor);
@@ -692,6 +812,13 @@ export class HighContrastService implements Disposable {
     }
   }
 
+  /**
+   * Overrides one inline declaration, recording what it held. The same
+   * declaration can be overridden twice in one apply -- the backdrop is the
+   * plot itself when the plot has no article around it, and the plot can be
+   * a background surface too -- so the second snapshot holds the first
+   * override, and restore must replay them last first.
+   */
   private overrideInlineStyle(
     element: HTMLElement | SVGElement,
     property: string,
@@ -707,7 +834,8 @@ export class HighContrastService implements Disposable {
   }
 
   private restoreInlineStyles(): void {
-    for (const snapshot of this.inlineStyleSnapshots) {
+    for (let i = this.inlineStyleSnapshots.length - 1; i >= 0; i--) {
+      const snapshot = this.inlineStyleSnapshots[i];
       if (snapshot.value === '') {
         snapshot.element.style.removeProperty(snapshot.property);
       } else {
@@ -757,6 +885,60 @@ export class HighContrastService implements Disposable {
    */
   private getColorRoots(): Element[] {
     return [this.displayService.plot, ...this.getOverlayLayers()];
+  }
+
+  /**
+   * The element painted behind the chart: the body when the chart has its
+   * document to itself, else the chart's own article. Painting the body of a
+   * page the chart shares repaints the prose, cards and slides around it,
+   * and leaves text that took its colour from the body light on their light
+   * boxes.
+   *
+   * The article is React's, but maidr renders no style on it, and this
+   * service already writes inline on the plot React renders; the snapshot
+   * puts back exactly what was there.
+   */
+  private getBackdrop(): HTMLElement {
+    const plot = this.displayService.plot;
+    const chart = plot.closest<HTMLElement>(CHART_ROOT_SELECTOR) ?? plot;
+    const body = chart.ownerDocument.body;
+    return body !== null && hasDocumentToItself(this.getChartExtent(chart))
+      ? body
+      : chart;
+  }
+
+  /**
+   * The smallest element holding the chart and every layer drawn over it.
+   * Plotly draws its title, legend and toolbar beside maidr's article, in the
+   * `.svg-container` they share; those are the chart's, not the page's.
+   * Layers that meet only at the body say nothing about the page, so then
+   * the chart alone is the extent.
+   */
+  private getChartExtent(chart: Element): Element {
+    let extent: Element = chart;
+    for (const layer of this.getOverlayLayers()) {
+      while (!extent.contains(layer) && extent.parentElement !== null) {
+        extent = extent.parentElement;
+      }
+    }
+    const body = chart.ownerDocument.body;
+    return body === null || extent === body || !body.contains(extent)
+      ? chart
+      : extent;
+  }
+
+  /**
+   * The element of the chart that carries the chart's id: the plot itself,
+   * or the SVG a binding gave the id. Looked for in the chart, never on the
+   * page, where another chart may carry the same id and come first.
+   */
+  private getChartIdElement(): Element | null {
+    const plot = this.displayService.plot;
+    const id = this.context.id;
+    if (plot.id === id) {
+      return plot;
+    }
+    return Array.from(plot.querySelectorAll('[id]')).find(element => element.id === id) ?? null;
   }
 
   private getOriginalColorInfo(): ElementColorInfo[] | null {
