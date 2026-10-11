@@ -93,10 +93,17 @@ function press(key: string, code: string, keyCode: number): void {
 
 /**
  * The text the chart is currently announcing, as the Text component shows it.
+ * The figure also holds the plot's description, hidden and read only when the
+ * plot is focused, so MAIDR's instruction elements are left out.
  * @returns The announced text, or '' when nothing is announced.
  */
 function announcedText(): string {
-  return document.querySelector('#maidr-figure-resume-bar')?.textContent ?? '';
+  const figure = document.querySelector('#maidr-figure-resume-bar')?.cloneNode(true);
+  if (!(figure instanceof Element)) {
+    return '';
+  }
+  figure.querySelectorAll('[id^="maidr-instruction-"]').forEach(element => element.remove());
+  return figure.textContent ?? '';
 }
 
 // jsdom implements neither structuredClone nor the Web Audio API, both of
