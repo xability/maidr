@@ -6,7 +6,7 @@ import { chartTypeLabel } from '@util/chartTypeLabel';
 import { Constant } from '@util/constant';
 import { ensureDocumentStyle } from '@util/documentStyle';
 import { t } from '@util/i18n';
-import { initialInstructionId, withKeyboardHelp } from '@util/instruction';
+import { currentInstructionId, describeWithInstruction, initialInstructionId, withKeyboardHelp } from '@util/instruction';
 import { formatPlotType, resolveOrientation } from '@util/orientation';
 import { plotTypeLabel } from '@util/plotTypeLabel';
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
@@ -271,6 +271,19 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
     [initialInstruction, revision],
   );
   const instructionId = initialInstructionId(data.id);
+
+  // A chart whose data or language changes while the reader is not in it is
+  // described by what it is now. The Office pane's picker swaps one chart for
+  // another under the same figure id, and the element DisplayService described
+  // the plot by when the reader left holds the old chart's instructions, for a
+  // place useMaidrController forgets on new data.
+  useLayoutEffect(() => {
+    const plot = plotRef.current;
+    if (plot === null || figureRef.current?.contains(plot.ownerDocument.activeElement)) {
+      return;
+    }
+    describeWithInstruction(plot, [instructionId, currentInstructionId(data.id)], instructionId);
+  }, [data, initialDescription, instructionId, plotRef, figureRef]);
 
   // Click-to-activate shim: most chart libraries render the plot as inert SVG
   // children of our `tabIndex={0}` wrapper. Browsers do NOT auto-focus a

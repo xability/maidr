@@ -16,6 +16,7 @@
  */
 
 import type { Maidr as MaidrData } from '@type/grammar';
+import type { JSX } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { liveDataManager, navigateMaidr } from '@service/liveData';
 import { act, fireEvent, render, screen } from '@testing-library/react';
@@ -332,5 +333,52 @@ describe('a reader who Tabs out and back in', () => {
     focusIn();
 
     expect(announcedText()).toContain('Category is C');
+  });
+});
+
+describe('a chart the host replaces while the reader is away', () => {
+  /**
+   * The plot's accessible description: the text of the elements its
+   * `aria-describedby` names, in order.
+   * @returns The description, or '' when it has none.
+   */
+  function description(): string {
+    const ids = (screen.getByRole('img').getAttribute('aria-describedby') ?? '').split(/\s+/);
+    return ids
+      .map(id => (id === '' ? '' : document.getElementById(id)?.textContent ?? ''))
+      .filter(text => text !== '')
+      .join(' ');
+  }
+
+  it('should be described by the chart it shows now, not by where they left the old one', () => {
+    // The Office pane's picker shows another chart under the same figure id.
+    const page = (data: MaidrData): JSX.Element => (
+      <>
+        <Maidr data={data}>
+          <svg />
+        </Maidr>
+        <button type="button">Elsewhere</button>
+      </>
+    );
+    const { rerender } = render(page(DATA));
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    tabOut();
+    expect(description()).toContain('maidr plot of type: vertical bar');
+
+    rerender(page({
+      ...DATA,
+      subplots: [[{ layers: [{
+        id: 'line-layer',
+        type: TraceType.LINE,
+        axes: { x: { label: 'Month' }, y: { label: 'Visits' } },
+        data: [[{ x: 1, y: 10 }, { x: 2, y: 20 }]],
+      }] }]],
+    }));
+
+    expect(screen.getByRole('img').getAttribute('aria-describedby')).toBe('maidr-instruction-resume-bar');
+    expect(description()).toContain('maidr plot of type: single line');
+    expect(description()).toContain('Click to activate.');
+    expect(description()).not.toContain('vertical bar');
   });
 });
