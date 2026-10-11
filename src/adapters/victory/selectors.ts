@@ -158,8 +158,7 @@ export function clearTaggedElements(container: HTMLElement): void {
  * @param claimed    - Set of elements already claimed by prior layers of the
  *                     same panel (must not be shared across panels)
  * @param scope      - Per-chart (and, in multi-panel mode, per-panel) CSS
- *                     scope prefix that disambiguates this panel's selectors
- *                     page-wide
+ *                     scope prefix that names this panel's elements alone
  * @param panelIndex - Panel index in multi-panel mode; `null` keeps the
  *                     original single-panel attribute naming
  * @returns Whatever names this layer's marks: one CSS selector for a series

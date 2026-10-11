@@ -1825,11 +1825,11 @@ export function bindVegaLite(
   }
 
   // Ensure the container carries an id: every selector emitted below is
-  // prefixed with `#<containerId>` because MAIDR resolves selectors
-  // against the whole document — without the prefix, two charts compiled
-  // from the same spec (identical Vega class names) would resolve each
-  // other's elements. The chart id defaults to the container id so the
-  // two stay aligned. (Use || since an empty options.id is falsy.)
+  // prefixed with `#<containerId>` so it names this chart's elements alone
+  // wherever it is read — without the prefix, two charts compiled from the
+  // same spec (identical Vega class names) would share every selector. The
+  // chart id defaults to the container id so the two stay aligned. (Use ||
+  // since an empty options.id is falsy.)
   const containerId = ensureContainerId(container, 'vl');
   const id = options?.id || containerId;
 
