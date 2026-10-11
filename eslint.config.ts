@@ -26,6 +26,8 @@ const config: ReturnType<typeof antfu> = antfu({
     'playwright-report/',
     'test-results/',
     'examples/',
+    // RequireJS as Quarto loads it, kept byte for byte; see the README beside it.
+    'e2e_tests/fixtures/amd/require.min.js',
     'e2e_tests/specs/debug-review.spec.ts',
     // A page as Quarto wrote it, which the fixture has to stay; the HTML
     // formatter cannot parse Quarto's markup.

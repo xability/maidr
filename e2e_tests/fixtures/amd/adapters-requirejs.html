@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  A page laid out the way Quarto writes one from a Jupyter notebook: require.js
+  2.3.6 (see README.md for where the copy beside this file comes from), then a
+  named module defined inline. After them, three adapter bundles loaded by
+  plain script tags: observable.js, which maidr's Quarto extension writes into
+  the header of every page it renders, and echarts.js and highcharts.js, whose
+  page globals r-maidr reads.
+
+  Built as rolldown's UMD, each took the wrapper's AMD branch and made an
+  anonymous define that require.js held and never ran: no page global, no
+  watcher for Observable Plot charts, and the page's next `require()` threw
+  "Mismatched anonymous define()". `window.requireLater` is that next
+  `require()`.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>Adapters under require.js (regression fixture)</title>
+    <script src="require.min.js"></script>
+    <script>
+      define('jquery', [], function () {
+        return { stand_in: 'jquery' };
+      });
+    </script>
+    <script src="../../../dist/observable.js"></script>
+    <script src="../../../dist/echarts.js"></script>
+    <script src="../../../dist/highcharts.js"></script>
+  </head>
+
+  <body>
+    <p>Three adapter bundles, loaded after require.js.</p>
+    <script src="require-later.js"></script>
+  </body>
+</html>

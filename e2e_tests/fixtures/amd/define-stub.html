@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  A page that defines an AMD `define` before it loads maidr.js, as a page with
+  require.js does. This one records the calls instead of loading anything, so
+  the spec can count the anonymous ones: an anonymous define is what a UMD
+  wrapper made of maidr.js and the locale packs, and what require.js rejects
+  with "Mismatched anonymous define()" while maidr never runs. Built as UMD,
+  this page got one anonymous define and no chart.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>AMD define stub (regression fixture)</title>
+    <script>
+      window.__anonymousDefines = 0;
+      window.__namedDefines = [];
+      window.define = function (name) {
+        if (typeof name === 'string') {
+          window.__namedDefines.push(name);
+        } else {
+          window.__anonymousDefines++;
+        }
+      };
+      window.define.amd = {};
+    </script>
+    <link rel="stylesheet" href="../../../dist/maidr.css" />
+    <script src="../../../dist/maidr.js"></script>
+  </head>
+
+  <body>
+    <svg
+      id="amd-host-bars"
+      xmlns="http://www.w3.org/2000/svg"
+      width="400"
+      height="300"
+      viewBox="0 0 400 300"
+      maidr='{"id":"amd-host-bars","title":"Fruit sold","subplots":[[{"layers":[{"id":"amd-host-layer","type":"bar","axes":{"x":{"label":"Fruit"},"y":{"label":"Boxes"}},"data":[{"x":"Apples","y":12},{"x":"Bananas","y":7},{"x":"Cherries","y":9}],"selectors":"#amd-host-marks > rect"}]}]]}'
+    >
+      <g id="amd-host-marks">
+        <rect x="40" y="60" width="80" height="240" style="fill: #4477aa" />
+        <rect x="160" y="160" width="80" height="140" style="fill: #4477aa" />
+        <rect x="280" y="120" width="80" height="180" style="fill: #4477aa" />
+      </g>
+    </svg>
+  </body>
+</html>
