@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -19,10 +19,11 @@ import vm from 'node:vm';
  * `scripts/vite-plugin-umd-without-amd.js` removes that branch and registers
  * the bundle once it has run: by name from a script tag, and anonymously when
  * require.js itself loads it, so that load resolves under whatever name the
- * page asked for, as before. `scripts/amdDefine.js` checks the output after
- * every build. The halves pinned here: the config, which names every UMD
- * bundle with exports; a real build of `observable.js` (what maidr's Quarto
- * extension loads) run against each kind of loader it meets; and the guard.
+ * page asked for, as before. `scripts/classicScriptAmd.js` checks the output
+ * after every build (test/scripts/classicScriptAmd.test.ts). Pinned here: the
+ * config, which names every UMD bundle with exports, and a real build of
+ * `observable.js` (what maidr's Quarto extension loads) run against each kind
+ * of loader it meets.
  *
  * `scripts/` is plain ESM JavaScript and `allowJs` is false, so the scripts
  * run in a node subprocess, as in esmRequireShim.test.
@@ -31,7 +32,7 @@ import vm from 'node:vm';
 const ROOT = resolve(__dirname, '../..');
 const BUILD_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/build.js')).href;
 const PLUGIN_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/vite-plugin-umd-without-amd.js')).href;
-const GUARD_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/amdDefine.js')).href;
+const GUARD_SCRIPT = pathToFileURL(resolve(ROOT, 'scripts/classicScriptAmd.js')).href;
 
 function runModule<T>(source: string, env: Record<string, string> = {}): T {
   const stdout = execFileSync(
@@ -281,10 +282,10 @@ describe('observable.js on a page with an AMD loader', () => {
 
   it('should pass the post-build check', () => {
     const problems = runModule<unknown[]>(`
-      import { findAmdDefineProblems } from '${GUARD_SCRIPT}';
-      console.log(JSON.stringify(findAmdDefineProblems(${JSON.stringify(dist)}, [
-        { file: 'observable.js', amdName: 'maidr/observable' },
-      ])));
+      import { builds } from '${BUILD_SCRIPT}';
+      import { classicScripts, findClassicScriptAmdProblems } from '${GUARD_SCRIPT}';
+      const scripts = classicScripts(builds.filter(b => b.name === 'observable'));
+      console.log(JSON.stringify(findClassicScriptAmdProblems(${JSON.stringify(dist)}, scripts)));
     `);
 
     expect(problems).toEqual([]);
@@ -351,71 +352,5 @@ describe('the wrapper rewrite', () => {
       .replace('define([\'exports\'], factory)', 'define([\'exports\', \'chart.js\'], factory)');
 
     expect(rewrite(withExternal).error).toMatch(/does not open with the wrapper/);
-  });
-});
-
-describe('post-build AMD define check', () => {
-  let dist: string;
-
-  beforeEach(() => {
-    dist = mkdtempSync(join(tmpdir(), 'maidr-amd-define-'));
-  });
-
-  afterEach(() => {
-    rmSync(dist, { recursive: true, force: true });
-  });
-
-  function find(scripts: Array<{ file: string; amdName: string }>): Array<{ file: string; problem: string }> {
-    return runModule(`
-      import { findAmdDefineProblems } from '${GUARD_SCRIPT}';
-      console.log(JSON.stringify(findAmdDefineProblems(${JSON.stringify(dist)}, ${JSON.stringify(scripts)})));
-    `);
-  }
-
-  const ECHARTS = [{ file: 'echarts.js', amdName: 'maidr/echarts' }];
-
-  it('should flag the AMD branch rolldown writes', () => {
-    writeFileSync(join(dist, 'echarts.js'), '(function(e,t){typeof exports==`object`&&typeof module<`u`?t(exports):typeof define==`function`&&define.amd?define([`exports`],t):(e=typeof globalThis<`u`?globalThis:e||self,t(e.maidrECharts={}))})(this,function(e){});');
-
-    expect(find(ECHARTS)).toEqual([
-      { file: 'echarts.js', problem: 'makes an anonymous `define` call' },
-      { file: 'echarts.js', problem: 'does not register itself as the AMD module "maidr/echarts"' },
-    ]);
-  });
-
-  it('should pass a script that registers after running, anonymously only for require.js', () => {
-    writeFileSync(join(dist, 'echarts.js'), '(function(e,t){typeof exports==`object`&&typeof module<`u`?t(exports):(e=typeof globalThis<`u`?globalThis:e||self,t(e.maidrECharts={}),typeof define==`function`&&define.amd&&(typeof document<`u`&&document.currentScript&&document.currentScript.getAttribute(`data-requiremodule`)?define([],function(){return e.maidrECharts}):define(`maidr/echarts`,[],function(){return e.maidrECharts})))})(this,function(e){});');
-
-    expect(find(ECHARTS)).toEqual([]);
-  });
-
-  it('should flag an anonymous define outside the require.js branch', () => {
-    writeFileSync(join(dist, 'echarts.js'), 'document.currentScript.getAttribute(`data-requiremodule`)?define([],t):define(`maidr/echarts`,[],t);define([],t);');
-
-    expect(find(ECHARTS)).toEqual([
-      { file: 'echarts.js', problem: 'makes an anonymous `define` call' },
-    ]);
-  });
-
-  it('should flag a registration under another name', () => {
-    writeFileSync(join(dist, 'echarts.js'), 'typeof define=="function"&&define.amd&&define("maidr/highcharts",[],function(){});');
-
-    expect(find(ECHARTS)).toEqual([
-      { file: 'echarts.js', problem: 'does not register itself as the AMD module "maidr/echarts"' },
-    ]);
-  });
-
-  it('should flag a script the build did not write', () => {
-    expect(find(ECHARTS)).toEqual([{ file: 'echarts.js', problem: 'was not written' }]);
-  });
-
-  it('should read the classic scripts of the builds that name an amdName', () => {
-    const scripts = runModule(`
-      import { builds } from '${BUILD_SCRIPT}';
-      import { classicScripts } from '${GUARD_SCRIPT}';
-      console.log(JSON.stringify(classicScripts(builds.filter(b => ['echarts', 'react'].includes(b.name)))));
-    `);
-
-    expect(scripts).toEqual(ECHARTS);
   });
 });

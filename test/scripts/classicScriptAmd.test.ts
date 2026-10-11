@@ -6,7 +6,8 @@ import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 
 /**
- * Guards `maidr.js` and the locale packs against an AMD loader on the page.
+ * Guards `maidr.js` and the locale packs against an AMD loader on the page,
+ * and holds the post-build check every classic script passes.
  *
  * Both were UMD. An entry with no exports gets a wrapper that hands it to any
  * AMD `define` as an anonymous module instead of running it, so under the
@@ -19,7 +20,7 @@ import vm from 'node:vm';
  * and Quarto `{ojs}` cells rejects a script that defines nothing -- still
  * resolves. Pinned here: the config, a real pack evaluated the way each kind
  * of page runs it, and the post-build check that `scripts/build.js` runs on
- * dist.
+ * the classic scripts of every build, the adapter bundles' among them.
  *
  * `scripts/` is plain ESM JavaScript and `allowJs` is false, so the config and
  * the check are read in a node subprocess, as in esmRequireShim.test.
@@ -46,10 +47,30 @@ interface Problem {
   problem: string;
 }
 
-function findProblems(dir: string): Problem[] {
+/** A classic script the check reads, as `classicScripts` lists it. */
+interface ClassicScript {
+  file: string;
+  format: string;
+  amdName: string | null;
+}
+
+function findProblems(dir: string, scripts: ClassicScript[]): Problem[] {
   return runModule<Problem[]>(`
     import { findClassicScriptAmdProblems } from '${GUARD_SCRIPT}';
-    console.log(JSON.stringify(findClassicScriptAmdProblems(${JSON.stringify(dir)})));
+    console.log(JSON.stringify(findClassicScriptAmdProblems(${JSON.stringify(dir)}, ${JSON.stringify(scripts)})));
+  `);
+}
+
+/**
+ * The classic scripts the real config writes for the named builds.
+ * @param names - Build names from scripts/build.js
+ * @returns What the post-build check reads for them
+ */
+function classicScriptsOf(names: string[]): ClassicScript[] {
+  return runModule<ClassicScript[]>(`
+    import { builds } from '${BUILD_SCRIPT}';
+    import { classicScripts } from '${GUARD_SCRIPT}';
+    console.log(JSON.stringify(classicScripts(builds.filter(b => ${JSON.stringify(names)}.includes(b.name)))));
   `);
 }
 
@@ -112,8 +133,8 @@ describe('classic script build config', () => {
 
   it('should build no entry without exports as UMD', () => {
     // A UMD wrapper hands an entry with no exports to an AMD define instead of
-    // running it. The post-build check reads maidr.js and the packs by name,
-    // so this is what catches a new export-less bundle under another name.
+    // running it. The post-build check flags the bundle that comes out; this
+    // says which one it would be before anything is built.
     const exportless = configs.filter(c =>
       !ENTRY_EXPORT.test(readFileSync(resolve(ROOT, c.entry), 'utf8')));
 
@@ -241,7 +262,7 @@ describe('a built locale pack', () => {
   });
 
   it('should pass the post-build check', () => {
-    expect(findProblems(dir)).toEqual([]);
+    expect(findProblems(dir, classicScriptsOf(['locale-ko']))).toEqual([]);
   });
 });
 
@@ -250,6 +271,10 @@ describe('post-build classic script check', () => {
   const UMD = `(function(e){typeof define==\`function\`&&define.amd?define([],e):e()})(function(){${BODY}});\n`;
   const iife = (name: string): string =>
     `(function(){${BODY}})(),typeof define==\`function\`&&define.amd&&define(\`${name}\`,[],function(){});\n`;
+  const CORE: ClassicScript = { file: 'maidr.js', format: 'iife', amdName: 'maidr' };
+  const pack = (locale: string): ClassicScript =>
+    ({ file: `locale-${locale}.js`, format: 'iife', amdName: `maidr/locale/${locale}` });
+  const ECHARTS: ClassicScript = { file: 'echarts.js', format: 'umd', amdName: 'maidr/echarts' };
   let dist: string;
 
   beforeEach(() => {
@@ -260,18 +285,26 @@ describe('post-build classic script check', () => {
     rmSync(dist, { recursive: true, force: true });
   });
 
+  it('should list the classic outputs of the builds it is given, not their ES ones', () => {
+    expect(classicScriptsOf(['core', 'locale-ko', 'echarts', 'react'])).toEqual([
+      CORE,
+      ECHARTS,
+      pack('ko'),
+    ]);
+  });
+
   it('should pass an IIFE core and pack that register their names', () => {
     writeFileSync(join(dist, 'maidr.js'), iife('maidr'));
     writeFileSync(join(dist, 'locale-ko.js'), iife('maidr/locale/ko'));
     writeFileSync(join(dist, 'locale-pt-BR.js'), iife('maidr/locale/pt-BR'));
 
-    expect(findProblems(dist)).toEqual([]);
+    expect(findProblems(dist, [CORE, pack('ko'), pack('pt-BR')])).toEqual([]);
   });
 
   it('should flag a UMD core as both not an IIFE and an anonymous define', () => {
     writeFileSync(join(dist, 'maidr.js'), UMD);
 
-    expect(findProblems(dist).map(p => p.problem)).toEqual([
+    expect(findProblems(dist, [CORE]).map(p => p.problem)).toEqual([
       'is not an IIFE starting `(function(){`',
       'makes an anonymous `define` call',
       'does not register itself as the AMD module "maidr"',
@@ -283,7 +316,7 @@ describe('post-build classic script check', () => {
     // still hand over as window.maidr.
     writeFileSync(join(dist, 'maidr.js'), `var maidr=${iife('maidr')}`);
 
-    expect(findProblems(dist)).toEqual([
+    expect(findProblems(dist, [CORE])).toEqual([
       { file: 'maidr.js', problem: 'is not an IIFE starting `(function(){`' },
     ]);
   });
@@ -291,7 +324,7 @@ describe('post-build classic script check', () => {
   it('should flag an anonymous define inside an IIFE', () => {
     writeFileSync(join(dist, 'locale-ko.js'), `(function(){define(function(){});${BODY}})();${iife('maidr/locale/ko')}`);
 
-    expect(findProblems(dist)).toEqual([
+    expect(findProblems(dist, [pack('ko')])).toEqual([
       { file: 'locale-ko.js', problem: 'makes an anonymous `define` call' },
     ]);
   });
@@ -299,22 +332,58 @@ describe('post-build classic script check', () => {
   it('should flag a pack registered under the wrong name', () => {
     writeFileSync(join(dist, 'locale-ja.js'), iife('maidr/locale/ko'));
 
-    expect(findProblems(dist)).toEqual([
+    expect(findProblems(dist, [pack('ja')])).toEqual([
       { file: 'locale-ja.js', problem: 'does not register itself as the AMD module "maidr/locale/ja"' },
+    ]);
+  });
+
+  it('should flag a classic script whose build names no amdName', () => {
+    writeFileSync(join(dist, 'maidr.js'), iife('maidr'));
+
+    expect(findProblems(dist, [{ ...CORE, amdName: null }])).toEqual([
+      { file: 'maidr.js', problem: 'has no `amdName` to register under' },
     ]);
   });
 
   it('should ignore member calls and properties named define', () => {
     writeFileSync(join(dist, 'maidr.js'), `(function(){o.define(x);Object.defineProperty(a,b,c);${BODY}})();${iife('maidr')}`);
 
-    expect(findProblems(dist)).toEqual([]);
+    expect(findProblems(dist, [CORE])).toEqual([]);
   });
 
-  it('should leave the adapter bundles and the ES packs alone', () => {
+  it('should flag the AMD branch rolldown writes into a UMD bundle', () => {
+    writeFileSync(join(dist, 'echarts.js'), '(function(e,t){typeof exports==`object`&&typeof module<`u`?t(exports):typeof define==`function`&&define.amd?define([`exports`],t):(e=typeof globalThis<`u`?globalThis:e||self,t(e.maidrECharts={}))})(this,function(e){});');
+
+    expect(findProblems(dist, [ECHARTS])).toEqual([
+      { file: 'echarts.js', problem: 'makes an anonymous `define` call' },
+      { file: 'echarts.js', problem: 'does not register itself as the AMD module "maidr/echarts"' },
+    ]);
+  });
+
+  it('should pass a UMD bundle that registers after running, anonymously only for require.js', () => {
+    writeFileSync(join(dist, 'echarts.js'), '(function(e,t){typeof exports==`object`&&typeof module<`u`?t(exports):(e=typeof globalThis<`u`?globalThis:e||self,t(e.maidrECharts={}),typeof define==`function`&&define.amd&&(typeof document<`u`&&document.currentScript&&document.currentScript.getAttribute(`data-requiremodule`)?define([],function(){return e.maidrECharts}):define(`maidr/echarts`,[],function(){return e.maidrECharts})))})(this,function(e){});');
+
+    expect(findProblems(dist, [ECHARTS])).toEqual([]);
+  });
+
+  it('should flag an anonymous define outside the require.js branch', () => {
+    writeFileSync(join(dist, 'echarts.js'), 'document.currentScript.getAttribute(`data-requiremodule`)?define([],t):define(`maidr/echarts`,[],t);define([],t);');
+
+    expect(findProblems(dist, [ECHARTS])).toEqual([
+      { file: 'echarts.js', problem: 'makes an anonymous `define` call' },
+    ]);
+  });
+
+  it('should flag a script the build did not write', () => {
+    expect(findProblems(dist, [ECHARTS])).toEqual([{ file: 'echarts.js', problem: 'was not written' }]);
+  });
+
+  it('should read only the scripts it is given', () => {
+    // A selective build leaves the rest of dist as an older build wrote it.
     writeFileSync(join(dist, 'highcharts.js'), UMD);
     writeFileSync(join(dist, 'locale-ko.mjs'), 'export {};\n');
 
-    expect(findProblems(dist)).toEqual([]);
+    expect(findProblems(dist, [])).toEqual([]);
   });
 
   it('should throw from the assertion, naming each file', () => {
@@ -324,7 +393,7 @@ describe('post-build classic script check', () => {
     const message = runModule<string>(`
       import { assertClassicScriptsRunWithoutAmd } from '${GUARD_SCRIPT}';
       try {
-        assertClassicScriptsRunWithoutAmd(${JSON.stringify(dist)});
+        assertClassicScriptsRunWithoutAmd(${JSON.stringify(dist)}, ${JSON.stringify([CORE, pack('ko')])});
         console.log(JSON.stringify('no error'));
       } catch (error) {
         console.log(JSON.stringify(error.message));

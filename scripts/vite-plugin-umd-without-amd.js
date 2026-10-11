@@ -45,7 +45,7 @@
  * Only the `umd` output of an entry with exports is touched. An entry with no
  * exports gets rolldown's other wrapper, `define([], factory)`, which has no
  * CommonJS or global branch to keep. The `.mjs` beside each bundle is an ES
- * module and has no use for AMD. `scripts/amdDefine.js` checks the result
+ * module and has no use for AMD. `scripts/classicScriptAmd.js` checks the result
  * after every build.
  *
  * Plain JS so `scripts/build.js` can import it; the types are in

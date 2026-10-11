@@ -4,17 +4,29 @@
  * sync.
  */
 
+/** A classic script a build writes, and the AMD name it registers. */
+export interface ClassicScript {
+  file: string;
+  format: string;
+  amdName: string | null;
+}
+
 /** A classic script that would not run under an AMD loader, and why. */
 export interface ClassicScriptAmdProblem {
   file: string;
   problem: string;
 }
 
-/** The AMD name a classic script registers itself under. */
-export declare function amdNameOf(fileName: string): string;
+/** The classic scripts a set of builds writes: every output not an ES module. */
+export declare function classicScripts(configs: Array<{
+  entry: string;
+  formats?: string[];
+  fileName: unknown;
+  amdName?: string;
+}>): ClassicScript[];
 
-/** Find what is wrong with the classic scripts in `distDir`. */
-export declare function findClassicScriptAmdProblems(distDir: string): ClassicScriptAmdProblem[];
+/** Find what is wrong with the given classic scripts in `distDir`. */
+export declare function findClassicScriptAmdProblems(distDir: string, scripts: ClassicScript[]): ClassicScriptAmdProblem[];
 
 /** Throw when a classic script in `distDir` would not run under an AMD loader. */
-export declare function assertClassicScriptsRunWithoutAmd(distDir: string): void;
+export declare function assertClassicScriptsRunWithoutAmd(distDir: string, scripts: ClassicScript[]): void;

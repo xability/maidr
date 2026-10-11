@@ -1,22 +1,36 @@
 /**
- * Post-build guard: `maidr.js` and the locale packs must run on a page with an
- * AMD loader.
+ * Post-build guard: every classic script a build writes -- `maidr.js`, the
+ * locale packs and the adapter bundles -- runs on a page with an AMD loader,
+ * and only then registers itself with it.
  *
- * Both are side-effect entries with no exports. As UMD they handed themselves
- * to any AMD `define` on the page as an anonymous module instead of running,
- * and require.js -- which Quarto loads on every page a Jupyter render writes
- * HTML into -- then threw "Mismatched anonymous define()" at the page's next
- * `require()`. maidr never booted, a pack never translated anything, and the
- * page's own AMD code broke with it. `vite build` exits 0 either way, so this
- * reads the output.
+ * Built as UMD, each handed itself to any AMD `define` on the page as an
+ * anonymous module, which runs only when something asks the loader for it.
+ * Nothing did: maidr.js, a pack and an adapter are all loaded by script tags.
+ * So under require.js -- which Quarto loads on every page a Jupyter render
+ * writes HTML into -- maidr never booted, a pack never translated anything,
+ * an adapter's page global was never set, and require.js threw "Mismatched
+ * anonymous define()" at the page's next `require()`, breaking the page's own
+ * AMD code with it. `vite build` exits 0 either way, so this reads the output.
  *
- * Each of those classic scripts must:
- * - be an IIFE, starting `(function(){`. That also rules out an IIFE that
- *   assigns a global (`var maidr=...`), which would overwrite the chart data a
- *   page may still hand over as `window.maidr`;
- * - make no anonymous `define` call;
- * - register itself under its AMD name (`scripts/vite-plugin-amd-name.js`), so
- *   d3-require and require.js module loads keep resolving.
+ * Each classic script of the builds this run made must:
+ * - have been written;
+ * - when it is an IIFE (maidr.js, a locale pack), start `(function(){`. That
+ *   also rules out an IIFE that assigns a global (`var maidr=...`), which
+ *   would overwrite the chart data a page may still hand over as
+ *   `window.maidr`;
+ * - make no anonymous `define` call, other than one behind the test for
+ *   require.js loading the script (the `data-requiremodule` attribute
+ *   require.js puts on the script elements it adds): require.js names that one
+ *   after the module it asked for, so it never mismatches;
+ * - register itself under its `amdName`, its import path.
+ * `scripts/vite-plugin-amd-name.js` writes the registration onto an IIFE, and
+ * `scripts/vite-plugin-umd-without-amd.js` puts it in place of a UMD
+ * wrapper's AMD branch.
+ *
+ * Only the builds of this run are read: a selective build leaves the rest of
+ * dist as an older build wrote it. Which files those are comes from each
+ * build's formats, not from its `amdName`, so a build that drops its name is
+ * reported rather than skipped.
  *
  * Plain JS so `scripts/build.js` can import it; the types are in
  * `classicScriptAmd.d.ts`. Keep both files in sync.
@@ -25,59 +39,90 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** The classic scripts this checks: the core and every locale pack. */
-const CLASSIC_SCRIPT = /^(?:maidr|locale-([\w-]+))\.js$/;
-
 const IIFE_START = /^\(function\(\)\s*\{/;
 
 /** A bare `define(` whose first argument is not a string literal. */
 const ANONYMOUS_DEFINE = /(?<![\w$.])define\s*\((?!\s*["'`])/;
 
+/**
+ * An anonymous `define(` made only while require.js is loading the script:
+ * the branch of a conditional on its `data-requiremodule` attribute.
+ */
+const REQUIREJS_LOAD_DEFINE = /getAttribute\(\s*(["'`])data-requiremodule\1\s*\)\s*\?\s*define\s*\(/g;
+
 /** A bare `define(` named by a string literal, capturing the name. */
 const NAMED_DEFINE = /(?<![\w$.])define\s*\(\s*(["'`])([^"'`]*)\1/g;
 
 /**
- * The AMD name a classic script registers itself under.
+ * The classic scripts a set of builds writes: every output that is not an ES
+ * module.
  *
- * @param fileName - `maidr.js` or `locale-<code>.js`
- * @returns `maidr`, or `maidr/locale/<code>` for a pack
+ * `fileName` is called the way Vite calls it, `(format, entryName)`, as in
+ * `assertUniqueOutputFilenames`.
+ *
+ * @param {Array<{ entry: string, formats?: string[], fileName: unknown, amdName?: string }>} configs
+ *   Build configurations from scripts/build.js
+ * @returns {Array<{ file: string, format: string, amdName: string | null }>}
+ *   One entry per classic output, with the name its build registers it under
  */
-export function amdNameOf(fileName) {
-  const [, locale] = fileName.match(CLASSIC_SCRIPT) ?? [];
-  return locale ? `maidr/locale/${locale}` : 'maidr';
+export function classicScripts(configs) {
+  return configs.flatMap((config) => {
+    const entryName = path.basename(config.entry, path.extname(config.entry));
+    return (config.formats ?? ['es', 'umd'])
+      .filter(format => format !== 'es')
+      .map(format => ({
+        file: typeof config.fileName === 'function'
+          ? config.fileName(format, entryName)
+          : config.fileName,
+        format,
+        amdName: config.amdName ?? null,
+      }));
+  });
 }
 
 /**
- * Find what is wrong with the classic scripts in `distDir`.
+ * Find what is wrong with the given classic scripts in `distDir`.
  *
- * @param distDir - The build output directory
- * @returns One entry per problem, naming the file; empty when every script
- *   passes
+ * @param {string} distDir - The build output directory
+ * @param {Array<{ file: string, format: string, amdName: string | null }>} scripts
+ *   What to read, from {@link classicScripts}
+ * @returns {Array<{ file: string, problem: string }>} One entry per problem,
+ *   naming the file; empty when every script passes
  */
-export function findClassicScriptAmdProblems(distDir) {
+export function findClassicScriptAmdProblems(distDir, scripts) {
   const problems = [];
-  const files = fs.readdirSync(distDir).filter(name => CLASSIC_SCRIPT.test(name)).sort();
-  for (const file of files) {
-    const source = fs.readFileSync(path.join(distDir, file), 'utf8');
-    if (!IIFE_START.test(source))
+  for (const { file, format, amdName } of scripts) {
+    const target = path.join(distDir, file);
+    if (!fs.existsSync(target)) {
+      problems.push({ file, problem: 'was not written' });
+      continue;
+    }
+    const source = fs.readFileSync(target, 'utf8');
+    if (format === 'iife' && !IIFE_START.test(source))
       problems.push({ file, problem: 'is not an IIFE starting `(function(){`' });
-    if (ANONYMOUS_DEFINE.test(source))
+    if (ANONYMOUS_DEFINE.test(source.replace(REQUIREJS_LOAD_DEFINE, '')))
       problems.push({ file, problem: 'makes an anonymous `define` call' });
-    const name = amdNameOf(file);
+    if (!amdName) {
+      problems.push({ file, problem: 'has no `amdName` to register under' });
+      continue;
+    }
     const named = Array.from(source.matchAll(NAMED_DEFINE), match => match[2]);
-    if (!named.includes(name))
-      problems.push({ file, problem: `does not register itself as the AMD module "${name}"` });
+    if (!named.includes(amdName))
+      problems.push({ file, problem: `does not register itself as the AMD module "${amdName}"` });
   }
   return problems;
 }
 
 /**
- * Throw when a classic script in `distDir` would not run under an AMD loader.
+ * Throw when a classic script in `distDir` would not run on a page with an
+ * AMD loader.
  *
- * @param distDir - The build output directory
+ * @param {string} distDir - The build output directory
+ * @param {Array<{ file: string, format: string, amdName: string | null }>} scripts
+ *   What to read, from {@link classicScripts}
  */
-export function assertClassicScriptsRunWithoutAmd(distDir) {
-  const problems = findClassicScriptAmdProblems(distDir);
+export function assertClassicScriptsRunWithoutAmd(distDir, scripts) {
+  const problems = findClassicScriptAmdProblems(distDir, scripts);
   if (problems.length === 0)
     return;
   const lines = problems.map(({ file, problem }) => `  ${file} ${problem}`);
@@ -85,8 +130,9 @@ export function assertClassicScriptsRunWithoutAmd(distDir) {
     'These classic scripts would not run on a page with an AMD loader such as '
     + 'require.js:\n'
     + `${lines.join('\n')}\n`
-    + 'Build them with `formats: [\'iife\']` (a pack with `[\'es\', \'iife\']`) and an '
-    + '`amdName` in scripts/build.js. A copy left over from an older build is '
-    + 'replaced by `node scripts/build.js core locales`.',
+    + 'Each build in scripts/build.js needs an `amdName`, and an entry with no exports '
+    + 'is built as `iife` (a pack as `[\'es\', \'iife\']`), never `umd`. '
+    + 'If rolldown changed its UMD wrapper, scripts/vite-plugin-umd-without-amd.js '
+    + 'says so first.',
   );
 }
