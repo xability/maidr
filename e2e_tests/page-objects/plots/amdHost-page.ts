@@ -5,7 +5,7 @@ import { BasePage } from '../base-page';
 
 /** What a `require()` on the page settled to. */
 export interface RequireOutcome {
-  /** `typeof` each module it resolved to. */
+  /** `typeof` each module it resolved to (maidr.js and a pack: `undefined`). */
   resolved?: string[];
   /** The message require.js threw synchronously, as on a mismatch. */
   threw?: string;
@@ -90,17 +90,32 @@ export class AmdHostPage extends BasePage {
   }
 
   /**
-   * Runs the page's own `require()`, as its AMD code does after maidr has
-   * loaded. Only `requirejs.html` defines it.
+   * Runs the page's own `require()`, as its AMD code does. Only the pages
+   * with require.js define it (`require-later.js`).
    * @param names - The modules to require
+   * @param config - What to hand `require.config()` first, if anything
    * @returns What the `require()` settled to
    */
-  public async requireLater(names: string[]): Promise<RequireOutcome> {
+  public async requireLater(names: string[], config?: object): Promise<RequireOutcome> {
     return this.page.evaluate(
-      modules => (window as unknown as {
-        requireLater: (names: string[]) => Promise<RequireOutcome>;
-      }).requireLater(modules),
-      names,
+      ([modules, settings]) => (window as unknown as {
+        requireLater: (names: string[], config?: object) => Promise<RequireOutcome>;
+      }).requireLater(modules, settings),
+      [names, config] as const,
     );
+  }
+
+  /**
+   * The locale packs that have run on the page: what `window.maidrLocales`
+   * holds, a plain array until maidr.js adopts it.
+   * @returns Each pack's locale code, in the order the packs ran
+   */
+  public async localePacks(): Promise<string[]> {
+    return this.page.evaluate(() => {
+      type Pack = [string, unknown];
+      const holder = (window as unknown as { maidrLocales?: Pack[] | { seen: Pack[] } }).maidrLocales;
+      const packs = Array.isArray(holder) ? holder : holder?.seen ?? [];
+      return packs.map(([code]) => code);
+    });
   }
 }

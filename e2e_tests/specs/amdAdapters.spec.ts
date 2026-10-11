@@ -1,7 +1,4 @@
 import type { Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -163,35 +160,15 @@ test.describe('adapter bundles that require.js loads itself', () => {
   });
 });
 
-/**
- * Whether `dist/maidr.js` is an IIFE. Until the change that ships it as one
- * is built, it is rolldown's UMD and makes its own anonymous define on a page
- * with require.js, which this change does not touch.
- * @returns True when it starts as an IIFE does
- */
-function coreIsIife(): boolean {
-  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-  return /^\(function\(\)\s*\{/.test(readFileSync(path.join(root, 'dist/maidr.js'), 'utf8'));
-}
-
 test.describe('maidr\'s Quarto extension after require.js 2.3.6', () => {
-  test('sets the Observable global and its aliases beside maidr.js', async ({ page }) => {
-    await open(page, 'quarto-extension-requirejs');
-
-    expect(await hasQuartoAliases(page)).toBe(true);
-  });
-
-  test('boots maidr, and the page\'s later require() resolves', async ({ page }) => {
-    // Read from the build rather than fixed, so neither change has to land
-    // first: with a UMD maidr.js this page still fails on maidr.js's own
-    // define. Once maidr.js is always an IIFE, drop this line.
-    test.fail(!coreIsIife(), 'dist/maidr.js is still UMD and makes its own anonymous define');
+  test('boots maidr beside the Observable global, and the page\'s later require() resolves', async ({ page }) => {
     const pageErrors = await open(page, 'quarto-extension-requirejs');
 
-    const outcome = await requireLater(page, ['jquery', 'maidr/observable']);
+    const outcome = await requireLater(page, ['jquery', 'maidr', 'maidr/observable']);
 
     expect(await page.evaluate(() => typeof (window as unknown as { maidrLive?: unknown }).maidrLive)).toBe('object');
-    expect(outcome).toEqual({ resolved: ['object', 'window.maidrObservable'] });
+    expect(await hasQuartoAliases(page)).toBe(true);
+    expect(outcome).toEqual({ resolved: ['object', 'undefined', 'window.maidrObservable'] });
     expect(pageErrors).toEqual([]);
   });
 });

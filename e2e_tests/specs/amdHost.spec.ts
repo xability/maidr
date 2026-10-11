@@ -94,6 +94,75 @@ test.describe('require.js 2.3.6, as Quarto loads it', () => {
   });
 });
 
+test.describe('maidr.js and a pack that require.js loads itself', () => {
+  // A load by URL, or under a `paths` alias, as a page's own AMD code makes
+  // one. `enforceDefine` fails a load the script makes no define for, so it
+  // also pins that the script's own registration answers the load.
+  const ENFORCE_DEFINE = { enforceDefine: true };
+
+  test('resolves maidr.js by URL, and maidr boots', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    const host = new AmdHostPage(page);
+    await host.open('requirejs-loads');
+
+    const outcome = await host.requireLater(['../../../dist/maidr.js'], ENFORCE_DEFINE);
+
+    expect(outcome).toEqual({ resolved: ['undefined'] });
+    await expect(host.article).toHaveCount(1);
+    expect(await host.requireLater(['jquery'])).toEqual({ resolved: ['object'] });
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('resolves maidr.js under a paths alias, and maidr boots', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    const host = new AmdHostPage(page);
+    await host.open('requirejs-loads');
+
+    const outcome = await host.requireLater(['maidrCore'], {
+      ...ENFORCE_DEFINE,
+      paths: { maidrCore: '../../../dist/maidr' },
+    });
+
+    expect(outcome).toEqual({ resolved: ['undefined'] });
+    await expect(host.article).toHaveCount(1);
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('resolves a locale pack by URL, and the pack runs', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    const host = new AmdHostPage(page);
+    await host.open('requirejs-loads');
+
+    const outcome = await host.requireLater(['../../../dist/locale-ko.js'], ENFORCE_DEFINE);
+
+    expect(outcome).toEqual({ resolved: ['undefined'] });
+    expect(await host.localePacks()).toEqual(['ko']);
+    expect(pageErrors).toEqual([]);
+  });
+
+  test.describe('in a Korean browser', () => {
+    test.use({ locale: 'ko-KR' });
+
+    test('runs the pack maidr.js fetches beside itself', async ({ page }) => {
+      const pageErrors: string[] = [];
+      page.on('pageerror', error => pageErrors.push(error.message));
+      const host = new AmdHostPage(page);
+      await host.open('requirejs-loads');
+
+      const outcome = await host.requireLater(['../../../dist/maidr.js'], ENFORCE_DEFINE);
+
+      expect(outcome).toEqual({ resolved: ['undefined'] });
+      await expect(host.article).toHaveAttribute('lang', 'ko');
+      await expect(host.wrapper).toHaveAttribute('aria-label', KOREAN_INSTRUCTION);
+      expect(await host.requireLater(['jquery'])).toEqual({ resolved: ['object'] });
+      expect(pageErrors).toEqual([]);
+    });
+  });
+});
+
 test.describe('d3-require, as Observable and Quarto {ojs} cells load modules', () => {
   test('resolves require of maidr.js, and maidr boots', async ({ page }) => {
     const host = new AmdHostPage(page);

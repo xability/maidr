@@ -9,8 +9,8 @@
 
   Built as UMD, maidr.js and the locale pack it fetches each made an anonymous
   define that require.js held and never ran: no chart, and the page's next
-  `require()` threw "Mismatched anonymous define()". `window.requireLater` is
-  that next `require()`.
+  `require()` threw "Mismatched anonymous define()". `window.requireLater`
+  (require-later.js) is that next `require()`.
 -->
 
   <head>
@@ -41,26 +41,6 @@
         <rect x="280" y="120" width="80" height="180" style="fill: #4477aa" />
       </g>
     </svg>
-    <script>
-      // The page's own AMD code, run on demand. require.js's default onError
-      // is left in place, as on a Quarto page, so a mismatch throws here.
-      window.requireLater = function (names) {
-        return new Promise(function (resolve) {
-          try {
-            require(names, function () {
-              resolve({
-                resolved: Array.prototype.map.call(arguments, function (module) {
-                  return typeof module;
-                }),
-              });
-            }, function (error) {
-              resolve({ failed: String(error.message) });
-            });
-          } catch (error) {
-            resolve({ threw: String(error.message) });
-          }
-        });
-      };
-    </script>
+    <script src="require-later.js"></script>
   </body>
 </html>

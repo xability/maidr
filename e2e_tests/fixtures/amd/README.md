@@ -12,17 +12,17 @@ maidr.js through a `define` shim of their own (`withoutAmd` in its
 `maidr/assets/inline.js`); a load without one, such as maidr.js or a pack
 added to the page by hand, failed.
 
-| Fixture                           | The `define` on the page, and what loads after it                                                |
-| --------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `define-stub.html`                | A stub that counts anonymous and named calls; maidr.js                                           |
-| `requirejs.html`                  | require.js 2.3.6, laid out as Quarto lays it out; maidr.js                                       |
-| `d3-require.html`                 | d3-require, as Observable and Quarto `{ojs}` cells load modules                                  |
-| `adapters-requirejs.html`         | require.js; `observable.js`, `echarts.js` and `highcharts.js`                                    |
-| `quarto-extension-requirejs.html` | require.js; `maidr.js` and `observable.js`, as maidr's Quarto extension writes them              |
-| `requirejs-loads.html`            | require.js; nothing: the spec has require.js load the adapters, under a `paths` alias and by URL |
+| Fixture                           | The `define` on the page, and what loads after it                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `define-stub.html`                | A stub that counts anonymous and named calls; maidr.js                                      |
+| `requirejs.html`                  | require.js 2.3.6, laid out as Quarto lays it out; maidr.js                                  |
+| `d3-require.html`                 | d3-require, as Observable and Quarto `{ojs}` cells load modules                             |
+| `adapters-requirejs.html`         | require.js; `observable.js`, `echarts.js` and `highcharts.js`                               |
+| `quarto-extension-requirejs.html` | require.js; `maidr.js` and `observable.js`, as maidr's Quarto extension writes them         |
+| `requirejs-loads.html`            | require.js and a chart; nothing else: the specs have require.js load maidr's scripts itself |
 
-`require-later.js` is the page's own AMD code on the adapter pages, the next
-`require()` the spec runs.
+`require-later.js` is the page's own AMD code on every page with require.js,
+the next `require()` the specs run.
 
 ## `require.min.js`
 
