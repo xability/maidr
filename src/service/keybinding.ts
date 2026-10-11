@@ -73,12 +73,12 @@ const TACTILE_KEYMAP = {
   TACTILE_ZOOM_IN: key(
     `=, shift+=, num_add`,
     'keybinding.zoomInTactileDisplay',
-    { helpKey: '=' },
+    { helpKey: '= (equals)' },
   ),
   TACTILE_ZOOM_OUT: key(
     `-, num_subtract`,
     'keybinding.zoomOutTactileDisplay',
-    { helpKey: '-' },
+    { helpKey: '- (minus)' },
   ),
   TACTILE_RESET_ZOOM: key(
     `0, num_0`,
@@ -137,9 +137,9 @@ const BRAILLE_KEYMAP = {
   TOGGLE_MONITOR: key(`m`, 'keybinding.toggleMonitorMode'),
 
   // Misc
-  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + /` }),
-  TOGGLE_CHAT: key(`shift+/`, 'keybinding.openChat', { helpKey: '?' }),
-  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'keybinding.openSettings', { helpKey: `${Platform.ctrl} + ,` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + / (slash)` }),
+  TOGGLE_CHAT: key(`shift+/`, 'keybinding.openChat', { helpKey: '? (question mark)' }),
+  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'keybinding.openSettings', { helpKey: `${Platform.ctrl} + , (comma)` }),
 
   // Description
   ANNOUNCE_POINT: key(`space`, 'keybinding.replayCurrentPoint'),
@@ -206,9 +206,9 @@ const CANDLESTICK_DELTA_KEYMAP = {
   TOGGLE_REVIEW: key(`r`, 'keybinding.toggleReviewMode'),
 
   // Misc
-  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + /` }),
-  TOGGLE_CHAT: key(`shift+/`, 'keybinding.openChat', { helpKey: '?' }),
-  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'keybinding.openSettings', { helpKey: `${Platform.ctrl} + ,` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + / (slash)` }),
+  TOGGLE_CHAT: key(`shift+/`, 'keybinding.openChat', { helpKey: '? (question mark)' }),
+  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'keybinding.openSettings', { helpKey: `${Platform.ctrl} + , (comma)` }),
 
   // Description
   ANNOUNCE_POINT: key(`space`, 'keybinding.replayCurrentPoint'),
@@ -263,7 +263,7 @@ const FIGURE_LABEL_KEYMAP = {
   ANNOUNCE_CAPTION: key(`c`, 'keybinding.announceCaption'),
 
   // Misc
-  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + / (slash)` }),
 } as const;
 
 /**
@@ -316,9 +316,9 @@ const SUBPLOT_KEYMAP = {
   TOGGLE_MONITOR: key(`m`, 'keybinding.toggleMonitorMode'),
 
   // Misc
-  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + /` }),
-  TOGGLE_CHAT: key(`shift+/`, 'keybinding.openChat', { helpKey: '?' }),
-  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'keybinding.openSettings', { helpKey: `${Platform.ctrl} + ,` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + / (slash)` }),
+  TOGGLE_CHAT: key(`shift+/`, 'keybinding.openChat', { helpKey: '? (question mark)' }),
+  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'keybinding.openSettings', { helpKey: `${Platform.ctrl} + , (comma)` }),
 } as const;
 
 /**
@@ -336,7 +336,7 @@ const TRACE_LABEL_KEYMAP = {
   ANNOUNCE_CAPTION: key(`c`, 'keybinding.announceCaption'),
 
   // Misc
-  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + / (slash)` }),
 } as const;
 
 /**
@@ -414,10 +414,10 @@ const TRACE_KEYMAP = {
   TOGGLE_MONITOR: key(`m`, 'keybinding.toggleMonitorMode'),
 
   // Misc
-  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + /` }),
-  TOGGLE_CHAT: key(`shift+/`, 'keybinding.openChat', { helpKey: '?' }),
+  TOGGLE_HELP: key(HELP_CHORD, 'keybinding.openCloseHelp', { helpKey: `${Platform.ctrl} + / (slash)` }),
+  TOGGLE_CHAT: key(`shift+/`, 'keybinding.openChat', { helpKey: '? (question mark)' }),
   TOGGLE_COMMAND_PALETTE: key(`${Platform.ctrl}+shift+p`, 'keybinding.openCommandPalette', { helpKey: `${Platform.ctrl} + shift + p` }),
-  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'keybinding.openSettings', { helpKey: `${Platform.ctrl} + ,` }),
+  TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'keybinding.openSettings', { helpKey: `${Platform.ctrl} + , (comma)` }),
 
   // Description
   ANNOUNCE_POINT: key(`space`, 'keybinding.replayCurrentPoint'),
