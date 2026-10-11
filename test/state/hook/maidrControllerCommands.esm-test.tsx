@@ -23,6 +23,8 @@
  * the one a Tab makes -- makes the move and runs the commands with the same
  * announcements. Never from a MAIDR dialog, and never while the page does not
  * have the browser's focus, when the request stays kept for their return.
+ * Taken there from another chart, they keep the keys of the one they arrive
+ * in when the one they left goes.
  *
  * An `esm-test` for the same reason the visibility test is: rendering `Maidr`
  * mounts the whole app, and the chat bubbles in it are ESM-only.
@@ -733,6 +735,38 @@ describe('an agent taking the reader into the chart when they ask', () => {
     expect(document.activeElement).toBe(plot);
     expect(heard()).toEqual([expect.stringContaining('Category is C')]);
     expect(await reader()).toEqual({ inChart: true, position: expect.stringContaining('Category is C') });
+  });
+
+  it('should leave the keyboard with the chart it takes the reader into from another', async () => {
+    render(
+      <>
+        <Maidr data={DATA}>
+          <svg />
+        </Maidr>
+        <Maidr data={{ ...DATA, id: 'second-bar' }}>
+          <svg />
+        </Maidr>
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+    const [first, second] = screen.getAllByRole('img');
+    act(() => {
+      first.focus();
+      jest.runOnlyPendingTimers();
+    });
+    press('ArrowRight', 'ArrowRight', 39);
+
+    const result = await call(TOOL_NAMES.NAVIGATE, { chartId: 'second-bar', layerId: 'bar-layer', row: 0, col: 0, focus: true });
+    expect(result).toEqual({ ok: true, applied: 'now', focused: true });
+    expect(document.activeElement).toBe(second);
+    // The chart they were in goes behind its focus-out timer, after the one
+    // they were taken to has come up and taken the keyboard.
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    press('ArrowRight', 'ArrowRight', 39);
+
+    expect(document.querySelector('#maidr-figure-second-bar')?.textContent).toContain('Category is B');
   });
 
   it('should bring a returning reader back to their point, then run the command half a second later', async () => {
