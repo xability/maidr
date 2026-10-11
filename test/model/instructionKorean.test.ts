@@ -1,10 +1,10 @@
 import type { Maidr } from '@type/grammar';
 import { afterEach, describe, expect, test } from '@jest/globals';
-import { chartTypeLabel } from '@model/abstract';
 import { BarTrace } from '@model/bar';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
+import { chartTypeLabel } from '@util/chartTypeLabel';
 import { setLocale } from '@util/i18n';
 // The Korean dictionary is a locale pack, not part of the core, so load it.
 import '../../src/locale/ko';

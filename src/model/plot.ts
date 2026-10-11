@@ -18,8 +18,9 @@ import type {
 import type { SubplotLayout } from '@util/subplotLayout';
 import type { Dimension } from './abstract';
 import { TraceType } from '@type/grammar';
+import { chartTypeLabel } from '@util/chartTypeLabel';
 import { Svg } from '@util/svg';
-import { AbstractPlot, chartTypeLabel, DEFAULT_SUBPLOT_TITLE } from './abstract';
+import { AbstractPlot, DEFAULT_SUBPLOT_TITLE } from './abstract';
 import { TraceFactory } from './factory';
 import { MovableGrid } from './movable';
 

@@ -126,6 +126,6 @@ add its own modifier in `src/util/i18n/index.ts`.
 - React components call `useLocale()` from `@state/hook/useLocale`, which
   re-renders the component when the language changes.
 - Tables keyed by an enum store a `MessageKey` and translate on lookup; see
-  `CHART_TYPE_LABEL` in `src/model/abstract.ts`.
+  `CHART_TYPE_LABEL` in `src/util/chartTypeLabel.ts`.
 - English output is the reference: a change that alters an English string is
   a behaviour change and must update the tests that assert it.
