@@ -9,7 +9,7 @@ import { t } from '@util/i18n';
 import { currentInstructionId, describeWithInstruction, initialInstructionId, withKeyboardHelp } from '@util/instruction';
 import { formatPlotType, resolveOrientation } from '@util/orientation';
 import { plotTypeLabel } from '@util/plotTypeLabel';
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocale } from './state/hook/useLocale';
 import { useMaidrController } from './state/hook/useMaidrController';
 import { createMaidrStore } from './state/store';
@@ -299,6 +299,24 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
     describeWithInstruction(plot, [instructionId, currentInstructionId(data.id)], instructionId);
   }, [data, initialDescription, instructionId, plotRef, figureRef]);
 
+  // A sighted reader with a mouse learns from a tooltip that the chart is
+  // clicked to be used, and how to use it (#244). The tooltip is the
+  // instructions the plot is described by. So it is the plot's title only
+  // while a mouse is over a chart not in use: a screen reader, which reads
+  // the instructions as the description, never meets them as a title too.
+  const [pointerHint, setPointerHint] = useState(false);
+  const handlePointerEnter = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const figure = figureRef.current;
+    if (event.pointerType !== 'touch' && !figure?.contains(figure.ownerDocument.activeElement)) {
+      setPointerHint(true);
+    }
+  }, [figureRef]);
+  const handlePointerLeave = useCallback(() => setPointerHint(false), []);
+  const handleFocusIn = useCallback(() => {
+    setPointerHint(false);
+    onFocusIn();
+  }, [onFocusIn]);
+
   // Click-to-activate shim: most chart libraries render the plot as inert SVG
   // children of our `tabIndex={0}` wrapper. Browsers do NOT auto-focus a
   // tabbable ancestor when one of its children is clicked, so without this
@@ -307,6 +325,7 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
   // isn't already inside it, to avoid stealing focus from inner interactive
   // elements (e.g. tooltips, chart UI buttons).
   const handlePointerDown = useCallback((_event: ReactPointerEvent<HTMLDivElement>) => {
+    setPointerHint(false);
     const plot = plotRef.current;
     if (plot && !plot.contains(document.activeElement)) {
       plot.focus();
@@ -318,7 +337,7 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
       <figure
         ref={figureRef}
         id={`maidr-figure-${data.id}`}
-        onFocus={onFocusIn}
+        onFocus={handleFocusIn}
         onBlur={onFocusOut}
       >
         <div
@@ -327,8 +346,11 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
           role="img"
           aria-label={chartName}
           aria-describedby={instructionId}
+          title={pointerHint ? initialDescription : undefined}
           style={{ width: 'fit-content' }}
           onPointerDown={handlePointerDown}
+          onPointerEnter={handlePointerEnter}
+          onPointerLeave={handlePointerLeave}
         >
           {children}
         </div>

@@ -19,7 +19,7 @@
 
 import type { BoxPoint, Maidr as MaidrData, MaidrLayer } from '@type/grammar';
 import { describe, expect, test } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen } from '@testing-library/react';
 import { Orientation, TraceType } from '@type/grammar';
 import { Maidr } from '../../src/maidr-component';
 
@@ -205,5 +205,57 @@ describe('pre-activation name', () => {
     );
     // Once: a title would be read as well by some screen readers.
     expect(title).toBeNull();
+  });
+});
+
+/**
+ * Moves a pointer of a given type onto an element. jsdom has no
+ * PointerEvent, so the type is set on the plain event it makes instead.
+ * @param element - The element the pointer moves onto
+ * @param pointerType - The pointer's type: 'mouse', 'pen' or 'touch'
+ */
+function pointerOnto(element: HTMLElement, pointerType: string): void {
+  const event = createEvent.pointerOver(element);
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  fireEvent(element, event);
+}
+
+describe('the tooltip a sighted mouse user is shown (#244)', () => {
+  /**
+   * Renders a bar chart.
+   * @returns The plot wrapper, its description, and how to unmount it
+   */
+  function renderChart(): { plot: HTMLElement; description: string; unmount: () => void } {
+    const { unmount } = render(
+      <Maidr data={{ id: 'hint-test', subplots: [[{ layers: [createBarLayer()] }]] }}>
+        <svg />
+      </Maidr>,
+    );
+    const plot = screen.getByRole('img');
+    const description = document.getElementById(plot.getAttribute('aria-describedby') ?? '')
+      ?.textContent ?? '';
+    return { plot, description, unmount };
+  }
+
+  test('is the instructions while a mouse is over the chart, and goes when it leaves', () => {
+    const { plot, description, unmount } = renderChart();
+
+    pointerOnto(plot, 'mouse');
+    // How to use the chart, "Click to activate." among it.
+    expect(plot.getAttribute('title')).toBe(description);
+    expect(description).toContain('Click to activate.');
+
+    fireEvent.pointerOut(plot);
+    expect(plot.hasAttribute('title')).toBe(false);
+    unmount();
+  });
+
+  test('is not given for a touch, which has no hover', () => {
+    const { plot, unmount } = renderChart();
+
+    pointerOnto(plot, 'touch');
+
+    expect(plot.hasAttribute('title')).toBe(false);
+    unmount();
   });
 });

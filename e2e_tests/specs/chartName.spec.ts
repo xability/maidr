@@ -13,6 +13,11 @@ import { BarPlotPage } from '../page-objects/plots/barplot-page';
  * given while the reader enters the chart and taken away once they use it, so
  * it is not read again each time focus returns to the plot, and comes back
  * with the click prompt when they leave.
+ *
+ * A sighted mouse user is shown the same instructions as a tooltip, which is
+ * how they learn to click the chart at all (#244). It is the plot's title only
+ * while a mouse is over a chart not in use, so a screen reader does not read
+ * the instructions twice.
  */
 
 const NAME = 'The Number of Tips by Day, Bar Chart';
@@ -39,8 +44,49 @@ test.describe('the chart\'s name and description', () => {
 
     await expect(plot).toHaveAccessibleName(NAME);
     await expect(plot).toHaveAccessibleDescription(BEFORE_FOCUS);
-    // The instructions are given once: a title would be read too by some
-    // screen readers.
+    // The instructions are given once: until a mouse is over the chart, there
+    // is no title, which some screen readers would read too.
+    await expect(plot).not.toHaveAttribute('title');
+  });
+
+  test('shows a mouse user the instructions as a tooltip while the mouse is over the chart', async ({ page }) => {
+    const { plot } = await openBarPlot(page);
+    // Room beside the chart, for the mouse to leave it to.
+    await page.setViewportSize({ width: 2400, height: 1800 });
+    const box = await plot.boundingBox();
+    if (box === null) {
+      throw new Error('The plot is not laid out');
+    }
+
+    await plot.hover();
+
+    await expect(plot).toHaveAttribute('title', BEFORE_FOCUS);
+    await expect(plot).toHaveAccessibleName(NAME);
+    await expect(plot).toHaveAccessibleDescription(BEFORE_FOCUS);
+
+    await page.mouse.move(box.x + box.width + 20, box.y + box.height + 20);
+
+    await expect(plot).not.toHaveAttribute('title');
+  });
+
+  test('takes the tooltip away once the chart is clicked', async ({ page }) => {
+    const { plot } = await openBarPlot(page);
+    await plot.hover();
+    await expect(plot).toHaveAttribute('title', BEFORE_FOCUS);
+
+    await plot.click();
+
+    await expect(plot).toBeFocused();
+    await expect(plot).not.toHaveAttribute('title');
+  });
+
+  test('takes the tooltip away once the chart is entered from the keyboard', async ({ page }) => {
+    const { barPlotPage, plot } = await openBarPlot(page);
+    await plot.hover();
+    await expect(plot).toHaveAttribute('title', BEFORE_FOCUS);
+
+    await barPlotPage.activateMaidr();
+
     await expect(plot).not.toHaveAttribute('title');
   });
 
