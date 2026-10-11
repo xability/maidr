@@ -159,6 +159,16 @@ describe('pre-activation name', () => {
       .toBe('Line Chart');
   });
 
+  test('names a chart whose producer sent a title that is not text by its type alone', () => {
+    // r-maidr writes a layer with no title as `"title": {}`, R's empty list.
+    const layer = { ...createBarLayer(), title: {} } as unknown as MaidrLayer;
+
+    const { name, description } = announcementOf({ id: 'name-test', subplots: [[{ layers: [layer] }]] });
+
+    expect(name).toBe('Bar Chart');
+    expect(description).toContain('This is a maidr plot of type: vertical bar.');
+  });
+
   test('names a plot of several layers by their count', () => {
     const { name } = announcementOf({
       id: 'name-test',

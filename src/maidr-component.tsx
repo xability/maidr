@@ -153,8 +153,22 @@ function getChartName(data: MaidrData): string {
     type = traceType === undefined ? t('model.plotTypeUnknownChart') : chartTypeLabel(traceType);
   }
 
-  const title = data.title?.trim() || layers[0]?.title?.trim() || '';
+  const title = titleText(data.title) || titleText(layers[0]?.title);
   return title ? t('model.chartNameTitled', { title, type }) : type;
+}
+
+/**
+ * A title as the chart's name can use it: trimmed, or '' for none.
+ *
+ * Not every producer sends a string: r-maidr writes a layer with no title as
+ * `"title": {}`, R's empty list, which the name must read as none rather than
+ * fail the chart's first render on.
+ *
+ * @param title - The title as the producer sent it
+ * @returns The title, or '' when there is none
+ */
+function titleText(title: unknown): string {
+  return typeof title === 'string' ? title.trim() : '';
 }
 
 /**
