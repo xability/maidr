@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  A page laid out the way Quarto writes one from a Jupyter notebook: require.js
+  2.3.6 (the copy beside this file is byte-identical to the one Quarto loads,
+  see README.md), then a named module defined inline, then maidr.js as a plain
+  script. Quarto adds the first two to every page a notebook writes HTML into,
+  which every py-maidr chart does.
+
+  Built as UMD, maidr.js and the locale pack it fetches each made an anonymous
+  define that require.js held and never ran: no chart, and the page's next
+  `require()` threw "Mismatched anonymous define()". `window.requireLater`
+  (require-later.js) is that next `require()`.
+-->
+
+  <head>
+    <meta charset="utf-8" />
+    <title>require.js host (regression fixture)</title>
+    <script src="require.min.js"></script>
+    <script>
+      define('jquery', [], function () {
+        return { stand_in: 'jquery' };
+      });
+    </script>
+    <link rel="stylesheet" href="../../../dist/maidr.css" />
+    <script src="../../../dist/maidr.js"></script>
+  </head>
+
+  <body>
+    <svg
+      id="amd-host-bars"
+      xmlns="http://www.w3.org/2000/svg"
+      width="400"
+      height="300"
+      viewBox="0 0 400 300"
+      maidr='{"id":"amd-host-bars","title":"Fruit sold","subplots":[[{"layers":[{"id":"amd-host-layer","type":"bar","axes":{"x":{"label":"Fruit"},"y":{"label":"Boxes"}},"data":[{"x":"Apples","y":12},{"x":"Bananas","y":7},{"x":"Cherries","y":9}],"selectors":"#amd-host-marks > rect"}]}]]}'
+    >
+      <g id="amd-host-marks">
+        <rect x="40" y="60" width="80" height="240" style="fill: #4477aa" />
+        <rect x="160" y="160" width="80" height="140" style="fill: #4477aa" />
+        <rect x="280" y="120" width="80" height="180" style="fill: #4477aa" />
+      </g>
+    </svg>
+    <script src="require-later.js"></script>
+  </body>
+</html>
