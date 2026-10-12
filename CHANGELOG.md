@@ -1,3 +1,36 @@
+# [4.15.0](https://github.com/xability/maidr/compare/v4.14.0...v4.15.0) (2026-10-12)
+
+
+### Bug Fixes
+
+* **a11y:** give the chart's instructions once, and spell out the help menu's symbol keys ([#1392](https://github.com/xability/maidr/issues/1392)) ([bd64cab](https://github.com/xability/maidr/commit/bd64cab2b12b5f6df80c793e521612b91189ea4d))
+* **a11y:** show a mouse user the chart's instructions as a tooltip again ([#1393](https://github.com/xability/maidr/issues/1393)) ([65af3d5](https://github.com/xability/maidr/commit/65af3d563cbcea3037915a16ddc8068d3312eb0a))
+* **build:** keep maidr.js, its locale packs and the adapter bundles out of a page's AMD loader ([#1385](https://github.com/xability/maidr/issues/1385)) ([49e0538](https://github.com/xability/maidr/commit/49e05382a56b0fcfbe5037bdbd296bb358400311))
+* **build:** rewrite require("react") in the React ESM bundles into an import ([#1373](https://github.com/xability/maidr/issues/1373)) ([7bd7cf2](https://github.com/xability/maidr/commit/7bd7cf2128a61311c95514478705318f28431899)), closes [#1370](https://github.com/xability/maidr/issues/1370)
+* **figure:** take the browser's default side margins off the chart's figure ([#1376](https://github.com/xability/maidr/issues/1376)) ([b1dd9ae](https://github.com/xability/maidr/commit/b1dd9aeebb3f4a41ca3e77526cf1844aac2f4144)), closes [#1375](https://github.com/xability/maidr/issues/1375)
+* **high-contrast:** paint the chart, not a page it shares ([#1388](https://github.com/xability/maidr/issues/1388)) ([b756221](https://github.com/xability/maidr/commit/b756221b506b442ecc4fa7ca4d738a457b81aaab)), closes [hi#contrast](https://github.com/hi/issues/contrast) [hi#contrast](https://github.com/hi/issues/contrast)
+* **keybinding:** unbind only a chart's own shortcuts and leave other charts' scope alone ([#1389](https://github.com/xability/maidr/issues/1389)) ([ceeeb45](https://github.com/xability/maidr/commit/ceeeb459279163cc7ca09551a545d120c9d2b211))
+* **plotly:** keep the normalizer to its own chart ([#1387](https://github.com/xability/maidr/issues/1387)) ([3888943](https://github.com/xability/maidr/commit/3888943e6e1b6bec6672426b3952955a026a7432))
+* **svg:** resolve each chart's selectors and panels inside its own chart ([#1386](https://github.com/xability/maidr/issues/1386)) ([dc83760](https://github.com/xability/maidr/commit/dc8376099b5f09e70505b0082cb6659627af33bc))
+
+
+### Features
+
+* **a11y:** name the chart by its title and type, and describe it by its keys ([#1391](https://github.com/xability/maidr/issues/1391)) ([074b29c](https://github.com/xability/maidr/commit/074b29cf99c4b6f5129ea88d3234cbe79ade2064)), closes [#1384](https://github.com/xability/maidr/issues/1384)
+* **adapters:** declare precision-recall curves in Chart.js, Highcharts and amCharts, and outline directed graph nodes in Chart.js and ECharts ([#1367](https://github.com/xability/maidr/issues/1367)) ([8e16b16](https://github.com/xability/maidr/commit/8e16b16d9aac2831758e51a758d7f7d069f23ed0))
+* **adapters:** read directed graphs, precision-recall curves and percentile bands in ECharts, Chart.js and Vega-Lite ([#1366](https://github.com/xability/maidr/issues/1366)) ([ebde98a](https://github.com/xability/maidr/commit/ebde98a71960c265f5be7b82f2c37f571726a526))
+* **adapters:** read fan charts named in percentileBands as percentile bands in ECharts, ApexCharts, Observable, Google Charts, Victory and MUI X ([#1369](https://github.com/xability/maidr/issues/1369)) ([071dae2](https://github.com/xability/maidr/commit/071dae2faf40c7b187cea138c42d4624752b081a))
+* **adapters:** read precision-recall curves in Power BI, Tableau and Lightweight Charts ([#1374](https://github.com/xability/maidr/issues/1374)) ([e8b6e95](https://github.com/xability/maidr/commit/e8b6e95fb0d9742b0b5f4e873b1927d7827cac5e)), closes [#1368](https://github.com/xability/maidr/issues/1368)
+* **adapters:** read precision-recall curves, percentile bands and directed graphs across the remaining adapters ([#1368](https://github.com/xability/maidr/issues/1368)) ([33a9039](https://github.com/xability/maidr/commit/33a903950b3c9d14e0f21a4c31f36b178fdff383))
+* **help:** list the DotPad's and the Monarch's own keys last in help ([#1365](https://github.com/xability/maidr/issues/1365)) ([bdadc1d](https://github.com/xability/maidr/commit/bdadc1dbec059a1852c36cbcd411040144b72b62))
+* **host:** guard a host page's shortcuts and draw a focus ring when a chart shares its page ([#1390](https://github.com/xability/maidr/issues/1390)) ([ecb5fdb](https://github.com/xability/maidr/commit/ecb5fdbd5ccab3ba4237014d9346fd631117c42d))
+* **office:** read PowerPoint's own chart on the slide in a content add-in ([#1377](https://github.com/xability/maidr/issues/1377)) ([57449eb](https://github.com/xability/maidr/commit/57449eb5ac0becf3bab79d8d823511e69e5ce295))
+* **rotor:** play a soft ratchet tick when the rotor mode changes ([#1383](https://github.com/xability/maidr/issues/1383)) ([efffd82](https://github.com/xability/maidr/commit/efffd82fe9801845066b726ad192553e1d4f2c28)), closes [hi#frequency](https://github.com/hi/issues/frequency)
+* **rotor:** turn a visual rotor dial when the rotor mode changes ([#1378](https://github.com/xability/maidr/issues/1378)) ([5f67d1b](https://github.com/xability/maidr/commit/5f67d1b333905aa042b4165fa794f407d2072eb4))
+* **schema:** let a chart set its starting hover mode ([#1382](https://github.com/xability/maidr/issues/1382)) ([124cd9d](https://github.com/xability/maidr/commit/124cd9d36233164024f8ea1375fb5f63ec26a0af))
+* **tactile:** draw charts on a Monarch through Braille Terminal ([#1362](https://github.com/xability/maidr/issues/1362)) ([099f8b4](https://github.com/xability/maidr/commit/099f8b460a7b3326635efc2ccc8321c8676eb463))
+* **tactile:** draw on every Monarch pin and scroll its text line from its own keys ([#1363](https://github.com/xability/maidr/issues/1363)) ([66699ca](https://github.com/xability/maidr/commit/66699caf5e82f9b185dd27c5e381f3121d50671a)), closes [#1362](https://github.com/xability/maidr/issues/1362)
+
 # [4.14.0](https://github.com/xability/maidr/compare/v4.13.0...v4.14.0) (2026-10-05)
 
 
