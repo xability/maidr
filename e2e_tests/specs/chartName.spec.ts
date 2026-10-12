@@ -18,6 +18,10 @@ import { BarPlotPage } from '../page-objects/plots/barplot-page';
  * how they learn to click the chart at all (#244). It is the plot's title only
  * while a mouse is over a chart not in use, so a screen reader does not read
  * the instructions twice.
+ *
+ * Pressing past the first or last point tells the reader so in an alert and
+ * nothing else: the plot keeps the focus, so a screen reader does not read the
+ * chart's name again.
  */
 
 const NAME = 'The Number of Tips by Day, Bar Chart';
@@ -119,5 +123,38 @@ test.describe('the chart\'s name and description', () => {
     await expect(plot).toHaveAccessibleName(NAME);
     await expect(plot).toHaveAccessibleDescription(BEFORE_FOCUS);
     await expect(plot).not.toHaveAttribute('title');
+  });
+
+  test('says only that there is no more data when the reader presses past either end', async ({ page }) => {
+    const { barPlotPage, plot } = await openBarPlot(page);
+    await barPlotPage.activateMaidr();
+    await page.keyboard.press('ArrowRight');
+    // Leaving and taking the focus again is what has a screen reader read the
+    // chart's name, so count every time the plot does either.
+    await plot.evaluate((element) => {
+      const counted = window as unknown as { focusChanges: number };
+      counted.focusChanges = 0;
+      element.addEventListener('blur', () => {
+        counted.focusChanges += 1;
+      });
+      element.addEventListener('focus', () => {
+        counted.focusChanges += 1;
+      });
+    });
+    const alert = page.getByRole('alert');
+
+    await page.keyboard.press('ArrowLeft');
+    await expect(alert).toHaveText('No more data to display');
+    for (let move = 0; move < 3; move++) {
+      await page.keyboard.press('ArrowRight');
+    }
+    await expect(alert).toHaveText(/Friday/);
+    await page.keyboard.press('ArrowRight');
+    await expect(alert).toHaveText('No more data to display');
+
+    expect(await page.evaluate(() => (window as unknown as { focusChanges: number }).focusChanges)).toBe(0);
+    await expect(plot).toBeFocused();
+    await expect(plot).toHaveAccessibleName(NAME);
+    await expect(plot).toHaveAccessibleDescription('');
   });
 });
