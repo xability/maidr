@@ -251,6 +251,34 @@ ${EMBEDDED} :is(button, a, [role="button"]):focus-visible {
 }
 `;
 
+/**
+ * Both colours of MAIDR's braille and review fields, as a matched pair: the
+ * browser's own field colours, which follow the page's colour scheme and
+ * which forced colours replaces with the system's.
+ *
+ * A browser gives a field both of these by default, but a page's reset often
+ * takes back one of the two. Bootstrap 3's normalize.css and Tailwind 3's
+ * preflight make fields inherit their text colour, so under high contrast,
+ * which paints the chart's backdrop dark with light text, the fields turned
+ * white on the browser's white field. A reset that clears their background
+ * left them black on that dark backdrop, and a dark theme that gives fields
+ * only its own background (Quarto's darkly) left them black on dark grey
+ * with high contrast off.
+ *
+ * Every such reset names fields by element type alone. The field's id puts
+ * this rule one attribute above them and the article around it adds nothing,
+ * through `:where()`. A page that styles the fields on purpose names where
+ * they are, with a class or an id, and its rule, of equal specificity or
+ * more and later in the document than this one, still wins: a floor, not a
+ * ceiling.
+ */
+const FIELD_COLOUR_RULE = `
+:where(article[id^="${Constant.MAIDR_ARTICLE}-"]) :is(textarea[id^="${Constant.BRAILLE_TEXT_AREA}-"], input[id^="${Constant.REVIEW_INPUT}-"]) {
+  color: FieldText;
+  background-color: Field;
+}
+`;
+
 export function Maidr({ data, children }: MaidrProps): JSX.Element {
   // Each Maidr instance gets its own isolated Redux store.
   // useRef with lazy init guarantees the store persists for the component's
@@ -269,6 +297,7 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
     if (doc) {
       ensureDocumentStyle(doc, 'data-maidr-figure', FIGURE_MARGIN_RULE);
       ensureDocumentStyle(doc, 'data-maidr-focus-ring', FOCUS_RING_RULES);
+      ensureDocumentStyle(doc, 'data-maidr-fields', FIELD_COLOUR_RULE);
     }
   }, [figureRef]);
 
