@@ -284,6 +284,15 @@ test.describe('Braille and review field colours', () => {
         `,
       },
       {
+        // A page whose field rule is `!important`: the floor's pair has to
+        // outweigh it.
+        name: 'a dark page that gives fields a dark text with !important',
+        css: `
+          body { background-color: #1b1b1b; color: #e6e6e6; }
+          textarea, input { background: transparent; color: #000 !important; }
+        `,
+      },
+      {
         // Colours a browser keeps in the space they were written in, which
         // only painting them reads: transparent fields, a dark text, on a
         // dark body.

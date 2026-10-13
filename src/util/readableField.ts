@@ -222,9 +222,10 @@ function settleColourTransitions(field: HTMLElement): void {
  *
  * A field left at 4.5:1 or more is left alone, so a page that styles its
  * fields keeps its own look. Below that, the field takes both colours, as a
- * pair, inline: those of the article around it, which is the text the page
- * itself shows around the chart, or the browser's own field colours where
- * that text is unreadable too.
+ * pair, inline and `!important` so that no rule of the page's outweighs
+ * them: those of the article around it, which is the text the page itself
+ * shows around the chart, or the browser's own field colours where that
+ * text is unreadable too.
  *
  * Measured, not cascaded, because no rule of a fixed specificity can be sure
  * of both colours: a page that sets one of them at the same specificity or
@@ -255,7 +256,8 @@ export function keepFieldReadable(field: HTMLElement): () => void {
     priority: field.style.getPropertyPriority(property),
   }));
   for (const property of PROPERTIES) {
-    field.style.setProperty(property, pair[property]);
+    // `important`, or a page's own `!important` colour outweighs the pair.
+    field.style.setProperty(property, pair[property], 'important');
   }
   settleColourTransitions(field);
 

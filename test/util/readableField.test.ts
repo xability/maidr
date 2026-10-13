@@ -101,6 +101,36 @@ describe('keepFieldReadable', () => {
     expect(field.style.backgroundColor).toBe('rgba(0, 0, 0, 0)');
   });
 
+  it('should set its pair above a page\'s !important colours', () => {
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+
+    keepFieldReadable(field);
+
+    expect(field.style.getPropertyPriority('color')).toBe('important');
+    expect(field.style.getPropertyPriority('background-color')).toBe('important');
+  });
+
+  it('should put back the page\'s own inline colours and their priorities when undone', () => {
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+    field.setAttribute('style', 'color: rgb(0, 0, 0) !important; background-color: rgba(0, 0, 0, 0);');
+    const before = field.getAttribute('style');
+
+    const undo = keepFieldReadable(field);
+    const fixed = field.style.getPropertyValue('color');
+    undo();
+
+    expect(fixed).toBe('rgb(255, 255, 255)');
+    expect(field.getAttribute('style')).toBe(before);
+    expect(field.style.getPropertyPriority('color')).toBe('important');
+    expect(field.style.getPropertyPriority('background-color')).toBe('');
+  });
+
   it('should finish the transitions on the field\'s colours, and only those', () => {
     // A transition starts from the colours being left -- the floor's own, just
     // after it is undone -- so measured mid-way the field reads as readable.
