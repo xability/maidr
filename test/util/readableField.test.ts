@@ -506,6 +506,54 @@ describe('keepFieldReadable between the checks it is asked for', () => {
     floor.dispose();
   });
 
+  /**
+   * A colour transition, as the floor reads one off an element.
+   * @param playbackRate - Its rate: 0 for one a page holds where it is
+   */
+  function backgroundTransition(playbackRate: number): Animation {
+    const transition: TransitionStub = { transitionProperty: 'background-color', playState: 'running', playbackRate, finish: jest.fn() };
+    return transition as CSSTransition;
+  }
+
+  it('should keep checking while a colour transition around the field waits out its delay', async () => {
+    // A theme switch whose colours transition after a delay, or step once at
+    // the end: frame after frame finds nothing changed until the transition
+    // moves, long after the quiet frames that would otherwise end the checks.
+    const { field, article, floor } = drawCheckedField();
+    await quiet();
+    let transitions = [backgroundTransition(1)];
+    article.getAnimations = (): Animation[] => transitions;
+
+    document.body.classList.add('dark');
+    await frames(12);
+    paintArticle(article, 'rgb(240, 240, 200)', 'rgb(20, 20, 60)');
+    transitions = [];
+    await frames(1);
+    const settled = field.style.color;
+    await quiet();
+    const requestFrame = jest.spyOn(window, 'requestAnimationFrame');
+    await frames(3);
+
+    expect(settled).toBe('rgb(240, 240, 200)');
+    // Once it is over, the checks end: the three frames waited for above, and none of the floor's.
+    expect(requestFrame).toHaveBeenCalledTimes(3);
+    floor.dispose();
+  });
+
+  it('should not keep checking for a colour transition the page holds where it is', async () => {
+    const { article, floor } = drawCheckedField();
+    await quiet();
+    article.getAnimations = (): Animation[] => [backgroundTransition(0)];
+
+    document.body.classList.add('dark');
+    await quiet();
+    const requestFrame = jest.spyOn(window, 'requestAnimationFrame');
+    await frames(3);
+
+    expect(requestFrame).toHaveBeenCalledTimes(3);
+    floor.dispose();
+  });
+
   it('should log what a check on a frame throws, and stop checking, rather than throw it', async () => {
     // Nothing above a frame callback catches an error: the floor reports it,
     // leaves the field as it is, and does not fail the same way every frame.

@@ -484,6 +484,48 @@ test.describe('Braille and review field colours', () => {
     }
   });
 
+  test.describe('when the page switches theme with a field open and its colours transition late', () => {
+    // The colours around the field transition after a delay, or step once at
+    // the end: frame after frame finds nothing changed until they move, and
+    // the floor stopped after a few such frames, leaving review at 1.18:1
+    // for good and a dark box on the page once it was switched back.
+    const timings = [
+      { name: 'after a delay', timing: '.3s ease .15s' },
+      { name: 'after a longer delay', timing: '.3s ease .4s' },
+      { name: 'in one step at the end', timing: '.4s steps(1, end)' },
+      { name: 'at once', timing: '.3s ease' },
+    ];
+    const fields = [
+      { name: 'braille', key: 'b', selector: BRAILLE },
+      { name: 'review', key: 'r', selector: REVIEW },
+    ];
+
+    for (const { name, timing } of timings) {
+      for (const field of fields) {
+        test(`keeps the ${field.name} field readable when the page's colours transition ${name}, there and back`, async ({ page }) => {
+          const barPage = await openChart(page, `
+            ${INHERIT_RESET}
+            html.dark body { background-color: #111827; color: #f9fafb; }
+            body { transition: background-color ${timing}, color ${timing}; }
+            textarea, input { color: #000; background: transparent; }
+          `);
+          await barPage.pressKey(field.key, `open ${field.name}`);
+          await expect(page.locator(field.selector)).toBeFocused();
+          const own = await fieldPaint(page, field.selector);
+
+          await page.evaluate(() => document.documentElement.classList.add('dark'));
+          await settle(page);
+          await expect.poll(async () => (await fieldPaint(page, field.selector)).ratio, { message: `${field.name} once dark` })
+            .toBeGreaterThanOrEqual(AA);
+          await page.evaluate(() => document.documentElement.classList.remove('dark'));
+          await settle(page);
+
+          await expect.poll(() => fieldPaint(page, field.selector), { message: `${field.name} once light again` }).toEqual(own);
+        });
+      }
+    }
+  });
+
   test.describe('when Quarto switches theme with a field open', () => {
     // Quarto's light and dark stylesheets, as quarto-html-before-body.ejs
     // switches them: the dark one's `rel` goes from `disabled-stylesheet` to

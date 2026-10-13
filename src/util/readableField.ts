@@ -286,6 +286,25 @@ function settleColourTransitions(field: HTMLElement): void {
 }
 
 /**
+ * Whether a colour transition is moving on the field or any of its
+ * ancestors, or waiting out its delay to: until it ends, the colours the
+ * field shows, or the colours around it, are still to change. A transition
+ * in its delay changes nothing yet, and nor does one that steps once at its
+ * end, so frames that find nothing changed do not show that it is over.
+ * @param field - The field
+ * @returns Whether one is
+ */
+function isTransitioning(field: HTMLElement): boolean {
+  for (let current: Element | null = field; current !== null; current = current.parentElement) {
+    // jsdom has no Web Animations.
+    if (typeof current.getAnimations === 'function' && current.getAnimations().some(isMovingColourTransition)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * The element whose text the page shows around a field: the chart's article,
  * or the field's parent outside one.
  * @param field - The field
@@ -458,17 +477,19 @@ interface Frames {
 
 /**
  * Checks a floor on animation frames after a change, at most once a frame,
- * until `QUIET_FRAMES` frames in a row find nothing changed, or `MAX_FRAMES`
- * have passed since the last change was reported. That covers a change that
- * lands a frame or more after the event that announced it -- a stylesheet a
- * theme switch enables applies once it loads -- and colours that transition
- * after a change: the floor follows them frame by frame, and is left with
- * those they settle on.
+ * until `QUIET_FRAMES` frames in a row find nothing changed and no colour
+ * transition is moving or waiting to on the field or around it, or until
+ * `MAX_FRAMES` have passed since the last change was reported. That covers a
+ * change that lands a frame or more after the event that announced it -- a
+ * stylesheet a theme switch enables applies once it loads -- and colours
+ * that transition after a change, at once or after a delay: the floor
+ * follows them frame by frame, and is left with those they settle on.
  * @param view - The window whose frames to check on, if any
  * @param check - Checks the floor, returning whether it measured
+ * @param transitioning - Whether a colour transition is still to end
  * @returns The calls that start and stop it
  */
-function framesOf(view: Window | null, check: () => boolean): Frames {
+function framesOf(view: Window | null, check: () => boolean, transitioning: () => boolean): Frames {
   // jsdom has animation frames only when it pretends to be visual.
   if (view === null || typeof view.requestAnimationFrame !== 'function') {
     return { follow: () => {}, stop: () => {} };
@@ -480,17 +501,18 @@ function framesOf(view: Window | null, check: () => boolean): Frames {
 
   const onFrame = (): void => {
     frame = null;
+    left -= 1;
     try {
       quiet = check() ? 0 : quiet + 1;
+      // Asked only once the frames have been quiet: a page that changes its
+      // root every frame keeps them from being so, and is spared the walk.
+      if (left > 0 && (quiet < QUIET_FRAMES || transitioning())) {
+        frame = view.requestAnimationFrame(onFrame);
+      }
     } catch (error) {
       // Nothing above a frame callback catches it: stop here, rather than
       // fail the same way on every frame still to come.
       reportFailure('on an animation frame', error);
-      return;
-    }
-    left -= 1;
-    if (quiet < QUIET_FRAMES && left > 0) {
-      frame = view.requestAnimationFrame(onFrame);
     }
   };
 
@@ -603,7 +625,7 @@ export function keepFieldReadable(field: HTMLElement): ReadableField {
   const doc = field.ownerDocument;
   const view = doc.defaultView;
   const floor = floorOf(field);
-  const frames = framesOf(view, floor.check);
+  const frames = framesOf(view, floor.check, () => isTransitioning(field));
   const check = (): void => {
     floor.check();
     frames.follow();
