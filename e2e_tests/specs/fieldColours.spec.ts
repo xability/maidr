@@ -34,6 +34,8 @@ declare global {
   interface Window {
     /** How many times a page's own MutationObserver has been called. */
     observerCalls?: number;
+    /** Quarto's light and dark toggle, as a page from it has. */
+    quartoToggleColorScheme?: () => void;
   }
 }
 
@@ -159,7 +161,9 @@ async function settle(page: Page): Promise<void> {
 async function openChart(page: Page, css: string, { prose = false }: { prose?: boolean } = {}): Promise<BarPlotPage> {
   const barPage = new BarPlotPage(page);
   await barPage.navigateToBarPlot();
-  await page.addStyleTag({ content: css });
+  if (css !== '') {
+    await page.addStyleTag({ content: css });
+  }
   if (prose) {
     await page.evaluate(() => document.body.insertAdjacentHTML('afterbegin', '<p>Some prose before the chart.</p>'));
   }
@@ -414,8 +418,8 @@ test.describe('Braille and review field colours', () => {
     }
 
     test('keeps the braille field readable when the page swaps in a dark stylesheet while it is open', async ({ page }) => {
-      // A theme switched by a stylesheet, which nothing watches: measured
-      // again on the reader's next step.
+      // A theme switched by a stylesheet added to the page: measured again
+      // once it loads, and on the reader's next step at the latest.
       const barPage = await openChart(page, INHERIT_RESET);
       await barPage.pressKey('b', 'open braille');
       await expect(page.locator(BRAILLE)).toBeFocused();
@@ -471,6 +475,162 @@ test.describe('Braille and review field colours', () => {
           await expect(page.locator(field.selector)).toBeFocused();
 
           await toDark(page);
+          await settle(page);
+
+          const paint = await fieldPaint(page, field.selector);
+          expect(paint.ratio, `${field.name}: ${paint.color} on ${paint.background}`).toBeGreaterThanOrEqual(AA);
+        });
+      }
+    }
+  });
+
+  test.describe('when Quarto switches theme with a field open', () => {
+    // Quarto's light and dark stylesheets, as quarto-html-before-body.ejs
+    // switches them: the dark one's `rel` goes from `disabled-stylesheet` to
+    // `stylesheet` and then the body's class changes, in one task. The body's
+    // class is seen at once, but the stylesheet applies only once it has
+    // loaded, after it: Chromium fires `load` on it then, Firefox `error`.
+    // Firefox took some 400 ms to apply Quarto's own, whose load is held
+    // back as long here, in both browsers: measured on the class and the
+    // frames after it, the field stayed at 1.32:1 for good.
+    const LIGHT = 'body { background-color: #fff; color: #212529; }';
+    const DARK = `${QUARTO_DARKLY} body.quarto-dark { color: #fff; }`;
+    const SHEETS = 'https://quarto.test/';
+
+    /**
+     * Adds Quarto's light, dark and extra stylesheets and its toggle to the
+     * page, and starts it light.
+     */
+    async function installQuartoToggle(page: Page): Promise<void> {
+      await page.route(`${SHEETS}*.css`, async (route) => {
+        const dark = route.request().url().endsWith('dark.css');
+        if (dark) {
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+        await route.fulfill({ contentType: 'text/css', headers: { 'Cache-Control': 'no-store' }, body: dark ? DARK : LIGHT });
+      });
+      await page.evaluate(async (sheets) => {
+        // In the head as the page loads, and loaded before the reader can
+        // switch theme.
+        const sheet = async (name: string, mode: string, classes: string): Promise<void> => {
+          const link = document.createElement('link');
+          link.href = `${sheets}${name}`;
+          link.rel = 'stylesheet';
+          link.className = classes;
+          link.id = 'quarto-bootstrap';
+          link.dataset.mode = mode;
+          const loaded = new Promise((resolve) => {
+            link.addEventListener('load', resolve);
+          });
+          document.head.append(link);
+          await loaded;
+        };
+        await Promise.all([
+          sheet('light.css', 'light', 'quarto-color-scheme'),
+          sheet('dark.css', 'dark', 'quarto-color-scheme quarto-color-alternate'),
+          sheet('light.css', 'light', 'quarto-color-scheme-extra'),
+        ]);
+
+        // From quarto-html-before-body.ejs.
+        const toggleBodyColorMode = (bsSheetEl: Element): void => {
+          const mode = bsSheetEl.getAttribute('data-mode');
+          const bodyEl = window.document.querySelector('body');
+          if (bodyEl === null) {
+            return;
+          }
+          if (mode === 'dark') {
+            bodyEl.classList.add('quarto-dark');
+            bodyEl.classList.remove('quarto-light');
+          } else {
+            bodyEl.classList.add('quarto-light');
+            bodyEl.classList.remove('quarto-dark');
+          }
+        };
+        const toggleBodyColorPrimary = (): void => {
+          const bsSheetEl = window.document.querySelector('link#quarto-bootstrap:not([rel=disabled-stylesheet])');
+          if (bsSheetEl) {
+            toggleBodyColorMode(bsSheetEl);
+          }
+        };
+        const disableStylesheet = (sheets: NodeListOf<HTMLLinkElement>): void => {
+          for (const link of sheets) {
+            link.rel = 'disabled-stylesheet';
+          }
+        };
+        const enableStylesheet = (sheets: NodeListOf<HTMLLinkElement>): void => {
+          for (const link of sheets) {
+            if (link.rel !== 'stylesheet') {
+              link.rel = 'stylesheet';
+            }
+          }
+        };
+        const toggleColorMode = (alternate: boolean): void => {
+          const primary = document.querySelectorAll<HTMLLinkElement>('link.quarto-color-scheme:not(.quarto-color-alternate)');
+          const alt = document.querySelectorAll<HTMLLinkElement>('link.quarto-color-scheme.quarto-color-alternate');
+          if (alternate) {
+            enableStylesheet(alt);
+            for (const link of alt) {
+              if (link.id === 'quarto-bootstrap') {
+                toggleBodyColorMode(link);
+              }
+            }
+          } else {
+            disableStylesheet(alt);
+            enableStylesheet(primary);
+            toggleBodyColorPrimary();
+          }
+        };
+        document.querySelectorAll<HTMLLinkElement>('link.quarto-color-scheme-extra')
+          .forEach((link) => {
+            link.rel = 'disabled-stylesheet';
+          });
+        let alternate = false;
+        toggleColorMode(false);
+        window.quartoToggleColorScheme = (): void => {
+          alternate = !alternate;
+          toggleColorMode(alternate);
+        };
+        // `respect-user-color-scheme: true`: the page follows the system.
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
+          alternate = event.matches;
+          toggleColorMode(event.matches);
+        });
+      }, SHEETS);
+    }
+
+    const toggles = [
+      {
+        name: 'its toggle',
+        toDark: async (page: Page): Promise<void> => {
+          await page.evaluate(() => window.quartoToggleColorScheme?.());
+        },
+      },
+      {
+        name: 'the system\'s colour scheme, which it follows',
+        toDark: async (page: Page): Promise<void> => {
+          await page.emulateMedia({ colorScheme: 'dark' });
+        },
+      },
+    ];
+    const fields = [
+      { name: 'braille', key: 'b', selector: BRAILLE },
+      { name: 'review', key: 'r', selector: REVIEW },
+    ];
+
+    for (const { name, toDark } of toggles) {
+      for (const field of fields) {
+        test(`keeps the ${field.name} field readable when ${name} turns the page dark`, async ({ page }) => {
+          await page.emulateMedia({ colorScheme: 'light' });
+          const barPage = await openChart(page, '');
+          await installQuartoToggle(page);
+          await barPage.pressKey(field.key, `open ${field.name}`);
+          await expect(page.locator(field.selector)).toBeFocused();
+
+          await toDark(page);
+          await expect.poll(
+            () => page.evaluate(() => window.getComputedStyle(document.body).backgroundColor),
+            { message: 'the page turned dark' },
+          ).toBe('rgb(34, 34, 34)');
           await settle(page);
 
           const paint = await fieldPaint(page, field.selector);

@@ -22,8 +22,10 @@ export interface KeybindingEntry {
 export enum DomEventType {
   CLICK = 'click',
   DOM_LOADED = 'DOMContentLoaded',
+  ERROR = 'error',
   FOCUS_IN = 'focusin',
   FOCUS_OUT = 'focusout',
+  LOAD = 'load',
   MOUSE_ENTER = 'mouseenter',
   MOUSE_LEAVE = 'mouseleave',
   MOUSE_MOVE = 'mousemove',

@@ -407,6 +407,41 @@ describe('keepFieldReadable between the checks it is asked for', () => {
     floor.dispose();
   });
 
+  it('should check the field on the next frame when a stylesheet loads, or fails to', async () => {
+    // A theme switch that enables a stylesheet takes effect once the sheet has
+    // loaded: Chromium fires `load` then, and Firefox `error`.
+    const { field, article, floor } = drawCheckedField();
+    const link = document.createElement('link');
+    document.head.append(link);
+    await quiet();
+    const seen: string[] = [];
+
+    for (const [type, text] of [['load', 'rgb(240, 240, 200)'], ['error', 'rgb(200, 240, 240)']]) {
+      paintArticle(article, text, 'rgb(20, 20, 60)');
+      link.dispatchEvent(new Event(type));
+      await frames(1);
+      seen.push(field.style.color);
+      await quiet();
+    }
+
+    expect(seen).toEqual(['rgb(240, 240, 200)', 'rgb(200, 240, 240)']);
+    floor.dispose();
+    link.remove();
+  });
+
+  it('should not look again when anything but a stylesheet loads', async () => {
+    const { floor } = drawCheckedField();
+    const image = document.createElement('img');
+    document.body.append(image);
+    await quiet();
+    const requestFrame = jest.spyOn(window, 'requestAnimationFrame');
+
+    image.dispatchEvent(new Event('load'));
+
+    expect(requestFrame).not.toHaveBeenCalled();
+    floor.dispose();
+  });
+
   it('should follow colours that change frame after frame, and stop once they hold', async () => {
     // The colours around the field transitioning after a change.
     const { field, article, floor } = drawCheckedField();

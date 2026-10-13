@@ -472,6 +472,20 @@ function framesOf(view: Window | null, check: () => boolean): Frames {
   };
 }
 
+/**
+ * Whether an event's target is a stylesheet: a `<link>` or a `<style>`.
+ * Read by name, not by class, so a field in another window's document is
+ * matched too.
+ * @param target - The target
+ * @returns Whether it is one
+ */
+function isStylesheet(target: EventTarget | null): boolean {
+  if (target === null || !('localName' in target)) {
+    return false;
+  }
+  return target.localName === 'link' || target.localName === 'style';
+}
+
 /** One field's floor, for as long as the field is drawn. */
 export interface ReadableField {
   /**
@@ -526,13 +540,18 @@ export interface ReadableField {
  *   and a page that writes to its root every frame is checked once a frame,
  *   which reads what that frame's style recalculation has already computed;
  * - on the next frame, when the system's colour scheme changes, which a
- *   page's `prefers-color-scheme` rules follow.
+ *   page's `prefers-color-scheme` rules follow;
+ * - on the next frame, when a stylesheet or a `<style>` finishes loading,
+ *   which is when a theme switch that enables a stylesheet takes effect:
+ *   Quarto's switches the dark sheet's `rel` and then the body's class, and
+ *   the sheet applies once it has loaded, after the class change has been
+ *   checked (Chromium fires `load` then, Firefox `error`, so both count).
  *
  * Each is followed by a few frames more (see `framesOf`), which also see the
  * colours around the field transition. A theme a page switches in any other
- * way -- a stylesheet swapped in its head, a class on an element between the
- * body and the chart -- is caught up with on the reader's next step, or the
- * field's next focus.
+ * way -- a class on an element between the body and the chart, a rule
+ * inserted into a stylesheet already there -- is caught up with on the
+ * reader's next step, or the field's next focus.
  * @param field - The field
  * @returns Its floor, which has not measured it yet
  */
@@ -569,6 +588,15 @@ export function keepFieldReadable(field: HTMLElement): ReadableField {
   const scheme = typeof view?.matchMedia === 'function' ? view.matchMedia('(prefers-color-scheme: dark)') : null;
   scheme?.addEventListener('change', frames.follow);
 
+  // Neither event bubbles, so both are caught on their way down.
+  const onStylesheet = (event: Event): void => {
+    if (isStylesheet(event.target)) {
+      frames.follow();
+    }
+  };
+  doc.addEventListener(DomEventType.LOAD, onStylesheet, true);
+  doc.addEventListener(DomEventType.ERROR, onStylesheet, true);
+
   return {
     check,
     dispose: () => {
@@ -577,6 +605,8 @@ export function keepFieldReadable(field: HTMLElement): ReadableField {
       field.removeEventListener(DomEventType.FOCUS_OUT, check);
       theme.disconnect();
       scheme?.removeEventListener('change', frames.follow);
+      doc.removeEventListener(DomEventType.LOAD, onStylesheet, true);
+      doc.removeEventListener(DomEventType.ERROR, onStylesheet, true);
       floor.restore();
     },
   };
