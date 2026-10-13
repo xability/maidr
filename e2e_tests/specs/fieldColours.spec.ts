@@ -295,6 +295,55 @@ test.describe('Braille and review field colours', () => {
       });
     }
 
+    // The chart has its document to itself, so high contrast paints the
+    // body, and the page gives the chart's article colours of its own: with
+    // the floor's pair inline, turning high contrast on or off changes
+    // nothing about the field's paint or the article's, and the field kept
+    // whichever pair it had.
+    const ARTICLE = 'article[id^="maidr-article-"]';
+    const WHITE_ON_BLACK = { color: 'rgb(255, 255, 255)', background: 'rgb(0, 0, 0)' };
+
+    test('gives the reader\'s pair to braille over the floor\'s when high contrast is turned on with it open', async ({ page }) => {
+      const barPage = await openChart(page, `
+        body { background-color: #1b1b1b; color: #e6e6e6; }
+        ${ARTICLE} { background-color: #262626; color: #dddddd; }
+        textarea, input { background: transparent; color: #000; }
+      `);
+      await barPage.pressKey('b', 'open braille');
+      await expect(page.locator(BRAILLE)).toBeFocused();
+      await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille with the article\'s colours' })
+        .toMatchObject({ color: 'rgb(221, 221, 221)', background: 'rgb(38, 38, 38)' });
+
+      await barPage.pressKey('c', 'turn high contrast on');
+      await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille in high contrast' }).toMatchObject(WHITE_ON_BLACK);
+      await barPage.pressKey('ArrowRight', 'move to the next bar');
+
+      await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille a step later' }).toMatchObject(WHITE_ON_BLACK);
+    });
+
+    test('takes the reader\'s pair off braille when high contrast is turned off with it open', async ({ page }) => {
+      // The page's `!important` black text keeps the field from the reader's
+      // pair, so the floor sets it inline while high contrast is on.
+      const barPage = await openChart(page, `
+        ${ARTICLE} { background-color: #fff; color: #111; }
+        #host textarea, #host input { color: #000 !important; }
+      `);
+      await page.evaluate(() => {
+        document.body.id = 'host';
+      });
+      await barPage.pressKey('b', 'open braille');
+      await expect(page.locator(BRAILLE)).toBeFocused();
+      const own = await fieldPaint(page, BRAILLE);
+      await barPage.pressKey('c', 'turn high contrast on');
+      await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille in high contrast' }).toMatchObject(WHITE_ON_BLACK);
+
+      await barPage.pressKey('c', 'turn high contrast off');
+
+      expect(own.ratio, `braille: ${own.color} on ${own.background}`).toBeGreaterThanOrEqual(AA);
+      await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille after high contrast' }).toEqual(own);
+      await expect(page.locator(BRAILLE)).not.toHaveAttribute('style', /important/);
+    });
+
     test('gives the page its fields\' colours back when high contrast is turned off with a field open', async ({ page }) => {
       // Quarto's darkly. The floor measured the field while high contrast
       // painted it, so it must measure again once high contrast is gone, and

@@ -379,14 +379,18 @@ function pairFor(field: HTMLElement): Pair | null {
 
 /**
  * Everything a measure of the field reads that can be read with the floor's
- * pair in place: the field's paint, and the paint of the text around it,
- * which is where the pair comes from and what a theme switch changes.
+ * pair in place: the reader's high contrast pair, which decides the pair
+ * while high contrast is painted, and is all that changes when it is turned
+ * on or off where the field shows the floor's pair and the page paints the
+ * chart's surroundings itself; the field's paint; and the paint of the text
+ * around it, which is where the pair comes from and what a theme switch
+ * changes.
  * @param field - The field
- * @returns The two paints, as one string to compare
+ * @returns The three, as one string to compare
  */
 function inputsOf(field: HTMLElement): string {
   const surroundings = surroundingsOf(field);
-  return JSON.stringify([paintOf(field), surroundings === null ? null : paintOf(surroundings)]);
+  return JSON.stringify([readersPairOf(field), paintOf(field), surroundings === null ? null : paintOf(surroundings)]);
 }
 
 /** A field's floor, without what tells it when to check. */

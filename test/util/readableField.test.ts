@@ -304,6 +304,49 @@ describe('keepFieldReadable', () => {
     expect(field.style.backgroundColor).toBe('rgb(26, 26, 26)');
   });
 
+  it('should give the field the reader\'s high contrast pair over its own when high contrast is turned on', () => {
+    // The floor's pair from the text around the chart is inline, so the
+    // field's paint stays put as high contrast is turned on: only the
+    // reader's pair says it was.
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+    const floor = floorFor(field);
+    floor.check();
+    const before = field.style.color;
+
+    paintHighContrast(field, '#f0f0f0', '#1a1a1a');
+    floor.check();
+
+    expect(before).toBe('rgb(255, 255, 255)');
+    expect(field.style.color).toBe('rgb(240, 240, 240)');
+    expect(field.style.backgroundColor).toBe('rgb(26, 26, 26)');
+  });
+
+  it('should take the reader\'s high contrast pair off the field when high contrast is turned off', () => {
+    // The page's `!important` black text kept the field from the reader's
+    // pair, so the floor set it; with high contrast off, the field's own
+    // black on white is readable, and is the page's again.
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgb(255, 255, 255)' },
+    );
+    paintHighContrast(field, '#f0f0f0', '#1a1a1a');
+    const floor = floorFor(field);
+    floor.check();
+    const during = field.style.color;
+
+    field.style.removeProperty(Constant.HIGH_CONTRAST_LIGHT_PROPERTY);
+    field.style.removeProperty(Constant.HIGH_CONTRAST_DARK_PROPERTY);
+    floor.check();
+
+    expect(during).toBe('rgb(240, 240, 240)');
+    expect(field.style.color).toBe('rgb(0, 0, 0)');
+    expect(field.style.backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(field.style.getPropertyPriority('color')).toBe('');
+  });
+
   it('should leave a field alone under forced colours, which replace whatever it sets', () => {
     const field = drawField(
       { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
