@@ -288,7 +288,12 @@ function settleColourTransitions(field: HTMLElement): void {
   }
   for (const animation of field.getAnimations()) {
     if (isMovingColourTransition(animation)) {
-      animation.finish();
+      try {
+        animation.finish();
+      } catch {
+        // One the page made endless, or froze since it was read, keeps the
+        // colours it shows; those are the colours to measure.
+      }
     }
   }
 }
