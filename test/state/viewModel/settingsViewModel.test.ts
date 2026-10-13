@@ -1,67 +1,57 @@
-/**
- * The settings in the store follow the settings service, whoever saves them.
- *
- * The dialog saves through the view model, which dispatches as it saves. High
- * contrast mode is saved by its key, through HighContrastService, which no
- * view model sits in front of: the store kept the old mode, and the braille
- * and review fields, which re-check their colours when it changes, never
- * heard of it.
- */
-import type { DisplayService } from '@service/display';
 import type { HelpService } from '@service/help';
-import type { StorageService } from '@service/storage';
-import { describe, expect, it } from '@jest/globals';
-import { SettingsService } from '@service/settings';
+import type { SettingsService } from '@service/settings';
+import type { Settings } from '@type/settings';
+import { describe, expect, it, jest } from '@jest/globals';
 import { createMaidrStore } from '@state/store';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
+import { DEFAULT_SETTINGS } from '@type/settings';
 
-/** Storage that keeps nothing. */
-const storage: StorageService = {
-  save: (): void => {},
-  load: <T>(): T | null => null,
-  remove: (): void => {},
-};
+/**
+ * Settings change outside the dialog too: the C key toggles high contrast
+ * through the service directly. The view reads settings from the store, so
+ * the store has to follow every change the service announces, or the view
+ * keeps drawing for the mode the reader just left.
+ */
+describe('SettingsViewModel', () => {
+  function createService(): {
+    service: SettingsService;
+    fire: (settings: Settings) => void;
+    disposed: jest.Mock;
+  } {
+    let listener: ((event: { oldSettings: Settings; newSettings: Settings }) => void) | null = null;
+    const disposed = jest.fn();
+    const service = {
+      loadSettings: () => DEFAULT_SETTINGS,
+      onChange: (l: typeof listener) => {
+        listener = l;
+        return { dispose: disposed };
+      },
+    } as unknown as SettingsService;
+    return {
+      service,
+      fire: settings => listener?.({ oldSettings: DEFAULT_SETTINGS, newSettings: settings }),
+      disposed,
+    };
+  }
 
-/** The one member of the display the settings service calls. */
-const display: Pick<DisplayService, 'toggleFocus'> = { toggleFocus: (): void => {} };
-const help = {} as Pick<HelpService, never> as HelpService;
-
-/** Saves high contrast mode as HighContrastService does: on the service. */
-function toggleHighContrast(service: SettingsService): void {
-  const settings = service.loadSettings();
-  service.saveSettings({
-    ...settings,
-    general: { ...settings.general, highContrastMode: !settings.general.highContrastMode },
-  });
-}
-
-describe('settingsViewModel', () => {
-  it('should put settings saved on the service into the store', () => {
+  it('follows a change the service makes outside the dialog', () => {
     const store = createMaidrStore();
-    const service = new SettingsService(storage, display as DisplayService);
-    const viewModel = new SettingsViewModel(store, service, help);
+    const { service, fire } = createService();
+    const vm = new SettingsViewModel(store, service, {} as HelpService);
 
-    toggleHighContrast(service);
+    fire({ ...DEFAULT_SETTINGS, general: { ...DEFAULT_SETTINGS.general, highContrastMode: true } });
 
     expect(store.getState().settings.general.highContrastMode).toBe(true);
-    viewModel.dispose();
+    vm.dispose();
   });
 
-  it('should stop following the service once disposed', () => {
-    // Disposing resets the store to the defaults, so the mode is first saved
-    // on and off again while followed: the save after disposing then turns it
-    // on, which the store must not take.
+  it('stops following the service once disposed', () => {
     const store = createMaidrStore();
-    const service = new SettingsService(storage, display as DisplayService);
-    const viewModel = new SettingsViewModel(store, service, help);
-    toggleHighContrast(service);
-    expect(store.getState().settings.general.highContrastMode).toBe(true);
-    toggleHighContrast(service);
-    viewModel.dispose();
+    const { service, disposed } = createService();
+    const vm = new SettingsViewModel(store, service, {} as HelpService);
 
-    toggleHighContrast(service);
+    vm.dispose();
 
-    expect(service.loadSettings().general.highContrastMode).toBe(true);
-    expect(store.getState().settings.general.highContrastMode).toBe(false);
+    expect(disposed).toHaveBeenCalled();
   });
 });

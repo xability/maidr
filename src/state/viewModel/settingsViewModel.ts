@@ -55,14 +55,13 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
     this.helpService = helpService;
     this.load();
 
-    // Settings are saved from outside this view model too: high contrast mode
-    // is toggled by its key through HighContrastService. Without this, the
-    // state kept the old mode, and whatever reads it from the store -- the
-    // braille and review fields re-check their colours on it -- missed the
-    // change.
-    this.disposables.push(this.settingsService.onChange((event) => {
-      this.store.dispatch(update(event.newSettings));
-    }));
+    // Settings also change outside the dialog -- the C key toggles high
+    // contrast through the service directly -- and the view must follow.
+    this.disposables.push(
+      settingsService.onChange((event) => {
+        this.store.dispatch(update(event.newSettings));
+      }),
+    );
   }
 
   /**

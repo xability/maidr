@@ -84,4 +84,30 @@ describe('RotorDial', () => {
     });
     expect(screen.getByTestId('maidr-rotor-dial')).not.toBeVisible();
   });
+
+  it('takes the high contrast colours, with a rim, when high contrast is on', () => {
+    const store = renderDial();
+    act(() => {
+      store.dispatch({
+        type: 'settings/update',
+        payload: {
+          ...store.getState().settings,
+          general: {
+            ...store.getState().settings.general,
+            highContrastMode: true,
+            highContrastLightColor: '#ffff00',
+            highContrastDarkColor: '#000080',
+          },
+        },
+      });
+      store.dispatch(turnDial({ labels: ['DATA', 'LOWER'], index: 1, step: 1 }));
+    });
+
+    const style = getComputedStyle(screen.getByTestId('maidr-rotor-dial'));
+    // The chart's background is now the dark colour, so a dial drawn in it
+    // needs the light rim to stand apart from it.
+    expect(style.backgroundColor).toBe('rgb(0, 0, 128)');
+    expect(style.color).toBe('rgb(255, 255, 0)');
+    expect(style.borderTopColor).toBe('rgb(255, 255, 0)');
+  });
 });

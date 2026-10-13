@@ -7,7 +7,7 @@ const DIAL_SIZE = 240;
 /** Distance of the ring's mode names from the dial's centre, in pixels. */
 const RING_RADIUS = 88;
 /** Widest a mode name on the ring may run before it is cut short, in pixels. */
-const RING_LABEL_WIDTH = 72;
+const RING_LABEL_WIDTH = 64;
 /** Width of the current mode's name in the dial's centre, in pixels. */
 const CENTRE_WIDTH = 120;
 /** How long a turn of the ring takes, in milliseconds. */
@@ -26,6 +26,7 @@ interface RotorDialProps {
 }
 
 interface RotorRingProps {
+  highContrast: boolean;
   labels: string[];
   index: number;
   turn: number;
@@ -49,9 +50,14 @@ function ringDistance(i: number, index: number, count: number): number {
  * Opacity of a mode name on the ring: the current mode in full, its
  * neighbours dimmed, the rest faint, as the VoiceOver rotor shows them.
  */
-function ringOpacity(distance: number): number {
+function ringOpacity(distance: number, highContrast: boolean): number {
   if (distance === 0) {
     return 1;
+  }
+  if (highContrast) {
+    // Dimmed names would sink back toward the background the reader asked
+    // to be kept apart from the ink.
+    return distance === 1 ? 0.9 : 0.75;
   }
   return distance === 1 ? 0.6 : 0.25;
 }
@@ -61,7 +67,7 @@ function ringOpacity(distance: number): number {
  * the top. A ring that has just appeared starts one step back and turns into
  * place, so even the first press shows the turn.
  */
-const RotorRing: React.FC<RotorRingProps> = ({ labels, index, turn, direction }) => {
+const RotorRing: React.FC<RotorRingProps> = ({ highContrast, labels, index, turn, direction }) => {
   const [entered, setEntered] = useState(false);
 
   useEffect(() => {
@@ -97,7 +103,7 @@ const RotorRing: React.FC<RotorRingProps> = ({ labels, index, turn, direction })
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              opacity: ringOpacity(distance),
+              opacity: ringOpacity(distance, highContrast),
               // Out to the ring and back upright, so the name rides round
               // the arc as the ring turns but always reads level.
               transform: `translate(-50%, -50%) rotate(${angle}deg) `
@@ -125,6 +131,7 @@ const RotorRing: React.FC<RotorRingProps> = ({ labels, index, turn, direction })
  */
 const RotorDial: React.FC<RotorDialProps> = ({ plot }) => {
   const { dial } = useViewModelState('rotor');
+  const { general } = useViewModelState('settings');
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState<Position | null>(null);
   const revision = dial?.revision ?? 0;
@@ -145,6 +152,7 @@ const RotorDial: React.FC<RotorDialProps> = ({ plot }) => {
   }
 
   const { labels, index, turn, direction } = dial;
+  const highContrast = general.highContrastMode;
 
   return (
     <Box
@@ -157,10 +165,20 @@ const RotorDial: React.FC<RotorDialProps> = ({ plot }) => {
         width: DIAL_SIZE,
         height: DIAL_SIZE,
         transform: 'translate(-50%, -50%)',
+        boxSizing: 'border-box',
         borderRadius: '50%',
-        bgcolor: 'rgba(28, 28, 30, 0.85)',
-        color: '#fff',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+        // In high contrast mode the chart is repainted in the reader's two
+        // colours, its background in the dark one: a dark dial would sink
+        // into it, so the dial takes the same two colours and a rim of the
+        // light one. Otherwise a faint light rim keeps the dark dial's edge
+        // on a dark page, or under an inverted screen, where its shadow is
+        // lost.
+        bgcolor: highContrast ? general.highContrastDarkColor : 'rgba(28, 28, 30, 0.85)',
+        color: highContrast ? general.highContrastLightColor : '#fff',
+        border: highContrast ? `3px solid ${general.highContrastLightColor}` : 'none',
+        boxShadow: highContrast
+          ? 'none'
+          : '0 0 0 1px rgba(255, 255, 255, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35)',
         pointerEvents: 'none',
         zIndex: 1400,
         fontFamily: SYSTEM_FONT,
@@ -178,6 +196,7 @@ const RotorDial: React.FC<RotorDialProps> = ({ plot }) => {
           rather than spinning round from the old one's angles. */}
       <RotorRing
         key={labels.join('\u0000')}
+        highContrast={highContrast}
         labels={labels}
         index={index}
         turn={turn}
