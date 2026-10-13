@@ -54,6 +54,14 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
     this.settingsService = settingsService;
     this.helpService = helpService;
     this.load();
+
+    // Settings also change outside the dialog -- the C key toggles high
+    // contrast through the service directly -- and the view must follow.
+    this.disposables.push(
+      settingsService.onChange((event) => {
+        this.store.dispatch(update(event.newSettings));
+      }),
+    );
   }
 
   /**
