@@ -1,3 +1,21 @@
+/**
+ * A readability floor for the braille and review fields, outside high
+ * contrast mode. In high contrast mode the fields take the reader's pair from
+ * `FIELD_HIGH_CONTRAST_RULE` (`maidr-component.tsx`), so the floor only keeps
+ * that pair where a page's `!important` field colour wins over it.
+ *
+ * Pages that need the floor, so a maintainer can tell what removing it would
+ * lose (each is a case in `e2e_tests/specs/fieldColours.spec.ts`):
+ * - a dark theme that sets a field's background but not its colour, such as
+ *   Quarto's darkly (1.32:1 without the floor);
+ * - a dark site whose reset makes fields inherit the text colour over the
+ *   browser's white field, such as Tailwind 3 or Bootstrap 3 with a dark body
+ *   (1.05:1 and 1.25:1);
+ * - a field framework, such as Milligram or Materialize, on a dark body
+ *   (1.22:1);
+ * - a page `:focus` rule or `!important` colour that leaves a field
+ *   unreadable.
+ */
 import type { Rgb, Rgba } from '@type/color';
 import { DomEventType } from '@type/event';
 import { Color } from '@util/color';

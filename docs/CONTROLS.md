@@ -89,6 +89,20 @@ Escape leaves braille mode. In review mode the arrow keys, Home, End, Page Up an
 Page Down move through the review text the way they do in any text field, and R
 (**Exit Review Mode** in the help menu) leaves it.
 
+The braille and review fields are kept readable whatever the page around them
+does to form fields:
+
+- In high contrast mode both fields take the reader's high contrast colours,
+  with `!important`, as the rest of the chart does. A page's own field styles
+  do not apply to them while the mode is on.
+- Outside high contrast mode the fields keep the page's colours. Only when
+  those read below 4.5:1 (a reset that makes fields inherit their colour, or a
+  dark theme that sets a field's background without its colour) does maidr set
+  the chart's own text and background colours on the field instead.
+
+Under forced colours (Windows High Contrast) the system's colours apply and
+maidr sets none.
+
 ### Autoplay
 
 | Function                                  | Key (Windows)               | Key (Mac)                   |
