@@ -502,11 +502,27 @@ describe('keepFieldReadable between the checks it is asked for', () => {
     const checked = reads.filter((count, i) => count > (i === 0 ? 0 : reads[i - 1])).length;
 
     expect(checked).toBeGreaterThanOrEqual(3);
-    expect(checked).toBeLessThanOrEqual(5);
+    // Every frame until four in a row have reported a change, then one in four.
+    expect(checked).toBeLessThanOrEqual(6);
     // Painted before the ninth frame, and caught within four frames of it.
     expect(colours[11]).toBe('rgb(240, 240, 200)');
     floor.dispose();
     document.documentElement.removeAttribute('style');
+  });
+
+  it('should check a change on the next frame while the frames after an earlier one still run', async () => {
+    // Quarto's toggle: the body's class, then the dark stylesheet's load a
+    // frame or two later, while the frames after the class are still running.
+    const { field, article, floor } = drawCheckedField();
+    await quiet();
+    document.body.classList.add('quarto-dark');
+    await frames(2);
+    paintArticle(article, 'rgb(240, 240, 200)', 'rgb(20, 20, 60)');
+    document.body.classList.add('loaded');
+    await frames(1);
+
+    expect(field.style.color).toBe('rgb(240, 240, 200)');
+    floor.dispose();
   });
 
   it('should check the field on the next frame when the system\'s colour scheme changes', async () => {

@@ -518,16 +518,16 @@ interface Frames {
  * that transition after a change, at once or after a delay: the floor
  * follows them frame by frame, and is left with those they settle on.
  *
- * A change reported once the frames have stopped is checked on the next
- * frame, and one reported fewer than `STRIDE` frames after the last check
- * once `STRIDE` have passed: a page that reports a change every frame, as one
- * that writes to its root every frame does, is checked once every `STRIDE`
- * frames. Each check reads the computed colours of the field and of the
+ * A change is checked on the next frame, unless changes have been reported
+ * on `STRIDE` frames in a row: a page that reports a change every frame, as
+ * one that writes to its root every frame does, is then checked once every
+ * `STRIDE` frames. A theme switch that reports twice a frame or two apart --
+ * Quarto's body class, then its dark stylesheet's load -- is checked on each. Each check reads the computed colours of the field and of the
  * elements behind it, which on such a page cost script time on every frame
  * for no change the reader would see more than a few frames sooner.
  * @param view - The window whose frames to check on, if any
  * @param check - Checks the floor, returning whether it measured
- * @param transitioning - Whether a colour transition is still to end
+ * @param transitioning - Whether an animation around the field is still to end
  * @returns The calls that start and stop it
  */
 function framesOf(view: Window | null, check: () => boolean, transitioning: () => boolean): Frames {
@@ -542,13 +542,20 @@ function framesOf(view: Window | null, check: () => boolean, transitioning: () =
   // Frames since the last check, and whether a change was reported since.
   let since = STRIDE;
   let reported = false;
+  // Whether a change was reported since the last frame, and on how many
+  // frames in a row one was: only a page that reports one on every frame is
+  // checked once every STRIDE frames.
+  let fresh = false;
+  let streak = 0;
 
   const onFrame = (): void => {
     frame = null;
     left -= 1;
     since += 1;
+    streak = fresh ? streak + 1 : 0;
+    fresh = false;
     try {
-      if (!reported || since >= STRIDE) {
+      if (!reported || streak < STRIDE || since >= STRIDE) {
         since = 0;
         reported = false;
         quiet = check() ? 0 : quiet + 1;
@@ -570,6 +577,7 @@ function framesOf(view: Window | null, check: () => boolean, transitioning: () =
       quiet = 0;
       left = MAX_FRAMES;
       reported = true;
+      fresh = true;
       if (frame === null) {
         // The first change after the frames stopped is checked on the next one.
         since = STRIDE;
