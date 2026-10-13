@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import { useViewModelState } from '@state/hook/useViewModel';
-import { keepFieldReadable, watchFieldColours } from '@util/readableField';
+import { keepFieldReadable, watchFieldColours, whenColoursSettle } from '@util/readableField';
 import { useLayoutEffect, useRef } from 'react';
 
 /** The undo of a floor that changed nothing. */
@@ -14,6 +14,10 @@ function nothingToUndo(): void {}
  * `HighContrastService` has painted or restored the chart's backdrop: the
  * service subscribes to the setting before the settings view model does, and
  * React commits the re-render this hook asks for only after both have run.
+ * Each of these measures is taken once more when the colours around the
+ * field finish any transition they started, such as one back from high
+ * contrast's (see `whenColoursSettle`).
+ *
  * Measured again whenever `watchFieldColours` sees the field's colours may
  * have changed: it gains or loses focus, or the page switches its theme on
  * its root or body, or follows the system's colour scheme, while the field
@@ -37,8 +41,14 @@ export function useReadableField(ref: RefObject<HTMLElement | null>, step: objec
     if (field === null) {
       return;
     }
+    const recheck = (): void => {
+      undoRef.current();
+      undoRef.current = keepFieldReadable(field);
+    };
     undoRef.current = keepFieldReadable(field);
+    const cancelWait = whenColoursSettle(field, recheck);
     return () => {
+      cancelWait();
       undoRef.current();
       undoRef.current = nothingToUndo;
     };

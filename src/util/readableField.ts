@@ -290,6 +290,32 @@ function ancestorColourTransitions(field: HTMLElement): CSSTransition[] {
 }
 
 /**
+ * Calls `then` once the transitions running on the colours of the field's
+ * ancestors have ended, if any are running: until then the text and
+ * background around the field are those being left -- the reader's high
+ * contrast pair just after it is turned off, or the theme a page is
+ * switching from -- and the floor took its pair from them.
+ * @param field - The field
+ * @param then - Measures the field again
+ * @returns Cancels the call, if it is still to come
+ */
+export function whenColoursSettle(field: HTMLElement, then: () => void): () => void {
+  const transitions = ancestorColourTransitions(field);
+  if (transitions.length === 0) {
+    return () => {};
+  }
+  let cancelled = false;
+  void Promise.allSettled(transitions.map(transition => transition.finished)).then(() => {
+    if (!cancelled) {
+      then();
+    }
+  });
+  return () => {
+    cancelled = true;
+  };
+}
+
+/**
  * Asks for a field to be measured again whenever its colours can change
  * without the reader taking a step, which review never takes while it is
  * open:
@@ -302,8 +328,7 @@ function ancestorColourTransitions(field: HTMLElement): CSSTransition[] {
  *   `prefers-color-scheme` rules follow.
  *
  * Where the change starts transitions on the colours of the field's
- * ancestors, measured again once they end: until then the text and
- * background around the field are those of the theme being left. A theme a
+ * ancestors, measured again once they end (see `whenColoursSettle`). A theme a
  * page switches in any other way -- a stylesheet swapped in its head -- is
  * caught up with on the reader's next step, or the field's next focus.
  * @param field - The field
@@ -313,23 +338,14 @@ function ancestorColourTransitions(field: HTMLElement): CSSTransition[] {
 export function watchFieldColours(field: HTMLElement, recheck: () => void): () => void {
   const doc = field.ownerDocument;
   const view = doc.defaultView;
-  let stopped = false;
   // Only the latest change waits for its transitions: an earlier one's would
   // measure a theme already left.
-  let latest = 0;
+  let cancelWait = (): void => {};
 
   const onChange = (): void => {
+    cancelWait();
     recheck();
-    const transitions = ancestorColourTransitions(field);
-    if (transitions.length === 0) {
-      return;
-    }
-    const change = ++latest;
-    void Promise.allSettled(transitions.map(transition => transition.finished)).then(() => {
-      if (!stopped && change === latest) {
-        recheck();
-      }
-    });
+    cancelWait = whenColoursSettle(field, recheck);
   };
 
   field.addEventListener(DomEventType.FOCUS_IN, onChange);
@@ -347,7 +363,7 @@ export function watchFieldColours(field: HTMLElement, recheck: () => void): () =
   scheme?.addEventListener('change', onChange);
 
   return () => {
-    stopped = true;
+    cancelWait();
     field.removeEventListener(DomEventType.FOCUS_IN, onChange);
     field.removeEventListener(DomEventType.FOCUS_OUT, onChange);
     theme.disconnect();

@@ -14,7 +14,7 @@
  */
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { keepFieldReadable, watchFieldColours } from '@util/readableField';
+import { keepFieldReadable, watchFieldColours, whenColoursSettle } from '@util/readableField';
 
 /**
  * Draws a chart's article on a page, with a field inside it.
@@ -235,5 +235,61 @@ describe('watchFieldColours', () => {
     expect(recheck).not.toHaveBeenCalled();
     document.documentElement.classList.remove('dark');
     Reflect.deleteProperty(window, 'matchMedia');
+  });
+});
+
+describe('whenColoursSettle', () => {
+  /**
+   * Draws a field inside an article whose background is transitioning.
+   * @returns The field, and the call that ends the transition
+   */
+  function drawTransitioningArticle(): { field: HTMLTextAreaElement; end: () => void } {
+    const article = document.createElement('article');
+    const field = document.createElement('textarea');
+    article.append(field);
+    document.body.append(article);
+    let end = (): void => {};
+    const finished = new Promise<void>((resolve) => {
+      end = resolve;
+    });
+    const transition: Pick<CSSTransition, 'transitionProperty' | 'finished'> = {
+      transitionProperty: 'background-color',
+      finished: finished.then(() => transition as CSSTransition),
+    };
+    article.getAnimations = (): Animation[] => [transition as CSSTransition];
+    document.body.getAnimations = (): Animation[] => [];
+    document.documentElement.getAnimations = (): Animation[] => [];
+    return { field, end };
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    Reflect.deleteProperty(document.body, 'getAnimations');
+    Reflect.deleteProperty(document.documentElement, 'getAnimations');
+  });
+
+  it('should measure again once the colours around the field stop transitioning', async () => {
+    const { field, end } = drawTransitioningArticle();
+    const then = jest.fn();
+    whenColoursSettle(field, then);
+    await Promise.resolve();
+    expect(then).not.toHaveBeenCalled();
+
+    end();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(then).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not measure again once cancelled', async () => {
+    const { field, end } = drawTransitioningArticle();
+    const then = jest.fn();
+    const cancel = whenColoursSettle(field, then);
+
+    cancel();
+    end();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(then).not.toHaveBeenCalled();
   });
 });

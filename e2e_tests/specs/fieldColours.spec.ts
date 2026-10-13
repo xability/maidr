@@ -141,11 +141,21 @@ async function settle(page: Page): Promise<void> {
 /**
  * Opens the bar chart with `css` added to the page after MAIDR's own rules,
  * as a page's stylesheet would be.
+ * @param page - The page
+ * @param css - The page's own rules
+ * @param options - How the page is laid out
+ * @param options.prose - Puts a paragraph before the chart, as on a real
+ *   page. High contrast then paints its backdrop on the chart's article
+ *   rather than on the body of a page holding nothing else.
+ * @returns The chart's page object
  */
-async function openChart(page: Page, css: string): Promise<BarPlotPage> {
+async function openChart(page: Page, css: string, { prose = false }: { prose?: boolean } = {}): Promise<BarPlotPage> {
   const barPage = new BarPlotPage(page);
   await barPage.navigateToBarPlot();
   await page.addStyleTag({ content: css });
+  if (prose) {
+    await page.evaluate(() => document.body.insertAdjacentHTML('afterbegin', '<p>Some prose before the chart.</p>'));
+  }
   await barPage.activateMaidr();
   return barPage;
 }
@@ -481,6 +491,30 @@ test.describe('Braille and review field colours', () => {
 
         expect.soft(off.ratio, `braille once off: ${off.color} on ${off.background}`).toBeGreaterThanOrEqual(AA);
         expect.soft(stepped.ratio, `braille a step later: ${stepped.color} on ${stepped.background}`).toBeGreaterThanOrEqual(AA);
+      });
+
+      test(`gives the braille field its colours outside high contrast once high contrast's transitions end, on a page with ${name}`, async ({ page }) => {
+        // Turning high contrast off restores the colours around the chart,
+        // and on this page they transition back: measured at once, the text
+        // around the field is still high contrast's, so the field is measured
+        // again once the transitions end, without waiting for a step. With
+        // prose on the page, the backdrop is the article: nothing the page's
+        // root or body does gives the change away.
+        const barPage = await openChart(page, css, { prose: true });
+        await barPage.pressKey('b', 'open braille');
+        await expect(page.locator(BRAILLE)).toBeFocused();
+        await settle(page);
+        const own = await fieldPaint(page, BRAILLE);
+        await barPage.pressKey('b', 'close braille');
+        await expect(page.locator(BRAILLE)).toHaveCount(0);
+        await barPage.pressKey('c', 'turn high contrast on');
+        await barPage.pressKey('b', 'open braille');
+        await expect(page.locator(BRAILLE)).toBeFocused();
+
+        await barPage.pressKey('c', 'turn high contrast off');
+        await settle(page);
+
+        await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille after high contrast' }).toEqual(own);
       });
     }
   });
