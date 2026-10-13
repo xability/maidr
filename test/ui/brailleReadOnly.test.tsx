@@ -31,6 +31,7 @@ import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render } from '@testing-library/react';
 import { DomEventType } from '@type/event';
+import { DEFAULT_SETTINGS } from '@type/settings';
 import Braille from '@ui/component/Braille';
 import '@testing-library/jest-dom/jest-globals';
 
@@ -45,7 +46,8 @@ const state = {
 
 jest.mock('@state/hook/useViewModel', () => ({
   useViewModel: (): Partial<BrailleViewModel> => ({ moveToIndex }),
-  useViewModelState: (): typeof state => state,
+  // The field also reads the settings, for high contrast mode.
+  useViewModelState: (key: string): unknown => (key === 'settings' ? DEFAULT_SETTINGS : state),
 }));
 
 /**
