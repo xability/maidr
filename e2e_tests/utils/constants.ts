@@ -70,6 +70,7 @@ export abstract class TestConstants {
   static readonly MAIDR_INFO_CONTAINER = 'maidr-text-container';
   static readonly MAIDR_SPEED_INDICATOR = 'maidr-speed-indicator-';
   static readonly BRAILLE_TEXTAREA = 'maidr-braille-textarea-';
+  static readonly REVIEW_INPUT = 'maidr-review-input-';
   static readonly MAIDR_HELP_MODAL = '.MuiDialog-container';
   static readonly MAIDR_HELP_MODAL_TITLE = '.MuiDialogTitle-root h6';
   static readonly MAIDR_SETTINGS_MODAL = '.MuiDialog-container div[role="dialog"]';

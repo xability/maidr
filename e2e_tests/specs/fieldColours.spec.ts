@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { BarPlotPage } from '../page-objects/plots/barplot-page';
+import { TestConstants } from '../utils/constants';
 
 /**
  * The braille and review fields stay readable on any page, and keep the
@@ -29,8 +30,8 @@ import { BarPlotPage } from '../page-objects/plots/barplot-page';
  * system colours -- so it is checked here, by contrast ratio.
  */
 
-const BRAILLE = '[id^="maidr-braille-textarea-"]';
-const REVIEW = '[id^="maidr-review-input-"]';
+const BRAILLE = `textarea[id^="${TestConstants.BRAILLE_TEXTAREA}"]`;
+const REVIEW = `input[id^="${TestConstants.REVIEW_INPUT}"]`;
 
 /** WCAG 2.1 AA for text. */
 const AA = 4.5;
@@ -40,6 +41,15 @@ const AA = 4.5;
  * Bootstrap 3 ships it, and Tailwind 3's preflight.
  */
 const INHERIT_RESET = 'button, input, optgroup, select, textarea { color: inherit; }';
+
+/**
+ * Quarto's darkly theme: the page's background on every field, and the
+ * browser's black text left as it was.
+ */
+const QUARTO_DARKLY = `
+  body { background-color: #222; color: #fff; }
+  input, button, select, optgroup, textarea { background-color: #222; }
+`;
 
 /** A page rule giving the fields one colour of their own, on purpose. */
 const THEMED_FIELDS = '.themed textarea, .themed input { color: rgb(20, 30, 40); background-color: rgb(250, 240, 200); }';
@@ -60,9 +70,22 @@ interface FieldPaint {
 async function fieldPaint(page: Page, selector: string): Promise<FieldPaint> {
   return page.locator(selector).evaluate((field) => {
     type Rgba = [number, number, number, number];
+    // Every colour through one canvas pixel: a computed colour can stay in
+    // the space it was written in (`oklch()`, `lab()`, `color(srgb ...)`), and
+    // reading its numbers as red, green and blue misreads it.
+    const pixel = document.createElement('canvas');
+    pixel.width = 1;
+    pixel.height = 1;
+    const context = pixel.getContext('2d', { willReadFrequently: true });
+    if (context === null) {
+      throw new Error('fieldPaint: no 2D canvas context to read colours with');
+    }
     const parse = (value: string): Rgba => {
-      const parts = value.match(/[\d.]+/g)?.map(Number) ?? [];
-      return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0, parts[3] ?? 1];
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = value;
+      context.fillRect(0, 0, 1, 1);
+      const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+      return [r, g, b, a / 255];
     };
     const over = (top: Rgba, bottom: Rgba): Rgba => {
       const a = top[3];
@@ -206,31 +229,32 @@ test.describe('Braille and review field colours', () => {
 
     test('gives the page its fields\' colours back when high contrast is turned off with a field open', async ({ page }) => {
       // Quarto's darkly. The floor measured the field while high contrast
-      // painted it, so it must measure again once high contrast is gone.
-      const barPage = await openChart(page, `
-        body { background-color: #222; color: #fff; }
-        input, button, select, optgroup, textarea { background-color: #222; }
-      `);
+      // painted it, so it must measure again once high contrast is gone, and
+      // the field must end as it is outside high contrast.
+      const barPage = await openChart(page, QUARTO_DARKLY);
+      await barPage.pressKey('b', 'open braille');
+      await expect(page.locator(BRAILLE)).toBeFocused();
+      const own = await fieldPaint(page, BRAILLE);
+      await barPage.pressKey('b', 'close braille');
+      await expect(page.locator(BRAILLE)).toHaveCount(0);
       await barPage.pressKey('c', 'turn high contrast on');
       await barPage.pressKey('b', 'open braille');
       await expect(page.locator(BRAILLE)).toBeFocused();
+      await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille in high contrast' })
+        .toMatchObject({ color: 'rgb(255, 255, 255)', background: 'rgb(0, 0, 0)' });
 
       await barPage.pressKey('c', 'turn high contrast off');
 
-      await expectBrailleReadable(page);
+      expect(own.ratio, `braille: ${own.color} on ${own.background}`).toBeGreaterThanOrEqual(AA);
+      await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille after high contrast' }).toEqual(own);
     });
   });
 
   test.describe('outside high contrast', () => {
     const pages = [
       {
-        // Quarto's darkly theme: the page's background on every field, and
-        // the browser's black text left as it was.
         name: 'a dark page that gives fields only its background',
-        css: `
-          body { background-color: #222; color: #fff; }
-          input, button, select, optgroup, textarea { background-color: #222; }
-        `,
+        css: QUARTO_DARKLY,
       },
       {
         // Tailwind 3's preflight under a dark body: the fields inherit the
