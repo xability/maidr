@@ -14,7 +14,7 @@
  */
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { keepFieldReadable } from '@util/readableField';
+import { keepFieldReadable, watchFieldColours } from '@util/readableField';
 
 /**
  * Draws a chart's article on a page, with a field inside it.
@@ -162,5 +162,39 @@ describe('keepFieldReadable', () => {
     keepFieldReadable(field);
 
     expect(field.getAttribute('style')).toBeNull();
+  });
+});
+
+describe('watchFieldColours', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('should ask for a measure when the field gains and loses focus', () => {
+    // A page's `:focus` rule restyles the field, and braille is measured
+    // before it takes focus.
+    const field = document.createElement('textarea');
+    document.body.append(field);
+    const recheck = jest.fn();
+    const stop = watchFieldColours(field, recheck);
+
+    field.focus();
+    field.blur();
+
+    expect(recheck).toHaveBeenCalledTimes(2);
+    stop();
+  });
+
+  it('should stop asking once stopped', () => {
+    const field = document.createElement('textarea');
+    document.body.append(field);
+    const recheck = jest.fn();
+    const stop = watchFieldColours(field, recheck);
+    stop();
+
+    field.focus();
+    field.blur();
+
+    expect(recheck).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import type { Rgb, Rgba } from '@type/color';
+import { DomEventType } from '@type/event';
 import { Color } from '@util/color';
 import { Constant } from '@util/constant';
 
@@ -269,5 +270,23 @@ export function keepFieldReadable(field: HTMLElement): () => void {
         field.style.setProperty(property, value, priority);
       }
     }
+  };
+}
+
+/**
+ * Asks for a field to be measured again whenever its colours can change
+ * without the reader taking a step: when it gains or loses focus, so a
+ * page's `:focus` rule is measured (braille is measured before it takes
+ * focus).
+ * @param field - The field
+ * @param recheck - Undoes the floor and measures the field again
+ * @returns Stops asking
+ */
+export function watchFieldColours(field: HTMLElement, recheck: () => void): () => void {
+  field.addEventListener(DomEventType.FOCUS_IN, recheck);
+  field.addEventListener(DomEventType.FOCUS_OUT, recheck);
+  return () => {
+    field.removeEventListener(DomEventType.FOCUS_IN, recheck);
+    field.removeEventListener(DomEventType.FOCUS_OUT, recheck);
   };
 }

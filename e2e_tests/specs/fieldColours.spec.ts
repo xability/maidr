@@ -316,6 +316,19 @@ test.describe('Braille and review field colours', () => {
       });
     }
 
+    test('keeps both fields readable on a page that restyles focused fields', async ({ page }) => {
+      // Readable until focused, and braille is measured before it takes
+      // focus: the field must be measured again once it has it.
+      const barPage = await openChart(page, `
+        ${INHERIT_RESET}
+        body { background-color: #1b1b1b; color: #e6e6e6; }
+        textarea, input { background-color: transparent; }
+        textarea:focus, input:focus { background-color: #fff; }
+      `);
+
+      expectReadable(await readFields(page, barPage));
+    });
+
     const themes = [
       {
         name: 'a rule of its own',
