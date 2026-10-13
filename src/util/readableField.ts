@@ -22,7 +22,8 @@ const STRIDE = 4;
 
 /**
  * The most animation frames the floor checks after one change, so colours
- * that never stop changing are not followed for ever.
+ * that never stop changing are not followed for ever: two seconds at 60 Hz,
+ * one at 120 Hz.
  */
 const MAX_FRAMES = 120;
 
@@ -299,18 +300,33 @@ function settleColourTransitions(field: HTMLElement): void {
 }
 
 /**
- * Whether a colour transition is moving on the field or any of its
- * ancestors, or waiting out its delay to: until it ends, the colours the
- * field shows, or the colours around it, are still to change. A transition
- * in its delay changes nothing yet, and nor does one that steps once at its
- * end, so frames that find nothing changed do not show that it is over.
+ * Whether an animation is moving towards an end: running, not held at a
+ * `playbackRate` of 0, and not endless. Any such animation can still change
+ * colours, whether a transition of `color` or `background-color`, a
+ * transition of a registered colour property such as `--bg`, or a keyframe
+ * animation the theme switch starts.
+ * @param animation - An animation running on an element
+ * @returns Whether it is moving towards a finite end
+ */
+function isMovingFiniteAnimation(animation: Animation): boolean {
+  return animation.playState === 'running'
+    && animation.playbackRate !== 0
+    && (animation.effect?.getComputedTiming().endTime ?? 0) !== Infinity;
+}
+
+/**
+ * Whether an animation is moving on the field or any of its ancestors, or
+ * waiting out its delay to: until it ends, the colours the field shows, or
+ * the colours around it, may still change. One in its delay changes nothing
+ * yet, and nor does one that steps once at its end, so frames that find
+ * nothing changed do not show that it is over.
  * @param field - The field
  * @returns Whether one is
  */
 function isTransitioning(field: HTMLElement): boolean {
   for (let current: Element | null = field; current !== null; current = current.parentElement) {
     // jsdom has no Web Animations.
-    if (typeof current.getAnimations === 'function' && current.getAnimations().some(isMovingColourTransition)) {
+    if (typeof current.getAnimations === 'function' && current.getAnimations().some(isMovingFiniteAnimation)) {
       return true;
     }
   }
@@ -650,9 +666,10 @@ export interface ReadableField {
  *   checked (Chromium fires `load` then, Firefox `error`, so both count).
  *
  * Every one of these is followed by a check on each frame after it, until
- * five frames in a row find nothing changed and no colour transition is
- * moving, or waiting out its delay, on the field or any of its ancestors, or
- * until two seconds or so have passed since the last of them (see
+ * five frames in a row find nothing changed and no animation is moving, or
+ * waiting out its delay, on the field or any of its ancestors, or until
+ * `MAX_FRAMES` frames (two seconds at 60 Hz, one at 120 Hz) have passed since
+ * the last of them, so a transition longer than that is left where it is (see
  * `framesOf`). A page that reports a change every frame, writing to its root
  * on each, is checked once every four frames instead. A check on a frame
  * reads the colours among the frame's animation callbacks, before its style
