@@ -252,30 +252,37 @@ ${EMBEDDED} :is(button, a, [role="button"]):focus-visible {
 `;
 
 /**
- * Both colours of MAIDR's braille and review fields, as a matched pair: the
- * browser's own field colours, which follow the page's colour scheme and
- * which forced colours replaces with the system's.
+ * The reader's high contrast pair on MAIDR's braille and review fields, both
+ * colours at once, while high contrast mode is painted.
  *
- * A browser gives a field both of these by default, but a page's reset often
- * takes back one of the two. Bootstrap 3's normalize.css and Tailwind 3's
- * preflight make fields inherit their text colour, so under high contrast,
- * which paints the chart's backdrop dark with light text, the fields turned
- * white on the browser's white field. A reset that clears their background
- * left them black on that dark backdrop, and a dark theme that gives fields
- * only its own background (Quarto's darkly) left them black on dark grey
- * with high contrast off.
+ * High contrast paints the chart's backdrop dark with light text, and sets
+ * the same two colours on it as custom properties (see `overrideInlineStyles`
+ * in `HighContrastService`), which this rule reads; restoring removes them,
+ * and the rule goes with them. Without it the fields took whatever the page's
+ * cascade left them. A reset that makes fields inherit their text colour
+ * (normalize.css v3, so Bootstrap 3 and every rmarkdown page; Tailwind 3's
+ * preflight) gave them the light text over the browser's white field, and a
+ * reset that clears their background left the browser's black text on the
+ * dark backdrop: 1:1 either way.
  *
- * Every such reset names fields by element type alone. The field's id puts
- * this rule one attribute above them and the article around it adds nothing,
- * through `:where()`. A page that styles the fields on purpose names where
- * they are, with a class or an id, and its rule, of equal specificity or
- * more and later in the document than this one, still wins: a floor, not a
- * ceiling.
+ * `!important`, like the focus ring of a chart bound from the page, because
+ * no specificity is enough to keep the two together. Pages do not name
+ * fields by element type alone: Milligram clears only their background,
+ * through `input[type='text']`, so a pair given one attribute above the
+ * element-type resets met a rule of equal weight later in the page, lost its
+ * background to it, and left black text on the dark backdrop. So the reader's
+ * pair also replaces fields a page themes on purpose, by a class, an id or a
+ * cascade layer, which is what the reader turned high contrast on for; only
+ * a page's own `!important` field colours can still win. Forced colours
+ * replace both colours, as ever.
+ *
+ * With high contrast off nothing here applies: the fields keep the page's
+ * colours, and `useReadableField` steps in only where those are unreadable.
  */
-const FIELD_COLOUR_RULE = `
-:where(article[id^="${Constant.MAIDR_ARTICLE}-"]) :is(textarea[id^="${Constant.BRAILLE_TEXT_AREA}-"], input[id^="${Constant.REVIEW_INPUT}-"]) {
-  color: FieldText;
-  background-color: Field;
+const FIELD_HIGH_CONTRAST_RULE = `
+:where([style*="${Constant.HIGH_CONTRAST_LIGHT_PROPERTY}"]) :is(textarea[id^="${Constant.BRAILLE_TEXT_AREA}-"], input[id^="${Constant.REVIEW_INPUT}-"]) {
+  color: var(${Constant.HIGH_CONTRAST_LIGHT_PROPERTY}) !important;
+  background-color: var(${Constant.HIGH_CONTRAST_DARK_PROPERTY}) !important;
 }
 `;
 
@@ -297,7 +304,7 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
     if (doc) {
       ensureDocumentStyle(doc, 'data-maidr-figure', FIGURE_MARGIN_RULE);
       ensureDocumentStyle(doc, 'data-maidr-focus-ring', FOCUS_RING_RULES);
-      ensureDocumentStyle(doc, 'data-maidr-fields', FIELD_COLOUR_RULE);
+      ensureDocumentStyle(doc, 'data-maidr-fields', FIELD_HIGH_CONTRAST_RULE);
     }
   }, [figureRef]);
 

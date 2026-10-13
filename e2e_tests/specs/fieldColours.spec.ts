@@ -16,10 +16,14 @@ import { BarPlotPage } from '../page-objects/plots/barplot-page';
  * on Tailwind 3 or Bootstrap 3, Milligram on a dark body -- left them black
  * on dark grey whether high contrast was on or not.
  *
- * The fields carry the browser's own field colours as a pair, which holds
- * against the resets, and on top of that are measured as they open and on
- * every step: where the page's colours leave them below 4.5:1, they take the
- * colours of the text around the chart.
+ * A pair of fixed colours with a fixed specificity did not hold either: a
+ * page that sets only one of the two at the same weight or more splits the
+ * pair (Milligram clears only the background, through `input[type='text']`),
+ * and it overrode the colours of every page that themed its fields on
+ * purpose, white boxes on dark themes included. So under high contrast the
+ * fields take the reader's pair, `!important`; outside it they keep the
+ * page's colours, and only where those measure below 4.5:1 take the colours
+ * of the text around the chart.
  *
  * Only a browser computes any of this -- jsdom has no default styles and no
  * system colours -- so it is checked here, by contrast ratio.
@@ -168,6 +172,17 @@ test.describe('Braille and review field colours', () => {
         name: 'a reset that clears fields\' background',
         css: 'textarea, input { background: transparent; }',
       },
+      {
+        // Milligram's own rule, after Bootstrap 3's reset: a pair given at
+        // this specificity loses its background and keeps its black text.
+        name: 'a rule that clears only the background, at the specificity of an attribute',
+        css: `${INHERIT_RESET} input[type="text"], textarea[readonly] { background-color: transparent; }`,
+      },
+      {
+        // The same, with a light background: the inherited light text on it.
+        name: 'a rule that sets only a light background, at the specificity of an attribute',
+        css: `${INHERIT_RESET} input[type="text"], textarea[readonly] { background-color: #fff; }`,
+      },
     ];
 
     for (const { name, css } of pages) {
@@ -178,6 +193,16 @@ test.describe('Braille and review field colours', () => {
         expectReadable(await readFields(page, barPage));
       });
     }
+
+    test('gives the reader\'s pair to fields a page themes in a cascade layer', async ({ page }) => {
+      // A layered theme loses to any rule outside a layer, and the fields must
+      // still show the reader's colours, not the page's, under high contrast.
+      const barPage = await openChart(page, `@layer theme { ${THEMED_FIELDS} }`);
+      await page.evaluate(() => document.body.classList.add('themed'));
+      await barPage.pressKey('c', 'turn high contrast on');
+
+      expectPageColours(await readFields(page, barPage), { color: 'rgb(255, 255, 255)', background: 'rgb(0, 0, 0)' });
+    });
 
     test('gives the page its fields\' colours back when high contrast is turned off with a field open', async ({ page }) => {
       // Quarto's darkly. The floor measured the field while high contrast
@@ -241,6 +266,21 @@ test.describe('Braille and review field colours', () => {
         css: THEMED_FIELDS,
         colours: { color: 'rgb(20, 30, 40)', background: 'rgb(250, 240, 200)' },
       },
+      {
+        name: 'a rule in a cascade layer',
+        css: `@layer theme { ${THEMED_FIELDS} }`,
+        colours: { color: 'rgb(20, 30, 40)', background: 'rgb(250, 240, 200)' },
+      },
+      {
+        // water.css's dark theme names fields by element type alone: a white
+        // box in its place would glare on the dark page.
+        name: 'a dark theme that styles fields by element type',
+        css: `
+          body { background-color: #202b38; color: #dbdbdb; }
+          textarea, input, select, button { color: #fff; background-color: #161f27; }
+        `,
+        colours: { color: 'rgb(255, 255, 255)', background: 'rgb(22, 31, 39)' },
+      },
     ];
 
     for (const { name, css, colours } of themes) {
@@ -267,13 +307,21 @@ test.describe('Braille and review field colours', () => {
     });
   });
 
-  test('keeps both fields readable in high contrast under forced colours', async ({ page }) => {
+  test.describe('under forced colours', () => {
     // A guard: forced colours replace both colours with the system's, over
-    // the pair the fields carry and over any the floor would give.
-    await page.emulateMedia({ forcedColors: 'active' });
-    const barPage = await openChart(page, INHERIT_RESET);
-    await barPage.pressKey('c', 'turn high contrast on');
+    // the reader's pair and over any the floor would give.
+    for (const colorScheme of ['light', 'dark'] as const) {
+      for (const highContrast of [false, true]) {
+        test(`keeps both fields readable in the ${colorScheme} scheme with high contrast ${highContrast ? 'on' : 'off'}`, async ({ page }) => {
+          await page.emulateMedia({ forcedColors: 'active', colorScheme });
+          const barPage = await openChart(page, `${INHERIT_RESET} body { background-color: #222; color: #fff; }`);
+          if (highContrast) {
+            await barPage.pressKey('c', 'turn high contrast on');
+          }
 
-    expectReadable(await readFields(page, barPage));
+          expectReadable(await readFields(page, barPage));
+        });
+      }
+    }
   });
 });

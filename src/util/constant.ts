@@ -82,6 +82,13 @@ export abstract class Constant {
    * is mounted in, rather than one a React app renders itself
    */
   static readonly MAIDR_EMBED = 'data-maidr-embed';
+  /**
+   * Custom property high contrast mode sets on the chart's backdrop while it
+   * is painted, holding the reader's light colour for MAIDR's own fields
+   */
+  static readonly HIGH_CONTRAST_LIGHT_PROPERTY = '--maidr-high-contrast-light';
+  /** The same, holding the reader's dark colour */
+  static readonly HIGH_CONTRAST_DARK_PROPERTY = '--maidr-high-contrast-dark';
   /** CSS selector for elements whose `maidr` attribute contains JSON (starts with '{') */
   static readonly MAIDR_JSON_SELECTOR = '[maidr^="{"]';
   // Attribute values.

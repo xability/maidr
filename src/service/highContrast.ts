@@ -798,6 +798,13 @@ export class HighContrastService implements Disposable {
     const backdrop = this.getBackdrop();
     this.overrideInlineStyle(backdrop, 'background-color', this.highContrastDarkColor);
     this.overrideInlineStyle(backdrop, 'color', this.highContrastLightColor);
+    // The reader's pair again, for MAIDR's braille and review fields, whose
+    // colours a page's stylesheet can split: a reset may make them inherit the
+    // light colour above and leave the browser's white field under it. The
+    // rule that reads these (FIELD_HIGH_CONTRAST_RULE, maidr-component.tsx)
+    // gives the fields both at once, and goes when restore removes them.
+    this.overrideInlineStyle(backdrop, Constant.HIGH_CONTRAST_LIGHT_PROPERTY, this.highContrastLightColor);
+    this.overrideInlineStyle(backdrop, Constant.HIGH_CONTRAST_DARK_PROPERTY, this.highContrastDarkColor);
 
     for (const surface of this.backgroundSurfaces) {
       this.overrideInlineStyle(surface, 'background-color', this.highContrastDarkColor);
