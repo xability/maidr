@@ -13,8 +13,9 @@
  * `e2e_tests/specs/fieldColours.spec.ts`.
  */
 
+import type { ReadableField } from '@util/readableField';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { keepFieldReadable, watchFieldColours, whenColoursSettle } from '@util/readableField';
+import { keepFieldReadable } from '@util/readableField';
 
 /**
  * Draws a chart's article on a page, with a field inside it.
@@ -44,6 +45,26 @@ function drawField(
   return textArea;
 }
 
+/** Every floor a case made, so none outlives it and answers the next one's changes. */
+const floors: ReadableField[] = [];
+
+/**
+ * Makes a field's floor, to be disposed once the case is over.
+ * @param field - The field
+ * @returns Its floor
+ */
+function floorFor(field: HTMLElement): ReadableField {
+  const floor = keepFieldReadable(field);
+  floors.push(floor);
+  return floor;
+}
+
+afterEach(() => {
+  for (const floor of floors.splice(0)) {
+    floor.dispose();
+  }
+});
+
 describe('keepFieldReadable', () => {
   afterEach(() => {
     document.body.innerHTML = '';
@@ -57,7 +78,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(255, 255, 255)', background: 'rgb(22, 31, 39)' },
     );
 
-    keepFieldReadable(field).check();
+    floorFor(field).check();
 
     expect(field.style.color).toBe('rgb(255, 255, 255)');
     expect(field.style.backgroundColor).toBe('rgb(22, 31, 39)');
@@ -70,7 +91,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
 
-    keepFieldReadable(field).check();
+    floorFor(field).check();
 
     expect(field.style.color).toBe('rgb(255, 255, 255)');
     expect(field.style.backgroundColor).toBe('rgb(34, 34, 34)');
@@ -82,7 +103,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(30, 30, 30)', background: 'rgba(0, 0, 0, 0)' },
     );
 
-    keepFieldReadable(field).check();
+    floorFor(field).check();
 
     expect(field.style.color.toLowerCase()).toBe('fieldtext');
     expect(field.style.backgroundColor.toLowerCase()).toBe('field');
@@ -94,7 +115,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
 
-    const floor = keepFieldReadable(field);
+    const floor = floorFor(field);
     floor.check();
     floor.dispose();
 
@@ -108,7 +129,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
 
-    keepFieldReadable(field).check();
+    floorFor(field).check();
 
     expect(field.style.getPropertyPriority('color')).toBe('important');
     expect(field.style.getPropertyPriority('background-color')).toBe('important');
@@ -122,7 +143,7 @@ describe('keepFieldReadable', () => {
     field.setAttribute('style', 'color: rgb(0, 0, 0) !important; background-color: rgba(0, 0, 0, 0);');
     const before = field.getAttribute('style');
 
-    const floor = keepFieldReadable(field);
+    const floor = floorFor(field);
     floor.check();
     const fixed = field.style.getPropertyValue('color');
     floor.dispose();
@@ -148,7 +169,7 @@ describe('keepFieldReadable', () => {
     const opacity = transition('opacity');
     field.getAnimations = (): Animation[] => [colour, background, opacity].map(stub => stub as CSSTransition);
 
-    keepFieldReadable(field).check();
+    floorFor(field).check();
 
     // Once before measuring, once after setting the pair.
     expect(colour.finish).toHaveBeenCalledTimes(2);
@@ -163,7 +184,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
-    const floor = keepFieldReadable(field);
+    const floor = floorFor(field);
     floor.check();
     const records: MutationRecord[] = [];
     const observer = new MutationObserver(found => records.push(...found));
@@ -183,7 +204,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
-    const floor = keepFieldReadable(field);
+    const floor = floorFor(field);
     floor.check();
 
     document.body.style.color = 'rgb(240, 240, 200)';
@@ -201,7 +222,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
     const appendChild = jest.spyOn(document.documentElement, 'appendChild');
-    const floor = keepFieldReadable(field);
+    const floor = floorFor(field);
 
     floor.check();
     floor.check();
@@ -216,137 +237,163 @@ describe('keepFieldReadable', () => {
     // field a page did not style.
     const field = drawField({ text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' }, null);
 
-    keepFieldReadable(field).check();
+    floorFor(field).check();
 
     expect(field.getAttribute('style')).toBeNull();
   });
 });
 
-describe('watchFieldColours', () => {
-  afterEach(() => {
-    document.body.innerHTML = '';
-  });
+describe('keepFieldReadable between the checks it is asked for', () => {
+  /** Waits for `count` animation frames. */
+  async function frames(count: number): Promise<void> {
+    for (let i = 0; i < count; i++) {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    }
+  }
 
-  it('should ask for a measure when the field gains and loses focus', () => {
-    // A page's `:focus` rule restyles the field, and braille is measured
-    // before it takes focus.
-    const field = document.createElement('textarea');
-    document.body.append(field);
-    const recheck = jest.fn();
-    const stop = watchFieldColours(field, recheck);
+  /** Waits until the frames a check is followed by are over. */
+  async function quiet(): Promise<void> {
+    await frames(8);
+  }
 
-    field.focus();
-    field.blur();
-
-    expect(recheck).toHaveBeenCalledTimes(2);
-    stop();
-  });
-
-  it('should ask for a measure when the page switches theme on its root or body', async () => {
-    const field = document.createElement('textarea');
-    document.body.append(field);
-    const recheck = jest.fn();
-    const stop = watchFieldColours(field, recheck);
-
-    document.documentElement.classList.add('dark');
-    await Promise.resolve();
-    document.body.dataset.theme = 'dark';
-    await Promise.resolve();
-
-    expect(recheck).toHaveBeenCalledTimes(2);
-    stop();
-    document.documentElement.classList.remove('dark');
-    delete document.body.dataset.theme;
-  });
-
-  it('should ask for a measure when the system\'s colour scheme changes', () => {
-    const scheme = new EventTarget();
-    window.matchMedia = (): MediaQueryList => scheme as MediaQueryList;
-    const field = document.createElement('textarea');
-    document.body.append(field);
-    const recheck = jest.fn();
-    const stop = watchFieldColours(field, recheck);
-
-    scheme.dispatchEvent(new Event('change'));
-
-    expect(recheck).toHaveBeenCalledTimes(1);
-    stop();
-    Reflect.deleteProperty(window, 'matchMedia');
-  });
-
-  it('should stop asking once stopped', async () => {
-    const scheme = new EventTarget();
-    window.matchMedia = (): MediaQueryList => scheme as MediaQueryList;
-    const field = document.createElement('textarea');
-    document.body.append(field);
-    const recheck = jest.fn();
-    const stop = watchFieldColours(field, recheck);
-    stop();
-
-    field.focus();
-    field.blur();
-    document.documentElement.classList.add('dark');
-    await Promise.resolve();
-    scheme.dispatchEvent(new Event('change'));
-
-    expect(recheck).not.toHaveBeenCalled();
-    document.documentElement.classList.remove('dark');
-    Reflect.deleteProperty(window, 'matchMedia');
-  });
-});
-
-describe('whenColoursSettle', () => {
   /**
-   * Draws a field inside an article whose background is transitioning.
-   * @returns The field, and the call that ends the transition
+   * Draws an unreadable field the floor has checked, in an article whose
+   * colours a test changes without touching the root or body.
    */
-  function drawTransitioningArticle(): { field: HTMLTextAreaElement; end: () => void } {
-    const article = document.createElement('article');
-    const field = document.createElement('textarea');
-    article.append(field);
-    document.body.append(article);
-    let end = (): void => {};
-    const finished = new Promise<void>((resolve) => {
-      end = resolve;
-    });
-    const transition: Pick<CSSTransition, 'transitionProperty' | 'finished'> = {
-      transitionProperty: 'background-color',
-      finished: finished.then(() => transition as CSSTransition),
-    };
-    article.getAnimations = (): Animation[] => [transition as CSSTransition];
-    document.body.getAnimations = (): Animation[] => [];
-    document.documentElement.getAnimations = (): Animation[] => [];
-    return { field, end };
+  function drawCheckedField(): { field: HTMLTextAreaElement; article: HTMLElement; floor: ReadableField } {
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+    const article = field.parentElement as HTMLElement;
+    const floor = floorFor(field);
+    floor.check();
+    return { field, article, floor };
+  }
+
+  /** Gives the article colours of its own. */
+  function paintArticle(article: HTMLElement, text: string, background: string): void {
+    article.style.color = text;
+    article.style.backgroundColor = background;
   }
 
   afterEach(() => {
+    jest.restoreAllMocks();
     document.body.innerHTML = '';
-    Reflect.deleteProperty(document.body, 'getAnimations');
-    Reflect.deleteProperty(document.documentElement, 'getAnimations');
+    document.body.removeAttribute('style');
+    document.body.removeAttribute('class');
+    Reflect.deleteProperty(window, 'matchMedia');
   });
 
-  it('should measure again once the colours around the field stop transitioning', async () => {
-    const { field, end } = drawTransitioningArticle();
-    const then = jest.fn();
-    whenColoursSettle(field, then);
+  it('should check the field at once when it gains or loses focus', () => {
+    // A page's `:focus` rule restyles the field, and braille is measured
+    // before it takes focus.
+    const { field, article, floor } = drawCheckedField();
+
+    paintArticle(article, 'rgb(240, 240, 200)', 'rgb(20, 20, 60)');
+    field.focus();
+    const focused = field.style.color;
+    paintArticle(article, 'rgb(200, 240, 240)', 'rgb(60, 20, 20)');
+    field.blur();
+
+    expect(focused).toBe('rgb(240, 240, 200)');
+    expect(field.style.color).toBe('rgb(200, 240, 240)');
+    floor.dispose();
+  });
+
+  it('should check the field on the next frame when the page switches theme on its body', async () => {
+    const { field, floor } = drawCheckedField();
+    await quiet();
+
+    document.body.style.color = 'rgb(240, 240, 200)';
+    document.body.style.backgroundColor = 'rgb(20, 20, 60)';
     await Promise.resolve();
-    expect(then).not.toHaveBeenCalled();
+    const beforeFrame = field.style.color;
+    await frames(1);
 
-    end();
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    expect(then).toHaveBeenCalledTimes(1);
+    expect(beforeFrame).toBe('rgb(255, 255, 255)');
+    expect(field.style.color).toBe('rgb(240, 240, 200)');
+    floor.dispose();
   });
 
-  it('should not measure again once cancelled', async () => {
-    const { field, end } = drawTransitioningArticle();
-    const then = jest.fn();
-    const cancel = whenColoursSettle(field, then);
+  it('should not look again when the page sets an attribute to the value it has', async () => {
+    // A page that answers each change to its document by marking its body:
+    // the floor must not answer the mark.
+    document.body.classList.add('seen');
+    document.documentElement.setAttribute('lang', 'en');
+    const { floor } = drawCheckedField();
+    await quiet();
+    const requestFrame = jest.spyOn(window, 'requestAnimationFrame');
 
-    cancel();
-    end();
-    await new Promise(resolve => setTimeout(resolve, 0));
+    document.body.classList.add('seen');
+    document.documentElement.setAttribute('lang', 'en');
+    await Promise.resolve();
 
-    expect(then).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+    floor.dispose();
+    document.documentElement.removeAttribute('lang');
+  });
+
+  it('should check at most once a frame however often the page changes its root', async () => {
+    const { floor } = drawCheckedField();
+    await quiet();
+    const requestFrame = jest.spyOn(window, 'requestAnimationFrame');
+
+    for (let i = 0; i < 3; i++) {
+      document.documentElement.style.setProperty('--frame', String(i));
+      await Promise.resolve();
+    }
+
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    floor.dispose();
+    document.documentElement.removeAttribute('style');
+  });
+
+  it('should check the field on the next frame when the system\'s colour scheme changes', async () => {
+    const scheme = new EventTarget();
+    window.matchMedia = (): MediaQueryList => scheme as MediaQueryList;
+    const { field, article, floor } = drawCheckedField();
+    await quiet();
+
+    paintArticle(article, 'rgb(240, 240, 200)', 'rgb(20, 20, 60)');
+    scheme.dispatchEvent(new Event('change'));
+    await frames(1);
+
+    expect(field.style.color).toBe('rgb(240, 240, 200)');
+    floor.dispose();
+  });
+
+  it('should follow colours that change frame after frame, and stop once they hold', async () => {
+    // The colours around the field transitioning after a change.
+    const { field, article, floor } = drawCheckedField();
+    const seen: string[] = [];
+
+    for (const level of [60, 120, 180]) {
+      paintArticle(article, `rgb(${level}, 240, 240)`, 'rgb(20, 20, 60)');
+      await frames(1);
+      seen.push(field.style.color);
+    }
+    await quiet();
+    const requestFrame = jest.spyOn(window, 'requestAnimationFrame');
+    await frames(3);
+
+    expect(seen).toEqual(['rgb(60, 240, 240)', 'rgb(120, 240, 240)', 'rgb(180, 240, 240)']);
+    // The three frames waited for above, and none of the floor's.
+    expect(requestFrame).toHaveBeenCalledTimes(3);
+    floor.dispose();
+  });
+
+  it('should stop checking, and put back what it replaced, once disposed', async () => {
+    const { field, floor } = drawCheckedField();
+    const cancelFrame = jest.spyOn(window, 'cancelAnimationFrame');
+
+    floor.dispose();
+    document.body.style.color = 'rgb(240, 240, 200)';
+    await frames(2);
+    field.focus();
+
+    expect(cancelFrame).toHaveBeenCalledTimes(1);
+    expect(field.style.color).toBe('rgb(0, 0, 0)');
+    expect(field.style.getPropertyPriority('color')).toBe('');
   });
 });

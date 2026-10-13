@@ -6,6 +6,18 @@ import { Constant } from '@util/constant';
 /** WCAG 2.1 AA for text: the least contrast a field is left at. */
 const MIN_CONTRAST = 4.5;
 
+/**
+ * How many animation frames in a row must find a field's colours unchanged
+ * before the floor stops checking them after a change (see `framesOf`).
+ */
+const QUIET_FRAMES = 5;
+
+/**
+ * The most animation frames the floor checks after one change, so colours
+ * that never stop changing are not followed for ever.
+ */
+const MAX_FRAMES = 120;
+
 /** What an element paints its text with, and over. */
 interface Paint {
   /** Its text colour, composited over its background. */
@@ -289,47 +301,24 @@ function inputsOf(field: HTMLElement): string {
   return JSON.stringify([paintOf(field), surroundings === null ? null : paintOf(surroundings)]);
 }
 
-/** One field's floor, for as long as the field is drawn. */
-export interface ReadableField {
+/** A field's floor, without what tells it when to check. */
+interface Floor {
   /**
-   * Measures the field again if anything the floor reads has changed since it
-   * last measured, and changes nothing on the page where nothing has.
+   * Measures the field if anything `inputsOf` reads has changed since the
+   * last measure, and writes nothing to the page where nothing has.
+   * @returns Whether it measured
    */
-  check: () => void;
-  /** Puts back what the floor replaced, if anything. */
-  dispose: () => void;
+  check: () => boolean;
+  /** Puts back what the floor's pair replaced, if anything. */
+  restore: () => void;
 }
 
 /**
- * Keeps one of MAIDR's fields -- the braille textarea or the review input --
- * readable on whatever page it is drawn in.
- *
- * A field left at 4.5:1 or more is left alone, so a page that styles its
- * fields keeps its own look. Below that, the field takes both colours, as a
- * pair, inline and `!important` so that no rule of the page's outweighs
- * them: those of the article around it, which is the text the page itself
- * shows around the chart, or the browser's own field colours where that
- * text is unreadable too.
- *
- * Measured, not cascaded, because no rule of a fixed specificity can be sure
- * of both colours: a page that sets one of them at the same specificity or
- * more, or in a reset that inherits one and clears the other, splits any
- * pair a rule hands the field. Forced colours are already in the computed
- * colours, so under them the floor finds the field readable and stays out.
- * A transition on the field's colours is finished before it is measured, and
- * again after the pair is set (see `settleColourTransitions`).
- *
- * Each check first reads what it can without touching the page (see
- * `inputsOf`), and measures only when that has changed: taking the pair off
- * to measure the field's own colours, and setting it again, is a change to
- * the page that a page's own MutationObserver sees, and a page that answers
- * such a change by writing to its root or body would otherwise be answered
- * in turn, for ever. So a change to the field's own colours alone, with the
- * pair in place, waits for the colours around it to change.
+ * Makes a field's floor (see `keepFieldReadable`).
  * @param field - The field
  * @returns Its floor, which has not measured it yet
  */
-export function keepFieldReadable(field: HTMLElement): ReadableField {
+function floorOf(field: HTMLElement): Floor {
   // What the floor's pair replaced, while it is set.
   let replaced: Declaration[] | null = null;
   // What the last measure read, with its pair in place.
@@ -367,111 +356,179 @@ export function keepFieldReadable(field: HTMLElement): ReadableField {
 
   return {
     check: () => {
-      if (inputsOf(field) !== inputs) {
-        measure();
+      if (inputsOf(field) === inputs) {
+        return false;
       }
+      measure();
+      return true;
     },
-    dispose: () => {
+    restore: () => {
       restore();
       inputs = null;
     },
   };
 }
 
-/**
- * The transitions running on the colours of a field's ancestors.
- * @param field - The field
- * @returns The transitions, none where the browser has no Web Animations
- */
-function ancestorColourTransitions(field: HTMLElement): CSSTransition[] {
-  const transitions: CSSTransition[] = [];
-  for (let current = field.parentElement; current !== null; current = current.parentElement) {
-    if (typeof current.getAnimations !== 'function') {
-      return transitions;
-    }
-    transitions.push(...current.getAnimations().filter(isColourTransition));
-  }
-  return transitions;
+/** Checks a floor once an animation frame while what it reads keeps changing. */
+interface Frames {
+  /** Starts checking, or keeps checking for longer, from the next frame. */
+  follow: () => void;
+  /** Stops checking, cancelling a frame still to come. */
+  stop: () => void;
 }
 
 /**
- * Calls `then` once the transitions running on the colours of the field's
- * ancestors have ended, if any are running: until then the text and
- * background around the field are those being left -- the reader's high
- * contrast pair just after it is turned off, or the theme a page is
- * switching from -- and the floor took its pair from them.
- * @param field - The field
- * @param then - Measures the field again
- * @returns Cancels the call, if it is still to come
+ * Checks a floor on animation frames after a change, at most once a frame,
+ * until `QUIET_FRAMES` frames in a row find nothing changed, or `MAX_FRAMES`
+ * have passed since the last change was reported. That covers a change that
+ * lands a frame or more after the event that announced it -- a stylesheet a
+ * theme switch enables applies once it loads -- and colours that transition
+ * after a change: the floor follows them frame by frame, and is left with
+ * those they settle on.
+ * @param view - The window whose frames to check on, if any
+ * @param check - Checks the floor, returning whether it measured
+ * @returns The calls that start and stop it
  */
-export function whenColoursSettle(field: HTMLElement, then: () => void): () => void {
-  const transitions = ancestorColourTransitions(field);
-  if (transitions.length === 0) {
-    return () => {};
+function framesOf(view: Window | null, check: () => boolean): Frames {
+  // jsdom has animation frames only when it pretends to be visual.
+  if (view === null || typeof view.requestAnimationFrame !== 'function') {
+    return { follow: () => {}, stop: () => {} };
   }
-  let cancelled = false;
-  void Promise.allSettled(transitions.map(transition => transition.finished)).then(() => {
-    if (!cancelled) {
-      then();
+  // The frame still to come, if any.
+  let frame: number | null = null;
+  let quiet = 0;
+  let left = 0;
+
+  const onFrame = (): void => {
+    frame = null;
+    quiet = check() ? 0 : quiet + 1;
+    left -= 1;
+    if (quiet < QUIET_FRAMES && left > 0) {
+      frame = view.requestAnimationFrame(onFrame);
     }
-  });
-  return () => {
-    cancelled = true;
+  };
+
+  return {
+    follow: () => {
+      quiet = 0;
+      left = MAX_FRAMES;
+      if (frame === null) {
+        frame = view.requestAnimationFrame(onFrame);
+      }
+    },
+    stop: () => {
+      if (frame !== null) {
+        view.cancelAnimationFrame(frame);
+        frame = null;
+      }
+    },
   };
 }
 
+/** One field's floor, for as long as the field is drawn. */
+export interface ReadableField {
+  /**
+   * Checks the field now, and on the next few frames (see `framesOf`). A
+   * check measures the field only if anything the floor reads has changed
+   * since it last measured, and changes nothing on the page where nothing
+   * has.
+   */
+  check: () => void;
+  /** Stops checking, and puts back what the floor replaced, if anything. */
+  dispose: () => void;
+}
+
 /**
- * Asks for a field to be measured again whenever its colours can change
- * without the reader taking a step, which review never takes while it is
- * open:
+ * Keeps one of MAIDR's fields -- the braille textarea or the review input --
+ * readable on whatever page it is drawn in.
  *
- * - when it gains or loses focus, so a page's `:focus` rule is measured
- *   (braille is measured before it takes focus);
- * - when the page's root or body changes an attribute, which is how a theme
- *   toggle switches theme (a class, a `data-theme`, a style);
- * - when the system's colour scheme changes, which a page's
- *   `prefers-color-scheme` rules follow.
+ * A field left at 4.5:1 or more is left alone, so a page that styles its
+ * fields keeps its own look. Below that, the field takes both colours, as a
+ * pair, inline and `!important` so that no rule of the page's outweighs
+ * them: those of the article around it, which is the text the page itself
+ * shows around the chart, or the browser's own field colours where that
+ * text is unreadable too.
  *
- * Where the change starts transitions on the colours of the field's
- * ancestors, measured again once they end (see `whenColoursSettle`). A theme a
- * page switches in any other way -- a stylesheet swapped in its head -- is
- * caught up with on the reader's next step, or the field's next focus.
+ * Measured, not cascaded, because no rule of a fixed specificity can be sure
+ * of both colours: a page that sets one of them at the same specificity or
+ * more, or in a reset that inherits one and clears the other, splits any
+ * pair a rule hands the field. Forced colours are already in the computed
+ * colours, so under them the floor finds the field readable and stays out.
+ * A transition on the field's colours is finished before it is measured, and
+ * again after the pair is set (see `settleColourTransitions`).
+ *
+ * Each check first reads what it can without touching the page (see
+ * `inputsOf`), and measures only when that has changed: taking the pair off
+ * to measure the field's own colours, and setting it again, is a change to
+ * the page that a page's own MutationObserver sees, and a page that answers
+ * such a change by writing to its root or body would otherwise be answered
+ * in turn, for ever. So a change to the field's own colours alone, with the
+ * pair in place, waits for the colours around it to change.
+ *
+ * Checked whenever its caller asks (see `useReadableField`), and whenever
+ * the field's colours can change without the reader doing anything, which
+ * review, taking no steps while it is open, would otherwise never catch:
+ *
+ * - at once, when it gains or loses focus, so a page's `:focus` rule is
+ *   measured (braille is measured before it takes focus);
+ * - on the next frame, when the page's root or body changes an attribute's
+ *   value, which is how a theme toggle switches theme (a class, a
+ *   `data-theme`, a style): a write of the value already there is no change,
+ *   and a page that writes to its root every frame is checked once a frame,
+ *   which reads what that frame's style recalculation has already computed;
+ * - on the next frame, when the system's colour scheme changes, which a
+ *   page's `prefers-color-scheme` rules follow.
+ *
+ * Each is followed by a few frames more (see `framesOf`), which also see the
+ * colours around the field transition. A theme a page switches in any other
+ * way -- a stylesheet swapped in its head, a class on an element between the
+ * body and the chart -- is caught up with on the reader's next step, or the
+ * field's next focus.
  * @param field - The field
- * @param recheck - Checks the field again (see `keepFieldReadable`)
- * @returns Stops asking
+ * @returns Its floor, which has not measured it yet
  */
-export function watchFieldColours(field: HTMLElement, recheck: () => void): () => void {
+export function keepFieldReadable(field: HTMLElement): ReadableField {
   const doc = field.ownerDocument;
   const view = doc.defaultView;
-  // Only the latest change waits for its transitions: an earlier one's would
-  // measure a theme already left.
-  let cancelWait = (): void => {};
-
-  const onChange = (): void => {
-    cancelWait();
-    recheck();
-    cancelWait = whenColoursSettle(field, recheck);
+  const floor = floorOf(field);
+  const frames = framesOf(view, floor.check);
+  const check = (): void => {
+    floor.check();
+    frames.follow();
   };
 
-  field.addEventListener(DomEventType.FOCUS_IN, onChange);
-  field.addEventListener(DomEventType.FOCUS_OUT, onChange);
+  field.addEventListener(DomEventType.FOCUS_IN, check);
+  field.addEventListener(DomEventType.FOCUS_OUT, check);
 
-  const theme = new MutationObserver(onChange);
-  for (const element of [doc.documentElement, doc.body]) {
-    if (element !== null) {
-      theme.observe(element, { attributes: true });
+  const watched = [doc.documentElement, doc.body].filter((element): element is HTMLElement => element !== null);
+  const changed = (record: MutationRecord): boolean => {
+    const element = watched.find(candidate => candidate === record.target);
+    return element !== undefined
+      && record.attributeName !== null
+      && element.getAttribute(record.attributeName) !== record.oldValue;
+  };
+  const theme = new MutationObserver((records) => {
+    if (records.some(changed)) {
+      frames.follow();
     }
+  });
+  for (const element of watched) {
+    theme.observe(element, { attributes: true, attributeOldValue: true });
   }
 
   // jsdom has no matchMedia.
   const scheme = typeof view?.matchMedia === 'function' ? view.matchMedia('(prefers-color-scheme: dark)') : null;
-  scheme?.addEventListener('change', onChange);
+  scheme?.addEventListener('change', frames.follow);
 
-  return () => {
-    cancelWait();
-    field.removeEventListener(DomEventType.FOCUS_IN, onChange);
-    field.removeEventListener(DomEventType.FOCUS_OUT, onChange);
-    theme.disconnect();
-    scheme?.removeEventListener('change', onChange);
+  return {
+    check,
+    dispose: () => {
+      frames.stop();
+      field.removeEventListener(DomEventType.FOCUS_IN, check);
+      field.removeEventListener(DomEventType.FOCUS_OUT, check);
+      theme.disconnect();
+      scheme?.removeEventListener('change', frames.follow);
+      floor.restore();
+    },
   };
 }
