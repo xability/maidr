@@ -246,14 +246,20 @@ function contrastOf(paint: Paint): number {
 
 /**
  * Whether an animation is a CSS transition of one of the two colours the
- * floor measures and sets.
- * @param animation - An animation running on the field
- * @returns Whether it transitions `color` or `background-color`
+ * floor measures and sets, and one that is moving: neither paused nor held
+ * at a `playbackRate` of 0, as a page can leave one. A transition that is not
+ * moving shows the colours it is held at for as long as the page holds it,
+ * so those are the colours to measure; and finishing one held at a rate of 0
+ * throws.
+ * @param animation - An animation running on an element
+ * @returns Whether it moves `color` or `background-color` towards new colours
  */
-function isColourTransition(animation: Animation): animation is CSSTransition {
+function isMovingColourTransition(animation: Animation): animation is CSSTransition {
   return 'transitionProperty' in animation
     && typeof animation.transitionProperty === 'string'
-    && (PROPERTIES as readonly string[]).includes(animation.transitionProperty);
+    && (PROPERTIES as readonly string[]).includes(animation.transitionProperty)
+    && animation.playState === 'running'
+    && animation.playbackRate !== 0;
 }
 
 /**
@@ -263,7 +269,8 @@ function isColourTransition(animation: Animation): animation is CSSTransition {
  * reader's high contrast pair just after that is turned off: measured then,
  * the field reads as readable and fades to the page's colours after all.
  * Finished again once the floor has set its pair, so the field shows the pair
- * at once instead of fading to it.
+ * at once instead of fading to it. A transition the page has paused or
+ * frozen is left as it is (see `isMovingColourTransition`).
  * @param field - The field
  */
 function settleColourTransitions(field: HTMLElement): void {
@@ -272,7 +279,7 @@ function settleColourTransitions(field: HTMLElement): void {
     return;
   }
   for (const animation of field.getAnimations()) {
-    if (isColourTransition(animation)) {
+    if (isMovingColourTransition(animation)) {
       animation.finish();
     }
   }

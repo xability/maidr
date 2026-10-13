@@ -46,6 +46,9 @@ function drawField(
   return textArea;
 }
 
+/** What the floor reads of a CSS transition, as a case stands one in. */
+type TransitionStub = Pick<CSSTransition, 'transitionProperty' | 'playState' | 'playbackRate' | 'finish'>;
+
 /** Every floor a case made, so none outlives it and answers the next one's changes. */
 const floors: ReadableField[] = [];
 
@@ -162,8 +165,8 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
-    const transition = (property: string): Pick<CSSTransition, 'transitionProperty' | 'finish'> => (
-      { transitionProperty: property, finish: jest.fn() }
+    const transition = (property: string): TransitionStub => (
+      { transitionProperty: property, playState: 'running', playbackRate: 1, finish: jest.fn() }
     );
     const colour = transition('color');
     const background = transition('background-color');
@@ -176,6 +179,31 @@ describe('keepFieldReadable', () => {
     expect(colour.finish).toHaveBeenCalledTimes(2);
     expect(background.finish).toHaveBeenCalledTimes(2);
     expect(opacity.finish).not.toHaveBeenCalled();
+  });
+
+  it('should leave a colour transition the page has paused or frozen as it is', () => {
+    // Finishing a transition held at a playbackRate of 0 throws, as a browser
+    // does here; one the page paused shows the colours it is held at.
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+    const frozen: TransitionStub = {
+      transitionProperty: 'background-color',
+      playState: 'running',
+      playbackRate: 0,
+      finish: jest.fn(() => {
+        throw new DOMException('Cannot finish Animation with a playbackRate of 0.', 'InvalidStateError');
+      }),
+    };
+    const paused: TransitionStub = { transitionProperty: 'color', playState: 'paused', playbackRate: 1, finish: jest.fn() };
+    field.getAnimations = (): Animation[] => [frozen, paused].map(stub => stub as CSSTransition);
+
+    floorFor(field).check();
+
+    expect(frozen.finish).not.toHaveBeenCalled();
+    expect(paused.finish).not.toHaveBeenCalled();
+    expect(field.style.color).toBe('rgb(255, 255, 255)');
   });
 
   it('should change nothing on the page when checked again with nothing changed', async () => {

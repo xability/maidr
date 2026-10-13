@@ -722,6 +722,73 @@ test.describe('Braille and review field colours', () => {
     }
   });
 
+  test.describe('on a page that freezes the fields\' transitions', () => {
+    // A page script that holds every transition it sees start on a field at a
+    // playbackRate of 0. Finishing such a transition throws, and the floor
+    // finished every colour transition on the field before measuring it:
+    // the error escaped the hook's effect, and the whole chart was unmounted
+    // on the reader's next step.
+    const FROZEN_FIELDS = `
+      body { background-color: #1b1b1b; color: #e6e6e6; }
+      html.alt body { background-color: #202020; }
+      textarea, input { color: inherit; background: transparent; transition: background-color 2s linear; }
+      textarea:focus, input:focus, textarea:hover, input:hover { background-color: #303030; }
+    `;
+
+    /**
+     * Freezes every transition that starts on a field, and records the
+     * page's uncaught errors.
+     */
+    async function freezeFieldTransitions(page: Page): Promise<string[]> {
+      const errors: string[] = [];
+      page.on('pageerror', error => errors.push(String(error)));
+      await page.evaluate(() => {
+        document.addEventListener('transitionrun', (event) => {
+          const target = event.target;
+          if (target instanceof HTMLElement && target.matches('textarea, input')) {
+            for (const animation of target.getAnimations()) {
+              animation.playbackRate = 0;
+            }
+          }
+        }, true);
+      });
+      return errors;
+    }
+
+    const freezes = [
+      {
+        name: 'the page switches theme on its root',
+        freeze: async (page: Page): Promise<void> => {
+          await page.evaluate(() => document.documentElement.classList.add('alt'));
+        },
+      },
+      {
+        name: 'the pointer hovers the field',
+        freeze: async (page: Page): Promise<void> => {
+          await page.locator(BRAILLE).hover();
+        },
+      },
+    ];
+
+    for (const { name, freeze } of freezes) {
+      test(`keeps the chart and a readable braille field when ${name} and the reader steps`, async ({ page }) => {
+        const barPage = await openChart(page, FROZEN_FIELDS);
+        const errors = await freezeFieldTransitions(page);
+        await barPage.pressKey('b', 'open braille');
+        await expect(page.locator(BRAILLE)).toBeFocused();
+
+        await freeze(page);
+        await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 300)));
+        await barPage.pressKey('ArrowRight', 'move to the next bar');
+        await barPage.pressKey('ArrowRight', 'move to the bar after it');
+
+        await expect(page.locator(BRAILLE)).toBeFocused();
+        expect(errors, 'the page\'s uncaught errors').toEqual([]);
+        await expectBrailleReadable(page);
+      });
+    }
+  });
+
   test.describe('on a page that answers changes to its document', () => {
     // A page's own MutationObserver that writes to its root or body whenever
     // the document changes. A floor that changed the page on every measure --
