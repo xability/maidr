@@ -13,7 +13,7 @@
  * `e2e_tests/specs/fieldColours.spec.ts`.
  */
 
-import { afterEach, describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { keepFieldReadable } from '@util/readableField';
 
 /**
@@ -99,6 +99,29 @@ describe('keepFieldReadable', () => {
 
     expect(field.style.color).toBe('rgb(0, 0, 0)');
     expect(field.style.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+  });
+
+  it('should finish the transitions on the field\'s colours, and only those', () => {
+    // A transition starts from the colours being left -- the floor's own, just
+    // after it is undone -- so measured mid-way the field reads as readable.
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+    const transition = (property: string): Pick<CSSTransition, 'transitionProperty' | 'finish'> => (
+      { transitionProperty: property, finish: jest.fn() }
+    );
+    const colour = transition('color');
+    const background = transition('background-color');
+    const opacity = transition('opacity');
+    field.getAnimations = (): Animation[] => [colour, background, opacity].map(stub => stub as CSSTransition);
+
+    keepFieldReadable(field);
+
+    // Once before measuring, once after setting the pair.
+    expect(colour.finish).toHaveBeenCalledTimes(2);
+    expect(background.finish).toHaveBeenCalledTimes(2);
+    expect(opacity.finish).not.toHaveBeenCalled();
   });
 
   it('should leave a field alone when its colours cannot be read', () => {

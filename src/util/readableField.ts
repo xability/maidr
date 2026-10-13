@@ -183,6 +183,40 @@ function contrastOf(paint: Paint): number {
 }
 
 /**
+ * Whether an animation is a CSS transition of one of the two colours the
+ * floor measures and sets.
+ * @param animation - An animation running on the field
+ * @returns Whether it transitions `color` or `background-color`
+ */
+function isColourTransition(animation: Animation): animation is CSSTransition {
+  return 'transitionProperty' in animation
+    && typeof animation.transitionProperty === 'string'
+    && (PROPERTIES as readonly string[]).includes(animation.transitionProperty);
+}
+
+/**
+ * Finishes any transition running on the field's colours, so they read as
+ * they settle rather than as they start. A transition starts from the colours
+ * being left, which are the floor's own just after it is undone, or the
+ * reader's high contrast pair just after that is turned off: measured then,
+ * the field reads as readable and fades to the page's colours after all.
+ * Finished again once the floor has set its pair, so the field shows the pair
+ * at once instead of fading to it.
+ * @param field - The field
+ */
+function settleColourTransitions(field: HTMLElement): void {
+  // jsdom has no Web Animations.
+  if (typeof field.getAnimations !== 'function') {
+    return;
+  }
+  for (const animation of field.getAnimations()) {
+    if (isColourTransition(animation)) {
+      animation.finish();
+    }
+  }
+}
+
+/**
  * Keeps one of MAIDR's fields -- the braille textarea or the review input --
  * readable on whatever page it is drawn in.
  *
@@ -197,10 +231,13 @@ function contrastOf(paint: Paint): number {
  * more, or in a reset that inherits one and clears the other, splits any
  * pair a rule hands the field. Forced colours are already in the computed
  * colours, so under them the floor finds the field readable and stays out.
+ * A transition on the field's colours is finished before it is measured, and
+ * again after the pair is set (see `settleColourTransitions`).
  * @param field - The field
  * @returns An undo that puts back what the floor replaced, if anything
  */
 export function keepFieldReadable(field: HTMLElement): () => void {
+  settleColourTransitions(field);
   const own = paintOf(field);
   if (own === null || contrastOf(own) >= MIN_CONTRAST) {
     return () => {};
@@ -220,6 +257,7 @@ export function keepFieldReadable(field: HTMLElement): () => void {
   for (const property of PROPERTIES) {
     field.style.setProperty(property, pair[property]);
   }
+  settleColourTransitions(field);
 
   return () => {
     for (const { property, value, priority } of replaced) {

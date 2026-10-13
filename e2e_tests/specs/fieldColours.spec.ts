@@ -126,6 +126,19 @@ async function fieldPaint(page: Page, selector: string): Promise<FieldPaint> {
 }
 
 /**
+ * Waits for the re-render a key asked for to land, and then for every CSS
+ * transition on the page to end, so the colours read are where they settle,
+ * not where a transition passes through.
+ */
+async function settle(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const transitions = document.getAnimations().filter(animation => animation instanceof CSSTransition);
+    await Promise.all(transitions.map(transition => transition.finished.catch(() => undefined)));
+  });
+}
+
+/**
  * Opens the bar chart with `css` added to the page after MAIDR's own rules,
  * as a page's stylesheet would be.
  */
@@ -339,6 +352,62 @@ test.describe('Braille and review field colours', () => {
 
       await expectBrailleReadable(page);
     });
+  });
+
+  test.describe('on a page that transitions its colours', () => {
+    // Each step undoes the floor and measures again. A transition on the
+    // field's colours starts from the colours being left -- the floor's own
+    // -- so a measure taken then found the field readable, and it faded to
+    // the page's unreadable colours on every other step.
+    const pages = [
+      {
+        name: 'fields that transition every property',
+        css: `${INHERIT_RESET} body { background-color: #111827; color: #f9fafb; } input, textarea { transition: all .25s; }`,
+      },
+      {
+        // The snippet a theme toggle ships with, on Quarto's darkly.
+        name: 'every element transitioning its colours, as a theme toggle does',
+        css: `${QUARTO_DARKLY} *, *::before, *::after { transition: background-color .3s, color .3s; }`,
+      },
+    ];
+
+    for (const { name, css } of pages) {
+      test(`keeps the braille field readable on every step, on a page with ${name}`, async ({ page }) => {
+        const barPage = await openChart(page, css);
+        await barPage.pressKey('b', 'open braille');
+        await expect(page.locator(BRAILLE)).toBeFocused();
+        const ratios: number[] = [];
+
+        for (let step = 0; step <= 4; step++) {
+          if (step > 0) {
+            await barPage.pressKey('ArrowRight', `step ${step}`);
+          }
+          await settle(page);
+          ratios.push((await fieldPaint(page, BRAILLE)).ratio);
+        }
+
+        for (const [step, ratio] of ratios.entries()) {
+          expect.soft(ratio, `braille after step ${step} of ${ratios.map(r => r.toFixed(2)).join(', ')}`).toBeGreaterThanOrEqual(AA);
+        }
+      });
+
+      test(`keeps the braille field readable when high contrast is turned off with it open, on a page with ${name}`, async ({ page }) => {
+        const barPage = await openChart(page, css);
+        await barPage.pressKey('c', 'turn high contrast on');
+        await barPage.pressKey('b', 'open braille');
+        await expect(page.locator(BRAILLE)).toBeFocused();
+
+        await barPage.pressKey('c', 'turn high contrast off');
+        await settle(page);
+        const off = await fieldPaint(page, BRAILLE);
+        await barPage.pressKey('ArrowRight', 'move to the next bar');
+        await settle(page);
+        const stepped = await fieldPaint(page, BRAILLE);
+
+        expect.soft(off.ratio, `braille once off: ${off.color} on ${off.background}`).toBeGreaterThanOrEqual(AA);
+        expect.soft(stepped.ratio, `braille a step later: ${stepped.color} on ${stepped.background}`).toBeGreaterThanOrEqual(AA);
+      });
+    }
   });
 
   test.describe('under forced colours', () => {
