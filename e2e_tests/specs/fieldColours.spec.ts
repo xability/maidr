@@ -257,6 +257,40 @@ test.describe('Braille and review field colours', () => {
       expectPageColours(await readFields(page, barPage), { color: 'rgb(255, 255, 255)', background: 'rgb(0, 0, 0)' });
     });
 
+    test('gives the reader\'s pair to fields a page colours with !important', async ({ page }) => {
+      // The page's rule outweighs the high contrast rule, so the floor sets
+      // the reader's pair on the fields itself.
+      const barPage = await openChart(page, '#host textarea, #host input { color: #000 !important; }');
+      await page.evaluate(() => {
+        document.body.id = 'host';
+      });
+      await barPage.pressKey('c', 'turn high contrast on');
+
+      expectPageColours(await readFields(page, barPage), { color: 'rgb(255, 255, 255)', background: 'rgb(0, 0, 0)' });
+    });
+
+    const dimPages = [
+      { name: 'a page on a reset that makes fields inherit their text colour', css: INHERIT_RESET },
+      { name: 'a dark page on that reset', css: `${INHERIT_RESET} body { background-color: #111827; color: #f9fafb; }` },
+    ];
+
+    for (const { name, css } of dimPages) {
+      test(`keeps the reader's own pair on both fields, however dim, on ${name}`, async ({ page }) => {
+        // #666 on #000 is 3.66:1, and the reader chose it, against light
+        // sensitivity say: the fields show it as the chart around them does,
+        // not the browser's black on white.
+        await page.addInitScript(() => {
+          localStorage.setItem('maidr-settings', JSON.stringify({
+            general: { highContrastLightColor: '#666666', highContrastDarkColor: '#000000' },
+          }));
+        });
+        const barPage = await openChart(page, css);
+        await barPage.pressKey('c', 'turn high contrast on');
+
+        expectPageColours(await readFields(page, barPage), { color: 'rgb(102, 102, 102)', background: 'rgb(0, 0, 0)' });
+      });
+    }
+
     test('gives the page its fields\' colours back when high contrast is turned off with a field open', async ({ page }) => {
       // Quarto's darkly. The floor measured the field while high contrast
       // painted it, so it must measure again once high contrast is gone, and

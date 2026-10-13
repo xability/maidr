@@ -802,7 +802,9 @@ export class HighContrastService implements Disposable {
     // colours a page's stylesheet can split: a reset may make them inherit the
     // light colour above and leave the browser's white field under it. The
     // rule that reads these (FIELD_HIGH_CONTRAST_RULE, maidr-component.tsx)
-    // gives the fields both at once, and goes when restore removes them.
+    // gives the fields both at once, and goes when restore removes them; the
+    // fields' floor (readableField.ts) reads them too, to set the pair on a
+    // field whose page colours it with `!important`.
     this.overrideInlineStyle(backdrop, Constant.HIGH_CONTRAST_LIGHT_PROPERTY, this.highContrastLightColor);
     this.overrideInlineStyle(backdrop, Constant.HIGH_CONTRAST_DARK_PROPERTY, this.highContrastDarkColor);
 

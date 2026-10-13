@@ -15,6 +15,7 @@
 
 import type { ReadableField } from '@util/readableField';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { Constant } from '@util/constant';
 import { keepFieldReadable } from '@util/readableField';
 
 /**
@@ -230,6 +231,49 @@ describe('keepFieldReadable', () => {
 
     expect(appendChild).toHaveBeenCalledTimes(1);
     appendChild.mockRestore();
+  });
+
+  /**
+   * Gives the field high contrast mode's pair, as it inherits it from the
+   * chart's backdrop, where `HighContrastService` paints it: on the field
+   * itself, since jsdom does not inherit custom properties.
+   */
+  function paintHighContrast(field: HTMLElement, light: string, dark: string): void {
+    field.style.setProperty(Constant.HIGH_CONTRAST_LIGHT_PROPERTY, light);
+    field.style.setProperty(Constant.HIGH_CONTRAST_DARK_PROPERTY, dark);
+  }
+
+  it('should leave the reader\'s own high contrast pair as it is, however dim', () => {
+    // #666 on #000 is 3.66:1, and the reader chose it: the field shows it,
+    // as the high contrast rule gives it.
+    const field = drawField(
+      { text: 'rgb(102, 102, 102)', background: 'rgb(0, 0, 0)' },
+      { text: 'rgb(102, 102, 102)', background: 'rgb(0, 0, 0)' },
+    );
+    paintHighContrast(field, '#666666', '#000000');
+
+    floorFor(field).check();
+
+    expect(field.style.color).toBe('rgb(102, 102, 102)');
+    expect(field.style.getPropertyPriority('color')).toBe('');
+    expect(field.style.getPropertyPriority('background-color')).toBe('');
+  });
+
+  it('should give the field the reader\'s high contrast pair where the page keeps it from the field', () => {
+    // A page's `!important` black text outweighs the high contrast rule, so
+    // the field shows black on the reader's dark grey. Their pair, not the
+    // page's colours around the chart.
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgb(26, 26, 26)' },
+    );
+    paintHighContrast(field, '#f0f0f0', '#1a1a1a');
+
+    floorFor(field).check();
+
+    expect(field.style.color).toBe('rgb(240, 240, 240)');
+    expect(field.style.getPropertyPriority('color')).toBe('important');
+    expect(field.style.backgroundColor).toBe('rgb(26, 26, 26)');
   });
 
   it('should leave a field alone when its colours cannot be read', () => {

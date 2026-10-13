@@ -98,15 +98,20 @@ function paintColour(doc: Document, value: string): Rgba | null {
 }
 
 /**
- * Reads a computed colour.
+ * Reads a computed colour, or a colour in hex.
  * @param doc - The document the colour was computed in
- * @param value - The colour, as `getComputedStyle` gave it
+ * @param value - The colour, as `getComputedStyle` gave it, or in hex
  * @returns The colour, or null when it cannot be read
  */
 function parseColour(doc: Document, value: string): Rgba | null {
   const rgba = Color.parseRgba(value);
   if (rgba !== null) {
     return rgba;
+  }
+  // Hex, as the reader's high contrast colours are written.
+  const hex = Color.parse(value);
+  if (hex !== null) {
+    return { ...hex, a: 1 };
   }
   // A keyword left unresolved (jsdom's `initial`, `canvas`) or an empty value
   // is not a colour anything can paint.
@@ -273,13 +278,55 @@ function surroundingsOf(field: HTMLElement): Element | null {
 }
 
 /**
+ * The reader's high contrast pair, while high contrast mode paints it: the
+ * field inherits both colours, as custom properties, from the chart's
+ * backdrop (see `HighContrastService`).
+ * @param field - The field
+ * @returns The pair, or null while high contrast mode is not painted
+ */
+function readersPairOf(field: HTMLElement): Pair | null {
+  const style = field.ownerDocument.defaultView?.getComputedStyle(field);
+  const light = style?.getPropertyValue(Constant.HIGH_CONTRAST_LIGHT_PROPERTY).trim() ?? '';
+  const dark = style?.getPropertyValue(Constant.HIGH_CONTRAST_DARK_PROPERTY).trim() ?? '';
+  return light === '' || dark === '' ? null : { 'color': light, 'background-color': dark };
+}
+
+/**
+ * Whether a paint is a pair's two colours.
+ * @param doc - The document the paint was computed in
+ * @param paint - The paint
+ * @param pair - The pair
+ * @returns Whether the paint shows the pair, false where the pair cannot be read
+ */
+function shows(doc: Document, paint: Paint, pair: Pair): boolean {
+  const text = parseColour(doc, pair.color);
+  const background = parseColour(doc, pair['background-color']);
+  return text !== null && background !== null
+    && Color.rgbToString(over(background, paint.background)) === Color.rgbToString(paint.background)
+    && Color.rgbToString(over(text, paint.background)) === Color.rgbToString(paint.text);
+}
+
+/**
  * The pair a field needs, if it needs one.
+ *
+ * While high contrast mode is painted, the reader's own pair, wherever the
+ * field does not show it already: `FIELD_HIGH_CONTRAST_RULE` gives it to
+ * the field, and only a page's own `!important` field colour outweighs the
+ * rule. The pair's contrast is the reader's to choose, and not measured: a
+ * reader who dimmed it, against light sensitivity say, keeps it dim.
  * @param field - The field, without the floor's pair
- * @returns The two colours to set, or null where the field is readable as it is
+ * @returns The two colours to set, or null where the field is right as it is
  */
 function pairFor(field: HTMLElement): Pair | null {
   const own = paintOf(field);
-  if (own === null || contrastOf(own) >= MIN_CONTRAST) {
+  if (own === null) {
+    return null;
+  }
+  const readers = readersPairOf(field);
+  if (readers !== null) {
+    return shows(field.ownerDocument, own, readers) ? null : readers;
+  }
+  if (contrastOf(own) >= MIN_CONTRAST) {
     return null;
   }
   const surroundings = surroundingsOf(field);
@@ -447,7 +494,9 @@ export interface ReadableField {
  * pair, inline and `!important` so that no rule of the page's outweighs
  * them: those of the article around it, which is the text the page itself
  * shows around the chart, or the browser's own field colours where that
- * text is unreadable too.
+ * text is unreadable too. While high contrast mode is painted, the pair is
+ * always the reader's own, set only where a page's `!important` colour
+ * keeps the field from showing it, and never measured (see `pairFor`).
  *
  * Measured, not cascaded, because no rule of a fixed specificity can be sure
  * of both colours: a page that sets one of them at the same specificity or

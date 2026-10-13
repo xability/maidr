@@ -272,9 +272,11 @@ ${EMBEDDED} :is(button, a, [role="button"]):focus-visible {
  * element-type resets met a rule of equal weight later in the page, lost its
  * background to it, and left black text on the dark backdrop. So the reader's
  * pair also replaces fields a page themes on purpose, by a class, an id or a
- * cascade layer, which is what the reader turned high contrast on for; only
- * a page's own `!important` field colours can still win. Forced colours
- * replace both colours, as ever.
+ * cascade layer, which is what the reader turned high contrast on for. A
+ * page's own `!important` field colour still outweighs the rule, and there
+ * `useReadableField` sets the reader's pair on the field itself, inline and
+ * `!important`, however dim the reader chose it. Forced colours replace both
+ * colours, as ever.
  *
  * With high contrast off nothing here applies: the fields keep the page's
  * colours, and `useReadableField` steps in only where those are unreadable.
