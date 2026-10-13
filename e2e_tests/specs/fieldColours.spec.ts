@@ -715,6 +715,8 @@ test.describe('Braille and review field colours', () => {
         await barPage.pressKey('c', 'turn high contrast off');
         await settle(page);
 
+        // The colours it ends with are readable ones, not merely the same ones.
+        expect(own.ratio, `braille: ${own.color} on ${own.background}`).toBeGreaterThanOrEqual(AA);
         await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille after high contrast' }).toEqual(own);
       });
     }
