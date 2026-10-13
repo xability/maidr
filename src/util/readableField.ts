@@ -1,14 +1,9 @@
-import type { Rgb } from '@type/color';
+import type { Rgb, Rgba } from '@type/color';
 import { Color } from '@util/color';
 import { Constant } from '@util/constant';
 
 /** WCAG 2.1 AA for text: the least contrast a field is left at. */
 const MIN_CONTRAST = 4.5;
-
-/** A colour as the browser computed it, with its alpha from 0 to 1. */
-interface Rgba extends Rgb {
-  a: number;
-}
 
 /** What an element paints its text with, and over. */
 interface Paint {
@@ -28,46 +23,59 @@ interface Declaration {
 /** The two properties the floor sets, always together. */
 const PROPERTIES = ['color', 'background-color'] as const;
 
-/** `rgb()` and `rgba()`, with commas or spaces, as browsers serialise colours. */
-const RGB = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+)(%)?)?\s*\)$/i;
-
-/** `color(srgb ...)`, which Chromium serialises some colours as. */
-const SRGB = /^color\(\s*srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+)(%)?)?\s*\)$/i;
+/**
+ * The 2D context each document's colours are painted on, one 1x1 canvas per
+ * document, made the first time one is needed. Null where nothing can paint,
+ * as in jsdom.
+ */
+const painters = new WeakMap<Document, CanvasRenderingContext2D | null>();
 
 /**
- * Reads an alpha component, a fraction or a percentage.
- * @param value - The component, or undefined when the colour had none
- * @param percent - Whether it was written as a percentage
- * @returns The alpha, from 0 to 1
+ * The context `paintColour` paints on in a document.
+ * @param doc - The document
+ * @returns Its context, or null where it has none
  */
-function alpha(value: string | undefined, percent: string | undefined): number {
-  if (value === undefined) {
-    return 1;
+function painterOf(doc: Document): CanvasRenderingContext2D | null {
+  if (!painters.has(doc)) {
+    // jsdom has a <canvas> but no 2D context, and says so on the console when
+    // asked for one: check for the context's class first.
+    let context: CanvasRenderingContext2D | null = null;
+    if (doc.defaultView?.CanvasRenderingContext2D !== undefined) {
+      const canvas = doc.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      context = canvas.getContext('2d', { willReadFrequently: true });
+    }
+    painters.set(doc, context);
   }
-  return percent ? Number(value) / 100 : Number(value);
+  return painters.get(doc) ?? null;
 }
 
 /**
- * Resolves a colour the regular expressions cannot read -- `oklch()`, `lab()`
- * and the other spaces a computed colour can stay in -- by painting it.
+ * Resolves a colour `Color.parseRgba` cannot read -- `oklch()`, `lab()`,
+ * `color(srgb ...)` and the other spaces a computed colour can stay in -- by
+ * painting it.
  * @param doc - The document the colour was computed in
  * @param value - The computed colour
- * @returns The colour, or null where nothing can paint it, as in jsdom
+ * @returns The colour, or null where nothing can paint it
  */
 function paintColour(doc: Document, value: string): Rgba | null {
-  // jsdom has a <canvas> but no 2D context, and says so on the console when
-  // asked for one: check for the context's class first.
-  if (doc.defaultView?.CanvasRenderingContext2D === undefined) {
-    return null;
-  }
-  const canvas = doc.createElement('canvas');
-  canvas.width = 1;
-  canvas.height = 1;
-  const context = canvas.getContext('2d', { willReadFrequently: true });
+  const context = painterOf(doc);
   if (context === null) {
     return null;
   }
+  // A value the canvas cannot parse leaves `fillStyle` as it was: set over
+  // two different colours, it reads back the same only when it parsed.
+  context.fillStyle = '#000';
   context.fillStyle = value;
+  const overBlack = context.fillStyle;
+  context.fillStyle = '#fff';
+  context.fillStyle = value;
+  if (context.fillStyle !== overBlack) {
+    return null;
+  }
+  // Cleared first: a colour with alpha is painted over what is already there.
+  context.clearRect(0, 0, 1, 1);
   context.fillRect(0, 0, 1, 1);
   const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
   return { r, g, b, a: a / 255 };
@@ -80,14 +88,9 @@ function paintColour(doc: Document, value: string): Rgba | null {
  * @returns The colour, or null when it cannot be read
  */
 function parseColour(doc: Document, value: string): Rgba | null {
-  const rgb = RGB.exec(value);
-  if (rgb) {
-    return { r: Number(rgb[1]), g: Number(rgb[2]), b: Number(rgb[3]), a: alpha(rgb[4], rgb[5]) };
-  }
-  const srgb = SRGB.exec(value);
-  if (srgb) {
-    const [r, g, b] = [srgb[1], srgb[2], srgb[3]].map(channel => Math.round(Number(channel) * 255));
-    return { r, g, b, a: alpha(srgb[4], srgb[5]) };
+  const rgba = Color.parseRgba(value);
+  if (rgba !== null) {
+    return rgba;
   }
   // A keyword left unresolved (jsdom's `initial`, `canvas`) or an empty value
   // is not a colour anything can paint.

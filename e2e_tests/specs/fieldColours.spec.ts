@@ -271,6 +271,16 @@ test.describe('Braille and review field colours', () => {
         `,
       },
       {
+        // Colours a browser keeps in the space they were written in, which
+        // only painting them reads: transparent fields, a dark text, on a
+        // dark body.
+        name: 'a dark page whose colours are written in oklch()',
+        css: `
+          body { background-color: oklch(0.2 0.02 250); color: oklch(0.95 0 0); }
+          textarea, input { background-color: transparent; color: oklch(0.2 0 0); }
+        `,
+      },
+      {
         name: 'a page in the dark colour scheme',
         css: ':root { color-scheme: dark; } body { background-color: #121212; color: #eee; }',
       },

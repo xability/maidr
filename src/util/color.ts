@@ -1,4 +1,7 @@
-import type { Rgb } from '@type/color';
+import type { Rgb, Rgba } from '@type/color';
+
+/** `rgb()` and `rgba()`, with commas or spaces and an optional alpha. */
+const RGBA = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+)(%)?)?\s*\)$/i;
 
 /**
  * Abstract utility class for color parsing, manipulation, and contrast calculations.
@@ -39,6 +42,22 @@ export abstract class Color {
     }
 
     return null;
+  }
+
+  /**
+   * Parses a colour as browsers serialise a computed one: `rgb()` or `rgba()`,
+   * with commas or spaces, keeping its alpha. A computed colour that stays in
+   * another space -- `oklch()`, `lab()`, `color(srgb ...)` -- is not read.
+   * @param color - The colour, as `getComputedStyle` gives it
+   * @returns The colour with its alpha from 0 to 1, or null if parsing fails
+   */
+  public static parseRgba(color: string): Rgba | null {
+    const match = RGBA.exec(color.trim());
+    if (!match) {
+      return null;
+    }
+    const alpha = match[4] === undefined ? 1 : Number(match[4]) / (match[5] ? 100 : 1);
+    return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]), a: alpha };
   }
 
   /**
