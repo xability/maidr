@@ -506,6 +506,42 @@ describe('keepFieldReadable between the checks it is asked for', () => {
     floor.dispose();
   });
 
+  it('should log what a check on a frame throws, and stop checking, rather than throw it', async () => {
+    // Nothing above a frame callback catches an error: the floor reports it,
+    // leaves the field as it is, and does not fail the same way every frame.
+    const { field, floor } = drawCheckedField();
+    await quiet();
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+    field.getAnimations = (): Animation[] => {
+      throw new Error('getAnimations failed');
+    };
+
+    document.body.style.color = 'rgb(240, 240, 200)';
+    await frames(1);
+    const requestFrame = jest.spyOn(window, 'requestAnimationFrame');
+    await frames(3);
+
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('[keepFieldReadable]'), expect.any(Error));
+    // The three frames waited for above, and none of the floor's.
+    expect(requestFrame).toHaveBeenCalledTimes(3);
+    floor.dispose();
+  });
+
+  it('should log what a check on focus throws rather than throw it', () => {
+    const { field, article, floor } = drawCheckedField();
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+    field.getAnimations = (): Animation[] => {
+      throw new Error('getAnimations failed');
+    };
+
+    paintArticle(article, 'rgb(240, 240, 200)', 'rgb(20, 20, 60)');
+    field.focus();
+
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('[keepFieldReadable]'), expect.any(Error));
+    floor.dispose();
+  });
+
   it('should stop checking, and put back what it replaced, once disposed', async () => {
     const { field, floor } = drawCheckedField();
     const cancelFrame = jest.spyOn(window, 'cancelAnimationFrame');

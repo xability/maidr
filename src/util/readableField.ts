@@ -438,6 +438,16 @@ function floorOf(field: HTMLElement): Floor {
   };
 }
 
+/**
+ * Logs an error a check the floor makes on its own threw, which no caller is
+ * there to catch. The field is left as the failed check left it.
+ * @param when - When the check was made
+ * @param error - What it threw
+ */
+function reportFailure(when: string, error: unknown): void {
+  console.error(`[keepFieldReadable] Checking a field's colours ${when} failed; the field is left as it is:`, error);
+}
+
 /** Checks a floor once an animation frame while what it reads keeps changing. */
 interface Frames {
   /** Starts checking, or keeps checking for longer, from the next frame. */
@@ -470,7 +480,14 @@ function framesOf(view: Window | null, check: () => boolean): Frames {
 
   const onFrame = (): void => {
     frame = null;
-    quiet = check() ? 0 : quiet + 1;
+    try {
+      quiet = check() ? 0 : quiet + 1;
+    } catch (error) {
+      // Nothing above a frame callback catches it: stop here, rather than
+      // fail the same way on every frame still to come.
+      reportFailure('on an animation frame', error);
+      return;
+    }
     left -= 1;
     if (quiet < QUIET_FRAMES && left > 0) {
       frame = view.requestAnimationFrame(onFrame);
@@ -514,10 +531,15 @@ export interface ReadableField {
    * Checks the field now, and on the next few frames (see `framesOf`). A
    * check measures the field only if anything the floor reads has changed
    * since it last measured, and changes nothing on the page where nothing
-   * has.
+   * has. The checks the floor makes on its own, on a frame or on focus, log
+   * what they throw; this one leaves it to its caller.
+   * @throws Whatever reading or setting the field's colours throws
    */
   check: () => void;
-  /** Stops checking, and puts back what the floor replaced, if anything. */
+  /**
+   * Stops checking, and puts back what the floor replaced, if anything.
+   * @throws Whatever setting the field's colours back throws
+   */
   dispose: () => void;
 }
 
@@ -586,9 +608,16 @@ export function keepFieldReadable(field: HTMLElement): ReadableField {
     floor.check();
     frames.follow();
   };
+  const onFocus = (): void => {
+    try {
+      check();
+    } catch (error) {
+      reportFailure('as it gained or lost focus', error);
+    }
+  };
 
-  field.addEventListener(DomEventType.FOCUS_IN, check);
-  field.addEventListener(DomEventType.FOCUS_OUT, check);
+  field.addEventListener(DomEventType.FOCUS_IN, onFocus);
+  field.addEventListener(DomEventType.FOCUS_OUT, onFocus);
 
   const watched = [doc.documentElement, doc.body].filter((element): element is HTMLElement => element !== null);
   const changed = (record: MutationRecord): boolean => {
@@ -623,8 +652,8 @@ export function keepFieldReadable(field: HTMLElement): ReadableField {
     check,
     dispose: () => {
       frames.stop();
-      field.removeEventListener(DomEventType.FOCUS_IN, check);
-      field.removeEventListener(DomEventType.FOCUS_OUT, check);
+      field.removeEventListener(DomEventType.FOCUS_IN, onFocus);
+      field.removeEventListener(DomEventType.FOCUS_OUT, onFocus);
       theme.disconnect();
       scheme?.removeEventListener('change', frames.follow);
       doc.removeEventListener(DomEventType.LOAD, onStylesheet, true);
