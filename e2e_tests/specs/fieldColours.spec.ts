@@ -30,6 +30,13 @@ import { TestConstants } from '../utils/constants';
  * system colours -- so it is checked here, by contrast ratio.
  */
 
+declare global {
+  interface Window {
+    /** How many times a page's own MutationObserver has been called. */
+    observerCalls?: number;
+  }
+}
+
 const BRAILLE = `textarea[id^="${TestConstants.BRAILLE_TEXTAREA}"]`;
 const REVIEW = `input[id^="${TestConstants.REVIEW_INPUT}"]`;
 
@@ -516,6 +523,95 @@ test.describe('Braille and review field colours', () => {
 
         await expect.poll(() => fieldPaint(page, BRAILLE), { message: 'braille after high contrast' }).toEqual(own);
       });
+    }
+  });
+
+  test.describe('on a page that answers changes to its document', () => {
+    // A page's own MutationObserver that writes to its root or body whenever
+    // the document changes. A floor that changed the page on every measure --
+    // a probe for the canvas colour, or its pair taken off and set again --
+    // and measured again on every change to the root or body, answered each
+    // of the page's writes with one of its own, in microtasks, and the tab
+    // froze as the field opened.
+    const DARK_TRANSPARENT_FIELDS = 'body { background-color: #1b1b1b; color: #e6e6e6; } textarea, input { background: transparent; color: #000; }';
+    const pages = [
+      {
+        // Tailwind 4's preflight: fields inherit their text and clear their
+        // background, and nothing behind them is opaque.
+        name: 'Tailwind 4\'s preflight and an observer of the document\'s children that marks the body',
+        css: 'button, input, select, optgroup, textarea { color: inherit; background-color: transparent; }',
+        observe: (): void => {
+          const observer = new MutationObserver(() => {
+            window.observerCalls = (window.observerCalls ?? 0) + 1;
+            document.body.classList.add('seen');
+          });
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+        },
+      },
+      {
+        name: 'an observer of every style attribute that marks the root',
+        css: DARK_TRANSPARENT_FIELDS,
+        observe: (): void => {
+          const observer = new MutationObserver((records) => {
+            window.observerCalls = (window.observerCalls ?? 0) + 1;
+            if (records.some(record => record.target !== document.body && record.target !== document.documentElement)) {
+              document.documentElement.setAttribute('data-touched', '1');
+            }
+          });
+          observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'], subtree: true });
+        },
+      },
+      {
+        name: 'an observer of every style attribute that counts on the root',
+        css: DARK_TRANSPARENT_FIELDS,
+        observe: (): void => {
+          let count = 0;
+          const observer = new MutationObserver((records) => {
+            window.observerCalls = (window.observerCalls ?? 0) + 1;
+            if (records.some(record => record.target !== document.body && record.target !== document.documentElement)) {
+              document.documentElement.setAttribute('data-touched', String(count++));
+            }
+          });
+          observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'], subtree: true });
+        },
+      },
+    ];
+    const fields = [
+      { name: 'braille', key: 'b', selector: BRAILLE },
+      { name: 'review', key: 'r', selector: REVIEW },
+    ];
+
+    /**
+     * How many times the page's observer has been called.
+     */
+    async function observerCalls(page: Page): Promise<number> {
+      return page.evaluate(() => window.observerCalls ?? 0);
+    }
+
+    for (const { name, css, observe } of pages) {
+      for (const field of fields) {
+        test(`opens the ${field.name} field and stays responsive on a page with ${name}`, async ({ page }) => {
+          const barPage = await openChart(page, css);
+          await page.evaluate(observe);
+
+          // A frozen tab never answers the key press: give up on it rather
+          // than wait for the test's own timeout.
+          const pressed = await Promise.race([
+            barPage.pressKey(field.key, `open ${field.name}`).then(() => true),
+            new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5000)),
+          ]);
+          expect(pressed, 'the page answers the key press').toBe(true);
+          await expect(page.locator(field.selector)).toBeFocused();
+          await settle(page);
+
+          // And the page and the floor have stopped answering each other.
+          const calls = await observerCalls(page);
+          await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 300)));
+          expect(await observerCalls(page), 'the page\'s observer calls, 300 ms on').toBe(calls);
+          const paint = await fieldPaint(page, field.selector);
+          expect(paint.ratio, `${field.name}: ${paint.color} on ${paint.background}`).toBeGreaterThanOrEqual(AA);
+        });
+      }
     }
   });
 

@@ -57,7 +57,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(255, 255, 255)', background: 'rgb(22, 31, 39)' },
     );
 
-    keepFieldReadable(field);
+    keepFieldReadable(field).check();
 
     expect(field.style.color).toBe('rgb(255, 255, 255)');
     expect(field.style.backgroundColor).toBe('rgb(22, 31, 39)');
@@ -70,7 +70,7 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
 
-    keepFieldReadable(field);
+    keepFieldReadable(field).check();
 
     expect(field.style.color).toBe('rgb(255, 255, 255)');
     expect(field.style.backgroundColor).toBe('rgb(34, 34, 34)');
@@ -82,20 +82,21 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(30, 30, 30)', background: 'rgba(0, 0, 0, 0)' },
     );
 
-    keepFieldReadable(field);
+    keepFieldReadable(field).check();
 
     expect(field.style.color.toLowerCase()).toBe('fieldtext');
     expect(field.style.backgroundColor.toLowerCase()).toBe('field');
   });
 
-  it('should put back what it replaced when undone', () => {
+  it('should put back what it replaced when disposed', () => {
     const field = drawField(
       { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
 
-    const undo = keepFieldReadable(field);
-    undo();
+    const floor = keepFieldReadable(field);
+    floor.check();
+    floor.dispose();
 
     expect(field.style.color).toBe('rgb(0, 0, 0)');
     expect(field.style.backgroundColor).toBe('rgba(0, 0, 0, 0)');
@@ -107,13 +108,13 @@ describe('keepFieldReadable', () => {
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
     );
 
-    keepFieldReadable(field);
+    keepFieldReadable(field).check();
 
     expect(field.style.getPropertyPriority('color')).toBe('important');
     expect(field.style.getPropertyPriority('background-color')).toBe('important');
   });
 
-  it('should put back the page\'s own inline colours and their priorities when undone', () => {
+  it('should put back the page\'s own inline colours and their priorities when disposed', () => {
     const field = drawField(
       { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
       { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
@@ -121,9 +122,10 @@ describe('keepFieldReadable', () => {
     field.setAttribute('style', 'color: rgb(0, 0, 0) !important; background-color: rgba(0, 0, 0, 0);');
     const before = field.getAttribute('style');
 
-    const undo = keepFieldReadable(field);
+    const floor = keepFieldReadable(field);
+    floor.check();
     const fixed = field.style.getPropertyValue('color');
-    undo();
+    floor.dispose();
 
     expect(fixed).toBe('rgb(255, 255, 255)');
     expect(field.getAttribute('style')).toBe(before);
@@ -146,7 +148,7 @@ describe('keepFieldReadable', () => {
     const opacity = transition('opacity');
     field.getAnimations = (): Animation[] => [colour, background, opacity].map(stub => stub as CSSTransition);
 
-    keepFieldReadable(field);
+    keepFieldReadable(field).check();
 
     // Once before measuring, once after setting the pair.
     expect(colour.finish).toHaveBeenCalledTimes(2);
@@ -154,12 +156,67 @@ describe('keepFieldReadable', () => {
     expect(opacity.finish).not.toHaveBeenCalled();
   });
 
+  it('should change nothing on the page when checked again with nothing changed', async () => {
+    // A page whose own MutationObserver answers each change to its document
+    // with a write to its root would otherwise answer every check, for ever.
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+    const floor = keepFieldReadable(field);
+    floor.check();
+    const records: MutationRecord[] = [];
+    const observer = new MutationObserver(found => records.push(...found));
+    observer.observe(document.documentElement, { attributes: true, childList: true, subtree: true });
+
+    floor.check();
+    floor.check();
+    await Promise.resolve();
+    observer.disconnect();
+
+    expect(records).toEqual([]);
+    expect(field.style.color).toBe('rgb(255, 255, 255)');
+  });
+
+  it('should measure again once the colours around the field change', () => {
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+    const floor = keepFieldReadable(field);
+    floor.check();
+
+    document.body.style.color = 'rgb(240, 240, 200)';
+    document.body.style.backgroundColor = 'rgb(20, 20, 60)';
+    floor.check();
+
+    expect(field.style.color).toBe('rgb(240, 240, 200)');
+    expect(field.style.backgroundColor).toBe('rgb(20, 20, 60)');
+  });
+
+  it('should add its probe for the canvas colour once, not on every check', () => {
+    // Nothing behind the field is opaque, so the canvas shows through.
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgba(0, 0, 0, 0)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+    const appendChild = jest.spyOn(document.documentElement, 'appendChild');
+    const floor = keepFieldReadable(field);
+
+    floor.check();
+    floor.check();
+    floor.check();
+
+    expect(appendChild).toHaveBeenCalledTimes(1);
+    appendChild.mockRestore();
+  });
+
   it('should leave a field alone when its colours cannot be read', () => {
     // No colours of its own: jsdom computes `initial`, as it would for any
     // field a page did not style.
     const field = drawField({ text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' }, null);
 
-    keepFieldReadable(field);
+    keepFieldReadable(field).check();
 
     expect(field.getAttribute('style')).toBeNull();
   });

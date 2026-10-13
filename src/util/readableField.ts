@@ -24,6 +24,9 @@ interface Declaration {
 /** The two properties the floor sets, always together. */
 const PROPERTIES = ['color', 'background-color'] as const;
 
+/** The two colours the floor sets on a field, by property. */
+type Pair = Record<typeof PROPERTIES[number], string>;
+
 /**
  * The 2D context each document's colours are painted on, one 1x1 canvas per
  * document, made the first time one is needed. Null where nothing can paint,
@@ -112,8 +115,24 @@ function over(top: Rgba, bottom: Rgb): Rgb {
   return { r: mix(top.r, bottom.r), g: mix(top.g, bottom.g), b: mix(top.b, bottom.b) };
 }
 
+/** The canvas colour last read in a document, and the colour scheme it was read under. */
+interface CanvasReading {
+  scheme: string;
+  colour: Rgba | null;
+}
+
+/** Each document's canvas colour, read again only when its colour scheme changes. */
+const canvases = new WeakMap<Document, CanvasReading>();
+
 /**
  * The colour of the canvas under the page, which follows its colour scheme.
+ *
+ * Read through a probe element added to the page and removed at once, which
+ * a page's own MutationObserver sees: so read once per colour scheme -- the
+ * root's `color-scheme`, a `color-scheme` meta tag, the system's preference
+ * and forced colours, which are all the canvas follows -- not once per
+ * measure, where a page that answers each change to its document with one of
+ * its own would answer every measure.
  * @param doc - The document
  * @returns The canvas colour, or null when the browser does not resolve it
  */
@@ -123,12 +142,26 @@ function canvasColour(doc: Document): Rgba | null {
   if (view === null || root === null) {
     return null;
   }
+  // jsdom has no matchMedia.
+  const matches = (query: string): boolean => typeof view.matchMedia === 'function' && view.matchMedia(query).matches;
+  const scheme = [
+    view.getComputedStyle(root).colorScheme,
+    doc.querySelector('meta[name="color-scheme"]')?.getAttribute('content'),
+    matches('(prefers-color-scheme: dark)'),
+    matches('(forced-colors: active)'),
+  ].join('|');
+  const last = canvases.get(doc);
+  if (last?.scheme === scheme) {
+    return last.colour;
+  }
+
   const probe = doc.createElement('div');
   probe.style.backgroundColor = 'Canvas';
   root.appendChild(probe);
-  const value = view.getComputedStyle(probe).backgroundColor;
+  const colour = parseColour(doc, view.getComputedStyle(probe).backgroundColor);
   probe.remove();
-  return parseColour(doc, value);
+  canvases.set(doc, { scheme, colour });
+  return colour;
 }
 
 /**
@@ -218,6 +251,56 @@ function settleColourTransitions(field: HTMLElement): void {
 }
 
 /**
+ * The element whose text the page shows around a field: the chart's article,
+ * or the field's parent outside one.
+ * @param field - The field
+ * @returns The element, or null for a field outside the page
+ */
+function surroundingsOf(field: HTMLElement): Element | null {
+  return field.closest(`article[id^="${Constant.MAIDR_ARTICLE}-"]`) ?? field.parentElement;
+}
+
+/**
+ * The pair a field needs, if it needs one.
+ * @param field - The field, without the floor's pair
+ * @returns The two colours to set, or null where the field is readable as it is
+ */
+function pairFor(field: HTMLElement): Pair | null {
+  const own = paintOf(field);
+  if (own === null || contrastOf(own) >= MIN_CONTRAST) {
+    return null;
+  }
+  const surroundings = surroundingsOf(field);
+  const around = surroundings === null ? null : paintOf(surroundings);
+  return around !== null && contrastOf(around) >= MIN_CONTRAST
+    ? { 'color': Color.rgbToString(around.text), 'background-color': Color.rgbToString(around.background) }
+    : { 'color': 'FieldText', 'background-color': 'Field' };
+}
+
+/**
+ * Everything a measure of the field reads that can be read with the floor's
+ * pair in place: the field's paint, and the paint of the text around it,
+ * which is where the pair comes from and what a theme switch changes.
+ * @param field - The field
+ * @returns The two paints, as one string to compare
+ */
+function inputsOf(field: HTMLElement): string {
+  const surroundings = surroundingsOf(field);
+  return JSON.stringify([paintOf(field), surroundings === null ? null : paintOf(surroundings)]);
+}
+
+/** One field's floor, for as long as the field is drawn. */
+export interface ReadableField {
+  /**
+   * Measures the field again if anything the floor reads has changed since it
+   * last measured, and changes nothing on the page where nothing has.
+   */
+  check: () => void;
+  /** Puts back what the floor replaced, if anything. */
+  dispose: () => void;
+}
+
+/**
  * Keeps one of MAIDR's fields -- the braille textarea or the review input --
  * readable on whatever page it is drawn in.
  *
@@ -235,41 +318,63 @@ function settleColourTransitions(field: HTMLElement): void {
  * colours, so under them the floor finds the field readable and stays out.
  * A transition on the field's colours is finished before it is measured, and
  * again after the pair is set (see `settleColourTransitions`).
+ *
+ * Each check first reads what it can without touching the page (see
+ * `inputsOf`), and measures only when that has changed: taking the pair off
+ * to measure the field's own colours, and setting it again, is a change to
+ * the page that a page's own MutationObserver sees, and a page that answers
+ * such a change by writing to its root or body would otherwise be answered
+ * in turn, for ever. So a change to the field's own colours alone, with the
+ * pair in place, waits for the colours around it to change.
  * @param field - The field
- * @returns An undo that puts back what the floor replaced, if anything
+ * @returns Its floor, which has not measured it yet
  */
-export function keepFieldReadable(field: HTMLElement): () => void {
-  settleColourTransitions(field);
-  const own = paintOf(field);
-  if (own === null || contrastOf(own) >= MIN_CONTRAST) {
-    return () => {};
-  }
+export function keepFieldReadable(field: HTMLElement): ReadableField {
+  // What the floor's pair replaced, while it is set.
+  let replaced: Declaration[] | null = null;
+  // What the last measure read, with its pair in place.
+  let inputs: string | null = null;
 
-  const article = field.closest(`article[id^="${Constant.MAIDR_ARTICLE}-"]`) ?? field.parentElement;
-  const around = article === null ? null : paintOf(article);
-  const pair = around !== null && contrastOf(around) >= MIN_CONTRAST
-    ? { 'color': Color.rgbToString(around.text), 'background-color': Color.rgbToString(around.background) }
-    : { 'color': 'FieldText', 'background-color': 'Field' };
-
-  const replaced: Declaration[] = PROPERTIES.map(property => ({
-    property,
-    value: field.style.getPropertyValue(property),
-    priority: field.style.getPropertyPriority(property),
-  }));
-  for (const property of PROPERTIES) {
-    // `important`, or a page's own `!important` colour outweighs the pair.
-    field.style.setProperty(property, pair[property], 'important');
-  }
-  settleColourTransitions(field);
-
-  return () => {
-    for (const { property, value, priority } of replaced) {
+  const restore = (): void => {
+    for (const { property, value, priority } of replaced ?? []) {
       if (value === '') {
         field.style.removeProperty(property);
       } else {
         field.style.setProperty(property, value, priority);
       }
     }
+    replaced = null;
+  };
+
+  const measure = (): void => {
+    restore();
+    settleColourTransitions(field);
+    const pair = pairFor(field);
+    if (pair !== null) {
+      replaced = PROPERTIES.map(property => ({
+        property,
+        value: field.style.getPropertyValue(property),
+        priority: field.style.getPropertyPriority(property),
+      }));
+      for (const property of PROPERTIES) {
+        // `important`, or a page's own `!important` colour outweighs the pair.
+        field.style.setProperty(property, pair[property], 'important');
+      }
+      settleColourTransitions(field);
+    }
+    inputs = inputsOf(field);
+  };
+
+  return {
+    check: () => {
+      if (inputsOf(field) !== inputs) {
+        measure();
+      }
+    },
+    dispose: () => {
+      restore();
+      inputs = null;
+    },
   };
 }
 
@@ -332,7 +437,7 @@ export function whenColoursSettle(field: HTMLElement, then: () => void): () => v
  * page switches in any other way -- a stylesheet swapped in its head -- is
  * caught up with on the reader's next step, or the field's next focus.
  * @param field - The field
- * @param recheck - Undoes the floor and measures the field again
+ * @param recheck - Checks the field again (see `keepFieldReadable`)
  * @returns Stops asking
  */
 export function watchFieldColours(field: HTMLElement, recheck: () => void): () => void {
