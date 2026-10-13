@@ -274,19 +274,83 @@ export function keepFieldReadable(field: HTMLElement): () => void {
 }
 
 /**
+ * The transitions running on the colours of a field's ancestors.
+ * @param field - The field
+ * @returns The transitions, none where the browser has no Web Animations
+ */
+function ancestorColourTransitions(field: HTMLElement): CSSTransition[] {
+  const transitions: CSSTransition[] = [];
+  for (let current = field.parentElement; current !== null; current = current.parentElement) {
+    if (typeof current.getAnimations !== 'function') {
+      return transitions;
+    }
+    transitions.push(...current.getAnimations().filter(isColourTransition));
+  }
+  return transitions;
+}
+
+/**
  * Asks for a field to be measured again whenever its colours can change
- * without the reader taking a step: when it gains or loses focus, so a
- * page's `:focus` rule is measured (braille is measured before it takes
- * focus).
+ * without the reader taking a step, which review never takes while it is
+ * open:
+ *
+ * - when it gains or loses focus, so a page's `:focus` rule is measured
+ *   (braille is measured before it takes focus);
+ * - when the page's root or body changes an attribute, which is how a theme
+ *   toggle switches theme (a class, a `data-theme`, a style);
+ * - when the system's colour scheme changes, which a page's
+ *   `prefers-color-scheme` rules follow.
+ *
+ * Where the change starts transitions on the colours of the field's
+ * ancestors, measured again once they end: until then the text and
+ * background around the field are those of the theme being left. A theme a
+ * page switches in any other way -- a stylesheet swapped in its head -- is
+ * caught up with on the reader's next step, or the field's next focus.
  * @param field - The field
  * @param recheck - Undoes the floor and measures the field again
  * @returns Stops asking
  */
 export function watchFieldColours(field: HTMLElement, recheck: () => void): () => void {
-  field.addEventListener(DomEventType.FOCUS_IN, recheck);
-  field.addEventListener(DomEventType.FOCUS_OUT, recheck);
+  const doc = field.ownerDocument;
+  const view = doc.defaultView;
+  let stopped = false;
+  // Only the latest change waits for its transitions: an earlier one's would
+  // measure a theme already left.
+  let latest = 0;
+
+  const onChange = (): void => {
+    recheck();
+    const transitions = ancestorColourTransitions(field);
+    if (transitions.length === 0) {
+      return;
+    }
+    const change = ++latest;
+    void Promise.allSettled(transitions.map(transition => transition.finished)).then(() => {
+      if (!stopped && change === latest) {
+        recheck();
+      }
+    });
+  };
+
+  field.addEventListener(DomEventType.FOCUS_IN, onChange);
+  field.addEventListener(DomEventType.FOCUS_OUT, onChange);
+
+  const theme = new MutationObserver(onChange);
+  for (const element of [doc.documentElement, doc.body]) {
+    if (element !== null) {
+      theme.observe(element, { attributes: true });
+    }
+  }
+
+  // jsdom has no matchMedia.
+  const scheme = typeof view?.matchMedia === 'function' ? view.matchMedia('(prefers-color-scheme: dark)') : null;
+  scheme?.addEventListener('change', onChange);
+
   return () => {
-    field.removeEventListener(DomEventType.FOCUS_IN, recheck);
-    field.removeEventListener(DomEventType.FOCUS_OUT, recheck);
+    stopped = true;
+    field.removeEventListener(DomEventType.FOCUS_IN, onChange);
+    field.removeEventListener(DomEventType.FOCUS_OUT, onChange);
+    theme.disconnect();
+    scheme?.removeEventListener('change', onChange);
   };
 }

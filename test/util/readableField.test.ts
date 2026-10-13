@@ -185,7 +185,41 @@ describe('watchFieldColours', () => {
     stop();
   });
 
-  it('should stop asking once stopped', () => {
+  it('should ask for a measure when the page switches theme on its root or body', async () => {
+    const field = document.createElement('textarea');
+    document.body.append(field);
+    const recheck = jest.fn();
+    const stop = watchFieldColours(field, recheck);
+
+    document.documentElement.classList.add('dark');
+    await Promise.resolve();
+    document.body.dataset.theme = 'dark';
+    await Promise.resolve();
+
+    expect(recheck).toHaveBeenCalledTimes(2);
+    stop();
+    document.documentElement.classList.remove('dark');
+    delete document.body.dataset.theme;
+  });
+
+  it('should ask for a measure when the system\'s colour scheme changes', () => {
+    const scheme = new EventTarget();
+    window.matchMedia = (): MediaQueryList => scheme as MediaQueryList;
+    const field = document.createElement('textarea');
+    document.body.append(field);
+    const recheck = jest.fn();
+    const stop = watchFieldColours(field, recheck);
+
+    scheme.dispatchEvent(new Event('change'));
+
+    expect(recheck).toHaveBeenCalledTimes(1);
+    stop();
+    Reflect.deleteProperty(window, 'matchMedia');
+  });
+
+  it('should stop asking once stopped', async () => {
+    const scheme = new EventTarget();
+    window.matchMedia = (): MediaQueryList => scheme as MediaQueryList;
     const field = document.createElement('textarea');
     document.body.append(field);
     const recheck = jest.fn();
@@ -194,7 +228,12 @@ describe('watchFieldColours', () => {
 
     field.focus();
     field.blur();
+    document.documentElement.classList.add('dark');
+    await Promise.resolve();
+    scheme.dispatchEvent(new Event('change'));
 
     expect(recheck).not.toHaveBeenCalled();
+    document.documentElement.classList.remove('dark');
+    Reflect.deleteProperty(window, 'matchMedia');
   });
 });

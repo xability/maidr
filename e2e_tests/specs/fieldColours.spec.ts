@@ -362,18 +362,71 @@ test.describe('Braille and review field colours', () => {
       });
     }
 
-    test('keeps the braille field readable when the page switches theme while it is open', async ({ page }) => {
-      // A theme toggle, or the system's dark mode, changing the page under
-      // an open field: measured again on the reader's next step.
-      const barPage = await openChart(page, `${INHERIT_RESET} html.dark body { background-color: #111827; color: #f9fafb; }`);
+    test('keeps the braille field readable when the page swaps in a dark stylesheet while it is open', async ({ page }) => {
+      // A theme switched by a stylesheet, which nothing watches: measured
+      // again on the reader's next step.
+      const barPage = await openChart(page, INHERIT_RESET);
       await barPage.pressKey('b', 'open braille');
       await expect(page.locator(BRAILLE)).toBeFocused();
 
-      await page.evaluate(() => document.documentElement.classList.add('dark'));
+      await page.addStyleTag({ content: 'body { background-color: #111827; color: #f9fafb; }' });
       await barPage.pressKey('ArrowRight', 'move to the next bar');
 
       await expectBrailleReadable(page);
     });
+  });
+
+  test.describe('when the page switches theme with a field open', () => {
+    // Review takes no steps while it is open, so a switch must be measured
+    // without one: the field is measured again when the page's root or body
+    // changes an attribute, or the system's colour scheme changes, and again
+    // once any transition the switch started on the field's ancestors ends.
+    const DARK_CLASS = 'html.dark body { background-color: #111827; color: #f9fafb; }';
+    const THEME_TRANSITIONS = '*, *::before, *::after { transition: background-color .3s, color .3s; }';
+    const switches = [
+      {
+        name: 'a class on the root',
+        css: `${INHERIT_RESET} ${DARK_CLASS}`,
+        toDark: async (page: Page): Promise<void> => {
+          await page.evaluate(() => document.documentElement.classList.add('dark'));
+        },
+      },
+      {
+        name: 'a class on the root, with the colours transitioning',
+        css: `${INHERIT_RESET} ${DARK_CLASS} ${THEME_TRANSITIONS}`,
+        toDark: async (page: Page): Promise<void> => {
+          await page.evaluate(() => document.documentElement.classList.add('dark'));
+        },
+      },
+      {
+        name: 'the system\'s colour scheme',
+        css: `${INHERIT_RESET} @media (prefers-color-scheme: dark) { body { background-color: #111827; color: #f9fafb; } }`,
+        toDark: async (page: Page): Promise<void> => {
+          await page.emulateMedia({ colorScheme: 'dark' });
+        },
+      },
+    ];
+    const fields = [
+      { name: 'braille', key: 'b', selector: BRAILLE },
+      { name: 'review', key: 'r', selector: REVIEW },
+    ];
+
+    for (const { name, css, toDark } of switches) {
+      for (const field of fields) {
+        test(`keeps the ${field.name} field readable when ${name} turns the page dark`, async ({ page }) => {
+          await page.emulateMedia({ colorScheme: 'light' });
+          const barPage = await openChart(page, css);
+          await barPage.pressKey(field.key, `open ${field.name}`);
+          await expect(page.locator(field.selector)).toBeFocused();
+
+          await toDark(page);
+          await settle(page);
+
+          const paint = await fieldPaint(page, field.selector);
+          expect(paint.ratio, `${field.name}: ${paint.color} on ${paint.background}`).toBeGreaterThanOrEqual(AA);
+        });
+      }
+    }
   });
 
   test.describe('on a page that transitions its colours', () => {

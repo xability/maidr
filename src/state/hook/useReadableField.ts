@@ -14,10 +14,12 @@ function nothingToUndo(): void {}
  * `HighContrastService` has painted or restored the chart's backdrop: the
  * service subscribes to the setting before the settings view model does, and
  * React commits the re-render this hook asks for only after both have run.
- * Measured again too whenever `step` changes, so a page that switches its
- * theme while the field is open -- the system's dark mode, or a page script
- * -- is caught up with on the reader's next step, and whenever
- * `watchFieldColours` sees the field's colours may have changed without one.
+ * Measured again whenever `watchFieldColours` sees the field's colours may
+ * have changed: it gains or loses focus, or the page switches its theme on
+ * its root or body, or follows the system's colour scheme, while the field
+ * is open. And measured again whenever `step` changes, which catches braille
+ * up with a theme switched any other way on the reader's next step; review
+ * takes no steps while it is open.
  * @param ref - The field
  * @param step - The field's state from the store, a new object on every
  *   update its view model dispatches, which is every step the reader takes
