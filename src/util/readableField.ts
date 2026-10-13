@@ -132,6 +132,19 @@ function over(top: Rgba, bottom: Rgb): Rgb {
   return { r: mix(top.r, bottom.r), g: mix(top.g, bottom.g), b: mix(top.b, bottom.b) };
 }
 
+/** The media query forced colours match. */
+const FORCED_COLOURS = '(forced-colors: active)';
+
+/**
+ * Whether a window matches a media query.
+ * @param view - The window
+ * @param query - The query
+ * @returns Whether it matches, false where the window has no `matchMedia`, as in jsdom
+ */
+function matchesMedia(view: Window | null, query: string): boolean {
+  return typeof view?.matchMedia === 'function' && view.matchMedia(query).matches;
+}
+
 /** The canvas colour last read in a document, and the colour scheme it was read under. */
 interface CanvasReading {
   scheme: string;
@@ -159,13 +172,11 @@ function canvasColour(doc: Document): Rgba | null {
   if (view === null || root === null) {
     return null;
   }
-  // jsdom has no matchMedia.
-  const matches = (query: string): boolean => typeof view.matchMedia === 'function' && view.matchMedia(query).matches;
   const scheme = [
     view.getComputedStyle(root).colorScheme,
     doc.querySelector('meta[name="color-scheme"]')?.getAttribute('content'),
-    matches('(prefers-color-scheme: dark)'),
-    matches('(forced-colors: active)'),
+    matchesMedia(view, '(prefers-color-scheme: dark)'),
+    matchesMedia(view, FORCED_COLOURS),
   ].join('|');
   const last = canvases.get(doc);
   if (last?.scheme === scheme) {
@@ -318,6 +329,10 @@ function shows(doc: Document, paint: Paint, pair: Pair): boolean {
  * @returns The two colours to set, or null where the field is right as it is
  */
 function pairFor(field: HTMLElement): Pair | null {
+  // Forced colours replace both colours, whatever is set.
+  if (matchesMedia(field.ownerDocument.defaultView, FORCED_COLOURS)) {
+    return null;
+  }
   const own = paintOf(field);
   if (own === null) {
     return null;
@@ -515,8 +530,8 @@ export interface ReadableField {
  * Measured, not cascaded, because no rule of a fixed specificity can be sure
  * of both colours: a page that sets one of them at the same specificity or
  * more, or in a reset that inherits one and clears the other, splits any
- * pair a rule hands the field. Forced colours are already in the computed
- * colours, so under them the floor finds the field readable and stays out.
+ * pair a rule hands the field. Under forced colours, which replace both
+ * colours whatever is set, the floor stays out.
  * A transition on the field's colours is finished before it is measured, and
  * again after the pair is set (see `settleColourTransitions`).
  *

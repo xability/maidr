@@ -824,6 +824,11 @@ test.describe('Braille and review field colours', () => {
           }
 
           expectReadable(await readFields(page, barPage));
+          // And set nothing on them, which forced colours would only replace.
+          await expect(page.locator(REVIEW)).not.toHaveAttribute('style');
+          await barPage.pressKey('r', 'close review');
+          await barPage.pressKey('b', 'open braille');
+          await expect(page.locator(BRAILLE)).not.toHaveAttribute('style');
         });
       }
     }

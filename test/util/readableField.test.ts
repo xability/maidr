@@ -276,6 +276,22 @@ describe('keepFieldReadable', () => {
     expect(field.style.backgroundColor).toBe('rgb(26, 26, 26)');
   });
 
+  it('should leave a field alone under forced colours, which replace whatever it sets', () => {
+    const field = drawField(
+      { text: 'rgb(255, 255, 255)', background: 'rgb(34, 34, 34)' },
+      { text: 'rgb(0, 0, 0)', background: 'rgba(0, 0, 0, 0)' },
+    );
+    window.matchMedia = (query: string): MediaQueryList => Object.assign(new EventTarget(), {
+      matches: query === '(forced-colors: active)',
+    }) as MediaQueryList;
+
+    floorFor(field).check();
+
+    expect(field.style.getPropertyPriority('color')).toBe('');
+    expect(field.style.color).toBe('rgb(0, 0, 0)');
+    Reflect.deleteProperty(window, 'matchMedia');
+  });
+
   it('should leave a field alone when its colours cannot be read', () => {
     // No colours of its own: jsdom computes `initial`, as it would for any
     // field a page did not style.
