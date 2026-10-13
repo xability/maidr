@@ -13,6 +13,13 @@ const MIN_CONTRAST = 4.5;
 const QUIET_FRAMES = 5;
 
 /**
+ * While the page keeps reporting changes -- one that writes to its root
+ * every frame, say -- the floor checks once in this many frames, not on
+ * every one of them (see `framesOf`).
+ */
+const STRIDE = 4;
+
+/**
  * The most animation frames the floor checks after one change, so colours
  * that never stop changing are not followed for ever.
  */
@@ -488,6 +495,14 @@ interface Frames {
  * stylesheet a theme switch enables applies once it loads -- and colours
  * that transition after a change, at once or after a delay: the floor
  * follows them frame by frame, and is left with those they settle on.
+ *
+ * A change reported once the frames have stopped is checked on the next
+ * frame, and one reported fewer than `STRIDE` frames after the last check
+ * once `STRIDE` have passed: a page that reports a change every frame, as one
+ * that writes to its root every frame does, is checked once every `STRIDE`
+ * frames. Each check reads the computed colours of the field and of the
+ * elements behind it, which on such a page cost script time on every frame
+ * for no change the reader would see more than a few frames sooner.
  * @param view - The window whose frames to check on, if any
  * @param check - Checks the floor, returning whether it measured
  * @param transitioning - Whether a colour transition is still to end
@@ -502,12 +517,20 @@ function framesOf(view: Window | null, check: () => boolean, transitioning: () =
   let frame: number | null = null;
   let quiet = 0;
   let left = 0;
+  // Frames since the last check, and whether a change was reported since.
+  let since = STRIDE;
+  let reported = false;
 
   const onFrame = (): void => {
     frame = null;
     left -= 1;
+    since += 1;
     try {
-      quiet = check() ? 0 : quiet + 1;
+      if (!reported || since >= STRIDE) {
+        since = 0;
+        reported = false;
+        quiet = check() ? 0 : quiet + 1;
+      }
       // Asked only once the frames have been quiet: a page that changes its
       // root every frame keeps them from being so, and is spared the walk.
       if (left > 0 && (quiet < QUIET_FRAMES || transitioning())) {
@@ -524,7 +547,10 @@ function framesOf(view: Window | null, check: () => boolean, transitioning: () =
     follow: () => {
       quiet = 0;
       left = MAX_FRAMES;
+      reported = true;
       if (frame === null) {
+        // The first change after the frames stopped is checked on the next one.
+        since = STRIDE;
         frame = view.requestAnimationFrame(onFrame);
       }
     },

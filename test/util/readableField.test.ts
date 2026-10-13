@@ -480,6 +480,35 @@ describe('keepFieldReadable between the checks it is asked for', () => {
     document.documentElement.removeAttribute('style');
   });
 
+  it('should check once every few frames while the page changes its root on every one', async () => {
+    // A scroll-progress or pointer-follow custom property, written every
+    // frame: the floor still follows the page, a few frames behind at most,
+    // without reading its colours on every frame.
+    const { field, article, floor } = drawCheckedField();
+    await quiet();
+    const computed = jest.spyOn(window, 'getComputedStyle');
+    const reads: number[] = [];
+    const colours: string[] = [];
+
+    for (let i = 0; i < 16; i++) {
+      document.documentElement.style.setProperty('--frame', String(i));
+      if (i === 8) {
+        paintArticle(article, 'rgb(240, 240, 200)', 'rgb(20, 20, 60)');
+      }
+      await frames(1);
+      reads.push(computed.mock.calls.length);
+      colours.push(field.style.color);
+    }
+    const checked = reads.filter((count, i) => count > (i === 0 ? 0 : reads[i - 1])).length;
+
+    expect(checked).toBeGreaterThanOrEqual(3);
+    expect(checked).toBeLessThanOrEqual(5);
+    // Painted before the ninth frame, and caught within four frames of it.
+    expect(colours[11]).toBe('rgb(240, 240, 200)');
+    floor.dispose();
+    document.documentElement.removeAttribute('style');
+  });
+
   it('should check the field on the next frame when the system\'s colour scheme changes', async () => {
     const scheme = new EventTarget();
     window.matchMedia = (): MediaQueryList => scheme as MediaQueryList;
