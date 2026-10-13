@@ -8,7 +8,8 @@ const MIN_CONTRAST = 4.5;
 
 /**
  * How many animation frames in a row must find a field's colours unchanged
- * before the floor stops checking them after a change (see `framesOf`).
+ * before the floor stops checking them after a change, once no colour
+ * transition around the field is still to end (see `framesOf`).
  */
 const QUIET_FRAMES = 5;
 
@@ -624,17 +625,17 @@ export interface ReadableField {
  * in turn, for ever. So a change to the field's own colours alone, with the
  * pair in place, waits for the colours around it to change.
  *
- * Checked whenever its caller asks (see `useReadableField`), and whenever
- * the field's colours can change without the reader doing anything, which
- * review, taking no steps while it is open, would otherwise never catch:
+ * Checked at once whenever its caller asks (see `useReadableField`, which
+ * asks on each of the reader's steps and whenever high contrast mode or its
+ * colours change), and on its own whenever the field's colours can change
+ * without the reader doing anything, which review, taking no steps while it
+ * is open, would otherwise never catch:
  *
- * - at once, when it gains or loses focus, so a page's `:focus` rule is
- *   measured (braille is measured before it takes focus);
+ * - at once, when the field gains or loses focus, so a page's `:focus` rule
+ *   is measured (braille is measured before it takes focus);
  * - on the next frame, when the page's root or body changes an attribute's
  *   value, which is how a theme toggle switches theme (a class, a
- *   `data-theme`, a style): a write of the value already there is no change,
- *   and a page that writes to its root every frame is checked once a frame,
- *   which reads what that frame's style recalculation has already computed;
+ *   `data-theme`, a style); a write of the value already there is no change;
  * - on the next frame, when the system's colour scheme changes, which a
  *   page's `prefers-color-scheme` rules follow;
  * - on the next frame, when a stylesheet or a `<style>` finishes loading,
@@ -643,11 +644,26 @@ export interface ReadableField {
  *   the sheet applies once it has loaded, after the class change has been
  *   checked (Chromium fires `load` then, Firefox `error`, so both count).
  *
- * Each is followed by a few frames more (see `framesOf`), which also see the
- * colours around the field transition. A theme a page switches in any other
- * way -- a class on an element between the body and the chart, a rule
- * inserted into a stylesheet already there -- is caught up with on the
- * reader's next step, or the field's next focus.
+ * Every one of these is followed by a check on each frame after it, until
+ * five frames in a row find nothing changed and no colour transition is
+ * moving, or waiting out its delay, on the field or any of its ancestors, or
+ * until two seconds or so have passed since the last of them (see
+ * `framesOf`). A page that reports a change every frame, writing to its root
+ * on each, is checked once every four frames instead. A check on a frame
+ * reads the colours among the frame's animation callbacks, before its style
+ * recalculation: the read brings that recalculation forward rather than
+ * adding one, unless the page changes its styles again later in the same
+ * callbacks.
+ *
+ * Nothing else is watched: a class on an element between the body and the
+ * chart, a rule inserted into a stylesheet already there, or a `:hover` or
+ * `:focus-within` rule is seen at the next check anything above makes, the
+ * reader's next step at the latest for braille, and then only where it
+ * changed something a check reads (see `inputsOf`).
+ *
+ * A check the floor makes on its own, on focus or on a frame, has no caller
+ * to hand an error to: it logs what it throws and leaves the field as it is,
+ * and one on a frame ends the frames that would follow it.
  * @param field - The field
  * @returns Its floor, which has not measured it yet
  */
