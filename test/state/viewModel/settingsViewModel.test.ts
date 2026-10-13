@@ -15,12 +15,6 @@ import { SettingsService } from '@service/settings';
 import { createMaidrStore } from '@state/store';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 
-// The node environment has `structuredClone`; this keeps the suite working if
-// it moves to jsdom, which does not.
-if (typeof globalThis.structuredClone !== 'function') {
-  globalThis.structuredClone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-}
-
 /** Storage that keeps nothing. */
 const storage: StorageService = {
   save: (): void => {},
@@ -28,7 +22,8 @@ const storage: StorageService = {
   remove: (): void => {},
 };
 
-const display = { toggleFocus: (): void => {} } as unknown as DisplayService;
+/** The one member of the display the settings service calls. */
+const display: Pick<DisplayService, 'toggleFocus'> = { toggleFocus: (): void => {} };
 const help = {} as Pick<HelpService, never> as HelpService;
 
 /** Saves high contrast mode as HighContrastService does: on the service. */
@@ -43,7 +38,7 @@ function toggleHighContrast(service: SettingsService): void {
 describe('settingsViewModel', () => {
   it('should put settings saved on the service into the store', () => {
     const store = createMaidrStore();
-    const service = new SettingsService(storage, display);
+    const service = new SettingsService(storage, display as DisplayService);
     const viewModel = new SettingsViewModel(store, service, help);
 
     toggleHighContrast(service);
@@ -53,13 +48,20 @@ describe('settingsViewModel', () => {
   });
 
   it('should stop following the service once disposed', () => {
+    // Disposing resets the store to the defaults, so the mode is first saved
+    // on and off again while followed: the save after disposing then turns it
+    // on, which the store must not take.
     const store = createMaidrStore();
-    const service = new SettingsService(storage, display);
+    const service = new SettingsService(storage, display as DisplayService);
     const viewModel = new SettingsViewModel(store, service, help);
+    toggleHighContrast(service);
+    expect(store.getState().settings.general.highContrastMode).toBe(true);
+    toggleHighContrast(service);
     viewModel.dispose();
 
     toggleHighContrast(service);
 
+    expect(service.loadSettings().general.highContrastMode).toBe(true);
     expect(store.getState().settings.general.highContrastMode).toBe(false);
   });
 });
