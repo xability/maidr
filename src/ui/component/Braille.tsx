@@ -1,4 +1,5 @@
 import { useLocale } from '@state/hook/useLocale';
+import { useReadableField } from '@state/hook/useReadableField';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import { DomEventType } from '@type/event';
 import { Constant } from '@util/constant';
@@ -8,9 +9,11 @@ const Braille: React.FC = () => {
   const id = useId();
   const { t } = useLocale();
   const viewModel = useViewModel('braille');
-  const { value, index, displaySize, displayLines } = useViewModelState('braille');
+  const braille = useViewModelState('braille');
+  const { value, index, displaySize, displayLines } = braille;
 
   const brailleRef = useRef<HTMLTextAreaElement>(null);
+  useReadableField(brailleRef, braille);
   const lastIndexRef = useRef<number>(index);
   // Keep the latest braille content in a ref so the selectionchange handler
   // (registered once with an empty dependency array) validates the caret

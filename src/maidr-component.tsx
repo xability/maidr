@@ -251,6 +251,43 @@ ${EMBEDDED} :is(button, a, [role="button"]):focus-visible {
 }
 `;
 
+/**
+ * The reader's high contrast pair on MAIDR's braille and review fields, both
+ * colours at once, while high contrast mode is painted.
+ *
+ * High contrast paints the chart's backdrop dark with light text, and sets
+ * the same two colours on it as custom properties (see `overrideInlineStyles`
+ * in `HighContrastService`), which this rule reads; restoring removes them,
+ * and the rule goes with them. Without it the fields took whatever the page's
+ * cascade left them. A reset that makes fields inherit their text colour
+ * (normalize.css v3, so Bootstrap 3 and every rmarkdown page; Tailwind 3's
+ * preflight) gave them the light text over the browser's white field, and a
+ * reset that clears their background left the browser's black text on the
+ * dark backdrop: 1:1 either way.
+ *
+ * `!important`, like the focus ring of a chart bound from the page, because
+ * no specificity is enough to keep the two together. Pages do not name
+ * fields by element type alone: Milligram clears only their background,
+ * through `input[type='text']`, so a pair given one attribute above the
+ * element-type resets met a rule of equal weight later in the page, lost its
+ * background to it, and left black text on the dark backdrop. So the reader's
+ * pair also replaces fields a page themes on purpose, by a class, an id or a
+ * cascade layer, which is what the reader turned high contrast on for. A
+ * page's own `!important` field colour still outweighs the rule, and there
+ * `useReadableField` sets the reader's pair on the field itself, inline and
+ * `!important`, however dim the reader chose it. Forced colours replace both
+ * colours, as ever.
+ *
+ * With high contrast off nothing here applies: the fields keep the page's
+ * colours, and `useReadableField` steps in only where those are unreadable.
+ */
+const FIELD_HIGH_CONTRAST_RULE = `
+:where([style*="${Constant.HIGH_CONTRAST_LIGHT_PROPERTY}"]) :is(textarea[id^="${Constant.BRAILLE_TEXT_AREA}-"], input[id^="${Constant.REVIEW_INPUT}-"]) {
+  color: var(${Constant.HIGH_CONTRAST_LIGHT_PROPERTY}) !important;
+  background-color: var(${Constant.HIGH_CONTRAST_DARK_PROPERTY}) !important;
+}
+`;
+
 export function Maidr({ data, children }: MaidrProps): JSX.Element {
   // Each Maidr instance gets its own isolated Redux store.
   // useRef with lazy init guarantees the store persists for the component's
@@ -269,6 +306,7 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
     if (doc) {
       ensureDocumentStyle(doc, 'data-maidr-figure', FIGURE_MARGIN_RULE);
       ensureDocumentStyle(doc, 'data-maidr-focus-ring', FOCUS_RING_RULES);
+      ensureDocumentStyle(doc, 'data-maidr-fields', FIELD_HIGH_CONTRAST_RULE);
     }
   }, [figureRef]);
 
