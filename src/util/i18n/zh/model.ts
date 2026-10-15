@@ -860,6 +860,7 @@ export const model = {
   'model.forestRowStudy': '研究',
   'model.extremaMaxDelta': '最大差值',
   'model.extremaMinDelta': '最小差值',
+  'model.dagEdgeLabelled': '{name}（{label}）',
   'model.chartTypeSequence': '时序图',
   'model.chartTypeVenn': '韦恩图',
   'model.plotTypeSequence': '时序图',

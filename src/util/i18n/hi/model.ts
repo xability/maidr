@@ -857,6 +857,7 @@ export const model = {
   'model.forestRowStudy': 'अध्ययन',
   'model.extremaMaxDelta': 'अधिकतम अंतर',
   'model.extremaMinDelta': 'न्यूनतम अंतर',
+  'model.dagEdgeLabelled': '{name} ({label})',
   'model.chartTypeSequence': 'अनुक्रम आरेख',
   'model.chartTypeVenn': 'वेन आरेख',
   'model.plotTypeSequence': 'अनुक्रम आरेख',

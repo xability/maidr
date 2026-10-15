@@ -864,6 +864,7 @@ export const model = {
   'model.forestRowStudy': '연구',
   'model.extremaMaxDelta': '최대 편차',
   'model.extremaMinDelta': '최소 편차',
+  'model.dagEdgeLabelled': '{name} ({label})',
   'model.chartTypeSequence': '시퀀스 다이어그램',
   'model.chartTypeVenn': '벤 다이어그램',
   'model.plotTypeSequence': '시퀀스 다이어그램',

@@ -393,3 +393,97 @@ describe('the description', () => {
     expect(table.rows[3]).toEqual(['block1', 'add', 'block1 > conv2, input', 'block2 > conv', '', '', '']);
   });
 });
+
+describe('an edge label is heard wherever its edge is', () => {
+  /** A flowchart decision: `check` goes to `ship` on yes and back to `fix` on no. */
+  const DECISION: DirectedGraphPoint[] = [
+    { id: 'start' },
+    { id: 'check', inputs: ['start', 'fix'] },
+    { id: 'ship', inputs: ['check'], inputLabels: ['yes'] },
+    { id: 'fix', inputs: ['check'], inputLabels: ['no'] },
+  ];
+
+  test('the to list names each branch with its label', () => {
+    const trace = graph(DECISION);
+    trace.moveOnce('FORWARD');
+
+    expect(at(trace)).toBe('check');
+    expect(aside(trace, 'To')).toBe('ship (yes), fix (no)');
+    expect(aside(trace, 'From')).toBe('start, fix');
+  });
+
+  test('the from list names the edge that arrives', () => {
+    const trace = graph(DECISION);
+    trace.moveOnce('FORWARD');
+    trace.moveToRotorFilter('outputs', 'right');
+
+    expect(at(trace)).toBe('ship');
+    expect(aside(trace, 'From')).toBe('check (yes)');
+  });
+
+  test('a blank or missing label leaves the edge unnamed', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'b', inputs: ['a', 'a'], inputLabels: ['', 'later'] },
+      { id: 'c', inputs: ['a'], inputLabels: [null] },
+      { id: 'd', inputs: ['a'], inputLabels: ['   '] },
+    ]);
+
+    expect(aside(trace, 'To')).toBe('b (later), c, d');
+  });
+
+  test('a numeric label is heard as written, zero included', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'b', inputs: ['a'], inputLabels: [0] },
+    ]);
+
+    expect(aside(trace, 'To')).toBe('b (0)');
+  });
+
+  test('an edge declared twice keeps each distinct label, once', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'b', inputs: ['a', 'a', 'a'], inputLabels: ['yes', 'retry', 'yes'] },
+      { id: 'c', inputs: ['a', 'a'], inputLabels: ['yes, maybe', 'maybe'] },
+    ]);
+
+    expect(aside(trace, 'To')).toBe('b (yes; retry), c (yes, maybe; maybe)');
+  });
+
+  test('an edge into a closed scope is heard without its label, and with it once the scope is open', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'g/b', label: 'b', path: ['g'], inputs: ['a'], inputLabels: ['go'] },
+    ]);
+
+    expect(at(trace)).toBe('a');
+    expect(aside(trace, 'To')).toBe('g');
+
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+
+    expect(at(trace)).toBe('b');
+    expect(aside(trace, 'From')).toBe('a (go)');
+  });
+
+  test('fewer labels than inputs leaves the rest unnamed', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'b' },
+      { id: 'c', inputs: ['a', 'b'], inputLabels: ['only'] },
+    ]);
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    expect(at(trace)).toBe('c');
+    expect(aside(trace, 'From')).toBe('a (only), b');
+  });
+
+  test('the description tabulates the labels', () => {
+    const table = graph(DECISION).description.dataTable;
+    const check = table.rows.find(row => row[1] === 'check');
+
+    expect(check?.[3]).toBe('ship (yes), fix (no)');
+  });
+});

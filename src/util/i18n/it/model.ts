@@ -864,6 +864,7 @@ export const model = {
   'model.forestRowStudy': 'studio',
   'model.extremaMaxDelta': 'Delta massimo',
   'model.extremaMinDelta': 'Delta minimo',
+  'model.dagEdgeLabelled': '{name} ({label})',
   'model.chartTypeSequence': 'Diagramma di sequenza',
   'model.chartTypeVenn': 'Diagramma di Venn',
   'model.plotTypeSequence': 'diagramma di sequenza',
