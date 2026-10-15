@@ -22,6 +22,8 @@ const CHART_TYPE_LABEL: Record<TraceType, MessageKey> = {
   [TraceType.SANKEY]: 'model.chartTypeSankey',
   [TraceType.NETWORK]: 'model.chartTypeNetwork',
   [TraceType.DIRECTED_GRAPH]: 'model.chartTypeDirectedGraph',
+  [TraceType.SEQUENCE]: 'model.chartTypeSequence',
+  [TraceType.VENN]: 'model.chartTypeVenn',
   [TraceType.CANDLESTICK_DELTA]: 'model.chartTypeCandlestickDelta',
   [TraceType.CHOROPLETH]: 'model.chartTypeChoropleth',
   [TraceType.CONTOUR]: 'model.chartTypeContour',
