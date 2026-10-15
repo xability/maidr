@@ -2030,9 +2030,9 @@ const STANDALONE_KINDS: Record<string, SeriesKind> = {
   // exactly and still share the one branch of the dispatch.
   //
   // `Venn` is deliberately absent. It is a set-overlap diagram drawn under a
-  // hierarchy class, and no trace navigates by set membership; the decision
-  // is recorded once, under "Shapes deliberately not read" in
-  // `docs/SCHEMA.md` (#1190), rather than argued here.
+  // hierarchy class, read by the `venn` trace this adapter does not produce
+  // yet; where that stands is recorded once, under "Shapes deliberately not
+  // read" in `docs/SCHEMA.md` (#1190), rather than argued here.
   Tree: 'tree',
   Pack: 'pack',
   LinkedHierarchy: 'tree',

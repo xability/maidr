@@ -317,35 +317,30 @@ reason for the same chart, and the reasons did not agree (#1190).
 
 ### Set-overlap diagrams (Venn, Euler)
 
-**Declined, in every adapter, for one reason: MAIDR has no trace whose
-navigation is set membership.**
+**Read by the `venn` trace, which the Mermaid adapter produces. The
+Highcharts, Chart.js and amCharts adapters do not produce it yet, and decline
+these diagrams until they do.**
 
-The data is not the objection. A Highcharts `venn` or `euler` point carries the
-author's own declaration of a region — `sets: ['A', 'B']`, `value: 2` — and
-`chartjs-chart-venn` and `am5hierarchy.Venn` take the same input. A region list
-could be extracted from any of them today, and it would report the numbers the
-author wrote, not a measurement of the drawing.
+The objection that kept them out was never the data. A Highcharts `venn` or
+`euler` point carries the author's own declaration of a region — `sets:
+['A', 'B']`, `value: 2` — and `chartjs-chart-venn` and `am5hierarchy.Venn` take
+the same input. What was missing was a trace whose navigation is set
+membership: a flat list of `A`, `B`, `A∩B` says *how big* each region is, and a
+reader stepping through it by index is walking a layout rather than a
+membership. Read as a bar chart of region sizes it would announce every number
+correctly and say nothing about which sets a region belongs to.
 
-What no trace can hold is the question the diagram is drawn to answer: what
-these sets share, and what belongs to only one of them. A flat list of `A`,
-`B`, `A∩B` says *how big* each region is, and a reader stepping through it by
-index is walking a layout rather than a membership. Read as a bar chart of
-region sizes it would announce every number correctly and say nothing about
-which sets a region belongs to — the parent trace reading the data and
-answering the wrong question, which is the pattern #814 named.
+[`venn`](#venn-diagram-venn-experimental) is that trace: a `MovableGraph` over
+regions addressed as `(set count, index among regions of that count)`, where
+up and down move to regions of fewer or more sets and left and right move
+between the regions sharing that count. The producers' data is already in its
+shape, so what remains for the three chart libraries is the extraction, not the
+reading. Until it is written they keep declining rather than force the diagram
+into another shape.
 
-If a reading is ever added it is a tier C trace in #814's sense: a
-`MovableGraph` over regions addressed as `(set count, index among regions of
-that count)`, where up and down move to regions of fewer or more sets and left
-and right move between the regions sharing that count. The producers' data is
-already in that shape; the work is the trace and its announcement, not the
-extraction.
-
-Two earlier reasons are retired. That a Venn's areas are drawn approximately
-is true of the layout and not of what would be read — the producers declare
-the size, and a reading would announce the declaration, not the drawing. That
-a Venn has no axis is true, and no more of an obstacle than it was for the
-treemap or the sankey.
+That a Venn's areas are drawn approximately is true of the layout and not of
+what is read — the producers declare the size, and the reading announces the
+declaration, not the drawing.
 
 ## Selectors
 
