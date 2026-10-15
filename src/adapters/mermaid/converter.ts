@@ -80,7 +80,9 @@ export function supportedMermaidDiagrams(): string[] {
  * @param svg - The SVG Mermaid rendered from the same text
  * @param options - Figure options
  * @returns The MAIDR figure
- * @throws Error when the diagram type is not one the adapter reads
+ * @throws Error when the diagram type is not one the adapter reads. A
+ *   diagram of a type it reads but with nothing in it becomes a figure with
+ *   no layers, which MAIDR announces as empty
  */
 export function convertMermaidDiagram(
   diagram: { type: string; db: unknown; text?: string },
@@ -107,10 +109,11 @@ export function convertMermaidDiagram(
     svgId: svg.id,
     layerId: suffix => `${id}-${suffix}`,
   };
+  // A diagram with nothing in it yet -- a gantt with no tasks, a quadrant
+  // chart with no points -- is still a diagram on the page. It becomes a
+  // figure whose subplot has no layers, which MAIDR announces as empty, so a
+  // reader who reaches it hears that rather than nothing at all.
   const conversion: DiagramConversion = convert(context);
-  if (conversion.layers.length === 0) {
-    throw new Error(`[maidr/mermaid] The ${diagram.type} diagram has nothing MAIDR can read.`);
-  }
 
   const title = options.title
     ?? conversion.title
