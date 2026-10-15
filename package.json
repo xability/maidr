@@ -85,6 +85,11 @@
       "import": "./dist/echarts.mjs",
       "default": "./dist/echarts.js"
     },
+    "./mermaid": {
+      "types": "./dist/mermaid.d.mts",
+      "import": "./dist/mermaid.mjs",
+      "default": "./dist/mermaid.js"
+    },
     "./frappe": {
       "types": "./dist/frappe.d.mts",
       "import": "./dist/frappe.mjs",
@@ -272,6 +277,7 @@
     "jsdom": "^26.1.0",
     "lightweight-charts": "^5.2.1",
     "marked": "^15.0.12",
+    "mermaid": "^12.2.0",
     "plotly.js-dist-min": "2.35.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
