@@ -913,4 +913,5 @@ export const model = {
   'model.vennStatLargestSet': 'Größte Menge',
   'model.vennStatLargestOverlap': 'Größte Überschneidung',
   'model.vennRegionSized': '{name}, {size}',
+  'model.instructionEmptyFigure': 'Dies ist ein maidr-Diagramm, das noch nichts zu beschreiben enthält: Es hat keine Datenpunkte. {clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

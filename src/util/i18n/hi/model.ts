@@ -902,4 +902,5 @@ export const model = {
   'model.vennStatLargestSet': 'सबसे बड़ा समुच्चय',
   'model.vennStatLargestOverlap': 'सबसे बड़ा ओवरलैप',
   'model.vennRegionSized': '{name}, {size}',
+  'model.instructionEmptyFigure': 'यह एक maidr प्लॉट है जिसमें अभी वर्णन करने के लिए कुछ नहीं है: इसमें कोई डेटा बिंदु नहीं हैं। {clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

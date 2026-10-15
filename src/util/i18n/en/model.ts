@@ -915,4 +915,5 @@ export const model = {
   'model.vennStatLargestSet': 'Largest set',
   'model.vennStatLargestOverlap': 'Largest overlap',
   'model.vennRegionSized': '{name}, {size}',
+  'model.instructionEmptyFigure': 'This is a maidr plot with nothing in it to describe yet: it has no data points. {clickPrompt}',
 } as const;

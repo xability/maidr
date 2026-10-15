@@ -905,4 +905,5 @@ export const model = {
   'model.vennStatLargestSet': '最大的集合',
   'model.vennStatLargestOverlap': '最大的交集',
   'model.vennRegionSized': '{name}，{size}',
+  'model.instructionEmptyFigure': '这是一个尚无可描述内容的 maidr 图：它没有数据点。{clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

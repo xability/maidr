@@ -909,4 +909,5 @@ export const model = {
   'model.vennStatLargestSet': '가장 큰 집합',
   'model.vennStatLargestOverlap': '가장 큰 교집합',
   'model.vennRegionSized': '{name}, {size}',
+  'model.instructionEmptyFigure': '아직 설명할 내용이 없는 maidr 플롯입니다. 데이터 점이 없습니다. {clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;
