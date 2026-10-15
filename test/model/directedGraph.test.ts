@@ -426,9 +426,11 @@ describe('an edge label is heard wherever its edge is', () => {
       { id: 'a' },
       { id: 'b', inputs: ['a', 'a'], inputLabels: ['', 'later'] },
       { id: 'c', inputs: ['a'], inputLabels: [null] },
+      { id: 'd', inputs: ['a'], inputLabels: ['   '] },
+      { id: 'e', inputs: ['a'], inputLabels: [0] },
     ]);
 
-    expect(aside(trace, 'To')).toBe('b (later), c');
+    expect(aside(trace, 'To')).toBe('b (later), c, d, e (0)');
   });
 
   test('an edge declared twice keeps each distinct label, once', () => {

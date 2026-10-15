@@ -1048,8 +1048,9 @@ the edges are declared on the node they arrive at, as `inputs`, and scopes as a
   node it leads to or comes from -- `To: ship (yes), fix (no)` -- and in the
   description's inputs and outputs. A blank or `null` entry leaves its edge
   unnamed. An edge declared twice with different labels carries both, in
-  declared order, apart by semicolons: `B (yes; retry)`. An edge into or out of a collapsed scope
-  is heard without its label, since the scope stands for many edges.
+  declared order, apart by semicolons: `B (yes; retry)`. An edge into or out
+  of a collapsed scope is heard without its label, since the scope stands for
+  many edges.
 - `attributes` is free-form: each entry is announced as a clause, in declared
   order, and becomes a column of the description's table.
 

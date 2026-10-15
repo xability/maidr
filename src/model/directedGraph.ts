@@ -241,7 +241,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * apart from the commas of the neighbour list.
    *
    * @param points - The declared nodes
-   * @returns Successors and predecessors per node, and the edge count
+   * @returns Successors and predecessors per node, the edge count, and each
+   *   labelled edge's labels keyed by `from>to`
    */
   private static resolveEdges(points: DirectedGraphPoint[]): {
     successors: number[][];
