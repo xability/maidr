@@ -206,6 +206,17 @@ describe('pre-activation name', () => {
     // Once: a title would be read as well by some screen readers.
     expect(title).toBeNull();
   });
+
+  test('says a chart with nothing in it has nothing to describe, not how to move through it', () => {
+    // A diagram with nothing drawn in it yet -- a gantt with no tasks -- gets
+    // no controller until it has layers, so this is all a reader hears.
+    const { description } = announcementOf({ id: 'empty-test', subplots: [[{ layers: [] }]] });
+
+    expect(description).toBe(
+      'This is a maidr plot with nothing in it to describe yet: it has no data points. Click to activate. '
+      + 'Press Control Slash for keyboard help.',
+    );
+  });
 });
 
 /**

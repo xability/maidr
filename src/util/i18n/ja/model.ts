@@ -864,4 +864,5 @@ export const model = {
   'model.forestRowStudy': '研究',
   'model.extremaMaxDelta': '最大の差分',
   'model.extremaMinDelta': '最小の差分',
+  'model.instructionEmptyFigure': 'これは、まだ説明する内容がない maidr のプロットです。データ点がありません。{clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

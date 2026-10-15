@@ -1000,6 +1000,12 @@ export class Context implements Disposable {
       : Constant.EMPTY;
     switch (state.type) {
       case 'figure':
+        // A figure whose one panel has no layers -- a diagram with nothing
+        // drawn in it yet -- has no subplots to choose between and no points
+        // to move through, so neither instruction would be true.
+        if (state.size === 1 && state.subplot.empty) {
+          return t('model.instructionEmptyFigure', { clickPrompt });
+        }
         return t('model.instructionFigure', { size: state.size, clickPrompt });
 
       case 'subplot': {

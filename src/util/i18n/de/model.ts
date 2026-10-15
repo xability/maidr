@@ -868,4 +868,5 @@ export const model = {
   'model.forestRowStudy': 'Studie',
   'model.extremaMaxDelta': 'Höchstes Delta',
   'model.extremaMinDelta': 'Niedrigstes Delta',
+  'model.instructionEmptyFigure': 'Dies ist ein maidr-Diagramm, das noch nichts zu beschreiben enthält: Es hat keine Datenpunkte. {clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

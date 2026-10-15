@@ -865,4 +865,5 @@ export const model = {
   'model.forestRowStudy': 'estudio',
   'model.extremaMaxDelta': 'Delta máximo',
   'model.extremaMinDelta': 'Delta mínimo',
+  'model.instructionEmptyFigure': 'Este es un gráfico de maidr que aún no tiene nada que describir: no tiene puntos de datos. {clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;
