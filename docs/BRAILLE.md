@@ -978,6 +978,48 @@ Depth   Cells
 One line per depth, so the top-level outline is a line of its own and the
 detail of every open scope sits below it.
 
+### Sequence diagram [experimental]
+
+One row for **every message**, in the order the messages happen, and then one
+row per **lifeline**, holding only the messages that participant sends or
+receives. Each cell is the participant the message arrives at, counted left to
+right across the diagram and scaled against the participant count, so a
+conversation between two participants shows as dots stepping between two
+heights and a call fanning out to several services climbs.
+
+The direction of an arrow has no representation of its own: a cell says where
+the message ends, not where it began. The announcement carries the rest -- the
+route as `Browser to Server`, the kind of arrow, the fragment it sits in.
+
+```
+Row        Cells
+All        ⠤⠶⠤⠤⠀
+Browser    ⠤⠀
+Server     ⠤⠶⠤⠤⠀
+```
+
+#### Multiline Displays
+
+The first line is the whole exchange; each line below it is one lifeline.
+
+### Venn diagram [experimental]
+
+One row per **depth of overlap**: the sets themselves, then every overlap of
+two, then of three. Each cell is the region's size, scaled against the largest
+region in the diagram; a diagram drawn without sizes shows how many items are
+written in each region instead.
+
+```
+Row     Cells
+Sets    ⣿⣿⣶
+Pairs   ⣀⣀⣀
+Triple  ⢀
+```
+
+#### Multiline Displays
+
+One line per depth, so the sets sit on the first line and their overlaps below.
+
 ### Treemap [experimental]
 
 One row per **level** of the tree, one cell per node at that level, each row

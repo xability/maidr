@@ -1183,6 +1183,11 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // One row per scope depth, one cell per node's connection count: the
       // treemap's rows with the network's magnitude.
       [TraceType.DIRECTED_GRAPH, asGeneric(new BarBrailleEncoder())],
+      // One row for every message and one per lifeline, each cell the
+      // participant the message arrives at.
+      [TraceType.SEQUENCE, asGeneric(new BarBrailleEncoder())],
+      // One row per depth of overlap, each cell a region's size.
+      [TraceType.VENN, asGeneric(new BarBrailleEncoder())],
       [TraceType.BOX, asGeneric(new BoxBrailleEncoder())],
       // A bump chart's rows are competitors and its columns periods, which is
       // the line encoder's input exactly. The cells rise with the rank NUMBER

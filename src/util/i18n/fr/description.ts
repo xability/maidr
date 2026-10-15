@@ -278,4 +278,10 @@ export const description = {
   'guide.word_cloud.definition': 'Un nuage de mots montre les mots d\'un texte. Les mots les plus fréquents ou les plus importants sont écrits en plus grand.',
   'guide.word_cloud.purpose': 'Il sert à se faire vite une idée des grands thèmes d\'un texte, de réponses à une enquête ou de messages sur les réseaux sociaux.',
   'guide.word_cloud.appearance': 'Les mots sont serrés les uns contre les autres, en différentes tailles et parfois dans différents sens. Les mots les plus grands sont les plus fréquents.',
+  'guide.sequence.definition': 'Un diagramme de séquence montre les messages qu\'un groupe de participants s\'échangent, dans l\'ordre où ils se produisent.',
+  'guide.sequence.purpose': 'Il sert à montrer comment les parties d\'un système coopèrent au fil du temps, comme un navigateur qui demande une page à un serveur et le serveur qui interroge une base de données.',
+  'guide.sequence.appearance': 'Les participants sont alignés en haut, chacun avec une ligne qui descend la page. Les messages sont des flèches entre ces lignes, lues de haut en bas ; les réponses sont souvent en pointillés, et des cadres loop ou alt marquent les étapes répétées ou alternatives.',
+  'guide.venn.definition': 'Un diagramme de Venn représente des ensembles par des cercles qui se chevauchent ; la zone commune contient ce que les ensembles partagent.',
+  'guide.venn.purpose': 'Il sert à comparer des groupes, en montrant ce que chacun a en propre et ce que deux ou plusieurs ont en commun.',
+  'guide.venn.appearance': 'Deux cercles ou plus se chevauchent au centre. Chaque cercle porte le nom de son ensemble ; les intersections peuvent avoir leur propre nom ou un effectif, et des éléments peuvent être écrits dans les régions.',
 } satisfies Partial<Record<MessageKey, string>>;

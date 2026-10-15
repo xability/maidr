@@ -278,4 +278,10 @@ export const description = {
   'guide.word_cloud.definition': 'Una nuvola di parole mostra le parole di un testo. Le parole più frequenti o importanti sono scritte più grandi.',
   'guide.word_cloud.purpose': 'Serve a farsi un\'idea veloce dei temi principali di un testo, delle risposte a un sondaggio o dei post sui social.',
   'guide.word_cloud.appearance': 'Le parole sono ammassate in un gruppo, di grandezze diverse e a volte in direzioni diverse. Le parole più grandi sono le più comuni.',
+  'guide.sequence.definition': 'Un diagramma di sequenza mostra i messaggi che un gruppo di partecipanti si scambia, nell\'ordine in cui avvengono.',
+  'guide.sequence.purpose': 'Serve a mostrare come le parti di un sistema collaborano nel tempo, come un browser che chiede una pagina a un server e il server che interroga un database.',
+  'guide.sequence.appearance': 'I partecipanti sono allineati in alto, ciascuno con una linea che scende lungo la pagina. I messaggi sono frecce tra queste linee, lette dall\'alto in basso; le risposte sono spesso tratteggiate e i riquadri loop o alt indicano passi ripetuti o alternativi.',
+  'guide.venn.definition': 'Un diagramma di Venn mostra gli insiemi come cerchi sovrapposti: l\'area in cui si sovrappongono contiene ciò che gli insiemi hanno in comune.',
+  'guide.venn.purpose': 'Serve a confrontare gruppi, mostrando cosa ha ciascuno da solo e cosa condividono due o più di essi.',
+  'guide.venn.appearance': 'Due o più cerchi si sovrappongono al centro. Ogni cerchio porta il nome del suo insieme; le intersezioni possono avere un nome o un conteggio, e all\'interno delle regioni possono essere scritti degli elementi.',
 } satisfies Partial<Record<MessageKey, string>>;

@@ -278,4 +278,10 @@ export const description = {
   'guide.word_cloud.definition': 'Eine Wortwolke zeigt Wörter aus einem Text. Häufigere oder wichtigere Wörter sind größer dargestellt.',
   'guide.word_cloud.purpose': 'Damit bekommt man schnell einen Eindruck von den Hauptthemen eines Textes, von Umfrageantworten oder von Beiträgen in sozialen Medien.',
   'guide.word_cloud.appearance': 'Wörter sind dicht zu einer Wolke gepackt, in verschiedenen Größen und manchmal in verschiedenen Richtungen. Die größten Wörter sind die häufigsten.',
+  'guide.sequence.definition': 'Ein Sequenzdiagramm zeigt die Nachrichten, die sich eine Gruppe von Teilnehmern schickt, in der Reihenfolge, in der sie geschehen.',
+  'guide.sequence.purpose': 'Es zeigt, wie die Teile eines Systems im Lauf der Zeit zusammenarbeiten, etwa wenn ein Browser einen Server um eine Seite bittet und der Server eine Datenbank abfragt.',
+  'guide.sequence.appearance': 'Die Teilnehmer stehen oben nebeneinander, von jedem führt eine Linie nach unten. Nachrichten sind Pfeile zwischen diesen Linien, von oben nach unten gelesen; Antworten sind oft gestrichelt, und Kästen mit loop oder alt markieren wiederholte oder alternative Schritte.',
+  'guide.venn.definition': 'Ein Venn-Diagramm zeigt Mengen als sich überschneidende Kreise; wo sich Kreise überschneiden, liegt das, was die Mengen gemeinsam haben.',
+  'guide.venn.purpose': 'Es dient dem Vergleich von Gruppen und zeigt, was jede für sich hat und was zwei oder mehr gemeinsam haben.',
+  'guide.venn.appearance': 'Zwei oder mehr Kreise überschneiden sich in der Mitte. Jeder Kreis trägt den Namen seiner Menge; die Überschneidungen können einen eigenen Namen oder eine Zahl tragen, und Elemente können in die Bereiche geschrieben sein.',
 } satisfies Partial<Record<MessageKey, string>>;

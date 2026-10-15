@@ -289,4 +289,10 @@ export const description = {
   'guide.word_cloud.definition': 'A word cloud shows words from a text, with more frequent or important words drawn larger.',
   'guide.word_cloud.purpose': 'It is used to get a quick sense of the main topics in a text, survey answers, or social media posts.',
   'guide.word_cloud.appearance': 'Words are packed together in a cluster, in different sizes and sometimes different directions. The biggest words are the most common.',
+  'guide.sequence.definition': 'A sequence diagram shows the messages a set of participants send one another, in the order they happen.',
+  'guide.sequence.purpose': 'It is used to show how the parts of a system work together over time, such as a browser asking a server for a page and the server asking a database.',
+  'guide.sequence.appearance': 'The participants stand in a row across the top, each with a line running down the page. Messages are arrows between those lines, read from top to bottom; replies are often dashed, and boxes labelled loop or alt mark repeated or alternative steps.',
+  'guide.venn.definition': 'A Venn diagram shows sets as overlapping circles, so the area where circles overlap holds what the sets have in common.',
+  'guide.venn.purpose': 'It is used to compare groups, showing what each has on its own and what two or more of them share.',
+  'guide.venn.appearance': 'Two or more circles overlap in the middle. Each circle is labelled with its set; the overlaps may carry their own name or a count, and items may be written inside the regions.',
 } as const;
