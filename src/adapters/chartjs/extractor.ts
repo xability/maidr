@@ -19,7 +19,43 @@
  */
 
 import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, PercentileBandDeclaration, PrCurveDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DirectedGraphPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, NetworkPoint, PercentileBandPoint, PercentileBandQuantile, PiePoint, PrCurvePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
+import type {
+  BarPoint,
+  BoxPoint,
+  CandlestickPoint,
+  ChoroplethPoint,
+  DirectedGraphPoint,
+  DumbbellData,
+  DumbbellPoint,
+  ErrorBarPoint,
+  FlowPoint,
+  GanttData,
+  GanttPoint,
+  GaugePoint,
+  HeatmapData,
+  LinePoint,
+  Maidr,
+  MaidrLayer,
+  MaidrSubplot,
+  NavigateCallback,
+  NetworkPoint,
+  PercentileBandPoint,
+  PercentileBandQuantile,
+  PiePoint,
+  PrCurvePoint,
+  ScatterPoint,
+  SegmentedPoint,
+  StepDirection,
+  SurvivalPoint,
+  ThresholdOptions,
+  TreemapPoint,
+  VennPoint,
+  ViolinKdePoint,
+  VolcanoPoint,
+  WaterfallKind,
+  WaterfallPoint,
+  WordCloudPoint,
+} from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsGeoValue, ChartJsGraphValue, ChartJsParsedValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -852,6 +888,11 @@ function extractLayers(
       return extractSankeyLayers(chart);
     case 'wordCloud':
       return extractWordCloudLayers(chart);
+    // Both `chartjs-chart-venn` controllers: each data point declares the
+    // sets it is the region of and the region's size.
+    case 'venn':
+    case 'euler':
+      return extractVennLayers(chart);
     case 'funnel':
       return extractFunnelLayers(chart, pluginOptions, datasetIndices);
     // Both `chartjs-chart-geo` controllers, read as the same trace. A map is
@@ -3798,6 +3839,48 @@ function extractSankeyLayers(chart: ChartJsChart): MaidrLayer[] {
       data,
     },
   ];
+}
+
+/**
+ * Read a `chartjs-chart-venn` dataset as the regions it draws.
+ *
+ * The plugin's `extractSets` hands the controller one point per region,
+ * `{ sets, value }`, with the region's name in `data.labels`. The regions are
+ * painted on a canvas, so there is nothing to outline.
+ *
+ * @param chart - The chart
+ * @returns One `venn` layer, or none when no point declares its sets
+ */
+function extractVennLayers(chart: ChartJsChart): MaidrLayer[] {
+  const dataset = chart.data.datasets[0];
+  if (!dataset)
+    return [];
+
+  const labels = chart.data.labels ?? [];
+  const data: VennPoint[] = [];
+  (dataset.data as unknown[]).forEach((point, index) => {
+    if (point === null || typeof point !== 'object')
+      return;
+    const { sets, value } = point as { sets?: unknown; value?: unknown };
+    if (!Array.isArray(sets) || sets.length === 0)
+      return;
+    const size = typeof value === 'number' && Number.isFinite(value) ? value : null;
+    const label = labels[index];
+    const names = sets.map(String);
+    data.push({
+      sets: names,
+      ...(size === null ? {} : { size }),
+      // The plugin labels a region with its sets joined, which says nothing
+      // the sets do not; only a name of the author's own is kept.
+      ...(typeof label === 'string' && names.length > 1 && !names.every(name => label.includes(name))
+        ? { label }
+        : {}),
+    });
+  });
+
+  if (data.length === 0)
+    return [];
+  return [{ id: '0', type: TraceType.VENN, title: dataset.label, data }];
 }
 
 /**

@@ -84,7 +84,7 @@ Series are classified by their amCharts class name and field configuration:
 - `am5percent.FunnelSeries` (and `PyramidSeries`, `PictorialStackedSeries`) → **funnel**
 - `ColumnSeries` with `openValueYField` on a category X axis → **waterfall** when the bars chain (each opens where the previous one closed), **dumbbell** when they do not
 - `ColumnSeries` with `openValueXField` on a category Y axis → **gantt**
-- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**; `am5hierarchy.Sunburst` → **sunburst**; `am5hierarchy.Tree` and `LinkedHierarchy` → **tree**; `am5hierarchy.Pack` → **pack**. One tree, five paintings, five names — `am5hierarchy.Venn` is declined, being a set-overlap diagram rather than a hierarchy; the reason is recorded once under *Shapes deliberately not read* in `docs/SCHEMA.md` (#1190)
+- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**; `am5hierarchy.Sunburst` → **sunburst**; `am5hierarchy.Tree` and `LinkedHierarchy` → **tree**; `am5hierarchy.Pack` → **pack**. One tree, five paintings, five names. `am5venn.Venn` is a set-overlap diagram rather than a hierarchy and is read as **venn**: a data item is a set, or the overlap of the sets its `intersections` name, sized by its `value`
 - two `ColumnSeries` on one category axis, one side's values all negative and the other's all positive → **diverging bar** (a population pyramid); any other unstacked group stays **dodged**
 - `LineSeries` with its stroke switched off and bullets pushed on, on a category axis → **dot** (a Cleveland dot plot)
 - `ColumnSeries` whose columns are narrowed to a hairline, with bullets → **lollipop**
@@ -141,6 +141,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Dot Plot (Cleveland) [experimental] | `LineSeries` | category axis + `strokes.template` hidden + bullets |
 | Lollipop [experimental] | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
 | Word Cloud [experimental] | `am5wc.WordCloud` | series class (requires `wc.js`) |
+| Venn [experimental] | `am5venn.Venn` | series class (requires `venn.js`) |
 | Sankey [experimental] | `am5flow.Sankey`, `ArcDiagram` | series class (requires `flow.js`) |
 | Chord [experimental] | `am5flow.Chord`, `ChordDirected`, `ChordNonRibbon` | series class (requires `flow.js`) |
 | Network [experimental] | `am5hierarchy.ForceDirected` | series class (requires `hierarchy.js`) |

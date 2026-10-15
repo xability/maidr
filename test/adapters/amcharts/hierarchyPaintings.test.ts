@@ -122,12 +122,26 @@ describe('amCharts hierarchy paintings', () => {
     expect(of('Pack')).toEqual(of('Treemap'));
   });
 
-  it('still declines a Venn', () => {
-    // Not an oversight. A set-overlap diagram is declined in every adapter,
-    // for the one reason recorded under "Shapes deliberately not read" in
-    // `docs/SCHEMA.md` (#1190).
-    const root = fakeRoot([fakeContainer([hierarchy('Venn')])]);
+  it('reads a Venn as its sets and their overlaps', () => {
+    // A set-overlap diagram sits beside the hierarchies in amCharts but is not
+    // one: each data item is a set, or the overlap of the sets it names.
+    const venn = fakeSeries({
+      className: 'Venn',
+      name: 'Venn',
+      data: [
+        { category: 'A', value: 10 },
+        { category: 'B', value: 8 },
+        { category: 'Both', value: 3, intersections: ['A', 'B'] },
+      ],
+    });
+    const maidr = fromAmCharts(fakeRoot([fakeContainer([venn])]) as never);
+    const [layer] = maidr.subplots.flat().flatMap(subplot => subplot.layers);
 
-    expect(() => layerTypes(root)).toThrow(/no XYChart or PieChart/);
+    expect(layer.type).toBe(TraceType.VENN);
+    expect(layer.data).toEqual([
+      { sets: ['A'], size: 10 },
+      { sets: ['B'], size: 8 },
+      { sets: ['A', 'B'], size: 3, label: 'Both' },
+    ]);
   });
 });
