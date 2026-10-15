@@ -138,6 +138,7 @@ ZenUML (`zenuml`) is drawn by a separate Mermaid plugin that keeps no diagram da
 - **An edge to a group is read as entering or leaving it.** `subgraph --> step` in a flowchart leaves from the subgraph's last steps; a transition into a composite state enters on its initial states.
 - **Notes are folded into what they annotate.** A note attached to a class or state is announced with it as `Note`, rather than read as a step of its own.
 - **Sizes Mermaid made up are not announced.** A Venn diagram without sizes is laid out with sizes Mermaid chooses; those are the layout's, so such a diagram is read without sizes.
+- **An empty diagram is still a diagram.** A gantt with no tasks or a quadrant chart with no points becomes a figure with nothing in it, and a reader who reaches it is told it has nothing to describe yet rather than hearing nothing.
 - **Generated ids are not read out.** A git commit Mermaid named itself is announced by its message or its place in the history.
 
 ## Code Examples

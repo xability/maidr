@@ -126,8 +126,11 @@ describe('the converter', () => {
     expect(() => convert('mystery', {})).toThrow(/not supported.*flowchart-v2/);
   });
 
-  it('rejects a diagram with nothing in it rather than an empty figure', () => {
-    expect(() => convert('pie', { getSections: () => new Map() })).toThrow(/nothing MAIDR can read/);
+  it('reads a diagram with nothing in it as a figure MAIDR announces as empty', () => {
+    const figure = convert('pie', { getSections: () => new Map(), getDiagramTitle: () => 'Pets' });
+
+    expect(figure.title).toBe('Pets');
+    expect(figure.subplots).toEqual([[{ layers: [] }]]);
   });
 
   it('takes the title and description the diagram declares', () => {
