@@ -117,7 +117,7 @@ export class SequenceTrace extends AbstractTrace {
    */
   private readonly rows: number[][];
 
-  /** Each step's arriving lane, shaped as `rows`, which braille reads. */
+  /** Each step's arriving lane counted from one, shaped as `rows`, which braille reads. */
   private readonly targets: number[][];
 
   protected readonly highlightValues: SVGElement[][] | null;
@@ -148,7 +148,9 @@ export class SequenceTrace extends AbstractTrace {
     const lifelines = lanes.map((_, lane) =>
       all.filter(at => steps[at].from === lane || steps[at].to === lane));
     this.rows = [all, ...lifelines];
-    this.targets = this.rows.map(row => row.map(at => steps[at].to));
+    // Counted from one: a zero is the blank cell, and the leftmost
+    // participant is a lane, not a gap.
+    this.targets = this.rows.map(row => row.map(at => steps[at].to + 1));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors);
     this.movable = new MovableGraph(this.buildGraph());
@@ -405,7 +407,7 @@ export class SequenceTrace extends AbstractTrace {
   protected get braille(): BrailleState {
     // One row per row of the cursor, each cell the lane the message arrives
     // at: a conversation shows as dots stepping between two heights.
-    const max = Math.max(1, this.lanes.length - 1);
+    const max = Math.max(1, this.lanes.length);
     return {
       empty: false,
       id: this.id,

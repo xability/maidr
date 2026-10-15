@@ -171,6 +171,17 @@ describe('the modalities agree with the announcement', () => {
   });
 });
 
+describe('braille', () => {
+  test('a cell is the arriving participant counted from one, so the first is not a gap', () => {
+    const braille = state(sequence()).braille;
+    if (braille.empty) {
+      throw new Error('Expected a populated braille state');
+    }
+
+    expect(braille.values[0]).toEqual([2, 3, 2, 2, 1, 2]);
+  });
+});
+
 describe('the description', () => {
   test('counts participants, messages, notes and fragments', () => {
     const trace = sequence();
