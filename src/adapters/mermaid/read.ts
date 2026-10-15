@@ -100,6 +100,31 @@ const ENTITIES: Record<string, string> = {
 };
 
 /**
+ * The text of a label with its markup taken out.
+ *
+ * Read with the browser's own HTML parser where there is one, which never
+ * runs what it parses and gives back only the text a reader would see. A
+ * single pass of a tag pattern is not enough without it: `<scr<b>ipt>`
+ * leaves `<script>` behind once the inner tag is gone, so the fallback
+ * strips until nothing changes and then drops any angle bracket left over.
+ *
+ * @param text - A label that may carry markup
+ * @returns Its text
+ */
+function withoutMarkup(text: string): string {
+  if (typeof DOMParser !== 'undefined') {
+    return new DOMParser().parseFromString(text, 'text/html').body.textContent ?? '';
+  }
+  let current = text;
+  let previous: string;
+  do {
+    previous = current;
+    current = current.replace(/<[^<>]*>/g, '');
+  } while (current !== previous);
+  return current.replace(/[<>]/g, '');
+}
+
+/**
  * A label as a reader should hear it: line breaks as spaces, markup and
  * Markdown emphasis stripped, entities decoded, whitespace collapsed.
  *
@@ -111,9 +136,7 @@ export function plain(value: unknown): string {
   if (text === undefined) {
     return '';
   }
-  return text
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]*>/g, '')
+  return withoutMarkup(text.replace(/<br\s*\/?>/gi, ' '))
     .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
     .replace(/&#x([\da-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
     .replace(/&([a-z]+);/gi, (whole, name: string) => ENTITIES[name.toLowerCase()] ?? whole)
