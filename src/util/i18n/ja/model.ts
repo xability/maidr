@@ -910,4 +910,5 @@ export const model = {
   'model.vennStatLargestSet': '最大の集合',
   'model.vennStatLargestOverlap': '最大の重なり',
   'model.vennRegionSized': '{name}、{size}',
+  'model.instructionEmptyFigure': 'これは、まだ説明する内容がない maidr のプロットです。データ点がありません。{clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

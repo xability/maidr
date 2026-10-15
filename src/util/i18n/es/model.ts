@@ -911,4 +911,5 @@ export const model = {
   'model.vennStatLargestSet': 'Conjunto más grande',
   'model.vennStatLargestOverlap': 'Intersección más grande',
   'model.vennRegionSized': '{name}, {size}',
+  'model.instructionEmptyFigure': 'Este es un gráfico de maidr que aún no tiene nada que describir: no tiene puntos de datos. {clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;
