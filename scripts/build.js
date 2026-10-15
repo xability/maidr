@@ -270,6 +270,24 @@ export const builds = [
     },
   },
   {
+    name: 'mermaid',
+    entry: 'src/mermaid-entry.ts',
+    libName: 'maidrMermaid',
+    amdName: 'maidr/mermaid',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'mermaid.mjs' : 'mermaid.js',
+    emptyOutDir: false,
+    // Mermaid is never imported: the adapter calls the instance the page
+    // passes in, so there is nothing to externalise.
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
     name: 'frappe',
     entry: 'src/frappe-entry.ts',
     libName: 'maidrFrappe',
