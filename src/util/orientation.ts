@@ -49,6 +49,10 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // Data flows input to output whichever way the layers are stacked on the
   // page; the walk is topological, not along an axis.
   [TraceType.DIRECTED_GRAPH]: false,
+  // Time runs down a sequence diagram whichever way it is drawn, and a Venn
+  // diagram's regions overlap rather than sit along an axis.
+  [TraceType.SEQUENCE]: false,
+  [TraceType.VENN]: false,
   [TraceType.CANDLESTICK]: true,
   // Built at runtime from a candlestick and a reference line, never declared
   // in the JSON; it is navigated by field and candle, not by an orientation.

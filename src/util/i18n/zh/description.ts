@@ -278,4 +278,10 @@ export const description = {
   'guide.word_cloud.definition': '词云展示一段文字里的词语，出现越多或越重要的词画得越大。',
   'guide.word_cloud.purpose': '它用来快速了解一段文字、一批问卷回答或一些社交媒体帖子的主要话题。',
   'guide.word_cloud.appearance': '词语挤在一起组成一团，大小各不相同，有时方向也不一样。最大的词就是最常见的词。',
+  'guide.sequence.definition': '时序图按发生的先后顺序展示一组参与者之间相互发送的消息。',
+  'guide.sequence.purpose': '它用于展示系统的各个部分如何随时间协作，例如浏览器向服务器请求页面、服务器再查询数据库。',
+  'guide.sequence.appearance': '参与者在顶部排成一行，每个参与者向下延伸出一条线。消息是这些线之间的箭头，从上往下阅读；回复通常是虚线，标有 loop 或 alt 的方框表示重复或分支的步骤。',
+  'guide.venn.definition': '韦恩图用相互重叠的圆表示集合，圆重叠的部分就是这些集合的共同部分。',
+  'guide.venn.purpose': '它用于比较多个群体，展示每个群体独有的部分以及两个或更多群体共有的部分。',
+  'guide.venn.appearance': '两个或更多的圆在中间重叠。每个圆标有其集合名称；重叠部分可能有自己的名称或计数，区域内也可能写有项目。',
 } satisfies Partial<Record<MessageKey, string>>;

@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `directed_graph`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `percentile_band`, `pie`, `point`, `polar_area`, `pr_curve`, `radar`, `ridgeline`, `roc`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
+- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `directed_graph`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `percentile_band`, `pie`, `point`, `polar_area`, `pr_curve`, `radar`, `ridgeline`, `roc`, `rug`, `sankey`, `sequence`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `venn`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
 
 > **`candlestick_delta` has no example page, on purpose.** It should never be
 > given one: it is a reading mode the model derives at runtime from a
@@ -235,9 +235,9 @@ from the list above.
 
 Fifteen of them predate the chart-type coverage roadmap (#814). Thirty-seven
 were added by it, most of them inside about two weeks, and `rug` (#1132),
-`roc`, `pr_curve` (#1349), `percentile_band` (#1348) and `directed_graph` (#1347)
-after it. **None of the
-forty-two has been through a user study**.
+`roc`, `pr_curve` (#1349), `percentile_band` (#1348), `directed_graph` (#1347),
+and `sequence` and `venn` (for Mermaid's sequence and Venn diagrams) after it.
+**None of the forty-four has been through a user study**.
 
 Elsewhere in these docs — the braille guide, the integration guides'
 supported-type tables and the examples gallery — an experimental type is marked
@@ -266,8 +266,8 @@ change to any of them changes behaviour people already depend on.
 `directed_graph`, `diverging_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`,
 `gantt`, `gauge`, `hexbin`, `icicle`, `lollipop`, `manhattan`, `mosaic`,
 `network`, `pack`, `parallel_coordinates`, `percentile_band`, `polar_area`, `pr_curve`, `radar`,
-`ridgeline`, `roc`, `rug`, `sankey`, `stacked_area`, `stacked_normalized_area`,
-`sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `volcano`,
+`ridgeline`, `roc`, `rug`, `sankey`, `sequence`, `stacked_area`, `stacked_normalized_area`,
+`sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `venn`, `volcano`,
 `waterfall`, `word_cloud`
 
 **These are prototypes. Treat them as prototypes.**
@@ -423,6 +423,8 @@ page which drew a chart's marks elsewhere keeps its highlight.
 | `rug` | string; list with one entry per tick | Ticks are walked by position. |
 | `boxen`, `ridgeline`, `dumbbell`, `error_bar`, `forest`, `gantt`, `hexbin`, `waterfall`, `word_cloud`, `gauge`, `alluvial`, `chord`, `sankey`, `network`, `choropleth`, `treemap`, `sunburst`, `icicle`, `tree`, `pack` | string; list of strings | A list's entries are each resolved and the results concatenated. The total must be one element per item the layer declares -- distribution, group, pair, sample, interval, bin, step, term, flow, link, region or node -- in declared order; `gauge` uses the first match. |
 | `directed_graph` | string; list of strings | As the row above: one element per declared node, in declared order. A scope is derived from the nodes' paths rather than declared, so it has no element and is not outlined; edges are not highlighted. A count that does not match drops the highlight for the layer. |
+| `sequence` | string; list of strings | One element per message, notes included, in declared order -- the arrow or the note. A count that does not match drops the highlight for the layer. |
+| `venn` | string; list of strings | One element per declared region, in declared order. A set named only in an overlap has nothing drawn of its own and is not outlined. A count that does not match drops the highlight for the layer. |
 
 ### Lists written for maidr.js before 4.0
 
@@ -1056,6 +1058,74 @@ node inside a closed scope arrives at the scope. Each move announces the node,
 its connections as `2 inputs, 1 output`, whether it is a graph input or output
 or a branch or merge point, the names on either side, its attributes, and its
 place in the scope's order.
+
+### Sequence diagram (`sequence`) [experimental]
+
+Participants and the messages between them, in the order they happen. `data`
+is an object, because a participant no message reaches is still a lifeline:
+
+```javascript
+{
+  type: 'sequence',
+  selectors: ['#seq [data-id="m0"]', '#seq [data-id="m1"]'],  // optional: one element per message
+  data: {
+    participants: [
+      { id: 'B', label: 'Browser', kind: 'actor' },
+      { id: 'S', label: 'Server' },
+    ],
+    messages: [
+      { from: 'B', to: 'S', text: 'GET /', kind: 'sync', number: 1 },
+      { from: 'S', to: 'B', text: '200 OK', kind: 'reply', fragments: ['alt cached'] },
+    ],
+  },
+}
+```
+
+- `participants` lists the lifelines left to right. `label` is what is
+  announced, defaulting to `id`; `kind` (`actor`, `database`, ...) is announced
+  with the name; `group` names the box the diagram draws around it. A
+  participant a message names without declaring is added after them.
+- `messages` run in time order. `kind` is one of `sync` (the default),
+  `async`, `reply`, `create`, `destroy` or `note`; `fragments` lists the
+  enclosing loops and alternatives, outermost first, as the diagram labels
+  them; `number` is the sequence number the diagram prints.
+
+Left and right walk the messages in time. Down moves from the row of every
+message onto the first participant's lifeline, and on to the next participant,
+keeping the moment the reader was at; up comes back. The rotor's **Fragments**
+unit jumps to where the next loop or alternative opens or closes. Each move
+announces the message, its route (`Browser to Server`), its kind, its fragment
+and its number. Pitch and pan are the participant the message arrives at, and
+the tone glides up for an arrow pointing right and down for one pointing left.
+
+### Venn diagram (`venn`) [experimental]
+
+Sets and their overlaps. `data` is one entry per **region**, which names the
+sets it is the overlap of:
+
+```javascript
+{
+  type: 'venn',
+  data: [
+    { sets: ['Desirable'], size: 10 },
+    { sets: ['Feasible'], size: 10 },
+    { sets: ['Desirable', 'Feasible'], size: 2.5, label: 'Buildable', items: ['MVP'] },
+  ],
+}
+```
+
+- `sets` names the sets the region joins, or the one set it is. The sets are
+  taken in the order the regions first name them; a set named only in an
+  overlap still gets a region of its own.
+- `size` is the set's size, or the overlap's. Without sizes the pitch is the
+  number of `items` written in the region.
+- `label` names the region; `items` lists what is written inside it.
+
+The first row is the sets, the next every overlap of two, then of three. Left
+and right walk a row; down goes into the first overlap the region is part of,
+and up comes back out onto the first set it is made of. A set announces the
+sets it overlaps; an overlap announces its name, its size and its share of the
+smallest set it joins.
 
 ## Multilayer Plots
 

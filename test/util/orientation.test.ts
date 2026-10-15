@@ -81,6 +81,10 @@ describe('resolveOrientation', () => {
     TraceType.NETWORK,
     // Data flows input to output; the walk is topological, not along an axis.
     TraceType.DIRECTED_GRAPH,
+    // Time runs down a sequence diagram however it is drawn.
+    TraceType.SEQUENCE,
+    // Overlapping circles have no main and cross axis.
+    TraceType.VENN,
     // One measure on a dial: no second axis to swap with.
     TraceType.GAUGE,
     TraceType.HEATMAP,

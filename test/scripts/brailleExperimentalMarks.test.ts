@@ -65,6 +65,8 @@ const SECTION_TYPES: Record<string, string[]> = {
   'Sankey, alluvial and chord': ['sankey', 'alluvial', 'chord'],
   'Network': ['network'],
   'Directed graph': ['directed_graph'],
+  'Sequence diagram': ['sequence'],
+  'Venn diagram': ['venn'],
   'Treemap': ['treemap'],
   'Sunburst and icicle': ['sunburst', 'icicle'],
   'Volcano and Manhattan': ['volcano', 'manhattan'],
