@@ -860,4 +860,5 @@ export const model = {
   'model.forestRowStudy': '研究',
   'model.extremaMaxDelta': '最大差值',
   'model.extremaMinDelta': '最小差值',
+  'model.instructionEmptyFigure': '这是一个尚无可描述内容的 maidr 图：它没有数据点。{clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

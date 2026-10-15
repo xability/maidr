@@ -864,4 +864,5 @@ export const model = {
   'model.forestRowStudy': '연구',
   'model.extremaMaxDelta': '최대 편차',
   'model.extremaMinDelta': '최소 편차',
+  'model.instructionEmptyFigure': '아직 설명할 내용이 없는 maidr 플롯입니다. 데이터 점이 없습니다. {clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

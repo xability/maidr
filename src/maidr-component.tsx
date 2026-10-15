@@ -69,6 +69,9 @@ function getInitialInstruction(data: MaidrData): string {
   // Single subplot — describe the first layer's trace type.
   const firstSubplot = subplots[0]?.[0];
   const layerCount = firstSubplot?.layers.length ?? 0;
+  if (layerCount === 0) {
+    return t('model.instructionEmptyFigure', { clickPrompt });
+  }
   const firstLayer = firstSubplot?.layers[0];
   const traceType = firstLayer?.type;
 

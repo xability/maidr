@@ -870,4 +870,5 @@ export const model = {
   'model.forestRowStudy': 'study',
   'model.extremaMaxDelta': 'Max Delta',
   'model.extremaMinDelta': 'Min Delta',
+  'model.instructionEmptyFigure': 'This is a maidr plot with nothing in it to describe yet: it has no data points. {clickPrompt}',
 } as const;
