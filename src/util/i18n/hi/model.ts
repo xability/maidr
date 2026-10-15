@@ -857,4 +857,5 @@ export const model = {
   'model.forestRowStudy': 'अध्ययन',
   'model.extremaMaxDelta': 'अधिकतम अंतर',
   'model.extremaMinDelta': 'न्यूनतम अंतर',
+  'model.dagEdgeLabelled': '{name} ({label})',
 } satisfies Partial<Record<MessageKey, string>>;

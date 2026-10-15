@@ -864,4 +864,5 @@ export const model = {
   'model.forestRowStudy': '研究',
   'model.extremaMaxDelta': '最大の差分',
   'model.extremaMinDelta': '最小の差分',
+  'model.dagEdgeLabelled': '{name}（{label}）',
 } satisfies Partial<Record<MessageKey, string>>;

@@ -864,4 +864,5 @@ export const model = {
   'model.forestRowStudy': 'étude',
   'model.extremaMaxDelta': 'Écart maximal',
   'model.extremaMinDelta': 'Écart minimal',
+  'model.dagEdgeLabelled': '{name} ({label})',
 } satisfies Partial<Record<MessageKey, string>>;

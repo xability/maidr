@@ -161,6 +161,9 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   /** How many distinct edges the layer declared. */
   private readonly edgeCount: number;
 
+  /** Each labelled edge's label, keyed `from>to` by declared index. */
+  private readonly edgeLabels: Map<string, string>;
+
   /** Each declared node's successors, as indices, in declared order. */
   private readonly successors: number[][];
 
@@ -196,10 +199,11 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     super(layer);
 
     this.points = layer.data as DirectedGraphPoint[];
-    const { successors, predecessors, edges } = DirectedGraphTrace.resolveEdges(this.points);
+    const { successors, predecessors, edges, labels } = DirectedGraphTrace.resolveEdges(this.points);
     this.successors = successors;
     this.predecessors = predecessors;
     this.edgeCount = edges;
+    this.edgeLabels = labels;
 
     const { order, cyclic } = DirectedGraphTrace.topologicalOrder(successors, predecessors);
     this.order = order;
@@ -240,6 +244,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     successors: number[][];
     predecessors: number[][];
     edges: number;
+    labels: Map<string, string>;
   } {
     const byId = new Map<string, number>();
     points.forEach((point, at) => {
@@ -254,24 +259,29 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     const successors: number[][] = points.map(() => []);
     const predecessors: number[][] = points.map(() => []);
     const seen = new Set<string>();
+    const labels = new Map<string, string>();
     let edges = 0;
     points.forEach((point, to) => {
-      for (const input of point.inputs ?? []) {
+      (point.inputs ?? []).forEach((input, slot) => {
         const from = byId.get(String(input));
         if (from === undefined || from === to) {
-          continue;
+          return;
         }
         const key = `${from}>${to}`;
+        const label = String(point.inputLabels?.[slot] ?? '').trim();
+        if (label !== '' && !labels.has(key)) {
+          labels.set(key, label);
+        }
         if (seen.has(key)) {
-          continue;
+          return;
         }
         seen.add(key);
         successors[from].push(to);
         predecessors[to].push(from);
         edges++;
-      }
+      });
     });
-    return { successors, predecessors, edges };
+    return { successors, predecessors, edges, labels };
   }
 
   /**
@@ -623,15 +633,51 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   }
 
   /**
-   * A list of names, cut short with a count of the rest.
+   * The label of the edge between two items, when both are declared nodes
+   * and the edge carries one.
    *
-   * @param items - The items to name
+   * A closed scope stands for many edges at once, so an edge into or out of
+   * one is heard by its far end alone rather than by a label that names only
+   * one of the edges it stands for.
+   *
+   * @param from - The item the edge leaves
+   * @param to - The item it arrives at
+   * @returns The label, or undefined
+   */
+  private edgeLabel(from: GraphItem, to: GraphItem): string | undefined {
+    if (from.source === null || to.source === null) {
+      return undefined;
+    }
+    return this.edgeLabels.get(`${from.source}>${to.source}`);
+  }
+
+  /**
+   * A neighbour's name with the label of the edge that joins it, when the
+   * edge has one.
+   *
+   * @param name - The neighbour's name as heard from here
+   * @param label - The edge's label, if any
+   * @returns The name, labelled
+   */
+  private static labelled(name: string, label: string | undefined): string {
+    return label === undefined ? name : t('model.dagEdgeLabelled', { name, label });
+  }
+
+  /**
+   * A list of neighbours' names, each with the label of its edge, cut short
+   * with a count of the rest.
+   *
+   * @param items - The neighbours to name
    * @param from - Where the reader is
+   * @param along - Whether the neighbours are the item's inputs or outputs
    * @returns The joined names
    */
-  private static nameList(items: GraphItem[], from: GraphItem): string {
+  private nameList(items: GraphItem[], from: GraphItem, along: 'inputs' | 'outputs'): string {
     const shown = items.slice(0, NAMED_NEIGHBOURS)
-      .map(item => DirectedGraphTrace.nameFrom(item, from))
+      .map(item => DirectedGraphTrace.labelled(
+        DirectedGraphTrace.nameFrom(item, from),
+        along === 'inputs' ? this.edgeLabel(item, from) : this.edgeLabel(from, item),
+      ))
       .join(', ');
     return items.length > NAMED_NEIGHBOURS
       ? `${shown}${t('model.networkAndMore', { count: items.length - NAMED_NEIGHBOURS })}`
@@ -759,10 +805,10 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     }
 
     if (item.inputs.length > 0) {
-      asides.push({ label: t('model.tableFrom'), value: DirectedGraphTrace.nameList(item.inputs, item) });
+      asides.push({ label: t('model.tableFrom'), value: this.nameList(item.inputs, item, 'inputs') });
     }
     if (item.outputs.length > 0) {
-      asides.push({ label: t('model.tableTo'), value: DirectedGraphTrace.nameList(item.outputs, item) });
+      asides.push({ label: t('model.tableTo'), value: this.nameList(item.outputs, item, 'outputs') });
     }
 
     for (const [label, value] of item.attributes) {
@@ -942,8 +988,14 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
           return [
             DirectedGraphTrace.pathOf(item).join(PATH_JOIN),
             item.name,
-            this.predecessors[node].map(one => DirectedGraphTrace.nameFrom(nodes[one], null)).join(', '),
-            this.successors[node].map(one => DirectedGraphTrace.nameFrom(nodes[one], null)).join(', '),
+            this.predecessors[node].map(one => DirectedGraphTrace.labelled(
+              DirectedGraphTrace.nameFrom(nodes[one], null),
+              this.edgeLabels.get(`${one}>${node}`),
+            )).join(', '),
+            this.successors[node].map(one => DirectedGraphTrace.labelled(
+              DirectedGraphTrace.nameFrom(nodes[one], null),
+              this.edgeLabels.get(`${node}>${one}`),
+            )).join(', '),
             ...keys.map(key => attributes.get(key) ?? ''),
           ];
         }),

@@ -1070,6 +1070,22 @@ export interface DirectedGraphPoint {
    */
   inputs?: (string | number)[];
   /**
+   * What each edge in `inputs` is called, index for index: the `Yes` and `No`
+   * of a flowchart's decision, a state machine's event, a relationship's
+   * verb. `null`, an empty string or a missing entry leaves that edge
+   * unnamed. The first label declared for an edge wins, as its first
+   * declaration does.
+   *
+   * Announced beside the node's name wherever the edge is heard -- the from
+   * and to lists, and the description's inputs and outputs -- because on a
+   * diagram the label is often the only thing that says which way a branch
+   * goes.
+   *
+   * @example
+   * { id: 'approve', inputs: ['review', 'review'], inputLabels: ['yes', null] }
+   */
+  inputLabels?: (string | number | null)[];
+  /**
    * Anything else the reader should hear about the node, announced as
    * `key, value` clauses in declared order and tabulated in the
    * description: a layer type, an output shape, a parameter count.

@@ -1043,6 +1043,11 @@ the edges are declared on the node they arrive at, as `inputs`, and scopes as a
   scope exists because a path names it; it is never declared on its own.
 - `inputs` names the nodes feeding this one. An id naming no declared node, a
   node naming itself and a repeated input are ignored.
+- `inputLabels` names the edges in `inputs`, index for index: a flowchart's
+  `yes` and `no`, a state machine's event. A label is announced beside the
+  node it leads to or comes from -- `To: ship (yes), fix (no)` -- and in the
+  description's inputs and outputs. A blank or `null` entry leaves its edge
+  unnamed; the first label given for an edge wins.
 - `attributes` is free-form: each entry is announced as a clause, in declared
   order, and becomes a column of the description's table.
 

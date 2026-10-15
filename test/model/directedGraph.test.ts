@@ -393,3 +393,49 @@ describe('the description', () => {
     expect(table.rows[3]).toEqual(['block1', 'add', 'block1 > conv2, input', 'block2 > conv', '', '', '']);
   });
 });
+
+describe('an edge label is heard wherever its edge is', () => {
+  /** A flowchart decision: `check` goes to `ship` on yes and back to `fix` on no. */
+  const DECISION: DirectedGraphPoint[] = [
+    { id: 'start' },
+    { id: 'check', inputs: ['start', 'fix'] },
+    { id: 'ship', inputs: ['check'], inputLabels: ['yes'] },
+    { id: 'fix', inputs: ['check'], inputLabels: ['no'] },
+  ];
+
+  test('the to list names each branch with its label', () => {
+    const trace = graph(DECISION);
+    trace.moveOnce('FORWARD');
+
+    expect(at(trace)).toBe('check');
+    expect(aside(trace, 'To')).toBe('ship (yes), fix (no)');
+    expect(aside(trace, 'From')).toBe('start, fix');
+  });
+
+  test('the from list names the edge that arrives', () => {
+    const trace = graph(DECISION);
+    trace.moveOnce('FORWARD');
+    trace.moveToRotorFilter('outputs', 'right');
+
+    expect(at(trace)).toBe('ship');
+    expect(aside(trace, 'From')).toBe('check (yes)');
+  });
+
+  test('a blank or missing label leaves the edge unnamed, and the first label wins', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'b', inputs: ['a', 'a'], inputLabels: ['', 'later'] },
+      { id: 'c', inputs: ['a'], inputLabels: [null] },
+      { id: 'd', inputs: ['a', 'a'], inputLabels: ['first', 'second'] },
+    ]);
+
+    expect(aside(trace, 'To')).toBe('b (later), c, d (first)');
+  });
+
+  test('the description tabulates the labels', () => {
+    const table = graph(DECISION).description.dataTable;
+    const check = table.rows.find(row => row[1] === 'check');
+
+    expect(check?.[3]).toBe('ship (yes), fix (no)');
+  });
+});
