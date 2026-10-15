@@ -83,6 +83,7 @@ import {
   extractNetworkPoints,
   extractPiePoints,
   extractSegmentedPoints,
+  extractVennPoints,
   extractWaterfallPoints,
   findGaugeHand,
   hasRankAxis,
@@ -424,6 +425,13 @@ function buildChartLayers(
         if (data.length === 0)
           break;
         layers.push(buildWordCloudLayer(series, data, options));
+        break;
+      }
+      case 'venn': {
+        const data = extractVennPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push({ id: layerId(series), type: TraceType.VENN, title: seriesName(series), data });
         break;
       }
       case 'sankey':

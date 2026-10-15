@@ -235,6 +235,7 @@ const GUIDES: Record<string, Guide> = {
     examples: { after: '## Code Examples', before: '## Multi-Panel Charts (Axis Stacking)', level: '###', min: 14 },
     labels: {
       'gantt / range bar': ['gantt'],
+      'venn / euler': ['venn'],
       'volcano plot': ['volcano'],
       'manhattan plot': ['manhattan'],
       'heatmap (matrix)': ['heat'],
@@ -251,6 +252,7 @@ const GUIDES: Record<string, Guide> = {
       // `timeline` is a row of named events, read as a scatter.
       'labelled scatter': ['point'],
       'normalized (percent-stacked) bar': ['stacked_normalized_bar'],
+      'venn': ['venn'],
     },
   },
   'apexcharts': {
@@ -361,6 +363,7 @@ const GUIDES: Record<string, Guide> = {
       'dumbbell / barbell': ['dumbbell'],
       'gantt / timeline': ['gantt'],
       'tree (node-link)': ['tree'],
+      'venn': ['venn'],
       'circle packing': ['pack'],
       'diverging bar / population pyramid': ['diverging_bar'],
       'dot plot (cleveland)': ['dot'],

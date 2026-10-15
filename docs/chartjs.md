@@ -108,6 +108,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Treemap [experimental] | `'treemap'` | `chartjs-chart-treemap` | [Treemap](examples.html) |
 | Sankey [experimental] | `'sankey'` | `chartjs-chart-sankey` | [Sankey](examples.html) |
 | Word Cloud [experimental] | `'wordCloud'` | `chartjs-chart-wordcloud` | [Word cloud](examples.html) |
+| Venn / Euler [experimental] | `'venn'`, `'euler'` | `chartjs-chart-venn` | — |
 | Funnel [experimental] | `'funnel'` | `chartjs-chart-funnel` | [Funnel](examples.html) |
 | Choropleth [experimental] | `'choropleth'`, `'bubbleMap'` | `chartjs-chart-geo` | [Choropleth](examples.html) |
 | Tree [experimental] | `'tree'`, `'dendrogram'` | `chartjs-chart-graph` | [Tree](examples.html) |
@@ -136,7 +137,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 >
 > Rows must be plain numbers. `{x, y}` object rows are not a spelling this plugin accepts — it throws while parsing them, before MAIDR sees anything.
 
-> **Venn and Euler are declined.** `chartjs-chart-venn` registers `venn` and `euler`, and neither is read: MAIDR has no trace whose navigation is set membership. The decision, and why it is not about the data, is recorded once under *Shapes deliberately not read* in `docs/SCHEMA.md` (#1190) — the same answer Highcharts' and amCharts' set diagrams get.
+> **Venn and Euler note:** `chartjs-chart-venn`'s `extractSets` gives the controller one point per region, `{ sets, value }`, and both `venn` and `euler` are read from those points as a `venn` layer: the sets first, then their overlaps by how many sets they join. A region's name is kept only when the author gave one -- the plugin's default label is the sets joined, which says nothing the sets do not. The regions are painted on the canvas, so they are announced, sonified and brailled but not outlined.
 
 > **Graph note:** all three `chartjs-chart-graph` controllers take the same flat node list, in which a node names its parent by **index**; the names come from `data.labels`, and a node the chart never labelled is announced by its position. What separates the readings is not the layout but what the node list may be. `tree` and `dendrogram` name a parent per node, so the data is a hierarchy by construction — they are one controller class with a `mode` option and are read as one **tree**, since a dendrogram is a tree drawn with its leaves levelled and naming it apart would name a layout rather than a chart. `forceDirectedGraph` may be given `edges` instead, and it accepts an edge list that closes a **cycle**, which no hierarchy can hold — so it is read as a **network**, and reading it as a tree would announce ancestry the chart does not have. No magnitude is emitted for either: the plugin sizes nothing by value.
 >

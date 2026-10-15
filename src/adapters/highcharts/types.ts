@@ -383,6 +383,8 @@ export interface HighchartsPoint {
    * number is here rather than in `y` — on a tilemap `y` is the lattice row.
    */
   value?: number;
+  /** A Venn or Euler region's sets: one name for a set, several for an overlap. */
+  sets?: (string | number)[];
   /** The marker a bullet chart draws beside its bar. */
   target?: number;
   /** Waterfall step that restates the total of every step so far. */
