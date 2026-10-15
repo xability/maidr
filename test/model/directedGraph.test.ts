@@ -421,15 +421,36 @@ describe('an edge label is heard wherever its edge is', () => {
     expect(aside(trace, 'From')).toBe('check (yes)');
   });
 
-  test('a blank or missing label leaves the edge unnamed, and the first label wins', () => {
+  test('a blank or missing label leaves the edge unnamed', () => {
     const trace = graph([
       { id: 'a' },
       { id: 'b', inputs: ['a', 'a'], inputLabels: ['', 'later'] },
       { id: 'c', inputs: ['a'], inputLabels: [null] },
-      { id: 'd', inputs: ['a', 'a'], inputLabels: ['first', 'second'] },
     ]);
 
-    expect(aside(trace, 'To')).toBe('b (later), c, d (first)');
+    expect(aside(trace, 'To')).toBe('b (later), c');
+  });
+
+  test('an edge declared twice keeps each distinct label, once', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'b', inputs: ['a', 'a', 'a'], inputLabels: ['yes', 'retry', 'yes'] },
+    ]);
+
+    expect(aside(trace, 'To')).toBe('b (yes, retry)');
+  });
+
+  test('fewer labels than inputs leaves the rest unnamed', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'b' },
+      { id: 'c', inputs: ['a', 'b'], inputLabels: ['only'] },
+    ]);
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    expect(at(trace)).toBe('c');
+    expect(aside(trace, 'From')).toBe('a (only), b');
   });
 
   test('the description tabulates the labels', () => {

@@ -1047,7 +1047,8 @@ the edges are declared on the node they arrive at, as `inputs`, and scopes as a
   `yes` and `no`, a state machine's event. A label is announced beside the
   node it leads to or comes from -- `To: ship (yes), fix (no)` -- and in the
   description's inputs and outputs. A blank or `null` entry leaves its edge
-  unnamed; the first label given for an edge wins.
+  unnamed. An edge declared twice with different labels carries both, in
+  declared order: `B (yes, retry)`.
 - `attributes` is free-form: each entry is announced as a clause, in declared
   order, and becomes a column of the description's table.
 

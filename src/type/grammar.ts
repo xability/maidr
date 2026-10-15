@@ -1073,8 +1073,8 @@ export interface DirectedGraphPoint {
    * What each edge in `inputs` is called, index for index: the `Yes` and `No`
    * of a flowchart's decision, a state machine's event, a relationship's
    * verb. `null`, an empty string or a missing entry leaves that edge
-   * unnamed. The first label declared for an edge wins, as its first
-   * declaration does.
+   * unnamed. An edge declared more than once carries each distinct label it
+   * was given, in declared order.
    *
    * Announced beside the node's name wherever the edge is heard -- the from
    * and to lists, and the description's inputs and outputs -- because on a

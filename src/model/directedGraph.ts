@@ -235,7 +235,9 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    *
    * An input naming no declared node is dropped, as is a node naming itself:
    * neither is an edge the reader can follow anywhere. An edge declared twice
-   * counts once.
+   * counts once, and carries every distinct label its declarations gave it,
+   * in declared order: a flowchart's `A -->|yes| B` and `A -->|retry| B` are
+   * one edge the reader hears as `B (yes, retry)`.
    *
    * @param points - The declared nodes
    * @returns Successors and predecessors per node, and the edge count
@@ -269,8 +271,11 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
         }
         const key = `${from}>${to}`;
         const label = String(point.inputLabels?.[slot] ?? '').trim();
-        if (label !== '' && !labels.has(key)) {
+        const known = labels.get(key);
+        if (label !== '' && known === undefined) {
           labels.set(key, label);
+        } else if (label !== '' && known !== undefined && !known.split(', ').includes(label)) {
+          labels.set(key, `${known}, ${label}`);
         }
         if (seen.has(key)) {
           return;
