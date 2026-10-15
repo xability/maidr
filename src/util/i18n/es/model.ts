@@ -866,4 +866,5 @@ export const model = {
   'model.extremaMaxDelta': 'Delta máximo',
   'model.extremaMinDelta': 'Delta mínimo',
   'model.dagEdgeLabelled': '{name} ({label})',
+  'model.instructionEmptyFigure': 'Este es un gráfico de maidr que aún no tiene nada que describir: no tiene puntos de datos. {clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

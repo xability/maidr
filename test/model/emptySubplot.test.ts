@@ -87,7 +87,11 @@ describe('subplot with no layers', () => {
     const context = new Context(createFigureWithOnlyAnEmptyPanel());
 
     expect(context.state.type).toBe('figure');
-    expect(context.getInstruction(false)).toContain('maidr figure');
+    // Not "a figure containing 1 subplots" with arrows to navigate them: there
+    // is one panel and nothing in it, and the instruction says so.
+    expect(context.getInstruction(false)).toBe(
+      'This is a maidr plot with nothing in it to describe yet: it has no data points. ',
+    );
   });
 
   test('navigating within an empty panel reports out of bounds rather than throwing', () => {

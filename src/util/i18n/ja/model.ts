@@ -865,4 +865,5 @@ export const model = {
   'model.extremaMaxDelta': '最大の差分',
   'model.extremaMinDelta': '最小の差分',
   'model.dagEdgeLabelled': '{name}（{label}）',
+  'model.instructionEmptyFigure': 'これは、まだ説明する内容がない maidr のプロットです。データ点がありません。{clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

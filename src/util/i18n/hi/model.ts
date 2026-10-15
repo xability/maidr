@@ -858,4 +858,5 @@ export const model = {
   'model.extremaMaxDelta': 'अधिकतम अंतर',
   'model.extremaMinDelta': 'न्यूनतम अंतर',
   'model.dagEdgeLabelled': '{name} ({label})',
+  'model.instructionEmptyFigure': 'यह एक maidr प्लॉट है जिसमें अभी वर्णन करने के लिए कुछ नहीं है: इसमें कोई डेटा बिंदु नहीं हैं। {clickPrompt}',
 } satisfies Partial<Record<MessageKey, string>>;

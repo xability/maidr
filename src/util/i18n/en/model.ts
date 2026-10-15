@@ -871,4 +871,5 @@ export const model = {
   'model.extremaMaxDelta': 'Max Delta',
   'model.extremaMinDelta': 'Min Delta',
   'model.dagEdgeLabelled': '{name} ({label})',
+  'model.instructionEmptyFigure': 'This is a maidr plot with nothing in it to describe yet: it has no data points. {clickPrompt}',
 } as const;
