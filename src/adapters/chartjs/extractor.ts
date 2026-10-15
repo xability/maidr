@@ -3842,6 +3842,19 @@ function extractSankeyLayers(chart: ChartJsChart): MaidrLayer[] {
 }
 
 /**
+ * Whether a region's label is only its sets joined by `∩`, as
+ * `chartjs-chart-venn` labels a region the author did not name.
+ *
+ * @param label - The region's label
+ * @param names - The region's sets
+ * @returns True when the label adds nothing to the sets
+ */
+function isJoinedSets(label: string, names: string[]): boolean {
+  const parts = label.split('∩').map(part => part.trim());
+  return parts.length === names.length && parts.every(part => names.includes(part));
+}
+
+/**
  * Read a `chartjs-chart-venn` dataset as the regions it draws.
  *
  * The plugin's `extractSets` hands the controller one point per region,
@@ -3870,9 +3883,10 @@ function extractVennLayers(chart: ChartJsChart): MaidrLayer[] {
     data.push({
       sets: names,
       ...(size === null ? {} : { size }),
-      // The plugin labels a region with its sets joined, which says nothing
-      // the sets do not; only a name of the author's own is kept.
-      ...(typeof label === 'string' && names.length > 1 && !names.every(name => label.includes(name))
+      // The plugin labels a region with its sets joined by `∩`, which says
+      // nothing the sets do not; only a name of the author's own is kept,
+      // even one that mentions the sets.
+      ...(typeof label === 'string' && names.length > 1 && !isJoinedSets(label, names)
         ? { label }
         : {}),
     });
