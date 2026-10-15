@@ -59,6 +59,7 @@ import type {
   SurvivalPoint,
   ThresholdOptions,
   TreemapPoint,
+  VennPoint,
   VolcanoPoint,
   WaterfallKind,
   WaterfallPoint,
@@ -1803,7 +1804,13 @@ function convertSeries(
     case 'item':
     case 'pie':
       return convertPieSeries(series, containerId);
-    // Reached deliberately by four series types, each for its own reason
+    // Set-overlap diagrams: each point declares the sets it is the region of
+    // and the region's size, which is `VennPoint` exactly. An Euler diagram
+    // is the same regions drawn with only the overlaps that exist.
+    case 'venn':
+    case 'euler':
+      return convertVennSeries(series, containerId);
+    // Reached deliberately by these series types, each for its own reason
     // (xability/maidr#1186), and recorded here so the decline is a decision
     // rather than an omission:
     //
@@ -1814,11 +1821,6 @@ function convertSeries(
     //   hull drawn over a scatter that is already read, so the shape is
     //   drawing rather than data.
     // - `mapline` is geometry for the same reason.
-    // - `venn` and `euler` are set-overlap diagrams, read by the `venn`
-    //   trace this adapter does not produce yet. Where that stands is
-    //   recorded once, under "Shapes deliberately not read" in
-    //   `docs/SCHEMA.md` (#1190); this branch points there rather than
-    //   carrying its own reason.
     default:
       console.warn(`[MAIDR Highcharts] Unsupported series type: "${seriesType}"; skipping.`);
       return null;
@@ -4891,6 +4893,44 @@ function convertPieSeries(
     },
     data,
     ...pieGeometry(isAngle(start) ? start : 0, true),
+  };
+}
+
+/**
+ * Reads a `venn` or `euler` series: one region per point, named by the sets
+ * it joins, sized by its `value`.
+ *
+ * @param series - The series
+ * @param containerId - The chart container's id
+ * @returns The layer, or null when no point declares its sets
+ */
+function convertVennSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer | null {
+  const points = series.data.filter(p => Array.isArray(p.sets) && p.sets.length > 0);
+  if (points.length === 0) {
+    return null;
+  }
+  const data: VennPoint[] = points.map((p) => {
+    const sets = (p.sets ?? []).map(String);
+    const size = typeof p.value === 'number' ? p.value : (typeof p.y === 'number' ? p.y : undefined);
+    // Highcharts names a region by its sets when the point has no name.
+    const name = p.name?.trim();
+    return {
+      sets,
+      ...(size !== undefined && Number.isFinite(size) ? { size } : {}),
+      ...(name && name !== sets.join('∩') && sets.length > 1 ? { label: name } : {}),
+    };
+  });
+  return {
+    id: String(series.index),
+    type: TraceType.VENN,
+    title: series.name || undefined,
+    // Every declared region is drawn, as one `.highcharts-point` each, in
+    // declared order -- so the list pairs only when nothing was dropped.
+    ...(points.length === series.data.length ? { selectors: pieSelector(containerId, series.index) } : {}),
+    data,
   };
 }
 

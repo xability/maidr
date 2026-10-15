@@ -1,4 +1,4 @@
-import type { ErrorBarPoint, ScatterPoint } from '@type/grammar';
+import type { ErrorBarPoint, ScatterPoint, VennPoint } from '@type/grammar';
 import { highchartsToMaidr } from '@adapters/highcharts/adapter';
 import { TraceType } from '@type/grammar';
 import { fakeAxis, fakeChart, fakeSeries } from './helpers';
@@ -24,8 +24,8 @@ import { fakeAxis, fakeChart, fakeSeries } from './helpers';
  * it. `mappoint` and `mapbubble` left it there (`test/adapters/highcharts/
  * mapMarkers.test.ts`). `vector`, `windbarb`, `polygon` and `mapline` are
  * declines on record at the branch itself; `hlc` needs
- * `CandlestickPoint.open` to become optional first, and `venn` is declined
- * once for every adapter in `docs/SCHEMA.md` (#1190).
+ * `CandlestickPoint.open` to become optional first. `venn` and `euler` are
+ * read now, by the `venn` trace.
  */
 
 const CATEGORIES = ['a', 'b', 'c'];
@@ -154,10 +154,27 @@ describe('highcharts series the adapter did not reach', () => {
 
   it('still declines a series with no statistical reading', () => {
     // The guard on the change: dispatching more types must not turn into
-    // dispatching every type. A `venn` is a set-overlap diagram (declined
-    // once, in `docs/SCHEMA.md`, #1190) and a `polygon` has no reading, so
-    // both stay declined rather than being forced into a shape.
+    // dispatching every type. A `polygon` has no reading, so it stays
+    // declined rather than being forced into a shape; a `venn` whose points
+    // declare no sets has no region to read either.
     expect(layersOf('venn', PLAIN)).toHaveLength(0);
     expect(layersOf('polygon', PLAIN)).toHaveLength(0);
+  });
+});
+
+describe('set-overlap diagrams', () => {
+  it.each(['venn', 'euler'])('reads a %s as its regions, sets and sizes', (type) => {
+    const [layer] = layersOf(type, [
+      { sets: ['A'], value: 4, name: 'A' },
+      { sets: ['B'], value: 3, name: 'B' },
+      { sets: ['A', 'B'], value: 1, name: 'Both' },
+    ]);
+
+    expect(layer.type).toBe(TraceType.VENN);
+    expect(layer.data as VennPoint[]).toEqual([
+      { sets: ['A'], size: 4 },
+      { sets: ['B'], size: 3 },
+      { sets: ['A', 'B'], size: 1, label: 'Both' },
+    ]);
   });
 });

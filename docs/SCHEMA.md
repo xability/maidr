@@ -317,26 +317,20 @@ reason for the same chart, and the reasons did not agree (#1190).
 
 ### Set-overlap diagrams (Venn, Euler)
 
-**Read by the `venn` trace, which the Mermaid adapter produces. The
-Highcharts, Chart.js and amCharts adapters do not produce it yet, and decline
-these diagrams until they do.**
+**No longer declined: read by the `venn` trace**, which the Mermaid,
+Highcharts (`venn`, `euler`), Chart.js (`chartjs-chart-venn`) and amCharts
+(`am5venn.Venn`) adapters produce. The section stays so the history of the
+decision is findable from the adapters that used to point here (#1190).
 
-The objection that kept them out was never the data. A Highcharts `venn` or
-`euler` point carries the author's own declaration of a region — `sets:
-['A', 'B']`, `value: 2` — and `chartjs-chart-venn` and `am5hierarchy.Venn` take
-the same input. What was missing was a trace whose navigation is set
-membership: a flat list of `A`, `B`, `A∩B` says *how big* each region is, and a
-reader stepping through it by index is walking a layout rather than a
-membership. Read as a bar chart of region sizes it would announce every number
-correctly and say nothing about which sets a region belongs to.
-
+The objection was never the data. Every one of those producers carries the
+author's own declaration of a region — `sets: ['A', 'B']`, `value: 2`. What
+was missing was a trace whose navigation is set membership: a flat list of
+`A`, `B`, `A∩B` says *how big* each region is, and a reader stepping through
+it by index is walking a layout rather than a membership.
 [`venn`](#venn-diagram-venn-experimental) is that trace: a `MovableGraph` over
 regions addressed as `(set count, index among regions of that count)`, where
 up and down move to regions of fewer or more sets and left and right move
-between the regions sharing that count. The producers' data is already in its
-shape, so what remains for the three chart libraries is the extraction, not the
-reading. Until it is written they keep declining rather than force the diagram
-into another shape.
+between the regions sharing that count.
 
 That a Venn's areas are drawn approximately is true of the layout and not of
 what is read — the producers declare the size, and the reading announces the

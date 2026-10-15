@@ -19,6 +19,7 @@ import type {
   PiePoint,
   SegmentedPoint,
   TreemapPoint,
+  VennPoint,
   WaterfallKind,
   WaterfallPoint,
 } from '@type/grammar';
@@ -967,6 +968,37 @@ export function extractPiePoints(series: AmXYSeries): PiePoint[] {
     points.push({ x: toStringOrNumber(category), y: numValue });
   }
 
+  return points;
+}
+
+/**
+ * Reads an `am5venn.Venn` series' regions.
+ *
+ * A data item is a set when it names no intersections, and the overlap of the
+ * sets it names when it does; its `value` is the region's size. An overlap's
+ * own category is kept as its name.
+ *
+ * @param series - The Venn series
+ * @returns One region per data item that has a category
+ */
+export function extractVennPoints(series: AmXYSeries): VennPoint[] {
+  const points: VennPoint[] = [];
+  for (const item of series.dataItems) {
+    const category = item.get('category');
+    if (category == null)
+      continue;
+    const context = item.dataContext as Record<string, unknown> | undefined;
+    const declared = item.get('intersections') ?? context?.sets;
+    const sets = Array.isArray(declared) && declared.length > 0
+      ? declared.map(String)
+      : [String(category)];
+    const value = toNumber(item.get('value'));
+    points.push({
+      sets,
+      ...(value == null ? {} : { size: value }),
+      ...(sets.length > 1 ? { label: String(category) } : {}),
+    });
+  }
   return points;
 }
 
@@ -2029,10 +2061,6 @@ const STANDALONE_KINDS: Record<string, SeriesKind> = {
   // a chart type nobody drew. `TraceType.TREE` and `TraceType.PACK` say it
   // exactly and still share the one branch of the dispatch.
   //
-  // `Venn` is deliberately absent. It is a set-overlap diagram drawn under a
-  // hierarchy class, read by the `venn` trace this adapter does not produce
-  // yet; where that stands is recorded once, under "Shapes deliberately not
-  // read" in `docs/SCHEMA.md` (#1190), rather than argued here.
   Tree: 'tree',
   Pack: 'pack',
   LinkedHierarchy: 'tree',
@@ -2043,6 +2071,10 @@ const STANDALONE_KINDS: Record<string, SeriesKind> = {
   ChordDirected: 'chord',
   ChordNonRibbon: 'chord',
   ForceDirected: 'network',
+  // A set-overlap diagram: each data item is a set or, when it names the sets
+  // it intersects, their overlap. Read as `venn`, not as the hierarchy its
+  // module sits beside.
+  Venn: 'venn',
 };
 
 /** The class names {@link STANDALONE_KINDS} covers, for discovery to probe. */
@@ -2192,6 +2224,7 @@ export type SeriesKind
     | 'tree'
     | 'pack'
     | 'wordcloud'
+    | 'venn'
     | 'sankey'
     | 'chord'
     | 'network'
