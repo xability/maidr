@@ -1,8 +1,8 @@
 /**
  * Mermaid adapter for MAIDR.
  *
- * Makes every Mermaid diagram type navigable with audio, text, braille and
- * keyboard: it parses the diagram's text with Mermaid's own parser, reads the
+ * Makes every Mermaid diagram type -- and ZenUML, through its plugin --
+ * navigable with audio, text, braille and keyboard: it parses the diagram's text with Mermaid's own parser, reads the
  * result, and pairs it with the SVG Mermaid drew.
  *
  * @remarks
