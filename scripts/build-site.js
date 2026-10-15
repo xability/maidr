@@ -82,6 +82,7 @@ const PAGE_DESCRIPTIONS = {
   'observable': 'How to make Observable Plot charts accessible with MAIDR: one binding for bar, histogram, scatter, line, area and faceted plots, and for Quarto OJS cells.',
   'echarts': 'How to make Apache ECharts accessible with MAIDR: support for bar, stacked bar, dodged bar, line, area, step, and scatter series.',
   'frappe': 'How to make Frappe Charts accessible with MAIDR: support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
+  'mermaid': 'How to make Mermaid diagrams accessible with MAIDR: flowcharts, sequence, class, state and ER diagrams, gantt charts, mindmaps, pie charts and every other type.',
   'uplot': 'How to make uPlot and Grafana-style time-series charts accessible with MAIDR: line, bar and scatter series, time axes, and live streaming.',
   'victory': 'How to make Victory charts accessible with MAIDR: support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
   'mui-x-charts': 'How to make MUI X Charts accessible with MAIDR: bar, line, scatter, pie, sparkline, gauge, radar, and the Pro heatmap, funnel and sankey charts.',
@@ -315,6 +316,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{ECHARTS_ACTIVE\}\}/g, () => activePage === 'echarts' ? 'active' : '')
     .replace(/\{\{FRAPPE_ACTIVE\}\}/g, () => activePage === 'frappe' ? 'active' : '')
     .replace(/\{\{UPLOT_ACTIVE\}\}/g, () => activePage === 'uplot' ? 'active' : '')
+    .replace(/\{\{MERMAID_ACTIVE\}\}/g, () => activePage === 'mermaid' ? 'active' : '')
     .replace(/\{\{OBSERVABLE_ACTIVE\}\}/g, () => activePage === 'observable' ? 'active' : '')
     .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')
     .replace(/\{\{MUI_X_CHARTS_ACTIVE\}\}/g, () => activePage === 'mui-x-charts' ? 'active' : '')

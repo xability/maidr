@@ -48,6 +48,7 @@ export const INTEGRATION_PAGES = [
   { slug: 'echarts', title: 'Apache ECharts', source: 'echarts.md' },
   { slug: 'frappe', title: 'Frappe Charts', source: 'frappe.md' },
   { slug: 'uplot', title: 'uPlot', source: 'uplot.md' },
+  { slug: 'mermaid', title: 'Mermaid', source: 'mermaid.md' },
   { slug: 'victory', title: 'Victory', source: 'victory.md' },
   { slug: 'nivo', title: 'Nivo', source: 'nivo.md' },
   { slug: 'mui-x-charts', title: 'MUI X Charts', source: 'mui-x-charts.md' },
