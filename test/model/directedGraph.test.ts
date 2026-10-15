@@ -438,7 +438,23 @@ describe('an edge label is heard wherever its edge is', () => {
       { id: 'c', inputs: ['a', 'a'], inputLabels: ['yes, maybe', 'maybe'] },
     ]);
 
-    expect(aside(trace, 'To')).toBe('b (yes, retry), c (yes, maybe, maybe)');
+    expect(aside(trace, 'To')).toBe('b (yes; retry), c (yes, maybe; maybe)');
+  });
+
+  test('an edge into a closed scope is heard without its label, and with it once the scope is open', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'g/b', label: 'b', path: ['g'], inputs: ['a'], inputLabels: ['go'] },
+    ]);
+
+    expect(at(trace)).toBe('a');
+    expect(aside(trace, 'To')).toBe('g');
+
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+
+    expect(at(trace)).toBe('b');
+    expect(aside(trace, 'From')).toBe('a (go)');
   });
 
   test('fewer labels than inputs leaves the rest unnamed', () => {

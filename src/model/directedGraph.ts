@@ -237,7 +237,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * neither is an edge the reader can follow anywhere. An edge declared twice
    * counts once, and carries every distinct label its declarations gave it,
    * in declared order: a flowchart's `A -->|yes| B` and `A -->|retry| B` are
-   * one edge the reader hears as `B (yes, retry)`.
+   * one edge the reader hears as `B (yes; retry)`. The semicolon keeps them
+   * apart from the commas of the neighbour list.
    *
    * @param points - The declared nodes
    * @returns Successors and predecessors per node, and the edge count
@@ -285,7 +286,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       });
     });
     const labels = new Map<string, string>();
-    named.forEach((names, key) => labels.set(key, names.join(', ')));
+    named.forEach((names, key) => labels.set(key, names.join('; ')));
     return { successors, predecessors, edges, labels };
   }
 
