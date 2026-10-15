@@ -35,10 +35,12 @@ import { RocTrace } from './roc';
 import { RugTrace } from './rug';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
+import { SequenceTrace } from './sequence';
 import { createSmoothTrace } from './smoothtraceFactory';
 import { StepTrace } from './step';
 import { SurvivalTrace } from './survival';
 import { TreemapTrace } from './treemap';
+import { VennTrace } from './venn';
 import { ViolinKdeTrace } from './violin';
 import { ViolinBoxTrace } from './violinBox';
 import { VolcanoTrace } from './volcano';
@@ -196,6 +198,12 @@ export abstract class TraceFactory {
 
       case TraceType.DIRECTED_GRAPH:
         return new DirectedGraphTrace(layer);
+
+      case TraceType.SEQUENCE:
+        return new SequenceTrace(layer);
+
+      case TraceType.VENN:
+        return new VennTrace(layer);
 
       case TraceType.MOSAIC:
         return new MosaicTrace(layer);

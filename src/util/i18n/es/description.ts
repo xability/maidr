@@ -288,4 +288,10 @@ export const description = {
   'guide.word_cloud.definition': 'Una nube de palabras muestra las palabras de un texto. Las palabras más frecuentes o importantes aparecen más grandes.',
   'guide.word_cloud.purpose': 'Sirve para hacerse una idea rápida de los temas principales de un texto, de respuestas a una encuesta o de mensajes en redes sociales.',
   'guide.word_cloud.appearance': 'Las palabras se juntan en un grupo, con tamaños distintos y a veces en distintas direcciones. Las palabras más grandes son las más frecuentes.',
+  'guide.sequence.definition': 'Un diagrama de secuencia muestra los mensajes que un grupo de participantes se envían, en el orden en que ocurren.',
+  'guide.sequence.purpose': 'Se usa para mostrar cómo colaboran las partes de un sistema a lo largo del tiempo, como un navegador que pide una página a un servidor y el servidor que consulta una base de datos.',
+  'guide.sequence.appearance': 'Los participantes se alinean en la parte superior, cada uno con una línea que baja por la página. Los mensajes son flechas entre esas líneas, leídas de arriba abajo; las respuestas suelen ser discontinuas, y los recuadros loop o alt marcan pasos repetidos o alternativos.',
+  'guide.venn.definition': 'Un diagrama de Venn muestra conjuntos como círculos que se superponen, de modo que la zona común contiene lo que los conjuntos comparten.',
+  'guide.venn.purpose': 'Se usa para comparar grupos, mostrando lo que cada uno tiene por sí solo y lo que comparten dos o más.',
+  'guide.venn.appearance': 'Dos o más círculos se superponen en el centro. Cada círculo lleva el nombre de su conjunto; las intersecciones pueden tener su propio nombre o un recuento, y puede haber elementos escritos dentro de las regiones.',
 } satisfies Partial<Record<MessageKey, string>>;

@@ -381,6 +381,32 @@ addCase('directed graph', {
   ],
 });
 
+addCase('sequence diagram', {
+  id: 'sequence',
+  type: TraceType.SEQUENCE,
+  // A fragment, a note and an undeclared participant, which are what add the
+  // fragment column, the notes count and a lane of their own.
+  data: {
+    participants: [{ id: 'a', label: 'Alice' }],
+    messages: [
+      { from: 'a', to: 'b', text: 'hello', fragments: ['loop forever'] },
+      { from: 'b', to: 'a', text: 'hi', kind: 'reply' },
+      { from: 'a', to: 'a', text: 'think', kind: 'note' },
+    ],
+  },
+});
+
+addCase('venn diagram', {
+  id: 'venn',
+  type: TraceType.VENN,
+  // Sized, named and itemised, which are what fill every column.
+  data: [
+    { sets: ['A'], size: 5 },
+    { sets: ['B'], size: 4 },
+    { sets: ['A', 'B'], size: 2, label: 'Both', items: ['x'] },
+  ],
+});
+
 addCase('mosaic carrying counts', {
   id: 'mosaic',
   type: TraceType.MOSAIC,

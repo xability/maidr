@@ -278,4 +278,10 @@ export const description = {
   'guide.word_cloud.definition': '워드 클라우드는 글에 나온 단어들을 보여 주며, 자주 나오거나 중요한 단어일수록 크게 그립니다.',
   'guide.word_cloud.purpose': '글, 설문 응답, 소셜 미디어 게시물의 주요 주제를 빠르게 파악할 때 씁니다.',
   'guide.word_cloud.appearance': '단어들이 한 덩어리로 빽빽하게 모여 있고, 크기가 제각각이며 방향이 다른 것도 있습니다. 가장 큰 단어가 가장 자주 나온 단어입니다.',
+  'guide.sequence.definition': '시퀀스 다이어그램은 참여자들이 서로 주고받는 메시지를 일어난 순서대로 보여 줍니다.',
+  'guide.sequence.purpose': '브라우저가 서버에 페이지를 요청하고 서버가 데이터베이스에 묻는 것처럼, 시스템의 여러 부분이 시간에 따라 어떻게 함께 동작하는지 보여 줄 때 씁니다.',
+  'guide.sequence.appearance': '참여자들이 위쪽에 한 줄로 서 있고, 각자에게서 아래로 선이 내려갑니다. 메시지는 그 선들 사이의 화살표로, 위에서 아래로 읽습니다. 응답은 흔히 점선이고, loop나 alt라고 쓰인 상자는 반복되거나 갈라지는 단계를 표시합니다.',
+  'guide.venn.definition': '벤 다이어그램은 집합을 서로 겹치는 원으로 나타내며, 원이 겹치는 곳에는 집합들이 함께 가진 것이 들어갑니다.',
+  'guide.venn.purpose': '여러 집단을 비교해, 각자만 가진 것과 둘 이상이 함께 가진 것을 보여 줄 때 씁니다.',
+  'guide.venn.appearance': '둘 이상의 원이 가운데에서 겹칩니다. 각 원에는 집합 이름이 붙고, 겹친 부분에는 따로 이름이나 개수가 붙을 수 있으며, 영역 안에 항목이 적혀 있기도 합니다.',
 } satisfies Partial<Record<MessageKey, string>>;

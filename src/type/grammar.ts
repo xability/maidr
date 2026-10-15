@@ -1094,6 +1094,111 @@ export interface DirectedGraphPoint {
 }
 
 /**
+ * What a message of a sequence diagram is, as its arrow draws it.
+ *
+ * - `sync` -- a call the sender waits on, a solid line with a filled head.
+ * - `async` -- a message the sender does not wait on, an open head.
+ * - `reply` -- a return, drawn dashed.
+ * - `create` and `destroy` -- a message that brings a participant into
+ *   being or ends it.
+ * - `note` -- a note pinned over one participant or spanning several,
+ *   which is read in its place in time like a message.
+ */
+export type SequenceMessageKind = 'sync' | 'async' | 'reply' | 'create' | 'destroy' | 'note';
+
+/**
+ * One participant of a sequence diagram: a lifeline.
+ */
+export interface SequenceParticipant {
+  /** What the messages' `from` and `to` name it by. Unique in the layer. */
+  id: string | number;
+  /** What it is called when it is announced. Defaults to `id`. */
+  label?: string | number;
+  /**
+   * What sort of participant it is, as the diagram draws it: `actor`,
+   * `participant`, `database`, `boundary` and the like. Announced with
+   * its name.
+   */
+  kind?: string;
+  /** The named box the diagram groups it in, when there is one. */
+  group?: string;
+}
+
+/**
+ * One message of a sequence diagram, in the order time runs down the page.
+ *
+ * @example
+ * { from: 'Alice', to: 'Bob', text: 'Hello Bob', kind: 'sync', fragments: ['loop Every minute'] }
+ */
+export interface SequenceMessage {
+  /** The participant it leaves. */
+  from: string | number;
+  /**
+   * The participant it arrives at -- the same as `from` for a message to
+   * oneself, or for a note over one participant. A note spanning several
+   * participants names the last of them here.
+   */
+  to: string | number;
+  /** What the arrow is labelled with. */
+  text?: string;
+  /** What the arrow is. Defaults to `sync`. */
+  kind?: SequenceMessageKind;
+  /**
+   * The combined fragments it sits in, outermost first, each as the
+   * diagram labels it: `loop Every minute`, `alt is sick`. Omitted or `[]`
+   * outside every fragment.
+   */
+  fragments?: string[];
+  /** The number the diagram prints beside it, when it numbers its messages. */
+  number?: number;
+}
+
+/**
+ * A sequence diagram: its participants, left to right, and its messages,
+ * top to bottom.
+ *
+ * An object rather than a bare list for the reason {@link GanttData} is one:
+ * a participant no message reaches is still a lifeline on the page, and a
+ * list of messages has nowhere to declare it.
+ */
+export interface SequenceData {
+  /**
+   * The lifelines, in the order the diagram draws them. A participant a
+   * message names that is not declared here is added after them, in the
+   * order the messages first name it.
+   */
+  participants: SequenceParticipant[];
+  /** The messages, in the order they happen. */
+  messages: SequenceMessage[];
+}
+
+/**
+ * One region of a Venn or Euler diagram: a set on its own, or the overlap of
+ * several.
+ *
+ * A region names its sets rather than being nested under them because an
+ * overlap belongs to every set it joins equally; the sets themselves are
+ * derived from the regions, as a flow's nodes are from its flows.
+ *
+ * @example
+ * { sets: ['Desirable', 'Feasible'], size: 2.5, label: 'Buildable' }
+ */
+export interface VennPoint {
+  /** The sets the region is the overlap of, or the one set it is. */
+  sets: (string | number)[];
+  /**
+   * How big the region is: the set's size for a single set, the size of the
+   * overlap for several. Omitted when the diagram is drawn for its
+   * membership alone.
+   */
+  size?: number;
+  /** What the region is called on the diagram, when it is named. */
+  label?: string;
+  /** The items written inside the region, when the diagram lists them. */
+  items?: string[];
+}
+
+/**
  * One link of a network or node-link diagram.
  *
  * Undirected: a link between two nodes is a fact about the pair, not a
@@ -1936,6 +2041,8 @@ export interface MaidrLayer {
     | ErrorBarPoint[][]
     | ForestPoint[]
     | GanttData
+    | SequenceData
+    | VennPoint[]
     | GaugePoint
     | HeatmapData
     | HexbinPoint[][]
@@ -2257,6 +2364,18 @@ export enum TraceType {
    * available on a grid, because the chart is a graph.
    */
   SANKEY = 'sankey',
+  /**
+   * A sequence diagram: participants side by side as lifelines, and the
+   * messages between them in the order they happen, down the page.
+   *
+   * Neither a network nor a directed graph, though both have nodes and
+   * arrows: what a sequence diagram is read for is **order in time**. The
+   * same two participants exchange many messages, and the third call from
+   * the client to the server is a different fact from the first, so the
+   * messages are the points and the participants are the lanes they move
+   * between.
+   */
+  SEQUENCE = 'sequence',
   SCATTER = 'point',
   SMOOTH = 'smooth',
   /**
@@ -2330,6 +2449,17 @@ export enum TraceType {
    * censored rather than events.
    */
   SURVIVAL = 'survival',
+  /**
+   * A Venn or Euler diagram: overlapping circles whose overlaps are the
+   * members two or more sets share.
+   *
+   * Its own type because nothing else reads an overlap. A pie's slices and
+   * a treemap's boxes partition a whole; a Venn diagram's regions are sets
+   * that contain one another's members, and the question a reader brings --
+   * what do A and B share, what is in A alone -- is a question about
+   * membership, which no partition can answer.
+   */
+  VENN = 'venn',
   VIOLIN_BOX = 'violin_box',
   VIOLIN_KDE = 'violin_kde',
   /**
