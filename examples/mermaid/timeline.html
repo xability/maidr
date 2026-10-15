@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mermaid Timeline - MAIDR Example</title>
+    <!-- Mermaid 12.2.0. The adapter reads Mermaid's own parse of the text, so
+         a newer Mermaid works as long as its diagram databases keep their
+         shape; verify the examples when upgrading. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.min.js"
+      integrity="sha384-8xUhuLNMjW/cI2Dacg3DR4WliYznvIg0LVG1stctThKD/YVrJFI9TNCFxft5NYgp"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + Mermaid adapter -->
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/mermaid.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>Mermaid Timeline with MAIDR</h1>
+      <p>Sections open onto their periods, and periods onto their events.</p>
+      <p id="error" hidden>
+        Failed to load Mermaid from CDN. Please check your internet connection.
+      </p>
+      <pre class="mermaid" id="diagram">
+timeline
+  title Web accessibility milestones
+  section Guidelines
+    1999 : WCAG 1.0
+    2008 : WCAG 2.0
+    2018 : WCAG 2.1
+    2023 : WCAG 2.2
+  section Standards
+    2014 : WAI-ARIA 1.0
+    2017 : WAI-ARIA 1.1
+      </pre>
+    </main>
+
+    <script>
+      // Render with startOnLoad off, so the adapter can read each diagram's
+      // text before Mermaid replaces it with the drawing; bindMermaid then
+      // renders it and makes it accessible.
+      if (typeof mermaid === 'undefined') {
+        document.getElementById('error').hidden = false;
+      } else {
+        mermaid.initialize({ startOnLoad: false });
+        maidrMermaid.bindMermaid(mermaid);
+      }
+    </script>
+  </body>
+</html>

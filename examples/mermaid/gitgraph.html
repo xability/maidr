@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mermaid Git Graph - MAIDR Example</title>
+    <!-- Mermaid 12.2.0. The adapter reads Mermaid's own parse of the text, so
+         a newer Mermaid works as long as its diagram databases keep their
+         shape; verify the examples when upgrading. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.min.js"
+      integrity="sha384-8xUhuLNMjW/cI2Dacg3DR4WliYznvIg0LVG1stctThKD/YVrJFI9TNCFxft5NYgp"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + Mermaid adapter -->
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/mermaid.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>Mermaid Git Graph with MAIDR</h1>
+      <p>Commits are read on their branches; a merge announces both parents, and the rotor follows the history.</p>
+      <p id="error" hidden>
+        Failed to load Mermaid from CDN. Please check your internet connection.
+      </p>
+      <pre class="mermaid" id="diagram">
+gitGraph
+  commit id: "init"
+  branch develop
+  checkout develop
+  commit id: "add login"
+  commit id: "add tests" tag: "v0.1"
+  checkout main
+  commit id: "fix typo" type: HIGHLIGHT
+  merge develop tag: "v1.0"
+  commit id: "release notes"
+      </pre>
+    </main>
+
+    <script>
+      // Render with startOnLoad off, so the adapter can read each diagram's
+      // text before Mermaid replaces it with the drawing; bindMermaid then
+      // renders it and makes it accessible.
+      if (typeof mermaid === 'undefined') {
+        document.getElementById('error').hidden = false;
+      } else {
+        mermaid.initialize({ startOnLoad: false });
+        maidrMermaid.bindMermaid(mermaid);
+      }
+    </script>
+  </body>
+</html>
