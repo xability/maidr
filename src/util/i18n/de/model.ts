@@ -868,4 +868,5 @@ export const model = {
   'model.forestRowStudy': 'Studie',
   'model.extremaMaxDelta': 'Höchstes Delta',
   'model.extremaMinDelta': 'Niedrigstes Delta',
+  'model.dagEdgeLabelled': '{name} ({label})',
 } satisfies Partial<Record<MessageKey, string>>;
