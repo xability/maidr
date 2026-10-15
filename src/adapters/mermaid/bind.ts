@@ -14,6 +14,23 @@ import { createMaidrFromMermaid } from './converter';
 let renderCounter = 0;
 
 /**
+ * A diagram's source as Mermaid's own `run()` reads it from the page: the
+ * common indentation removed and the ends trimmed, so a diagram indented to
+ * sit inside its markup -- and its front matter -- parses as written.
+ *
+ * @param text - The element's text
+ * @returns The source
+ */
+export function sourceOf(text: string): string {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const indents = lines
+    .filter(line => line.trim() !== '')
+    .map(line => line.length - line.trimStart().length);
+  const common = indents.length > 0 ? Math.min(...indents) : 0;
+  return lines.map(line => line.slice(common)).join('\n').trim();
+}
+
+/**
  * Renders one diagram into an element and makes it accessible.
  *
  * @param mermaid - The Mermaid API
@@ -30,7 +47,7 @@ export async function renderMermaid(
   text?: string,
   options: MermaidAdapterOptions = {},
 ): Promise<Maidr> {
-  const source = text ?? element.getAttribute('data-maidr-mermaid-source') ?? element.textContent ?? '';
+  const source = text ?? element.getAttribute('data-maidr-mermaid-source') ?? sourceOf(element.textContent ?? '');
   element.setAttribute('data-maidr-mermaid-source', source);
 
   renderCounter += 1;
