@@ -14,9 +14,9 @@
  * - charts become the chart they are: `pie`, `gantt` (and packet), `point`
  *   (quadrant), `bar` and `line` (XY chart), `radar`, `sankey`, `treemap`,
  *   and a user journey's scores a `line`;
- * - a sequence diagram becomes a `sequence`, a Venn diagram a `venn`, and a
- *   Wardley map a `point` layer of its components with a `directed_graph`
- *   of their dependencies.
+ * - a sequence diagram -- Mermaid's own or ZenUML's -- becomes a `sequence`,
+ *   a Venn diagram a `venn`, and a Wardley map a `point` layer of its
+ *   components with a `directed_graph` of their dependencies.
  */
 
 import type { Maidr } from '@type/grammar';
@@ -76,13 +76,14 @@ export function supportedMermaidDiagrams(): string[] {
  * @param diagram - The parsed diagram: its type and database
  * @param diagram.type - The diagram type Mermaid detected
  * @param diagram.db - The diagram's database
+ * @param diagram.text - The text it was parsed from
  * @param svg - The SVG Mermaid rendered from the same text
  * @param options - Figure options
  * @returns The MAIDR figure
  * @throws Error when the diagram type is not one the adapter reads
  */
 export function convertMermaidDiagram(
-  diagram: { type: string; db: unknown },
+  diagram: { type: string; db: unknown; text?: string },
   svg: SVGSVGElement,
   options: MermaidAdapterOptions = {},
 ): Maidr {
@@ -101,6 +102,7 @@ export function convertMermaidDiagram(
   const id = options.id ?? svg.id;
   const context: DiagramContext = {
     db: diagram.db,
+    ...(diagram.text === undefined ? {} : { text: diagram.text }),
     svg,
     svgId: svg.id,
     layerId: suffix => `${id}-${suffix}`,
@@ -158,5 +160,9 @@ export async function createMaidrFromMermaid(
   // between parses, and another diagram on the page parsing in between
   // would replace what this one read.
   const title = options.title ?? frontMatterTitle(text);
-  return convertMermaidDiagram(diagram, svg, title === undefined ? options : { ...options, title });
+  return convertMermaidDiagram(
+    { type: diagram.type, db: diagram.db, text: diagram.text ?? text },
+    svg,
+    title === undefined ? options : { ...options, title },
+  );
 }

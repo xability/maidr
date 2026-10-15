@@ -258,6 +258,7 @@ export const TITLES = {
   // One page per Mermaid diagram type.
   'mermaid/flowchart.html': 'Flowchart',
   'mermaid/sequence.html': 'Sequence Diagram',
+  'mermaid/zenuml.html': 'ZenUML Sequence Diagram',
   'mermaid/class.html': 'Class Diagram',
   'mermaid/state.html': 'State Diagram',
   'mermaid/er.html': 'Entity Relationship Diagram',
@@ -491,6 +492,7 @@ export const PAGE_TYPES = {
   'uplot/live.html': ['line'],
   'mermaid/flowchart.html': ['directed_graph'],
   'mermaid/sequence.html': ['sequence'],
+  'mermaid/zenuml.html': ['sequence'],
   'mermaid/class.html': ['directed_graph'],
   'mermaid/state.html': ['directed_graph'],
   'mermaid/er.html': ['directed_graph'],
