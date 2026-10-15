@@ -14,6 +14,7 @@ import type {
   TreemapPoint,
   VennPoint,
 } from '@type/grammar';
+import { sourceOf } from '@adapters/mermaid/bind';
 import { convertMermaidDiagram, createMaidrFromMermaid, frontMatterTitle, supportedMermaidDiagrams } from '@adapters/mermaid/converter';
 import { plain } from '@adapters/mermaid/read';
 import { describe, expect, it } from '@jest/globals';
@@ -167,6 +168,12 @@ describe('the converter', () => {
   });
 });
 
+describe('the source of a diagram on the page', () => {
+  it('is dedented and trimmed, as Mermaid\'s run() reads it, so front matter still parses', () => {
+    expect(sourceOf('\n      ---\n      title: Pets\n      ---\n      pie\n        "Dogs" : 3\n    ')).toBe('---\ntitle: Pets\n---\npie\n  "Dogs" : 3');
+  });
+});
+
 describe('labels', () => {
   it('are read as a reader should hear them', () => {
     expect(plain('can fly<br>can swim')).toBe('can fly can swim');
@@ -199,7 +206,8 @@ describe('a flowchart', () => {
   };
   // The drawing's counters ran on from a different parse, as they do.
   const markup = ['A-7', 'B-8', 'C-9', 'F-10']
-    .map(id => `<g class="node" id="f-flowchart-${id}"></g>`).join('');
+    .map(id => `<g class="node" id="f-flowchart-${id}"></g>`)
+    .join('');
 
   it('becomes a directed graph with the subgraph as a scope', () => {
     const layer = layersOf(convert('flowchart-v2', db, drawn('f', markup)))[0];
@@ -323,9 +331,10 @@ describe('a sequence diagram', () => {
       { id: '8', type: 5, from: 'B', to: 'S', message: 'ping' },
     ],
   };
-  const markup = ['0', '2', '4', '8']
-    .map(id => `<line data-et="message" data-id="i${id}"></line>`).join('')
-    + '<g data-et="note" data-id="i7"></g>';
+  const markup = `${['0', '2', '4', '8']
+    .map(id => `<line data-et="message" data-id="i${id}"></line>`)
+    .join('')
+  }<g data-et="note" data-id="i7"></g>`;
 
   it('reads participants, kinds, fragments and sequence numbers', () => {
     const layer = layersOf(convert('sequence', db, drawn('s', markup)))[0];
