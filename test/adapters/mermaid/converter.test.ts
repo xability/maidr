@@ -186,6 +186,8 @@ describe('labels', () => {
     expect(plain('**bold** and `code`')).toBe('bold and code');
     expect(plain({ text: 'C4 wraps labels' })).toBe('C4 wraps labels');
     expect(plain(undefined)).toBe('');
+    // Markup nested to survive a single pass of a tag pattern is still taken out.
+    expect(plain('<scr<b>ipt>alert(1)</scr</b>ipt>')).not.toMatch(/<script/i);
   });
 });
 
