@@ -390,6 +390,25 @@ describe('the modalities read the tree by depth', () => {
 
     expect(braille.values).toEqual([[150, 1577], [67, 83, 125, 1400, 52]]);
   });
+
+  test('braille shows a tree with no magnitudes by its shape rather than blank', () => {
+    // An org chart sums to zero everywhere, and a zero is a blank cell: the
+    // display stayed empty however the reader moved. Each cell is the node's
+    // child count plus one instead.
+    const braille = nonEmptyState(treemap([
+      { x: 'CEO' },
+      { x: 'CTO', path: ['CEO'] },
+      { x: 'CFO', path: ['CEO'] },
+      { x: 'Dev', path: ['CEO', 'CTO'] },
+    ])).braille;
+    if (braille.empty) {
+      throw new Error('Expected a populated braille state');
+    }
+
+    expect(braille.values).toEqual([[3], [2, 1], [1]]);
+    expect(braille.min).toEqual([3, 1, 1]);
+    expect(braille.max).toEqual([3, 2, 1]);
+  });
 });
 
 describe('the same tree, drawn three ways', () => {
