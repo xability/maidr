@@ -528,6 +528,24 @@ export class TreemapTrace extends AbstractTrace {
   }
 
   protected get braille(): BrailleState {
+    if (!this.valued) {
+      // A tree that declares no magnitude -- an org chart, a mindmap -- sums
+      // to zero everywhere, and a zero is a blank cell: the display stayed
+      // empty however the reader moved. Its shape is what it has, so each
+      // cell is the node's child count plus one, a leaf the lowest dot and a
+      // node with many children the tallest, scaled per level as the
+      // magnitudes are.
+      const shape = this.nodes.map(level => level.map(node => (node?.children.length ?? 0) + 1));
+      return {
+        empty: false,
+        id: this.id,
+        values: shape,
+        min: shape.map(level => MathUtil.safeMin(level)),
+        max: shape.map(level => MathUtil.safeMax(level)),
+        row: this.row,
+        col: this.col,
+      };
+    }
     return {
       empty: false,
       id: this.id,
