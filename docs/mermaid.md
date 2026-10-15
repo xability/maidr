@@ -72,7 +72,7 @@ The title comes from the diagram's `title` (or its front matter), and the captio
 
 ## Supported Diagram Types
 
-Every diagram type in Mermaid 12 is read. Several become a type MAIDR already had; two -- sequence and Venn diagrams -- were given trace types of their own, because nothing else reads order in time or set membership.
+Every diagram type in Mermaid 12 is read, and ZenUML through its plugin. Several become a type MAIDR already had; two -- sequence and Venn diagrams -- were given trace types of their own, because nothing else reads order in time or set membership.
 
 ### Stable chart types
 
@@ -92,6 +92,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 |---------|-----------------|-------------------|
 | Flowchart [experimental] | `flowchart`, `graph` | a `directed_graph`: steps, subgraphs as scopes, each arrow by its label, a node's shape when it means something (decision, database) |
 | Sequence diagram [experimental] | `sequenceDiagram` | a `sequence`: messages in time, lifelines, fragments, notes and sequence numbers |
+| ZenUML sequence diagram [experimental] | `zenuml` (with the `@mermaid-js/mermaid-zenuml` plugin) | a `sequence`: sync, async, creation and reply messages, nested calls and their fragments |
 | Class diagram [experimental] | `classDiagram` | a `directed_graph`: classes with their attributes and methods; inheritance, composition and aggregation with cardinalities; namespaces as scopes |
 | State diagram [experimental] | `stateDiagram-v2` | a `directed_graph`: states joined by their events, composite states and concurrent regions as scopes, start and end named |
 | Entity relationship diagram [experimental] | `erDiagram` | a `directed_graph`: entities with their attributes and keys, each relationship by its verb and both cardinalities |
@@ -118,7 +119,18 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Treemap [experimental] | `treemap-beta` | a `treemap` of sections and sized items |
 | Venn diagram [experimental] | `venn-beta` | a `venn`: the sets, then their overlaps by depth, each with its name, size and the items written in it |
 
-ZenUML (`zenuml`) is a separate Mermaid plugin that draws HTML rather than SVG, and is not read.
+ZenUML (`zenuml`) is drawn by a separate Mermaid plugin that keeps no diagram database -- ZenUML parses its own text -- so the adapter reads the text itself, following the grammar Mermaid documents for ZenUML. Register the plugin with Mermaid before binding:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@mermaid-js/mermaid-zenuml@1.0.1/dist/mermaid-zenuml.min.js"></script>
+<script>
+  const zenuml = window.__esbuild_esm_mermaid_nm['mermaid-zenuml'];
+  mermaid.registerExternalDiagrams([zenuml.default ?? zenuml]).then(() => {
+    mermaid.initialize({ startOnLoad: false });
+    maidrMermaid.bindMermaid(mermaid);
+  });
+</script>
+```
 
 ### What the adapter reads, not the drawing
 
@@ -344,11 +356,11 @@ The highlight outlines the shape Mermaid drew for the point the reader is on: a 
 - **Mermaid's diagram databases are internal.** The adapter reads them through guarded getters, so a Mermaid release that changes one degrades to fewer details rather than an error; the examples are pinned to Mermaid 12.2.0 and should be checked when upgrading.
 - **A diagram must be rendered from its text.** Diagrams Mermaid already rendered with `startOnLoad` have lost their text; render them with `bindMermaid` instead.
 - **Scatter layers have no braille.** The quadrant chart and the Wardley map's components are `point` layers, which MAIDR does not draw on a braille display.
-- **ZenUML** is not read; see [Supported Diagram Types](#supported-diagram-types).
+- **ZenUML is read from its text.** Its plugin parses ZenUML itself and keeps nothing the adapter could read, so the adapter follows the documented grammar; a construct outside it is passed over rather than misread.
 
 ## Examples
 
-One runnable page per diagram type, under [`examples/mermaid/`](https://github.com/xability/maidr/tree/main/examples/mermaid) and in the [examples gallery](examples.html): flowchart, sequence, class, state, ER, requirement, use case, C4, block, architecture, git graph, event model, swimlane, agent flow, mindmap, kanban, tree view, Ishikawa, timeline, railroad, Cynefin, pie, gantt, packet, quadrant, XY chart, radar, sankey, treemap, user journey, Venn and Wardley map.
+One runnable page per diagram type, under [`examples/mermaid/`](https://github.com/xability/maidr/tree/main/examples/mermaid) and in the [examples gallery](examples.html): flowchart, sequence, ZenUML, class, state, ER, requirement, use case, C4, block, architecture, git graph, event model, swimlane, agent flow, mindmap, kanban, tree view, Ishikawa, timeline, railroad, Cynefin, pie, gantt, packet, quadrant, XY chart, radar, sankey, treemap, user journey, Venn and Wardley map.
 
 ## Keyboard Controls
 

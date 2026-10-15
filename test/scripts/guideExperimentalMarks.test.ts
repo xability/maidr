@@ -447,7 +447,7 @@ const GUIDES: Record<string, Guide> = {
   'mermaid': {
     heading: '## Supported Diagram Types',
     column: 0,
-    minRows: { stable: 5, experimental: 27 },
+    minRows: { stable: 5, experimental: 28 },
     examples: { after: '## Code Examples', before: '## Highlighting', level: '###', min: 13 },
     labels: {
       // Named by the Mermaid diagram, read as the MAIDR layer it becomes.
@@ -457,6 +457,7 @@ const GUIDES: Record<string, Guide> = {
       'wardley map': ['point', 'directed_graph'],
       'flowchart': ['directed_graph'],
       'sequence diagram': ['sequence'],
+      'zenuml sequence diagram': ['sequence'],
       'class diagram': ['directed_graph'],
       'state diagram': ['directed_graph'],
       'entity relationship diagram': ['directed_graph'],

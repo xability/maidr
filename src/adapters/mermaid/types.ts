@@ -16,6 +16,8 @@ export interface MermaidDiagram {
   type: string;
   /** The diagram's database: what the parser read, by diagram type. */
   db: unknown;
+  /** The text the diagram was parsed from. */
+  text?: string;
 }
 
 /** What `mermaid.render` resolves to. */
@@ -54,6 +56,11 @@ export interface MermaidAdapterOptions {
 export interface DiagramContext {
   /** The diagram's database. Read only through the guards in `read.ts`. */
   db: unknown;
+  /**
+   * The diagram's text, for the one diagram whose plugin keeps no database
+   * (ZenUML).
+   */
+  text?: string;
   /** The rendered diagram. */
   svg: SVGSVGElement;
   /** The id Mermaid prefixed the diagram's element ids with. */

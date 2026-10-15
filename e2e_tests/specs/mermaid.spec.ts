@@ -8,15 +8,16 @@ import { expect, test } from '@playwright/test';
  * E2E coverage for the Mermaid adapter (`maidr/mermaid`).
  *
  * Drives the examples under `examples/mermaid/`, one per diagram type, which
- * load Mermaid from jsdelivr and the adapter from `dist/mermaid.js`. The CDN
- * request is served from `node_modules/mermaid/dist` so the spec needs no
- * network, and every page runs the real Mermaid: the parse the adapter reads
+ * load Mermaid (and, for ZenUML, its plugin) from jsdelivr and the adapter
+ * from `dist/mermaid.js`. The CDN requests are served from `node_modules` so
+ * the spec needs no network, and every page runs the real Mermaid: the parse the adapter reads
  * and the SVG it pairs the reading with are Mermaid's own. Requires a built
  * core and adapter (`node scripts/build.js core mermaid`).
  */
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const mermaidDist = path.join(repoRoot, 'node_modules/mermaid/dist');
+const zenumlDist = path.join(repoRoot, 'node_modules/@mermaid-js/mermaid-zenuml/dist');
 
 const TEXT = '#maidr-text-container';
 const FOCUS_TARGET = '[id^="maidr-figure-"] [tabindex="0"]';
@@ -30,6 +31,7 @@ const BRAILLE_CELLS = /^[\u2800-\u28FF\n]+$/;
 const PAGES: Record<string, string[]> = {
   flowchart: ['directed_graph'],
   sequence: ['sequence'],
+  zenuml: ['sequence'],
   class: ['directed_graph'],
   state: ['directed_graph'],
   er: ['directed_graph'],
@@ -72,14 +74,19 @@ test.use({ timezoneId: 'UTC', locale: 'en-US' });
  * @param name - The example's file name, without `.html`
  */
 async function openExample(page: Page, name: string): Promise<void> {
-  await page.route('https://cdn.jsdelivr.net/npm/mermaid@*/dist/*', async (route) => {
-    const file = path.join(mermaidDist, path.basename(new URL(route.request().url()).pathname));
-    await route.fulfill({
-      body: fs.readFileSync(file),
-      contentType: 'text/javascript',
-      headers: { 'access-control-allow-origin': '*' },
+  for (const [pattern, dist] of [
+    ['https://cdn.jsdelivr.net/npm/mermaid@*/dist/*', mermaidDist],
+    ['https://cdn.jsdelivr.net/npm/@mermaid-js/mermaid-zenuml@*/dist/*', zenumlDist],
+  ]) {
+    await page.route(pattern, async (route) => {
+      const file = path.join(dist, path.basename(new URL(route.request().url()).pathname));
+      await route.fulfill({
+        body: fs.readFileSync(file),
+        contentType: 'text/javascript',
+        headers: { 'access-control-allow-origin': '*' },
+      });
     });
-  });
+  }
   await page.goto(`examples/mermaid/${name}.html`);
   const target = page.locator(FOCUS_TARGET).first();
   await target.waitFor({ state: 'attached', timeout: 15000 });
@@ -188,6 +195,18 @@ test.describe('Mermaid adapter', () => {
     expect(duck).toContain('Animal (inherits from)');
     expect(duck).toContain('Methods is public swim(); public quack()');
     expect(duck).toContain('Note is can fly and swim');
+  });
+
+  test('reads a ZenUML diagram from its text, nested calls and replies included', async ({ page }) => {
+    await openExample(page, 'zenuml');
+    await press(page, 'ArrowRight');
+    const nested = await press(page, 'ArrowRight');
+    expect(nested).toContain('Message is check(seat)');
+    expect(nested).toContain('Route is API to Store');
+
+    const reply = await press(page, 'ArrowRight');
+    expect(reply).toContain('Route is Store to API');
+    expect(reply).toContain('Kind is reply');
   });
 
   test('reads a gantt chart\'s tasks as dates with their status', async ({ page }) => {

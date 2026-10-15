@@ -9,6 +9,7 @@ import * as graphs from './diagrams/graphs';
 import * as hierarchies from './diagrams/hierarchies';
 import * as interactions from './diagrams/interactions';
 import * as unified from './diagrams/unified';
+import { zenuml } from './diagrams/zenuml';
 
 export const DIAGRAM_CONVERTERS: Record<string, DiagramConverter> = {
   // Boxes and arrows.
@@ -55,4 +56,6 @@ export const DIAGRAM_CONVERTERS: Record<string, DiagramConverter> = {
   'sequence': interactions.sequence,
   'venn': interactions.venn,
   'wardley': interactions.wardley,
+  // ZenUML's plugin keeps no database; its text is read instead.
+  'zenuml': zenuml,
 };
