@@ -435,9 +435,10 @@ describe('an edge label is heard wherever its edge is', () => {
     const trace = graph([
       { id: 'a' },
       { id: 'b', inputs: ['a', 'a', 'a'], inputLabels: ['yes', 'retry', 'yes'] },
+      { id: 'c', inputs: ['a', 'a'], inputLabels: ['yes, maybe', 'maybe'] },
     ]);
 
-    expect(aside(trace, 'To')).toBe('b (yes, retry)');
+    expect(aside(trace, 'To')).toBe('b (yes, retry), c (yes, maybe, maybe)');
   });
 
   test('fewer labels than inputs leaves the rest unnamed', () => {

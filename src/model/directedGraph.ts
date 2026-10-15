@@ -261,7 +261,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     const successors: number[][] = points.map(() => []);
     const predecessors: number[][] = points.map(() => []);
     const seen = new Set<string>();
-    const labels = new Map<string, string>();
+    const named = new Map<string, string[]>();
     let edges = 0;
     points.forEach((point, to) => {
       (point.inputs ?? []).forEach((input, slot) => {
@@ -271,11 +271,9 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
         }
         const key = `${from}>${to}`;
         const label = String(point.inputLabels?.[slot] ?? '').trim();
-        const known = labels.get(key);
-        if (label !== '' && known === undefined) {
-          labels.set(key, label);
-        } else if (label !== '' && known !== undefined && !known.split(', ').includes(label)) {
-          labels.set(key, `${known}, ${label}`);
+        const known = named.get(key) ?? [];
+        if (label !== '' && !known.includes(label)) {
+          named.set(key, [...known, label]);
         }
         if (seen.has(key)) {
           return;
@@ -286,6 +284,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
         edges++;
       });
     });
+    const labels = new Map<string, string>();
+    named.forEach((names, key) => labels.set(key, names.join(', ')));
     return { successors, predecessors, edges, labels };
   }
 
