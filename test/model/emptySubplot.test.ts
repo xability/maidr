@@ -165,6 +165,7 @@ describe('a figure whose every panel is empty', () => {
   // Bug: the instruction tells the reader to press ENTER on subplots that
   // all refuse it. It is the figure-of-subplots one, where a figure whose
   // only panel is empty is told it has nothing to describe.
+  // #1429: every panel empty still gets the enter-a-subplot instruction.
   test.failing('says it has nothing to describe, not to enter its subplots', () => {
     const context = new Context(createFigureOfEmptyPanels());
 

@@ -222,6 +222,7 @@ describe('pre-activation name', () => {
   // controller, so this is all a reader hears -- and it tells them to move
   // between subplots and press ENTER, which does nothing. The count of
   // subplots wins over the absence of layers.
+  // #1429: every panel empty still gets the navigate-subplots instruction.
   test.failing('says a figure whose every panel is empty has nothing to describe', () => {
     const empty = { layers: [] };
 
