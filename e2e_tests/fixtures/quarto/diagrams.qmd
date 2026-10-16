@@ -1,0 +1,38 @@
+---
+title: "Quarto diagrams"
+format:
+  html:
+    include-in-header:
+      - text: |
+          <script src="dist/maidr.js"></script>
+          <script src="dist/mermaid.js"></script>
+          <script src="dist/graphviz.js"></script>
+---
+
+```{mermaid}
+%%| label: fig-flow
+%%| fig-cap: "A flow"
+flowchart LR
+  A[Order] --> B{Stock?}
+  B -->|yes| C[Pack]
+  B -->|no| D[Back-order]
+```
+
+```{mermaid}
+sequenceDiagram
+  Alice->>Bob: Hello
+  Bob-->>Alice: Hi
+```
+
+```{mermaid}
+pie title Pets
+  "Dogs" : 386
+  "Cats" : 85
+```
+
+```{dot}
+digraph G {
+  a -> b -> c;
+  a -> c [label="skip"];
+}
+```

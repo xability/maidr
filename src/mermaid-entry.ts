@@ -1,3 +1,10 @@
+import { bindMermaid, renderMermaid } from './adapters/mermaid/bind';
+import {
+  convertMermaidDiagram,
+  createMaidrFromMermaid,
+  supportedMermaidDiagrams,
+} from './adapters/mermaid/converter';
+import { watchQuartoMermaid } from './adapters/mermaid/quarto';
 /**
  * Mermaid adapter entry point for MAIDR.
  *
@@ -7,12 +14,7 @@
  *
  * @packageDocumentation
  */
-import { bindMermaid, renderMermaid } from './adapters/mermaid/bind';
-import {
-  convertMermaidDiagram,
-  createMaidrFromMermaid,
-  supportedMermaidDiagrams,
-} from './adapters/mermaid/converter';
+import { isQuartoPage, whenParsed } from './adapters/shared/quarto';
 
 export { bindMermaid, renderMermaid } from './adapters/mermaid/bind';
 export {
@@ -20,6 +22,7 @@ export {
   createMaidrFromMermaid,
   supportedMermaidDiagrams,
 } from './adapters/mermaid/converter';
+export { watchQuartoMermaid } from './adapters/mermaid/quarto';
 export type {
   MermaidAdapterOptions,
   MermaidApi,
@@ -37,7 +40,10 @@ declare global {
       createMaidrFromMermaid: typeof createMaidrFromMermaid;
       convertMermaidDiagram: typeof convertMermaidDiagram;
       supportedMermaidDiagrams: typeof supportedMermaidDiagrams;
+      watchQuartoMermaid: typeof watchQuartoMermaid;
     };
+    /** Set to `false` before the script loads to keep it from starting on a Quarto page. */
+    maidrMermaidAutoInit?: boolean;
   }
 }
 
@@ -50,7 +56,22 @@ if (typeof window !== 'undefined') {
     createMaidrFromMermaid,
     convertMermaidDiagram,
     supportedMermaidDiagrams,
+    watchQuartoMermaid,
   });
+
+  // On a Quarto page the script tag is the whole integration: a `{mermaid}`
+  // cell has nowhere to call a binder from. Anywhere else nothing starts.
+  // A page that loads the bundle twice -- the `maidr` filter in both
+  // `_quarto.yml` and a document -- starts it once.
+  const page = window as Window & { maidrMermaidAutoStarted?: boolean };
+  if (window.maidrMermaidAutoInit !== false && !page.maidrMermaidAutoStarted) {
+    page.maidrMermaidAutoStarted = true;
+    whenParsed(() => {
+      if (isQuartoPage()) {
+        watchQuartoMermaid();
+      }
+    });
+  }
 }
 
 // Re-export core types that consumers may need alongside the adapter.

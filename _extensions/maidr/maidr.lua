@@ -1,15 +1,16 @@
 --[[
-  MAIDR — accessible Observable Plot charts in Quarto documents.
+  MAIDR — accessible charts and diagrams in Quarto documents.
 
-  Adds MAIDR's runtime and its Observable Plot adapter to an HTML document, so
-  every chart an `{ojs}` cell draws with Plot becomes navigable by keyboard,
+  Adds MAIDR's runtime and three of its adapters to an HTML document, so that
+  every chart an `{ojs}` cell draws with Observable Plot, every `{mermaid}`
+  diagram and every `{dot}` (Graphviz) diagram becomes navigable by keyboard,
   sonifiable, and readable as text or braille.
 
-  The adapter watches the page rather than being called, which is what makes
-  this a filter and not an API: an `{ojs}` cell's value *is* the chart, so
-  there is nowhere in the cell for a binding call to go. Loading the two
-  scripts is the whole integration, and cells that redraw when a reader moves
-  a `viewof` input are picked up as they redraw.
+  The adapters watch the page rather than being called, which is what makes
+  this a filter and not an API: none of those cells has anywhere for a binding
+  call to go. Loading the scripts is the whole integration. `{ojs}` cells that
+  redraw when a reader moves a `viewof` input are picked up as they redraw,
+  and `{mermaid}` cells as Quarto draws them once the page has loaded.
 
   Usage, in a document's YAML header or in `_quarto.yml`:
 
@@ -74,7 +75,8 @@ end
 
 --- Injects the runtime and the adapter into the document head.
 -- Only HTML formats get them: the scripts do nothing in a PDF or a Word
--- document, and Quarto only runs OJS cells for HTML in the first place.
+-- document, and Quarto only runs OJS cells, and draws `{mermaid}` cells in
+-- the page, for HTML in the first place.
 -- @param meta the document metadata
 -- @return nil, leaving the metadata unchanged
 function Meta(meta)
@@ -87,6 +89,8 @@ function Meta(meta)
   quarto.doc.include_text('in-header', table.concat({
     script_tag(base .. '/maidr.js'),
     script_tag(base .. '/observable.js'),
+    script_tag(base .. '/mermaid.js'),
+    script_tag(base .. '/graphviz.js'),
   }, '\n'))
 
   return nil

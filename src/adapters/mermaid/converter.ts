@@ -106,7 +106,7 @@ export function convertMermaidDiagram(
     db: diagram.db,
     ...(diagram.text === undefined ? {} : { text: diagram.text }),
     svg,
-    svgId: svg.id,
+    svgId: options.idPrefix ?? svg.id,
     layerId: suffix => `${id}-${suffix}`,
   };
   // A diagram with nothing in it yet -- a gantt with no tasks, a quadrant

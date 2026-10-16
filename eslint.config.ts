@@ -32,6 +32,9 @@ const config: ReturnType<typeof antfu> = antfu({
     // A page as Quarto wrote it, which the fixture has to stay; the HTML
     // formatter cannot parse Quarto's markup.
     'e2e_tests/fixtures/multi-chart/py-quarto-inline.html',
+    // A Quarto render cut down, and Quarto's own mermaid-init.js, kept as
+    // Quarto wrote them; see the comment at the top of diagrams.html.
+    'e2e_tests/fixtures/quarto/',
   ],
   rules: {
     'style/brace-style': ['error', '1tbs'],

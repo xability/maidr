@@ -52,7 +52,7 @@ export function pie(context: DiagramContext): DiagramConversion {
     type: TraceType.PIE,
     axes: { x: { label: 'Section' }, y: { label: 'Value' } },
     ...(slices.length === data.length && data.length > 0
-      ? { selectors: `#${cssEscape(context.svgId)} path.pieCircle` }
+      ? { selectors: `#${cssEscape(context.svg.id)} path.pieCircle` }
       : {}),
     data,
   };
@@ -210,7 +210,7 @@ export function quadrant(context: DiagramContext): DiagramConversion {
       y: { label: yLabel, min: 0, max: 1, tickStep: 0.5 },
     },
     ...(marks.length === data.length && data.length > 0
-      ? { selectors: `#${cssEscape(context.svgId)} g.data-point circle` }
+      ? { selectors: `#${cssEscape(context.svg.id)} g.data-point circle` }
       : {}),
     data,
   };
@@ -258,7 +258,7 @@ export function xychart(context: DiagramContext): DiagramConversion {
         type: TraceType.LINE,
         ...(name ? { name } : {}),
         axes,
-        ...(path.length === 1 ? { selectors: [`#${cssEscape(context.svgId)} g.line-plot-${index} path`] } : {}),
+        ...(path.length === 1 ? { selectors: [`#${cssEscape(context.svg.id)} g.line-plot-${index} path`] } : {}),
         data,
       });
     } else {
@@ -304,7 +304,7 @@ export function radar(context: DiagramContext): DiagramConversion {
       y: { label: 'Value', ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) },
     },
     ...(paths.every(Boolean) && paths.length > 0
-      ? { selectors: curves.map((_, at) => `#${cssEscape(context.svgId)} .radarCurve-${at}`) }
+      ? { selectors: curves.map((_, at) => `#${cssEscape(context.svg.id)} .radarCurve-${at}`) }
       : {}),
     data,
   };

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+  A page as Quarto 1.10.19 renders a document with {mermaid} and {dot} cells,
+  cut down to what the diagrams need: the generator meta Quarto writes,
+  Quarto's Mermaid runtime (libs/quarto-diagram/mermaid-init.js), and the
+  cells exactly as Quarto wrote them. The MAIDR
+  bundles are added the way the `maidr` filter adds them, in the head.
+
+  Quarto loads its own copy of Mermaid from libs/quarto-diagram/mermaid.min.js;
+  the spec serves the one in node_modules there instead of vendoring 2.7 MB.
+  Its mermaid-init.js is vendored unchanged as mermaid-init.js.txt, and the
+  spec serves it at mermaid-init.js: it is Quarto's code, kept as data, so
+  the repository's own checks do not read it as maidr's source.
+
+  Regenerate by rendering e2e_tests/fixtures/quarto/diagrams.qmd with
+  `quarto render` and copying the <main> element and the generator meta.
+-->
+<head>
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+<title>Quarto diagrams</title>
+<script src="../../../dist/maidr.js"></script>
+<script src="../../../dist/mermaid.js"></script>
+<script src="../../../dist/graphviz.js"></script>
+<script src="libs/quarto-diagram/mermaid.min.js"></script>
+<script src="libs/quarto-diagram/mermaid-init.js"></script>
+</head>
+<body>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Quarto diagrams</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-flow" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<pre class="mermaid mermaid-js" data-label="fig-flow">flowchart LR
+  A[Order] --&gt; B{Stock?}
+  B --&gt;|yes| C[Pack]
+  B --&gt;|no| D[Back-order]
+</pre>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: A flow
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">sequenceDiagram
+  Alice-&gt;&gt;Bob: Hello
+  Bob--&gt;&gt;Alice: Hi
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">pie title Pets
+  "Dogs" : 386
+  "Cats" : 85
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<svg width="672" height="480" viewbox="0.00 0.00 109.00 190.00" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" style="; max-width: none; max-height: none">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 186)">
+<title>G</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-186 105,-186 105,4 -4,4"></polygon>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<ellipse fill="none" stroke="black" cx="74" cy="-164" rx="27" ry="18"></ellipse>
+<text text-anchor="middle" x="74" y="-159.8" font-family="Times,serif" font-size="14.00">a</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<ellipse fill="none" stroke="black" cx="27" cy="-91" rx="27" ry="18"></ellipse>
+<text text-anchor="middle" x="27" y="-86.8" font-family="Times,serif" font-size="14.00">b</text>
+</g>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a-&gt;b</title>
+<path fill="none" stroke="black" d="M63.57,-147.24C57.55,-138.14 49.84,-126.5 43.06,-116.26"></path>
+<polygon fill="black" stroke="black" points="45.84,-114.12 37.4,-107.71 40,-117.98 45.84,-114.12"></polygon>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<ellipse fill="none" stroke="black" cx="58" cy="-18" rx="27" ry="18"></ellipse>
+<text text-anchor="middle" x="58" y="-13.8" font-family="Times,serif" font-size="14.00">c</text>
+</g>
+<!-- a&#45;&gt;c -->
+<g id="edge3" class="edge">
+<title>a-&gt;c</title>
+<path fill="none" stroke="black" d="M72.1,-145.92C69.36,-121.23 64.26,-75.35 61,-46.04"></path>
+<polygon fill="black" stroke="black" points="64.48,-45.61 59.9,-36.06 57.52,-46.39 64.48,-45.61"></polygon>
+<text text-anchor="middle" x="78.67" y="-86.8" font-family="Times,serif" font-size="14.00">skip</text>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b-&gt;c</title>
+<path fill="none" stroke="black" d="M34.19,-73.53C37.95,-64.93 42.63,-54.21 46.84,-44.56"></path>
+<polygon fill="black" stroke="black" points="50.06,-45.94 50.85,-35.38 43.64,-43.14 50.06,-45.94"></polygon>
+</g>
+</g>
+</svg>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+
+</main>
+</body>
+</html>
