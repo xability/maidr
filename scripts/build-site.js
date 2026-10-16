@@ -82,6 +82,7 @@ const PAGE_DESCRIPTIONS = {
   'observable': 'How to make Observable Plot charts accessible with MAIDR: one binding for bar, histogram, scatter, line, area and faceted plots, and for Quarto OJS cells.',
   'echarts': 'How to make Apache ECharts accessible with MAIDR: support for bar, stacked bar, dodged bar, line, area, step, and scatter series.',
   'frappe': 'How to make Frappe Charts accessible with MAIDR: support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
+  'graphviz': 'How to make Graphviz diagrams accessible with MAIDR: directed graphs drawn by dot, Quarto {dot} cells, DiagrammeR or a WebAssembly build, read from the SVG alone.',
   'uplot': 'How to make uPlot and Grafana-style time-series charts accessible with MAIDR: line, bar and scatter series, time axes, and live streaming.',
   'victory': 'How to make Victory charts accessible with MAIDR: support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
   'mui-x-charts': 'How to make MUI X Charts accessible with MAIDR: bar, line, scatter, pie, sparkline, gauge, radar, and the Pro heatmap, funnel and sankey charts.',
@@ -314,6 +315,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{AMCHARTS_ACTIVE\}\}/g, () => activePage === 'amcharts' ? 'active' : '')
     .replace(/\{\{ECHARTS_ACTIVE\}\}/g, () => activePage === 'echarts' ? 'active' : '')
     .replace(/\{\{FRAPPE_ACTIVE\}\}/g, () => activePage === 'frappe' ? 'active' : '')
+    .replace(/\{\{GRAPHVIZ_ACTIVE\}\}/g, () => activePage === 'graphviz' ? 'active' : '')
     .replace(/\{\{UPLOT_ACTIVE\}\}/g, () => activePage === 'uplot' ? 'active' : '')
     .replace(/\{\{OBSERVABLE_ACTIVE\}\}/g, () => activePage === 'observable' ? 'active' : '')
     .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')

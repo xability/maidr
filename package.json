@@ -85,6 +85,11 @@
       "import": "./dist/echarts.mjs",
       "default": "./dist/echarts.js"
     },
+    "./graphviz": {
+      "types": "./dist/graphviz.d.mts",
+      "import": "./dist/graphviz.mjs",
+      "default": "./dist/graphviz.js"
+    },
     "./frappe": {
       "types": "./dist/frappe.d.mts",
       "import": "./dist/frappe.mjs",

@@ -270,6 +270,23 @@ export const builds = [
     },
   },
   {
+    name: 'graphviz',
+    entry: 'src/graphviz-entry.ts',
+    libName: 'maidrGraphviz',
+    amdName: 'maidr/graphviz',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'graphviz.mjs' : 'graphviz.js',
+    emptyOutDir: false,
+    // Graphviz is never imported: the adapter reads the SVG it drew.
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
     name: 'frappe',
     entry: 'src/frappe-entry.ts',
     libName: 'maidrFrappe',
