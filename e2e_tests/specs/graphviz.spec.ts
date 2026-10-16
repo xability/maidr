@@ -14,7 +14,7 @@ import { normalizeText } from '../utils/text';
  */
 
 /** Every braille cell MAIDR can emit lives in the Unicode braille block. */
-const BRAILLE_CELL = /^[\u2800-⣿]+$/;
+const BRAILLE_CELL = /^\p{Script=Braille}+$/u;
 
 /** The outline MAIDR draws over the node the reader is on. */
 const OUTLINE = '[data-maidr-graphviz-node][data-maidr-owned]:not([visibility="hidden"])';
