@@ -204,3 +204,38 @@ test.describe('Graphviz adapter, clusters', () => {
     expect(normalizeText(await plot.getInstructionText())).toContain('Component is Backend');
   });
 });
+
+test.describe('Graphviz adapter, patchwork treemap', () => {
+  /** The outline MAIDR draws over the branch or leaf the reader is on. */
+  const CELL = '[data-maidr-graphviz-cell][data-maidr-owned]:not([visibility="hidden"])';
+
+  test.beforeEach(async ({ page }) => {
+    await new GraphvizPage(page).navigateToPlot('patchwork');
+  });
+
+  test('should announce each branch with the areas of its leaves added up', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToDataPointBelow();
+
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('Item is people');
+    expect(announcement).toContain('Area is 65');
+    expect(announcement).toContain('Children is 2');
+    await expect(page.locator(`${CELL} title`)).toHaveText('cluster_people');
+  });
+
+  test('should open a branch onto its leaves, each with its area', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToDataPointBelow();
+    await plot.moveToDataPointBelow();
+
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('Item is Salaries');
+    expect(announcement).toContain('Area is 60');
+    await expect(page.locator(`${CELL} title`)).toHaveText('salaries');
+  });
+});

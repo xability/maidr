@@ -292,6 +292,7 @@ export const TITLES = {
   'graphviz/digraph.html': 'Directed Graph',
   'graphviz/clusters.html': 'Directed Graph with Clusters',
   'graphviz/network.html': 'Network',
+  'graphviz/patchwork.html': 'Treemap (patchwork)',
   'uplot/live.html': 'Live Streaming Line',
   'google-charts-gauge-map.html': 'Gauges and Maps',
   'google-charts-marks.html': 'Dot, Lollipop, Funnel, Diverging and Waterfall',
@@ -529,6 +530,7 @@ export const PAGE_TYPES = {
   'graphviz/digraph.html': ['directed_graph'],
   'graphviz/clusters.html': ['directed_graph'],
   'graphviz/network.html': ['network'],
+  'graphviz/patchwork.html': ['treemap'],
   'vegalite-bindbox-horizontal.html': ['box'],
   'vegalite-hconcat-box.html': ['box'],
 };

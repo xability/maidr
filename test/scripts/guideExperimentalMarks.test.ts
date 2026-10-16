@@ -493,6 +493,7 @@ const GUIDES: Record<string, Guide> = {
     labels: {
       // Clusters are the directed graph's scopes, not a type of their own.
       'directed graph with clusters': ['directed_graph'],
+      'treemap (patchwork)': ['treemap'],
     },
   },
   'uplot': {
