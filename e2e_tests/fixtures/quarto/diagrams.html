@@ -3,12 +3,15 @@
 <!--
   A page as Quarto 1.10.19 renders a document with {mermaid} and {dot} cells,
   cut down to what the diagrams need: the generator meta Quarto writes,
-  Quarto's Mermaid runtime (libs/quarto-diagram/mermaid-init.js, vendored
-  unchanged), and the cells exactly as Quarto wrote them. The MAIDR
+  Quarto's Mermaid runtime (libs/quarto-diagram/mermaid-init.js), and the
+  cells exactly as Quarto wrote them. The MAIDR
   bundles are added the way the `maidr` filter adds them, in the head.
 
   Quarto loads its own copy of Mermaid from libs/quarto-diagram/mermaid.min.js;
   the spec serves the one in node_modules there instead of vendoring 2.7 MB.
+  Its mermaid-init.js is vendored unchanged as mermaid-init.js.txt, and the
+  spec serves it at mermaid-init.js: it is Quarto's code, kept as data, so
+  the repository's own checks do not read it as maidr's source.
 
   Regenerate by rendering e2e_tests/fixtures/quarto/diagrams.qmd with
   `quarto render` and copying the <main> element and the generator meta.

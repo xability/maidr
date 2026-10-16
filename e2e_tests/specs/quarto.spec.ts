@@ -17,20 +17,28 @@ import { expect, test } from '@playwright/test';
 
 const mermaidDist = path.resolve('node_modules/mermaid/dist');
 
+/** Quarto's own `mermaid-init.js`, vendored unchanged and kept as data. */
+const quartoInit = path.resolve('e2e_tests/fixtures/quarto/libs/quarto-diagram/mermaid-init.js.txt');
+
 const FOCUS_TARGET = '[id^="maidr-figure-"] [tabindex="0"]';
 const TEXT = '#maidr-text-container';
 const BRAILLE = 'textarea[id^="maidr-braille-textarea-"]';
 const HIGHLIGHT = '[id^="maidr-highlight"]';
 
 /**
- * Opens the page, serving Quarto's copy of Mermaid from node_modules, and
- * waits for every diagram to be bound.
+ * Opens the page, serving Quarto's copy of Mermaid from node_modules and its
+ * Mermaid runtime from the vendored copy, and waits for every diagram to be
+ * bound.
  *
  * @param page - The page
  */
 async function openQuartoPage(page: Page): Promise<void> {
   await page.route('**/libs/quarto-diagram/mermaid.min.js', route => route.fulfill({
     body: fs.readFileSync(path.join(mermaidDist, 'mermaid.min.js')),
+    contentType: 'text/javascript',
+  }));
+  await page.route('**/libs/quarto-diagram/mermaid-init.js', route => route.fulfill({
+    body: fs.readFileSync(quartoInit),
     contentType: 'text/javascript',
   }));
   await page.goto('e2e_tests/fixtures/quarto/diagrams.html');
