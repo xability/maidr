@@ -73,11 +73,8 @@ describe('the Mermaid point layers on a braille display', () => {
 
     const braille = gridBraille(layer);
 
-    expect(braille.empty).toBe(false);
-    if (!braille.empty && 'values' in braille) {
-      // Bottom row first: A bottom left; B and C top right.
-      expect(braille.values).toEqual([[1, 0], [0, 2]]);
-    }
+    // Bottom row first: A bottom left; B and C top right.
+    expect(braille).toMatchObject({ empty: false, values: [[1, 0], [0, 2]] });
   });
 
   it('reads a Wardley map as a count per stage of evolution', () => {
@@ -95,14 +92,14 @@ describe('the Mermaid point layers on a braille display', () => {
 
     const braille = gridBraille(layer);
 
-    expect(braille.empty).toBe(false);
-    if (!braille.empty && 'values' in braille) {
-      expect(braille.values).toEqual([
+    expect(braille).toMatchObject({
+      empty: false,
+      values: [
         [0, 0, 0, 0],
         [0, 1, 0, 0],
         [0, 0, 0, 1],
         [0, 0, 1, 0],
-      ]);
-    }
+      ],
+    });
   });
 });
