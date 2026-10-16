@@ -13,6 +13,15 @@ import { createMaidrFromMermaid } from './converter';
 
 let renderCounter = 0;
 
+/** The attribute holding the source a diagram was rendered from. */
+const SOURCE = 'data-maidr-mermaid-source';
+
+/**
+ * The attribute holding the source a diagram failed on, so that
+ * {@link bindMermaid} does not try it again until the source changes.
+ */
+const FAILED = 'data-maidr-mermaid-failed';
+
 /**
  * A diagram's source as Mermaid's own `run()` reads it from the page: the
  * common indentation removed and the ends trimmed, so a diagram indented to
@@ -28,6 +37,27 @@ export function sourceOf(text: string): string {
     .map(line => line.length - line.trimStart().length);
   const common = indents.length > 0 ? Math.min(...indents) : 0;
   return lines.map(line => line.slice(common)).join('\n').trim();
+}
+
+/**
+ * The source a diagram is rendered from: the text an earlier render recorded
+ * on the element, or else the element's own text.
+ *
+ * @param element - The element holding the diagram
+ * @returns The source
+ */
+function sourceOfElement(element: Element): string {
+  return element.getAttribute(SOURCE) ?? sourceOf(element.textContent ?? '');
+}
+
+/**
+ * Names an element for a console message: its id, or its tag.
+ *
+ * @param element - The element
+ * @returns The name
+ */
+function nameOf(element: Element): string {
+  return element.id ? `#${element.id}` : `a <${element.tagName.toLowerCase()}>`;
 }
 
 /**
@@ -47,8 +77,8 @@ export async function renderMermaid(
   text?: string,
   options: MermaidAdapterOptions = {},
 ): Promise<Maidr> {
-  const source = text ?? element.getAttribute('data-maidr-mermaid-source') ?? sourceOf(element.textContent ?? '');
-  element.setAttribute('data-maidr-mermaid-source', source);
+  const source = text ?? sourceOfElement(element);
+  element.setAttribute(SOURCE, source);
 
   renderCounter += 1;
   const id = element.id ? `${element.id}-svg` : `maidr-mermaid-svg-${renderCounter}`;
@@ -73,6 +103,11 @@ export async function renderMermaid(
  * Mermaid's diagram databases are shared between parses. A diagram that
  * fails is reported on the console and left as Mermaid drew it -- or as text
  * when Mermaid could not -- and the rest are still made accessible.
+ *
+ * Calling it again is safe: a diagram already made accessible is skipped,
+ * and so is one that failed, which is tried again only once its source --
+ * the `data-maidr-mermaid-source` attribute, or the element's text when that
+ * attribute is removed -- changes.
  *
  * @param mermaid - The Mermaid API
  * @param selector - Which elements hold diagram source. Defaults to `.mermaid`
@@ -102,10 +137,20 @@ export async function bindMermaid(
     if (element.querySelector('svg[maidr]') !== null) {
       continue;
     }
+    const source = sourceOfElement(element);
+    if (element.getAttribute(FAILED) === source) {
+      continue;
+    }
     try {
-      figures.push(await renderMermaid(mermaid, element));
+      figures.push(await renderMermaid(mermaid, element, source));
+      element.removeAttribute(FAILED);
     } catch (error) {
-      console.error('[maidr/mermaid] Could not make a diagram accessible.', error);
+      element.setAttribute(FAILED, source);
+      console.error(
+        `[maidr/mermaid] Could not make the diagram in ${nameOf(element)} accessible; `
+        + 'it is not tried again until its text changes.',
+        error,
+      );
     }
   }
   return figures;

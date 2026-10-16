@@ -350,6 +350,8 @@ The highlight outlines the shape Mermaid drew for the point the reader is on: a 
 
 `bindMermaid(mermaid, selector = '.mermaid', root = document)` renders and binds every matching element and resolves to the figures it made. A diagram that fails to parse or convert is reported on the console and left as Mermaid drew it; the others are still bound.
 
+`bindMermaid` can be called again, for instance after adding diagrams to the page, and touches only what it has not handled yet. A diagram it already bound is skipped. So is a diagram that failed: it is reported once, marked with a `data-maidr-mermaid-failed` attribute holding the text it failed on, and not rendered again until that text changes. To retry it with new text, set the element's `data-maidr-mermaid-source` attribute to the new text, or replace the element's text and remove that attribute.
+
 `supportedMermaidDiagrams()` lists the Mermaid diagram type names the adapter reads.
 
 ## Limitations
