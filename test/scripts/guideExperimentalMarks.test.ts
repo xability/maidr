@@ -490,7 +490,10 @@ const GUIDES: Record<string, Guide> = {
     column: 0,
     minRows: { stable: 0, experimental: 1 },
     examples: { after: '## Code Examples', before: '## Quarto', level: '###', min: 1 },
-    labels: {},
+    labels: {
+      // Clusters are the directed graph's scopes, not a type of their own.
+      'directed graph with clusters': ['directed_graph'],
+    },
   },
   'uplot': {
     heading: '## Supported Series',

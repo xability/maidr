@@ -8,9 +8,9 @@ import { normalizeText } from '../utils/text';
 /**
  * E2E coverage for the Graphviz adapter (`maidr/graphviz`).
  *
- * Drives `examples/graphviz/digraph.html`, whose SVG Graphviz drew ahead of
- * time as a Quarto `{dot}` cell does, so the spec needs no Graphviz and no
- * network. Requires a built adapter bundle (`node scripts/build.js graphviz`).
+ * Drives `examples/graphviz/digraph.html` and `examples/graphviz/clusters.html`,
+ * whose SVGs Graphviz drew ahead of time as a Quarto `{dot}` cell does, so the
+ * spec needs no Graphviz and no network. Requires a built adapter bundle (`node scripts/build.js graphviz`).
  */
 
 /** Every braille cell MAIDR can emit lives in the Unicode braille block. */
@@ -31,9 +31,12 @@ class GraphvizPage extends BasePage {
     chatModal: TestConstants.MAIDR_CHAT_MODAL,
   };
 
-  /** Navigates to the directed graph example. */
-  public async navigateToPlot(): Promise<void> {
-    await super.navigateTo('examples/graphviz/digraph.html');
+  /**
+   * Navigates to one of the examples.
+   * @param example - The example's name under `examples/graphviz/`
+   */
+  public async navigateToPlot(example = 'digraph'): Promise<void> {
+    await super.navigateTo(`examples/graphviz/${example}.html`);
     await super.verifyPlotLoaded(this.selectors.svg);
   }
 
@@ -124,5 +127,47 @@ test.describe('Graphviz adapter', () => {
     await plot.toggleBrailleMode();
 
     expect(await plot.getBrailleContent()).toMatch(BRAILLE_CELL);
+  });
+});
+
+test.describe('Graphviz adapter, clusters', () => {
+  test.beforeEach(async ({ page }) => {
+    await new GraphvizPage(page).navigateToPlot('clusters');
+  });
+
+  test('should meet a cluster as one scope in the order the edges run', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('Component is Backend');
+    expect(announcement).toContain('4 nodes inside');
+    expect(announcement).toContain('To is Email worker');
+  });
+
+  test('should open nested clusters with down and leave them with up', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Component is API, Path is Backend');
+    await expect(page.locator(`${OUTLINE} title`)).toHaveText('api');
+
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Path is Backend > Data');
+    await expect(page.locator(`${OUTLINE} title`)).toHaveText('db');
+
+    await plot.moveToDataPointAbove();
+    await plot.moveToDataPointAbove();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Component is Backend');
   });
 });

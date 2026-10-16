@@ -36,7 +36,30 @@ export interface GraphvizNode {
    * `shape=point`.
    */
   label: string;
+  /**
+   * The clusters the node is drawn inside, by their labels, outermost first.
+   * Empty for a node outside every cluster.
+   */
+  path: string[];
   /** The node's group. */
+  element: Element;
+}
+
+/** One cluster Graphviz drew: a `<g class="cluster">`, a `subgraph cluster_*`. */
+export interface GraphvizCluster {
+  /** The subgraph's name in the DOT source, such as `cluster_build`. */
+  name: string;
+  /**
+   * What the cluster is called: its drawn label, or, when it draws none, its
+   * name without the `cluster` prefix Graphviz requires.
+   */
+  label: string;
+  /**
+   * The labels of the clusters it is drawn inside, outermost first. Empty
+   * for a cluster at the top level.
+   */
+  path: string[];
+  /** The cluster's group. */
   element: Element;
 }
 
@@ -64,6 +87,8 @@ export interface GraphvizGraph {
   label?: string;
   /** Every node, in drawing order. */
   nodes: GraphvizNode[];
+  /** Every cluster, in drawing order, which puts each before those inside it. */
+  clusters: GraphvizCluster[];
   /** Every edge between two of those nodes, in drawing order. */
   edges: GraphvizEdge[];
 }

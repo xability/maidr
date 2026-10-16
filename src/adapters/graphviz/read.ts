@@ -10,9 +10,16 @@
  * the `dot` command, the WebAssembly build Quarto and d3-graphviz use, viz.js
  * and R's DiagrammeR -- so the adapter reads the drawing alone and needs no
  * DOT parser.
+ *
+ * A cluster is a `<g class="cluster">`, but its nodes are not drawn inside
+ * it: every group is a sibling in the graph group. What puts a node in a
+ * cluster is that the cluster's outline is drawn around it, so membership is
+ * read from where each was drawn.
  */
 
-import type { GraphvizEdge, GraphvizGraph, GraphvizNode } from './types';
+import type { Bounds } from './geometry';
+import type { GraphvizCluster, GraphvizEdge, GraphvizGraph, GraphvizNode } from './types';
+import { areaOf, boundsOf, contains } from './geometry';
 
 /**
  * An element's own `<title>` child: Graphviz titles the group, not a
@@ -144,7 +151,80 @@ export function splitEdgeTitle(
 }
 
 /**
- * Reads a Graphviz drawing's nodes and edges.
+ * What a cluster that draws no label is called: its name without the
+ * `cluster` prefix Graphviz requires of it (`cluster_build` is `build`).
+ *
+ * @param name - The subgraph's name
+ * @returns The name to announce
+ */
+function clusterName(name: string): string {
+  return name.replace(/^cluster[\s_-]*/i, '') || name;
+}
+
+/**
+ * The clusters drawn around a point, outermost first.
+ *
+ * Graphviz never lets two clusters overlap unless one holds the other, so
+ * every cluster whose outline holds the point holds it, and the larger of
+ * two holds the smaller.
+ *
+ * @param x - The point's x
+ * @param y - The point's y
+ * @param outlines - Each cluster with its outline
+ * @returns The clusters holding the point
+ */
+function clustersAround(
+  x: number,
+  y: number,
+  outlines: { cluster: GraphvizCluster; bounds: Bounds }[],
+): GraphvizCluster[] {
+  return outlines
+    .filter(({ bounds }) => contains(bounds, x, y))
+    .sort((a, b) => areaOf(b.bounds) - areaOf(a.bounds))
+    .map(({ cluster }) => cluster);
+}
+
+/**
+ * The centre of an element's box, or null when it draws nothing.
+ *
+ * @param element - A node or cluster group
+ * @param shapesOnly - Whether to leave its text out
+ * @returns The centre
+ */
+function centreOf(element: Element, shapesOnly = false): [number, number] | null {
+  const bounds = boundsOf(element, shapesOnly);
+  return bounds === null ? null : [(bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2];
+}
+
+/**
+ * Puts each node and cluster inside the clusters drawn around it.
+ *
+ * @param nodes - The nodes, whose paths are filled in
+ * @param clusters - The clusters, whose paths are filled in
+ */
+function nestInClusters(nodes: GraphvizNode[], clusters: GraphvizCluster[]): void {
+  const outlines = clusters.flatMap((cluster) => {
+    const bounds = boundsOf(cluster.element, true);
+    return bounds === null ? [] : [{ cluster, bounds }];
+  });
+  for (const cluster of clusters) {
+    const centre = centreOf(cluster.element, true);
+    if (centre !== null) {
+      cluster.path = clustersAround(centre[0], centre[1], outlines)
+        .filter(around => around !== cluster)
+        .map(around => around.label);
+    }
+  }
+  for (const node of nodes) {
+    const centre = centreOf(node.element);
+    if (centre !== null) {
+      node.path = clustersAround(centre[0], centre[1], outlines).map(around => around.label);
+    }
+  }
+}
+
+/**
+ * Reads a Graphviz drawing's nodes, clusters and edges.
  *
  * @param svg - The drawing
  * @returns What it shows
@@ -157,14 +237,19 @@ export function readGraphviz(svg: Element): GraphvizGraph {
   }
 
   const nodes: GraphvizNode[] = [];
+  const clusters: GraphvizCluster[] = [];
   const edgeGroups: Element[] = [];
   const labelTexts: Element[] = [];
   for (const child of graph.children) {
     if (isGroup(child, 'node')) {
       const name = ownTitle(child);
       if (name !== null) {
-        nodes.push({ name, label: textOf(child.querySelectorAll('text')), element: child });
+        nodes.push({ name, label: textOf(child.querySelectorAll('text')), path: [], element: child });
       }
+    } else if (isGroup(child, 'cluster')) {
+      const name = ownTitle(child) ?? '';
+      const label = textOf(child.querySelectorAll('text')) || clusterName(name);
+      clusters.push({ name, label, path: [], element: child });
     } else if (isGroup(child, 'edge')) {
       edgeGroups.push(child);
     } else if (child.localName === 'text') {
@@ -173,6 +258,8 @@ export function readGraphviz(svg: Element): GraphvizGraph {
       labelTexts.push(child);
     }
   }
+
+  nestInClusters(nodes, clusters);
 
   const names = new Set(nodes.map(node => node.name));
   const edges: GraphvizEdge[] = [];
@@ -186,5 +273,5 @@ export function readGraphviz(svg: Element): GraphvizGraph {
   }
 
   const label = textOf(labelTexts);
-  return { ...(label ? { label } : {}), nodes, edges };
+  return { ...(label ? { label } : {}), nodes, clusters, edges };
 }

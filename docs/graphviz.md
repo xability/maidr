@@ -38,7 +38,10 @@ Graphviz's SVG is regular: the graph is a `<g class="graph">`, each node a `<g c
 
 - **nodes**, in drawing order, each announced by the text drawn on it. A node drawn with no text, such as `shape=point`, is announced by its name;
 - **edges**, each pointing from the node it leaves to the node it arrives at, with the text drawn on it (its `label`, and any `xlabel`, `headlabel` and `taillabel`) as the edge's label;
+- **clusters** (`subgraph cluster_*`), each by its drawn label, or by its name without the `cluster` prefix when it draws none;
 - **the graph's `label`**, as the figure's title.
+
+Graphviz draws a cluster's nodes beside the cluster's group, not inside it, so what puts a node in a cluster is the outline drawn around it: the adapter reads each node's position from the drawing's own coordinates and puts it inside every cluster whose outline holds it.
 
 Each node is paired with its own group in the drawing, so the node the reader is on is outlined. Graphviz numbers its groups `node1`, `node2`, ... afresh in every drawing, so the adapter marks each group with `data-maidr-graphviz-node` and gives the SVG an id when it has none: two graphs on one page are kept apart.
 
@@ -53,6 +56,7 @@ None yet. Every graph type below is experimental.
 | Graph | MAIDR type | What the reader moves through |
 |-------|-----------|-------------------------------|
 | Directed Graph [experimental] | `directed_graph` | A `digraph`: nodes in the order the edges run, each announcing the nodes feeding it and fed by it, with the edges' labels. |
+| Directed Graph with Clusters [experimental] | `directed_graph` | A `digraph` with `subgraph cluster_*` blocks: each cluster is a scope the reader opens with Down and leaves with Up, nested as the clusters are. |
 
 An undirected `graph` is not read yet: `createMaidrFromGraphviz` throws on one rather than giving its links a direction, and `bindGraphviz` reports it on the console and leaves it as drawn.
 
@@ -93,6 +97,36 @@ maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { nodeLabel: 'Ste
 ```
 
 `nodeLabel` names what a node is on this graph, so MAIDR says "Step" where it would otherwise say "Node".
+
+#### Directed Graph with Clusters [experimental]
+
+Each cluster becomes a scope of the directed graph, named by its label. The reader meets a cluster as one item in the order the edges run, hears how many nodes are inside it, opens it with Down to walk its nodes, and leaves it with Up. Clusters nest as they are drawn: below, `Data` is a scope inside `Backend`.
+
+```dot
+digraph Services {
+  label="Checkout service";
+  node [shape=box];
+  browser [label="Browser"];
+  subgraph cluster_backend {
+    label="Backend";
+    api [label="API"];
+    payments [label="Payments"];
+    subgraph cluster_data {
+      label="Data";
+      db [label="Orders DB"];
+      cache [label="Cache"];
+    }
+  }
+  worker [label="Email worker"];
+  browser -> api;
+  api -> payments;
+  api -> cache [label="read"];
+  api -> db [label="write"];
+  db -> worker;
+}
+```
+
+The node the reader is on is outlined; a cluster is not, since MAIDR derives a scope from its nodes rather than from a drawn element. A cluster announces the label Graphviz drew on it. In DOT a subgraph inherits its parent's `label` unless it sets its own, so a cluster inside a labelled graph draws -- and is announced by -- the graph's label; give it `label=""` to draw none and have it called by its name instead.
 
 ## Quarto
 

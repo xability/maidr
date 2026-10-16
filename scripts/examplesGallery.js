@@ -290,6 +290,7 @@ export const TITLES = {
   'mermaid/venn.html': 'Venn Diagram',
   'mermaid/wardley.html': 'Wardley Map',
   'graphviz/digraph.html': 'Directed Graph',
+  'graphviz/clusters.html': 'Directed Graph with Clusters',
   'uplot/live.html': 'Live Streaming Line',
   'google-charts-gauge-map.html': 'Gauges and Maps',
   'google-charts-marks.html': 'Dot, Lollipop, Funnel, Diverging and Waterfall',
@@ -525,6 +526,7 @@ export const PAGE_TYPES = {
   'mermaid/venn.html': ['venn'],
   'mermaid/wardley.html': ['point', 'directed_graph'],
   'graphviz/digraph.html': ['directed_graph'],
+  'graphviz/clusters.html': ['directed_graph'],
   'vegalite-bindbox-horizontal.html': ['box'],
   'vegalite-hconcat-box.html': ['box'],
 };
