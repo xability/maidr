@@ -154,6 +154,30 @@ describe('watchQuartoMermaid', () => {
     }
   });
 
+  it('waits for a slow draw to go still before binding what it has drawn', async () => {
+    jest.useFakeTimers();
+    try {
+      quartoPage([{ text: PIE }, { text: PIE }, { text: PIE }]);
+      const parsed = pageMermaid();
+
+      stop = watchQuartoMermaid();
+      window.dispatchEvent(new Event('load'));
+      await quartoDraws({}, 1);
+      await jest.advanceTimersByTimeAsync(1500);
+      await quartoDraws({}, 1);
+      await jest.advanceTimersByTimeAsync(1500);
+
+      // Three seconds after load, but drawing moved 1.5 s ago: nothing yet.
+      expect(parsed).toEqual([]);
+
+      await jest.advanceTimersByTimeAsync(1000);
+
+      expect(document.querySelectorAll('svg[maidr]')).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('marks a cell it cannot read and still binds the others', async () => {
     quartoPage([{ text: 'broken' }, { text: PIE }]);
     const parsed = pageMermaid();

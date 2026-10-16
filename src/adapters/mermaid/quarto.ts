@@ -26,7 +26,10 @@ const RENDER_ID = 'data-maidr-mermaid-render-id';
 /** Set on a cell whose drawing could not be made accessible. */
 const FAILED = 'data-maidr-mermaid-failed';
 
-/** How long after the page loads to bind whatever Quarto has drawn by then. */
+/**
+ * How long Quarto's drawing must have been still, after the page has loaded,
+ * before whatever it has drawn is bound anyway.
+ */
 const SETTLE_MS = 2000;
 
 /** The cells Quarto has yet to draw. */
@@ -119,9 +122,15 @@ export function watchQuartoMermaid(root: ParentNode = document): () => void {
   let stopped = false;
   let running = false;
   let again = false;
+  let loaded = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  const observer = new MutationObserver(() => schedule(false));
+  const observer = new MutationObserver(() => {
+    schedule(false);
+    if (loaded) {
+      settle();
+    }
+  });
 
   const stop = (): void => {
     stopped = true;
@@ -175,8 +184,21 @@ export function watchQuartoMermaid(root: ParentNode = document): () => void {
     void run(force);
   }
 
-  function onLoad(): void {
+  /**
+   * Binds what is drawn once Quarto's drawing has been still for a while: a
+   * slow draw keeps moving the moment on, so the forced pass never parses
+   * while Quarto is still parsing.
+   */
+  function settle(): void {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
     timer = setTimeout(() => schedule(true), SETTLE_MS);
+  }
+
+  function onLoad(): void {
+    loaded = true;
+    settle();
   }
 
   if (root.querySelector(`[${SOURCE}]`) === null) {
