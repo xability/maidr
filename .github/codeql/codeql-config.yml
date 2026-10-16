@@ -12,3 +12,6 @@ paths-ignore:
   - '**/node_modules'
   - '**/dist'
   - '**/build'
+  # Quarto's own mermaid-init.js, vendored byte for byte as an e2e fixture so
+  # the spec runs Quarto's real draw loop; it is never built or shipped.
+  - 'e2e_tests/fixtures/quarto/libs'

@@ -154,6 +154,29 @@ describe('watchQuartoMermaid', () => {
     }
   });
 
+  it('marks a cell it cannot read and still binds the others', async () => {
+    quartoPage([{ text: 'broken' }, { text: PIE }]);
+    const parsed = pageMermaid();
+    const mermaid = (window as Window & { mermaid?: MermaidApi }).mermaid as MermaidApi;
+    const parse = mermaid.mermaidAPI.getDiagramFromText;
+    mermaid.mermaidAPI.getDiagramFromText = async (text) => {
+      if (text === 'broken') {
+        throw new Error('no diagram');
+      }
+      return parse(text);
+    };
+
+    stop = watchQuartoMermaid();
+    await quartoDraws({});
+    await settle();
+
+    const drawings = [...document.querySelectorAll('svg.mermaid-js')];
+    expect(drawings.map(svg => svg.hasAttribute('maidr'))).toEqual([false, true]);
+    expect(drawings[0].parentElement?.hasAttribute('data-maidr-mermaid-failed')).toBe(true);
+    expect(parsed).toEqual([PIE]);
+    expect(errors).toHaveBeenCalledTimes(1);
+  });
+
   it('does nothing on a page without `{mermaid}` cells', async () => {
     document.body.innerHTML = '<svg id="other"></svg>';
     const parsed = pageMermaid();
