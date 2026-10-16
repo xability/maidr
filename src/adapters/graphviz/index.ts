@@ -25,4 +25,4 @@
 export { bindGraphviz, renderGraphviz } from './bind';
 export { createMaidrFromGraphviz } from './converter';
 export { isGraphvizSvg, readGraphviz } from './read';
-export type { GraphvizAdapterOptions, GraphvizEdge, GraphvizGraph, GraphvizNode } from './types';
+export type { GraphvizAdapterOptions, GraphvizCluster, GraphvizEdge, GraphvizGraph, GraphvizNode } from './types';

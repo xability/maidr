@@ -16,6 +16,7 @@ export { createMaidrFromGraphviz } from './adapters/graphviz/converter';
 export { isGraphvizSvg, readGraphviz } from './adapters/graphviz/read';
 export type {
   GraphvizAdapterOptions,
+  GraphvizCluster,
   GraphvizEdge,
   GraphvizGraph,
   GraphvizNode,

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Graphviz Clusters Example</title>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/graphviz.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Graphviz Directed Graph with Clusters</h1>
+    <p>Click on the diagram and use the arrow keys to move between parts. A cluster is a group you open with the down arrow and leave with the up arrow. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <!--
+      Drawn ahead of time by Graphviz (dot -Tsvg) from:
+
+      digraph Services {
+        label="Checkout service";
+        node [shape=box];
+        browser [label="Browser"];
+        subgraph cluster_backend {
+          label="Backend";
+          api [label="API"];
+          payments [label="Payments"];
+          subgraph cluster_data {
+            label="Data";
+            db [label="Orders DB"];
+            cache [label="Cache"];
+          }
+        }
+        worker [label="Email worker"];
+        browser -> api;
+        api -> payments;
+        api -> cache [label="read"];
+        api -> db [label="write"];
+        db -> worker;
+      }
+    -->
+    <div id="diagram">
+      <svg width="286pt" height="355pt"
+       viewBox="0.00 0.00 286.00 355.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 351.2)">
+      <title>Services</title>
+      <polygon fill="white" stroke="none" points="-4,4 -4,-351.2 282,-351.2 282,4 -4,4"/>
+      <text xml:space="preserve" text-anchor="middle" x="139" y="-8.2" font-family="Times,serif" font-size="14.00">Checkout service</text>
+      <g id="clust1" class="cluster">
+      <title>cluster_backend</title>
+      <polygon fill="none" stroke="black" points="8,-87.8 8,-284.2 270,-284.2 270,-87.8 8,-87.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="139" y="-267.6" font-family="Times,serif" font-size="14.00">Backend</text>
+      </g>
+      <g id="clust2" class="cluster">
+      <title>cluster_data</title>
+      <polygon fill="none" stroke="black" points="96,-95.8 96,-172.6 262,-172.6 262,-95.8 96,-95.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="179" y="-156" font-family="Times,serif" font-size="14.00">Data</text>
+      </g>
+      <!-- browser -->
+      <g id="node1" class="node">
+      <title>browser</title>
+      <polygon fill="none" stroke="black" points="174.72,-347.2 111.28,-347.2 111.28,-311.2 174.72,-311.2 174.72,-347.2"/>
+      <text xml:space="preserve" text-anchor="middle" x="143" y="-325" font-family="Times,serif" font-size="14.00">Browser</text>
+      </g>
+      <!-- api -->
+      <g id="node2" class="node">
+      <title>api</title>
+      <polygon fill="none" stroke="black" points="170,-251.4 116,-251.4 116,-215.4 170,-215.4 170,-251.4"/>
+      <text xml:space="preserve" text-anchor="middle" x="143" y="-229.2" font-family="Times,serif" font-size="14.00">API</text>
+      </g>
+      <!-- browser&#45;&gt;api -->
+      <g id="edge1" class="edge">
+      <title>browser&#45;&gt;api</title>
+      <path fill="none" stroke="black" d="M143,-311C143,-297.59 143,-278.69 143,-263.02"/>
+      <polygon fill="black" stroke="black" points="146.5,-263.33 143,-253.33 139.5,-263.33 146.5,-263.33"/>
+      </g>
+      <!-- payments -->
+      <g id="node3" class="node">
+      <title>payments</title>
+      <polygon fill="none" stroke="black" points="86.22,-139.8 15.78,-139.8 15.78,-103.8 86.22,-103.8 86.22,-139.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="51" y="-117.6" font-family="Times,serif" font-size="14.00">Payments</text>
+      </g>
+      <!-- api&#45;&gt;payments -->
+      <g id="edge2" class="edge">
+      <title>api&#45;&gt;payments</title>
+      <path fill="none" stroke="black" d="M127.97,-214.94C117.77,-203.05 104.01,-186.93 92,-172.6 85.49,-164.83 78.45,-156.32 72.08,-148.57"/>
+      <polygon fill="black" stroke="black" points="74.98,-146.59 65.93,-141.09 69.57,-151.04 74.98,-146.59"/>
+      </g>
+      <!-- db -->
+      <g id="node4" class="node">
+      <title>db</title>
+      <polygon fill="none" stroke="black" points="181.52,-139.8 104.48,-139.8 104.48,-103.8 181.52,-103.8 181.52,-139.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="143" y="-117.6" font-family="Times,serif" font-size="14.00">Orders DB</text>
+      </g>
+      <!-- api&#45;&gt;db -->
+      <g id="edge4" class="edge">
+      <title>api&#45;&gt;db</title>
+      <path fill="none" stroke="black" d="M143,-215.28C143,-198.24 143,-171.8 143,-151.55"/>
+      <polygon fill="black" stroke="black" points="146.5,-151.68 143,-141.68 139.5,-151.68 146.5,-151.68"/>
+      <text xml:space="preserve" text-anchor="middle" x="157.38" y="-184.8" font-family="Times,serif" font-size="14.00">write</text>
+      </g>
+      <!-- cache -->
+      <g id="node5" class="node">
+      <title>cache</title>
+      <polygon fill="none" stroke="black" points="254,-139.8 200,-139.8 200,-103.8 254,-103.8 254,-139.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="227" y="-117.6" font-family="Times,serif" font-size="14.00">Cache</text>
+      </g>
+      <!-- api&#45;&gt;cache -->
+      <g id="edge3" class="edge">
+      <title>api&#45;&gt;cache</title>
+      <path fill="none" stroke="black" d="M160.35,-215.08C165.56,-209.59 171.18,-203.38 176,-197.4 188.23,-182.21 200.61,-164.18 210.11,-149.65"/>
+      <polygon fill="black" stroke="black" points="212.88,-151.8 215.37,-141.5 207,-148.01 212.88,-151.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="200.07" y="-184.8" font-family="Times,serif" font-size="14.00">read</text>
+      </g>
+      <!-- worker -->
+      <g id="node6" class="node">
+      <title>worker</title>
+      <polygon fill="none" stroke="black" points="189.29,-60.8 96.71,-60.8 96.71,-24.8 189.29,-24.8 189.29,-60.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="143" y="-38.6" font-family="Times,serif" font-size="14.00">Email worker</text>
+      </g>
+      <!-- db&#45;&gt;worker -->
+      <g id="edge5" class="edge">
+      <title>db&#45;&gt;worker</title>
+      <path fill="none" stroke="black" d="M143,-103.33C143,-94.27 143,-82.97 143,-72.66"/>
+      <polygon fill="black" stroke="black" points="146.5,-72.72 143,-62.72 139.5,-72.72 146.5,-72.72"/>
+      </g>
+      </g>
+      </svg>
+      
+    </div>
+
+    <script>
+      maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { nodeLabel: 'Component' });
+    </script>
+  </body>
+</html>

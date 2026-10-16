@@ -3,8 +3,9 @@
  *
  * A `digraph` becomes a `directed_graph` layer: one point per node, each
  * naming the nodes whose edges arrive at it, with the edge's label beside
- * it. Each point is paired with the node's group in the drawing, so the node
- * the reader is on is outlined.
+ * it, and the clusters drawn around it as its path, so each cluster is a
+ * scope the reader opens and closes. Each point is paired with the node's
+ * group in the drawing, so the node the reader is on is outlined.
  *
  * An undirected `graph` becomes a `network` layer: one link per edge, read
  * by degree and by connected group, since a link between two nodes is a fact
@@ -72,6 +73,9 @@ function directedGraphLayer(
     // A node drawn with no text (shape=point) is announced by its name.
     if (node.label !== '' && node.label !== node.name) {
       point.label = node.label;
+    }
+    if (node.path.length > 0) {
+      point.path = node.path;
     }
     const entry = inputs.get(node.name);
     if (entry) {

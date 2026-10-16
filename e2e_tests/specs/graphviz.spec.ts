@@ -8,8 +8,8 @@ import { normalizeText } from '../utils/text';
 /**
  * E2E coverage for the Graphviz adapter (`maidr/graphviz`).
  *
- * Drives `examples/graphviz/digraph.html` and `examples/graphviz/network.html`,
- * whose SVGs Graphviz drew ahead of time as a Quarto `{dot}` cell does, so the
+ * Drives the pages under `examples/graphviz/`, whose SVGs Graphviz drew ahead
+ * of time as a Quarto `{dot}` cell does, so the
  * spec needs no Graphviz and no network. Requires a built adapter bundle (`node scripts/build.js graphviz`).
  */
 
@@ -160,5 +160,47 @@ test.describe('Graphviz adapter, undirected graph', () => {
 
     expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ben');
     await expect(page.locator(`${LINK} title`)).toHaveText('ben--chloe');
+  });
+});
+
+test.describe('Graphviz adapter, clusters', () => {
+  test.beforeEach(async ({ page }) => {
+    await new GraphvizPage(page).navigateToPlot('clusters');
+  });
+
+  test('should meet a cluster as one scope in the order the edges run', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('Component is Backend');
+    expect(announcement).toContain('4 nodes inside');
+    expect(announcement).toContain('To is Email worker');
+  });
+
+  test('should open nested clusters with down and leave them with up', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Component is API, Path is Backend');
+    await expect(page.locator(`${OUTLINE} title`)).toHaveText('api');
+
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Path is Backend > Data');
+    await expect(page.locator(`${OUTLINE} title`)).toHaveText('db');
+
+    await plot.moveToDataPointAbove();
+    await plot.moveToDataPointAbove();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Component is Backend');
   });
 });
