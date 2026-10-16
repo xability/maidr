@@ -62,6 +62,12 @@ function getInitialInstruction(data: MaidrData): string {
   // whatever language is active.
   const clickPrompt = t('model.instructionClickPrompt');
 
+  // No subplot with a layer means no subplot can be entered and no point
+  // read, however many panels there are (#1429).
+  if (subplots.flat().every(subplot => (subplot?.layers.length ?? 0) === 0)) {
+    return t('model.instructionEmptyFigure', { clickPrompt });
+  }
+
   if (subplotCount > 1) {
     return t('model.initialInstructionFigure', { size: subplotCount, clickPrompt });
   }
@@ -69,9 +75,6 @@ function getInitialInstruction(data: MaidrData): string {
   // Single subplot — describe the first layer's trace type.
   const firstSubplot = subplots[0]?.[0];
   const layerCount = firstSubplot?.layers.length ?? 0;
-  if (layerCount === 0) {
-    return t('model.instructionEmptyFigure', { clickPrompt });
-  }
   const firstLayer = firstSubplot?.layers[0];
   const traceType = firstLayer?.type;
 
