@@ -218,12 +218,10 @@ describe('pre-activation name', () => {
     );
   });
 
-  // Bug (#1418): a figure of several panels, every one empty, also gets no
-  // controller, so this is all a reader hears -- and it tells them to move
-  // between subplots and press ENTER, which does nothing. The count of
-  // subplots wins over the absence of layers.
-  // #1429: every panel empty still gets the navigate-subplots instruction.
-  test.failing('says a figure whose every panel is empty has nothing to describe', () => {
+  // A figure of several panels, every one empty, also gets no controller, so
+  // this is all a reader hears; it must not tell them to move between
+  // subplots and press ENTER, which would do nothing (#1429).
+  test('says a figure whose every panel is empty has nothing to describe', () => {
     const empty = { layers: [] };
 
     const { description } = announcementOf({ id: 'all-empty-test', subplots: [[empty, empty], [empty]] });
