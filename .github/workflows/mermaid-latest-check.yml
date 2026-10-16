@@ -73,6 +73,8 @@ jobs:
           npx playwright test --config=e2e_tests/config/test-config.ts --project=chromium e2e_tests/specs/mermaid.spec.ts 2>&1 | tee report.txt
         env:
           CI: true
+          # The report is quoted in the issue; keep colour codes out of it.
+          FORCE_COLOR: '0'
 
       - name: Upload Playwright report
         if: always() && steps.e2e.outcome == 'failure'
@@ -90,6 +92,7 @@ jobs:
         if: failure() || steps.e2e.outcome == 'failure'
         uses: actions/github-script@v7
         env:
+          SPEC_FAILED: ${{ steps.e2e.outcome == 'failure' }}
           MERMAID_VERSION: ${{ steps.latest.outputs.mermaid }}
           ZENUML_VERSION: ${{ steps.latest.outputs.zenuml }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -104,10 +107,19 @@ jobs:
               // in the run.
               report = fs.readFileSync('report.txt', 'utf8').trim().split('\n').slice(-80).join('\n');
             }
-            const title = `chore(mermaid): the Mermaid adapter fails against mermaid@${mermaid}`;
+            // A failed install or build says nothing about the adapter, so it is
+            // not reported as the adapter failing.
+            const specFailed = process.env.SPEC_FAILED === 'true';
+            const title = specFailed
+              ? `chore(mermaid): the Mermaid adapter fails against mermaid@${mermaid}`
+              : `chore(mermaid): the weekly check could not test mermaid@${mermaid}`;
             const body = [
-              `The weekly Mermaid check failed against **mermaid@${mermaid}** and`,
-              `**@mermaid-js/mermaid-zenuml@${zenuml}**, the newest on npm.`,
+              specFailed
+                ? `The weekly Mermaid check failed against **mermaid@${mermaid}** and`
+                : `The weekly Mermaid check could not run its spec against **mermaid@${mermaid}** and`,
+              specFailed
+                ? `**@mermaid-js/mermaid-zenuml@${zenuml}**, the newest on npm.`
+                : `**@mermaid-js/mermaid-zenuml@${zenuml}**: a step before it failed (install or build), so this says nothing yet about the adapter.`,
               '',
               'The adapter reads Mermaid\'s internal diagram databases, which a',
               'Mermaid release may change without notice. Reproduce with',
