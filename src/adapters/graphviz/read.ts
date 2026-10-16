@@ -161,6 +161,13 @@ function clusterName(name: string): string {
   return name.replace(/^cluster[\s_-]*/i, '') || name;
 }
 
+/** A cluster with its outline and where it falls in drawing order. */
+interface Outline {
+  cluster: GraphvizCluster;
+  bounds: Bounds;
+  order: number;
+}
+
 /**
  * The clusters drawn around a point, outermost first.
  *
@@ -173,16 +180,11 @@ function clusterName(name: string): string {
  *
  * @param x - The point's x
  * @param y - The point's y
- * @param outlines - Each cluster with its outline, in drawing order
+ * @param outlines - The outlines that may hold it
  * @returns The clusters holding the point
  */
-function clustersAround(
-  x: number,
-  y: number,
-  outlines: { cluster: GraphvizCluster; bounds: Bounds }[],
-): GraphvizCluster[] {
+function clustersAround(x: number, y: number, outlines: Outline[]): GraphvizCluster[] {
   return outlines
-    .map((outline, order) => ({ ...outline, order }))
     .filter(({ bounds }) => contains(bounds, x, y))
     .sort((a, b) => areaOf(b.bounds) - areaOf(a.bounds) || a.order - b.order)
     .map(({ cluster }) => cluster);
@@ -201,29 +203,67 @@ function centreOf(element: Element, shapesOnly = false): [number, number] | null
 }
 
 /**
+ * Gives each of two or more clusters drawn with the same label inside the
+ * same cluster -- or at the top level -- its name beside the label.
+ *
+ * A path names its scopes by label, so siblings sharing one would be read as
+ * one scope. DOT makes that common: a subgraph inherits its parent's
+ * `label`, so every cluster inside a labelled graph that sets none draws the
+ * graph's label.
+ *
+ * @param clusters - Every cluster
+ * @param parents - The cluster immediately holding each, if any
+ */
+function distinguishSiblings(
+  clusters: GraphvizCluster[],
+  parents: Map<GraphvizCluster, GraphvizCluster | undefined>,
+): void {
+  const groups = new Map<string, GraphvizCluster[]>();
+  for (const cluster of clusters) {
+    const parent = parents.get(cluster);
+    const key = `${parent === undefined ? -1 : clusters.indexOf(parent)}\u0000${cluster.label}`;
+    groups.set(key, [...(groups.get(key) ?? []), cluster]);
+  }
+  for (const siblings of groups.values()) {
+    if (siblings.length > 1) {
+      for (const cluster of siblings) {
+        cluster.label = `${cluster.label} (${clusterName(cluster.name)})`;
+      }
+    }
+  }
+}
+
+/**
  * Puts each node and cluster inside the clusters drawn around it.
  *
+ * A cluster that draws no outline -- `style=invis` draws nothing at all --
+ * holds nothing: a sighted reader sees no group there either.
+ *
  * @param nodes - The nodes, whose paths are filled in
- * @param clusters - The clusters, whose paths are filled in
+ * @param clusters - The clusters, whose labels may be distinguished and
+ *   whose paths are filled in
  */
 function nestInClusters(nodes: GraphvizNode[], clusters: GraphvizCluster[]): void {
-  const outlines = clusters.flatMap((cluster) => {
+  const outlines: Outline[] = clusters.flatMap((cluster, order) => {
     const bounds = boundsOf(cluster.element, true);
-    return bounds === null ? [] : [{ cluster, bounds }];
+    return bounds === null ? [] : [{ cluster, bounds, order }];
   });
+
+  const holders = new Map<GraphvizCluster | GraphvizNode, GraphvizCluster[]>();
   for (const [order, cluster] of clusters.entries()) {
     const centre = centreOf(cluster.element, true);
-    if (centre !== null) {
-      // Only a cluster drawn earlier can hold this one.
-      const earlier = outlines.filter(outline => clusters.indexOf(outline.cluster) < order);
-      cluster.path = clustersAround(centre[0], centre[1], earlier).map(around => around.label);
-    }
+    // Only a cluster drawn earlier can hold this one.
+    const earlier = outlines.filter(outline => outline.order < order);
+    holders.set(cluster, centre === null ? [] : clustersAround(centre[0], centre[1], earlier));
   }
   for (const node of nodes) {
     const centre = centreOf(node.element);
-    if (centre !== null) {
-      node.path = clustersAround(centre[0], centre[1], outlines).map(around => around.label);
-    }
+    holders.set(node, centre === null ? [] : clustersAround(centre[0], centre[1], outlines));
+  }
+
+  distinguishSiblings(clusters, new Map(clusters.map(cluster => [cluster, holders.get(cluster)?.at(-1)])));
+  for (const item of [...clusters, ...nodes]) {
+    item.path = (holders.get(item) ?? []).map(around => around.label);
   }
 }
 

@@ -126,7 +126,7 @@ digraph Services {
 }
 ```
 
-The node the reader is on is outlined; a cluster is not, since MAIDR derives a scope from its nodes rather than from a drawn element. A cluster announces the label Graphviz drew on it. In DOT a subgraph inherits its parent's `label` unless it sets its own, so a cluster inside a labelled graph draws -- and is announced by -- the graph's label; give it `label=""` to draw none and have it called by its name instead.
+The node the reader is on is outlined; a cluster is not, since MAIDR derives a scope from its nodes rather than from a drawn element. A cluster announces the label Graphviz drew on it. In DOT a subgraph inherits its parent's `label` unless it sets its own, so a cluster inside a labelled graph draws -- and is announced by -- the graph's label; give it `label=""` to draw none and have it called by its name instead. Where two clusters side by side draw the same label, each is announced with its name beside it (`Shop (web)`, `Shop (store)`), so they stay two scopes. A cluster drawn with no outline, such as `style=invis`, is not a scope: nothing on the page shows the group.
 
 ## Quarto
 

@@ -6,7 +6,7 @@ import { createMaidrFromGraphviz } from '@adapters/graphviz/converter';
 import { readGraphviz } from '@adapters/graphviz/read';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
-import { coincident, services, spring } from './clusterFixtures';
+import { coincident, inherited, services, spring } from './clusterFixtures';
 
 /** Puts a drawing in the page. */
 function mount(svg: string): SVGSVGElement {
@@ -85,6 +85,19 @@ describe('Graphviz clusters', () => {
       a: ['outer', 'inner'],
       b: ['outer', 'inner'],
       c: [],
+    });
+  });
+
+  test('give siblings drawn with the same label their names, so they stay two scopes', () => {
+    // Both clusters inherit the graph's label, and draw "Shop".
+    const graph = readGraphviz(mount(inherited));
+
+    expect(graph.clusters.map(cluster => cluster.label)).toEqual(['Shop (web)', 'Shop (store)', 'hidden']);
+    expect(Object.fromEntries(graph.nodes.map(node => [node.name, node.path]))).toEqual({
+      x: ['Shop (web)'],
+      y: ['Shop (store)'],
+      // style=invis draws no outline, and a sighted reader sees no group.
+      z: [],
     });
   });
 });
