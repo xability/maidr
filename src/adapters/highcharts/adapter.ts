@@ -75,6 +75,7 @@ import {
   resolveFieldRef,
   warnUnresolvedRef,
 } from '../shared/traceDeclaration';
+import { isJoinedSets } from '../shared/venn';
 import {
   bandAreaSelector,
   barPointSelector,
@@ -4914,22 +4915,33 @@ function convertVennSeries(
   }
   const data: VennPoint[] = points.map((p) => {
     const sets = (p.sets ?? []).map(String);
-    const size = typeof p.value === 'number' ? p.value : (typeof p.y === 'number' ? p.y : undefined);
-    // Highcharts names a region by its sets when the point has no name.
+    // A region's size is its `value` alone. Venn's `pointArrayMap` is
+    // `['value']` and it sets no `pointValKey`, so Highcharts never fills
+    // `point.y`; a `y` an author wrote is copied onto the point untouched but
+    // neither sizes nor draws the region.
+    const size = typeof p.value === 'number' && Number.isFinite(p.value) ? p.value : undefined;
+    // Highcharts names a region the author did not name by its sets joined
+    // with `∩` (`point.options.name || sets.join('∩')`, in `translate`), and
+    // its layout sorts those sets in place first, so the order can differ
+    // from the declared one; only a name of the author's own is kept.
     const name = p.name?.trim();
     return {
       sets,
-      ...(size !== undefined && Number.isFinite(size) ? { size } : {}),
-      ...(name && name !== sets.join('∩') && sets.length > 1 ? { label: name } : {}),
+      ...(size !== undefined ? { size } : {}),
+      ...(name && sets.length > 1 && !isJoinedSets(name, sets) ? { label: name } : {}),
     };
   });
+  // Every region with sets and a numeric `value` is drawn, as one
+  // `.highcharts-point` each, in declared order -- a point without a `value`
+  // fails `VennPoint.isValid` and gets no shape -- so the list pairs only
+  // when nothing was dropped and every point was drawn.
+  const pairs = points.length === series.data.length
+    && points.every(p => typeof p.value === 'number' && Number.isFinite(p.value));
   return {
     id: String(series.index),
     type: TraceType.VENN,
     title: series.name || undefined,
-    // Every declared region is drawn, as one `.highcharts-point` each, in
-    // declared order -- so the list pairs only when nothing was dropped.
-    ...(points.length === series.data.length ? { selectors: pieSelector(containerId, series.index) } : {}),
+    ...(pairs ? { selectors: pieSelector(containerId, series.index) } : {}),
     data,
   };
 }
