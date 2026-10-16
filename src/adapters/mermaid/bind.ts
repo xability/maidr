@@ -40,6 +40,30 @@ export function sourceOf(text: string): string {
 }
 
 /**
+ * A fresh id to render a diagram under, unique on the page.
+ *
+ * Mermaid removes whatever element already has the id it renders under,
+ * prefixes every id inside the drawing with it, and selects with it
+ * unescaped. So the id is built from the element's own -- reduced to
+ * characters a selector takes as they are -- plus a counter that moves on
+ * every render: two elements sharing an id, or one element rendered twice,
+ * never draw under the same id, and one diagram never takes another's
+ * drawing off the page.
+ *
+ * @param element - Where the diagram goes
+ * @returns The id
+ */
+function renderIdFor(element: Element): string {
+  const base = element.id.replace(/[^\w-]+/g, '-').replace(/^[^A-Z]+/i, '') || 'maidr-mermaid';
+  let id: string;
+  do {
+    renderCounter += 1;
+    id = `${base}-svg-${renderCounter}`;
+  } while (document.getElementById(id) !== null);
+  return id;
+}
+
+/**
  * The source a diagram is rendered from: the text an earlier render recorded
  * on the element, or else the element's own text.
  *
@@ -80,9 +104,7 @@ export async function renderMermaid(
   const source = text ?? sourceOfElement(element);
   element.setAttribute(SOURCE, source);
 
-  renderCounter += 1;
-  const id = element.id ? `${element.id}-svg` : `maidr-mermaid-svg-${renderCounter}`;
-  const { svg, bindFunctions } = await mermaid.render(id, source);
+  const { svg, bindFunctions } = await mermaid.render(renderIdFor(element), source);
   element.innerHTML = svg;
   bindFunctions?.(element);
 
