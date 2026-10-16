@@ -128,6 +128,70 @@ describe('down walks a lifeline and keeps the moment', () => {
     expect(state(trace).text.main.value).toBe('user row');
   });
 
+  /**
+   * A relay: A asks B, B asks C, C asks D, twice. No lifeline but D's own
+   * holds the last message, so each row down lands somewhere else -- and a
+   * cursor that took its moment from the row it just left would slide one
+   * message earlier on every move.
+   */
+  const RELAY: SequenceData = {
+    participants: [{ id: 'A' }, { id: 'B' }, { id: 'C' }, { id: 'D' }],
+    messages: [
+      { from: 'A', to: 'B', text: 'a' },
+      { from: 'B', to: 'C', text: 'b' },
+      { from: 'C', to: 'D', text: 'c' },
+      { from: 'A', to: 'B', text: 'd' },
+      { from: 'B', to: 'C', text: 'e' },
+      { from: 'C', to: 'D', text: 'f' },
+    ],
+  };
+
+  test('a run of moves down four lifelines keeps the moment chosen on the first row', () => {
+    const trace = sequence(RELAY);
+    trace.moveToIndex(0, 5);
+
+    const landed = ['DOWNWARD', 'DOWNWARD', 'DOWNWARD', 'DOWNWARD'].map((direction) => {
+      trace.moveOnce(direction as 'DOWNWARD');
+      return state(trace).text.main.value;
+    });
+
+    // A holds only `a` and `d`; B, whose latest is `e`, would read `d` had
+    // the moment drifted to where A landed.
+    expect(landed).toEqual(['d', 'e', 'f', 'f']);
+  });
+
+  test('a run of moves back up keeps the same moment, and the first row returns to it', () => {
+    const trace = sequence(RELAY);
+    trace.moveToIndex(0, 5);
+    for (let at = 0; at < 4; at++) {
+      trace.moveOnce('DOWNWARD');
+    }
+
+    const landed = ['UPWARD', 'UPWARD', 'UPWARD', 'UPWARD'].map((direction) => {
+      trace.moveOnce(direction as 'UPWARD');
+      return state(trace).text.main.value;
+    });
+
+    expect(landed).toEqual(['f', 'e', 'd', 'f']);
+  });
+
+  test('a move along a lifeline sets a new moment that later rows keep', () => {
+    const trace = sequence(RELAY);
+    trace.moveToIndex(0, 5);
+    for (let at = 0; at < 4; at++) {
+      trace.moveOnce('DOWNWARD');
+    }
+    trace.moveOnce('BACKWARD');
+
+    const landed = ['UPWARD', 'UPWARD', 'UPWARD', 'DOWNWARD'].map((direction) => {
+      trace.moveOnce(direction as 'UPWARD' | 'DOWNWARD');
+      return state(trace).text.main.value;
+    });
+
+    // `c` on D's lifeline is the moment now: C holds it, B and A do not.
+    expect(landed).toEqual(['c', 'b', 'a', 'b']);
+  });
+
   test('a participant no message reaches is passed over', () => {
     const trace = sequence();
     trace.moveOnce('DOWNWARD');

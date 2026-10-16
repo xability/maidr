@@ -103,6 +103,79 @@ describe('subplot with no layers', () => {
   });
 });
 
+/**
+ * Several panels, every one of them empty (#1418): a faceted chart whose
+ * facets all came out with nothing a producer could read, or a figure built
+ * before any data arrived.
+ *
+ * The single-panel case above is kept at figure level and told it has
+ * nothing to describe. With more than one panel the figure is still a lobby
+ * of subplots -- each says it is empty, and none can be entered -- but the
+ * instruction it opens with is the one for a figure with something in it.
+ */
+describe('a figure whose every panel is empty', () => {
+  /** Three empty panels in a row. */
+  function createFigureOfEmptyPanels(): Figure {
+    const maidr: Maidr = {
+      id: 'all-empty-panels',
+      subplots: [[{ layers: [] }, { layers: [] }, { layers: [] }]],
+    } as Maidr;
+    return new Figure(maidr);
+  }
+
+  test('starts at figure level without throwing', () => {
+    const figure = createFigureOfEmptyPanels();
+
+    const context = new Context(figure);
+
+    expect(context.state.type).toBe('figure');
+    expect(context.state.empty).toBe(false);
+  });
+
+  test('can be walked panel to panel, each one reading as empty', () => {
+    const figure = createFigureOfEmptyPanels();
+    const context = new Context(figure);
+
+    // The first move enters the lobby on the first panel.
+    const visited = [0, 1, 2].map(() => {
+      const moved = figure.moveOnce('FORWARD');
+      return { moved, state: context.state };
+    });
+
+    expect(visited).toEqual([0, 1, 2].map(() => ({
+      moved: true,
+      state: expect.objectContaining({ type: 'figure', size: 3, subplot: { empty: true, type: 'subplot' } }),
+    })));
+    expect(figure.isMovable('FORWARD')).toBe(false);
+  });
+
+  test('refuses to enter any of its panels', () => {
+    const figure = createFigureOfEmptyPanels();
+    const context = new Context(figure);
+
+    const entered = [0, 1, 2].map((col) => {
+      figure.moveToIndex(0, col);
+      return context.enterSubplot();
+    });
+
+    expect(entered).toEqual([false, false, false]);
+    expect(context.state.type).toBe('figure');
+  });
+
+  // Bug: the instruction tells the reader to press ENTER on subplots that
+  // all refuse it. It is the figure-of-subplots one, where a figure whose
+  // only panel is empty is told it has nothing to describe.
+  test.failing('says it has nothing to describe, not to enter its subplots', () => {
+    const context = new Context(createFigureOfEmptyPanels());
+
+    const instruction = context.getInstruction(false);
+
+    expect(instruction).toBe(
+      'This is a maidr plot with nothing in it to describe yet: it has no data points. ',
+    );
+  });
+});
+
 describe('TextService wording for a panel with no layers', () => {
   /** A lobby state focused on a panel that contributed no trace types. */
   function emptyPanelLobbyState(): PlotState {
