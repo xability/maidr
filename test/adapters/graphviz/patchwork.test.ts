@@ -3,12 +3,12 @@
  */
 import type { TreemapPoint } from '@type/grammar';
 import { createMaidrFromGraphviz } from '@adapters/graphviz/converter';
-import { afterEach, describe, expect, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import { coincident } from './clusterFixtures';
 import { pipeline } from './fixtures';
-import { disk } from './patchworkFixtures';
+import { disk, large } from './patchworkFixtures';
 
 /** Puts a drawing in the page. */
 function mount(svg: string): SVGSVGElement {
@@ -78,5 +78,30 @@ describe('a graph the patchwork layout drew', () => {
     const layer = createMaidrFromGraphviz(mount(pipeline)).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.DIRECTED_GRAPH);
+  });
+
+  test('recovers the area attribute at any size, whatever size= the graph was drawn at', () => {
+    // size="1,1" scales the drawing from outside the graph's coordinates.
+    const layer = createMaidrFromGraphviz(mount(large), { layout: 'patchwork' }).subplots[0][0].layers[0];
+
+    expect((layer.data as TreemapPoint[]).map(point => [point.x, point.y])).toEqual([
+      ['big', 12345],
+      ['mid', 1234],
+      ['small', 0.5],
+      ['odd', 60.25],
+    ]);
+  });
+
+  test('warns about a node that drew no rectangle, rather than reading it as nothing', () => {
+    const svg = mount(disk);
+    svg.querySelector('g.node polygon')?.remove();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const layer = createMaidrFromGraphviz(svg, { layout: 'patchwork' }).subplots[0][0].layers[0];
+
+    expect((layer.data as TreemapPoint[]).find(point => point.x === 'docs')?.y).toBe(0);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('1 node (docs) drew no rectangle');
+    warn.mockRestore();
   });
 });

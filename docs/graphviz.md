@@ -173,7 +173,7 @@ graph Budget {
 maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { layout: 'patchwork', nodeLabel: 'Item' });
 ```
 
-Each leaf's value is its `area`, read back from its rectangle -- patchwork draws one unit of `area` as 1000 square points -- to three significant figures, and MAIDR adds each branch up from its leaves and tells the reader every item's share of its branch and of the whole. Patchwork draws no cluster labels, so a branch is called by its name without the `cluster` prefix: `people`, `infrastructure`. Every branch and leaf is outlined when the reader is on it.
+Each leaf's value is its `area`, read back from its rectangle -- patchwork draws one unit of `area` as 1000 square points, whatever `size` the graph is drawn at -- rounded to the precision Graphviz's coordinates allow, so `area=60.25` and `area=12345` come back as written, and MAIDR adds each branch up from its leaves and tells the reader every item's share of its branch and of the whole. Patchwork draws no cluster labels, so a branch is called by its name without the `cluster` prefix: `people`, `infrastructure`. Every branch and leaf is outlined when the reader is on it.
 
 ## Quarto
 

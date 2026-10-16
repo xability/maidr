@@ -18,10 +18,11 @@
  */
 
 import type { DirectedGraphPoint, Maidr, MaidrLayer, NetworkPoint, TreemapPoint } from '@type/grammar';
+import type { Bounds } from './geometry';
 import type { GraphvizAdapterOptions, GraphvizGraph } from './types';
 import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { TraceType } from '@type/grammar';
-import { areaOf, boundsOf } from './geometry';
+import { boundsOf } from './geometry';
 import { readGraphviz } from './read';
 
 /** The attribute each node's group is marked with, by its index. */
@@ -113,14 +114,34 @@ const CELL_MARK = 'data-maidr-graphviz-cell';
 const PATCHWORK_SCALE = 1000;
 
 /**
+ * The `area` a patchwork rectangle was drawn for.
+ *
+ * Graphviz writes each corner to two decimals, so each side is known to
+ * within a hundredth of a point, and the area to within the sum of the
+ * sides over a hundred. The value is rounded to the decimal place that
+ * bound reaches -- a hundredth for a small node, a tenth for one in the
+ * thousands -- where the rounding actually seen stays well inside half a
+ * step, so `area=60.25` and `area=12345` both come back as written.
+ *
+ * @param bounds - The rectangle
+ * @returns Its area, in the units of the `area` attribute
+ */
+function patchworkArea(bounds: Bounds): number {
+  const width = bounds.maxX - bounds.minX;
+  const height = bounds.maxY - bounds.minY;
+  const error = ((width + height) * 0.01) / PATCHWORK_SCALE;
+  const step = 10 ** Math.ceil(Math.log10(Math.max(error, 1e-6)));
+  const area = (width * height) / PATCHWORK_SCALE;
+  return Number((Math.round(area / step) * step).toFixed(Math.max(0, -Math.log10(step))));
+}
+
+/**
  * Builds the `treemap` layer of a graph the `patchwork` layout drew.
  *
  * Patchwork draws each node as a rectangle whose area is the node's `area`
  * attribute, packed inside the rectangles of its clusters, so the drawing is
  * a treemap whose branches are the clusters. Each leaf's magnitude is its
- * `area`, read back from the rectangle: Graphviz writes coordinates to two
- * decimals, so the value is kept to three significant figures, which
- * recovers what the DOT source said.
+ * `area`, read back from the rectangle (see {@link patchworkArea}).
  *
  * Clusters are declared too, without a magnitude -- a branch is the sum of
  * its leaves -- so each is paired with its own outline and outlined when the
@@ -143,15 +164,24 @@ function treemapLayer(
     x: cluster.label,
     ...(cluster.path.length > 0 ? { path: cluster.path } : {}),
   }));
+  const unread: string[] = [];
   const leaves: TreemapPoint[] = graph.nodes.map((node) => {
     const bounds = boundsOf(node.element, true);
-    const area = bounds === null ? 0 : areaOf(bounds) / PATCHWORK_SCALE;
+    if (bounds === null) {
+      unread.push(node.name);
+    }
     return {
       x: node.label || node.name,
-      y: Number(area.toPrecision(3)),
+      y: bounds === null ? 0 : patchworkArea(bounds),
       ...(node.path.length > 0 ? { path: node.path } : {}),
     };
   });
+  if (unread.length > 0) {
+    console.warn(
+      `[maidr/graphviz] ${unread.length} node${unread.length === 1 ? '' : 's'} (${unread.join(', ')}) `
+      + 'drew no rectangle, so each is read with an area of 0. Was this drawing made by patchwork?',
+    );
+  }
 
   return {
     id: layerId,
@@ -214,7 +244,8 @@ function networkLayer(
 /**
  * The layer a drawing with nodes becomes.
  *
- * A drawing the caller says `patchwork` drew is a treemap. Otherwise, an edge is written `--` only in a `graph`, so a drawing whose edges all are
+ * A drawing the caller says `patchwork` drew is a treemap. Otherwise, an
+ * edge is written `--` only in a `graph`, so a drawing whose edges all are
  * is undirected. A graph with no edges at all cannot say which it is, and
  * reads as a directed graph of lone nodes.
  *
