@@ -69,9 +69,9 @@ are not read.
 
 ## Options
 
-| Option           | Default            | Description                                                                                        |
-| ---------------- | ------------------ | -------------------------------------------------------------------------------------------------- |
-| `maidr-version`  | the latest release | Which MAIDR release to load.                                                                       |
+| Option           | Default            | Description                                                                                                                     |
+| ---------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `maidr-version`  | the latest release | Which MAIDR release to load.                                                                                                    |
 | `maidr-base-url` | jsDelivr           | Where to load `maidr.js`, `observable.js`, `mermaid.js` and `graphviz.js` from, for projects that serve the bundles themselves. |
 
 ```yaml
