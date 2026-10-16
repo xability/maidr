@@ -47,6 +47,12 @@ export interface MermaidAdapterOptions {
   subtitle?: string;
   /** Figure caption. Defaults to the diagram's accessible description. */
   caption?: string;
+  /**
+   * The id the diagram was rendered under, which Mermaid prefixes its
+   * element ids with. Defaults to the SVG element's id; set it when the SVG
+   * was renamed after rendering, as Quarto does to a labelled diagram.
+   */
+  idPrefix?: string;
 }
 
 /**

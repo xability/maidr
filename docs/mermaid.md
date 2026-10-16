@@ -61,6 +61,46 @@ drawing.setAttribute('maidr', JSON.stringify(maidr));
 
 `renderMermaid(mermaid, element, text?)` does the same for one element: it renders `text` (or the element's own text) into the element and binds it.
 
+## Quarto
+
+A `{mermaid}` cell is made accessible as it is, with nothing to add to it. Either install the MAIDR Quarto extension, which also covers `{dot}` (Graphviz) and Observable Plot `{ojs}` cells:
+
+```bash
+quarto add xability/maidr
+```
+
+```yaml
+filters:
+  - maidr
+```
+
+or load the scripts yourself:
+
+````markdown
+---
+title: "Order handling"
+format:
+  html:
+    include-in-header:
+      text: |
+        <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/maidr/dist/mermaid.js"></script>
+---
+
+```{mermaid}
+%%| label: fig-order
+%%| fig-cap: "How an order is handled"
+flowchart LR
+  order[Order received] --> stock{In stock?}
+  stock -->|yes| pack[Pack items]
+  stock -->|no| back[Back-order]
+```
+````
+
+Quarto draws its `{mermaid}` cells itself, once the page has loaded, with the Mermaid it bundles, and replaces each cell's text with the drawing. On a page Quarto rendered -- recognised by the `<meta name="generator" content="quarto-…">` it writes -- the adapter starts by itself (`watchQuartoMermaid()`). It keeps each cell's text before Quarto draws it, and binds the drawings once Quarto has drawn them all, so the diagram the reader gets is the one Quarto drew, with its label, caption and cross-reference. The scripts have to be in the head, where both ways above put them, to run before Quarto draws. To keep the adapter from starting on a Quarto page, set `window.maidrMermaidAutoInit = false` before the script loads.
+
+Quarto 1.10 bundles Mermaid 11.12, and the adapter reads it. Mermaid 11 does not tag a sequence diagram's message lines and notes with their ids as Mermaid 12 does, so the adapter pairs them with the messages in drawing order instead. Cells rendered to an image (`mermaid-format: png` or `svg`) have no diagram text left in the page and are not read.
+
 ## How It Works
 
 1. **Parses the text with Mermaid** -- `mermaid.mermaidAPI.getDiagramFromText` returns the diagram's type and its database: the nodes, edges, messages, tasks or slices the parser read.
@@ -357,7 +397,7 @@ The highlight outlines the shape Mermaid drew for the point the reader is on: a 
 ## Limitations
 
 - **Mermaid's diagram databases are internal.** The adapter reads them through guarded getters, so a Mermaid release that changes one degrades to fewer details rather than an error. The examples and the e2e spec are tested with Mermaid 12.2.0 and `@mermaid-js/mermaid-zenuml` 1.0.1, the versions `package-lock.json` pins. Because a breaking release would otherwise pass unnoticed, a scheduled job (`.github/workflows/mermaid-latest-check.yml`) runs the spec every week against the newest Mermaid and ZenUML plugin on npm and opens an issue naming the version when it fails.
-- **A diagram must be rendered from its text.** Diagrams Mermaid already rendered with `startOnLoad` have lost their text; render them with `bindMermaid` instead.
+- **A diagram must be rendered from its text.** Diagrams Mermaid already rendered with `startOnLoad` have lost their text; render them with `bindMermaid` instead. Quarto's `{mermaid}` cells are the exception: the adapter keeps their text before Quarto draws them (see [Quarto](#quarto)).
 - **Scatter layers have braille only in grid navigation.** The quadrant chart and the Wardley map's components are `point` layers. A scatter's braille surface is its grid, a count of points per cell, so <kbd>B</kbd> shows it once the rotor (<kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>↑</kbd>) is on grid navigation; in the ordinary row and column navigation it reports that braille is not supported. The quadrant chart's grid is its four quadrants, and the Wardley map's cuts both axes into quarters, evolution into Mermaid's four default stages.
 - **The SVG is trusted as Mermaid's own sanitizing left it.** `bindMermaid` writes what `mermaid.render()` returns into the page. Under Mermaid's default `securityLevel: 'strict'` that output is sanitized; under `'loose'` or `'antiscript'` it is not, so a diagram whose text comes from someone else should be rendered with `'strict'`.
 - **ZenUML is read from its text.** Its plugin parses ZenUML itself and keeps nothing the adapter could read, so the adapter follows the documented grammar; a construct outside it is passed over rather than misread.

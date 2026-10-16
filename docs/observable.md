@@ -126,7 +126,7 @@ filters:
   - maidr
 ```
 
-The filter injects the same two scripts. `maidr-version` pins which release to load, and `maidr-base-url` points at your own copies instead of the CDN:
+The filter injects the same two scripts, and the Mermaid and Graphviz adapters with them, so the document's `{mermaid}` and `{dot}` cells are made accessible too (see the [Mermaid](mermaid.md#quarto) and [Graphviz](graphviz.md#quarto) guides). `maidr-version` pins which release to load, and `maidr-base-url` points at your own copies instead of the CDN:
 
 ```yaml
 filters:

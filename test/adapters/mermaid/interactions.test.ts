@@ -62,6 +62,30 @@ describe('a sequence diagram', () => {
     const layer = layersOf(convert('sequence', db, drawn('s', markup)))[0];
     expect(matched(layer)).toBe(5);
   });
+
+  // Mermaid 11, which Quarto bundles, tags no message line or note with its
+  // id: each message is a `.messageLine0` or `.messageLine1` and each note a
+  // `rect.note`, drawn in declared order.
+  const mermaid11 = '<rect class="note"></rect>'
+    + '<line class="messageLine0" data-n="GET /"></line>'
+    + '<line class="messageLine1" data-n="304"></line>'
+    + '<line class="messageLine1" data-n="200"></line>'
+    + '<line class="messageLine0" data-n="ping"></line>';
+
+  it('pairs Mermaid 11\'s untagged lines and notes by drawing order', () => {
+    const svg = drawn('s11', mermaid11);
+    const layer = layersOf(convert('sequence', db, svg))[0];
+
+    const selectors = layer.selectors as string[];
+    const named = selectors.map(selector => svg.querySelector(selector)?.getAttribute('data-n') ?? svg.querySelector(selector)?.getAttribute('class'));
+    expect(named).toEqual(['GET /', '304', '200', 'note', 'ping']);
+  });
+
+  it('leaves Mermaid 11\'s drawing unpaired when the counts disagree', () => {
+    const layer = layersOf(convert('sequence', db, drawn('s11b', mermaid11.replace('<rect class="note"></rect>', ''))))[0];
+
+    expect(layer.selectors).toBeUndefined();
+  });
 });
 
 describe('a Venn diagram', () => {

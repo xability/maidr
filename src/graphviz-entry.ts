@@ -10,6 +10,8 @@
 import { bindGraphviz, renderGraphviz } from './adapters/graphviz/bind';
 import { createMaidrFromGraphviz } from './adapters/graphviz/converter';
 import { isGraphvizSvg, readGraphviz } from './adapters/graphviz/read';
+import { watchGraphviz } from './adapters/graphviz/watch';
+import { isQuartoPage, whenParsed } from './adapters/shared/quarto';
 
 export { bindGraphviz, renderGraphviz } from './adapters/graphviz/bind';
 export { createMaidrFromGraphviz } from './adapters/graphviz/converter';
@@ -21,6 +23,7 @@ export type {
   GraphvizGraph,
   GraphvizNode,
 } from './adapters/graphviz/types';
+export { watchGraphviz } from './adapters/graphviz/watch';
 
 // Expose the Graphviz adapter globally for script-tag usage (UMD build).
 // Only runs in browser environments (not SSR/Node.js).
@@ -32,7 +35,10 @@ declare global {
       createMaidrFromGraphviz: typeof createMaidrFromGraphviz;
       isGraphvizSvg: typeof isGraphvizSvg;
       readGraphviz: typeof readGraphviz;
+      watchGraphviz: typeof watchGraphviz;
     };
+    /** Set to `false` before the script loads to keep it from starting on a Quarto page. */
+    maidrGraphvizAutoInit?: boolean;
   }
 }
 
@@ -45,7 +51,22 @@ if (typeof window !== 'undefined') {
     createMaidrFromGraphviz,
     isGraphvizSvg,
     readGraphviz,
+    watchGraphviz,
   });
+
+  // On a Quarto page the script tag is the whole integration: a `{dot}` cell
+  // has nowhere to call a binder from. Anywhere else nothing starts, so a
+  // page that binds with its own options is not bound first with the
+  // defaults. A page that loads the bundle twice starts it once.
+  const page = window as Window & { maidrGraphvizAutoStarted?: boolean };
+  if (window.maidrGraphvizAutoInit !== false && !page.maidrGraphvizAutoStarted) {
+    page.maidrGraphvizAutoStarted = true;
+    whenParsed(() => {
+      if (isQuartoPage()) {
+        watchGraphviz();
+      }
+    });
+  }
 }
 
 // Re-export core types that consumers may need alongside the adapter.

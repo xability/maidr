@@ -177,18 +177,28 @@ Each leaf's value is its `area`, read back from its rectangle -- patchwork draws
 
 ## Quarto
 
-Quarto draws a `{dot}` cell with Graphviz when it renders, and writes the SVG straight into an HTML or Reveal.js page. Load the adapter after the body and every diagram on the page is made accessible:
+Quarto draws a `{dot}` cell with Graphviz when it renders, and writes the SVG straight into an HTML or Reveal.js page. On a page Quarto rendered, the adapter starts by itself: load it and every `{dot}` diagram is made accessible, with nothing to call. Either install the MAIDR Quarto extension, which also covers `{mermaid}` and Observable Plot `{ojs}` cells:
+
+```bash
+quarto add xability/maidr
+```
+
+```yaml
+filters:
+  - maidr
+```
+
+or load the scripts yourself:
 
 ````markdown
 ---
 title: "Release process"
 format:
   html:
-    include-after-body:
+    include-in-header:
       text: |
         <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/maidr/dist/graphviz.js"></script>
-        <script>maidrGraphviz.bindGraphviz();</script>
 ---
 
 ```{dot}
@@ -200,6 +210,8 @@ digraph {
 }
 ```
 ````
+
+The adapter knows a Quarto page by the `<meta name="generator" content="quarto-…">` Quarto writes. It then binds the drawings already on the page and any drawn into it later, through `watchGraphviz()`. On any other page it waits for `bindGraphviz()`, as before. To keep it from starting on a Quarto page -- to bind with options of your own -- set `window.maidrGraphvizAutoInit = false` before the script loads.
 
 Other formats -- PDF, Word, Typst -- draw the diagram as an image, which the adapter has nothing to read in.
 

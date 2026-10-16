@@ -200,7 +200,7 @@ export function sequence(context: DiagramContext): DiagramConversion {
   if (participants.length === 0 && messages.length === 0) {
     return { layers: [] };
   }
-  const selectors = selectorsFor(elements);
+  const selectors = selectorsFor(pairedByOrder(context.svg, messages, elements));
   const layer: MaidrLayer = {
     id: context.layerId('sequence'),
     type: TraceType.SEQUENCE,
@@ -208,6 +208,41 @@ export function sequence(context: DiagramContext): DiagramConversion {
     data: { participants, messages },
   };
   return { layers: [layer] };
+}
+
+/**
+ * A sequence's drawn messages and notes, paired by drawing order when they
+ * cannot be paired by id.
+ *
+ * Mermaid 12 tags each message line and note with its id; Mermaid 11, which
+ * Quarto bundles, does not, and draws each message as a
+ * `.messageLine0` (solid) or `.messageLine1` (dotted) and each note as a
+ * `rect.note`. It draws each kind in the order the diagram declares them, so
+ * the messages pair with the lines and the notes with the notes, in order,
+ * when the counts agree.
+ *
+ * @param svg - The rendered diagram
+ * @param messages - The messages read, notes included, in declared order
+ * @param elements - What each was paired with by id, null where nothing was
+ * @returns The elements, by id where every one was found, else by order
+ */
+function pairedByOrder(
+  svg: SVGSVGElement,
+  messages: SequenceMessage[],
+  elements: (Element | null)[],
+): (Element | null)[] {
+  if (!elements.includes(null)) {
+    return elements;
+  }
+  const lines = all(svg, '.messageLine0, .messageLine1');
+  const notes = all(svg, 'rect.note');
+  const noteCount = messages.filter(message => message.kind === 'note').length;
+  if (lines.length !== messages.length - noteCount || notes.length !== noteCount) {
+    return elements;
+  }
+  let line = 0;
+  let note = 0;
+  return messages.map(message => (message.kind === 'note' ? notes[note++] : lines[line++]));
 }
 
 /**
@@ -313,7 +348,7 @@ export function wardley(context: DiagramContext): DiagramConversion {
         x: { label: 'Evolution', min: 0, max: 1, tickStep: 0.25 },
         y: { label: 'Visibility', min: 0, max: 1, tickStep: 0.25 },
       },
-      ...(elements.length > 0 ? { selectors: `#${cssEscape(context.svgId)} g.wardley-node` } : {}),
+      ...(elements.length > 0 ? { selectors: `#${cssEscape(context.svg.id)} g.wardley-node` } : {}),
       data: points,
     });
   }
