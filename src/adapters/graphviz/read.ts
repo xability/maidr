@@ -166,11 +166,14 @@ function clusterName(name: string): string {
  *
  * Graphviz never lets two clusters overlap unless one holds the other, so
  * every cluster whose outline holds the point holds it, and the larger of
- * two holds the smaller.
+ * two holds the smaller. Two outlines can coincide -- a cluster whose only
+ * content is another cluster, as `patchwork` draws it -- and then the one
+ * drawn first holds the other, since Graphviz draws a cluster before those
+ * inside it.
  *
  * @param x - The point's x
  * @param y - The point's y
- * @param outlines - Each cluster with its outline
+ * @param outlines - Each cluster with its outline, in drawing order
  * @returns The clusters holding the point
  */
 function clustersAround(
@@ -179,8 +182,9 @@ function clustersAround(
   outlines: { cluster: GraphvizCluster; bounds: Bounds }[],
 ): GraphvizCluster[] {
   return outlines
+    .map((outline, order) => ({ ...outline, order }))
     .filter(({ bounds }) => contains(bounds, x, y))
-    .sort((a, b) => areaOf(b.bounds) - areaOf(a.bounds))
+    .sort((a, b) => areaOf(b.bounds) - areaOf(a.bounds) || a.order - b.order)
     .map(({ cluster }) => cluster);
 }
 
@@ -207,12 +211,12 @@ function nestInClusters(nodes: GraphvizNode[], clusters: GraphvizCluster[]): voi
     const bounds = boundsOf(cluster.element, true);
     return bounds === null ? [] : [{ cluster, bounds }];
   });
-  for (const cluster of clusters) {
+  for (const [order, cluster] of clusters.entries()) {
     const centre = centreOf(cluster.element, true);
     if (centre !== null) {
-      cluster.path = clustersAround(centre[0], centre[1], outlines)
-        .filter(around => around !== cluster)
-        .map(around => around.label);
+      // Only a cluster drawn earlier can hold this one.
+      const earlier = outlines.filter(outline => clusters.indexOf(outline.cluster) < order);
+      cluster.path = clustersAround(centre[0], centre[1], earlier).map(around => around.label);
     }
   }
   for (const node of nodes) {

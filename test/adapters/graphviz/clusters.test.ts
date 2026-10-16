@@ -6,7 +6,7 @@ import { createMaidrFromGraphviz } from '@adapters/graphviz/converter';
 import { readGraphviz } from '@adapters/graphviz/read';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
-import { services, spring } from './clusterFixtures';
+import { coincident, services, spring } from './clusterFixtures';
 
 /** Puts a drawing in the page. */
 function mount(svg: string): SVGSVGElement {
@@ -70,6 +70,21 @@ describe('Graphviz clusters', () => {
       a: ['Left'],
       b: ['Left'],
       c: ['Right'],
+    });
+  });
+
+  test('hold one another in drawing order where their outlines coincide', () => {
+    // patchwork draws a cluster holding only a cluster with the same outline.
+    const graph = readGraphviz(mount(coincident));
+
+    expect(graph.clusters.map(({ label, path }) => ({ label, path }))).toEqual([
+      { label: 'outer', path: [] },
+      { label: 'inner', path: ['outer'] },
+    ]);
+    expect(Object.fromEntries(graph.nodes.map(node => [node.name, node.path]))).toEqual({
+      a: ['outer', 'inner'],
+      b: ['outer', 'inner'],
+      c: [],
     });
   });
 });
