@@ -415,21 +415,16 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
 
     const asides: { label: string; value: string }[] = [];
 
+    // The degree is the cross value, so the aside names the neighbours and
+    // leaves the count to it: repeating it read "Links is 3, Links is 3, to
+    // Ana, Ben, Dev". An isolated node is announced by its cross value of 0,
+    // and has nobody to name.
     const links = node.links.length;
-    if (links === 0) {
-      // An isolated node is a finding rather than an absence: it is drawn
-      // sitting apart, and "no links" is what the picture shows.
-      asides.push({ label: t('model.asideLinks'), value: t('model.networkNoLinks') });
-    } else {
-      // The degree, which is primary information on this chart -- the hub is
-      // usually the whole point of drawing it.
+    if (links > 0) {
       asides.push({
-        label: t('model.asideLinks'),
-        value: t('model.networkLinkList', {
-          count: links,
-          names: node.links.slice(0, 3).map(one => this.nodes[one].name).join(', '),
-          more: links > 3 ? t('model.networkAndMore', { count: links - 3 }) : '',
-        }),
+        label: t('model.tableLinkedTo'),
+        value: node.links.slice(0, 3).map(one => this.nodes[one].name).join(', ')
+          + (links > 3 ? t('model.networkAndMore', { count: links - 3 }) : ''),
       });
     }
 

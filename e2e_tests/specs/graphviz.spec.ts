@@ -146,7 +146,7 @@ test.describe('Graphviz adapter, undirected graph', () => {
     const announcement = normalizeText(await plot.getInstructionText());
 
     expect(announcement).toContain('Person is Chloe');
-    expect(announcement).toContain('to Ana, Ben, Dev');
+    expect(announcement).toContain('Links is 3, Linked to is Ana, Ben, Dev');
     expect(announcement).toContain('Group is 1 of 2');
     await expect(page.locator(LINK)).toHaveCount(1);
   });

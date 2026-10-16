@@ -177,8 +177,19 @@ describe('the arrows reach every node, which following links cannot', () => {
 
 describe('degree is the announcement, and position is never mentioned', () => {
   test('a node names how many it is linked to, and to whom', () => {
-    expect(nonEmptyState(network()).text.asides?.[0])
-      .toEqual({ label: 'Links', value: '4, to Grace, Alan, Edsger and 1 more' });
+    const { text } = nonEmptyState(network());
+
+    expect(text.cross).toEqual({ label: 'Links', value: 4 });
+    expect(text.asides?.[0])
+      .toEqual({ label: 'Linked to', value: 'Grace, Alan, Edsger and 1 more' });
+  });
+
+  test('the degree is announced once, not again among the asides', () => {
+    // It used to read "Links is 4, Links is 4, to Grace, Alan, ...".
+    const { text } = nonEmptyState(network());
+
+    expect(text.asides?.map(aside => aside.label)).not.toContain('Links');
+    expect(text.asides?.some(aside => aside.value.startsWith('4'))).toBe(false);
   });
 
   test('the degree takes one noun, in the table and in the announcement', () => {
@@ -210,9 +221,10 @@ describe('degree is the announcement, and position is never mentioned', () => {
   test('an isolated node says so rather than saying nothing', () => {
     const trace = network();
     walk(trace, 'UPWARD', 'UPWARD');
+    const { text } = nonEmptyState(trace);
 
-    expect(nonEmptyState(trace).text.asides?.[0])
-      .toEqual({ label: 'Links', value: 'none' });
+    expect(text.cross).toEqual({ label: 'Links', value: 0 });
+    expect(text.asides?.map(aside => aside.label)).not.toContain('Linked to');
   });
 
   test('a reader is told which group they are in and how big it is', () => {
