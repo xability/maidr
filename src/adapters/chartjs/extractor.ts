@@ -60,6 +60,7 @@ import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsGeoValue, ChartJsGraphValue, ChartJsParsedValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import { resolveFieldRef, validateDeclaration, warnUnresolvedRef } from '../shared/traceDeclaration';
+import { isJoinedSets } from '../shared/venn';
 
 // ---------------------------------------------------------------------------
 // Monotonic ID counter for guaranteed unique IDs
@@ -3839,19 +3840,6 @@ function extractSankeyLayers(chart: ChartJsChart): MaidrLayer[] {
       data,
     },
   ];
-}
-
-/**
- * Whether a region's label is only its sets joined by `∩`, as
- * `chartjs-chart-venn` labels a region the author did not name.
- *
- * @param label - The region's label
- * @param names - The region's sets
- * @returns True when the label adds nothing to the sets
- */
-function isJoinedSets(label: string, names: string[]): boolean {
-  const parts = label.split('∩').map(part => part.trim());
-  return parts.length === names.length && parts.every(part => names.includes(part));
 }
 
 /**
