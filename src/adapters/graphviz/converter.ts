@@ -11,12 +11,18 @@
  * by degree and by connected group, since a link between two nodes is a fact
  * about the pair rather than a way to go. Each link is paired with the
  * edge's group.
+ *
+ * A graph drawn by the `patchwork` layout becomes a `treemap`: its clusters
+ * are the branches and its nodes the leaves, each leaf's magnitude its
+ * `area` as the rectangle drew it.
  */
 
-import type { DirectedGraphPoint, Maidr, MaidrLayer, NetworkPoint } from '@type/grammar';
+import type { DirectedGraphPoint, Maidr, MaidrLayer, NetworkPoint, TreemapPoint } from '@type/grammar';
+import type { Bounds } from './geometry';
 import type { GraphvizAdapterOptions, GraphvizGraph } from './types';
 import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { TraceType } from '@type/grammar';
+import { boundsOf } from './geometry';
 import { readGraphviz } from './read';
 
 /** The attribute each node's group is marked with, by its index. */
@@ -96,6 +102,102 @@ function directedGraphLayer(
   };
 }
 
+/** The attribute each cell of a patchwork is marked with, by its index. */
+const CELL_MARK = 'data-maidr-graphviz-cell';
+
+/**
+ * How many square points patchwork draws for one unit of a node's `area`:
+ * its source scales every area by 1000 so that the default of 1 is a
+ * reasonable size, and draws in the graph's own coordinates, which `size`
+ * and a page's resizing scale from outside.
+ */
+const PATCHWORK_SCALE = 1000;
+
+/**
+ * The `area` a patchwork rectangle was drawn for.
+ *
+ * Graphviz writes each corner to two decimals, so each side is known to
+ * within a hundredth of a point, and the area to within the sum of the
+ * sides over a hundred. The value is rounded to the decimal place that
+ * bound reaches -- a hundredth for a small node, a tenth for one in the
+ * thousands -- where the rounding actually seen stays well inside half a
+ * step, so `area=60.25` and `area=12345` both come back as written.
+ *
+ * @param bounds - The rectangle
+ * @returns Its area, in the units of the `area` attribute
+ */
+function patchworkArea(bounds: Bounds): number {
+  const width = bounds.maxX - bounds.minX;
+  const height = bounds.maxY - bounds.minY;
+  const error = ((width + height) * 0.01) / PATCHWORK_SCALE;
+  const step = 10 ** Math.ceil(Math.log10(Math.max(error, 1e-6)));
+  const area = (width * height) / PATCHWORK_SCALE;
+  return Number((Math.round(area / step) * step).toFixed(Math.max(0, -Math.log10(step))));
+}
+
+/**
+ * Builds the `treemap` layer of a graph the `patchwork` layout drew.
+ *
+ * Patchwork draws each node as a rectangle whose area is the node's `area`
+ * attribute, packed inside the rectangles of its clusters, so the drawing is
+ * a treemap whose branches are the clusters. Each leaf's magnitude is its
+ * `area`, read back from the rectangle (see {@link patchworkArea}).
+ *
+ * Clusters are declared too, without a magnitude -- a branch is the sum of
+ * its leaves -- so each is paired with its own outline and outlined when the
+ * reader is on it. Patchwork draws no cluster labels, so a cluster is called
+ * by its name.
+ *
+ * @param graph - What was read from the drawing
+ * @param svgId - The drawing's id
+ * @param layerId - The layer's id
+ * @param options - Figure options
+ * @returns The layer
+ */
+function treemapLayer(
+  graph: GraphvizGraph,
+  svgId: string,
+  layerId: string,
+  options: GraphvizAdapterOptions,
+): MaidrLayer {
+  const branches: TreemapPoint[] = graph.clusters.map(cluster => ({
+    x: cluster.label,
+    ...(cluster.path.length > 0 ? { path: cluster.path } : {}),
+  }));
+  const unread: string[] = [];
+  const leaves: TreemapPoint[] = graph.nodes.map((node) => {
+    const bounds = boundsOf(node.element, true);
+    if (bounds === null) {
+      unread.push(node.name);
+    }
+    return {
+      x: node.label || node.name,
+      y: bounds === null ? 0 : patchworkArea(bounds),
+      ...(node.path.length > 0 ? { path: node.path } : {}),
+    };
+  });
+  if (unread.length > 0) {
+    console.warn(
+      `[maidr/graphviz] ${unread.length} node${unread.length === 1 ? '' : 's'} (${unread.join(', ')}) `
+      + 'drew no rectangle, so each is read with an area of 0. Was this drawing made by patchwork?',
+    );
+  }
+
+  return {
+    id: layerId,
+    type: TraceType.TREEMAP,
+    axes: {
+      ...(options.nodeLabel ? { x: { label: options.nodeLabel } } : {}),
+      y: { label: 'Area' },
+    },
+    selectors: selectorsFor(svgId, CELL_MARK, [
+      ...graph.clusters.map(cluster => cluster.element),
+      ...graph.nodes.map(node => node.element),
+    ]),
+    data: [...branches, ...leaves],
+  };
+}
+
 /**
  * Builds the `network` layer of an undirected `graph`.
  *
@@ -142,7 +244,8 @@ function networkLayer(
 /**
  * The layer a drawing with nodes becomes.
  *
- * An edge is written `--` only in a `graph`, so a drawing whose edges all are
+ * A drawing the caller says `patchwork` drew is a treemap. Otherwise, an
+ * edge is written `--` only in a `graph`, so a drawing whose edges all are
  * is undirected. A graph with no edges at all cannot say which it is, and
  * reads as a directed graph of lone nodes.
  *
@@ -153,6 +256,11 @@ function networkLayer(
  * @returns The layer
  */
 function layerFor(graph: GraphvizGraph, svgId: string, id: string, options: GraphvizAdapterOptions): MaidrLayer {
+  // Patchwork draws no edges, and is read as a treemap whatever kind of
+  // graph it was written as.
+  if (options.layout === 'patchwork') {
+    return treemapLayer(graph, svgId, `${id}-treemap`, options);
+  }
   if (graph.edges.length > 0 && graph.edges.every(edge => !edge.directed)) {
     return networkLayer(graph, svgId, `${id}-network`, options);
   }

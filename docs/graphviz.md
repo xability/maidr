@@ -58,6 +58,7 @@ None yet. Every graph type below is experimental.
 | Directed Graph [experimental] | `directed_graph` | A `digraph`: nodes in the order the edges run, each announcing the nodes feeding it and fed by it, with the edges' labels. |
 | Directed Graph with Clusters [experimental] | `directed_graph` | A `digraph` with `subgraph cluster_*` blocks: each cluster is a scope the reader opens with Down and leaves with Up, nested as the clusters are. |
 | Network [experimental] | `network` | A `graph`: nodes by connected group, one group per row, most connected first, each announcing its degree and the nodes it is linked to. |
+| Treemap (patchwork) [experimental] | `treemap` | A graph drawn with `layout=patchwork`: clusters are branches and nodes are leaves, each leaf announced with its `area` and its share of its branch and of the whole. |
 
 Which one a drawing is follows from its edges: `->` in a `digraph`, `--` in a `graph`. A drawing with no edges at all cannot say, and is read as a directed graph of nodes with nothing between them.
 
@@ -148,6 +149,32 @@ maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { nodeLabel: 'Per
 
 A network names its nodes by the text drawn on them. Where two nodes are drawn with the same text, every node is named by its DOT name instead, so the two stay two. A node no edge touches has no link to be named in, and is not read -- the adapter names such nodes in a console warning; a loop (`a -- a`) is reported apart from the node's links.
 
+#### Treemap (patchwork) [experimental]
+
+The `patchwork` layout draws each node as a rectangle whose area is its `area` attribute, packed inside the rectangles of its clusters: the drawing is a treemap. Pass `layout: 'patchwork'` -- the SVG does not say which layout drew it -- and the adapter reads it as one, the clusters as branches and the nodes as leaves. The reader moves between siblings with Left and Right, opens a branch with Down and leaves it with Up, and hears each item's share.
+
+```dot
+graph Budget {
+  label="Team budget";
+  layout=patchwork;
+  subgraph cluster_people {
+    salaries [label="Salaries", area=60];
+    training [label="Training", area=5];
+  }
+  subgraph cluster_infrastructure {
+    cloud [label="Cloud", area=20];
+    laptops [label="Laptops", area=8];
+  }
+  travel [label="Travel", area=7];
+}
+```
+
+```js
+maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { layout: 'patchwork', nodeLabel: 'Item' });
+```
+
+Each leaf's value is its `area`, read back from its rectangle -- patchwork draws one unit of `area` as 1000 square points, whatever `size` the graph is drawn at -- rounded to the precision Graphviz's coordinates allow, so `area=60.25` and `area=12345` come back as written, and MAIDR adds each branch up from its leaves and tells the reader every item's share of its branch and of the whole. Patchwork draws no cluster labels, so a branch is called by its name without the `cluster` prefix: `people`, `infrastructure`. Every branch and leaf is outlined when the reader is on it.
+
 ## Quarto
 
 Quarto draws a `{dot}` cell with Graphviz when it renders, and writes the SVG straight into an HTML or Reveal.js page. Load the adapter after the body and every diagram on the page is made accessible:
@@ -203,6 +230,7 @@ Each function takes the same options:
 | `subtitle` | none | The figure's subtitle. |
 | `caption` | none | The figure's caption. |
 | `nodeLabel` | "Node" | What a node is on this graph, announced as the node noun. |
+| `layout` | none | `'patchwork'` reads a drawing the patchwork layout made as a treemap. |
 
 ## Using with npm/Bundlers
 

@@ -24,6 +24,14 @@ export interface GraphvizAdapterOptions {
    * as the node noun. Defaults to MAIDR's own word for a node.
    */
   nodeLabel?: string;
+  /**
+   * The Graphviz layout that drew the graph, when it changes what the
+   * drawing means. `'patchwork'` -- the layout that draws each node as a
+   * rectangle whose area is its `area` attribute, packed inside its
+   * clusters -- reads the drawing as a treemap. The SVG does not say which
+   * layout drew it, so this is the caller's to say.
+   */
+  layout?: 'patchwork';
 }
 
 /** One node Graphviz drew: a `<g class="node">`. */
