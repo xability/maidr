@@ -5,9 +5,14 @@
  * naming the nodes whose edges arrive at it, with the edge's label beside
  * it. Each point is paired with the node's group in the drawing, so the node
  * the reader is on is outlined.
+ *
+ * An undirected `graph` becomes a `network` layer: one link per edge, read
+ * by degree and by connected group, since a link between two nodes is a fact
+ * about the pair rather than a way to go. Each link is paired with the
+ * edge's group.
  */
 
-import type { DirectedGraphPoint, Maidr, MaidrLayer } from '@type/grammar';
+import type { DirectedGraphPoint, Maidr, MaidrLayer, NetworkPoint } from '@type/grammar';
 import type { GraphvizAdapterOptions, GraphvizGraph } from './types';
 import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { TraceType } from '@type/grammar';
@@ -16,22 +21,26 @@ import { readGraphviz } from './read';
 /** The attribute each node's group is marked with, by its index. */
 const NODE_MARK = 'data-maidr-graphviz-node';
 
+/** The attribute each edge's group is marked with, by its index. */
+const EDGE_MARK = 'data-maidr-graphviz-edge';
+
 /**
- * Marks each node's group and names it by the mark, inside the drawing.
+ * Marks each element and names it by the mark, inside the drawing.
  *
- * Graphviz numbers its groups `node1`, `node2`, ... afresh in every drawing,
+ * Graphviz numbers its groups `node1`, `edge1`, ... afresh in every drawing,
  * so two graphs on one page -- the ordinary case in a Quarto document --
  * share every id. The drawing's own id, which the adapter sets when it has
  * none, scopes each selector to it.
  *
  * @param svgId - The drawing's id
- * @param elements - One element per node, in point order
- * @returns One selector per node
+ * @param mark - The attribute to mark each element with
+ * @param elements - One element per point, in point order
+ * @returns One selector per point
  */
-function selectorsFor(svgId: string, elements: Element[]): string[] {
+function selectorsFor(svgId: string, mark: string, elements: Element[]): string[] {
   return elements.map((element, index) => {
-    element.setAttribute(NODE_MARK, String(index));
-    return `#${cssEscape(svgId)} [${NODE_MARK}="${index}"]`;
+    element.setAttribute(mark, String(index));
+    return `#${cssEscape(svgId)} [${mark}="${index}"]`;
   });
 }
 
@@ -78,7 +87,42 @@ function directedGraphLayer(
     id: layerId,
     type: TraceType.DIRECTED_GRAPH,
     ...(options.nodeLabel ? { axes: { x: { label: options.nodeLabel } } } : {}),
-    selectors: selectorsFor(svgId, graph.nodes.map(node => node.element)),
+    selectors: selectorsFor(svgId, NODE_MARK, graph.nodes.map(node => node.element)),
+    data,
+  };
+}
+
+/**
+ * Builds the `network` layer of an undirected `graph`.
+ *
+ * A network names its nodes by what its links call them, so each end is
+ * the text drawn on the node, which is what a sighted reader reads. Where
+ * two nodes are drawn with the same text, every node is named by its DOT
+ * name instead, since one name would merge the two into one node. A node no
+ * edge touches has no link to be named in, and is not read.
+ *
+ * @param graph - What was read from the drawing
+ * @param svgId - The drawing's id
+ * @param layerId - The layer's id
+ * @param options - Figure options
+ * @returns The layer
+ */
+function networkLayer(
+  graph: GraphvizGraph,
+  svgId: string,
+  layerId: string,
+  options: GraphvizAdapterOptions,
+): MaidrLayer {
+  const drawn = new Map(graph.nodes.map(node => [node.name, node.label || node.name]));
+  const unique = new Set(drawn.values()).size === drawn.size;
+  const nameOf = (node: string): string => (unique ? drawn.get(node) : undefined) ?? node;
+
+  const data: NetworkPoint[] = graph.edges.map(edge => ({ source: nameOf(edge.tail), target: nameOf(edge.head) }));
+  return {
+    id: layerId,
+    type: TraceType.NETWORK,
+    ...(options.nodeLabel ? { axes: { x: { label: options.nodeLabel } } } : {}),
+    selectors: selectorsFor(svgId, EDGE_MARK, graph.edges.map(edge => edge.element)),
     data,
   };
 }
@@ -93,9 +137,8 @@ function directedGraphLayer(
  * @param svg - The SVG Graphviz drew
  * @param options - Figure options
  * @returns The MAIDR figure, ready for the `maidr` attribute
- * @throws Error when the SVG is not a Graphviz drawing, or when it is an
- *   undirected `graph`, which the adapter does not read yet. A drawing with
- *   no nodes becomes a figure with no layers, which MAIDR announces as empty
+ * @throws Error when the SVG is not a Graphviz drawing. A drawing with no
+ *   nodes becomes a figure with no layers, which MAIDR announces as empty
  *
  * @example
  * ```js
@@ -108,15 +151,16 @@ export function createMaidrFromGraphviz(
   options: GraphvizAdapterOptions = {},
 ): Maidr {
   const graph = readGraphviz(svg);
-  if (graph.edges.length > 0 && graph.edges.every(edge => !edge.directed)) {
-    throw new Error('[maidr/graphviz] Undirected graphs (`graph { a -- b }`) are not supported yet.');
-  }
-
   const svgId = ensureContainerId(svg, 'maidr-graphviz');
   const id = options.id ?? svgId;
-  const layers = graph.nodes.length > 0
-    ? [directedGraphLayer(graph, svgId, `${id}-graph`, options)]
-    : [];
+  // An edge is written `--` only in a `graph`. A graph with no edges at all
+  // cannot say which it is, and reads as a directed graph of lone nodes.
+  const undirected = graph.edges.length > 0 && graph.edges.every(edge => !edge.directed);
+  const layers = graph.nodes.length === 0
+    ? []
+    : undirected
+      ? [networkLayer(graph, svgId, `${id}-network`, options)]
+      : [directedGraphLayer(graph, svgId, `${id}-graph`, options)];
   const title = options.title ?? graph.label;
   return {
     id,
