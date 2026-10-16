@@ -113,7 +113,7 @@ graph Team {
 maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { nodeLabel: 'Person' });
 ```
 
-A network names its nodes by the text drawn on them. Where two nodes are drawn with the same text, every node is named by its DOT name instead, so the two stay two. A node no edge touches has no link to be named in, and is not read; a loop (`a -- a`) is reported apart from the node's links.
+A network names its nodes by the text drawn on them. Where two nodes are drawn with the same text, every node is named by its DOT name instead, so the two stay two. A node no edge touches has no link to be named in, and is not read -- the adapter names such nodes in a console warning; a loop (`a -- a`) is reported apart from the node's links.
 
 ## Quarto
 

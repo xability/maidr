@@ -3,7 +3,7 @@
  */
 import type { MaidrLayer, NetworkPoint } from '@type/grammar';
 import { createMaidrFromGraphviz } from '@adapters/graphviz/converter';
-import { afterEach, describe, expect, test } from '@jest/globals';
+import { afterAll, afterEach, describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import { undirected } from './fixtures';
@@ -22,8 +22,16 @@ function layerOf(svg: SVGSVGElement): MaidrLayer {
   return layers[0];
 }
 
+// friends draws a node no edge touches, which the adapter warns about.
+const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
 afterEach(() => {
   document.body.innerHTML = '';
+  warn.mockClear();
+});
+
+afterAll(() => {
+  warn.mockRestore();
 });
 
 describe('an undirected Graphviz graph', () => {
@@ -42,6 +50,19 @@ describe('an undirected Graphviz graph', () => {
       // A loop is kept: the network trace reports it apart from the degrees.
       { source: 'Barbara', target: 'Barbara' },
     ]);
+  });
+
+  test('warns about a node no edge touches, which a network cannot read', () => {
+    createMaidrFromGraphviz(mount(friends)[0]);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('1 node with no edge (Loner)');
+  });
+
+  test('does not warn when every node has an edge', () => {
+    createMaidrFromGraphviz(mount(undirected)[0]);
+
+    expect(warn).not.toHaveBeenCalled();
   });
 
   test('names every node by its DOT name when two are drawn with the same text', () => {

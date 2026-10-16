@@ -118,6 +118,14 @@ function networkLayer(
   const nameOf = (node: string): string => (unique ? drawn.get(node) : undefined) ?? node;
 
   const data: NetworkPoint[] = graph.edges.map(edge => ({ source: nameOf(edge.tail), target: nameOf(edge.head) }));
+  const linked = new Set(graph.edges.flatMap(edge => [edge.tail, edge.head]));
+  const lone = graph.nodes.filter(node => !linked.has(node.name)).map(node => nameOf(node.name));
+  if (lone.length > 0) {
+    console.warn(
+      `[maidr/graphviz] ${lone.length} node${lone.length === 1 ? '' : 's'} with no edge `
+      + `(${lone.join(', ')}) cannot be read: a network names its nodes by their links.`,
+    );
+  }
   return {
     id: layerId,
     type: TraceType.NETWORK,
@@ -125,6 +133,26 @@ function networkLayer(
     selectors: selectorsFor(svgId, EDGE_MARK, graph.edges.map(edge => edge.element)),
     data,
   };
+}
+
+/**
+ * The layer a drawing with nodes becomes.
+ *
+ * An edge is written `--` only in a `graph`, so a drawing whose edges all are
+ * is undirected. A graph with no edges at all cannot say which it is, and
+ * reads as a directed graph of lone nodes.
+ *
+ * @param graph - What was read from the drawing
+ * @param svgId - The drawing's id
+ * @param id - The figure's id
+ * @param options - Figure options
+ * @returns The layer
+ */
+function layerFor(graph: GraphvizGraph, svgId: string, id: string, options: GraphvizAdapterOptions): MaidrLayer {
+  if (graph.edges.length > 0 && graph.edges.every(edge => !edge.directed)) {
+    return networkLayer(graph, svgId, `${id}-network`, options);
+  }
+  return directedGraphLayer(graph, svgId, `${id}-graph`, options);
 }
 
 /**
@@ -153,14 +181,7 @@ export function createMaidrFromGraphviz(
   const graph = readGraphviz(svg);
   const svgId = ensureContainerId(svg, 'maidr-graphviz');
   const id = options.id ?? svgId;
-  // An edge is written `--` only in a `graph`. A graph with no edges at all
-  // cannot say which it is, and reads as a directed graph of lone nodes.
-  const undirected = graph.edges.length > 0 && graph.edges.every(edge => !edge.directed);
-  const layers = graph.nodes.length === 0
-    ? []
-    : undirected
-      ? [networkLayer(graph, svgId, `${id}-network`, options)]
-      : [directedGraphLayer(graph, svgId, `${id}-graph`, options)];
+  const layers = graph.nodes.length === 0 ? [] : [layerFor(graph, svgId, id, options)];
   const title = options.title ?? graph.label;
   return {
     id,
