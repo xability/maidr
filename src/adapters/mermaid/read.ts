@@ -187,13 +187,128 @@ export function selectorsFor(elements: (Element | null | undefined)[]): string[]
 }
 
 /**
- * Escapes a string for use in a regular expression.
- *
- * @param value - The raw string
- * @returns The escaped string
+ * The candidates sharing one key, in document order, with a cursor past the
+ * leading ones already paired.
  */
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+interface Bucket {
+  entries: { element: Element; at: number }[];
+  head: number;
+}
+
+/**
+ * The candidates of one diagram, indexed by the ids they can be found by.
+ */
+interface IdIndex {
+  /** By the element's id as it is. */
+  exact: Map<string, Bucket>;
+  /** By every stem the element's id matches loosely. */
+  loose: Map<string, Bucket>;
+}
+
+/** A counter at the end of a dom id. */
+const COUNTER = /-\d+$/;
+
+/** A type prefix (`flowchart-`, `classId-`) at the start of a dom id. */
+const TYPE_PREFIX = /^[a-z]+-/i;
+
+/** The index of each candidate list, by diagram id prefix, built on first use. */
+const indexes = new WeakMap<Element[], Map<string, IdIndex>>();
+
+/**
+ * Adds an element to the bucket for a key.
+ *
+ * @param map - The buckets
+ * @param key - The key
+ * @param element - The element
+ * @param at - Its position in document order
+ */
+function file(map: Map<string, Bucket>, key: string, element: Element, at: number): void {
+  const bucket = map.get(key);
+  if (bucket) {
+    bucket.entries.push({ element, at });
+  } else {
+    map.set(key, { entries: [{ element, at }], head: 0 });
+  }
+}
+
+/**
+ * Every stem a loose match of a key would find an id by.
+ *
+ * A loose match is `<svg id>-[<letters>-]<stem>[-<digits>]`, so the part
+ * after the prefix is read with and without its type prefix, each with and
+ * without its counter.
+ *
+ * @param id - The element's id
+ * @param svgId - The diagram's id prefix
+ * @returns The stems, none twice
+ */
+function stemsOf(id: string, svgId: string): Set<string> {
+  const stems = new Set<string>();
+  if (!id.startsWith(`${svgId}-`)) {
+    return stems;
+  }
+  const rest = id.slice(svgId.length + 1);
+  const prefix = TYPE_PREFIX.exec(rest);
+  for (const body of prefix ? [rest, rest.slice(prefix[0].length)] : [rest]) {
+    stems.add(body);
+    if (COUNTER.test(body)) {
+      stems.add(body.replace(COUNTER, ''));
+    }
+  }
+  return stems;
+}
+
+/**
+ * The index of a diagram's candidates, built once per candidate list.
+ *
+ * @param candidates - The elements that could be nodes, in document order
+ * @param svgId - The diagram's id prefix
+ * @returns The index
+ */
+function indexOf(candidates: Element[], svgId: string): IdIndex {
+  let bySvg = indexes.get(candidates);
+  if (!bySvg) {
+    bySvg = new Map();
+    indexes.set(candidates, bySvg);
+  }
+  const built = bySvg.get(svgId);
+  if (built) {
+    return built;
+  }
+  const index: IdIndex = { exact: new Map(), loose: new Map() };
+  candidates.forEach((element, at) => {
+    file(index.exact, element.id, element, at);
+    for (const stem of stemsOf(element.id, svgId)) {
+      file(index.loose, stem, element, at);
+    }
+  });
+  bySvg.set(svgId, index);
+  return index;
+}
+
+/**
+ * The first element of a bucket not yet paired.
+ *
+ * Paired elements are never released, so those at the front are skipped for
+ * good.
+ *
+ * @param bucket - The bucket, if any
+ * @param used - Elements already paired
+ * @returns The element and its position, or undefined
+ */
+function firstFree(bucket: Bucket | undefined, used: Set<Element>): { element: Element; at: number } | undefined {
+  if (!bucket) {
+    return undefined;
+  }
+  while (bucket.head < bucket.entries.length && used.has(bucket.entries[bucket.head].element)) {
+    bucket.head++;
+  }
+  for (let at = bucket.head; at < bucket.entries.length; at++) {
+    if (!used.has(bucket.entries[at].element)) {
+      return bucket.entries[at];
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -203,7 +318,12 @@ function escapeRegExp(value: string): string {
  * (`flowchart-A-0`, `classId-Animal-4`, `state-Still-3`). The counter moves
  * between the parse that drew the diagram and the parse the adapter reads, so
  * an exact match is tried first and then a match on everything but the
- * counter, with an optional type prefix.
+ * counter, with an optional type prefix. Each key is tried in turn, and for a
+ * key the first free element in document order wins.
+ *
+ * The candidates are indexed on the first call for a list and the index is
+ * reused by later calls with the same list, so the list must not change
+ * between them.
  *
  * @param candidates - The elements that could be nodes, in document order
  * @param svgId - The diagram's id prefix
@@ -217,22 +337,22 @@ export function findById(
   keys: (string | undefined)[],
   used: Set<Element>,
 ): Element | null {
-  const free = candidates.filter(element => !used.has(element));
+  const index = indexOf(candidates, svgId);
   const present = keys.filter((key): key is string => typeof key === 'string' && key !== '');
   for (const key of present) {
-    const exact = free.find(element => element.id === `${svgId}-${key}` || element.id === key);
+    const prefixed = firstFree(index.exact.get(`${svgId}-${key}`), used);
+    const bare = firstFree(index.exact.get(key), used);
+    const exact = prefixed && bare ? (prefixed.at < bare.at ? prefixed : bare) : prefixed ?? bare;
     if (exact) {
-      used.add(exact);
-      return exact;
+      used.add(exact.element);
+      return exact.element;
     }
   }
   for (const key of present) {
-    const stem = key.replace(/-\d+$/, '');
-    const pattern = new RegExp(`^${escapeRegExp(svgId)}-(?:[A-Za-z]+-)?${escapeRegExp(stem)}(?:-\\d+)?$`);
-    const loose = free.find(element => pattern.test(element.id));
+    const loose = firstFree(index.loose.get(key.replace(COUNTER, '')), used);
     if (loose) {
-      used.add(loose);
-      return loose;
+      used.add(loose.element);
+      return loose.element;
     }
   }
   return null;
