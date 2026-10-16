@@ -63,6 +63,27 @@ describe('highcharts venn regions', () => {
     expect(layer.selectors).toBe('#venn .highcharts-series-group .highcharts-series-0 .highcharts-point');
   });
 
+  it('does not pair selectors when a set of size 0 leaves it and its overlaps undrawn', () => {
+    const [layer] = layersOf([
+      { sets: ['A'], value: 4 },
+      { sets: ['B'], value: 0 },
+      { sets: ['A', 'B'], value: 1 },
+    ]);
+
+    expect(layer.data).toHaveLength(3);
+    expect(layer.selectors).toBeUndefined();
+  });
+
+  it('still pairs selectors when an overlap of two drawn sets is 0', () => {
+    const [layer] = layersOf([
+      { sets: ['A'], value: 4 },
+      { sets: ['B'], value: 3 },
+      { sets: ['A', 'B'], value: 0 },
+    ]);
+
+    expect(layer.selectors).toBe('#venn .highcharts-series-group .highcharts-series-0 .highcharts-point');
+  });
+
   it('drops a name that is only the sets joined by ∩, in any order or spacing', () => {
     const [layer] = layersOf([
       { sets: ['A'], value: 4, name: 'A' },

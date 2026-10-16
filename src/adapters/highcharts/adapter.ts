@@ -4931,12 +4931,24 @@ function convertVennSeries(
       ...(name && sets.length > 1 && !isJoinedSets(name, sets) ? { label: name } : {}),
     };
   });
-  // Every region with sets and a numeric `value` is drawn, as one
-  // `.highcharts-point` each, in declared order -- a point without a `value`
-  // fails `VennPoint.isValid` and gets no shape -- so the list pairs only
-  // when nothing was dropped and every point was drawn.
+  // A region is drawn, as one `.highcharts-point` in declared order, only
+  // when Highcharts' layout keeps it (`VennUtils.processVennData`): a single
+  // set needs a `value` above 0 (`isValidSet`), an overlap a `value` above -1
+  // (`isValidRelation`) and only sets that were themselves drawn, and any
+  // point needs a numeric `value` (`VennPoint.isValid`). The list pairs only
+  // when nothing was dropped and every point is drawn.
+  const valueOf = (p: (typeof points)[number]): number =>
+    typeof p.value === 'number' && Number.isFinite(p.value) ? p.value : Number.NaN;
+  const drawnSets = new Set(points
+    .filter(p => (p.sets ?? []).length === 1 && valueOf(p) > 0)
+    .map(p => String(p.sets?.[0])));
   const pairs = points.length === series.data.length
-    && points.every(p => typeof p.value === 'number' && Number.isFinite(p.value));
+    && points.every((p) => {
+      const sets = (p.sets ?? []).map(String);
+      return sets.length === 1
+        ? valueOf(p) > 0
+        : valueOf(p) > -1 && sets.every(set => drawnSets.has(set));
+    });
   return {
     id: String(series.index),
     type: TraceType.VENN,
