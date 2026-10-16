@@ -354,7 +354,7 @@ The highlight outlines the shape Mermaid drew for the point the reader is on: a 
 
 ## Limitations
 
-- **Mermaid's diagram databases are internal.** The adapter reads them through guarded getters, so a Mermaid release that changes one degrades to fewer details rather than an error; the examples are pinned to Mermaid 12.2.0 and should be checked when upgrading.
+- **Mermaid's diagram databases are internal.** The adapter reads them through guarded getters, so a Mermaid release that changes one degrades to fewer details rather than an error. The examples and the e2e spec are tested with Mermaid 12.2.0 and `@mermaid-js/mermaid-zenuml` 1.0.1, the versions `package-lock.json` pins. Because a breaking release would otherwise pass unnoticed, a scheduled job (`.github/workflows/mermaid-latest-check.yml`) runs the spec every week against the newest Mermaid and ZenUML plugin on npm and opens an issue naming the version when it fails.
 - **A diagram must be rendered from its text.** Diagrams Mermaid already rendered with `startOnLoad` have lost their text; render them with `bindMermaid` instead.
 - **Scatter layers have no braille.** The quadrant chart and the Wardley map's components are `point` layers, which MAIDR does not draw on a braille display.
 - **The SVG is trusted as Mermaid's own sanitizing left it.** `bindMermaid` writes what `mermaid.render()` returns into the page. Under Mermaid's default `securityLevel: 'strict'` that output is sanitized; under `'loose'` or `'antiscript'` it is not, so a diagram whose text comes from someone else should be rendered with `'strict'`.
