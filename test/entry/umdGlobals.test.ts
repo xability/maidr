@@ -20,6 +20,7 @@ const ENTRIES: Array<[string, string]> = [
   ['maidrFrappe', '../../src/frappe-entry'],
   ['maidrGoogleCharts', '../../src/google-charts-entry'],
   ['maidrMermaid', '../../src/mermaid-entry'],
+  ['maidrGraphviz', '../../src/graphviz-entry'],
   ['maidrVegaLite', '../../src/vegalite-entry'],
 ];
 

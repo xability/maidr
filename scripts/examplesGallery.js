@@ -289,6 +289,7 @@ export const TITLES = {
   'mermaid/journey.html': 'User Journey',
   'mermaid/venn.html': 'Venn Diagram',
   'mermaid/wardley.html': 'Wardley Map',
+  'graphviz/digraph.html': 'Directed Graph',
   'uplot/live.html': 'Live Streaming Line',
   'google-charts-gauge-map.html': 'Gauges and Maps',
   'google-charts-marks.html': 'Dot, Lollipop, Funnel, Diverging and Waterfall',
@@ -523,6 +524,7 @@ export const PAGE_TYPES = {
   'mermaid/journey.html': ['line'],
   'mermaid/venn.html': ['venn'],
   'mermaid/wardley.html': ['point', 'directed_graph'],
+  'graphviz/digraph.html': ['directed_graph'],
   'vegalite-bindbox-horizontal.html': ['box'],
   'vegalite-hconcat-box.html': ['box'],
 };
@@ -632,6 +634,13 @@ export const GROUPS = [
     dir: 'uplot',
     headingPrefix: 'uPlot',
     note: 'See the <a href="uplot.html">uPlot Integration Guide</a> for setup instructions, series mapping, time axes and live streaming.',
+  },
+  {
+    id: 'graphviz',
+    heading: 'Graphviz',
+    dir: 'graphviz',
+    headingPrefix: 'Graphviz',
+    note: 'Each diagram is the SVG Graphviz drew, read with no DOT source. See the <a href="graphviz.html">Graphviz Integration Guide</a> for setup instructions, Quarto and what each graph becomes.',
   },
   {
     id: 'd3',

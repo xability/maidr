@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Graphviz Directed Graph Example</title>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/graphviz.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Graphviz Directed Graph</h1>
+    <p>Click on the diagram and use the arrow keys to move between steps. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <!--
+      Drawn ahead of time by Graphviz (dot -Tsvg), as a Quarto {dot} cell
+      draws it, from:
+
+      digraph Orders {
+        label="Order handling";
+        node [shape=box, style=rounded];
+        received [label="Order received"];
+        stock [shape=diamond, style="", label="In stock?"];
+        pick [label="Pick and pack"];
+        reorder [label="Order from supplier"];
+        ship [label="Ship"];
+        notify [label="Email the customer"];
+        received -> stock;
+        stock -> pick [label="yes"];
+        stock -> reorder [label="no"];
+        reorder -> pick [label="arrives"];
+        pick -> ship;
+        ship -> notify;
+      }
+    -->
+    <div id="diagram">
+      <svg width="222pt" height="465pt"
+       viewBox="0.00 0.00 222.00 465.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 461.4)">
+      <title>Orders</title>
+      <polygon fill="white" stroke="none" points="-4,4 -4,-461.4 218.27,-461.4 218.27,4 -4,4"/>
+      <text xml:space="preserve" text-anchor="middle" x="107.14" y="-8.2" font-family="Times,serif" font-size="14.00">Order handling</text>
+      <!-- received -->
+      <g id="node1" class="node">
+      <title>received</title>
+      <path fill="none" stroke="black" d="M103.07,-457.4C103.07,-457.4 27.51,-457.4 27.51,-457.4 21.51,-457.4 15.51,-451.4 15.51,-445.4 15.51,-445.4 15.51,-433.4 15.51,-433.4 15.51,-427.4 21.51,-421.4 27.51,-421.4 27.51,-421.4 103.07,-421.4 103.07,-421.4 109.07,-421.4 115.07,-427.4 115.07,-433.4 115.07,-433.4 115.07,-445.4 115.07,-445.4 115.07,-451.4 109.07,-457.4 103.07,-457.4"/>
+      <text xml:space="preserve" text-anchor="middle" x="65.29" y="-435.2" font-family="Times,serif" font-size="14.00">Order received</text>
+      </g>
+      <!-- stock -->
+      <g id="node2" class="node">
+      <title>stock</title>
+      <polygon fill="none" stroke="black" points="65.29,-384.4 0,-366.4 65.29,-348.4 130.58,-366.4 65.29,-384.4"/>
+      <text xml:space="preserve" text-anchor="middle" x="65.29" y="-362.2" font-family="Times,serif" font-size="14.00">In stock?</text>
+      </g>
+      <!-- received&#45;&gt;stock -->
+      <g id="edge1" class="edge">
+      <title>received&#45;&gt;stock</title>
+      <path fill="none" stroke="black" d="M65.29,-421.21C65.29,-413.63 65.29,-404.5 65.29,-395.94"/>
+      <polygon fill="black" stroke="black" points="68.79,-395.94 65.29,-385.94 61.79,-395.94 68.79,-395.94"/>
+      </g>
+      <!-- pick -->
+      <g id="node3" class="node">
+      <title>pick</title>
+      <path fill="none" stroke="black" d="M100.55,-206.8C100.55,-206.8 30.02,-206.8 30.02,-206.8 24.02,-206.8 18.02,-200.8 18.02,-194.8 18.02,-194.8 18.02,-182.8 18.02,-182.8 18.02,-176.8 24.02,-170.8 30.02,-170.8 30.02,-170.8 100.55,-170.8 100.55,-170.8 106.55,-170.8 112.55,-176.8 112.55,-182.8 112.55,-182.8 112.55,-194.8 112.55,-194.8 112.55,-200.8 106.55,-206.8 100.55,-206.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="65.29" y="-184.6" font-family="Times,serif" font-size="14.00">Pick and pack</text>
+      </g>
+      <!-- stock&#45;&gt;pick -->
+      <g id="edge2" class="edge">
+      <title>stock&#45;&gt;pick</title>
+      <path fill="none" stroke="black" d="M63.22,-348.51C61.6,-334.39 59.49,-313.72 58.63,-295.6 57.86,-279.62 57.86,-275.58 58.63,-259.6 59.27,-246.05 60.62,-231.08 61.93,-218.49"/>
+      <polygon fill="black" stroke="black" points="65.38,-219.09 62.99,-208.77 58.43,-218.33 65.38,-219.09"/>
+      <text xml:space="preserve" text-anchor="middle" x="67.96" y="-273.4" font-family="Times,serif" font-size="14.00">yes</text>
+      </g>
+      <!-- reorder -->
+      <g id="node4" class="node">
+      <title>reorder</title>
+      <path fill="none" stroke="black" d="M202.27,-295.6C202.27,-295.6 98.31,-295.6 98.31,-295.6 92.31,-295.6 86.31,-289.6 86.31,-283.6 86.31,-283.6 86.31,-271.6 86.31,-271.6 86.31,-265.6 92.31,-259.6 98.31,-259.6 98.31,-259.6 202.27,-259.6 202.27,-259.6 208.27,-259.6 214.27,-265.6 214.27,-271.6 214.27,-271.6 214.27,-283.6 214.27,-283.6 214.27,-289.6 208.27,-295.6 202.27,-295.6"/>
+      <text xml:space="preserve" text-anchor="middle" x="150.29" y="-273.4" font-family="Times,serif" font-size="14.00">Order from supplier</text>
+      </g>
+      <!-- stock&#45;&gt;reorder -->
+      <g id="edge3" class="edge">
+      <title>stock&#45;&gt;reorder</title>
+      <path fill="none" stroke="black" d="M78.57,-351.84C91.02,-339.12 109.95,-319.79 125.24,-304.18"/>
+      <polygon fill="black" stroke="black" points="127.74,-306.63 132.23,-297.04 122.73,-301.73 127.74,-306.63"/>
+      <text xml:space="preserve" text-anchor="middle" x="122.4" y="-317.8" font-family="Times,serif" font-size="14.00">no</text>
+      </g>
+      <!-- ship -->
+      <g id="node5" class="node">
+      <title>ship</title>
+      <path fill="none" stroke="black" d="M80.29,-133.8C80.29,-133.8 50.29,-133.8 50.29,-133.8 44.29,-133.8 38.29,-127.8 38.29,-121.8 38.29,-121.8 38.29,-109.8 38.29,-109.8 38.29,-103.8 44.29,-97.8 50.29,-97.8 50.29,-97.8 80.29,-97.8 80.29,-97.8 86.29,-97.8 92.29,-103.8 92.29,-109.8 92.29,-109.8 92.29,-121.8 92.29,-121.8 92.29,-127.8 86.29,-133.8 80.29,-133.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="65.29" y="-111.6" font-family="Times,serif" font-size="14.00">Ship</text>
+      </g>
+      <!-- pick&#45;&gt;ship -->
+      <g id="edge5" class="edge">
+      <title>pick&#45;&gt;ship</title>
+      <path fill="none" stroke="black" d="M65.29,-170.61C65.29,-163.03 65.29,-153.9 65.29,-145.34"/>
+      <polygon fill="black" stroke="black" points="68.79,-145.34 65.29,-135.34 61.79,-145.34 68.79,-145.34"/>
+      </g>
+      <!-- reorder&#45;&gt;pick -->
+      <g id="edge4" class="edge">
+      <title>reorder&#45;&gt;pick</title>
+      <path fill="none" stroke="black" d="M133.49,-259.45C121.12,-246.81 104.08,-229.42 90.14,-215.17"/>
+      <polygon fill="black" stroke="black" points="92.89,-212.99 83.4,-208.29 87.89,-217.89 92.89,-212.99"/>
+      <text xml:space="preserve" text-anchor="middle" x="134.45" y="-229" font-family="Times,serif" font-size="14.00">arrives</text>
+      </g>
+      <!-- notify -->
+      <g id="node6" class="node">
+      <title>notify</title>
+      <path fill="none" stroke="black" d="M115.72,-60.8C115.72,-60.8 14.86,-60.8 14.86,-60.8 8.86,-60.8 2.86,-54.8 2.86,-48.8 2.86,-48.8 2.86,-36.8 2.86,-36.8 2.86,-30.8 8.86,-24.8 14.86,-24.8 14.86,-24.8 115.72,-24.8 115.72,-24.8 121.72,-24.8 127.72,-30.8 127.72,-36.8 127.72,-36.8 127.72,-48.8 127.72,-48.8 127.72,-54.8 121.72,-60.8 115.72,-60.8"/>
+      <text xml:space="preserve" text-anchor="middle" x="65.29" y="-38.6" font-family="Times,serif" font-size="14.00">Email the customer</text>
+      </g>
+      <!-- ship&#45;&gt;notify -->
+      <g id="edge6" class="edge">
+      <title>ship&#45;&gt;notify</title>
+      <path fill="none" stroke="black" d="M65.29,-97.61C65.29,-90.03 65.29,-80.9 65.29,-72.34"/>
+      <polygon fill="black" stroke="black" points="68.79,-72.34 65.29,-62.34 61.79,-72.34 68.79,-72.34"/>
+      </g>
+      </g>
+      </svg>
+      
+    </div>
+
+    <script>
+      maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { nodeLabel: 'Step' });
+    </script>
+  </body>
+</html>

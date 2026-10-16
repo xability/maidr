@@ -209,10 +209,10 @@ jobs:
       # officeAddin.spec.ts dist/office.js, the Superset and Metabase
       # fixtures of biToolOutput.spec.ts dist/echarts.js, and amdAdapters.spec.ts
       # dist/observable.js, dist/echarts.js and dist/highcharts.js, and
-      # mermaid.spec.ts dist/mermaid.js -- the only adapter bundles a spec
-      # loads.
+      # mermaid.spec.ts dist/mermaid.js, and graphviz.spec.ts dist/graphviz.js
+      # -- the only adapter bundles a spec loads.
       - name: Build core bundle, locale packs and the adapters the specs load
-        run: node scripts/build.js core locales tableau lightweight-charts echarts uplot apexcharts powerbi excel office observable highcharts mermaid
+        run: node scripts/build.js core locales tableau lightweight-charts echarts uplot apexcharts powerbi excel office observable highcharts mermaid graphviz
 
       # muiXCharts.spec.ts drives the built MUI X Charts example, a Vite
       # single-file bundle that is gitignored like dist/.

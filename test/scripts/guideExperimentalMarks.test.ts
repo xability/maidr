@@ -485,6 +485,13 @@ const GUIDES: Record<string, Guide> = {
       'venn diagram': ['venn'],
     },
   },
+  'graphviz': {
+    heading: '## Supported Graph Types',
+    column: 0,
+    minRows: { stable: 0, experimental: 1 },
+    examples: { after: '## Code Examples', before: '## Quarto', level: '###', min: 1 },
+    labels: {},
+  },
   'uplot': {
     heading: '## Supported Series',
     column: 0,
