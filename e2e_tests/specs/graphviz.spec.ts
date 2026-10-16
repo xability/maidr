@@ -8,8 +8,8 @@ import { normalizeText } from '../utils/text';
 /**
  * E2E coverage for the Graphviz adapter (`maidr/graphviz`).
  *
- * Drives `examples/graphviz/digraph.html` and `examples/graphviz/clusters.html`,
- * whose SVGs Graphviz drew ahead of time as a Quarto `{dot}` cell does, so the
+ * Drives the pages under `examples/graphviz/`, whose SVGs Graphviz drew ahead
+ * of time as a Quarto `{dot}` cell does, so the
  * spec needs no Graphviz and no network. Requires a built adapter bundle (`node scripts/build.js graphviz`).
  */
 
@@ -127,6 +127,39 @@ test.describe('Graphviz adapter', () => {
     await plot.toggleBrailleMode();
 
     expect(await plot.getBrailleContent()).toMatch(BRAILLE_CELL);
+  });
+});
+
+test.describe('Graphviz adapter, undirected graph', () => {
+  /** The outline MAIDR draws over the link to the node the reader is on. */
+  const LINK = '[data-maidr-graphviz-edge][data-maidr-owned]:not([visibility="hidden"])';
+
+  test.beforeEach(async ({ page }) => {
+    await new GraphvizPage(page).navigateToPlot('network');
+  });
+
+  test('should read the graph as a network, most connected person first', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('Person is Chloe');
+    expect(announcement).toContain('to Ana, Ben, Dev');
+    expect(announcement).toContain('Group is 1 of 2');
+    await expect(page.locator(LINK)).toHaveCount(1);
+  });
+
+  test('should outline the link each step crosses', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ben');
+    await expect(page.locator(`${LINK} title`)).toHaveText('ben--chloe');
   });
 });
 

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Graphviz Network Example</title>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/graphviz.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Graphviz Network</h1>
+    <p>Click on the diagram and use the arrow keys to move between people. Each row is one group of people linked to each other. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <!--
+      Drawn ahead of time by Graphviz (neato -Tsvg) from:
+
+      graph Team {
+        label="Who reviews whose code";
+        node [shape=ellipse];
+        ana [label="Ana"]; ben [label="Ben"]; chloe [label="Chloe"];
+        dev [label="Dev"]; eli [label="Eli"]; fay [label="Fay"];
+        ana -- ben; ana -- chloe; ben -- chloe; chloe -- dev;
+        eli -- fay;
+      }
+    -->
+    <div id="diagram">
+      <svg width="259pt" height="209pt"
+       viewBox="0.00 0.00 259.00 209.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 205.01)">
+      <title>Team</title>
+      <polygon fill="white" stroke="none" points="-4,4 -4,-205.01 255.21,-205.01 255.21,4 -4,4"/>
+      <text xml:space="preserve" text-anchor="middle" x="125.6" y="-8.2" font-family="Times,serif" font-size="14.00">Who reviews whose code</text>
+      <!-- ana -->
+      <g id="node1" class="node">
+      <title>ana</title>
+      <ellipse fill="none" stroke="black" cx="27.13" cy="-42.8" rx="27.13" ry="18"/>
+      <text xml:space="preserve" text-anchor="middle" x="27.13" y="-38.6" font-family="Times,serif" font-size="14.00">Ana</text>
+      </g>
+      <!-- ben -->
+      <g id="node2" class="node">
+      <title>ben</title>
+      <ellipse fill="none" stroke="black" cx="98.22" cy="-53.19" rx="27" ry="18"/>
+      <text xml:space="preserve" text-anchor="middle" x="98.22" y="-48.99" font-family="Times,serif" font-size="14.00">Ben</text>
+      </g>
+      <!-- ana&#45;&#45;ben -->
+      <g id="edge1" class="edge">
+      <title>ana&#45;&#45;ben</title>
+      <path fill="none" stroke="black" d="M54,-46.73C59.82,-47.58 65.97,-48.48 71.77,-49.33"/>
+      </g>
+      <!-- chloe -->
+      <g id="node3" class="node">
+      <title>chloe</title>
+      <ellipse fill="none" stroke="black" cx="53.61" cy="-110.62" rx="34.1" ry="18"/>
+      <text xml:space="preserve" text-anchor="middle" x="53.61" y="-106.42" font-family="Times,serif" font-size="14.00">Chloe</text>
+      </g>
+      <!-- ana&#45;&#45;chloe -->
+      <g id="edge2" class="edge">
+      <title>ana&#45;&#45;chloe</title>
+      <path fill="none" stroke="black" d="M34.08,-60.62C37.95,-70.51 42.74,-82.77 46.61,-92.68"/>
+      </g>
+      <!-- ben&#45;&#45;chloe -->
+      <g id="edge3" class="edge">
+      <title>ben&#45;&#45;chloe</title>
+      <path fill="none" stroke="black" d="M85.56,-69.5C79.68,-77.06 72.71,-86.04 66.77,-93.67"/>
+      </g>
+      <!-- dev -->
+      <g id="node4" class="node">
+      <title>dev</title>
+      <ellipse fill="none" stroke="black" cx="41.96" cy="-183.01" rx="27.13" ry="18"/>
+      <text xml:space="preserve" text-anchor="middle" x="41.96" y="-178.81" font-family="Times,serif" font-size="14.00">Dev</text>
+      </g>
+      <!-- chloe&#45;&#45;dev -->
+      <g id="edge4" class="edge">
+      <title>chloe&#45;&#45;dev</title>
+      <path fill="none" stroke="black" d="M50.67,-128.88C48.91,-139.86 46.67,-153.77 44.9,-164.75"/>
+      </g>
+      <!-- eli -->
+      <g id="node5" class="node">
+      <title>eli</title>
+      <ellipse fill="none" stroke="black" cx="153" cy="-179.44" rx="27" ry="18"/>
+      <text xml:space="preserve" text-anchor="middle" x="153" y="-175.24" font-family="Times,serif" font-size="14.00">Eli</text>
+      </g>
+      <!-- fay -->
+      <g id="node6" class="node">
+      <title>fay</title>
+      <ellipse fill="none" stroke="black" cx="224.21" cy="-168.8" rx="27" ry="18"/>
+      <text xml:space="preserve" text-anchor="middle" x="224.21" y="-164.6" font-family="Times,serif" font-size="14.00">Fay</text>
+      </g>
+      <!-- eli&#45;&#45;fay -->
+      <g id="edge5" class="edge">
+      <title>eli&#45;&#45;fay</title>
+      <path fill="none" stroke="black" d="M179.52,-175.48C185.37,-174.6 191.57,-173.68 197.43,-172.8"/>
+      </g>
+      </g>
+      </svg>
+      
+    </div>
+
+    <script>
+      maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { nodeLabel: 'Person' });
+    </script>
+  </body>
+</html>

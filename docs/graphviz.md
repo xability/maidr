@@ -37,13 +37,13 @@ Load `maidr.js` and `graphviz.js`, then call `bindGraphviz()` once the drawings 
 Graphviz's SVG is regular: the graph is a `<g class="graph">`, each node a `<g class="node">` and each edge a `<g class="edge">`, every one titled with what the DOT source called it. A node's title is its name; an edge's is its two ends joined by `->` (or `--` in an undirected `graph`), each end followed by its port when the edge named one. The adapter reads:
 
 - **nodes**, in drawing order, each announced by the text drawn on it. A node drawn with no text, such as `shape=point`, is announced by its name;
-- **edges**, each pointing from the node it leaves to the node it arrives at, with the text drawn on it (its `label`, and any `xlabel`, `headlabel` and `taillabel`) as the edge's label;
+- **edges**, each pointing from the node it leaves to the node it arrives at (or, in a `graph`, joining the two), with the text drawn on it (its `label`, and any `xlabel`, `headlabel` and `taillabel`) as the edge's label;
 - **clusters** (`subgraph cluster_*`), each by its drawn label, or by its name without the `cluster` prefix when it draws none;
 - **the graph's `label`**, as the figure's title.
 
 Graphviz draws a cluster's nodes beside the cluster's group, not inside it, so what puts a node in a cluster is the outline drawn around it: the adapter reads each node's position from the drawing's own coordinates and puts it inside every cluster whose outline holds it.
 
-Each node is paired with its own group in the drawing, so the node the reader is on is outlined. Graphviz numbers its groups `node1`, `node2`, ... afresh in every drawing, so the adapter marks each group with `data-maidr-graphviz-node` and gives the SVG an id when it has none: two graphs on one page are kept apart.
+Each node of a directed graph, and each link of a network, is paired with its own group in the drawing, so what the reader is on is outlined. Graphviz numbers its groups `node1`, `edge1`, ... afresh in every drawing, so the adapter marks each group with `data-maidr-graphviz-node` or `data-maidr-graphviz-edge` and gives the SVG an id when it has none: two graphs on one page are kept apart.
 
 ## Supported Graph Types
 
@@ -57,8 +57,9 @@ None yet. Every graph type below is experimental.
 |-------|-----------|-------------------------------|
 | Directed Graph [experimental] | `directed_graph` | A `digraph`: nodes in the order the edges run, each announcing the nodes feeding it and fed by it, with the edges' labels. |
 | Directed Graph with Clusters [experimental] | `directed_graph` | A `digraph` with `subgraph cluster_*` blocks: each cluster is a scope the reader opens with Down and leaves with Up, nested as the clusters are. |
+| Network [experimental] | `network` | A `graph`: nodes by connected group, one group per row, most connected first, each announcing its degree and the nodes it is linked to. |
 
-An undirected `graph` is not read yet: `createMaidrFromGraphviz` throws on one rather than giving its links a direction, and `bindGraphviz` reports it on the console and leaves it as drawn.
+Which one a drawing is follows from its edges: `->` in a `digraph`, `--` in a `graph`. A drawing with no edges at all cannot say, and is read as a directed graph of nodes with nothing between them.
 
 ## Code Examples
 
@@ -127,6 +128,25 @@ digraph Services {
 ```
 
 The node the reader is on is outlined; a cluster is not, since MAIDR derives a scope from its nodes rather than from a drawn element. A cluster announces the label Graphviz drew on it. In DOT a subgraph inherits its parent's `label` unless it sets its own, so a cluster inside a labelled graph draws -- and is announced by -- the graph's label; give it `label=""` to draw none and have it called by its name instead. Where two clusters side by side draw the same label, each is announced with its name beside it (`Shop (web)`, `Shop (store)`), so they stay two scopes. A cluster drawn with no outline, such as `style=invis`, is not a scope: nothing on the page shows the group.
+#### Network [experimental]
+
+An undirected `graph` becomes a `network`: one link per edge, and the link that joins the node the reader is on to the group is outlined. A link between two people is a fact about the pair, not a way to go, so the reader moves through each connected group by degree rather than along the edges. Below, Ana, Ben, Chloe and Dev form one group, with Chloe the most connected, and Eli and Fay another.
+
+```dot
+graph Team {
+  label="Who reviews whose code";
+  ana [label="Ana"]; ben [label="Ben"]; chloe [label="Chloe"];
+  dev [label="Dev"]; eli [label="Eli"]; fay [label="Fay"];
+  ana -- ben; ana -- chloe; ben -- chloe; chloe -- dev;
+  eli -- fay;
+}
+```
+
+```js
+maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { nodeLabel: 'Person' });
+```
+
+A network names its nodes by the text drawn on them. Where two nodes are drawn with the same text, every node is named by its DOT name instead, so the two stay two. A node no edge touches has no link to be named in, and is not read -- the adapter names such nodes in a console warning; a loop (`a -- a`) is reported apart from the node's links.
 
 ## Quarto
 

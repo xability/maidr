@@ -3,12 +3,13 @@
  */
 import type { DirectedGraphPoint, MaidrLayer } from '@type/grammar';
 import { bindGraphviz } from '@adapters/graphviz/bind';
+import * as converter from '@adapters/graphviz/converter';
 import { createMaidrFromGraphviz } from '@adapters/graphviz/converter';
 import { isGraphvizSvg, readGraphviz, splitEdgeTitle } from '@adapters/graphviz/read';
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
-import { empty, pipeline, tricky, undirected } from './fixtures';
+import { empty, pipeline, tricky } from './fixtures';
 
 /** Puts drawings in the page, each in a figure of its own, as Quarto does. */
 function mount(...drawings: string[]): SVGSVGElement[] {
@@ -169,12 +170,6 @@ describe('createMaidrFromGraphviz', () => {
     expect(figure.title).toBe('Nothing yet');
     expect(figure.subplots[0][0].layers).toEqual([]);
   });
-
-  test('refuses an undirected graph rather than giving its links a direction', () => {
-    const [svg] = mount(undirected);
-
-    expect(() => createMaidrFromGraphviz(svg)).toThrow('Undirected graphs');
-  });
 });
 
 describe('bindGraphviz', () => {
@@ -189,14 +184,24 @@ describe('bindGraphviz', () => {
   });
 
   test('reports a drawing it cannot convert and binds the rest', () => {
-    mount(undirected, pipeline);
+    const [broken] = mount(tricky, pipeline);
+    const real = converter.createMaidrFromGraphviz;
+    const convert = jest.spyOn(converter, 'createMaidrFromGraphviz');
+    convert.mockImplementation((svg, options) => {
+      if (svg === broken) {
+        throw new Error('unreadable');
+      }
+      return real(svg, options);
+    });
     const error = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const figures = bindGraphviz();
 
     expect(figures).toHaveLength(1);
     expect(error).toHaveBeenCalledTimes(1);
+    expect(broken.hasAttribute('maidr')).toBe(false);
     error.mockRestore();
+    convert.mockRestore();
   });
 
   test('binds one drawing with the id it is given', () => {
