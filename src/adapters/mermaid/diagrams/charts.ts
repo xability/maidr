@@ -199,10 +199,16 @@ export function quadrant(context: DiagramContext): DiagramConversion {
   const xLabel = axisLabels.slice(0, 2).filter(Boolean).join(' to ') || 'x';
   const yLabel = axisLabels.slice(2, 4).filter(Boolean).join(' to ') || 'y';
   const marks = all(context.svg, 'g.data-point');
+  // A step of one half makes the scatter's grid the four quadrants, which is
+  // how the chart is read. Without a step there is no grid, and so no braille:
+  // a scatter has a braille surface only in grid navigation.
   const layer: MaidrLayer = {
     id: context.layerId('quadrant'),
     type: TraceType.SCATTER,
-    axes: { x: { label: xLabel, min: 0, max: 1 }, y: { label: yLabel, min: 0, max: 1 } },
+    axes: {
+      x: { label: xLabel, min: 0, max: 1, tickStep: 0.5 },
+      y: { label: yLabel, min: 0, max: 1, tickStep: 0.5 },
+    },
     ...(marks.length === data.length && data.length > 0
       ? { selectors: `#${cssEscape(context.svgId)} g.data-point circle` }
       : {}),

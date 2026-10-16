@@ -302,13 +302,16 @@ export function wardley(context: DiagramContext): DiagramConversion {
   });
   const layers: MaidrLayer[] = [];
   if (points.length > 0) {
+    // A step of a quarter cuts evolution into Mermaid's four default stages,
+    // and visibility alike. Without a step there is no grid, and so no
+    // braille: a scatter has a braille surface only in grid navigation.
     layers.push({
       id: context.layerId('map'),
       type: TraceType.SCATTER,
       name: 'Components',
       axes: {
-        x: { label: 'Evolution', min: 0, max: 1 },
-        y: { label: 'Visibility', min: 0, max: 1 },
+        x: { label: 'Evolution', min: 0, max: 1, tickStep: 0.25 },
+        y: { label: 'Visibility', min: 0, max: 1, tickStep: 0.25 },
       },
       ...(elements.length > 0 ? { selectors: `#${cssEscape(context.svgId)} g.wardley-node` } : {}),
       data: points,
