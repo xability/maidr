@@ -178,6 +178,28 @@ describe('watchQuartoMermaid', () => {
     }
   });
 
+  it('binds a stalled draw even while the rest of the page keeps changing', async () => {
+    jest.useFakeTimers();
+    try {
+      quartoPage([{ text: PIE }, { text: 'not a diagram' }]);
+      pageMermaid();
+      const ticker = document.createElement('p');
+      document.body.append(ticker);
+
+      stop = watchQuartoMermaid();
+      window.dispatchEvent(new Event('load'));
+      await quartoDraws({}, 1);
+      for (let i = 0; i < 10; i += 1) {
+        ticker.textContent = String(i);
+        await jest.advanceTimersByTimeAsync(500);
+      }
+
+      expect(document.querySelectorAll('svg[maidr]')).toHaveLength(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('marks a cell it cannot read and still binds the others', async () => {
     quartoPage([{ text: 'broken' }, { text: PIE }]);
     const parsed = pageMermaid();

@@ -95,6 +95,17 @@ async function bindDrawn(root: ParentNode, mermaid: MermaidApi): Promise<number>
 }
 
 /**
+ * Whether a change is Quarto drawing a cell: its `<pre>` taken out of, or its
+ * drawing put into, a host whose text was kept.
+ *
+ * @param mutation - The change
+ * @returns True for a change inside a kept host
+ */
+function isDrawing(mutation: MutationRecord): boolean {
+  return mutation.target instanceof Element && mutation.target.closest(`[${SOURCE}]`) !== null;
+}
+
+/**
  * Makes the `{mermaid}` cells of a Quarto page accessible as Quarto draws
  * them.
  *
@@ -125,9 +136,11 @@ export function watchQuartoMermaid(root: ParentNode = document): () => void {
   let loaded = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  const observer = new MutationObserver(() => {
+  const observer = new MutationObserver((mutations) => {
     schedule(false);
-    if (loaded) {
+    // Only Quarto drawing a cell moves the moment on; the rest of a live page
+    // changing would otherwise put it off for good.
+    if (loaded && mutations.some(isDrawing)) {
       settle();
     }
   });
