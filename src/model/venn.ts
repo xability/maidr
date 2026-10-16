@@ -116,6 +116,9 @@ export class VennTrace extends AbstractTrace {
       }
       const key = members.join(',');
       if (seen.has(key)) {
+        // Only the first region of a combination is read; its drawn area is
+        // left unhighlighted and uncloned (see mapToSvgElements).
+        console.warn(`[VennTrace] Dropped region ${source}: the sets ${members.map(set => sets[set]).join(' & ')} were already declared by an earlier region.`);
         return;
       }
       seen.add(key);
@@ -422,7 +425,10 @@ export class VennTrace extends AbstractTrace {
    *
    * One element per declared region, in declared order; a set no region
    * declared alone has nothing drawn of its own and gets a placeholder.
-   * Withdrawn on a count mismatch.
+   * Withdrawn on a count mismatch. Only the regions the trace kept are
+   * cloned: a dropped duplicate's element still counts towards the match,
+   * since the selectors pair with the declared regions by position, but no
+   * hidden copy of it is left in the chart.
    *
    * @param selectors - Whatever the layer declared
    * @param declared - How many regions the layer declared
@@ -443,9 +449,8 @@ export class VennTrace extends AbstractTrace {
     if (live.length !== declared || declared === 0) {
       return null;
     }
-    const flat = live.map(element => Svg.cloneHidden(element));
     return this.levels.map(level => level.map(region =>
-      (region.source === null ? undefined : flat[region.source]) ?? Svg.createEmptyElement()));
+      region.source === null ? Svg.createEmptyElement() : Svg.cloneHidden(live[region.source])));
   }
 
   protected findNearestPoint(x: number, y: number): NearestPoint | null {
