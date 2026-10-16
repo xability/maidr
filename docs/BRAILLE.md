@@ -115,7 +115,7 @@ Single-line braille displays represent grouped boxplots by allowing users to nav
 
 ### Scatter plot
 
-In the Braille representation of a scatter plot, the encoding is performed only for the line layer (layer 2). Stand alone scatterplots without a line layer are not represented in braille.
+In the Braille representation of a scatter plot with a line layer (layer 2), the line layer is encoded as below. The points themselves have a braille representation only in grid navigation, described under Multiline Displays, which needs the layer's axes to declare a `min`, `max` and `tickStep`; outside it, or without a grid, a stand-alone scatter plot is not represented in braille.
 The representation of the line layer is similar to that used for bar plots,
 wherein data values are represented as Braille characters based on their relative magnitude within the plot.
 Low values are denoted by dots along the bottom, while high values are indicated by dots along the top.

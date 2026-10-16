@@ -24,8 +24,11 @@ const FOCUS_TARGET = '[id^="maidr-figure-"] [tabindex="0"]';
 const BRAILLE = 'textarea[id^="maidr-braille-textarea-"]';
 const HIGHLIGHT = '[id^="maidr-highlight"]';
 
-/** Every braille cell MAIDR can emit lives in the Unicode braille block. */
-const BRAILLE_CELLS = /^[\u2800-\u28FF\n]+$/;
+/**
+ * Every braille cell MAIDR can emit lives in the Unicode braille block, but
+ * for the blank a scatter's grid leaves in a cell with no points.
+ */
+const BRAILLE_CELLS = /^[\u2800-\u28FF\n ]+$/;
 
 /** Every example page and the layer types it should become. */
 const PAGES: Record<string, string[]> = {
@@ -138,12 +141,15 @@ test.describe('Mermaid adapter', () => {
       const first = await press(page, 'ArrowRight');
       expect(first.length).toBeGreaterThan(0);
 
-      // MAIDR has no braille encoding for a scatter, and says so.
-      if (types[0] !== 'point') {
-        await page.keyboard.press('b');
-        const braille = page.locator(BRAILLE).first();
-        await expect.poll(async () => (await braille.inputValue()).trim()).toMatch(BRAILLE_CELLS);
+      // A scatter's braille surface is its grid, a count per cell, which the
+      // rotor's grid navigation opens.
+      if (types[0] === 'point') {
+        await page.keyboard.press('Alt+Shift+ArrowUp');
+        await expect(page.locator('#maidr-rotor-area')).toContainText('GRID NAVIGATION');
       }
+      await page.keyboard.press('b');
+      const braille = page.locator(BRAILLE).first();
+      await expect.poll(async () => (await braille.inputValue()).trim()).toMatch(BRAILLE_CELLS);
     });
   }
 

@@ -81,8 +81,8 @@ Every diagram type in Mermaid 12 is read, and ZenUML through its plugin. Several
 | Pie | `pie` | one `pie` slice per section; a slice Mermaid leaves undrawn (under 1%) is still read |
 | XY chart (bar and line) | `xychart` | one `bar` or `line` layer per plot; Page Up / Page Down switch between them |
 | User journey | `journey` | a `line` per section, a task's score with the mood it is drawn with and who takes part |
-| Quadrant chart | `quadrantChart` | a `point` layer of the named points on two axes from 0 to 1; the quadrants are named in the layer title |
-| Wardley map | `wardley-beta` | a `point` layer of the components by evolution and visibility, and a `directed_graph` of the value chain |
+| Quadrant chart | `quadrantChart` | a `point` layer of the named points on two axes from 0 to 1, gridded by quadrant; the quadrants are named in the layer title |
+| Wardley map | `wardley-beta` | a `point` layer of the components by evolution and visibility, gridded in quarters, and a `directed_graph` of the value chain |
 
 ### Experimental chart types
 
@@ -356,7 +356,7 @@ The highlight outlines the shape Mermaid drew for the point the reader is on: a 
 
 - **Mermaid's diagram databases are internal.** The adapter reads them through guarded getters, so a Mermaid release that changes one degrades to fewer details rather than an error; the examples are pinned to Mermaid 12.2.0 and should be checked when upgrading.
 - **A diagram must be rendered from its text.** Diagrams Mermaid already rendered with `startOnLoad` have lost their text; render them with `bindMermaid` instead.
-- **Scatter layers have no braille.** The quadrant chart and the Wardley map's components are `point` layers, which MAIDR does not draw on a braille display.
+- **Scatter layers have braille only in grid navigation.** The quadrant chart and the Wardley map's components are `point` layers. A scatter's braille surface is its grid, a count of points per cell, so <kbd>B</kbd> shows it once the rotor (<kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>↑</kbd>) is on grid navigation; in the ordinary row and column navigation it reports that braille is not supported. The quadrant chart's grid is its four quadrants, and the Wardley map's cuts both axes into quarters, evolution into Mermaid's four default stages.
 - **The SVG is trusted as Mermaid's own sanitizing left it.** `bindMermaid` writes what `mermaid.render()` returns into the page. Under Mermaid's default `securityLevel: 'strict'` that output is sanitized; under `'loose'` or `'antiscript'` it is not, so a diagram whose text comes from someone else should be rendered with `'strict'`.
 - **ZenUML is read from its text.** Its plugin parses ZenUML itself and keeps nothing the adapter could read, so the adapter follows the documented grammar; a construct outside it is passed over rather than misread.
 
