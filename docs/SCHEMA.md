@@ -317,8 +317,8 @@ reason for the same chart, and the reasons did not agree (#1190).
 
 ### Set-overlap diagrams (Venn, Euler)
 
-**No longer declined: read by the `venn` trace**, which the Highcharts
-(`venn`, `euler`), Chart.js (`chartjs-chart-venn`) and amCharts
+**No longer declined: read by the `venn` trace**, which the Mermaid,
+Highcharts (`venn`, `euler`), Chart.js (`chartjs-chart-venn`) and amCharts
 (`am5venn.Venn`) adapters produce. The section stays so the history of the
 decision is findable from the adapters that used to point here (#1190).
 
