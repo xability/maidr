@@ -98,7 +98,11 @@ test.describe('Network diagram', () => {
     const announcement = normalizeText(await plot.getInstructionText());
 
     expect(announcement).toContain('Ada');
-    expect(announcement).toContain('Links');
+    expect(announcement).toContain('Links is 5');
+    // The degree is said once, then whom it links to -- not "Links is 5,
+    // Links is 5, to Grace, ...".
+    expect(announcement.match(/Links is/g)).toHaveLength(1);
+    expect(announcement).toContain('Linked to is Grace');
   });
 
   test('should reach the other group with the arrows', async ({ page }) => {
