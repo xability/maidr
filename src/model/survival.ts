@@ -78,6 +78,12 @@ export class SurvivalTrace extends StepTrace {
   private verticalAnchor: { time: number; row: number; col: number } | null = null;
 
   /**
+   * Raised while an Up or Down is moving the cursor, so the accessors below
+   * can tell that move from every other one.
+   */
+  private movingVertically = false;
+
+  /**
    * Creates a new survival trace.
    *
    * @param layer - The MAIDR layer carrying one curve per arm
@@ -192,21 +198,79 @@ export class SurvivalTrace extends StepTrace {
    * day-5 step, and the arm below *that* at its day-0 step, so each press
    * walked the reader back towards the origin. So a run of vertical moves
    * keeps comparing at the time it started from, for as long as the cursor
-   * stays on the cell the last one landed on; any other move -- along the
-   * curve, a rotor jump, a jump to a value -- leaves that cell, and the next
-   * Up or Down starts from wherever the reader now is.
+   * stays on the cell the last one landed on and has made no other move; any
+   * other move -- along the curve, a rotor jump, a jump to a value, even one
+   * that comes back to the same cell -- forgets it, and the next Up or Down
+   * starts from wherever the reader now is.
    *
    * @param direction - The direction to move
    * @returns Whether the cursor moved
    */
   public override moveOnce(direction: MovableDirection): boolean {
     const vertical = direction === 'UPWARD' || direction === 'DOWNWARD';
+    if (!vertical) {
+      this.verticalAnchor = null;
+    }
     const time = vertical && !this.isInitialEntry ? this.referenceTime() : null;
-    const moved = super.moveOnce(direction);
+    this.movingVertically = vertical;
+    let moved: boolean;
+    try {
+      moved = super.moveOnce(direction);
+    } finally {
+      this.movingVertically = false;
+    }
     if (vertical && moved && time !== null) {
       this.verticalAnchor = { time, row: this.row, col: this.col };
     }
     return moved;
+  }
+
+  // The anchor belongs to the cell an Up or Down landed on *by* that move.
+  // Matching the cell alone is not enough: Left then Right comes back to the
+  // same cell, and the next Down would still compare at the time the run
+  // started from. So every other way the cursor is moved drops it -- the
+  // accessors every assignment in this lineage goes through (along the curve,
+  // the rotors, extrema, a jump to a value), and the two moves the base class
+  // makes on the movable directly.
+
+  public override get row(): number {
+    return this.movable.row;
+  }
+
+  public override set row(value: number) {
+    this.dropVerticalAnchor();
+    this.movable.row = value;
+  }
+
+  public override get col(): number {
+    return this.movable.col;
+  }
+
+  public override set col(value: number) {
+    this.dropVerticalAnchor();
+    this.movable.col = value;
+  }
+
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    this.verticalAnchor = null;
+    return super.moveToExtreme(direction);
+  }
+
+  public override moveToIndex(row: number, col: number): boolean {
+    this.verticalAnchor = null;
+    return super.moveToIndex(row, col);
+  }
+
+  protected override enterTrace(): void {
+    this.verticalAnchor = null;
+    super.enterTrace();
+  }
+
+  /** Forgets the time a run of vertical moves started from, unless one is moving. */
+  private dropVerticalAnchor(): void {
+    if (!this.movingVertically) {
+      this.verticalAnchor = null;
+    }
   }
 
   /**

@@ -475,6 +475,77 @@ describe('up and down move between strata', () => {
     expect([trace.row, trace.col]).toEqual([0, 6]);
   });
 
+  test('a move along the curve that comes back to the same cell starts afresh', () => {
+    // Up from day 11 lands on sex=2's day-5 step. Left then Right comes back
+    // to that very cell, but by a horizontal move, so the next Down compares
+    // at day 5 -- where sex=1, still at its day-0 step, is above -- and not at
+    // day 11, where it would have gone back down to sex=1.
+    const trace = survival(0, 1, STRATA);
+
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('BACKWARD');
+    trace.moveOnce('FORWARD');
+    expect([trace.row, trace.col]).toEqual([1, 1]);
+
+    expect(trace.moveOnce('DOWNWARD')).toBe(false);
+    expect([trace.row, trace.col]).toEqual([1, 1]);
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect([trace.row, trace.col]).toEqual([0, 0]);
+  });
+
+  test('a jump to the same cell starts afresh too', () => {
+    const trace = survival(0, 1, STRATA);
+
+    trace.moveOnce('UPWARD');
+    trace.moveToIndex(1, 1);
+
+    expect(trace.moveOnce('DOWNWARD')).toBe(false);
+  });
+
+  test('moves to a stratum that starts after the reader\'s time', () => {
+    // At day 2 the later stratum has not begun, so it is read at its first
+    // time rather than left out.
+    const late: SurvivalPoint[][] = [
+      [{ x: 0, y: 1, z: 'early' }, { x: 2, y: 0.9, z: 'early' }],
+      [{ x: 10, y: 0.95, z: 'late' }, { x: 20, y: 0.7, z: 'late' }],
+    ];
+    const trace = survival(0, 1, late);
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect([trace.row, trace.col]).toEqual([1, 0]);
+    expect(nonEmptyState(trace).text.main.value).toBe(10);
+  });
+
+  test('a categorical time falls back to the line\'s own rule', () => {
+    // Times that cannot be ordered cannot be read as a step function, so
+    // only a stratum with a point at the very same x is a place to move to.
+    const categorical: SurvivalPoint[][] = [
+      [{ x: 'early', y: 0.9, z: 'A' }, { x: 'mid', y: 0.7, z: 'A' }],
+      [{ x: 'early', y: 0.8, z: 'B' }, { x: 'late', y: 0.6, z: 'B' }],
+    ];
+
+    const shared = survival(0, 0, categorical);
+    expect(shared.moveOnce('DOWNWARD')).toBe(true);
+    expect([shared.row, shared.col]).toEqual([1, 0]);
+
+    const unshared = survival(0, 1, categorical);
+    expect(unshared.isMovable('DOWNWARD')).toBe(false);
+    expect(unshared.isMovable('UPWARD')).toBe(false);
+  });
+
+  test('a gap under the cursor falls back to the line\'s own rule', () => {
+    // A time with no estimate is level with nothing, so it is above or below
+    // no stratum.
+    const gapped: SurvivalPoint[][] = [
+      [{ x: 0, y: 1, z: 'A' }, { x: 5, y: null, z: 'A' }],
+      [{ x: 0, y: 1, z: 'B' }, { x: 5, y: 0.5, z: 'B' }],
+    ];
+    const trace = survival(0, 1, gapped);
+
+    expect(trace.isMovable('UPWARD')).toBe(false);
+    expect(trace.isMovable('DOWNWARD')).toBe(false);
+  });
+
   test('past the end of a stratum, moves to its last time', () => {
     // sex=2's follow-up ends at day 965, before sex=1's last time. Its curve
     // still finishes above, and the reader is put on where it finishes
