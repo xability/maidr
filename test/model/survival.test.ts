@@ -381,3 +381,128 @@ describe('the table says which times were censored', () => {
     expect(dataTable.headers).not.toContain('Censored');
   });
 });
+
+/**
+ * Two strata as r-maidr emits them for base R's
+ * `plot(survfit(Surv(time, status) ~ sex, data = lung))` and for ggplot2's
+ * `maidr_survival()`: one survival layer, one series per stratum, each on its
+ * own grid of event and censoring times. The first seven times of each, then
+ * each one's last, taken from the real payload.
+ *
+ * The two grids share only the origin, which is the shape the line trace's
+ * exact-x rule cannot move between: off month 0 no time of one stratum is a
+ * time of the other (#1433).
+ */
+const STRATA: SurvivalPoint[][] = [
+  [
+    { x: 0, y: 1, z: 'sex=1' },
+    { x: 11, y: 0.978260869565217, z: 'sex=1' },
+    { x: 12, y: 0.971014492753623, z: 'sex=1' },
+    { x: 13, y: 0.956521739130435, z: 'sex=1' },
+    { x: 15, y: 0.94927536231884, z: 'sex=1' },
+    { x: 26, y: 0.942028985507246, z: 'sex=1' },
+    { x: 30, y: 0.934782608695652, z: 'sex=1' },
+    { x: 1022, y: 0.0357138702934946, z: 'sex=1', censored: true },
+  ],
+  [
+    { x: 0, y: 1, z: 'sex=2' },
+    { x: 5, y: 0.988888888888889, z: 'sex=2' },
+    { x: 60, y: 0.977777777777778, z: 'sex=2' },
+    { x: 61, y: 0.966666666666667, z: 'sex=2' },
+    { x: 62, y: 0.955555555555556, z: 'sex=2' },
+    { x: 79, y: 0.944444444444444, z: 'sex=2' },
+    { x: 81, y: 0.933333333333333, z: 'sex=2' },
+    { x: 965, y: 0.0832144435133582, z: 'sex=2', censored: true },
+  ],
+];
+
+describe('up and down move between strata', () => {
+  test('moves to the stratum above at a time it was not sampled at', () => {
+    // At day 11, sex=1 stands at 0.978 and sex=2 -- last stepped at day 5 --
+    // still at 0.989, so sex=2 is the curve above. It used to be refused as
+    // "no more data" because sex=2 has no point at day 11.
+    const trace = survival(0, 1, STRATA);
+
+    expect(trace.isMovable('UPWARD')).toBe(true);
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect([trace.row, trace.col]).toEqual([1, 1]);
+
+    const { text } = nonEmptyState(trace);
+    // Landed on the step in force at day 11, so the probability spoken is
+    // the one the curve is drawn at there, and the stratum is named.
+    expect(text.main.value).toBe(5);
+    expect(text.cross?.value).toBe(0.988888888888889);
+    expect(text.z?.value).toBe('sex=2');
+  });
+
+  test('moves to the stratum below', () => {
+    // At day 60 sex=2 is at 0.978 and sex=1, last stepped at day 30, at 0.935.
+    const trace = survival(1, 2, STRATA);
+
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect([trace.row, trace.col]).toEqual([0, 6]);
+    expect(nonEmptyState(trace).text.z?.value).toBe('sex=1');
+  });
+
+  test('reports the bound when no stratum lies that way', () => {
+    const trace = survival(0, 1, STRATA);
+
+    // sex=1 is the lower curve at day 11.
+    expect(trace.isMovable('DOWNWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(false);
+    expect([trace.row, trace.col]).toEqual([0, 1]);
+  });
+
+  test('up then down comes back to the time the reader left', () => {
+    // The step in force at day 11 on sex=2 is day 5, and the step in force at
+    // day 5 on sex=1 is day 0. Comparing from wherever the cursor last landed
+    // would walk the reader back to the origin one keypress at a time.
+    const trace = survival(0, 1, STRATA);
+
+    trace.moveOnce('UPWARD');
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect([trace.row, trace.col]).toEqual([0, 1]);
+    expect(nonEmptyState(trace).text.main.value).toBe(11);
+  });
+
+  test('a move along the curve starts the comparison afresh', () => {
+    const trace = survival(0, 1, STRATA);
+
+    trace.moveOnce('UPWARD'); // sex=2 at day 5
+    trace.moveOnce('FORWARD'); // sex=2 at day 60
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    // Compared at day 60, not day 11: sex=1's step in force there is day 30.
+    expect([trace.row, trace.col]).toEqual([0, 6]);
+  });
+
+  test('past the end of a stratum, moves to its last time', () => {
+    // sex=2's follow-up ends at day 965, before sex=1's last time. Its curve
+    // still finishes above, and the reader is put on where it finishes
+    // rather than told there is nothing there.
+    const trace = survival(0, 7, STRATA);
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect([trace.row, trace.col]).toEqual([1, 7]);
+    expect(nonEmptyState(trace).text.section).toBe('censored');
+  });
+
+  test('the shared origin is still walked in series order', () => {
+    // Both strata start at 1, which the line reads as a tie stacked by series
+    // order, the later series above.
+    const trace = survival(0, 0, STRATA);
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect([trace.row, trace.col]).toEqual([1, 0]);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect([trace.row, trace.col]).toEqual([0, 0]);
+  });
+
+  test('the censored-time rotor walks the stratum the reader moved to', () => {
+    const trace = survival(0, 1, STRATA);
+
+    trace.moveOnce('UPWARD');
+    expect(trace.moveToRotorFilter('censored', 'right')).toBe(true);
+    expect([trace.row, trace.col]).toEqual([1, 7]);
+  });
+});

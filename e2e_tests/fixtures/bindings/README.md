@@ -41,6 +41,7 @@ py-maidr version wrote the page.
 | `py-seaborn-dodged`              | py-maidr after xability/py-maidr#807 | `sns.barplot(hue=)`                           |
 | `py-matplotlib-line`             | py-maidr after xability/py-maidr#807 | `ax.plot()`                                   |
 | `py-seaborn-heat`                | py-maidr after xability/py-maidr#807 | `sns.heatmap()`                               |
+| `r-base-survival`                | r-maidr 0.5.0.9000 (6cf62beb)        | `plot(survfit(... ~ sex, lung))` (#1433)      |
 
 ## Refreshing one
 
