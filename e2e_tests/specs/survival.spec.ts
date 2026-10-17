@@ -1,6 +1,7 @@
 import type { Maidr } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { BasePage } from '../page-objects/base-page';
+import { BindingOutputPage } from '../page-objects/plots/bindingOutput-page';
 import { TestConstants } from '../utils/constants';
 import { extractMaidrData } from '../utils/maidr-data';
 import { normalizeText } from '../utils/text';
@@ -132,5 +133,59 @@ test.describe('Survival curve', () => {
     for (const row of rows) {
       expect(row).toMatch(BRAILLE_CELL);
     }
+  });
+});
+
+test.describe('Survival strata from r-maidr', () => {
+  // `plot(survfit(Surv(time, status) ~ sex, data = lung))` as r-maidr saves
+  // it: one survival layer, one series per stratum, each on its own grid of
+  // times. The strata share only day 0, so every Up and Down past it used to
+  // announce that there was no more data (#1433).
+  test('up and down move between strata and back', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const binding = new BindingOutputPage(page);
+    await binding.open('r-base-survival');
+    await binding.enter();
+
+    // The first press enters on day 0, the one time both strata share.
+    await binding.step('ArrowRight');
+    const day11 = await binding.step('ArrowRight');
+    expect(day11.text).toContain('sex=1');
+    expect(day11.text).toContain('11');
+
+    // sex=2 last stepped at day 5 and stands above sex=1 at day 11.
+    const above = await binding.step('ArrowUp');
+    expect(above.text).toContain('sex=2');
+    expect(above.text).not.toMatch(/no more data/i);
+    expect(above.outlined, 'nothing outlined on the stratum moved to').toBeGreaterThan(0);
+    expect(above.box).not.toEqual(day11.box);
+
+    const back = await binding.step('ArrowDown');
+    expect(back.text).toContain('sex=1');
+    expect(back.text).toContain('11');
+    expect(back.box).toEqual(day11.box);
+
+    expect(errors).toEqual([]);
+  });
+
+  test('the braille caret follows the move to the other stratum', async ({ page }) => {
+    const binding = new BindingOutputPage(page);
+    await binding.open('r-base-survival');
+    await binding.enter();
+    await binding.step('ArrowRight');
+    await binding.step('ArrowRight');
+    await binding.toggleBrailleMode();
+
+    const braille = page.locator(`textarea[id^="${TestConstants.BRAILLE_TEXTAREA}"]`);
+    const firstRow = (await braille.inputValue()).indexOf('\n');
+    expect(firstRow).toBeGreaterThan(0);
+    expect(await braille.evaluate((el: HTMLTextAreaElement) => el.selectionStart))
+      .toBeLessThan(firstRow);
+
+    await page.keyboard.press('ArrowUp');
+
+    await expect.poll(() => braille.evaluate((el: HTMLTextAreaElement) => el.selectionStart))
+      .toBeGreaterThan(firstRow);
   });
 });

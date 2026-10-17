@@ -1,4 +1,5 @@
 import type { MaidrLayer, SurvivalPoint } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import type { RotorFilterUnit } from './abstract';
 import { t } from '@util/i18n';
@@ -69,6 +70,18 @@ export class SurvivalTrace extends StepTrace {
    * at construction -- the candlestick's reasoning.
    */
   private readonly censoredIndices: number[][];
+
+  /**
+   * The time a run of Up and Down presses is compared at, and the cell the
+   * last of them landed on. See {@link SurvivalTrace.moveOnce}.
+   */
+  private verticalAnchor: { time: number; row: number; col: number } | null = null;
+
+  /**
+   * Raised while an Up or Down is moving the cursor, so the accessors below
+   * can tell that move from every other one.
+   */
+  private movingVertically = false;
 
   /**
    * Creates a new survival trace.
@@ -173,6 +186,199 @@ export class SurvivalTrace extends StepTrace {
     this.updateVisualPointPosition();
     this.notifyStateUpdate();
     return true;
+  }
+
+  /**
+   * Moves along the curve, or to the arm above or below.
+   *
+   * An Up or Down lands on the step the target arm is at *at the reader's
+   * time*, which is often an earlier time than the one they left (see
+   * {@link SurvivalTrace.findVerticalTarget}). Compared afresh from there,
+   * Up then Down would not come back: from day 11, the arm above is at its
+   * day-5 step, and the arm below *that* at its day-0 step, so each press
+   * walked the reader back towards the origin. So a run of vertical moves
+   * keeps comparing at the time it started from, for as long as the cursor
+   * stays on the cell the last one landed on and has made no other move; any
+   * other move -- along the curve, a rotor jump, a jump to a value, even one
+   * that comes back to the same cell -- forgets it, and the next Up or Down
+   * starts from wherever the reader now is.
+   *
+   * @param direction - The direction to move
+   * @returns Whether the cursor moved
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    const vertical = direction === 'UPWARD' || direction === 'DOWNWARD';
+    if (!vertical) {
+      this.verticalAnchor = null;
+    }
+    const time = vertical && !this.isInitialEntry ? this.referenceTime() : null;
+    this.movingVertically = vertical;
+    let moved: boolean;
+    try {
+      moved = super.moveOnce(direction);
+    } finally {
+      this.movingVertically = false;
+    }
+    if (vertical && moved && time !== null) {
+      this.verticalAnchor = { time, row: this.row, col: this.col };
+    }
+    return moved;
+  }
+
+  // The anchor belongs to the cell an Up or Down landed on *by* that move.
+  // Matching the cell alone is not enough: Left then Right comes back to the
+  // same cell, and the next Down would still compare at the time the run
+  // started from. So every other way the cursor is moved drops it -- the
+  // accessors every assignment in this lineage goes through (along the curve,
+  // the rotors, extrema, a jump to a value), and the two moves the base class
+  // makes on the movable directly.
+
+  public override get row(): number {
+    return this.movable.row;
+  }
+
+  public override set row(value: number) {
+    this.dropVerticalAnchor();
+    this.movable.row = value;
+  }
+
+  public override get col(): number {
+    return this.movable.col;
+  }
+
+  public override set col(value: number) {
+    this.dropVerticalAnchor();
+    this.movable.col = value;
+  }
+
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    this.verticalAnchor = null;
+    return super.moveToExtreme(direction);
+  }
+
+  public override moveToIndex(row: number, col: number): boolean {
+    this.verticalAnchor = null;
+    return super.moveToIndex(row, col);
+  }
+
+  protected override enterTrace(): void {
+    this.verticalAnchor = null;
+    super.enterTrace();
+  }
+
+  /** Forgets the time a run of vertical moves started from, unless one is moving. */
+  private dropVerticalAnchor(): void {
+    if (!this.movingVertically) {
+      this.verticalAnchor = null;
+    }
+  }
+
+  /**
+   * Where an Up or Down lands: the arm whose curve is nearest above or below
+   * the cursor's at the cursor's time, on the step it is at then.
+   *
+   * The line asks every other series for a point at exactly the cursor's x.
+   * Arms of a survival fit have none to offer: each is sampled at its own
+   * event and censoring times, so r-maidr's `survfit(... ~ sex)` strata share
+   * only the origin, and every Up and Down past it announced that there was
+   * no more data (#1433). A survival curve has a value at every time it
+   * spans, though -- the one carried forward from its last step -- and that
+   * is the value the figure draws there and the one a reader comparing arms
+   * means. So each arm is read at the cursor's time as a step function and
+   * the reader is put on the step it is at: its estimate is the one compared,
+   * so what is announced is what decided the move. An arm whose follow-up
+   * ends before that time is read at its last step, and one that starts
+   * after it at its first, so an arm drawn on the chart is never a dead end.
+   *
+   * Arms level with the cursor are stacked in series order, the later above,
+   * as the line stacks them, so the shared origin every arm starts at is
+   * still walked one arm at a time.
+   *
+   * @param direction - UPWARD for the nearest arm above, DOWNWARD for the nearest below
+   * @returns The arm and time to move to, or null when no arm lies that way
+   */
+  protected override findVerticalTarget(
+    direction: 'UPWARD' | 'DOWNWARD',
+  ): { row: number; col: number } | null {
+    const time = this.referenceTime();
+    const cursor = this.survivalPoints[this.row]?.[this.col]?.y;
+    if (time === null || cursor === null || cursor === undefined
+      || !Number.isFinite(cursor)) {
+      // A categorical time cannot be read along, and a gap is level with
+      // nothing: the line's own rule answers both.
+      return super.findVerticalTarget(direction);
+    }
+
+    let best: { row: number; col: number; distance: number } | null = null;
+    for (let row = 0; row < this.survivalPoints.length; row++) {
+      if (row === this.row) {
+        continue;
+      }
+      const col = SurvivalTrace.stepAt(this.survivalPoints[row], time);
+      if (col === null) {
+        continue;
+      }
+      const y = this.survivalPoints[row][col].y as number;
+      const liesThatWay = direction === 'UPWARD'
+        ? y > cursor || (y === cursor && row > this.row)
+        : y < cursor || (y === cursor && row < this.row);
+      if (!liesThatWay) {
+        continue;
+      }
+      // Among arms equally far, the one nearest in series order: the
+      // earliest going up, the latest going down, as the line breaks it.
+      const distance = Math.abs(y - cursor);
+      if (best === null || distance < best.distance
+        || (distance === best.distance && direction === 'DOWNWARD')) {
+        best = { row, col, distance };
+      }
+    }
+
+    return best === null ? null : { row: best.row, col: best.col };
+  }
+
+  /**
+   * The time vertical moves are compared at: the time a run of them started
+   * from while the cursor is still where the last one put it, and the
+   * cursor's own time otherwise.
+   *
+   * @returns The time, or null when the cursor's x is not a number
+   */
+  private referenceTime(): number | null {
+    const anchor = this.verticalAnchor;
+    if (anchor !== null && anchor.row === this.row && anchor.col === this.col) {
+      return anchor.time;
+    }
+    const x = Number(this.survivalPoints[this.row]?.[this.col]?.x);
+    return Number.isFinite(x) ? x : null;
+  }
+
+  /**
+   * The point of an arm a time falls on: its last measured point at or
+   * before the time, the step the curve holds there, or its first measured
+   * point when the arm starts later.
+   *
+   * @param arm - The arm's points
+   * @param time - The time to read it at
+   * @returns The point's column, or null when the arm has no measured point
+   */
+  private static stepAt(arm: readonly SurvivalPoint[], time: number): number | null {
+    let held: { col: number; x: number } | null = null;
+    let first: { col: number; x: number } | null = null;
+    for (let col = 0; col < arm.length; col++) {
+      const x = Number(arm[col].x);
+      const y = arm[col].y;
+      if (!Number.isFinite(x) || y === null || !Number.isFinite(y)) {
+        continue;
+      }
+      if (x <= time && (held === null || x >= held.x)) {
+        held = { col, x };
+      }
+      if (first === null || x < first.x) {
+        first = { col, x };
+      }
+    }
+    return (held ?? first)?.col ?? null;
   }
 
   protected override get groupFallbackLabel(): string {
