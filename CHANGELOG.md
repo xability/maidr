@@ -1,3 +1,38 @@
+# [4.16.0](https://github.com/xability/maidr/compare/v4.15.0...v4.16.0) (2026-10-19)
+
+
+### Bug Fixes
+
+* **adapters:** render each mermaid diagram under a unique id ([#1424](https://github.com/xability/maidr/issues/1424)) ([000fc58](https://github.com/xability/maidr/commit/000fc5821cea97451ac9836d6e44796c74b1b105)), closes [#1411](https://github.com/xability/maidr/issues/1411)
+* **adapters:** share the venn joined-sets check and drop the highcharts y fallback ([#1425](https://github.com/xability/maidr/issues/1425)) ([20406b1](https://github.com/xability/maidr/commit/20406b1dd63991fdaefb0dafb380f0a2a199aab4)), closes [#1415](https://github.com/xability/maidr/issues/1415)
+* **adapters:** skip a mermaid diagram that failed to convert until its text changes ([#1423](https://github.com/xability/maidr/issues/1423)) ([bbe9b56](https://github.com/xability/maidr/commit/bbe9b569b48775093b10ca36816bc3385211e365)), closes [#1412](https://github.com/xability/maidr/issues/1412)
+* **mermaid:** give quadrant and wardley point layers a braille grid ([#1427](https://github.com/xability/maidr/issues/1427)) ([91a35e3](https://github.com/xability/maidr/commit/91a35e316e30eab57acedfe2be0f18ef6b406ea6)), closes [#1410](https://github.com/xability/maidr/issues/1410)
+* **network:** announce a node's degree once ([#1420](https://github.com/xability/maidr/issues/1420)) ([44df209](https://github.com/xability/maidr/commit/44df20934a19c3aa8d32aa3afaeecf0467349257))
+* **rotor:** keep the rotor dial visible in high contrast mode ([#1395](https://github.com/xability/maidr/issues/1395)) ([bd008fe](https://github.com/xability/maidr/commit/bd008fed206a7afa31eb43b8bfb40d8e82cb5001))
+* **survival:** move between strata with up and down ([#1434](https://github.com/xability/maidr/issues/1434)) ([31daae6](https://github.com/xability/maidr/commit/31daae63377a92c2a5afee8a1a5c127173fe8f86)), closes [#1433](https://github.com/xability/maidr/issues/1433)
+* **ui:** keep the braille and review fields readable on any page and in high contrast ([#1396](https://github.com/xability/maidr/issues/1396)) ([c7e1ee8](https://github.com/xability/maidr/commit/c7e1ee8fd0a56f920e3c81660e5ac96e5707c0a8))
+* **ui:** tell a reader a chart with nothing in it has nothing to describe ([#1401](https://github.com/xability/maidr/issues/1401)) ([b25ec62](https://github.com/xability/maidr/commit/b25ec621e19284e105e582f3262ac29393612c23))
+* **ui:** tell a reader a figure whose subplots are all empty has nothing to describe ([#1431](https://github.com/xability/maidr/issues/1431)) ([e496306](https://github.com/xability/maidr/commit/e496306192d284acff50bfc2947cb71cfcbfb373)), closes [#1430](https://github.com/xability/maidr/issues/1430) [#1429](https://github.com/xability/maidr/issues/1429)
+* **venn:** clone only kept regions and warn when a duplicate is dropped ([#1421](https://github.com/xability/maidr/issues/1421)) ([0735925](https://github.com/xability/maidr/commit/0735925bc81055bbb76c315ef9c3742eafe3548a)), closes [#1414](https://github.com/xability/maidr/issues/1414)
+
+
+### Features
+
+* **adapters:** make every Mermaid diagram type accessible ([#1405](https://github.com/xability/maidr/issues/1405)) ([bc9a7c5](https://github.com/xability/maidr/commit/bc9a7c5c76a170847a507f96ab0d6fb77156a37b))
+* **adapters:** make quarto {mermaid} and {dot} cells accessible with no call ([#1432](https://github.com/xability/maidr/issues/1432)) ([825f04c](https://github.com/xability/maidr/commit/825f04c1b97394e1cc3a1babefdff1143e7f21e4))
+* **adapters:** read Graphviz clusters as directed graph scopes ([#1408](https://github.com/xability/maidr/issues/1408)) ([d87c867](https://github.com/xability/maidr/commit/d87c867623b87b18b7a94beabd30e4cf4bb3dc3b))
+* **adapters:** read Graphviz directed graphs from the SVG Graphviz drew ([#1406](https://github.com/xability/maidr/issues/1406)) ([d5a0585](https://github.com/xability/maidr/commit/d5a0585300b219cbe3e457dcf2d6b9ce847073f3))
+* **adapters:** read Graphviz patchwork drawings as treemaps ([#1409](https://github.com/xability/maidr/issues/1409)) ([fa6c0c4](https://github.com/xability/maidr/commit/fa6c0c411806ae45849eac436fc6f3a40e24212e))
+* **adapters:** read undirected Graphviz graphs as networks ([#1407](https://github.com/xability/maidr/issues/1407)) ([fa59dd4](https://github.com/xability/maidr/commit/fa59dd426f2d07a2baf0e5c28aaf540520036155))
+* **adapters:** read Venn and Euler diagrams in Highcharts, Chart.js and amCharts ([#1403](https://github.com/xability/maidr/issues/1403)) ([7d7c304](https://github.com/xability/maidr/commit/7d7c304e05ae464beed081a5622044211a852dc2))
+* **diagram:** read sequence and Venn diagrams ([#1402](https://github.com/xability/maidr/issues/1402)) ([897d1a9](https://github.com/xability/maidr/commit/897d1a9d6380214434146b4ea647329d1f664d0c))
+* **graph:** name a directed graph's edges with optional input labels ([#1399](https://github.com/xability/maidr/issues/1399)) ([0ae77c4](https://github.com/xability/maidr/commit/0ae77c4d75799d7eccecc573cc96e21d957c536a))
+
+
+### Performance Improvements
+
+* **adapters:** index mermaid candidates once in findById ([#1426](https://github.com/xability/maidr/issues/1426)) ([8f15975](https://github.com/xability/maidr/commit/8f159750f80a1d543df50d309424683fc9569d1b)), closes [#1413](https://github.com/xability/maidr/issues/1413)
+
 # [4.15.0](https://github.com/xability/maidr/compare/v4.14.0...v4.15.0) (2026-10-12)
 
 
