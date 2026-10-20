@@ -148,26 +148,29 @@ function announcedText(): string {
 
 let observer: MutationObserver | null = null;
 
+/** The figure's live region, which every announcement is added to. */
+const ANNOUNCEMENT_REGION = '[id^="maidr-announcement-"]';
+
 /**
- * Records every announcement made from here on. A screen reader speaks a
- * `role="alert"` element when it is inserted, so a text replaced before it
- * was ever inserted is one the reader never hears -- which a look at the
- * current text alone cannot tell.
+ * Records every announcement made from here on. A screen reader speaks what
+ * is added to the figure's live region, so a text replaced before it was ever
+ * added is one the reader never hears -- which a look at the current text
+ * alone cannot tell.
  *
- * Call the returned function after each step: an alert inserted inside a
- * newly mounted subtree is read from that subtree when the records are taken.
+ * Call the returned function after each step: the records are taken then.
  * @returns A function giving the announcements so far, in order.
  */
 function watchAnnouncements(): () => string[] {
   const heard: string[] = [];
   const take = (records: MutationRecord[]): void => {
     for (const record of records) {
+      if (!(record.target instanceof HTMLElement) || !record.target.matches(ANNOUNCEMENT_REGION)) {
+        continue;
+      }
       record.addedNodes.forEach((node) => {
-        if (!(node instanceof HTMLElement)) {
-          return;
+        if (node instanceof HTMLElement) {
+          heard.push(node.textContent ?? '');
         }
-        const alerts = node.matches('[role="alert"]') ? [node] : [...node.querySelectorAll('[role="alert"]')];
-        alerts.forEach(alert => heard.push(alert.textContent ?? ''));
       });
     }
   };

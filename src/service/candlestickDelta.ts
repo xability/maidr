@@ -246,7 +246,7 @@ export class CandlestickDeltaService implements Disposable {
       this.display.toggleFocus(Scope.CANDLESTICK_DELTA);
     }
 
-    // State first, notification second: TextViewModel clears the alert
+    // State first, notification second: TextViewModel clears the notification
     // message on every navigation update, so announcing before the state
     // update would wipe these instructions before screen readers read them.
     trace.notifyStateUpdate();
@@ -302,7 +302,7 @@ export class CandlestickDeltaService implements Disposable {
     if (!options.silent) {
       // Sync the chart to the delta layer's x position first (plays the
       // regular tone + description), then announce the closure —
-      // TextViewModel clears the alert message on every navigation update,
+      // TextViewModel clears the notification message on every navigation update,
       // so the reverse order would wipe the announcement.
       if (anchor && lastX !== null) {
         anchor.moveToXValue(lastX);

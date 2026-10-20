@@ -8,10 +8,10 @@ import { TestConstants } from '../utils/constants';
  * The announcement recorder is what every mode assertion now depends on, so
  * its contract is pinned here rather than left to the specs that consume it.
  *
- * It reads the `role="alert"` node — the live region a screen reader hears —
- * and not `#maidr-text-container`, which renders a different string that is
- * not gated by the `announce` flag. The last test is the one that tells those
- * two apart.
+ * It reads what is added to the announcement region — the live region a
+ * screen reader hears — and not `#maidr-text-container`, which renders a
+ * different string that is not gated by the `announce` flag. The last test is
+ * the one that tells those two apart.
  */
 test.describe('Announcement recorder', () => {
   test('records one entry per announcement, in order', async ({ page }) => {
@@ -41,8 +41,9 @@ test.describe('Announcement recorder', () => {
     await histogramPage.moveToFirstDataPoint();
 
     // Walking off the same edge repeatedly announces the same string each
-    // time. MAIDR re-mounts the alert so a screen reader re-reads it, and the
-    // recorder has to see each one — comparing text alone would collapse them.
+    // time. MAIDR adds it to the region again so a screen reader re-reads it,
+    // and the recorder has to see each one — comparing text alone would
+    // collapse them.
     const before = (await recordedAnnouncements(page)).length;
     await histogramPage.moveToPreviousDataPoint();
     await histogramPage.moveToPreviousDataPoint();
@@ -64,31 +65,30 @@ test.describe('Announcement recorder', () => {
 
     const before = (await recordedAnnouncements(page)).length;
 
-    // Insert two alerts in one synchronous block so the observer sees both in
-    // a single callback. Driving this through MAIDR would depend on two
+    // Add two announcements in one synchronous block so the observer sees both
+    // in a single callback. Driving this through MAIDR would depend on two
     // notifies landing before one flush, which is not something a test can
     // force; the observer's own batching behaviour is what is under test, and
     // it is the reason this walks MutationRecords rather than sampling the
     // live node once per callback.
-    await page.evaluate((containerId) => {
-      const parent = document.getElementById(containerId)?.parentElement;
-      if (!parent) {
-        throw new Error(`No parent for #${containerId}`);
+    await page.evaluate((regionSelector) => {
+      const region = document.querySelector(regionSelector);
+      if (!region) {
+        throw new Error(`No ${regionSelector}`);
       }
       for (const text of ['First batched message', 'Second batched message']) {
-        const alert = document.createElement('div');
-        alert.setAttribute('role', 'alert');
-        alert.textContent = text;
-        parent.appendChild(alert);
+        const announcement = document.createElement('div');
+        announcement.textContent = text;
+        region.appendChild(announcement);
       }
-    }, TestConstants.MAIDR_NOTIFICATION_CONTAINER);
+    }, TestConstants.MAIDR_ANNOUNCEMENT_REGION);
 
     await expect
       .poll(async () => (await recordedAnnouncements(page)).slice(before))
       .toEqual(['First batched message', 'Second batched message']);
   });
 
-  test('records both announcements when one insertion carries two', async ({ page }) => {
+  test('does not count an alert outside the announcement region', async ({ page }) => {
     const histogramPage = new HistogramPage(page);
     await histogramPage.navigateToHistogram();
     await installAnnouncementRecorder(page);
@@ -96,27 +96,26 @@ test.describe('Announcement recorder', () => {
 
     const before = (await recordedAnnouncements(page)).length;
 
-    // The same collapse as the test above, one level down. A MutationRecord
-    // lists only the root of an inserted subtree, so taking the first match
-    // inside that root would count one announcement where there are two.
-    await page.evaluate((containerId) => {
-      const parent = document.getElementById(containerId)?.parentElement;
-      if (!parent) {
-        throw new Error(`No parent for #${containerId}`);
+    // A `role="alert"` is no longer how MAIDR announces, and one elsewhere —
+    // MUI's inside the settings dialog, or the page's own — is not MAIDR
+    // announcing at all. Only the announcement after it may be recorded.
+    await page.evaluate((regionSelector) => {
+      const region = document.querySelector(regionSelector);
+      if (!region) {
+        throw new Error(`No ${regionSelector}`);
       }
-      const wrapper = document.createElement('div');
-      for (const text of ['First nested message', 'Second nested message']) {
-        const alert = document.createElement('div');
-        alert.setAttribute('role', 'alert');
-        alert.textContent = text;
-        wrapper.appendChild(alert);
-      }
-      parent.appendChild(wrapper);
-    }, TestConstants.MAIDR_NOTIFICATION_CONTAINER);
+      const alert = document.createElement('div');
+      alert.setAttribute('role', 'alert');
+      alert.textContent = 'Not an announcement';
+      document.body.appendChild(alert);
+      const announcement = document.createElement('div');
+      announcement.textContent = 'An announcement';
+      region.appendChild(announcement);
+    }, TestConstants.MAIDR_ANNOUNCEMENT_REGION);
 
     await expect
       .poll(async () => (await recordedAnnouncements(page)).slice(before))
-      .toEqual(['First nested message', 'Second nested message']);
+      .toEqual(['An announcement']);
   });
 
   test('falls back to the region when no action preceded the check', async ({ page }) => {
@@ -168,8 +167,9 @@ test.describe('Announcement recorder', () => {
     const textBefore = await container.textContent();
     const before = (await recordedAnnouncements(page)).length;
 
-    // Autoplay turns the `announce` flag off, so no alert node renders while
-    // it runs even though the display text advances on every step.
+    // Autoplay turns the `announce` flag off, so nothing is added to the
+    // announcement region while it runs even though the display text advances
+    // on every step.
     //
     // Sample at half the autoplay duration, derived rather than hard-coded:
     // reaching the last point flips `announce` back on and does announce, so a

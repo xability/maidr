@@ -9,7 +9,7 @@ import { TraceType } from '@type/grammar';
 /**
  * Regression coverage for the "arrow navigation is silent to screen readers"
  * bug. TextService only announces terse/verbose navigation text through the
- * revision-keyed role="alert" region when Redux `text.announce` is true. That
+ * revision-keyed announcement region when Redux `text.announce` is true. That
  * flag starts false (the initial instruction is shown without announcing) and
  * is flipped to true by the `first_navigation` event.
  *

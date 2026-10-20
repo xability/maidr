@@ -80,11 +80,11 @@ export class RotorNavigationService {
    * @param context - The context providing access to the active trace
    * @param text - Provides terse/verbose/off mode for message formatting
    * @param notification - Used to push rotor boundary messages (intersection
-   *   and compare mode) through the text alert region. The alert region
-   *   re-mounts on every dispatch (keyed by a revision counter), which is what
-   *   causes screen readers to re-announce on repeat key presses. Without
-   *   this, identical messages dispatched only to the rotor area do not
-   *   re-announce.
+   *   and compare mode) through the text announcement region. The
+   *   announcement re-mounts on every dispatch (keyed by a revision counter),
+   *   which is what causes screen readers to re-announce on repeat key
+   *   presses. Without this, identical messages dispatched only to the rotor
+   *   area do not re-announce.
    */
   public constructor(context: Context, text: TextService, notification: NotificationService) {
     this.context = context;
@@ -209,7 +209,7 @@ export class RotorNavigationService {
     if (mode.key === 'intersection') {
       // The model is intentionally NOT moved here — vertical navigation is
       // unavailable in intersection mode. We still must push the message
-      // through notification.notify so the text alert region re-mounts and
+      // through notification.notify so the text announcement re-mounts and
       // screen readers re-announce on repeat key presses; returning the
       // message only to the rotor area would announce once and stay silent
       // for subsequent identical hits.
@@ -253,7 +253,7 @@ export class RotorNavigationService {
     }
     if (mode.key === 'intersection') {
       // See moveUp() — model not moved; route through notification so the
-      // alert region re-mounts and the SR re-announces on repeat presses.
+      // announcement re-mounts and the SR re-announces on repeat presses.
       return this.announceRotorMessage(this.getIntersectionVerticalUnavailableMessage());
     }
 
@@ -567,7 +567,7 @@ export class RotorNavigationService {
    * from a real positional boundary, mirroring intersection mode — without
    * touching the model.
    *
-   * All messages route through notification.notify so the text alert region
+   * All messages route through notification.notify so the text announcement
    * re-mounts (it is keyed by a revision counter) and screen readers
    * re-announce on every repeat key press — trend filters bound frequently
    * (e.g. few bullish candles), so silent repeats would strand a
@@ -664,7 +664,7 @@ export class RotorNavigationService {
 
   /**
    * Push a rotor-area message through the notification service so the text
-   * alert region re-mounts (it is keyed by a revision counter), forcing
+   * announcement re-mounts (it is keyed by a revision counter), forcing
    * screen readers to re-announce on every keystroke. Without this, repeated
    * identical messages dispatched only to the rotor area announce once and
    * then stay silent. Used by the intersection, compare-mode, and filter-unit

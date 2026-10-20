@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { BarPlotPage } from '../page-objects/plots/barplot-page';
+import { TestConstants } from '../utils/constants';
 
 /**
  * The element a reader focuses is named by what the chart is and described by
@@ -19,9 +20,9 @@ import { BarPlotPage } from '../page-objects/plots/barplot-page';
  * while a mouse is over a chart not in use, so a screen reader does not read
  * the instructions twice.
  *
- * Pressing past the first or last point tells the reader so in an alert and
- * nothing else: the plot keeps the focus, so a screen reader does not read the
- * chart's name again.
+ * Pressing past the first or last point tells the reader so in an
+ * announcement and nothing else: the plot keeps the focus, so a screen reader
+ * does not read the chart's name again.
  */
 
 const NAME = 'The Number of Tips by Day, Bar Chart';
@@ -141,16 +142,16 @@ test.describe('the chart\'s name and description', () => {
         counted.focusChanges += 1;
       });
     });
-    const alert = page.getByRole('alert');
+    const announcement = page.locator(TestConstants.MAIDR_ANNOUNCEMENT_REGION);
 
     await page.keyboard.press('ArrowLeft');
-    await expect(alert).toHaveText('No more data to display');
+    await expect(announcement).toHaveText('No more data to display');
     for (let move = 0; move < 3; move++) {
       await page.keyboard.press('ArrowRight');
     }
-    await expect(alert).toHaveText(/Friday/);
+    await expect(announcement).toHaveText(/Friday/);
     await page.keyboard.press('ArrowRight');
-    await expect(alert).toHaveText('No more data to display');
+    await expect(announcement).toHaveText('No more data to display');
 
     expect(await page.evaluate(() => (window as unknown as { focusChanges: number }).focusChanges)).toBe(0);
     await expect(plot).toBeFocused();

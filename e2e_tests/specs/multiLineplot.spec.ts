@@ -505,9 +505,9 @@ test.describe('Multi Lineplot', () => {
       await setupMultiLineplotPage(page);
 
       await cycleRotorTo(page, 'INTERSECTING POINT NAVIGATION');
-      // Bound and unavailable messages are announced through the text alert
-      // region. The rotor area only carries the mode name and is cleared on
-      // each move, so asserting on it here never sees the message.
+      // Bound and unavailable messages are announced through the text
+      // announcement region. The rotor area only carries the mode name and is
+      // cleared on each move, so asserting on it here never sees the message.
       const textContainer = page.locator('#maidr-text-container');
 
       // The example's only point intersection is where all three series meet

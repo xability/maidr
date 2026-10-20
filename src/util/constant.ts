@@ -38,6 +38,8 @@ export abstract class Constant {
   static readonly MAIDR_INSTRUCTION = 'maidr-instruction';
   /** ID for the rotor navigation area */
   static readonly ROTOR_AREA = 'maidr-rotor-area';
+  /** ID prefix of a figure's announcement live region, followed by `-<chart id>` */
+  static readonly ANNOUNCEMENT_REGION = 'maidr-announcement';
 
   // HTML attributes.
   /** ARIA label attribute name */

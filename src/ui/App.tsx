@@ -23,9 +23,11 @@ import { GoToExtrema } from './components/GoToExtrema';
 
 interface AppProps {
   plot: HTMLElement;
+  /** The figure's live region, which `Text` announces into. */
+  announcer: HTMLElement;
 }
 
-const App: FC<AppProps> = ({ plot }) => {
+const App: FC<AppProps> = ({ plot, announcer }) => {
   const { focus, tooltip } = useViewModelState('display');
 
   // MUI sizes this UI's text in rem and assumes a 16px root. Telling it how
@@ -75,7 +77,7 @@ const App: FC<AppProps> = ({ plot }) => {
   return (
     <ThemeProvider theme={theme}>
       {tooltip.visible && <Tooltip plot={plot} />}
-      <Text />
+      <Text announcer={announcer} />
       <RotorDial plot={plot} />
       {renderFocusedComponent(focus)}
     </ThemeProvider>
@@ -84,15 +86,16 @@ const App: FC<AppProps> = ({ plot }) => {
 
 interface MaidrAppProps {
   plot: HTMLElement;
+  announcer: HTMLElement;
   store: AppStore;
   contextValue: MaidrContextValue;
 }
 
-export function MaidrApp({ plot, store, contextValue }: MaidrAppProps): JSX.Element {
+export function MaidrApp({ plot, announcer, store, contextValue }: MaidrAppProps): JSX.Element {
   return (
     <Provider store={store}>
       <MaidrContext.Provider value={contextValue}>
-        <App plot={plot} />
+        <App plot={plot} announcer={announcer} />
       </MaidrContext.Provider>
     </Provider>
   );

@@ -153,13 +153,14 @@ export class RotorNavigationViewModel extends AbstractViewModel<RotorState> {
    *
    * Boundary / unavailable messages returned by the service have already been
    * announced through the notification service (the revision-keyed
-   * `role="alert"` region, which re-announces on every repeat press) and are
-   * shown visually in the text container. Writing them into `rotor_value` too
-   * would push the identical text into a SECOND aria-live region
-   * (`ROTOR_AREA`), so a screen reader announces the same boundary message
-   * twice on the first hit (#630 item 3). `rotor_value` is therefore reserved
-   * for the rotor mode name (set by the cycle methods); moves clear it, which
-   * matches the pre-existing behaviour on a successful move.
+   * announcement in the figure's live region, which re-announces on every
+   * repeat press) and are shown visually in the text container. Writing them
+   * into `rotor_value` too would push the identical text into a SECOND
+   * aria-live region (`ROTOR_AREA`), so a screen reader announces the same
+   * boundary message twice on the first hit (#630 item 3). `rotor_value` is
+   * therefore reserved for the rotor mode name (set by the cycle methods);
+   * moves clear it, which matches the pre-existing behaviour on a successful
+   * move.
    * @param move - The rotor service move to run; its return value is ignored
    *   here because announcement is handled inside the service.
    */

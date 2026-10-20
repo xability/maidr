@@ -2,6 +2,7 @@ import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData } from '@type/grammar';
 import type { JSX, ReactNode, PointerEvent as ReactPointerEvent } from 'react';
 import { TraceType } from '@type/grammar';
+import { visuallyHidden } from '@ui/visuallyHidden';
 import { chartTypeLabel } from '@util/chartTypeLabel';
 import { Constant } from '@util/constant';
 import { ensureDocumentStyle } from '@util/documentStyle';
@@ -304,6 +305,16 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
   const store = storeRef.current;
 
   const { plotRef, figureRef, contextValue, onFocusIn, onFocusOut } = useMaidrController(data, store);
+
+  // The live region the chart's announcements are spoken from (see `Text`).
+  // It is rendered with the figure rather than with the UI a focus-in mounts:
+  // a region is announced when something in it changes, not when it arrives,
+  // so one mounted by that focus-in with its first message already in it --
+  // the point a returning reader is put back on, a target an agent moved
+  // them to -- would be new to the screen reader and the message unsaid.
+  // Held in state rather than a ref, so the UI renders once it exists.
+  const [announcer, setAnnouncer] = useState<HTMLDivElement | null>(null);
+
   const { locale, revision } = useLocale();
 
   // Before the first paint, so the chart is never drawn indented.
@@ -402,10 +413,21 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
             focused; DisplayService describes it from an element of its own
             after that. Hidden: read only as the plot's description. */}
         <div id={instructionId} hidden>{initialDescription}</div>
-        {contextValue && plotRef.current && (
+        {/* Empty until the reader enters the chart. Assertive and atomic, as
+            the `role="alert"` elements it replaces were, but with no role for
+            a screen reader to say before the text. */}
+        <div
+          ref={setAnnouncer}
+          id={`${Constant.ANNOUNCEMENT_REGION}-${data.id}`}
+          aria-live="assertive"
+          aria-atomic="true"
+          style={visuallyHidden}
+        />
+        {contextValue && plotRef.current && announcer && (
           <div id={`react-container-${data.id}`}>
             <MaidrApp
               plot={plotRef.current}
+              announcer={announcer}
               store={store}
               contextValue={contextValue}
             />

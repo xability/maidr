@@ -744,7 +744,7 @@ export class BasePage {
    */
   protected async toggleAxisTitle(axisKey: string, axisName: string): Promise<void> {
     // Wait on the displayed text, not on an announcement. The axis title only
-    // reaches the alert once the cursor is on a data point, and these specs
+    // is announced once the cursor is on a data point, and these specs
     // assert it straight after activation — so an announcement wait finds
     // nothing and spends its whole timeout, which passes only because the
     // delay works as a sleep. The assertion reads this container, so a change
@@ -971,7 +971,7 @@ export class BasePage {
 
     // Nothing recorded for this action, so fall back to the region. Note this
     // path reads `#maidr-text-container`, which is the displayed text and not
-    // the `role="alert"` node a screen reader hears — the two agree for every
+    // the announcement region a screen reader hears — the two agree for every
     // `notify()`-driven message, which is all of these, but the fallback does
     // not carry the same guarantee as the recorded path above. A timeout here is
     // deliberately not fatal: the read below is the authoritative check and

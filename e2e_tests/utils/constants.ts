@@ -67,6 +67,11 @@ export abstract class TestConstants {
    * MAIDR component identifiers
    */
   static readonly MAIDR_NOTIFICATION_CONTAINER = 'maidr-text-container';
+  /**
+   * A chart's announcement live region, the one a screen reader hears. Every
+   * announcement is an element added to it.
+   */
+  static readonly MAIDR_ANNOUNCEMENT_REGION = '[id^="maidr-announcement-"]';
   static readonly MAIDR_INFO_CONTAINER = 'maidr-text-container';
   static readonly MAIDR_SPEED_INDICATOR = 'maidr-speed-indicator-';
   static readonly BRAILLE_TEXTAREA = 'maidr-braille-textarea-';
