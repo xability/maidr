@@ -270,7 +270,7 @@ export class MoveToTraceContextCommand implements Command {
       this.cue.playEnterTone();
       // Skip the spoken entry alert when we just moved focus into the braille
       // textarea: the braille display and the focus change are the feedback in
-      // that path, and a simultaneous role="alert" update can be clipped or
+      // that path, and a simultaneous live-region update can be clipped or
       // reordered by the focus move. The enter cue tone still plays either way.
       if (!brailleEnabled) {
         const active = this.context.state;
@@ -326,7 +326,7 @@ export class MoveToSubplotContextCommand implements Command {
    * exitSubplot() already re-announces the figure position via the observer
    * chain (TextViewModel.update clears any pending message). Announcing the
    * exit cue *after* it therefore wins: notify() sets the message that overrides
-   * the nav value in the alert region, and React batches both synchronous
+   * the nav value in the announcement region, and React batches both synchronous
    * dispatches into a single re-render, so the user hears one clear exit
    * message plus the falling exit tone. In OFF text mode the message is null,
    * so only the tone plays.

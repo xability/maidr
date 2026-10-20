@@ -1067,7 +1067,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // multi-panel plots"). But single-subplot plots start navigation at the
     // trace level and never emit a figure-type state, so `announce` stayed
     // false forever and their terse/verbose nav text was silently gated out
-    // of the alert region — while rotor/notification messages (which ignore
+    // of the announcement region — while rotor/notification messages (which ignore
     // `announce`) still spoke. Firing on the first non-empty update of ANY
     // level fixes single-panel plots and keeps multi-panel behavior identical.
     if (!this.hasHadFirstNavigation && !state.empty) {

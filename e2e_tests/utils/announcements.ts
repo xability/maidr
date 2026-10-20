@@ -7,29 +7,29 @@ interface AnnouncementWindow extends Window {
 }
 
 /**
- * Records every update to MAIDR's text alert region.
+ * Records every announcement MAIDR makes.
  *
- * The page objects used to read that region straight after dispatching a key,
- * which races the announcement: fast enough to pass in Chromium and Firefox,
- * and a flake in WebKit under load. Waiting only after the fact does not fix
- * it either, because an announcement the test arrived too late for is already
+ * The page objects used to read the announcement straight after dispatching a
+ * key, which races it: fast enough to pass in Chromium and Firefox, and a
+ * flake in WebKit under load. Waiting only after the fact does not fix it
+ * either, because an announcement the test arrived too late for is already
  * gone — waiting cannot bring it back.
  *
  * Observing instead means the count advances the moment MAIDR announces, so an
  * action can wait for its own announcement before the assertion reads anything.
- * The region is keyed by a revision counter and re-mounts on every notify (see
- * the note on `announceRotorMessage` in src/service/rotor.ts), so a repeated
- * identical message still registers.
+ * Each announcement is a new element added to the chart's announcement live
+ * region, keyed by a revision counter (see the note on `announceRotorMessage`
+ * in src/service/rotor.ts), so a repeated identical message still registers.
  *
- * What counts as an announcement is the `role="alert"` node, not the visible
- * text container: only the alert is gated by the `announce` flag, so the
- * container can advance — during autoplay, for instance — while a screen
+ * What counts as an announcement is an element added to that region, not the
+ * visible text container: only the region is gated by the `announce` flag, so
+ * the container can advance — during autoplay, for instance — while a screen
  * reader hears nothing.
  *
  * Idempotent: installing twice on the same page is a no-op, and the recorder
  * survives for the life of the page. Observation is rooted at `document.body`
- * because MAIDR builds its UI on activation and re-mounts the alert on every
- * announcement, so there is no stable node to attach to.
+ * rather than at a region because a page can hold several charts, each with
+ * its own region, and a chart its host renders again gets a new one.
  *
  * Returns the count so an action can install and mark in a single page call.
  * Installing lazily rather than once at activation is deliberate: a navigation
@@ -39,52 +39,40 @@ interface AnnouncementWindow extends Window {
  * @returns The number of announcements already recorded
  */
 export async function installAnnouncementRecorder(page: Page): Promise<number> {
-  return await page.evaluate((containerId) => {
+  return await page.evaluate((regionSelector) => {
     const w = window as AnnouncementWindow;
     if (w.__maidrAnnouncements) {
       return w.__maidrAnnouncements.length;
     }
     w.__maidrAnnouncements = [];
 
-    // Read the role="alert" node, NOT #maidr-text-container. They can differ:
-    // src/ui/component/Text.tsx renders `visual` into the container and
-    // `current` into the alert, and only `current` is gated by the `announce`
-    // flag. During autoplay `announce` is false, so the container keeps
-    // updating per step while nothing is announced — watching the container
-    // would record announcements a screen reader never heard.
+    // Read what is added to the announcement region, NOT #maidr-text-container.
+    // They can differ: src/ui/component/Text.tsx renders `visual` into the
+    // container and `current` into the region, and only `current` is gated by
+    // the `announce` flag. During autoplay `announce` is false, so the
+    // container keeps updating per step while nothing is announced — watching
+    // the container would record announcements a screen reader never heard.
     //
-    // Scoped to MAIDR's own region so MUI's role="alert" inside the settings
-    // dialog cannot be mistaken for it.
-    const inMaidrRegion = (node: Element): boolean =>
-      document.getElementById(containerId)?.parentElement?.contains(node) ?? false;
-
-    // The alert is keyed by a revision counter and re-mounts on every update,
-    // so each announcement is a fresh node insertion. Walk the mutation
-    // records rather than sampling whatever is live when the callback runs:
-    // a callback batches every record since the last flush, so two alerts
-    // inserted before one flush would otherwise collapse into one entry.
+    // Only what lands directly in a region counts, so a `role="alert"`
+    // elsewhere — MUI's inside the settings dialog, or the page's own —
+    // cannot be mistaken for an announcement.
+    //
+    // Walk the mutation records rather than sampling whatever is live when the
+    // callback runs: a callback batches every record since the last flush, so
+    // two announcements made before one flush would otherwise collapse into
+    // one entry.
     new MutationObserver((mutations) => {
       for (const mutation of mutations) {
+        if (!(mutation.target instanceof Element) || !mutation.target.matches(regionSelector)) {
+          continue;
+        }
         for (const node of mutation.addedNodes) {
           if (!(node instanceof Element)) {
             continue;
           }
-          // `querySelectorAll`, not `querySelector`, for the same reason this
-          // walks the records rather than sampling: taking the first match
-          // collapses two announcements into one. A record only lists the root
-          // of an inserted subtree, so a commit that mounted two alerts under
-          // one new node would otherwise register a single entry.
-          const alerts = node.matches('[role="alert"]')
-            ? [node]
-            : node.querySelectorAll('[role="alert"]');
-          for (const alert of alerts) {
-            if (!inMaidrRegion(alert)) {
-              continue;
-            }
-            const text = (alert.textContent ?? '').replace(/\s+/g, ' ').trim();
-            if (text) {
-              w.__maidrAnnouncements?.push(text);
-            }
+          const text = (node.textContent ?? '').replace(/\s+/g, ' ').trim();
+          if (text) {
+            w.__maidrAnnouncements?.push(text);
           }
         }
       }
@@ -94,7 +82,7 @@ export async function installAnnouncementRecorder(page: Page): Promise<number> {
     });
 
     return w.__maidrAnnouncements.length;
-  }, TestConstants.MAIDR_NOTIFICATION_CONTAINER);
+  }, TestConstants.MAIDR_ANNOUNCEMENT_REGION);
 }
 
 /**

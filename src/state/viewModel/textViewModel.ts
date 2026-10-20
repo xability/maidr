@@ -20,9 +20,9 @@ export interface TextState {
   /**
    * Monotonic counter that increments on every text update AND every
    * notification (including same-text/same-message dispatches). The View keys
-   * the screen-reader alert region on it, so bumping it here is what forces a
-   * re-announcement (via re-mount) even when the text/message is unchanged —
-   * without relying on invisible Unicode characters.
+   * each screen-reader announcement on it, so bumping it here is what forces a
+   * re-announcement (via re-mount into the figure's live region) even when the
+   * text/message is unchanged — without relying on invisible Unicode characters.
    */
   revision: number;
   message: string | null;
@@ -52,7 +52,7 @@ const textSlice = createSlice({
     },
     notify(state, action: PayloadAction<string>): void {
       state.message = action.payload;
-      // Bump revision so the alert region re-mounts and screen readers
+      // Bump revision so the announcement re-mounts and screen readers
       // re-announce even when the same message is dispatched repeatedly (e.g.
       // holding a direction key at a rotor boundary). Without this, an
       // identical repeat notify() produces no DOM change and stays silent.
@@ -181,8 +181,9 @@ export class TextViewModel extends AbstractViewModel<TextState> {
    * Updates the displayed text with formatted content.
    * Each dispatch increments a revision counter in the Redux state, so the View
    * always receives a new state — even when the text is identical. This allows
-   * the View to force a screen-reader re-announcement by re-mounting the alert
-   * element with a new React key, without relying on invisible Unicode characters.
+   * the View to force a screen-reader re-announcement by re-mounting the
+   * announcement element with a new React key, without relying on invisible
+   * Unicode characters.
    * @param text - The text or plot state to display
    */
   public update(text: string | PlotState): void {

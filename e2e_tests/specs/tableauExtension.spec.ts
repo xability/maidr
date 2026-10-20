@@ -132,8 +132,8 @@ test.describe('Tableau dashboard extension in its zone', () => {
 
     await page.keyboard.press('ArrowRight');
 
-    // `role="alert"` is an implicitly assertive live region.
-    const live = zone(page).locator('[data-maidr-tableau] [role="alert"]');
+    // The figure's announcement region, an assertive live region.
+    const live = zone(page).locator('[data-maidr-tableau] [id^="maidr-announcement-"]');
     await expect(live.filter({ hasText: 'Region is East, Sales is 10' })).toHaveCount(1);
   });
 
