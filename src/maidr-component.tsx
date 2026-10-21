@@ -425,8 +425,16 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
           aria-atomic="true"
           style={visuallyHidden}
         />
+        {/* What the reader is shown below the plot while they are in the
+            chart. It is as wide as the figure and gives the figure no width
+            of its own (`contain: inline-size`): in a figure sized to what it
+            holds, as a centred flex item is, the instructions on one line
+            widened the figure to its container as the reader came in, and
+            the chart moved sideways, and grew where the page scales it to
+            its figure (#1438). The text wraps at the chart's width instead,
+            and a field wider than the chart runs past the figure's edge. */}
         {contextValue && plotRef.current && announcer && (
-          <div id={`react-container-${data.id}`}>
+          <div id={`react-container-${data.id}`} style={{ contain: 'inline-size' }}>
             <MaidrApp
               plot={plotRef.current}
               announcer={announcer}
