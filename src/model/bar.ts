@@ -740,48 +740,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     this.notifyRotorBounds();
     return false;
   }
-}
-
-/**
- * Concrete implementation of a bar trace for standard bar charts.
- * Supports extrema navigation and hover interactions.
- */
-export class BarTrace extends AbstractBarPlot<BarPoint> {
-  /**
-   * Checks if coordinates are within the bounding box of the bar element.
-   * @param x - The x-coordinate
-   * @param y - The y-coordinate
-   * @param element - Object containing the SVG element and its position
-   * @param element.element - The SVG element to check bounds against
-   * @param element.row - The row position of the element
-   * @param element.col - The column position of the element
-   * @returns True if coordinates are within bounds, false otherwise
-   */
-  public override isPointInBounds(
-    x: number,
-    y: number,
-    { element, row: _row, col: _col }: { element: SVGElement; row: number; col: number },
-  ): boolean {
-    // check if x y is within the bounding box of the element
-    const bbox = element.getBoundingClientRect();
-    return (
-      x >= bbox.x
-      && x <= bbox.x + bbox.width
-      && y >= bbox.y
-      && y <= bbox.y + bbox.height
-    );
-  }
 
   /**
-   * Constructs a new BarTrace instance.
-   * @param layer - The MAIDR layer configuration
-   */
-  public constructor(layer: MaidrLayer) {
-    super(layer, [layer.data as BarPoint[]]);
-  }
-
-  /**
-   * Get extrema targets for the current bar plot trace
+   * Get extrema targets for the current bar or histogram trace
    * Returns min and max values within the current group
    * @returns Array of extrema targets for navigation
    */
@@ -878,7 +839,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    * @param pointIndex - The index of the point
    * @returns A clean label for the point
    */
-  private getPointLabel(pointIndex: number): string {
+  protected getPointLabel(pointIndex: number): string {
     if (this.points[this.row] && this.points[this.row][pointIndex]) {
       const point = this.points[this.row][pointIndex];
 
@@ -900,6 +861,45 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     const { row: safeRow, col: safeCol } = this.getSafeIndices();
     this.row = safeRow;
     this.col = safeCol;
+  }
+}
+
+/**
+ * Concrete implementation of a bar trace for standard bar charts.
+ * Supports extrema navigation and hover interactions.
+ */
+export class BarTrace extends AbstractBarPlot<BarPoint> {
+  /**
+   * Checks if coordinates are within the bounding box of the bar element.
+   * @param x - The x-coordinate
+   * @param y - The y-coordinate
+   * @param element - Object containing the SVG element and its position
+   * @param element.element - The SVG element to check bounds against
+   * @param element.row - The row position of the element
+   * @param element.col - The column position of the element
+   * @returns True if coordinates are within bounds, false otherwise
+   */
+  public override isPointInBounds(
+    x: number,
+    y: number,
+    { element, row: _row, col: _col }: { element: SVGElement; row: number; col: number },
+  ): boolean {
+    // check if x y is within the bounding box of the element
+    const bbox = element.getBoundingClientRect();
+    return (
+      x >= bbox.x
+      && x <= bbox.x + bbox.width
+      && y >= bbox.y
+      && y <= bbox.y + bbox.height
+    );
+  }
+
+  /**
+   * Constructs a new BarTrace instance.
+   * @param layer - The MAIDR layer configuration
+   */
+  public constructor(layer: MaidrLayer) {
+    super(layer, [layer.data as BarPoint[]]);
   }
 
   /**
