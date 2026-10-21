@@ -391,21 +391,6 @@ export class ChoroplethTrace extends AbstractTrace {
   }
 
   /**
-   * A region's neighbours, each once and never the region itself.
-   *
-   * {@link neighboursOf} answers as the layer lists them, so a border listed
-   * twice is there twice and a region naming itself borders itself. Neither
-   * is a second region next to it, and a count of neighbours or a comparison
-   * against all of them should not see one.
-   *
-   * @param region - The region to look around
-   * @returns Its distinct neighbours
-   */
-  private bordersOf(region: Region): Region[] {
-    return [...new Set(this.neighboursOf(region))].filter(one => one !== region);
-  }
-
-  /**
    * Moves to a region by its place in the grid, ending any border walk.
    *
    * A walk notices the reader has left it by the cursor no longer sitting
@@ -459,10 +444,11 @@ export class ChoroplethTrace extends AbstractTrace {
 
     const bordered = this.hasBorders;
     const objects = this.regions.flatMap((band, row) => band.map((region, col): ChartObject => {
-      const around = bordered ? this.bordersOf(region) : [];
-      // Against every neighbour, a neighbour with no value included: a region
-      // cannot be said to stand above a value nobody gave, and its
-      // announcement does not say it does.
+      // The neighbours exactly as the region's announcement counts them, so a
+      // region the list files as higher than all of them is one the
+      // announcement says is. A neighbour with no value counts against it: a
+      // region cannot be said to stand above a value nobody gave.
+      const around = bordered ? this.neighboursOf(region) : [];
       const groups: string[] = [];
       if (around.length > 0 && around.every(one => region.value > one.value)) {
         groups.push(HOTSPOTS);

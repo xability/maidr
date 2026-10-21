@@ -363,15 +363,33 @@ describe('the sorts', () => {
   });
 
   test('centrality is not offered on a graph too large to walk from every node', () => {
-    const pairs: NetworkPoint[] = Array.from({ length: 1600 }, (_unused, at) => ({
-      source: `p${at}`,
-      target: `q${at}`,
+    // A star: its hub is between every pair, so only the size withholds it.
+    const star: NetworkPoint[] = Array.from({ length: 4000 }, (_unused, at) => ({
+      source: 'hub',
+      target: `leaf${at}`,
     }));
-    const list = listOf(network(pairs));
+    const list = listOf(network(star));
 
     expect(list.sorts.map(sort => sort.id)).not.toContain('betweenness-descending');
     expect(list.sorts.map(sort => sort.id)).not.toContain('closeness-descending');
-    expect(list.objects).toHaveLength(3200);
+    expect(list.objects).toHaveLength(4001);
+  });
+
+  test('centrality is not offered where every node would score alike', () => {
+    // Pairs and a triangle: every group is linked all to all, so no node is
+    // between two others and every node scores the same.
+    const cliques: NetworkPoint[] = [
+      { source: 'A', target: 'B' },
+      { source: 'C', target: 'D' },
+      { source: 'E', target: 'F' },
+      { source: 'F', target: 'G' },
+      { source: 'G', target: 'E' },
+    ];
+    const list = listOf(network(cliques));
+
+    expect(list.sorts.map(sort => sort.id)).not.toContain('betweenness-descending');
+    expect(list.sorts.map(sort => sort.id)).not.toContain('closeness-descending');
+    expect(list.deferred).toBeUndefined();
   });
 
   test('degree is spoken with each node, and centrality is not', () => {

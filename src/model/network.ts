@@ -659,9 +659,13 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     // Every degree alike -- a ring, a set of pairs -- and a sort by it would
     // only repeat another order under a new name.
     const byDegree = measureVaries(objects, degree.id);
-    // Below three nodes no node can sit between two others.
-    const central = this.nodes.length >= 3
-      && withinCentralityBudget(this.nodes.map(node => node.links));
+    // A node is between two others only in a group of three or more that is
+    // not linked all to all: pairs, triangles and isolated nodes would score
+    // every node alike, and a sort by that would only repeat another order.
+    const central = this.components.some(members => members.length >= 3
+      && members.reduce((links, at) => links + this.nodes[at].links.length, 0) / 2
+      < (members.length * (members.length - 1)) / 2)
+    && withinCentralityBudget(this.nodes.map(node => node.links));
 
     const sorts: ObjectSortOption[] = [
       nameSort(),

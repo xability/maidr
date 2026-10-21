@@ -158,18 +158,19 @@ it. On any other chart, **O** says the chart has no object list.
 | Close without moving                      | Escape or O                 | Escape or O                 |
 
 The list opens on the object you are on, marked as current, in the order and
-filter you last chose on that layer. Each chart offers the orders and filters
-that mean something for it. The first order listed is the one the list opens
-in: the chart's own order where that order carries structure (a graph's flow,
-a tree's outline, a sankey's stages), and alphabetical where the chart's
-order is arbitrary or geographic (a network's layout, a map).
+filter you last chose on that layer while you stayed in the chart. Each chart
+offers the orders and filters that mean something for it. The first order
+listed is the one the list opens in: the chart's own order where that order
+carries structure (a graph's flow, a tree's outline, a sankey's stages), and
+alphabetical where the chart's order is arbitrary or geographic (a network's
+layout, a map).
 
 | Chart | Orders | Filters |
 | ----- | ------ | ------- |
 | Network | Name A to Z; links, highest or lowest first; betweenness and closeness centrality, highest first; by group | Linked to the node you are on; each group of linked nodes; unlinked nodes |
 | Directed graph | Graph order; name; connections; betweenness; each numeric attribute, highest first | Upstream and downstream of the node you are on; graph inputs and outputs, branch and merge points, unconnected nodes; each nesting level; scopes; the values of the first categorical attributes, such as layer type |
-| Sankey, alluvial | Stage order; value, highest or lowest first; name | Each stage; ending nodes |
-| Chord | Value, highest or lowest first; name; chart order | Starting and ending nodes |
+| Sankey, alluvial or chord whose flows run one way | Stage order; value, highest or lowest first; name | Each stage; ending nodes |
+| Flows that loop back, as most chord diagrams do | Value, highest or lowest first; name; chart order | Starting and ending nodes |
 | Treemap, sunburst, icicle, tree, circle packing | Hierarchy order; value, highest or lowest first (or, without values, number of descendants); number of children; name | Inside the node you are on; each level; leaves; branches |
 | Venn | Chart order; size, highest or lowest first; name | Single sets; overlaps of each number of sets; regions including each set |
 | Word cloud | Weight, highest or lowest first; name | Terms with no weight |
@@ -178,8 +179,9 @@ order is arbitrary or geographic (a network's layout, a map).
 
 An order or filter is offered only where it tells objects apart, and a filter
 only where it leaves something in and something out. Centrality is computed
-the first time you choose it, and is not offered on graphs too large to
-compute it quickly. While the list is sorted by a measure the row does not
+the first time you choose it. It is not offered where no node lies between two
+others, which would score every node alike, nor on graphs too large to compute
+it quickly. While the list is sorted by a measure the row does not
 already state, such as betweenness, each object is read with its value.
 
 ### Tactile Graphics Display

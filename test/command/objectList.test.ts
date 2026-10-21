@@ -135,7 +135,9 @@ describe('object list key wiring', () => {
     }
   });
 
-  test('each movement key moves the selection the way it says', () => {
+  test('each key in the list does what its name says, the right way round', () => {
+    // Through the factory, the way a key press reaches the view model, so a
+    // case wired to the wrong direction fails here.
     const viewModel = {
       moveUp: jest.fn(),
       moveDown: jest.fn(),
@@ -143,24 +145,37 @@ describe('object list key wiring', () => {
       moveToLast: jest.fn(),
       pageUp: jest.fn(),
       pageDown: jest.fn(),
+      selectCurrent: jest.fn(),
+      hide: jest.fn(),
       cycleSort: jest.fn(),
       cycleFilter: jest.fn(),
     };
-    const vm = viewModel as unknown as ObjectListViewModel;
+    const factory = new CommandFactory({ objectListViewModel: viewModel } as unknown as CommandContext);
+    const run = (name: string): void => factory.create(name as Keys).execute();
+    const keymap = getKeymapForScope(Scope.OBJECT_LIST);
 
-    new ObjectListMoveCommand(vm, 'up').execute();
-    new ObjectListMoveCommand(vm, 'down').execute();
-    new ObjectListMoveCommand(vm, 'first').execute();
-    new ObjectListMoveCommand(vm, 'last').execute();
-    new ObjectListMoveCommand(vm, 'pageUp').execute();
-    new ObjectListMoveCommand(vm, 'pageDown').execute();
-    new ObjectListSortCommand(vm, -1).execute();
-    new ObjectListFilterCommand(vm, 1).execute();
+    const cases: [string, string, jest.Mock, unknown[]][] = [
+      ['OBJECT_LIST_MOVE_UP', 'up', viewModel.moveUp, []],
+      ['OBJECT_LIST_MOVE_DOWN', 'down', viewModel.moveDown, []],
+      ['OBJECT_LIST_MOVE_FIRST', 'home', viewModel.moveToFirst, []],
+      ['OBJECT_LIST_MOVE_LAST', 'end', viewModel.moveToLast, []],
+      ['OBJECT_LIST_PAGE_UP', 'pageup', viewModel.pageUp, []],
+      ['OBJECT_LIST_PAGE_DOWN', 'pagedown', viewModel.pageDown, []],
+      ['OBJECT_LIST_SELECT', 'enter', viewModel.selectCurrent, []],
+      ['OBJECT_LIST_CLOSE', 'esc', viewModel.hide, []],
+      ['OBJECT_LIST_NEXT_SORT', 's', viewModel.cycleSort, [1]],
+      ['OBJECT_LIST_PREVIOUS_SORT', 'shift+s', viewModel.cycleSort, [-1]],
+      ['OBJECT_LIST_NEXT_FILTER', 'f', viewModel.cycleFilter, [1]],
+      ['OBJECT_LIST_PREVIOUS_FILTER', 'shift+f', viewModel.cycleFilter, [-1]],
+    ];
+    for (const [name, hotkey, method, args] of cases) {
+      Object.values(viewModel).forEach(mock => mock.mockClear());
 
-    for (const method of ['moveUp', 'moveDown', 'moveToFirst', 'moveToLast', 'pageUp', 'pageDown'] as const) {
-      expect(viewModel[method]).toHaveBeenCalledTimes(1);
+      run(name);
+
+      expect(keymap[name].hotkey).toBe(hotkey);
+      expect(method).toHaveBeenCalledTimes(1);
+      expect(method).toHaveBeenCalledWith(...args);
     }
-    expect(viewModel.cycleSort).toHaveBeenCalledWith(-1);
-    expect(viewModel.cycleFilter).toHaveBeenCalledWith(1);
   });
 });

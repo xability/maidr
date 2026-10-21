@@ -45,6 +45,14 @@ export interface ObjectListState {
    * talking over each other.
    */
   announceSummary: boolean;
+  /**
+   * Whether focus should stay where it is rather than follow the selection:
+   * set only when a button changed the order or filter, so pressing it again
+   * presses it again. Any key that moves the list or the selection clears it,
+   * from wherever focus was -- a key that changed the list while focus stayed
+   * on a button would change it out of earshot.
+   */
+  keepFocus: boolean;
   message: ObjectListMessage | null;
 }
 
@@ -61,6 +69,7 @@ const initialState: ObjectListState = {
   selectedIndex: 0,
   revision: 0,
   announceSummary: false,
+  keepFocus: false,
   message: null,
 };
 
@@ -68,6 +77,7 @@ interface ArrangePayload {
   view: ObjectListView;
   selectedIndex: number;
   announceSummary: boolean;
+  keepFocus: boolean;
 }
 
 const objectListSlice = createSlice({
@@ -93,6 +103,7 @@ const objectListSlice = createSlice({
     select(state, action: PayloadAction<number>): void {
       state.selectedIndex = action.payload;
       state.announceSummary = false;
+      state.keepFocus = false;
     },
     say(state, action: PayloadAction<string>): void {
       state.message = { id: (state.message?.id ?? 0) + 1, text: action.payload };
@@ -124,6 +135,7 @@ function arranged(state: ObjectListState, payload: ArrangePayload): ObjectListSt
     selectedIndex: payload.selectedIndex,
     revision: state.revision + 1,
     announceSummary: payload.announceSummary,
+    keepFocus: payload.keepFocus,
   };
 }
 
@@ -173,7 +185,7 @@ export class ObjectListViewModel extends AbstractViewModel<ObjectListState> {
     if (view === null) {
       return false;
     }
-    this.store.dispatch(show({ view, selectedIndex: view.currentIndex, announceSummary: false }));
+    this.store.dispatch(show({ view, selectedIndex: view.currentIndex, announceSummary: false, keepFocus: false }));
     this.service.enterScope();
     return true;
   }
@@ -291,7 +303,12 @@ export class ObjectListViewModel extends AbstractViewModel<ObjectListState> {
    */
   private rearrange(view: ObjectListView, origin: ObjectListOrigin): void {
     const fromKeyboard = origin === 'keyboard';
-    this.store.dispatch(arrange({ view, selectedIndex: 0, announceSummary: fromKeyboard }));
+    this.store.dispatch(arrange({
+      view,
+      selectedIndex: 0,
+      announceSummary: fromKeyboard,
+      keepFocus: !fromKeyboard,
+    }));
     if (!fromKeyboard) {
       this.store.dispatch(say(view.summary));
     }

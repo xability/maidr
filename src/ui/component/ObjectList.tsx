@@ -112,25 +112,22 @@ const ObjectList: React.FC = () => {
   const state = useViewModelState('objectList');
 
   const dialogRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<HTMLDivElement>(null);
 
   // Focus follows the selection, in the same task as the render, so a row
-  // replaced by a new arrangement never leaves focus on the page. Not while a
-  // button has it: a reader pressing Order again would otherwise find focus on
-  // a row, and the next Enter would jump instead.
+  // replaced by a new arrangement never leaves focus on the page -- from
+  // wherever focus was, a button included, since a key that changed the list
+  // while focus stayed put would change it out of earshot. The one exception
+  // is a press of the Order or Showing button itself: focus stays on it, so
+  // pressing it again presses it again rather than jumping.
   useLayoutEffect(() => {
     const row = selectedRef.current;
-    if (row === null) {
-      return;
-    }
-    const active = document.activeElement;
-    if (active instanceof HTMLButtonElement && dialogRef.current?.contains(active)) {
+    if (row === null || state.keepFocus) {
       return;
     }
     row.focus();
     row.scrollIntoView?.({ block: 'nearest' });
-  }, [state.selectedIndex, state.revision]);
+  }, [state.selectedIndex, state.revision, state.keepFocus]);
 
   const handleSelect = useCallback((index: number): void => {
     viewModel.selectIndex(index);
@@ -262,7 +259,6 @@ const ObjectList: React.FC = () => {
         </Typography>
 
         <Box
-          ref={listRef}
           role="listbox"
           aria-labelledby="object-list-summary"
           onKeyDown={handleListKeyDown}

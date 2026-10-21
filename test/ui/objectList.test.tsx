@@ -194,16 +194,42 @@ describe('ObjectList', () => {
     expect(document.activeElement).toHaveAccessibleName('Ada, Links: 5');
   });
 
-  it('should keep focus on the order button and say the new order there', () => {
+  it('should keep focus on the order button and say the new order there', async () => {
     const { service } = renderList();
     service.cycleSort.mockReturnValue(view(ROWS, { summary: '3 nodes, Links, highest first', sortLabel: 'Links, highest first' }));
     const button = screen.getByRole('button', { name: 'Order: Name, A to Z' });
-    button.focus();
+    await act(async () => button.focus());
 
     fireEvent.click(button);
 
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Order: Links, highest first' }));
     expect(liveRegion()).toHaveTextContent('3 nodes, Links, highest first');
+  });
+
+  it('should take focus to the list for a key pressed while a button has it', async () => {
+    const { viewModel, service } = renderList();
+    service.cycleSort.mockReturnValue(view(ROWS, { summary: '3 nodes, Links, highest first' }));
+    await act(async () => screen.getByRole('button', { name: 'Close object list' }).focus());
+
+    // `s` from the keyboard, though focus was on a button.
+    await act(async () => viewModel.cycleSort(1));
+
+    expect(document.activeElement).toHaveAccessibleName('3 nodes, Links, highest first: Ada, Links: 5');
+
+    await act(async () => screen.getByRole('button', { name: 'Close object list' }).focus());
+    await act(async () => viewModel.moveDown());
+
+    expect(document.activeElement).toHaveAccessibleName('Grace, Links: 3');
+  });
+
+  it('should take focus to the list for a move after the order button was pressed', () => {
+    const { viewModel, service } = renderList();
+    service.cycleSort.mockReturnValue(view(ROWS, { summary: '3 nodes, Links, highest first' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Order: Name, A to Z' }));
+
+    act(() => viewModel.moveDown());
+
+    expect(document.activeElement).toHaveAccessibleName('Grace, Links: 3');
   });
 
   it('should keep Enter and Space on a button away from the list\'s key bindings', () => {
@@ -259,14 +285,15 @@ describe('ObjectList', () => {
     expect(service.moveToObject).toHaveBeenCalledWith('Tim', 'Tim');
   });
 
-  it('should keep Tab inside the dialog', () => {
+  it('should keep Tab inside the dialog', async () => {
     renderList();
     const row = screen.getByRole('option', { name: 'Grace, Links: 3' });
 
-    fireEvent.keyDown(row, { key: 'Tab' });
+    // Async, so the focus ripple a button starts on focus settles inside act.
+    await act(async () => fireEvent.keyDown(row, { key: 'Tab' }));
 
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close object list' }));
-    fireEvent.keyDown(document.activeElement as Element, { key: 'Tab', shiftKey: true });
+    await act(async () => fireEvent.keyDown(document.activeElement as Element, { key: 'Tab', shiftKey: true }));
     expect(document.activeElement).toBe(row);
   });
 });

@@ -949,7 +949,7 @@ export const model = {
   'model.objectFilterDownstream': 'Nach {name}',
   'model.objectFilterUpstream': 'Vor {name}',
   'model.objectFilterAttribute': '{name}: {value}',
-  'model.objectFilterLevel': 'Ebene {level}',
+  'model.objectFilterLevel': 'Level {level}',
   'model.objectFilterStage': 'Stufe {stage}',
   'model.objectFilterSources': 'Startknoten',
   'model.objectFilterSinks': 'Endknoten',

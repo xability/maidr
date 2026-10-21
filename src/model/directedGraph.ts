@@ -1049,10 +1049,10 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     const current = this.isInitialEntry ? null : this.current;
     const upstream = current === null
       ? new Set<GraphItem>()
-      : DirectedGraphTrace.reach(current, 'inputs');
+      : this.reach(current, 'inputs');
     const downstream = current === null
       ? new Set<GraphItem>()
-      : DirectedGraphTrace.reach(current, 'outputs');
+      : this.reach(current, 'outputs');
     const { numeric, shared } = this.listedAttributes();
     const filtered = new Set(shared.map(([key]) => key));
     const keys = this.objectKeys(items);
@@ -1106,11 +1106,14 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     const byConnections = measureVaries(objects, connections.id);
     // On a chain every node between the ends brokers the same single route,
     // so betweenness would only restate the graph order; it says something
-    // once the data branches or merges.
+    // once the data branches or merges. And only a node with something on
+    // both sides of it is between anything: on a fan out of one node, every
+    // node would score zero.
     const brokered = this.points.length >= 3
       && withinCentralityBudget(this.successors)
       && (this.successors.some(list => list.length > 1)
-        || this.predecessors.some(list => list.length > 1));
+        || this.predecessors.some(list => list.length > 1))
+      && this.successors.some((list, node) => list.length > 0 && this.predecessors[node].length > 0);
 
     const sorts: ObjectSortOption[] = [
       chartOrderSort(t('model.objectOrderGraph')),
@@ -1289,9 +1292,17 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   }
 
   /**
-   * Everything an item reaches by following edges one way, as the reader
-   * hears them from each step: an edge into a closed scope arrives at the
-   * scope, and the walk goes on from there.
+   * Everything an item reaches by following edges one way: the declared
+   * nodes on a path from it, and the scopes holding any of them.
+   *
+   * Walked over the declared edges rather than the items' own, which are as
+   * the reader hears them from one step: a closed scope's edges are those of
+   * all its members together, so a walk through the scope would carry on from
+   * members it never reached -- one of two parallel paths through a block
+   * would seem to feed the other's consumers. A scope counts as reached when
+   * a node inside it is, unless it holds the start, which would make every
+   * enclosing block its own upstream; and nothing inside a scope the walk
+   * starts from is counted.
    *
    * @param from - Where to start
    * @param along - Upstream through the inputs, or downstream through the
@@ -1299,19 +1310,24 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * @returns The items reached, not counting the start even on a cycle back
    *   to it
    */
-  private static reach(from: GraphItem, along: 'inputs' | 'outputs'): Set<GraphItem> {
-    const seen = new Set<GraphItem>([from]);
-    const queue = [from];
+  private reach(from: GraphItem, along: 'inputs' | 'outputs'): Set<GraphItem> {
+    const next = along === 'inputs' ? this.predecessors : this.successors;
+    const start = new Set(from.members);
+    const reached = new Set<number>();
+    const queue = [...start];
     for (let head = 0; head < queue.length; head++) {
-      for (const next of queue[head][along]) {
-        if (!seen.has(next)) {
-          seen.add(next);
-          queue.push(next);
+      for (const node of next[queue[head]]) {
+        if (!start.has(node) && !reached.has(node)) {
+          reached.add(node);
+          queue.push(node);
         }
       }
     }
-    seen.delete(from);
-    return seen;
+
+    const holdsStart = (item: GraphItem): boolean =>
+      item.members.some(member => start.has(member));
+    return new Set(this.allItems(this.roots).filter(item =>
+      !holdsStart(item) && item.members.some(member => reached.has(member))));
   }
 
   /**

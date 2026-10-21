@@ -172,6 +172,36 @@ describe('resolveOverrides', () => {
     expect(resolveOverrides('x')).toEqual({});
     expect(resolveOverrides(null)).toEqual({});
   });
+
+  it('drops a saved shortcut that a newer default now claims, so one press runs one command', () => {
+    // `o` was free when a reader could have moved the description to it; it
+    // now opens the object list in the same scopes.
+    expect(resolveOverrides({ TOGGLE_DESCRIPTION: 'o', TOGGLE_TEXT: 'x' })).toEqual({ TOGGLE_TEXT: 'x' });
+  });
+
+  it('keeps two commands that swapped their shortcuts', () => {
+    expect(resolveOverrides({ TOGGLE_TEXT: 'd', TOGGLE_DESCRIPTION: 't' }))
+      .toEqual({ TOGGLE_TEXT: 'd', TOGGLE_DESCRIPTION: 't' });
+  });
+});
+
+describe('a saved shortcut a newer default claims', () => {
+  let harness: Harness | null = null;
+
+  afterEach(() => {
+    harness?.service.unregister();
+    harness = null;
+  });
+
+  it('goes back to its default rather than share the key', async () => {
+    harness = createService();
+    harness.service.register(Scope.TRACE);
+
+    harness.service.update(settingsWith({ TOGGLE_TEXT: 'o' }));
+    await press(KEY_CODE.t);
+
+    expect(harness.toggleText).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('getKeymapForScope with overrides', () => {

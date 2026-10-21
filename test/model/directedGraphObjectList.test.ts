@@ -354,6 +354,18 @@ describe('the sorts', () => {
     ]);
   });
 
+  test('betweenness is not offered on a fan, where no node is between two others', () => {
+    const fan: DirectedGraphPoint[] = [
+      { id: 'a' },
+      { id: 'b', inputs: ['a'] },
+      { id: 'c', inputs: ['a'] },
+      { id: 'd', inputs: ['a'] },
+    ];
+    const list = listOf(graph(fan));
+
+    expect(list.sorts.map(sort => sort.id)).not.toContain('betweenness-descending');
+  });
+
   test('betweenness is not offered on a chain, which has nothing to broker', () => {
     const chain: DirectedGraphPoint[] = [
       { id: 'a' },
@@ -456,8 +468,30 @@ describe('the filters', () => {
     expect(at(trace)).toBe('add');
     expect(filterLabels(list).slice(0, 2)).toEqual(['Upstream of add', 'Downstream of add']);
     expect(arranged(list, 'chart', 'upstream-of-current')).toEqual(['input', 'conv1', 'conv2']);
-    // Downstream as add hears it: the closed block2, and on from there.
-    expect(arranged(list, 'chart', 'downstream-of-current')).toEqual(['block2', 'dense']);
+    // Everything add's data reaches: the block it flows into, the nodes in
+    // it, and on from there.
+    expect(arranged(list, 'chart', 'downstream-of-current')).toEqual(['block2', 'conv', 'pool', 'dense']);
+  });
+
+  test('a path through a block reaches only what that path feeds', () => {
+    // Two parallel paths through one block, as an Inception block has: x
+    // feeds s1, which feeds A; s2 feeds B. Walking the block's edges as a
+    // whole would make B downstream of x and x upstream of B.
+    const trace = graph([
+      { id: 'x' },
+      { id: 'S/s1', label: 's1', path: ['S'], inputs: ['x'] },
+      { id: 'S/s2', label: 's2', path: ['S'] },
+      { id: 'A', inputs: ['S/s1'] },
+      { id: 'B', inputs: ['S/s2'] },
+    ]);
+    const onX = listOf(trace);
+    expect(at(trace)).toBe('x');
+
+    expect(arranged(onX, 'chart', 'downstream-of-current')).toEqual(['S', 's1', 'A']);
+
+    expect(trace.moveToObject(keyOf(onX, 'B'))).toBe(true);
+    const onB = listOf(trace);
+    expect(arranged(onB, 'chart', 'upstream-of-current')).toEqual(['S', 's2']);
   });
 
   test('a cursor filter that would show nothing is not offered', () => {

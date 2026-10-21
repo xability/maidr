@@ -633,6 +633,14 @@ export function isRebindable(commandName: string): boolean {
  * a shortcut that names no key. None of those should reach hotkeys-js,
  * which would bind them silently, so they are dropped here and the reader's
  * other overrides survive.
+ *
+ * So is a shortcut that another command now runs where this one is bound.
+ * The help menu refuses such a shortcut when the reader chooses it, but one
+ * saved before a later release made the same key a default -- `o`, for the
+ * object list -- was never checked against it, and hotkeys-js would run both
+ * commands on the one press. The same rule is applied on the way in: the
+ * command goes back to its default, as it would have had the reader tried
+ * to choose the key today, and the settings show it there.
  * @param raw - `settings.general.keybindings`, or anything that stood in for it
  * @returns The overrides worth applying
  */
@@ -651,7 +659,18 @@ export function resolveOverrides(raw: unknown): KeybindingOverrides {
     }
     overrides[commandName] = normalized;
   }
-  return overrides;
+
+  // Each is checked against the others as they stand, so a pair of commands
+  // that swapped their keys is still a valid pair.
+  const kept: Record<string, string> = {};
+  for (const [commandName, combo] of Object.entries(overrides)) {
+    const others = { ...overrides };
+    delete others[commandName];
+    if (findBindingConflict(commandName, combo, others) === null) {
+      kept[commandName] = combo;
+    }
+  }
+  return kept;
 }
 
 /**

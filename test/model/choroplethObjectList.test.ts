@@ -198,15 +198,27 @@ describe('the sorts', () => {
       .toEqual(['California', 'Nevada', 'Utah', 'Oregon', 'Washington', 'Idaho']);
   });
 
-  test('should count a neighbour once, and never the region itself', () => {
-    const list = listOf(choropleth([
+  test('should count and compare neighbours as the region\'s announcement does', () => {
+    // A layer that lists a border twice and a region beside itself: the list
+    // must not file a region as below all its neighbours that, once the
+    // reader jumps there, is announced as not.
+    const trace = choropleth([
       { x: 'A', y: 1, neighbors: ['B', 'B', 'A'] },
       { x: 'B', y: 2, neighbors: ['A', 'C'] },
       { x: 'C', y: 3, neighbors: ['B'] },
-    ]));
+    ]);
+    const list = listOf(trace);
+    const a = region(list, 'A');
 
-    expect(region(list, 'A').measures.neighbors).toBe(1);
-    expect(region(list, 'B').measures.neighbors).toBe(2);
+    expect(trace.moveToObject(a.key)).toBe(true);
+    const state = trace.state as NonEmptyTraceState;
+    const announced = String(state.text.asides?.[0]?.value);
+
+    expect(a.measures.neighbors).toBe(3);
+    expect(announced).toContain('3');
+    expect(a.groups).not.toContain('coldspots');
+    expect(announced).not.toMatch(/all/i);
+    expect(region(list, 'C').groups).toContain('hotspots');
   });
 
   test('should name the chart order plainly on a map with no centroids', () => {
