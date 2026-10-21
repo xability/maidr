@@ -1,6 +1,6 @@
 import { useViewModelState } from '@state/hook/useViewModel';
 import { Constant } from '@util/constant';
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 interface TextProps {
@@ -26,6 +26,16 @@ const Text: React.FC<TextProps> = ({ announcer }) => {
     : (announce && navText ? navText : '');
 
   const visual = messageText.trim().length > 0 ? messageText : navText;
+
+  // The region is the figure's, so the ARIA mode the reader chose in settings
+  // is put on it here, where the setting is read. It is in force while they are
+  // in the chart, the only time the region speaks. A layout effect, so a mode
+  // read as the reader enters is on the region in the same commit as the first
+  // announcement; assertive and polite are both live, so a switch drops nothing.
+  const ariaMode = settings.general.ariaMode;
+  useLayoutEffect(() => {
+    announcer.setAttribute('aria-live', ariaMode);
+  }, [announcer, ariaMode]);
 
   return (
     <div>

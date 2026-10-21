@@ -413,9 +413,11 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
             focused; DisplayService describes it from an element of its own
             after that. Hidden: read only as the plot's description. */}
         <div id={instructionId} hidden>{initialDescription}</div>
-        {/* Empty until the reader enters the chart. Assertive and atomic, as
-            the `role="alert"` elements it replaces were, but with no role for
-            a screen reader to say before the text. */}
+        {/* Empty until the reader enters the chart. Atomic, as the
+            `role="alert"` elements it replaces were, but with no role for a
+            screen reader to say before the text. Assertive until then; once
+            they are in, `Text` gives it the ARIA mode they chose in settings,
+            assertive unless they changed it. */}
         <div
           ref={setAnnouncer}
           id={`${Constant.ANNOUNCEMENT_REGION}-${data.id}`}
