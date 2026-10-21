@@ -226,6 +226,7 @@ afterEach(() => {
   observer = null;
   jest.useRealTimers();
   document.body.innerHTML = '';
+  localStorage.clear();
 });
 
 describe('the announcement region', () => {
@@ -296,5 +297,40 @@ describe('the announcement region', () => {
     expect(announcements().map(element => element.textContent)).toEqual([
       expect.stringContaining('Category is B'),
     ]);
+  });
+
+  it('should speak at the ARIA mode the reader saved, from the moment they enter', () => {
+    localStorage.setItem('maidr-settings', JSON.stringify({ general: { ariaMode: 'polite' } }));
+    renderChart();
+    focusIn();
+    const announcements = watch(region());
+
+    press('ArrowRight', 'ArrowRight', 39);
+
+    expect(region().getAttribute('aria-live')).toBe('polite');
+    expect(announcements().map(element => element.textContent)).toEqual([
+      expect.stringContaining('Category is A'),
+    ]);
+  });
+
+  it('should follow the ARIA mode the reader changes in settings', () => {
+    renderChart();
+    focusIn();
+    expect(region().getAttribute('aria-live')).toBe('assertive');
+
+    act(() => {
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: ',', code: 'Comma', keyCode: 188, ctrlKey: true });
+      fireEvent.keyUp(document.activeElement ?? document.body, { key: ',', code: 'Comma', keyCode: 188, ctrlKey: true });
+      jest.runOnlyPendingTimers();
+    });
+    act(() => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Polite' }));
+    });
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save & Close Settings' }));
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(region().getAttribute('aria-live')).toBe('polite');
   });
 });
