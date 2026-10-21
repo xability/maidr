@@ -1117,6 +1117,7 @@ describe('the agent command table', () => {
       'open_description',
       'open_go_to_extrema',
       'open_help',
+      'open_object_list',
       'open_settings',
       'toggle_candlestick_comparison',
       'toggle_review',

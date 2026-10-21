@@ -1,11 +1,27 @@
 import type { MaidrLayer, TreemapPoint } from '@type/grammar';
 import type { Coordinate, Node } from '@type/movable';
+import type {
+  ChartObject,
+  ChartObjectList,
+  ObjectFilterOption,
+  ObjectMeasure,
+  ObjectSortOption,
+} from '@type/objectList';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import {
+  chartOrderSort,
+  counter,
+  measureSort,
+  measureVaries,
+  nameSort,
+  occurrenceKeys,
+  offerFilters,
+} from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
@@ -21,6 +37,14 @@ import { MovableGraph } from './movable';
 interface TreeNode {
   /** What the node is called, among its siblings. */
   name: string;
+  /**
+   * The path it was declared at, root first and ending in its own name, as
+   * the layer wrote it.
+   *
+   * Kept raw rather than rebuilt from the names, which are strings: `1` and
+   * `'1'` are two nodes here, and joining their names would make them one.
+   */
+  path: readonly (string | number)[];
   /** How deep it sits, with a top-level node at zero. */
   depth: number;
   /** Its position among every node at that depth, in declared order. */
@@ -58,6 +82,29 @@ function levelRotorUnit(): RotorFilterUnit {
 
 /** How many branches the top-level breakdown names before it stops. */
 const NAMED_BRANCHES = 8;
+
+/** The object list's measures, by id. */
+const VALUE_MEASURE = 'value';
+const CHILDREN_MEASURE = 'children';
+const DESCENDANTS_MEASURE = 'descendants';
+
+/**
+ * The object list's filters, by id. Inside-current names whichever node the
+ * cursor is on, so its id says where it points rather than what it is called.
+ */
+const INSIDE_CURRENT = 'inside-current';
+const LEAVES = 'leaves';
+const BRANCHES = 'branches';
+
+/**
+ * The id of the object list's filter for one level of the tree.
+ *
+ * @param depth - The level, with the top at zero
+ * @returns The id, counted from 1 as the level is named
+ */
+function levelFilterId(depth: number): string {
+  return `level-${depth + 1}`;
+}
 
 /**
  * What a hierarchy calls its node dimension when the layer names no x axis.
@@ -250,6 +297,7 @@ export class TreemapTrace extends AbstractTrace {
       const level = levels[depth] ?? (levels[depth] = []);
       const node: TreeNode = {
         name: String(path[path.length - 1]),
+        path,
         depth,
         index: level.length,
         parent: parent === null ? null : { row: parent.depth, col: parent.index },
@@ -704,6 +752,176 @@ export class TreemapTrace extends AbstractTrace {
     this.movable.moveToIndex(this.row, target);
     this.notifyStateUpdate();
     return true;
+  }
+
+  /**
+   * Every node of the tree, as the `o` list offers them.
+   *
+   * Listed as an outline -- each parent before its children, siblings in the
+   * order they were declared -- because that is the order a tree view shows
+   * and the one in which a node's path is already known by the time the
+   * reader meets it. The address the cursor walks is by depth, which would
+   * list every continent before any country and leave the countries cut off
+   * from the continent they belong to.
+   *
+   * The sorts are the comparisons the rectangles are drawn for: the largest
+   * nodes first, or on a tree with no magnitudes -- an org chart -- the
+   * largest teams. The filters are the tree's own levels, and, once the reader
+   * is on a node with anything below it, everything inside that node: with
+   * "Value, highest first" that is "the largest countries in Europe", which
+   * the arrow keys answer only by walking every sibling.
+   *
+   * @returns The list, or null when the tree has no nodes
+   */
+  public override getObjectList(): ChartObjectList | null {
+    const outline = this.outline();
+    if (outline.length === 0) {
+      return null;
+    }
+
+    const below = this.descendantCounts(outline);
+    const deep = this.nodes.length > 1;
+    const current = this.isInitialEntry ? null : this.current;
+    const at = current === null ? -1 : outline.indexOf(current);
+    // A node's descendants follow it in the outline, all of them and nothing
+    // else, so what is inside it is a run of the outline rather than a search.
+    const inside = at < 0 ? 0 : below.get(outline[at]) ?? 0;
+
+    const keyOf = occurrenceKeys();
+    const objects = outline.map((node, position): ChartObject => {
+      const ancestors = this.ancestorsOf(node);
+      const groups: string[] = [];
+      if (position > at && position <= at + inside) {
+        groups.push(INSIDE_CURRENT);
+      }
+      if (deep) {
+        groups.push(levelFilterId(node.depth));
+      }
+      groups.push(node.children.length === 0 ? LEAVES : BRANCHES);
+
+      return {
+        // The raw path, so two nodes whose names read the same are still two.
+        key: keyOf(JSON.stringify(node.path)),
+        label: node.name,
+        ...(this.valued
+          ? { value: { label: this.valueLabel, value: node.value, axis: 'y' } }
+          : {}),
+        ...(ancestors.length > 0 ? { detail: ancestors.join(' > ') } : {}),
+        row: node.depth,
+        col: node.index,
+        measures: {
+          ...(this.valued ? { [VALUE_MEASURE]: node.value } : {}),
+          [CHILDREN_MEASURE]: node.children.length,
+          [DESCENDANTS_MEASURE]: below.get(node) ?? 0,
+        },
+        groups,
+      };
+    });
+
+    const value: ObjectMeasure = { id: VALUE_MEASURE, label: this.valueLabel, spoken: true };
+    const children: ObjectMeasure = {
+      id: CHILDREN_MEASURE,
+      label: t('model.asideChildren'),
+      spoken: false,
+    };
+    const descendants: ObjectMeasure = {
+      id: DESCENDANTS_MEASURE,
+      label: t('model.objectMeasureDescendants'),
+      spoken: false,
+    };
+
+    const sorts: ObjectSortOption[] = [chartOrderSort(t('model.objectOrderHierarchy'))];
+    if (this.valued && measureVaries(objects, VALUE_MEASURE)) {
+      sorts.push(measureSort(value, 'descending'), measureSort(value, 'ascending'));
+    }
+    // What a tree with no magnitudes has instead: how much of it sits under a
+    // node, which on an org chart is the size of a team.
+    if (!this.valued && measureVaries(objects, DESCENDANTS_MEASURE)) {
+      sorts.push(measureSort(descendants, 'descending'));
+    }
+    if (measureVaries(objects, CHILDREN_MEASURE)) {
+      sorts.push(measureSort(children, 'descending'));
+    }
+    sorts.push(nameSort());
+
+    // Most specific wording first, so where "Leaves" and the deepest level
+    // are the same nodes -- every leaf of a two-level tree is on level 2 --
+    // the level is the one kept.
+    const candidates: ObjectFilterOption[] = [];
+    if (current !== null && inside > 0) {
+      candidates.push({
+        id: INSIDE_CURRENT,
+        label: t('model.objectFilterInside', { name: current.name }),
+      });
+    }
+    if (deep) {
+      this.nodes.forEach((_, depth) => candidates.push({
+        id: levelFilterId(depth),
+        label: t('model.objectFilterLevel', { level: depth + 1 }),
+      }));
+    }
+    candidates.push(
+      { id: LEAVES, label: t('model.objectFilterLeaves') },
+      { id: BRANCHES, label: t('model.objectFilterBranches') },
+    );
+
+    return {
+      title: t('model.objectsNodes'),
+      count: counter('model.objectNodesOne', 'model.objectNodesMany'),
+      objects,
+      measures: this.valued ? [value, children, descendants] : [children, descendants],
+      sorts,
+      filters: offerFilters(objects, candidates),
+    };
+  }
+
+  /**
+   * Every node, each parent before its children and siblings in declared
+   * order: the outline a tree view shows.
+   *
+   * @returns The nodes in outline order
+   */
+  private outline(): TreeNode[] {
+    const order: TreeNode[] = [];
+    const pending: (TreeNode | null)[] = [...(this.nodes[0] ?? [])].reverse();
+    while (pending.length > 0) {
+      const node = pending.pop();
+      if (node === undefined || node === null) {
+        continue;
+      }
+      order.push(node);
+      // Pushed last child first, so the first child is the next one taken.
+      for (let at = node.children.length - 1; at >= 0; at--) {
+        const child = node.children[at];
+        pending.push(this.nodes[child.row]?.[child.col] ?? null);
+      }
+    }
+    return order;
+  }
+
+  /**
+   * How many nodes sit under each node, at any depth.
+   *
+   * Counted from the end of the outline back, which reaches every child
+   * before its parent, so each total is ready by the time it is added in.
+   *
+   * @param outline - The nodes in outline order
+   * @returns Each node's descendant count
+   */
+  private descendantCounts(outline: readonly TreeNode[]): Map<TreeNode, number> {
+    const counts = new Map<TreeNode, number>();
+    for (let position = outline.length - 1; position >= 0; position--) {
+      const node = outline[position];
+      let total = 0;
+      for (const child of node.children) {
+        const below = this.nodes[child.row]?.[child.col];
+        if (below !== undefined && below !== null) {
+          total += 1 + (counts.get(below) ?? 0);
+        }
+      }
+      counts.set(node, total);
+    }
+    return counts;
   }
 
   /**

@@ -1,17 +1,32 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, WordCloudPoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
+import type { ChartObject, ChartObjectList, ObjectMeasure, ObjectSortOption } from '@type/objectList';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import {
+  counter,
+  measureSort,
+  measureVaries,
+  nameSort,
+  occurrenceKeys,
+  offerFilters,
+} from '@util/objectList';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
 import { isMeasured, missingText } from './bar';
 import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
+
+/** The object list's one measure, a term's weight, by id. */
+const WEIGHT_MEASURE = 'weight';
+
+/** The object list's filter for the terms whose weight did not parse, by id. */
+const NO_DATA = 'no-data';
 
 /**
  * How a term's share of the corpus reads.
@@ -101,6 +116,17 @@ export class WordCloudTrace extends AbstractTrace {
   private readonly weights: number[][];
 
   /**
+   * Where each term was authored, in weight order: term *i* of the walk is
+   * `layer.data[sources[i]]`.
+   *
+   * Kept for the object list's keys, which tell apart two terms written the
+   * same by counting them in the order the author wrote them. A count taken
+   * in weight order would hand a term a different key whenever a change of
+   * weights reshuffled the walk.
+   */
+  private readonly sources: number[];
+
+  /**
    * How many of the terms carry a weight the chart could size a glyph by.
    *
    * The sort puts them first, so this is also where the measured terms end:
@@ -152,6 +178,7 @@ export class WordCloudTrace extends AbstractTrace {
 
     const ordered = byDescendingWeight(layer.data as WordCloudPoint[]);
     this.points = ordered.map(entry => entry.point);
+    this.sources = ordered.map(entry => entry.source);
     this.weights = [this.points.map(point => Number(point.y))];
     this.measuredCount = this.weights[0].filter(isMeasured).length;
 
@@ -163,10 +190,7 @@ export class WordCloudTrace extends AbstractTrace {
     this.min = min;
     this.max = max;
 
-    this.highlightValues = this.mapToSvgElements(
-      layer.selectors,
-      ordered.map(entry => entry.source),
-    );
+    this.highlightValues = this.mapToSvgElements(layer.selectors, this.sources);
     this.movable = new MovableGrid<WordCloudPoint>([this.points]);
   }
 
@@ -409,6 +433,63 @@ export class WordCloudTrace extends AbstractTrace {
   public override navigateToExtrema(target: ExtremaTarget): void {
     this.col = target.pointIndex;
     this.finalizeNavigation();
+  }
+
+  /**
+   * Every term of the cloud, as the `o` list offers them.
+   *
+   * Heaviest first to begin with, because that is the order the arrows walk
+   * and the one the cloud is read for. The list adds the other end of it,
+   * and the alphabet, which is how a reader finds a term they already have in
+   * mind among two hundred. A term whose weight did not parse is still listed
+   * -- the chart draws it -- and is gathered under "No data", where the walk
+   * leaves it at the far end of the cloud.
+   *
+   * @returns The list, or null when the cloud has no terms
+   */
+  public override getObjectList(): ChartObjectList | null {
+    if (this.points.length === 0) {
+      return null;
+    }
+
+    // Counted in the order the terms were authored, so the same term keeps
+    // its key when a change of weights reshuffles the walk.
+    const keyOf = occurrenceKeys();
+    const keys: string[] = [];
+    this.sources
+      .map((source, col) => ({ source, col }))
+      .sort((a, b) => a.source - b.source)
+      .forEach(({ col }) => {
+        keys[col] = keyOf(String(this.points[col].x));
+      });
+
+    const objects = this.points.map((point, col): ChartObject => {
+      const weight = this.weights[0][col];
+      const measured = isMeasured(weight);
+      return {
+        key: keys[col],
+        label: String(point.x),
+        ...(measured ? { value: { label: this.yAxis, value: weight, axis: 'y' } } : {}),
+        row: 0,
+        col,
+        measures: { [WEIGHT_MEASURE]: weight },
+        groups: measured ? [] : [NO_DATA],
+      };
+    });
+
+    const weight: ObjectMeasure = { id: WEIGHT_MEASURE, label: this.yAxis, spoken: true };
+    const sorts: ObjectSortOption[] = measureVaries(objects, WEIGHT_MEASURE)
+      ? [measureSort(weight, 'descending'), measureSort(weight, 'ascending'), nameSort()]
+      : [nameSort()];
+
+    return {
+      title: t('model.objectsTerms'),
+      count: counter('model.objectTermsOne', 'model.objectTermsMany'),
+      objects,
+      measures: [weight],
+      sorts,
+      filters: offerFilters(objects, [{ id: NO_DATA, label: t('model.objectFilterNoData') }]),
+    };
   }
 
   /**

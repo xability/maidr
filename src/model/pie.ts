@@ -1,16 +1,32 @@
 import type { MaidrLayer, PiePoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
+import type { ChartObject, ChartObjectList, ObjectMeasure, ObjectSortOption } from '@type/objectList';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { PieDirection } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import {
+  chartOrderSort,
+  counter,
+  measureSort,
+  measureVaries,
+  nameSort,
+  occurrenceKeys,
+  offerFilters,
+} from '@util/objectList';
 import { selectorString } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { isMeasured, toBarValue } from './bar';
 import { MovableGrid } from './movable';
+
+/** The object list's one measure, a slice's share of the circle, by id. */
+const SHARE_MEASURE = 'share';
+
+/** The object list's filter for the slices with no value, by id. */
+const NO_DATA = 'no-data';
 
 /**
  * Label the percentage rides under in text and in the data table.
@@ -61,6 +77,24 @@ function toPercentage(value: number, basis: number): string {
     return '0%';
   }
   return `${((Math.abs(value) / basis) * 100).toFixed(1)}%`;
+}
+
+/**
+ * One slice's share of the whole, as the number the object list sorts by.
+ *
+ * The fraction {@link toPercentage} writes out, of the circle as drawn: a
+ * negative slice occupies its magnitude of the dial, and a pie of zeroes has
+ * every slice at an exact nothing rather than at `0 / 0`.
+ *
+ * @param value - The slice's value, `NaN` when it is a gap
+ * @param basis - The sum of the absolute values of every measured slice
+ * @returns The share, from 0 to 1, or `NaN` for a gap
+ */
+function toShare(value: number, basis: number): number {
+  if (!isMeasured(value)) {
+    return Number.NaN;
+  }
+  return basis === 0 ? 0 : Math.abs(value) / basis;
 }
 
 /**
@@ -446,6 +480,73 @@ export class PieTrace extends AbstractTrace {
       value: defaultFormat(value),
       share: this.percentages[col],
     });
+  }
+
+  /**
+   * Every slice of the pie, as the `o` list offers them.
+   *
+   * Clockwise from the start, the order the arrows walk -- on a pie drawn the
+   * other way round as well, whose walk is already turned to run clockwise.
+   * The list adds the comparison a pie is drawn for, its slices largest share
+   * first, which a reader walking the dial has to assemble by holding every
+   * slice in mind; and the alphabet, for finding one slice by name. A slice
+   * with no value is still listed, since the chart names it, and gathered
+   * under "No data".
+   *
+   * @returns The list, or null when the pie has no slices
+   */
+  public override getObjectList(): ChartObjectList | null {
+    // Read through `points[0]`, which `dispose` empties, so a disposed pie
+    // lists nothing rather than throwing.
+    const slices = this.points[0];
+    if (slices === undefined || slices.length === 0) {
+      return null;
+    }
+
+    // Counted in the order the slices were authored, which a counterclockwise
+    // pie walks backwards: two slices of one name keep their keys whichever
+    // way the producer declares the pie runs.
+    const keyOf = occurrenceKeys();
+    const last = slices.length - 1;
+    const keys: string[] = [];
+    for (let source = 0; source <= last; source++) {
+      const col = this.walksReversed ? last - source : source;
+      keys[col] = keyOf(String(slices[col].x));
+    }
+
+    const objects = slices.map((point, col): ChartObject => {
+      const value = this.sliceValues[0][col];
+      const measured = isMeasured(value);
+      return {
+        key: keys[col],
+        label: String(point.x),
+        ...(measured ? { value: { label: this.yAxis, value, axis: 'y' } } : {}),
+        detail: t('dialogs.objectDetail', {
+          label: percentageLabel(),
+          value: this.percentages[col],
+        }),
+        row: 0,
+        col,
+        measures: { [SHARE_MEASURE]: toShare(value, this.shareBasis) },
+        groups: measured ? [] : [NO_DATA],
+      };
+    });
+
+    const share: ObjectMeasure = { id: SHARE_MEASURE, label: percentageLabel(), spoken: true };
+    const sorts: ObjectSortOption[] = [chartOrderSort(t('model.objectOrderClockwise'))];
+    if (measureVaries(objects, SHARE_MEASURE)) {
+      sorts.push(measureSort(share, 'descending'), measureSort(share, 'ascending'));
+    }
+    sorts.push(nameSort());
+
+    return {
+      title: t('model.objectsSlices'),
+      count: counter('model.objectSlicesOne', 'model.objectSlicesMany'),
+      objects,
+      measures: [share],
+      sorts,
+      filters: offerFilters(objects, [{ id: NO_DATA, label: t('model.objectFilterNoData') }]),
+    };
   }
 
   protected get dimension(): Dimension {

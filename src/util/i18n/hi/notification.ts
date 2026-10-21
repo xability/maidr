@@ -44,4 +44,5 @@ export const notification = {
   'notification.deltaPickerClose': 'संदर्भ रेखा चयनकर्ता बंद करें',
   'notification.deltaPickerDescription': 'हर कैंडल की तुलना के लिए एक संदर्भ रेखा चुनें। चलने के लिए ऊपर और नीचे तीर दबाएँ, फिर Enter दबाएँ। चुनने के बाद तुलना चालू या बंद करने के लिए Alt L दबाएँ।',
   'notification.deltaPickerListLabel': 'संदर्भ रेखाएँ',
+  'notification.objectListGone': '{label} अब चार्ट में नहीं है',
 } satisfies Partial<Record<MessageKey, string>>;

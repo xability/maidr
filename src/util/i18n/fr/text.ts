@@ -138,4 +138,5 @@ export const text = {
   'text.noMinimumValue': 'Aucune valeur minimale vers laquelle aller dans cette couche',
   'text.noMaximumValue': 'Aucune valeur maximale vers laquelle aller dans cette couche',
   'text.pointPosition': '{point}, {position} sur {total}',
+  'text.noObjectList': 'Ce calque n\'a pas de liste des objets. Parcourez-le avec les flèches.',
 } satisfies Partial<Record<MessageKey, string>>;

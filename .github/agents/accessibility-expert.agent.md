@@ -35,7 +35,7 @@ You are an accessibility expert specializing in non-visual data representation. 
 
 MAIDR uses a hierarchical scope system (11 scopes defined in `src/type/event.ts`):
 
-`FIGURE_LABEL` → `SUBPLOT` → `TRACE` / `TRACE_LABEL` → modal scopes (BRAILLE, CHAT, HELP, SETTINGS, REVIEW, COMMAND_PALETTE, GO_TO_EXTREMA)
+`FIGURE_LABEL` → `SUBPLOT` → `TRACE` / `TRACE_LABEL` → modal scopes (BRAILLE, CHAT, HELP, SETTINGS, REVIEW, COMMAND_PALETTE, GO_TO_EXTREMA, OBJECT_LIST)
 
 Each scope has its own keymap. Navigation:
 - Arrow keys: move between data points within a trace

@@ -137,4 +137,5 @@ export const text = {
   'text.noMinimumValue': '此图层中没有可跳转的最小值',
   'text.noMaximumValue': '此图层中没有可跳转的最大值',
   'text.pointPosition': '{point}，第 {position} 个，共 {total} 个',
+  'text.noObjectList': '此图层没有对象列表。请用方向键浏览。',
 } satisfies Partial<Record<MessageKey, string>>;

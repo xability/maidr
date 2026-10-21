@@ -44,4 +44,5 @@ export const notification = {
   'notification.deltaPickerClose': 'Chiudi il selettore di riferimento',
   'notification.deltaPickerDescription': 'Scegliere una linea di riferimento con cui confrontare ogni candela. Usare le frecce su e giù per spostarsi, poi premere Enter. Una volta scelta, premere Alt L per attivare o disattivare il confronto.',
   'notification.deltaPickerListLabel': 'Linee di riferimento',
+  'notification.objectListGone': '{label} non è più nel grafico',
 } satisfies Partial<Record<MessageKey, string>>;

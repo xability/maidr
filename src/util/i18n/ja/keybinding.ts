@@ -121,4 +121,13 @@ export const keybinding = {
   'keybinding.commandPaletteSearchPlaceholder': 'コマンドを検索...',
   'keybinding.commandPaletteSearchLabel': 'コマンドを検索',
   'keybinding.commandPaletteListLabel': '使用できるコマンド',
+  'keybinding.openObjectList': 'オブジェクト一覧を開く',
+  'keybinding.objectListFirst': '最初のオブジェクトへ移動',
+  'keybinding.objectListLast': '最後のオブジェクトへ移動',
+  'keybinding.objectListPageUp': 'オブジェクト10個分上へ移動',
+  'keybinding.objectListPageDown': 'オブジェクト10個分下へ移動',
+  'keybinding.objectListNextSort': '次の並び順',
+  'keybinding.objectListPreviousSort': '前の並び順',
+  'keybinding.objectListNextFilter': '次の絞り込み',
+  'keybinding.objectListPreviousFilter': '前の絞り込み',
 } satisfies Partial<Record<MessageKey, string>>;

@@ -52,4 +52,5 @@ export const notification = {
   'notification.deltaPickerClose': 'Referenzauswahl schließen',
   'notification.deltaPickerDescription': 'Wählen Sie eine Referenzlinie, mit der jede Kerze verglichen wird. Bewegen Sie sich mit den Pfeiltasten auf und ab und drücken Sie dann Enter. Nach der Auswahl drücken Sie Alt L, um den Vergleich ein- oder auszuschalten.',
   'notification.deltaPickerListLabel': 'Referenzlinien',
+  'notification.objectListGone': '{label} ist nicht mehr im Diagramm',
 } satisfies Partial<Record<MessageKey, string>>;

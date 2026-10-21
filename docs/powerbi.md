@@ -415,7 +415,7 @@ Reaching the visual is Power BI's keyboard model, from [its keyboard navigation 
 - Move between visuals on the report page as Power BI documents. With `"supportsKeyboardFocus": true`, <kbd>Enter</kbd> on the visual's container moves focus inside the visual, and <kbd>Tab</kbd> then stays inside the visual and reaches MAIDR's figure. Power BI notes that <kbd>Enter</kbd> does not always land on the first focusable element, and that <kbd>Tab</kbd> may need pressing more than once. Microsoft recommends focusing the first element programmatically once focus enters. MAIDR's figure is the first focusable element in the binder's wrapper, `options.element.querySelector<HTMLElement>('[data-maidr-powerbi] [tabindex]')`; one way is to focus it from a `focus` listener on the visual's `window` when `document.activeElement` is still `document.body`. Test this in the Power BI service, since the SDK does not tell a visual that <kbd>Enter</kbd> was pressed on its container.
 - <kbd>Esc</kbd> is how Power BI moves focus from inside a visual back to its container. MAIDR also depends on <kbd>Esc</kbd>, and for some of these, braille mode among them, it is the only key:
   - leaving braille mode;
-  - closing the chat, the chart description, the go-to-extrema dialog, the command palette and the help menu;
+  - closing the chat, the chart description, the go-to-extrema dialog, the object list, the command palette and the help menu;
   - leaving label mode;
   - leaving a scatter's grid cell;
   - returning from a chart to its figure's subplot list (<kbd>Backspace</kbd> also does this).

@@ -53,4 +53,5 @@ export const notification = {
   'notification.deltaPickerClose': 'Cerrar el selector de referencia',
   'notification.deltaPickerDescription': 'Elija una línea de referencia con la que comparar cada vela. Use las flechas arriba y abajo para moverse y luego presione Enter. Una vez elegida, presione Alt L para activar o desactivar la comparación.',
   'notification.deltaPickerListLabel': 'Líneas de referencia',
+  'notification.objectListGone': '{label} ya no está en el gráfico',
 } satisfies Partial<Record<MessageKey, string>>;

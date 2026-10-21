@@ -19,6 +19,7 @@ import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteVie
 import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { ObjectListViewModel } from '@state/viewModel/objectListViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -84,6 +85,14 @@ import {
   MoveUpCommand,
 } from './move';
 import {
+  ObjectListCloseCommand,
+  ObjectListFilterCommand,
+  ObjectListMoveCommand,
+  ObjectListSelectCommand,
+  ObjectListSortCommand,
+  ObjectListToggleCommand,
+} from './objectList';
+import {
   RotorNavigationMoveDownCommand,
   RotorNavigationMoveLeftCommand,
   RotorNavigationMoveRightCommand,
@@ -145,6 +154,7 @@ export class CommandFactory {
   private readonly descriptionViewModel: DescriptionViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly helpViewModel: HelpViewModel;
+  private readonly objectListViewModel: ObjectListViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly settingsViewModel: SettingsViewModel;
   private readonly textViewModel: TextViewModel;
@@ -182,6 +192,7 @@ export class CommandFactory {
     this.descriptionViewModel = commandContext.descriptionViewModel;
     this.goToExtremaViewModel = commandContext.goToExtremaViewModel;
     this.helpViewModel = commandContext.helpViewModel;
+    this.objectListViewModel = commandContext.objectListViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
     this.settingsViewModel = commandContext.settingsViewModel;
     this.textViewModel = commandContext.textViewModel;
@@ -305,6 +316,37 @@ export class CommandFactory {
         return new GoToMinValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
       case 'GO_TO_MAX_VALUE':
         return new GoToMaxValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
+      case 'OBJECT_LIST_TOGGLE':
+        return new ObjectListToggleCommand(
+          this.objectListViewModel,
+          this.notificationService,
+          this.audioService,
+          this.autoplayService,
+        );
+      case 'OBJECT_LIST_MOVE_UP':
+        return new ObjectListMoveCommand(this.objectListViewModel, 'up');
+      case 'OBJECT_LIST_MOVE_DOWN':
+        return new ObjectListMoveCommand(this.objectListViewModel, 'down');
+      case 'OBJECT_LIST_MOVE_FIRST':
+        return new ObjectListMoveCommand(this.objectListViewModel, 'first');
+      case 'OBJECT_LIST_MOVE_LAST':
+        return new ObjectListMoveCommand(this.objectListViewModel, 'last');
+      case 'OBJECT_LIST_PAGE_UP':
+        return new ObjectListMoveCommand(this.objectListViewModel, 'pageUp');
+      case 'OBJECT_LIST_PAGE_DOWN':
+        return new ObjectListMoveCommand(this.objectListViewModel, 'pageDown');
+      case 'OBJECT_LIST_SELECT':
+        return new ObjectListSelectCommand(this.objectListViewModel);
+      case 'OBJECT_LIST_CLOSE':
+        return new ObjectListCloseCommand(this.objectListViewModel);
+      case 'OBJECT_LIST_NEXT_SORT':
+        return new ObjectListSortCommand(this.objectListViewModel, 1);
+      case 'OBJECT_LIST_PREVIOUS_SORT':
+        return new ObjectListSortCommand(this.objectListViewModel, -1);
+      case 'OBJECT_LIST_NEXT_FILTER':
+        return new ObjectListFilterCommand(this.objectListViewModel, 1);
+      case 'OBJECT_LIST_PREVIOUS_FILTER':
+        return new ObjectListFilterCommand(this.objectListViewModel, -1);
       case 'COMMAND_PALETTE_MOVE_UP':
         return new CommandPaletteMoveUpCommand(this.commandPaletteViewModel);
       case 'COMMAND_PALETTE_MOVE_DOWN':

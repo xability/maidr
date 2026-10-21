@@ -1,9 +1,25 @@
 import type { ChoroplethPoint, MaidrLayer } from '@type/grammar';
+import type {
+  ChartObject,
+  ChartObjectList,
+  ObjectFilterOption,
+  ObjectMeasure,
+  ObjectSortOption,
+} from '@type/objectList';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import {
+  chartOrderSort,
+  counter,
+  measureSort,
+  measureVaries,
+  nameSort,
+  occurrenceKeys,
+  offerFilters,
+} from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { missingText } from './bar';
@@ -33,6 +49,18 @@ const HIGH_QUANTILE = 0.8;
 
 /** How many border jumps the description lists. */
 const NAMED_BORDERS = 3;
+
+/** The object list's measures, by id. */
+const VALUE_MEASURE = 'value';
+const NEIGHBOURS_MEASURE = 'neighbors';
+
+/**
+ * The object list's filters, by id: the regions above every neighbour, those
+ * below every neighbour, and those the layer gave no value.
+ */
+const HOTSPOTS = 'hotspots';
+const COLDSPOTS = 'coldspots';
+const NO_DATA = 'no-data';
 
 /** One region, placed in the grid the cursor walks. */
 interface Region {
@@ -346,10 +374,160 @@ export class ChoroplethTrace extends AbstractTrace {
    */
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
     const inherited = super.getRotorFilterUnits();
-    const hasBorders = this.regions
+    return this.hasBorders ? [...inherited, neighbourRotorUnit()] : inherited;
+  }
+
+  /**
+   * Whether any border the layer declares resolves to a region it draws.
+   *
+   * What the readings that depend on borders are offered on -- the rotor and
+   * the object list both -- so the two cannot disagree about whether this
+   * map has any.
+   */
+  private get hasBorders(): boolean {
+    return this.regions
       .flat()
       .some(region => this.neighboursOf(region).length > 0);
-    return hasBorders ? [...inherited, neighbourRotorUnit()] : inherited;
+  }
+
+  /**
+   * A region's neighbours, each once and never the region itself.
+   *
+   * {@link neighboursOf} answers as the layer lists them, so a border listed
+   * twice is there twice and a region naming itself borders itself. Neither
+   * is a second region next to it, and a count of neighbours or a comparison
+   * against all of them should not see one.
+   *
+   * @param region - The region to look around
+   * @returns Its distinct neighbours
+   */
+  private bordersOf(region: Region): Region[] {
+    return [...new Set(this.neighboursOf(region))].filter(one => one !== region);
+  }
+
+  /**
+   * Moves to a region by its place in the grid, ending any border walk.
+   *
+   * A walk notices the reader has left it by the cursor no longer sitting
+   * where its last step put it -- which a jump straight back onto that same
+   * region does not trip, so the next step would carry on round the old
+   * region's borders from a place the reader chose to go. The rotor's own
+   * steps move the movable directly, and keep the walk going.
+   *
+   * @param row - The band
+   * @param col - The region within it, west to east
+   * @returns True when the cursor moved
+   */
+  public override moveToIndex(row: number, col: number): boolean {
+    this.borderWalk = null;
+    return super.moveToIndex(row, col);
+  }
+
+  /**
+   * Every region of the map, as the `o` list offers them.
+   *
+   * Alphabetical to begin with. The walk the arrows make is geographic --
+   * bands south to north, west to east within each -- which is what makes
+   * the map navigable and what makes it hard to scan as a list: a reader
+   * looking for Utah cannot guess how far up the map it sits. The map's own
+   * order is kept as the last of the sorts, for a reader who wants the list
+   * to read the way the walk does.
+   *
+   * Where the borders resolve, the list also ranks the regions by how many
+   * they touch, and gathers the local peaks and troughs -- a region above or
+   * below every one of its neighbours -- which are the shapes the shading is
+   * hunted for, and the ones the announcement calls higher or lower than all
+   * of them.
+   *
+   * @returns The list, or null when the map has no regions
+   */
+  public override getObjectList(): ChartObjectList | null {
+    const every = this.regions.flat();
+    if (every.length === 0) {
+      return null;
+    }
+
+    // Counted in the order the regions were declared rather than the order
+    // the map is walked in, which moves whenever a centroid does.
+    const keyOf = occurrenceKeys();
+    const keys: string[] = [];
+    [...every]
+      .sort((a, b) => a.source - b.source)
+      .forEach((region) => {
+        keys[region.source] = keyOf(region.name);
+      });
+
+    const bordered = this.hasBorders;
+    const objects = this.regions.flatMap((band, row) => band.map((region, col): ChartObject => {
+      const around = bordered ? this.bordersOf(region) : [];
+      // Against every neighbour, a neighbour with no value included: a region
+      // cannot be said to stand above a value nobody gave, and its
+      // announcement does not say it does.
+      const groups: string[] = [];
+      if (around.length > 0 && around.every(one => region.value > one.value)) {
+        groups.push(HOTSPOTS);
+      }
+      if (around.length > 0 && around.every(one => region.value < one.value)) {
+        groups.push(COLDSPOTS);
+      }
+      const measured = Number.isFinite(region.value);
+      if (!measured) {
+        groups.push(NO_DATA);
+      }
+
+      return {
+        key: keys[region.source],
+        label: region.name,
+        ...(measured ? { value: { label: this.yAxis, value: region.value, axis: 'y' } } : {}),
+        row,
+        col,
+        measures: {
+          [VALUE_MEASURE]: region.value,
+          ...(bordered ? { [NEIGHBOURS_MEASURE]: around.length } : {}),
+        },
+        groups,
+      };
+    }));
+
+    const value: ObjectMeasure = { id: VALUE_MEASURE, label: this.yAxis, spoken: true };
+    const neighbours: ObjectMeasure = {
+      id: NEIGHBOURS_MEASURE,
+      label: t('model.objectMeasureNeighbors'),
+      spoken: false,
+    };
+
+    const sorts: ObjectSortOption[] = [nameSort()];
+    if (measureVaries(objects, VALUE_MEASURE)) {
+      sorts.push(measureSort(value, 'descending'), measureSort(value, 'ascending'));
+    }
+    if (bordered && measureVaries(objects, NEIGHBOURS_MEASURE)) {
+      sorts.push(measureSort(neighbours, 'descending'));
+    }
+    // Named for what it is only when it is that: a map with no centroids is
+    // walked in the order it was declared, which is no direction at all.
+    const placed = every.every(
+      region => Number.isFinite(region.lat) && Number.isFinite(region.lon),
+    );
+    sorts.push(chartOrderSort(placed ? t('model.objectOrderMap') : undefined));
+
+    const candidates: ObjectFilterOption[] = [
+      ...(bordered
+        ? [
+            { id: HOTSPOTS, label: t('model.objectFilterHotspots') },
+            { id: COLDSPOTS, label: t('model.objectFilterColdspots') },
+          ]
+        : []),
+      { id: NO_DATA, label: t('model.objectFilterNoData') },
+    ];
+
+    return {
+      title: t('model.objectsRegions'),
+      count: counter('model.objectRegionsOne', 'model.objectRegionsMany'),
+      objects,
+      measures: bordered ? [value, neighbours] : [value],
+      sorts,
+      filters: offerFilters(objects, candidates),
+    };
   }
 
   public override moveToRotorFilter(

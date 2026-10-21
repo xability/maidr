@@ -135,4 +135,5 @@ export const text = {
   'text.noMinimumValue': 'इस लेयर में जाने के लिए कोई न्यूनतम मान नहीं',
   'text.noMaximumValue': 'इस लेयर में जाने के लिए कोई अधिकतम मान नहीं',
   'text.pointPosition': '{point}, {total} में से {position}',
+  'text.noObjectList': 'इस परत के लिए कोई ऑब्जेक्ट सूची नहीं है। तीर कुंजियों से आगे बढ़ें।',
 } satisfies Partial<Record<MessageKey, string>>;

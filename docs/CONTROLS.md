@@ -36,6 +36,7 @@ focus in the braille text area.
 | Go to Minimum Value                       | [ (open bracket)            | [ (open bracket)            |
 | Go to Maximum Value                       | ] (close bracket)           | ] (close bracket)           |
 | Go To Extrema (a list of points to jump to) | G                         | G                           |
+| Open the object list (every node, tile or region of a chart without axes) | O | O |
 | Move to Next Layer                        | Page Up                     | Page Up (Fn + Up)           |
 | Move to Previous Layer                    | Page Down                   | Page Down (Fn + Down)       |
 | Next Navigation Mode (Rotor)              | Alt + Shift + Up            | Option + Shift + Up         |
@@ -129,11 +130,57 @@ direction of the arrow.
 | Open Chat (AI; needs an API key in Settings or a local Ollama server) | Shift + / (?) | Shift + / (?) |
 
 Escape closes the help menu, the command palette, the chat, the chart
-description and the Go To Extrema list. In the command palette and the Go To
-Extrema list, the Up and Down arrows move through the list and Enter chooses.
+description, the Go To Extrema list and the object list. In the command
+palette, the Go To Extrema list and the object list, the Up and Down arrows
+move through the list and Enter chooses.
 
 In **Settings**, **Alt + S** (**Option + S**) saves every tab and closes the
 dialog, and **Alt + C** (**Option + C**) or **Escape** closes it without saving.
+
+### Object List
+
+On a chart that is not walked along x and y axes -- a network, a directed
+graph, a sankey, alluvial or chord diagram, a treemap, sunburst, icicle, tree
+or circle packing, a Venn diagram, a word cloud, a pie or a map -- **O** opens
+a list of every object on the current layer: every node, tile, region, term
+or slice. Pick one and press **Enter** to jump straight there; the chart then
+announces it, shows it in braille and highlights it as if you had walked to
+it. On any other chart, **O** says the chart has no object list.
+
+| Function                                  | Key (Windows)               | Key (Mac)                   |
+| ----------------------------------------- | --------------------------- | --------------------------- |
+| Move through the list                     | Up Arrow, Down Arrow        | Up Arrow, Down Arrow        |
+| First or last object                      | Home, End                   | Home, End (Fn + Left, Fn + Right) |
+| Up or down ten objects                    | Page Up, Page Down          | Page Up, Page Down (Fn + Up, Fn + Down) |
+| Jump to the selected object               | Enter                       | Return                      |
+| Next or previous order                    | S, Shift + S                | S, Shift + S                |
+| Next or previous filter                   | F, Shift + F                | F, Shift + F                |
+| Close without moving                      | Escape or O                 | Escape or O                 |
+
+The list opens on the object you are on, marked as current, in the order and
+filter you last chose on that layer. Each chart offers the orders and filters
+that mean something for it. The first order listed is the one the list opens
+in: the chart's own order where that order carries structure (a graph's flow,
+a tree's outline, a sankey's stages), and alphabetical where the chart's
+order is arbitrary or geographic (a network's layout, a map).
+
+| Chart | Orders | Filters |
+| ----- | ------ | ------- |
+| Network | Name A to Z; links, highest or lowest first; betweenness and closeness centrality, highest first; by group | Linked to the node you are on; each group of linked nodes; unlinked nodes |
+| Directed graph | Graph order; name; connections; betweenness; each numeric attribute, highest first | Upstream and downstream of the node you are on; graph inputs and outputs, branch and merge points, unconnected nodes; each nesting level; scopes; the values of the first categorical attributes, such as layer type |
+| Sankey, alluvial | Stage order; value, highest or lowest first; name | Each stage; ending nodes |
+| Chord | Value, highest or lowest first; name; chart order | Starting and ending nodes |
+| Treemap, sunburst, icicle, tree, circle packing | Hierarchy order; value, highest or lowest first (or, without values, number of descendants); number of children; name | Inside the node you are on; each level; leaves; branches |
+| Venn | Chart order; size, highest or lowest first; name | Single sets; overlaps of each number of sets; regions including each set |
+| Word cloud | Weight, highest or lowest first; name | Terms with no weight |
+| Pie | Clockwise; share, highest or lowest first; name | Slices with no value |
+| Map | Name; value, highest or lowest first; number of neighbors; map order | Regions higher or lower than all their neighbors; regions with no data |
+
+An order or filter is offered only where it tells objects apart, and a filter
+only where it leaves something in and something out. Centrality is computed
+the first time you choose it, and is not offered on graphs too large to
+compute it quickly. While the list is sorted by a measure the row does not
+already state, such as betweenness, each object is read with its value.
 
 ### Tactile Graphics Display
 

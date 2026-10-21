@@ -51,4 +51,5 @@ export const notification = {
   'notification.deltaPickerClose': '基準線の選択画面を閉じる',
   'notification.deltaPickerDescription': '各ローソク足と比較する基準線を選んでください。上下の矢印キーで移動し、Enter キーを押します。選択後は Alt L キーで比較のオンとオフを切り替えられます。',
   'notification.deltaPickerListLabel': '基準線の一覧',
+  'notification.objectListGone': '{label}はもうチャートにありません',
 } satisfies Partial<Record<MessageKey, string>>;

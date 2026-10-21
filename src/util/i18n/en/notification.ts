@@ -51,4 +51,5 @@ export const notification = {
   'notification.deltaPickerClose': 'Close reference picker',
   'notification.deltaPickerDescription': 'Choose a reference line to compare each candle against. Use the Up and Down arrows to move, then press Enter. Once chosen, press Alt L to turn the comparison on or off.',
   'notification.deltaPickerListLabel': 'Reference lines',
+  'notification.objectListGone': '{label} is no longer on the chart',
 } as const;

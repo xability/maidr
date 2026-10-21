@@ -1,11 +1,26 @@
 import type { FlowPoint, MaidrLayer } from '@type/grammar';
 import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
+import type {
+  ChartObject,
+  ChartObjectList,
+  ObjectFilterOption,
+  ObjectMeasure,
+  ObjectSortOption,
+} from '@type/objectList';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import {
+  chartOrderSort,
+  counter,
+  measureSort,
+  measureVaries,
+  nameSort,
+  offerFilters,
+} from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
@@ -45,6 +60,22 @@ function inRotorUnit(): RotorFilterUnit {
 
 /** How many hops the dominant path follows before it stops describing itself. */
 const PATH_HOPS = 8;
+
+/** The object list's filter for the nodes nothing flows into. */
+const SOURCES = 'sources';
+
+/** And for the nodes nothing flows out of. */
+const SINKS = 'sinks';
+
+/**
+ * The object list's filter id for one stage.
+ *
+ * @param stage - The stage, the first at zero
+ * @returns The id
+ */
+function stageFilterId(stage: number): string {
+  return `stage-${stage + 1}`;
+}
 
 /**
  * What a flow chart calls its node dimension when the layer names no x axis.
@@ -491,6 +522,11 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
 
   public override moveToIndex(row: number, col: number): boolean {
     this.arrivedVia = null;
+    // A jump -- from the object list, say -- can land on the very node a flow
+    // walk last stepped to, and the walk would then carry on through the
+    // flows of the node it started from rather than of the one chosen. The
+    // walk's own steps move the cursor directly, so they are not affected.
+    this.flowWalk = null;
     return super.moveToIndex(row, col);
   }
 
@@ -713,6 +749,83 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     }
     const node = this.current;
     return node === null ? null : { node, index: -1 };
+  }
+
+  /**
+   * Every node, for the `o` list, stage by stage and down each stage, which is
+   * the order the arrows reach them in.
+   *
+   * Each node is listed with its throughput, the amount every move announces.
+   * A chart in stages opens on them, because the stages are what a sankey is
+   * read by -- where the quantity starts, where it goes next -- and can be
+   * narrowed to one. A chord diagram, or any flow that cycles, has one stage
+   * holding everything and no order to read it in, so its list opens on the
+   * busiest node instead.
+   *
+   * @returns The list, or null on a chart with no flows
+   */
+  public override getObjectList(): ChartObjectList | null {
+    if (this.nodes.length === 0) {
+      return null;
+    }
+
+    const staged = this.stages.length > 1;
+    const valueLabel = this.valueLabel;
+    // Built from each node's own address: stages differ in height, so the
+    // grid has holes and walking its dimensions would list nothing at them.
+    const objects = this.stages.flatMap((members, stage) =>
+      members.map((at): ChartObject => {
+        const node = this.nodes[at];
+        const throughput = this.throughputOf(node);
+        const groups: string[] = [];
+        if (staged) {
+          groups.push(stageFilterId(stage));
+        }
+        if (node.in.length === 0) {
+          groups.push(SOURCES);
+        }
+        if (node.out.length === 0) {
+          groups.push(SINKS);
+        }
+        return {
+          key: node.name,
+          label: node.name,
+          value: { label: valueLabel, value: throughput, axis: 'y' },
+          ...(staged ? { detail: t('model.objectFilterStage', { stage: stage + 1 }) } : {}),
+          row: node.index,
+          col: node.stage,
+          measures: { throughput },
+          groups,
+        };
+      }));
+
+    const throughput: ObjectMeasure = { id: 'throughput', label: valueLabel, spoken: true };
+    const varies = measureVaries(objects, throughput.id);
+    const bySize = varies
+      ? [measureSort(throughput, 'descending'), measureSort(throughput, 'ascending')]
+      : [];
+    const sorts: ObjectSortOption[] = staged
+      ? [chartOrderSort(t('model.objectOrderStages')), ...bySize, nameSort()]
+      : [...bySize, nameSort(), chartOrderSort()];
+
+    // On a chart in stages the starting nodes are the first stage exactly, so
+    // only the end is worth a filter of its own; with one stage, both ends are.
+    const candidates: ObjectFilterOption[] = staged
+      ? this.stages.map((_members, stage) => ({
+          id: stageFilterId(stage),
+          label: t('model.objectFilterStage', { stage: stage + 1 }),
+        }))
+      : [{ id: SOURCES, label: t('model.objectFilterSources') }];
+    candidates.push({ id: SINKS, label: t('model.objectFilterSinks') });
+
+    return {
+      title: t('model.objectsNodes'),
+      count: counter('model.objectNodesOne', 'model.objectNodesMany'),
+      objects,
+      measures: varies ? [throughput] : [],
+      sorts,
+      filters: offerFilters(objects, candidates),
+    };
   }
 
   public get description(): DescriptionState {

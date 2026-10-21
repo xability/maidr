@@ -27,6 +27,7 @@ import { KeybindingService, Mousebindingservice, resolveOverrides } from '@servi
 import { appendedPointPosition, isAppendedPointFocused } from '@service/liveData';
 import { MonitorService } from '@service/monitor';
 import { NotificationService } from '@service/notification';
+import { ObjectListService } from '@service/objectList';
 import { ReviewService } from '@service/review';
 import { RotorNavigationService } from '@service/rotor';
 import { loadStoredGeneralSettings, SettingsService } from '@service/settings';
@@ -42,6 +43,7 @@ import { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
+import { ObjectListViewModel } from '@state/viewModel/objectListViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
@@ -150,6 +152,7 @@ export class Controller implements Disposable {
   private readonly brailleService: BrailleService;
   private readonly candlestickDeltaService: CandlestickDeltaService;
   private readonly goToExtremaService: GoToExtremaService;
+  private readonly objectListService: ObjectListService;
   private readonly textService: TextService;
   private readonly reviewService: ReviewService;
   private readonly rotorNavigationService: RotorNavigationService;
@@ -167,6 +170,7 @@ export class Controller implements Disposable {
   private readonly brailleViewModel: BrailleViewModel;
   private readonly candlestickDeltaViewModel: CandlestickDeltaViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
+  private readonly objectListViewModel: ObjectListViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly descriptionViewModel: DescriptionViewModel;
   private readonly displayViewModel: DisplayViewModel;
@@ -253,6 +257,12 @@ export class Controller implements Disposable {
       this.context,
       this.displayService,
     );
+    this.objectListService = new ObjectListService(
+      this.context,
+      this.displayService,
+      this.formatterService,
+      this.notificationService,
+    );
     this.reviewService = new ReviewService(
       this.notificationService,
       this.displayService,
@@ -319,6 +329,7 @@ export class Controller implements Disposable {
       this.context,
       this.formatterService,
     );
+    this.objectListViewModel = new ObjectListViewModel(store, this.objectListService);
     this.reviewViewModel = new ReviewViewModel(store, this.reviewService);
     this.descriptionViewModel = new DescriptionViewModel(store, this.descriptionService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService, this.audioService);
@@ -389,6 +400,7 @@ export class Controller implements Disposable {
       commandPaletteViewModel: this.commandPaletteViewModel,
       descriptionViewModel: this.descriptionViewModel,
       goToExtremaViewModel: this.goToExtremaViewModel,
+      objectListViewModel: this.objectListViewModel,
       helpViewModel: this.helpViewModel,
       reviewViewModel: this.reviewViewModel,
       settingsViewModel: this.settingsViewModel,
@@ -420,6 +432,7 @@ export class Controller implements Disposable {
         commandPaletteViewModel: this.commandPaletteViewModel,
         descriptionViewModel: this.descriptionViewModel,
         goToExtremaViewModel: this.goToExtremaViewModel,
+        objectListViewModel: this.objectListViewModel,
         helpViewModel: this.helpViewModel,
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
@@ -455,6 +468,7 @@ export class Controller implements Disposable {
         commandPaletteViewModel: this.commandPaletteViewModel,
         descriptionViewModel: this.descriptionViewModel,
         goToExtremaViewModel: this.goToExtremaViewModel,
+        objectListViewModel: this.objectListViewModel,
         helpViewModel: this.helpViewModel,
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
@@ -594,7 +608,8 @@ export class Controller implements Disposable {
   /**
    * Whether the reader is somewhere a keyboard move to another point is not
    * available -- a MAIDR dialog (chat, settings, help, the command palette,
-   * go-to-extreme), the braille or review field, or a label chord.
+   * go-to-extreme, the object list), the braille or review field, or a label
+   * chord.
    *
    * {@link navigateTo} leaves only the modes that re-route the arrow keys
    * (grid cell, candlestick delta, rotor); it does not close a dialog, and a
@@ -911,6 +926,7 @@ export class Controller implements Disposable {
     this.descriptionViewModel.dispose();
     this.displayViewModel.dispose();
     this.goToExtremaViewModel.dispose();
+    this.objectListViewModel.dispose();
     this.reviewViewModel.dispose();
     this.candlestickDeltaViewModel.dispose();
     this.brailleViewModel.dispose();
@@ -926,6 +942,7 @@ export class Controller implements Disposable {
 
     this.chatService.dispose();
     this.candlestickDeltaService.dispose();
+    this.objectListService.dispose();
     this.textService.dispose();
     this.reviewService.dispose();
     this.brailleService.dispose();
@@ -960,6 +977,7 @@ export class Controller implements Disposable {
     this.viewModelRegistry.register('braille', this.brailleViewModel);
     this.viewModelRegistry.register('candlestickDelta', this.candlestickDeltaViewModel);
     this.viewModelRegistry.register('goToExtrema', this.goToExtremaViewModel);
+    this.viewModelRegistry.register('objectList', this.objectListViewModel);
     this.viewModelRegistry.register('review', this.reviewViewModel);
     this.viewModelRegistry.register('description', this.descriptionViewModel);
     this.viewModelRegistry.register('display', this.displayViewModel);

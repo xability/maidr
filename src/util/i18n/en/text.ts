@@ -146,4 +146,5 @@ export const text = {
   'text.noMinimumValue': 'No minimum value to go to in this layer',
   'text.noMaximumValue': 'No maximum value to go to in this layer',
   'text.pointPosition': '{point}, {position} of {total}',
+  'text.noObjectList': 'No object list for this layer. Move through it with the arrow keys.',
 } as const;

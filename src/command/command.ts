@@ -20,6 +20,7 @@ import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteVie
 import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { ObjectListViewModel } from '@state/viewModel/objectListViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -83,6 +84,8 @@ export interface CommandContext {
   goToExtremaViewModel: GoToExtremaViewModel;
   /** Help view model for help interface. */
   helpViewModel: HelpViewModel;
+  /** Object list view model for the `o` list of a chart's objects. */
+  objectListViewModel: ObjectListViewModel;
   /** Review view model for review functionality. */
   reviewViewModel: ReviewViewModel;
   /** Description view model for chart description modal. */

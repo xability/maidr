@@ -14,6 +14,7 @@ import Chat from './component/Chat';
 import CommandPalette from './component/CommandPalette';
 import Description from './component/Description';
 import Help from './component/Help';
+import ObjectList from './component/ObjectList';
 import Review from './component/Review';
 import RotorDial from './component/RotorDial';
 import Settings from './component/Settings';
@@ -62,6 +63,9 @@ const App: FC<AppProps> = ({ plot, announcer }) => {
 
       case 'HELP':
         return <Help />;
+
+      case 'OBJECT_LIST':
+        return <ObjectList />;
 
       case 'REVIEW':
         return <Review />;

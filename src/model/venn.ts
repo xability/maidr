@@ -1,15 +1,67 @@
 import type { MaidrLayer, VennPoint } from '@type/grammar';
 import type { Coordinate, Node } from '@type/movable';
+import type {
+  ChartObject,
+  ChartObjectList,
+  ObjectFilterOption,
+  ObjectMeasure,
+  ObjectSortOption,
+} from '@type/objectList';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import {
+  chartOrderSort,
+  counter,
+  measureSort,
+  measureVaries,
+  nameSort,
+  offerFilters,
+} from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
 import { MovableGraph } from './movable';
 
 /** How many items a region's announcement names before it counts the rest. */
 const NAMED_ITEMS = 5;
+
+/**
+ * How many sets a diagram may join before the object list stops offering an
+ * "Including" filter for each: past it, stepping through one per set takes
+ * longer than walking the regions.
+ */
+const INCLUDING_FILTER_LIMIT = 8;
+
+/** The object list's measures, by id. */
+const SIZE_MEASURE = 'size';
+const SETS_MEASURE = 'sets';
+
+/** The object list's filter for the sets themselves, by id. */
+const SINGLE_SETS = 'single-sets';
+
+/**
+ * The id of the object list's filter for the overlaps of so many sets.
+ *
+ * @param count - How many sets the overlaps join
+ * @returns The id
+ */
+function overlapsFilterId(count: number): string {
+  return `overlaps-${count}`;
+}
+
+/**
+ * The id of the object list's filter for every region one set takes part in.
+ *
+ * By the set's name rather than its index: the index follows the order the
+ * regions first mention the sets in, which a rebuild of the layer can change.
+ *
+ * @param set - The set's name
+ * @returns The id
+ */
+function includingFilterId(set: string): string {
+  return `including:${set}`;
+}
 
 /** A region as the trace reads it. */
 interface Region {
@@ -358,6 +410,115 @@ export class VennTrace extends AbstractTrace {
       mainAxis: 'x',
       crossAxis: 'y',
       asides,
+    };
+  }
+
+  /**
+   * Every region of the diagram, as the `o` list offers them.
+   *
+   * In the order the arrows reach them -- the sets, then every overlap of
+   * two, then of three -- and each named by its sets exactly as it is
+   * announced, which is the one name every region has and no two share. A
+   * region's own label ("Buildable") is a name the author gave some regions
+   * and not others, so it goes beside the sets rather than in place of them.
+   *
+   * The filters ask what the diagram is drawn to answer: which regions are
+   * the sets and which their overlaps, how many sets an overlap joins, and
+   * everything one set takes part in.
+   *
+   * @returns The list, or null when the diagram has no region
+   */
+  public override getObjectList(): ChartObjectList | null {
+    if (this.levels.length === 0) {
+      return null;
+    }
+
+    const separator = t('dialogs.objectListSeparator');
+    const offersIncluding = this.sets.length <= INCLUDING_FILTER_LIMIT;
+    const objects = this.levels.flatMap((level, row) => level.map((region, col): ChartObject => {
+      const names = region.sets.map(set => this.sets[set]);
+      const details: string[] = [];
+      if (region.label !== undefined) {
+        details.push(t('dialogs.objectDetail', { label: t('model.asideName'), value: region.label }));
+      }
+      // An unsized diagram sounds a region by its item count, and the count
+      // is said nowhere else in the list.
+      if (!this.sized && region.items.length > 0) {
+        details.push(t('dialogs.objectDetail', {
+          label: t('model.vennItems'),
+          value: region.items.length,
+        }));
+      }
+
+      const groups = [region.sets.length === 1 ? SINGLE_SETS : overlapsFilterId(region.sets.length)];
+      if (offersIncluding) {
+        groups.push(...names.map(includingFilterId));
+      }
+
+      return {
+        // The names sorted, not the indices: a set's index follows the order
+        // the regions first mention it in, which a rebuild can change.
+        key: JSON.stringify([...names].sort()),
+        label: this.setsOf(region),
+        ...(this.sized && region.size !== undefined
+          ? { value: { label: this.sizeLabel, value: region.size, axis: 'y' } }
+          : {}),
+        ...(details.length > 0 ? { detail: details.join(separator) } : {}),
+        row,
+        col,
+        measures: {
+          [SIZE_MEASURE]: this.magnitudeOf(region),
+          [SETS_MEASURE]: region.sets.length,
+        },
+        groups,
+      };
+    }));
+
+    // What the pitch is: the size on a sized diagram, and otherwise the
+    // number of items written in the region.
+    const size: ObjectMeasure = {
+      id: SIZE_MEASURE,
+      label: this.sized ? this.sizeLabel : t('model.vennItems'),
+      spoken: true,
+    };
+    const sets: ObjectMeasure = {
+      id: SETS_MEASURE,
+      label: t('model.objectMeasureSets'),
+      spoken: false,
+    };
+
+    const sorts: ObjectSortOption[] = [chartOrderSort()];
+    if (measureVaries(objects, SIZE_MEASURE)) {
+      sorts.push(measureSort(size, 'descending'), measureSort(size, 'ascending'));
+    }
+    sorts.push(nameSort());
+
+    // Counted from the regions, not from the rows: a degree no region has is
+    // not a row at all, so the third row can be the overlaps of four sets.
+    const candidates: ObjectFilterOption[] = [
+      { id: SINGLE_SETS, label: t('model.objectFilterSingleSets') },
+      ...this.levels
+        .map(level => level[0]?.sets.length ?? 0)
+        .filter(count => count > 1)
+        .map(count => ({
+          id: overlapsFilterId(count),
+          label: t('model.objectFilterOverlaps', { count }),
+        })),
+      ...(offersIncluding
+        ? this.sets.map(set => ({
+            id: includingFilterId(set),
+            label: t('model.objectFilterIncluding', { set }),
+          }))
+        : []),
+    ];
+
+    return {
+      title: t('model.objectsRegions'),
+      count: counter('model.objectRegionsOne', 'model.objectRegionsMany'),
+      objects,
+      measures: [size, sets],
+      sorts,
+      filters: offerFilters(objects, candidates),
     };
   }
 

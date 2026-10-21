@@ -51,4 +51,5 @@ export const notification = {
   'notification.deltaPickerClose': '关闭参考线选择器',
   'notification.deltaPickerDescription': '选择一条参考线，用于与每根 K 线进行比较。使用上下方向键移动，然后按 Enter。选定后，按 Alt L 即可开启或关闭比较。',
   'notification.deltaPickerListLabel': '参考线',
+  'notification.objectListGone': '{label} 已不在图表中',
 } satisfies Partial<Record<MessageKey, string>>;

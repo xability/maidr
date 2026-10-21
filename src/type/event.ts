@@ -57,6 +57,8 @@ export enum Scope {
   GRID_CELL = 'GRID_CELL',
   HELP = 'HELP',
   FIGURE_LABEL = 'FIGURE_LABEL',
+  /** The `o` object list: every node, tile or region of a chart without axes. */
+  OBJECT_LIST = 'OBJECT_LIST',
   SUBPLOT = 'SUBPLOT',
   TRACE = 'TRACE',
   TRACE_LABEL = 'TRACE_LABEL',
@@ -82,6 +84,7 @@ export const MODAL_SCOPES: ReadonlySet<Focus> = new Set<Focus>([
   Scope.DESCRIPTION,
   Scope.GO_TO_EXTREMA,
   Scope.HELP,
+  Scope.OBJECT_LIST,
   Scope.REVIEW,
   Scope.SETTINGS,
 ]);
