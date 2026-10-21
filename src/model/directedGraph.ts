@@ -1,10 +1,26 @@
 import type { DirectedGraphPoint, MaidrLayer } from '@type/grammar';
 import type { Coordinate, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
+import type {
+  ChartObject,
+  ChartObjectList,
+  ObjectFilterOption,
+  ObjectMeasure,
+  ObjectSortOption,
+} from '@type/objectList';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
+import { centrality, withinCentralityBudget } from '@util/graphCentrality';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import {
+  chartOrderSort,
+  counter,
+  measureSort,
+  measureVaries,
+  nameSort,
+  offerFilters,
+} from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
@@ -50,6 +66,77 @@ const NAMED_NODES = 5;
 
 /** What the breadcrumb and a qualified name are joined with. */
 const PATH_JOIN = ' > ';
+
+/** How many numeric attributes the object list offers a sort by. */
+const SORTED_ATTRIBUTES = 3;
+
+/** How many other attributes it offers filters by, one per shared value. */
+const FILTERED_ATTRIBUTES = 2;
+
+/**
+ * What a string attribute has to spell to count as a number: a plain decimal.
+ * `(None, 32)` and `1e3` do not, so a column of shapes is never read as a
+ * measure.
+ */
+const DECIMAL = /^-?\d+(?:\.\d+)?$/;
+
+/**
+ * The object list's filter ids: everything upstream and downstream of the
+ * item under the cursor, then the roles a move announces, then the scopes.
+ * A level's and an attribute value's are built by the functions below.
+ */
+const UPSTREAM_OF_CURRENT = 'upstream-of-current';
+const DOWNSTREAM_OF_CURRENT = 'downstream-of-current';
+const GRAPH_INPUTS = 'graph-inputs';
+const GRAPH_OUTPUTS = 'graph-outputs';
+const BRANCH_POINTS = 'branch-points';
+const MERGE_POINTS = 'merge-points';
+const NOT_CONNECTED = 'not-connected';
+const SCOPES = 'scopes';
+
+/**
+ * The object list's filter id for one nesting level.
+ *
+ * @param depth - The level's depth, the top level at zero
+ * @returns The id
+ */
+function levelFilterId(depth: number): string {
+  return `level-${depth + 1}`;
+}
+
+/**
+ * The object list's measure id for a numeric attribute.
+ *
+ * @param key - The attribute
+ * @returns The id
+ */
+function attributeMeasureId(key: string): string {
+  return `attr:${key}`;
+}
+
+/**
+ * The object list's filter id for the nodes sharing one attribute value.
+ *
+ * @param key - The attribute
+ * @param value - The value, as announced
+ * @returns The id
+ */
+function attributeFilterId(key: string, value: string): string {
+  return JSON.stringify(['attribute', key, value]);
+}
+
+/**
+ * An attribute value as the object list sorts it.
+ *
+ * @param value - The declared value
+ * @returns Its number, or null when it is not one
+ */
+function attributeNumber(value: string | number | boolean): number | null {
+  if (typeof value === 'number') {
+    return value;
+  }
+  return typeof value === 'string' && DECIMAL.test(value) ? Number(value) : null;
+}
 
 /**
  * What a graph calls its nodes when the layer names no x axis.
@@ -187,6 +274,14 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     index: number;
     at: Coordinate;
   } | null = null;
+
+  /**
+   * Each listed item's betweenness, in the object list's order, once a sort
+   * has asked for it: a walk from every declared node, paid for on the press
+   * that chooses the sort rather than on every `o`, and once, since the graph
+   * never changes under a trace.
+   */
+  private betweennessByObject: number[] | null = null;
 
   protected readonly highlightValues: SVGElement[][] | null;
 
@@ -905,6 +1000,400 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     this.movable.moveToIndex(at.row, at.col);
     this.notifyStateUpdate();
     return true;
+  }
+
+  /**
+   * Ends any edge walk before a jump.
+   *
+   * A jump from the object list can land on the very item a walk last stepped
+   * to, and the walk would then carry on through the edges of the item it
+   * started from rather than of the one the reader chose. The walk's own
+   * steps move the cursor directly, so they are not affected.
+   *
+   * @param row - The depth to move to
+   * @param col - The item's position at that depth
+   * @returns True when the cursor moved
+   */
+  public override moveToIndex(row: number, col: number): boolean {
+    this.edgeWalk = null;
+    return super.moveToIndex(row, col);
+  }
+
+  /**
+   * Every item, for the `o` list: the declared nodes and the scopes holding
+   * them, in outline order -- each scope followed by what it holds, siblings
+   * in the order the arrows walk them, which is the tree a graph viewer shows.
+   *
+   * It opens on that order, because on a model graph the order is the
+   * reading: input to output, block by block. Each item is listed bare, as a
+   * move names it, with its scope, its connections and its role beside it --
+   * what the announcement says -- and a scope with how much it holds. A list
+   * that opened every scope at once has to say where `conv` is, since several
+   * blocks have one.
+   *
+   * Betweenness is offered once the data branches or merges: on a chain it
+   * would only say which nodes sit nearer the middle, which the graph order
+   * already says. The producer's numeric attributes -- a parameter count --
+   * sort the list, and its other attributes -- a layer type -- narrow it.
+   *
+   * @returns The list, or null on a graph with nothing in it
+   */
+  public override getObjectList(): ChartObjectList | null {
+    const items = this.allItems(this.roots);
+    if (items.length === 0) {
+      return null;
+    }
+
+    // Only once the reader is on an item: before that the cursor's (0, 0) is
+    // where the walk will start, not anything they chose.
+    const current = this.isInitialEntry ? null : this.current;
+    const upstream = current === null
+      ? new Set<GraphItem>()
+      : this.reach(current, 'inputs');
+    const downstream = current === null
+      ? new Set<GraphItem>()
+      : this.reach(current, 'outputs');
+    const { numeric, shared } = this.listedAttributes();
+    const filtered = new Set(shared.map(([key]) => key));
+    const keys = this.objectKeys(items);
+
+    // How many items read alike -- the same name in the same scope -- so the
+    // ones that would can be told apart by their ids.
+    const alike = new Map<string, number>();
+    for (const item of items) {
+      const signature = DirectedGraphTrace.signatureOf(item);
+      alike.set(signature, (alike.get(signature) ?? 0) + 1);
+    }
+
+    const objects = items.map((item, at): ChartObject => {
+      const measures: Record<string, number> = {
+        connections: item.inputs.length + item.outputs.length,
+      };
+      const declared = new Map(Object.entries(
+        item.source === null ? {} : this.points[item.source].attributes ?? {},
+      ));
+      for (const key of numeric) {
+        const value = declared.get(key);
+        const number = value === undefined ? null : attributeNumber(value);
+        if (number !== null) {
+          measures[attributeMeasureId(key)] = number;
+        }
+      }
+      return {
+        key: keys[at],
+        label: item.name,
+        detail: this.objectDetail(item, (alike.get(DirectedGraphTrace.signatureOf(item)) ?? 0) > 1),
+        row: item.depth,
+        col: item.index,
+        measures,
+        groups: DirectedGraphTrace.objectGroups(item, upstream, downstream, filtered),
+      };
+    });
+
+    const connections: ObjectMeasure = {
+      id: 'connections',
+      label: t('model.asideConnections'),
+      spoken: true,
+    };
+    const betweenness: ObjectMeasure = {
+      id: 'betweenness',
+      label: t('model.objectMeasureBetweenness'),
+      spoken: false,
+    };
+    const attributes: ObjectMeasure[] = numeric
+      .map(key => ({ id: attributeMeasureId(key), label: key, spoken: false }))
+      .filter(measure => measureVaries(objects, measure.id));
+    const byConnections = measureVaries(objects, connections.id);
+    // On a chain every node between the ends brokers the same single route,
+    // so betweenness would only restate the graph order; it says something
+    // once the data branches or merges. And only a node with something on
+    // both sides of it is between anything: on a fan out of one node, every
+    // node would score zero.
+    const brokered = this.points.length >= 3
+      && withinCentralityBudget(this.successors)
+      && (this.successors.some(list => list.length > 1)
+        || this.predecessors.some(list => list.length > 1))
+      && this.successors.some((list, node) => list.length > 0 && this.predecessors[node].length > 0);
+
+    const sorts: ObjectSortOption[] = [
+      chartOrderSort(t('model.objectOrderGraph')),
+      nameSort(),
+      ...(byConnections ? [measureSort(connections, 'descending')] : []),
+      ...(brokered ? [measureSort(betweenness, 'descending')] : []),
+      ...attributes.map(measure => measureSort(measure, 'descending')),
+    ];
+
+    const candidates: ObjectFilterOption[] = [];
+    if (current !== null) {
+      candidates.push(
+        { id: UPSTREAM_OF_CURRENT, label: t('model.objectFilterUpstream', { name: current.name }) },
+        { id: DOWNSTREAM_OF_CURRENT, label: t('model.objectFilterDownstream', { name: current.name }) },
+      );
+    }
+    candidates.push(
+      { id: GRAPH_INPUTS, label: t('model.objectFilterGraphInputs') },
+      { id: GRAPH_OUTPUTS, label: t('model.objectFilterGraphOutputs') },
+      { id: BRANCH_POINTS, label: t('model.objectFilterBranchPoints') },
+      { id: MERGE_POINTS, label: t('model.objectFilterMergePoints') },
+      { id: NOT_CONNECTED, label: t('model.objectFilterNotConnected') },
+    );
+    if (this.levels.length > 1) {
+      this.levels.forEach((_level, depth) => {
+        candidates.push({
+          id: levelFilterId(depth),
+          label: t('model.objectFilterLevel', { level: depth + 1 }),
+        });
+      });
+    }
+    if (items.some(item => item.kind === 'scope')) {
+      candidates.push({ id: SCOPES, label: t('model.objectFilterScopes') });
+    }
+    for (const [name, values] of shared) {
+      for (const value of values) {
+        candidates.push({
+          id: attributeFilterId(name, value),
+          label: t('model.objectFilterAttribute', { name, value }),
+        });
+      }
+    }
+
+    return {
+      title: t('model.objectsNodes'),
+      count: counter('model.objectNodesOne', 'model.objectNodesMany'),
+      objects,
+      measures: [
+        ...(byConnections ? [connections] : []),
+        ...(brokered ? [betweenness] : []),
+        ...attributes,
+      ],
+      sorts,
+      filters: offerFilters(objects, candidates),
+      ...(brokered ? { deferred: { betweenness: () => this.betweennessInListOrder() } } : {}),
+    };
+  }
+
+  /**
+   * Each item's key in the object list, from the data rather than from where
+   * it sits: a node by its declared id, counted so a repeated id stays two
+   * nodes, and a scope by its path, which is what makes it one scope.
+   *
+   * @param items - The listed items
+   * @returns Their keys, in the same order
+   */
+  private objectKeys(items: GraphItem[]): string[] {
+    const seen = new Map<string, number>();
+    const occurrence = this.points.map((point) => {
+      const id = String(point.id);
+      const count = seen.get(id) ?? 0;
+      seen.set(id, count + 1);
+      return count;
+    });
+    return items.map(item => (item.source === null
+      ? JSON.stringify(['scope', ...DirectedGraphTrace.pathOf(item), item.name])
+      : JSON.stringify(['node', String(this.points[item.source].id), occurrence[item.source]])));
+  }
+
+  /**
+   * What reads alike in the object list: an item's name in its scope.
+   *
+   * @param item - The item
+   * @returns A string two items share exactly when a reader would hear them
+   *   the same
+   */
+  private static signatureOf(item: GraphItem): string {
+    return JSON.stringify([...DirectedGraphTrace.pathOf(item), item.name]);
+  }
+
+  /**
+   * What the object list says beside an item's name: its scope, and then
+   * what a move to it says -- how much a scope holds, its connections and its
+   * role.
+   *
+   * @param item - The item
+   * @param ambiguous - Whether another item reads the same, so the id is
+   *   the only way left to tell them apart
+   * @returns The detail, in the active language
+   */
+  private objectDetail(item: GraphItem, ambiguous: boolean): string {
+    const parts: string[] = [];
+    const path = DirectedGraphTrace.pathOf(item);
+    if (path.length > 0) {
+      parts.push(path.join(PATH_JOIN));
+    }
+    if (ambiguous && item.source !== null) {
+      parts.push(String(this.points[item.source].id));
+    }
+    if (item.kind === 'scope') {
+      parts.push(t(item.members.length === 1 ? 'model.dagScopeSizeOne' : 'model.dagScopeSizeMany', {
+        count: item.members.length,
+      }));
+    }
+    parts.push(DirectedGraphTrace.degreePhrase(item.inputs.length, item.outputs.length));
+    const role = DirectedGraphTrace.roleOf(item);
+    if (role !== null) {
+      parts.push(role);
+    }
+    return parts.join(t('dialogs.objectListSeparator'));
+  }
+
+  /**
+   * The object list's filters an item belongs to.
+   *
+   * The roles are the ones {@link roleOf} announces, read from the same
+   * counts, so a merge-and-branch point is in both lists and a graph input
+   * that branches is in both of those.
+   *
+   * @param item - The item
+   * @param upstream - What feeds the item under the cursor, however far back
+   * @param downstream - What it feeds, however far on
+   * @param filtered - The attributes the list filters by
+   * @returns The filter ids
+   */
+  private static objectGroups(
+    item: GraphItem,
+    upstream: ReadonlySet<GraphItem>,
+    downstream: ReadonlySet<GraphItem>,
+    filtered: ReadonlySet<string>,
+  ): string[] {
+    const groups: string[] = [];
+    if (upstream.has(item)) {
+      groups.push(UPSTREAM_OF_CURRENT);
+    }
+    if (downstream.has(item)) {
+      groups.push(DOWNSTREAM_OF_CURRENT);
+    }
+    const inputs = item.inputs.length;
+    const outputs = item.outputs.length;
+    if (inputs === 0 && outputs > 0) {
+      groups.push(GRAPH_INPUTS);
+    }
+    if (outputs === 0 && inputs > 0) {
+      groups.push(GRAPH_OUTPUTS);
+    }
+    if (outputs > 1) {
+      groups.push(BRANCH_POINTS);
+    }
+    if (inputs > 1) {
+      groups.push(MERGE_POINTS);
+    }
+    if (inputs === 0 && outputs === 0) {
+      groups.push(NOT_CONNECTED);
+    }
+    groups.push(levelFilterId(item.depth));
+    if (item.kind === 'scope') {
+      groups.push(SCOPES);
+    }
+    for (const [key, value] of item.attributes) {
+      if (filtered.has(key)) {
+        groups.push(attributeFilterId(key, value));
+      }
+    }
+    return groups;
+  }
+
+  /**
+   * Everything an item reaches by following edges one way: the declared
+   * nodes on a path from it, and the scopes holding any of them.
+   *
+   * Walked over the declared edges rather than the items' own, which are as
+   * the reader hears them from one step: a closed scope's edges are those of
+   * all its members together, so a walk through the scope would carry on from
+   * members it never reached -- one of two parallel paths through a block
+   * would seem to feed the other's consumers. A scope counts as reached when
+   * a node inside it is, unless it holds the start, which would make every
+   * enclosing block its own upstream; and nothing inside a scope the walk
+   * starts from is counted.
+   *
+   * @param from - Where to start
+   * @param along - Upstream through the inputs, or downstream through the
+   *   outputs
+   * @returns The items reached, not counting the start even on a cycle back
+   *   to it
+   */
+  private reach(from: GraphItem, along: 'inputs' | 'outputs'): Set<GraphItem> {
+    const next = along === 'inputs' ? this.predecessors : this.successors;
+    const start = new Set(from.members);
+    const reached = new Set<number>();
+    const queue = [...start];
+    for (let head = 0; head < queue.length; head++) {
+      for (const node of next[queue[head]]) {
+        if (!start.has(node) && !reached.has(node)) {
+          reached.add(node);
+          queue.push(node);
+        }
+      }
+    }
+
+    const holdsStart = (item: GraphItem): boolean =>
+      item.members.some(member => start.has(member));
+    return new Set(this.allItems(this.roots).filter(item =>
+      !holdsStart(item) && item.members.some(member => reached.has(member))));
+  }
+
+  /**
+   * The producer's attributes the object list uses, in the order the nodes
+   * first declare them.
+   *
+   * An attribute is a measure when every node declaring it gives a number --
+   * a parameter count -- and at least two do, since one value orders nothing.
+   * Any other attribute -- a layer type, an output shape -- is a filter for
+   * each value two or more nodes share. A few of each, so the sorts and
+   * filters stay a short turn of the key.
+   *
+   * @returns The numeric attributes, and the others with their shared values
+   */
+  private listedAttributes(): { numeric: string[]; shared: [string, string[]][] } {
+    const keys: string[] = [];
+    const declaring = new Map<string, number>();
+    const notNumbers = new Set<string>();
+    const values = new Map<string, Map<string, number>>();
+    for (const point of this.points) {
+      for (const [key, value] of Object.entries(point.attributes ?? {})) {
+        if (!declaring.has(key)) {
+          keys.push(key);
+        }
+        declaring.set(key, (declaring.get(key) ?? 0) + 1);
+        if (attributeNumber(value) === null) {
+          notNumbers.add(key);
+        }
+        // As announced, which is how the filter names it.
+        const counts = values.get(key) ?? new Map<string, number>();
+        counts.set(String(value), (counts.get(String(value)) ?? 0) + 1);
+        values.set(key, counts);
+      }
+    }
+
+    const numeric = keys
+      .filter(key => !notNumbers.has(key) && (declaring.get(key) ?? 0) >= 2)
+      .slice(0, SORTED_ATTRIBUTES);
+    const shared = keys
+      .filter(key => notNumbers.has(key))
+      .slice(0, FILTERED_ATTRIBUTES)
+      .map((key): [string, string[]] => [
+        key,
+        [...(values.get(key) ?? new Map<string, number>())]
+          .filter(([, count]) => count >= 2)
+          .map(([value]) => value),
+      ]);
+    return { numeric, shared };
+  }
+
+  /**
+   * Betweenness for every listed item, worked out on the first call and kept.
+   *
+   * Measured on the declared nodes and their own edges rather than on what a
+   * closed scope shows, since a scope is a way of reading the graph and not a
+   * node a path runs through. A scope has none.
+   *
+   * @returns One value per listed item, in the object list's order
+   */
+  private betweennessInListOrder(): number[] {
+    if (this.betweennessByObject === null) {
+      const { betweenness } = centrality(this.successors);
+      this.betweennessByObject = this.allItems(this.roots)
+        .map(item => (item.source === null ? Number.NaN : betweenness[item.source]));
+    }
+    return this.betweennessByObject;
   }
 
   public get description(): DescriptionState {

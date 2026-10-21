@@ -7,6 +7,7 @@ import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel
 import type { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { ObjectListViewModel } from '@state/viewModel/objectListViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { Disposable } from '@type/disposable';
 import type { RotorNavigationViewModel } from './rotorNavigationViewModel';
@@ -26,6 +27,7 @@ export interface ViewModelMap {
   display: DisplayViewModel;
   goToExtrema: GoToExtremaViewModel;
   help: HelpViewModel;
+  objectList: ObjectListViewModel;
   review: ReviewViewModel;
   settings: SettingsViewModel;
   text: TextViewModel;

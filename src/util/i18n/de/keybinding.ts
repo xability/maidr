@@ -121,4 +121,13 @@ export const keybinding = {
   'keybinding.commandPaletteSearchPlaceholder': 'Befehle suchen...',
   'keybinding.commandPaletteSearchLabel': 'Befehle suchen',
   'keybinding.commandPaletteListLabel': 'Verfügbare Befehle',
+  'keybinding.openObjectList': 'Objektliste öffnen',
+  'keybinding.objectListFirst': 'Zum ersten Objekt',
+  'keybinding.objectListLast': 'Zum letzten Objekt',
+  'keybinding.objectListPageUp': 'Zehn Objekte nach oben',
+  'keybinding.objectListPageDown': 'Zehn Objekte nach unten',
+  'keybinding.objectListNextSort': 'Nächste Reihenfolge',
+  'keybinding.objectListPreviousSort': 'Vorherige Reihenfolge',
+  'keybinding.objectListNextFilter': 'Nächster Filter',
+  'keybinding.objectListPreviousFilter': 'Vorheriger Filter',
 } satisfies Partial<Record<MessageKey, string>>;

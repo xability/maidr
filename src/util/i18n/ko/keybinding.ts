@@ -121,4 +121,13 @@ export const keybinding = {
   'keybinding.commandPaletteSearchPlaceholder': '명령 검색...',
   'keybinding.commandPaletteSearchLabel': '명령 검색',
   'keybinding.commandPaletteListLabel': '사용할 수 있는 명령',
+  'keybinding.openObjectList': '오브젝트 목록 열기',
+  'keybinding.objectListFirst': '첫 오브젝트로 이동',
+  'keybinding.objectListLast': '마지막 오브젝트로 이동',
+  'keybinding.objectListPageUp': '오브젝트 10개 위로 이동',
+  'keybinding.objectListPageDown': '오브젝트 10개 아래로 이동',
+  'keybinding.objectListNextSort': '다음 정렬 순서',
+  'keybinding.objectListPreviousSort': '이전 정렬 순서',
+  'keybinding.objectListNextFilter': '다음 필터',
+  'keybinding.objectListPreviousFilter': '이전 필터',
 } satisfies Partial<Record<MessageKey, string>>;

@@ -120,4 +120,13 @@ export const keybinding = {
   'keybinding.commandPaletteSearchPlaceholder': 'Search commands...',
   'keybinding.commandPaletteSearchLabel': 'Search commands',
   'keybinding.commandPaletteListLabel': 'Available commands',
+  'keybinding.openObjectList': 'Open the object list',
+  'keybinding.objectListFirst': 'Go to the first object',
+  'keybinding.objectListLast': 'Go to the last object',
+  'keybinding.objectListPageUp': 'Move up ten objects',
+  'keybinding.objectListPageDown': 'Move down ten objects',
+  'keybinding.objectListNextSort': 'Next order',
+  'keybinding.objectListPreviousSort': 'Previous order',
+  'keybinding.objectListNextFilter': 'Next filter',
+  'keybinding.objectListPreviousFilter': 'Previous filter',
 } as const;

@@ -3,6 +3,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
+import type { ChartObjectList } from '@type/objectList';
 import type { Observable } from '@type/observable';
 import type {
   FigureState,
@@ -1148,4 +1149,17 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @param target - The extrema target to navigate to
    */
   navigateToExtrema?: (target: ExtremaTarget) => void;
+
+  /**
+   * Every object the `o` list offers, or null on a chart walked along axes.
+   * @returns The list, or null
+   */
+  getObjectList?: () => ChartObjectList | null;
+
+  /**
+   * Moves to the object the list knows by this key.
+   * @param key - The object's key
+   * @returns True when the cursor moved
+   */
+  moveToObject?: (key: string) => boolean;
 }

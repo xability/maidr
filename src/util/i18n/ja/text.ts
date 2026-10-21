@@ -136,4 +136,5 @@ export const text = {
   'text.noMinimumValue': 'このレイヤーには移動できる最小値がありません',
   'text.noMaximumValue': 'このレイヤーには移動できる最大値がありません',
   'text.pointPosition': '{point}、{total}個中{position}番目',
+  'text.noObjectList': 'このレイヤーにはオブジェクト一覧がありません。矢印キーで移動してください。',
 } satisfies Partial<Record<MessageKey, string>>;

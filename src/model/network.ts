@@ -1,10 +1,27 @@
 import type { MaidrLayer, NetworkPoint } from '@type/grammar';
 import type { Coordinate, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
+import type {
+  ChartObject,
+  ChartObjectList,
+  ObjectFilterOption,
+  ObjectMeasure,
+  ObjectSortOption,
+} from '@type/objectList';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { Centrality } from '@util/graphCentrality';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
+import { centrality, withinCentralityBudget } from '@util/graphCentrality';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import {
+  chartOrderSort,
+  counter,
+  measureSort,
+  measureVaries,
+  nameSort,
+  offerFilters,
+} from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
@@ -30,6 +47,29 @@ function linkRotorUnit(): RotorFilterUnit {
 
 /** How many names the description lists before it stops. */
 const NAMED_NODES = 5;
+
+/**
+ * How many groups the object list offers a filter for, largest first. Past
+ * ten, stepping through the filters would take longer than walking the
+ * groups with the arrows.
+ */
+const FILTERED_GROUPS = 10;
+
+/** The object list's filter for the neighbours of the node under the cursor. */
+const LINKED_TO_CURRENT = 'linked-to-current';
+
+/** And its filter for the nodes linked to nobody. */
+const UNLINKED = 'unlinked';
+
+/**
+ * The object list's filter id for one group.
+ *
+ * @param component - The group's position among the components
+ * @returns The id
+ */
+function groupFilterId(component: number): string {
+  return `group-${component + 1}`;
+}
 
 /**
  * What a node-link diagram calls its nodes when the layer names no x axis.
@@ -141,6 +181,16 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    * step left the cursor.
    */
   private linkWalk: { from: number; index: number; at: Coordinate } | null = null;
+
+  /**
+   * Betweenness and closeness per node, in the object list's order, once a
+   * sort has asked for either.
+   *
+   * A walk from every node, so it is paid for on the press that chooses one of
+   * those sorts rather than on every `o`. The links never change under a trace
+   * -- a live-data rebuild makes a new one -- so it is worked out once.
+   */
+  private centralityByObject: Centrality | null = null;
 
   protected readonly highlightValues: SVGElement[][] | null;
 
@@ -524,6 +574,165 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     this.movable.moveToIndex(at.row, at.col);
     this.notifyStateUpdate();
     return true;
+  }
+
+  /**
+   * Ends any link walk before a jump.
+   *
+   * A jump from the object list can land on the very node a walk last stepped
+   * to, and the walk would then carry on through the neighbours of the node it
+   * started from rather than of the one the reader chose. The walk's own steps
+   * move the cursor directly, so they are not affected.
+   *
+   * @param row - The group to move to
+   * @param col - The node's position within it
+   * @returns True when the cursor moved
+   */
+  public override moveToIndex(row: number, col: number): boolean {
+    this.linkWalk = null;
+    return super.moveToIndex(row, col);
+  }
+
+  /**
+   * Every node, for the `o` list, in the order the arrows walk them: group by
+   * group, most connected first.
+   *
+   * It opens on the alphabet rather than on that order. The arrows already
+   * give the walk, and what a reader opening a list of people wants is to find
+   * one by name. Each node is listed with its degree, the number every move
+   * announces; betweenness and closeness -- how much of a bridge a node is,
+   * and how near it sits to everyone else -- are what neither the walk nor the
+   * degree shows, and are worked out only when a sort asks for them.
+   *
+   * @returns The list, or null on a chart with no nodes
+   */
+  public override getObjectList(): ChartObjectList | null {
+    if (this.nodes.length === 0) {
+      return null;
+    }
+
+    const grouped = this.components.length > 1;
+    const linkLabel = this.linkLabel;
+    // Only once the reader is on a node: before that the cursor's (0, 0) is
+    // where the walk will start, not anything they chose.
+    const current = this.isInitialEntry ? null : this.current;
+    const linkedToCurrent = new Set(current?.links ?? []);
+
+    const objects: ChartObject[] = this.components.flatMap((members, component) =>
+      members.map((at, index): ChartObject => {
+        const node = this.nodes[at];
+        const groups: string[] = [];
+        if (linkedToCurrent.has(at)) {
+          groups.push(LINKED_TO_CURRENT);
+        }
+        if (members.length > 1 && component < FILTERED_GROUPS) {
+          groups.push(groupFilterId(component));
+        }
+        if (node.links.length === 0) {
+          groups.push(UNLINKED);
+        }
+        return {
+          key: node.name,
+          label: node.name,
+          value: { label: linkLabel, value: node.links.length, axis: 'y' },
+          // The group every move announces, isolated nodes included, and only
+          // where the announcement says it.
+          ...(grouped ? { detail: t('model.objectFilterGroup', { index: component + 1 }) } : {}),
+          row: component,
+          col: index,
+          measures: { degree: node.links.length },
+          groups,
+        };
+      }));
+
+    const degree: ObjectMeasure = { id: 'degree', label: linkLabel, spoken: true };
+    const betweenness: ObjectMeasure = {
+      id: 'betweenness',
+      label: t('model.objectMeasureBetweenness'),
+      spoken: false,
+    };
+    const closeness: ObjectMeasure = {
+      id: 'closeness',
+      label: t('model.objectMeasureCloseness'),
+      spoken: false,
+    };
+    // Every degree alike -- a ring, a set of pairs -- and a sort by it would
+    // only repeat another order under a new name.
+    const byDegree = measureVaries(objects, degree.id);
+    // A node is between two others only in a group of three or more that is
+    // not linked all to all: pairs, triangles and isolated nodes would score
+    // every node alike, and a sort by that would only repeat another order.
+    const central = this.components.some(members => members.length >= 3
+      && members.reduce((links, at) => links + this.nodes[at].links.length, 0) / 2
+      < (members.length * (members.length - 1)) / 2)
+    && withinCentralityBudget(this.nodes.map(node => node.links));
+
+    const sorts: ObjectSortOption[] = [
+      nameSort(),
+      ...(byDegree ? [measureSort(degree, 'descending'), measureSort(degree, 'ascending')] : []),
+      ...(central
+        ? [measureSort(betweenness, 'descending'), measureSort(closeness, 'descending')]
+        : []),
+      chartOrderSort(t('model.objectOrderGroups')),
+    ];
+
+    const candidates: ObjectFilterOption[] = [];
+    if (current !== null && current.links.length > 0) {
+      candidates.push({
+        id: LINKED_TO_CURRENT,
+        label: t('model.objectFilterLinkedTo', { name: current.name }),
+      });
+    }
+    // The groups that are groups, largest first. A single one is offered only
+    // beside unlinked nodes, where it is the linked part of the chart; alone,
+    // it is the whole chart, and `offerFilters` drops it as such.
+    this.components.slice(0, FILTERED_GROUPS).forEach((members, component) => {
+      if (members.length > 1) {
+        candidates.push({
+          id: groupFilterId(component),
+          label: t('model.objectFilterGroup', { index: component + 1 }),
+        });
+      }
+    });
+    candidates.push({ id: UNLINKED, label: t('model.objectFilterUnlinked') });
+
+    return {
+      title: t('model.objectsNodes'),
+      count: counter('model.objectNodesOne', 'model.objectNodesMany'),
+      objects,
+      measures: [...(byDegree ? [degree] : []), ...(central ? [betweenness, closeness] : [])],
+      sorts,
+      filters: offerFilters(objects, candidates),
+      ...(central
+        ? {
+            deferred: {
+              betweenness: () => this.centralityInListOrder().betweenness,
+              closeness: () => this.centralityInListOrder().closeness,
+            },
+          }
+        : {}),
+    };
+  }
+
+  /**
+   * Betweenness and closeness for every node, in the object list's order,
+   * worked out on the first call and kept.
+   *
+   * The links are undirected, deduplicated and free of loops, which is the
+   * adjacency {@link centrality} asks for.
+   *
+   * @returns Both measures, one value per listed node
+   */
+  private centralityInListOrder(): Centrality {
+    if (this.centralityByObject === null) {
+      const { betweenness, closeness } = centrality(this.nodes.map(node => node.links));
+      const listed = this.components.flat();
+      this.centralityByObject = {
+        betweenness: listed.map(at => betweenness[at]),
+        closeness: listed.map(at => closeness[at]),
+      };
+    }
+    return this.centralityByObject;
   }
 
   public get description(): DescriptionState {

@@ -51,4 +51,5 @@ export const notification = {
   'notification.deltaPickerClose': 'Fermer le sélecteur de référence',
   'notification.deltaPickerDescription': 'Choisissez une ligne de référence à laquelle comparer chaque chandelier. Utilisez les flèches haut et bas pour vous déplacer, puis appuyez sur Enter. Une fois la ligne choisie, appuyez sur Alt L pour activer ou désactiver la comparaison.',
   'notification.deltaPickerListLabel': 'Lignes de référence',
+  'notification.objectListGone': '{label} n\'est plus dans le graphique',
 } satisfies Partial<Record<MessageKey, string>>;

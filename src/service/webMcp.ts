@@ -795,6 +795,7 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
   { id: 'open_go_to_extrema', key: 'GO_TO_EXTREMA_TOGGLE', reason: OPENS_DIALOG },
   { id: 'go_to_min_value', key: 'GO_TO_MIN_VALUE' },
   { id: 'go_to_max_value', key: 'GO_TO_MAX_VALUE' },
+  { id: 'open_object_list', key: 'OBJECT_LIST_TOGGLE', reason: OPENS_DIALOG },
   { id: 'next_navigation_mode', key: 'ROTOR_NEXT_NAV' },
   { id: 'previous_navigation_mode', key: 'ROTOR_PREV_NAV' },
   { id: 'open_help', key: 'TOGGLE_HELP', reason: OPENS_DIALOG },

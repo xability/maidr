@@ -51,4 +51,5 @@ export const notification = {
   'notification.deltaPickerClose': '기준선 선택 창 닫기',
   'notification.deltaPickerDescription': '각 캔들과 비교할 기준선을 고르세요. 위와 아래 화살표로 이동한 뒤 Enter 키를 누르세요. 선택한 뒤에는 Alt L 키로 비교를 켜고 끌 수 있습니다.',
   'notification.deltaPickerListLabel': '기준선 목록',
+  'notification.objectListGone': '{label|은는} 더 이상 차트에 없습니다',
 } satisfies Partial<Record<MessageKey, string>>;

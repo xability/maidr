@@ -119,4 +119,5 @@ export const text = {
   'text.noMinimumValue': 'Nessun valore minimo da raggiungere in questo livello',
   'text.noMaximumValue': 'Nessun valore massimo da raggiungere in questo livello',
   'text.pointPosition': '{point}, {position} di {total}',
+  'text.noObjectList': 'Questo livello non ha un elenco degli oggetti. Percorrilo con le frecce.',
 } satisfies Partial<Record<MessageKey, string>>;

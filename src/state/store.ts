@@ -7,6 +7,7 @@ import descriptionReducer from './viewModel/descriptionViewModel';
 import displayReducer from './viewModel/displayViewModel';
 import goToExtremaReducer from './viewModel/goToExtremaViewModel';
 import helpMenuReducer from './viewModel/helpViewModel';
+import objectListReducer from './viewModel/objectListViewModel';
 import reviewReducer from './viewModel/reviewViewModel';
 import rotorReducer from './viewModel/rotorNavigationViewModel';
 import settingsReducer from './viewModel/settingsViewModel';
@@ -21,6 +22,7 @@ const reducers = {
   display: displayReducer,
   goToExtrema: goToExtremaReducer,
   help: helpMenuReducer,
+  objectList: objectListReducer,
   review: reviewReducer,
   settings: settingsReducer,
   text: textReducer,

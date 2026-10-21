@@ -3,6 +3,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
+import type { ChartObjectList } from '@type/objectList';
 import type { Observable, Observer } from '@type/observable';
 import type {
   AudioState,
@@ -1072,6 +1073,46 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   ): boolean {
     this.notifyRotorBounds();
     return false;
+  }
+
+  /**
+   * Every object the `o` list offers on this chart, or null where there is
+   * none to offer.
+   *
+   * Null for every chart walked along x and y axes: the arrows already reach
+   * each point in order there, and a list of them would repeat the axis. A
+   * chart whose objects have no such order -- the nodes of a network, the
+   * tiles of a treemap -- overrides this and builds the list from its own
+   * structure, with the sorts and filters that make sense for it.
+   *
+   * List only, as the rotor units are, with no flag beside it: a flag that
+   * said yes over an empty list would open a dialog with nothing to choose.
+   * Labels are built on each call, because the trace outlives a change of
+   * language; anything expensive to compute is kept by the trace that
+   * computes it.
+   * @returns The list, or null
+   */
+  public getObjectList(): ChartObjectList | null {
+    return null;
+  }
+
+  /**
+   * Moves to the object the list knows by this key, announcing it through
+   * the usual observer chain.
+   *
+   * Looks the key up in a list built now rather than trusting a cell the
+   * dialog was handed when it opened, so a chart whose data changed under the
+   * dialog moves the reader to the object they chose or nowhere at all.
+   * @param key - The key the object list gave the object
+   * @returns True when the cursor moved, false when no object has the key or
+   * its cell cannot be reached
+   */
+  public moveToObject(key: string): boolean {
+    const object = this.getObjectList()?.objects.find(candidate => candidate.key === key);
+    if (object === undefined || !this.isMovable([object.row, object.col])) {
+      return false;
+    }
+    return this.moveToIndex(object.row, object.col);
   }
 
   /**

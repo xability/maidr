@@ -63,6 +63,7 @@ const EXPECTED_DIALOG_SCOPES: Focus[] = [
   Scope.DESCRIPTION,
   Scope.GO_TO_EXTREMA,
   Scope.HELP,
+  Scope.OBJECT_LIST,
   Scope.SETTINGS,
 ];
 

@@ -102,6 +102,7 @@ const SECTION_ORDER: Readonly<Record<Exclude<HelpSectionId, 'other'>, readonly s
     'GO_TO_EXTREMA_TOGGLE',
     'GO_TO_MIN_VALUE',
     'GO_TO_MAX_VALUE',
+    'OBJECT_LIST_TOGGLE',
     'ROTOR_NEXT_NAV',
     'ROTOR_PREV_NAV',
   ],

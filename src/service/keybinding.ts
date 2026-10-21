@@ -158,6 +158,9 @@ const BRAILLE_KEYMAP = {
   // textarea's own value.
   GO_TO_EXTREMA_TOGGLE: key(`g`, 'keybinding.goToExtrema'),
 
+  // The object list opens over braille the same way, and returns to it.
+  OBJECT_LIST_TOGGLE: key(`o`, 'keybinding.openObjectList'),
+
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'keybinding.nextNavigationMode', { helpKey: `${Platform.alt} + shift + up` }),
   ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'keybinding.previousNavigationMode', { helpKey: `${Platform.alt} + shift + down` }),
@@ -428,6 +431,11 @@ const TRACE_KEYMAP = {
   GO_TO_MIN_VALUE: key(`[`, 'keybinding.goToMinimumValue', { helpKey: '[ (open bracket)' }),
   GO_TO_MAX_VALUE: key(`]`, 'keybinding.goToMaximumValue', { helpKey: '] (close bracket)' }),
 
+  // Every node, tile or region of a chart without axes, as a list to jump
+  // from. Bound on every chart, so the command itself says when a chart has
+  // no such list -- the key no longer reaches the unassigned-key warning.
+  OBJECT_LIST_TOGGLE: key(`o`, 'keybinding.openObjectList'),
+
   // Chart description
   TOGGLE_DESCRIPTION: key(`d`, 'keybinding.openChartDescription'),
 
@@ -453,6 +461,35 @@ const GO_TO_EXTREMA_KEYMAP = {
   GO_TO_EXTREMA_SELECT: key('enter', 'keybinding.select', { showInHelp: false }),
   GO_TO_EXTREMA_CLOSE: key('esc', 'keybinding.close', { showInHelp: false }),
   GO_TO_EXTREMA_TOGGLE: key('g', 'keybinding.goToExtrema', { showInHelp: false }),
+} as const;
+
+/**
+ * Keymap configuration for the object list (`o`).
+ *
+ * Every key the list answers is here, rather than in the component as the Go
+ * To dialog keeps its arrows: the component then only renders and moves focus,
+ * and a key it does not handle cannot scroll the list out from under the
+ * selection. The list's buttons stop Enter from reaching these, so Enter on a
+ * button presses it instead of jumping.
+ *
+ * `o` closes as well as opens, under the same command name, so a reader who
+ * moves the shortcut moves both. `s` and `f` step through the orders and the
+ * filters the chart offers; Shift steps back.
+ */
+const OBJECT_LIST_KEYMAP = {
+  OBJECT_LIST_MOVE_UP: key('up', 'keybinding.navigateUp', { showInHelp: false }),
+  OBJECT_LIST_MOVE_DOWN: key('down', 'keybinding.navigateDown', { showInHelp: false }),
+  OBJECT_LIST_MOVE_FIRST: key('home', 'keybinding.objectListFirst', { showInHelp: false }),
+  OBJECT_LIST_MOVE_LAST: key('end', 'keybinding.objectListLast', { showInHelp: false }),
+  OBJECT_LIST_PAGE_UP: key('pageup', 'keybinding.objectListPageUp', { showInHelp: false }),
+  OBJECT_LIST_PAGE_DOWN: key('pagedown', 'keybinding.objectListPageDown', { showInHelp: false }),
+  OBJECT_LIST_SELECT: key('enter', 'keybinding.select', { showInHelp: false }),
+  OBJECT_LIST_CLOSE: key('esc', 'keybinding.close', { showInHelp: false }),
+  OBJECT_LIST_TOGGLE: key('o', 'keybinding.openObjectList', { showInHelp: false }),
+  OBJECT_LIST_NEXT_SORT: key('s', 'keybinding.objectListNextSort', { showInHelp: false }),
+  OBJECT_LIST_PREVIOUS_SORT: key('shift+s', 'keybinding.objectListPreviousSort', { showInHelp: false }),
+  OBJECT_LIST_NEXT_FILTER: key('f', 'keybinding.objectListNextFilter', { showInHelp: false }),
+  OBJECT_LIST_PREVIOUS_FILTER: key('shift+f', 'keybinding.objectListPreviousFilter', { showInHelp: false }),
 } as const;
 
 /**
@@ -519,6 +556,7 @@ export const SCOPED_KEYMAP = {
   [Scope.GO_TO_EXTREMA]: GO_TO_EXTREMA_KEYMAP,
   [Scope.GRID_CELL]: GRID_CELL_KEYMAP,
   [Scope.HELP]: HELP_KEYMAP,
+  [Scope.OBJECT_LIST]: OBJECT_LIST_KEYMAP,
   [Scope.REVIEW]: REVIEW_KEYMAP,
   [Scope.SETTINGS]: SETTINGS_KEYMAP,
   [Scope.SUBPLOT]: SUBPLOT_KEYMAP,
@@ -595,6 +633,14 @@ export function isRebindable(commandName: string): boolean {
  * a shortcut that names no key. None of those should reach hotkeys-js,
  * which would bind them silently, so they are dropped here and the reader's
  * other overrides survive.
+ *
+ * So is a shortcut that another command now runs where this one is bound.
+ * The help menu refuses such a shortcut when the reader chooses it, but one
+ * saved before a later release made the same key a default -- `o`, for the
+ * object list -- was never checked against it, and hotkeys-js would run both
+ * commands on the one press. The same rule is applied on the way in: the
+ * command goes back to its default, as it would have had the reader tried
+ * to choose the key today, and the settings show it there.
  * @param raw - `settings.general.keybindings`, or anything that stood in for it
  * @returns The overrides worth applying
  */
@@ -613,7 +659,18 @@ export function resolveOverrides(raw: unknown): KeybindingOverrides {
     }
     overrides[commandName] = normalized;
   }
-  return overrides;
+
+  // Each is checked against the others as they stand, so a pair of commands
+  // that swapped their keys is still a valid pair.
+  const kept: Record<string, string> = {};
+  for (const [commandName, combo] of Object.entries(overrides)) {
+    const others = { ...overrides };
+    delete others[commandName];
+    if (findBindingConflict(commandName, combo, others) === null) {
+      kept[commandName] = combo;
+    }
+  }
+  return kept;
 }
 
 /**

@@ -121,4 +121,13 @@ export const keybinding = {
   'keybinding.commandPaletteSearchPlaceholder': '搜索命令...',
   'keybinding.commandPaletteSearchLabel': '搜索命令',
   'keybinding.commandPaletteListLabel': '可用命令',
+  'keybinding.openObjectList': '打开对象列表',
+  'keybinding.objectListFirst': '转到第一个对象',
+  'keybinding.objectListLast': '转到最后一个对象',
+  'keybinding.objectListPageUp': '向上移动十个对象',
+  'keybinding.objectListPageDown': '向下移动十个对象',
+  'keybinding.objectListNextSort': '下一种排序',
+  'keybinding.objectListPreviousSort': '上一种排序',
+  'keybinding.objectListNextFilter': '下一个筛选',
+  'keybinding.objectListPreviousFilter': '上一个筛选',
 } satisfies Partial<Record<MessageKey, string>>;
