@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { BasePage } from '../page-objects/base-page';
 import { BarPlotPage } from '../page-objects/plots/barplot-page';
+import { PiePlotPage } from '../page-objects/plots/pie-page';
 import { TestConstants } from '../utils/constants';
 
 /**
@@ -181,6 +182,45 @@ test.describe('Object list on a treemap', () => {
     await expect(dialog.getByRole('button', { name: 'Showing: Level 2' })).toBeVisible();
     expect(await dialog.getByRole('option').count()).toBeGreaterThan(continents);
     await expect.poll(() => focusedName(page)).toMatch(/^Level 2: /);
+  });
+});
+
+test.describe('Object list on a sankey', () => {
+  test('should open in stage order and jump to the node chosen by value', async ({ page }) => {
+    const chart = new ChartPage(page, 'sankey.html', 'sankey-energy');
+    await chart.open();
+    await page.keyboard.press('o');
+    const dialog = objectList(page);
+    await expect(dialog.getByRole('listbox', { name: /^7 nodes, Stage order$/ })).toBeVisible();
+
+    await page.keyboard.press('s');
+    await expect(dialog.getByRole('option').nth(1)).toHaveAttribute('aria-label', /^Homes/);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+
+    await expect(dialog).toBeHidden();
+    await chart.expectAnnouncement(/Homes/);
+  });
+});
+
+test.describe('Object list on a pie', () => {
+  test('should open clockwise and jump to the slice chosen by share', async ({ page }) => {
+    const pie = new PiePlotPage(page);
+    await pie.navigateToPiePlot();
+    await pie.activateMaidr();
+    await page.keyboard.press('o');
+    const dialog = objectList(page);
+    await expect(dialog.getByRole('listbox', { name: /^4 slices, Clockwise order$/ })).toBeVisible();
+    await expect(dialog.getByRole('option').nth(1)).toHaveAttribute('aria-label', /^Bananas/);
+
+    await page.keyboard.press('s');
+    await expect(dialog.getByRole('option').nth(1)).toHaveAttribute('aria-label', /^Apples/);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+
+    await expect(dialog).toBeHidden();
+    await expect(page.locator(`#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`).first())
+      .toHaveText(/Apples/);
   });
 });
 
