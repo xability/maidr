@@ -550,6 +550,25 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 's')).toContain('Subtitle is Quadrants: We should expand (top right)');
   });
 
+  test('names a kanban column as a column and a card as a card', async ({ page }) => {
+    await openExample(page, 'kanban');
+    const column = await press(page, 'ArrowRight');
+    expect(column).toContain('Column is To do');
+    expect(await press(page, 'ArrowDown')).toContain('Card is Write the docs');
+  });
+
+  test('names each level of a hierarchy for what it is', async ({ page }) => {
+    await openExample(page, 'ishikawa');
+    expect(await press(page, 'ArrowRight')).toContain('Effect is Blurry photo');
+    expect(await press(page, 'ArrowDown')).toContain('Category is ');
+    expect(await press(page, 'ArrowDown')).toContain('Cause is ');
+
+    await openExample(page, 'timeline');
+    expect(await press(page, 'ArrowRight')).toContain('Section is Guidelines');
+    expect(await press(page, 'ArrowDown')).toContain('Period is 1999');
+    expect(await press(page, 'ArrowDown')).toContain('Event is WCAG 1.0');
+  });
+
   test('names a timeline by the title it declares', async ({ page }) => {
     await openExample(page, 'timeline');
 

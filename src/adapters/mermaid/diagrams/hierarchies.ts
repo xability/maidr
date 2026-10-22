@@ -42,7 +42,8 @@ export function mindmap(context: DiagramContext): DiagramConversion {
 
 /**
  * Kanban boards: columns and the cards in them, each card with its ticket,
- * assignee and priority.
+ * assignee and priority. Each is announced as the one it is; together they
+ * are the board's items.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -57,6 +58,7 @@ export function kanban(context: DiagramContext): DiagramConversion {
   for (const row of nodes.filter(one => one.isGroup === true)) {
     const column: TreeNode = {
       name: plain(row.label) || (str(row.id) ?? ''),
+      kind: 'Column',
       element: findById(candidates, context.svgId, [str(row.id)], used),
       children: [],
     };
@@ -72,6 +74,7 @@ export function kanban(context: DiagramContext): DiagramConversion {
     const label = plain(row.label) || (str(row.id) ?? '');
     const card: TreeNode = {
       name: details.length > 0 ? `${label} (${details.join(', ')})` : label,
+      kind: 'Card',
       element: findById(candidates, context.svgId, [str(row.id)], used),
     };
     const column = byId.get(str(row.parentId) ?? '');
@@ -81,7 +84,7 @@ export function kanban(context: DiagramContext): DiagramConversion {
       columns.push(card);
     }
   }
-  return single(treeLayer(context, { roots: columns, nodeLabel: 'Card' }));
+  return single(treeLayer(context, { roots: columns, nodeLabel: 'Item' }));
 }
 
 /**
@@ -114,11 +117,19 @@ export function treeView(context: DiagramContext): DiagramConversion {
 export function ishikawa(context: DiagramContext): DiagramConversion {
   const root = call(context.db, 'getRoot') as Row | undefined;
   const match = textMatcher(all(context.svg, 'text.ishikawa-head-label, text.ishikawa-label'));
-  const visit = (node: Row): TreeNode => {
+  // A cause may have causes of its own, so every level below the categories
+  // is a cause.
+  const kinds = ['Effect', 'Category'];
+  const visit = (node: Row, depth: number): TreeNode => {
     const name = plain(node.text ?? node.label);
-    return { name, element: match(name), children: rows(node.children).map(visit) };
+    return {
+      name,
+      kind: kinds[depth] ?? 'Cause',
+      element: match(name),
+      children: rows(node.children).map(child => visit(child, depth + 1)),
+    };
   };
-  return single(root ? treeLayer(context, { roots: [visit(root)], nodeLabel: 'Cause' }) : null);
+  return single(root ? treeLayer(context, { roots: [visit(root, 0)], nodeLabel: 'Cause' }) : null);
 }
 
 /**
@@ -136,17 +147,18 @@ export function timeline(context: DiagramContext): DiagramConversion {
     const name = plain(task.task);
     return {
       name,
+      kind: 'Period',
       element: match(name),
       children: (Array.isArray(task.events) ? task.events : []).map((event) => {
         const text = plain(event);
-        return { name: text, element: match(text) };
+        return { name: text, kind: 'Event', element: match(text) };
       }),
     };
   };
   const roots: TreeNode[] = [];
   const bySection = new Map<string, TreeNode>();
   for (const name of sections) {
-    const section: TreeNode = { name, element: match(name), children: [] };
+    const section: TreeNode = { name, kind: 'Section', element: match(name), children: [] };
     bySection.set(name, section);
     roots.push(section);
   }
@@ -168,11 +180,22 @@ export function timeline(context: DiagramContext): DiagramConversion {
  * @returns The node: a terminal, a rule reference, or a construct holding its parts
  */
 function grammarNode(node: Row): TreeNode {
+  return { kind: 'Expression', ...grammarPart(node) };
+}
+
+/**
+ * What one expression is made of, and the sort of expression it is when it
+ * is not a construct: a terminal or a reference to a rule.
+ *
+ * @param node - The expression
+ * @returns The node, before it is given its default kind
+ */
+function grammarPart(node: Row): TreeNode {
   switch (str(node.type)) {
     case 'terminal':
-      return { name: `"${plain(node.value)}"` };
+      return { name: `"${plain(node.value)}"`, kind: 'Terminal' };
     case 'nonterminal':
-      return { name: `rule ${plain(node.name)}` };
+      return { name: `rule ${plain(node.name)}`, kind: 'Reference' };
     case 'special':
       return { name: plain(node.text) };
     case 'sequence':
@@ -187,7 +210,9 @@ function grammarNode(node: Row): TreeNode {
       const times = max === undefined || !Number.isFinite(max)
         ? `${min} or more times`
         : min === max ? `${min} times` : `${min} to ${max} times`;
-      const separator = node.separator ? [{ name: 'separated by', children: [grammarNode(node.separator as Row)] }] : [];
+      const separator = node.separator
+        ? [{ name: 'separated by', kind: 'Expression', children: [grammarNode(node.separator as Row)] }]
+        : [];
       return { name: `repeated ${times}`, children: [grammarNode(node.element as Row ?? {}), ...separator] };
     }
     default:
@@ -208,7 +233,7 @@ export function railroad(context: DiagramContext): DiagramConversion {
     // A rule that is a sequence reads as its parts directly.
     const children = definition.name === 'sequence' ? definition.children ?? [] : [definition];
     const comment = plain(rule.comment);
-    return { name: comment ? `${plain(rule.name)} (${comment})` : plain(rule.name), children };
+    return { name: comment ? `${plain(rule.name)} (${comment})` : plain(rule.name), kind: 'Rule', children };
   });
   return {
     layers: [treeLayer(context, { roots: rules, nodeLabel: 'Rule' })].filter(layer => layer !== null),
@@ -233,10 +258,11 @@ export function cynefin(context: DiagramContext): DiagramConversion {
     const name = domainName(plain(domain.name));
     return {
       name,
+      kind: 'Domain',
       element: domainLabels(name),
       children: rows(domain.items).map((item) => {
         const label = plain(item.label);
-        return { name: label, element: itemLabels(label) };
+        return { name: label, kind: 'Item', element: itemLabels(label) };
       }),
     };
   });

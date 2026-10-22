@@ -2,13 +2,37 @@
  * @jest-environment jsdom
  */
 
-import type { DirectedGraphPoint, TreemapPoint } from '@type/grammar';
+import type { DirectedGraphPoint, MaidrLayer, TreemapPoint } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
+import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, it } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
 /**
- * The hierarchies (`diagrams/hierarchies.ts`): mindmap, timeline, railroad and Cynefin.
+ * The noun each move announces its node with, walking a layer as a reader does.
+ *
+ * @param layer - The layer
+ * @param moves - The moves, after the entry onto the first node
+ * @returns The label of each node reached, entry first
+ */
+function nouns(layer: MaidrLayer, ...moves: MovableDirection[]): string[] {
+  const trace = TraceFactory.create(layer);
+  const heard = (): string => (trace.state as NonEmptyTraceState).text.main.label;
+  trace.moveOnce('FORWARD');
+  const labels = [heard()];
+  for (const move of moves) {
+    trace.moveOnce(move);
+    labels.push(heard());
+  }
+  trace.dispose();
+  return labels;
+}
+
+/**
+ * The hierarchies (`diagrams/hierarchies.ts`): mindmap, timeline, kanban, Ishikawa, railroad
+ * and Cynefin.
  *
  * Stand-in databases shaped as Mermaid 12's; see `./helpers`.
  */
@@ -32,7 +56,40 @@ describe('the hierarchies', () => {
       getSections: () => ['Early'],
       getTasks: () => [{ section: 'Early', task: '2002 ', events: ['LinkedIn'] }],
     }))[0].data as TreemapPoint[];
-    expect(data).toEqual([{ x: 'Early' }, { x: '2002', path: ['Early'] }, { x: 'LinkedIn', path: ['Early', '2002'] }]);
+    expect(data).toEqual([
+      { x: 'Early', kind: 'Section' },
+      { x: '2002', path: ['Early'], kind: 'Period' },
+      { x: 'LinkedIn', path: ['Early', '2002'], kind: 'Event' },
+    ]);
+  });
+
+  it('reads a kanban board as columns of cards, each named for what it is', () => {
+    const layer = layersOf(convert('kanban', {
+      getData: () => ({
+        nodes: [
+          { id: 'todo', label: 'To do', isGroup: true },
+          { id: 'docs', label: 'Write the docs', parentId: 'todo', isGroup: false, assigned: 'ana' },
+        ],
+      }),
+    }))[0];
+    // Neither level alone: the board's items are its columns and its cards.
+    expect(layer.axes?.x?.label).toBe('Item');
+    expect(layer.data as TreemapPoint[]).toEqual([
+      { x: 'To do', kind: 'Column' },
+      { x: 'Write the docs (assigned to ana)', path: ['To do'], kind: 'Card' },
+    ]);
+    expect(nouns(layer, 'DOWNWARD')).toEqual(['Column', 'Card']);
+  });
+
+  it('reads an Ishikawa diagram from the effect to its categories and their causes', () => {
+    const layer = layersOf(convert('ishikawa', {
+      getRoot: () => ({
+        text: 'Blurry photo',
+        children: [{ text: 'Equipment', children: [{ text: 'Lens', children: [{ text: 'Dirty lens' }] }] }],
+      }),
+    }))[0];
+    expect((layer.data as TreemapPoint[]).map(point => point.kind)).toEqual(['Effect', 'Category', 'Cause', 'Cause']);
+    expect(nouns(layer, 'DOWNWARD', 'DOWNWARD', 'DOWNWARD')).toEqual(['Effect', 'Category', 'Cause', 'Cause']);
   });
 
   it('reads a railroad rule as the expression it is made of', () => {
@@ -42,7 +99,12 @@ describe('the hierarchies', () => {
         definition: { type: 'choice', alternatives: [{ type: 'terminal', value: '+' }, { type: 'nonterminal', name: 'minus' }] },
       }],
     }))[0].data as TreemapPoint[];
-    expect(data.map(point => point.x)).toEqual(['sign', 'one of', '"+"', 'rule minus']);
+    expect(data.map(point => [point.x, point.kind])).toEqual([
+      ['sign', 'Rule'],
+      ['one of', 'Expression'],
+      ['"+"', 'Terminal'],
+      ['rule minus', 'Reference'],
+    ]);
   });
 
   it('reads Cynefin domains, and their transitions as a second layer', () => {
@@ -51,6 +113,7 @@ describe('the hierarchies', () => {
       getTransitions: () => [{ from: 'complex', to: 'clear', label: 'codified' }],
     }));
     expect(layers.map(layer => layer.type)).toEqual([TraceType.TREE, TraceType.DIRECTED_GRAPH]);
+    expect(nouns(layers[0], 'DOWNWARD')).toEqual(['Domain', 'Item']);
     expect((layers[1].data as DirectedGraphPoint[])[1]).toMatchObject({ label: 'Clear', inputs: ['complex'], inputLabels: ['codified'] });
   });
 });

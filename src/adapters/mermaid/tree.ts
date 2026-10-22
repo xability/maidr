@@ -13,6 +13,8 @@ export interface TreeNode {
   children?: TreeNode[];
   /** The node's magnitude, when the diagram gives one. */
   value?: number;
+  /** What sort of node it is, where the levels differ: `Column`, `Card`. */
+  kind?: string;
   /** The element Mermaid drew for it, when it was found. */
   element?: Element | null;
 }
@@ -20,7 +22,10 @@ export interface TreeNode {
 /** What {@link treeLayer} reads. */
 export interface TreeParts {
   roots: TreeNode[];
-  /** What a node is called: `Topic`, `Cause`, `Event`. */
+  /**
+   * What the layer calls a node: `Topic`, `Cause`, `Event`. A node is
+   * announced with it unless it names its own kind.
+   */
   nodeLabel?: string;
   /** What the magnitude measures, when there is one. */
   valueLabel?: string;
@@ -54,6 +59,9 @@ export function treeLayer(context: DiagramContext, parts: TreeParts): MaidrLayer
       const point: TreemapPoint = { x: name };
       if (path.length > 0) {
         point.path = path;
+      }
+      if (node.kind) {
+        point.kind = node.kind;
       }
       if (node.value !== undefined && Number.isFinite(node.value)) {
         point.y = node.value;
