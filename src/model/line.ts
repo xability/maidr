@@ -2,7 +2,14 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection, Node } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
+import type {
+  AudioState,
+  BrailleState,
+  DescriptionState,
+  TextState,
+  TraceEmptyState,
+  TraceState,
+} from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { defaultFormat, defaultLabelFormat } from '@util/format';
@@ -736,12 +743,13 @@ export class LineTrace extends AbstractTrace {
   /**
    * Where a cell sits in the stereo field.
    *
-   * Split out because two places need it and they must agree: the tone for the
-   * cursor's own point, and the tones of every series a chord sounds at an
-   * intersection. A subclass that hears its columns somewhere other than a
-   * straight left-to-right sweep -- a radar's spokes go out and back around a
-   * circle -- overrides this one method and both follow, rather than one of
-   * them keeping the line's sweep and contradicting the other.
+   * Split out because three places need it and they must agree: the tone for
+   * the cursor's own point, the tones of every series a chord sounds at an
+   * intersection, and the boundary tone of a move refused there. A subclass
+   * that hears its columns somewhere other than a straight left-to-right sweep
+   * -- a radar's spokes go out and back around a circle -- overrides this one
+   * method and all three follow, rather than one of them keeping the line's
+   * sweep and contradicting the others.
    *
    * @param row - The series index
    * @param col - The column index
@@ -765,6 +773,33 @@ export class LineTrace extends AbstractTrace {
       },
       panning: this.panningFor(this.row, this.col),
       group: this.row,
+    };
+  }
+
+  /**
+   * The boundary tone sounds where the point the reader stopped at sounds.
+   *
+   * The base pans it by column index, which is this family's own sweep, and
+   * so was right only where {@link panningFor} is not overridden. A radar's
+   * point pans by its spoke's angle and its boundary chimed by the spoke's
+   * index: the 3 o'clock spoke, heard on the right, chimed left of centre,
+   * and the 9 o'clock spoke hard right. A ROC or precision-recall curve's
+   * point pans by its rate and a parallel coordinates' by its axis, and their
+   * boundaries chimed by index as well.
+   *
+   * @returns The empty trace state, panned to the cursor's point
+   */
+  protected override get outOfBoundsState(): TraceEmptyState {
+    if (this.points[this.row]?.[this.col] === undefined) {
+      // No point at the cursor -- an empty series, or a layer with none --
+      // has no place of its own to pan to.
+      return super.outOfBoundsState;
+    }
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
+      audio: this.panningFor(this.row, this.col),
     };
   }
 

@@ -883,7 +883,8 @@ The data property is defined as a list of objects where each object is a record 
    // returns them from a recall of 1 down to 0, the last without a threshold.
    //
    // The pitch is the precision on the unit interval for every curve, and
-   // the pan follows the recall. Each point announces its threshold and how
+   // the pan follows the recall, the boundary tone of a refused move as well
+   // as the point's own. Each point announces its threshold and how
    // far its precision sits above (or below) the baseline; the description
    // gives each curve's average precision, the baseline and where each
    // average precision stands against it, and the point with the best F1,
@@ -917,7 +918,8 @@ The data property is defined as a list of objects where each object is a record 
    //
    // The pitch is the true positive rate on the unit interval for every
    // curve, so two classifiers are comparable by ear; the pan follows the
-   // false positive rate. Each point announces its threshold and how far it
+   // false positive rate, the boundary tone of a refused move as well as the
+   // point's own. Each point announces its threshold and how far it
    // sits above (or below) the chance diagonal, and the description gives
    // the area under each curve and the best operating point.
    maidr = {

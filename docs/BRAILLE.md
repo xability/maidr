@@ -511,7 +511,8 @@ values it is — first spoke to last, in the order the chart declares them.
 
 That is not a loss the way a missing magnitude would be, because the angle is
 carried elsewhere and better: the **stereo position** follows the spoke around
-the dial, so a sweep goes out and comes back. Braille answers "how do the
+the dial, so a sweep goes out and comes back, and the boundary tone of a move
+refused on a spoke sounds from that spoke. Braille answers "how do the
 series compare across the spokes"; audio answers "where on the circle am I".
 Encoding a rotation into cell heights would answer neither.
 
