@@ -846,7 +846,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // cross.value (price/value), as one clause; other plots show cross.value
     // normally.
     if (state.section !== undefined) {
-      clauses.push(`${state.section}${Constant.SPACE}${crossText ?? Constant.EMPTY}`);
+      clauses.push(crossText === undefined ? state.section : `${state.section}${Constant.SPACE}${crossText}`);
     } else if (crossText !== undefined) {
       clauses.push(crossText);
     }

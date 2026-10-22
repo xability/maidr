@@ -185,6 +185,15 @@ describe('terse mode with a cross value reads as it did', () => {
     expect(terse().format(state)).toBe('A, open 3');
   });
 
+  test('a section with no cross value after it', () => {
+    const state = stateWith({
+      main: { label: 'X', value: 'A' },
+      section: 'open',
+    });
+
+    expect(terse().format(state)).toBe('A, open');
+  });
+
   test('a span on the cross axis and a third value', () => {
     const state = stateWith({
       main: { label: 'X', value: 'Task' },
