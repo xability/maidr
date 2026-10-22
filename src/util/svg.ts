@@ -1,3 +1,4 @@
+import type { Rgb } from '@type/color';
 import { Color } from './color';
 import { Constant } from './constant';
 import { SELECTOR_CONTRACT_URL } from './selectors';
@@ -752,11 +753,18 @@ export abstract class Svg {
       ? computed.getPropertyValue(Constant.STROKE)
       : computed.getPropertyValue(Constant.FILL);
     const color = this.getHighlightColor(originalColor, fallbackColor);
+    // A filled mark keeps the edge it draws in a colour of its own, a pie
+    // slice's black or a gantt task's border, so a pale fill keeps its
+    // boundary. Set outright: the clone takes a new id, and a rule naming the
+    // mark's id would no longer reach it.
+    const stroke = !isLineElement && this.hasOwnEdge(computed)
+      ? computed.getPropertyValue(Constant.STROKE)
+      : color;
 
-    clone.setAttribute(Constant.STROKE, color);
+    clone.setAttribute(Constant.STROKE, stroke);
     clone.setAttribute(Constant.FILL, color);
     clone.style.fill = color;
-    clone.style.stroke = color;
+    clone.style.stroke = stroke;
 
     if (isLineElement) {
       // Read the width from the original, which is in the document. The clone
@@ -837,6 +845,22 @@ export abstract class Svg {
   }
 
   /**
+   * Whether a filled mark draws a visible edge in a colour other than its fill.
+   * @param style - The mark's computed style
+   * @returns False for an unfilled mark, an edge drawn in the fill's own
+   *   colour, and an edge that draws nothing
+   */
+  private static hasOwnEdge(style: CSSStyleDeclaration): boolean {
+    const fill = style.getPropertyValue(Constant.FILL);
+    const stroke = style.getPropertyValue(Constant.STROKE);
+    return Color.parse(fill) !== null
+      && Color.parse(stroke) !== null
+      && this.isPainted(stroke, style.getPropertyValue('stroke-opacity'))
+      && Number.parseFloat(style.getPropertyValue(Constant.STROKE_WIDTH)) !== 0
+      && !Color.isEqual(stroke, fill);
+  }
+
+  /**
    * Whether a computed fill or stroke draws anything.
    * @param paint - The computed paint
    * @param opacity - Its computed opacity
@@ -851,6 +875,15 @@ export abstract class Svg {
 
   /**
    * Determines an appropriate highlight color based on the original color's luminance.
+   *
+   * A dark mark is drawn in the fallback colour. A light one is drawn in a
+   * darker shade of its own colour, at least `HIGHLIGHT_CONTRAST_RATIO`
+   * against the mark and so against a white page as well: scaling only the
+   * dominant channel, as this did, moved a lavender pie slice by 1.06:1 and
+   * a yellow radar point by 1.17:1, since blue and red carry little of a
+   * colour's luminance. It stops at that contrast rather than going to
+   * black, so a dark label drawn over the mark stays readable on it.
+   *
    * @param originalColor - The original color to base the highlight on
    * @param fallbackColor - Color to use if original cannot be parsed or is dark
    * @returns The computed highlight color string
@@ -869,26 +902,38 @@ export abstract class Svg {
       return fallbackColor;
     }
 
-    const modifiedRgb = { ...originalRgb };
+    return Color.rgbToString(this.darkenToContrast(originalRgb, Constant.HIGHLIGHT_CONTRAST_RATIO));
+  }
 
-    // Check if the color is grayscale (R=G=B)
-    if (originalRgb.r === originalRgb.g && originalRgb.g === originalRgb.b) {
-      // For grayscale, modify all channels uniformly
-      modifiedRgb.r = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.r * Constant.HIGHLIGHT_COLOR_RATIO));
-      modifiedRgb.g = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.g * Constant.HIGHLIGHT_COLOR_RATIO));
-      modifiedRgb.b = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.b * Constant.HIGHLIGHT_COLOR_RATIO));
-    } else {
-      // For non-grayscale colors, modify only the dominant channel
-      if (originalRgb.r >= originalRgb.g && originalRgb.r >= originalRgb.b) {
-        modifiedRgb.r = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.r * Constant.HIGHLIGHT_COLOR_RATIO));
-      } else if (originalRgb.g >= originalRgb.r && originalRgb.g >= originalRgb.b) {
-        modifiedRgb.g = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.g * Constant.HIGHLIGHT_COLOR_RATIO));
+  /**
+   * The lightest shade of a colour that reaches a contrast against it.
+   *
+   * Every channel is scaled by the same factor, so the hue is kept; the
+   * factor is found by halving, since the contrast only grows as it falls.
+   * Black always reaches the contrast asked of a light colour, so the search
+   * always ends on a shade that does.
+   *
+   * @param rgb - The colour
+   * @param ratio - The contrast the shade must reach against it
+   * @returns The shade
+   */
+  private static darkenToContrast(rgb: Rgb, ratio: number): Rgb {
+    const scale = (factor: number): Rgb => ({
+      r: Math.floor(rgb.r * factor),
+      g: Math.floor(rgb.g * factor),
+      b: Math.floor(rgb.b * factor),
+    });
+    let low = 0;
+    let high = 1;
+    for (let step = 0; step < 16; step++) {
+      const middle = (low + high) / 2;
+      if (Color.getContrastRatio(scale(middle), rgb) >= ratio) {
+        low = middle;
       } else {
-        modifiedRgb.b = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.b * Constant.HIGHLIGHT_COLOR_RATIO));
+        high = middle;
       }
     }
-
-    return Color.rgbToString(modifiedRgb);
+    return scale(low);
   }
 
   /**

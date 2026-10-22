@@ -17,9 +17,15 @@
  * attribute, a stylesheet rule or an inline `!important`, and a colour set on
  * the group reached none of them, so a node showed at most a green label and
  * an edge nothing at all.
+ *
+ * A light mark is drawn in a darker shade of its own colour, at least 3:1
+ * against it, keeping the edge it draws in a colour of its own. Scaling its
+ * dominant channel alone left a lavender slice 1.06:1 from its highlight.
  */
 
+import type { Rgb } from '@type/color';
 import { beforeEach, describe, expect, it } from '@jest/globals';
+import { Color } from '@util/color';
 import { Svg } from '@util/svg';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
@@ -189,5 +195,79 @@ describe('createHighlightElement on a group', () => {
     expect(highlight.getAttribute('fill')).toBe(FALLBACK_COLOR);
     expect(highlight.style.fill).toBe(FALLBACK_COLOR);
     expect(label.nextElementSibling).toBe(highlight);
+  });
+});
+
+/**
+ * Puts one mark in the document, painted by its inline style, which is the
+ * one style jsdom computes.
+ * @param tag - The mark's element
+ * @param style - Its inline style
+ * @returns The mark
+ */
+function renderMark(tag: string, style: string): SVGElement {
+  document.body.innerHTML = `<svg xmlns="${SVG_NAMESPACE}"><${tag} style="${style}"></${tag}></svg>`;
+  return document.querySelector(tag) as SVGElement;
+}
+
+/**
+ * The WCAG contrast between two colours.
+ * @param a - One colour
+ * @param b - The other
+ * @returns The ratio, from 1 to 21
+ */
+function contrast(a: string, b: string): number {
+  return Color.getContrastRatio(Color.parse(a) as Rgb, Color.parse(b) as Rgb);
+}
+
+describe('createHighlightElement colour', () => {
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    document.body.innerHTML = '';
+  });
+
+  // Mermaid's pie and XY bars, its cats slice and gantt task, a yellow radar
+  // series, white, light grey and a light heat map cell: each came out
+  // between 1.06:1 and 2.85:1 against the mark it covered.
+  it.each(['#ECECFF', '#FFFFDE', '#B9B9FF', '#BFC7FF', '#FFFF78', '#FFFFFF', '#D3D3D3', '#F8D6BE'])(
+    'darkens a light mark of %s to 3:1 against it and against a white page',
+    (fill) => {
+      const mark = renderMark('rect', `fill: ${fill}; stroke: ${fill}`);
+
+      const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+      const color = highlight.getAttribute('fill') ?? '';
+
+      expect(contrast(color, fill)).toBeGreaterThanOrEqual(3);
+      expect(contrast(color, '#FFFFFF')).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('draws a dark mark in the highlight colour', () => {
+    const mark = renderMark('rect', 'fill: #1F77B4');
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.getAttribute('fill')).toBe(FALLBACK_COLOR);
+  });
+
+  it('keeps the edge a mark draws in a colour of its own', () => {
+    const mark = renderMark('path', 'fill: #ECECFF; stroke: #000000; stroke-width: 2px');
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(Color.isEqual(highlight.style.stroke, '#000000')).toBe(true);
+    expect(Color.isEqual(highlight.getAttribute('stroke') ?? '', '#000000')).toBe(true);
+  });
+
+  it.each([
+    { what: 'an edge drawn in the fill\'s own colour', tag: 'circle', style: 'fill: #FFFF78; stroke: #FFFF78' },
+    { what: 'a mark with no fill', tag: 'path', style: 'fill: none; stroke: #1F77B4' },
+    { what: 'an edge drawn at zero opacity', tag: 'rect', style: 'fill: #ECECFF; stroke: #000000; stroke-opacity: 0' },
+  ])('strokes $what in the highlight\'s own colour', ({ tag, style }) => {
+    const mark = renderMark(tag, style);
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.style.stroke).toBe(highlight.style.fill);
   });
 });

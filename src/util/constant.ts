@@ -138,10 +138,9 @@ export abstract class Constant {
   // Highlight values
   /** Base color for highlight contrast calculations (white) */
   static readonly HIGHLIGHT_BASE_COLOR = { r: 255, g: 255, b: 255 };
-  /** Minimum contrast ratio for highlight visibility */
+  /**
+   * Minimum contrast ratio for highlight visibility: a mark below it against
+   * white is light, and a light mark's highlight reaches it against the mark
+   */
   static readonly HIGHLIGHT_CONTRAST_RATIO = 3.0;
-  /** Color adjustment ratio for creating highlights */
-  static readonly HIGHLIGHT_COLOR_RATIO = 0.6;
-  /** Maximum RGB color value */
-  static readonly HIGHLIGHT_MAX_COLOR = 255;
 }
