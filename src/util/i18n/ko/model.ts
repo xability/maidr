@@ -882,7 +882,7 @@ export const model = {
   'model.seqKindDestroy': '소멸',
   'model.seqKindNote': '노트',
   'model.seqMessage': '메시지',
-  'model.seqParticipantKind': '{name}, {kind}',
+  'model.seqParticipantKind': '{name} ({kind})',
   'model.seqNoteOver': '{name} 위',
   'model.seqNoteSpanning': '{from}부터 {to}까지',
   'model.seqToSelf': '{name}에서 자기 자신에게',

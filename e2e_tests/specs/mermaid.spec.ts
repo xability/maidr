@@ -340,6 +340,16 @@ test.describe('Mermaid adapter', () => {
     await expect(dialog.locator('tr', { hasText: 'Session stored' }).locator('th, td').first()).toHaveText('');
   });
 
+  test('sets a participant\'s kind off from its name, in a lifeline and the description', async ({ page }) => {
+    await openExample(page, 'zenuml');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowDown')).toContain('Lifeline is Customer (actor)');
+
+    await page.keyboard.press('d');
+    await expect(page.getByRole('dialog'))
+      .toContainText('Customer (actor), API (boundary), Store (database)');
+  });
+
   test('goes into a Venn diagram\'s overlaps and back out', async ({ page }) => {
     await openExample(page, 'venn');
     const set = await press(page, 'ArrowRight');

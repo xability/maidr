@@ -878,7 +878,7 @@ export const model = {
   'model.seqKindDestroy': '销毁',
   'model.seqKindNote': '注释',
   'model.seqMessage': '消息',
-  'model.seqParticipantKind': '{name}，{kind}',
+  'model.seqParticipantKind': '{name}（{kind}）',
   'model.seqNoteOver': '在 {name} 上',
   'model.seqNoteSpanning': '从 {from} 到 {to}',
   'model.seqToSelf': '{name} 发给自己',

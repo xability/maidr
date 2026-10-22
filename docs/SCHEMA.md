@@ -1098,7 +1098,7 @@ is an object, because a participant no message reaches is still a lifeline:
 
 - `participants` lists the lifelines left to right. `label` is what is
   announced, defaulting to `id`; `kind` (`actor`, `database`, ...) is announced
-  with the name; `group` names the box the diagram draws around it. A
+  in parentheses after the name, `Browser (actor)`; `group` names the box the diagram draws around it. A
   participant a message names without declaring is added after them.
 - `messages` run in time order. `kind` is one of `sync` (the default),
   `async`, `reply`, `create`, `destroy` or `note`; `fragments` lists the

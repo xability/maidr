@@ -883,7 +883,7 @@ export const model = {
   'model.seqKindDestroy': 'destruye',
   'model.seqKindNote': 'Nota',
   'model.seqMessage': 'Mensaje',
-  'model.seqParticipantKind': '{name}, {kind}',
+  'model.seqParticipantKind': '{name} ({kind})',
   'model.seqNoteOver': 'sobre {name}',
   'model.seqNoteSpanning': 'sobre {from} a {to}',
   'model.seqToSelf': '{name} a sí mismo',

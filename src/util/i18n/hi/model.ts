@@ -875,7 +875,7 @@ export const model = {
   'model.seqKindDestroy': 'नष्ट करता है',
   'model.seqKindNote': 'टिप्पणी',
   'model.seqMessage': 'संदेश',
-  'model.seqParticipantKind': '{name}, {kind}',
+  'model.seqParticipantKind': '{name} ({kind})',
   'model.seqNoteOver': '{name} पर',
   'model.seqNoteSpanning': '{from} से {to} तक',
   'model.seqToSelf': '{name} से स्वयं को',

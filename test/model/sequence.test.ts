@@ -112,7 +112,7 @@ describe('down walks a lifeline and keeps the moment', () => {
   test('down moves onto the first participant\'s own messages', () => {
     const trace = sequence();
     trace.moveOnce('DOWNWARD');
-    expect(aside(trace, 'Lifeline')).toBe('Browser, actor');
+    expect(aside(trace, 'Lifeline')).toBe('Browser (actor)');
     expect(state(trace).text.main.value).toBe('POST /login');
     trace.moveOnce('FORWARD');
     expect(state(trace).text.main.value).toBe('200 OK');
@@ -124,7 +124,7 @@ describe('down walks a lifeline and keeps the moment', () => {
     trace.moveOnce('DOWNWARD');
     trace.moveOnce('DOWNWARD');
     trace.moveOnce('DOWNWARD');
-    expect(aside(trace, 'Lifeline')).toBe('Database, database');
+    expect(aside(trace, 'Lifeline')).toBe('Database (database)');
     expect(state(trace).text.main.value).toBe('user row');
   });
 
@@ -255,6 +255,14 @@ describe('the description', () => {
     expect(stat(trace, 'Fragments')).toBe(1);
     expect(stat(trace, 'Messages to self')).toBe(1);
     expect(stat(trace, 'Busiest participant')).toBe('Server, in 5 messages');
+  });
+
+  test('lists the participants with each kind set off from its name', () => {
+    // Joined with a comma, the kinds read as participants of their own:
+    // "Browser, actor, Server, Database, database, Cache" -- six names for
+    // the four the count had just announced.
+    expect(stat(sequence(), 'Participants, left to right'))
+      .toBe('Browser (actor), Server, Database (database), Cache');
   });
 
   test('tabulates every message in order', () => {
