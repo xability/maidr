@@ -438,7 +438,7 @@ export class CommandFactory {
 
       // Grid cell navigation
       case 'ENTER_GRID_CELL':
-        return new EnterGridCellCommand(this.context, this.notificationService);
+        return new EnterGridCellCommand(this.context, this.notificationService, this.audioService);
       case 'EXIT_GRID_CELL':
         return new ExitGridCellCommand(this.context);
       case 'GRID_CELL_MOVE_LEFT':
