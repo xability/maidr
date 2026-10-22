@@ -49,6 +49,20 @@ describe('the other graphs', () => {
     expect(data[0]).toMatchObject({ label: 'Database', path: ['API'], inputs: ['web'] });
   });
 
+  it('names architecture items neutrally, so a group or a junction is not called a service', () => {
+    const layer = layersOf(convert('architecture', {
+      getGroups: () => [{ id: 'api', title: 'API' }],
+      getServices: () => [{ id: 'web', title: 'Web' }, { id: 'db', title: 'Database', in: 'api' }],
+      getJunctions: () => [{ id: 'hub', in: 'api' }],
+      getEdges: () => [{ lhsId: 'web', rhsId: 'hub', lhsInto: false, rhsInto: true }],
+    }))[0];
+
+    const hub = (layer.data as DirectedGraphPoint[])[2];
+
+    expect(layer.axes).toEqual({ x: { label: 'Element' } });
+    expect(hub).toMatchObject({ id: 'hub', label: 'junction hub', path: ['API'], attributes: { Kind: 'junction' } });
+  });
+
   it('reads an event model\'s boxes as entities, each with its frame', () => {
     const layer = layersOf(convert('eventmodeling', {
       getState: () => ({

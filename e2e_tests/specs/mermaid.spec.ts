@@ -360,6 +360,16 @@ test.describe('Mermaid adapter', () => {
     expect(box).not.toContain('Frame is CartUI');
   });
 
+  test('calls an architecture diagram\'s group an element, not a service', async ({ page }) => {
+    await openExample(page, 'architecture');
+    await press(page, 'ArrowRight');
+    const group = await press(page, 'ArrowRight');
+
+    expect(group).toContain('Element is API');
+    expect(group).toContain('Scope is 3 nodes inside');
+    expect(group).not.toContain('Service is');
+  });
+
   test('reads a ZenUML diagram from its text, nested calls and replies included', async ({ page }) => {
     await openExample(page, 'zenuml');
     await press(page, 'ArrowRight');

@@ -146,7 +146,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Use case diagram [experimental] | `usecase-beta` | a `directed_graph`: actors and use cases inside their system boundaries |
 | C4 diagram [experimental] | `C4Context` and the other C4 levels | a `directed_graph`: people, systems and containers in their boundaries, relationships with their technology |
 | Block diagram [experimental] | `block` | a `directed_graph`: blocks inside composite blocks, block arrows by their direction |
-| Architecture diagram [experimental] | `architecture-beta` | a `directed_graph`: services and junctions in their groups |
+| Architecture diagram [experimental] | `architecture-beta` | a `directed_graph`: services and junctions in their groups, each announced as an element with its kind |
 | Git graph [experimental] | `gitGraph` | a `directed_graph`: commits on their branches, each fed by its parents, with tags and merge and cherry-pick commits named |
 | Event model [experimental] | `eventmodeling` | a `directed_graph`: each time frame's entity (UI, command, read model, event, processor) in its swimlane, with its frame, along the flow between them |
 | Swimlane diagram [experimental] | `swimlane-beta` | a `directed_graph`: steps lane by lane |

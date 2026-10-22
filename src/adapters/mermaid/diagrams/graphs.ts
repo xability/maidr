@@ -142,7 +142,8 @@ export function block(context: DiagramContext): DiagramConversion {
 /**
  * Architecture diagrams: services and junctions inside groups, joined by
  * connections. A connection drawn with an arrow runs the way it points; one
- * without runs from the side it was written on.
+ * without runs from the side it was written on. Services, junctions and
+ * groups are all called elements, and each node's kind says which it is.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -179,7 +180,7 @@ export function architecture(context: DiagramContext): DiagramConversion {
       label: plain(edge.title),
     };
   });
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Service' }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element' }));
 }
 
 /** Mermaid's commit types, in its own numbering. */
