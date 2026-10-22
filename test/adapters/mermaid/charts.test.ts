@@ -59,6 +59,19 @@ describe('the charts', () => {
       [{ x: 'Bits 32 to 32', start: 32, end: 32, label: 'Flag' }],
     ]);
     expect(data.inclusive).toBe(true);
+    // A database with no configuration says nothing of how its rows are drawn.
+    expect(data.wrap).toBeUndefined();
+  });
+
+  it('folds a packet\'s bits into the rows Mermaid draws, left to right', () => {
+    const wrapOf = (config: object): number | undefined => (layersOf(convert('packet', {
+      getPacket: () => [[{ start: 0, end: 15, label: 'Port' }]],
+      getConfig: () => config,
+    }))[0].data as GanttData).wrap;
+    expect(wrapOf({ bitsPerRow: 32 })).toBe(32);
+    expect(wrapOf({ bitsPerRow: 16 })).toBe(16);
+    expect(wrapOf({ bitsPerRow: 32, bitOrder: 'descending' })).toBeUndefined();
+    expect(wrapOf({ bitsPerRow: 0 })).toBeUndefined();
   });
 
   it('recovers a quadrant chart\'s values from its laid-out points, in declared order', () => {

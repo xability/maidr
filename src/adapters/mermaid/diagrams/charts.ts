@@ -133,7 +133,7 @@ export function gantt(context: DiagramContext): DiagramConversion {
 /**
  * Packet diagrams: the fields of a network packet, one lane per row of bits,
  * each field an interval of bits from its first to its last, as Mermaid
- * writes and draws it.
+ * writes and draws it, panned by where it starts in its row.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -154,13 +154,21 @@ export function packet(context: DiagramContext): DiagramConversion {
   }).filter(lane => lane.length > 0);
   const blocks = all(context.svg, 'rect.packetBlock');
   const count = lanes.flat().length;
+  // The row length the rows above were split at, so a field pans by where
+  // its row draws it. Not for bits drawn right to left, whose rows are also
+  // walked against the drawing; those still pan along the whole packet.
+  const config = call(context.db, 'getConfig') as Row | undefined;
+  const bitsPerRow = num(config?.bitsPerRow);
+  const wrap = bitsPerRow !== undefined && bitsPerRow > 0 && str(config?.bitOrder) !== 'descending'
+    ? { wrap: bitsPerRow }
+    : {};
   const layer: MaidrLayer = {
     id: context.layerId('packet'),
     type: TraceType.GANTT,
     orientation: Orientation.HORIZONTAL,
     axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
     ...(blocks.length === count && count > 0 ? { selectors: selectorsFor(blocks) } : {}),
-    data: { points: lanes, unit: 'bits', inclusive: true },
+    data: { points: lanes, unit: 'bits', inclusive: true, ...wrap },
   };
   return { layers: count > 0 ? [layer] : [] };
 }

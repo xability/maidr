@@ -523,6 +523,12 @@ test.describe('Mermaid adapter', () => {
 
   test('reads a packet field from its first bit to its last', async ({ page }) => {
     await openExample(page, 'packet');
+    // Folded into Mermaid's rows of 32 bits, so a field pans by where its row
+    // draws it.
+    const json = await page.locator('svg[maidr]').first().getAttribute('maidr');
+    const maidr = JSON.parse(json ?? '{}') as { subplots: { layers: { data: { wrap?: number } }[] }[][] };
+    expect(maidr.subplots[0][0].layers[0].data.wrap).toBe(32);
+
     const source = await press(page, 'ArrowRight');
     expect(source).toContain('Source port, Bit is 0 through 15');
     expect(source).toContain('Length is 16 bits');
