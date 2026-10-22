@@ -246,6 +246,42 @@ describe('a single series the layer named', () => {
   });
 });
 
+describe('a single series whose samples name several groups', () => {
+  // One line through several groups, as a user journey's tasks run through
+  // its sections: `text` announces each sample's own group.
+  const journey: LinePoint[][] = [[
+    { x: 'Make tea', y: 5, z: 'Go to work' },
+    { x: 'Do work', y: 1, z: 'Go to work' },
+    { x: 'Go home', y: 5, z: 'Go home' },
+  ]];
+  const axes: MaidrLayer['axes'] = { x: { label: 'Task' }, y: { label: 'Score' }, z: { label: 'Section' } };
+
+  test('lists every group rather than naming the line after the first', () => {
+    const described = describedBy(journey, axes);
+
+    expect(statOf(described, 'Section')).toBe('Go to work, Go home');
+  });
+
+  test('tabulates each sample\'s group', () => {
+    const { dataTable } = describedBy(journey, axes);
+
+    expect(dataTable.headers).toEqual(['Task', 'Score', 'Section']);
+    expect(dataTable.columnAxes).toEqual(['x', 'y', 'z']);
+    expect(dataTable.rows).toEqual([
+      ['Make tea', 5, 'Go to work'],
+      ['Do work', 1, 'Go to work'],
+      ['Go home', 5, 'Go home'],
+    ]);
+  });
+
+  test('is still one series named once when every sample names the same group', () => {
+    const described = describedBy([[{ x: 1, y: 3, z: 'A' }, { x: 2, y: 4, z: 'A' }]], axes);
+
+    expect(statOf(described, 'Section')).toBe('A');
+    expect(described.dataTable.headers).toEqual(['Task', 'Score']);
+  });
+});
+
 describe('how many samples have no reading', () => {
   test('is counted across every series', () => {
     const gapped: LinePoint[][] = [
