@@ -158,8 +158,8 @@ graph Budget {
   label="Team budget";
   layout=patchwork;
   subgraph cluster_people {
-    salaries [label="Salaries", area=60];
-    training [label="Training", area=5];
+    salaries [label="Salaries", area=50];
+    training [label="Training", area=15];
   }
   subgraph cluster_infrastructure {
     cloud [label="Cloud", area=20];
