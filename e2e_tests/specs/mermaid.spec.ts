@@ -519,7 +519,51 @@ test.describe('Mermaid adapter', () => {
     expect(new Set(after)).toEqual(new Set(['link:multiply']));
   });
 
-  for (const name of ['eventmodeling', 'zenuml', 'ishikawa', 'timeline', 'packet', 'gitgraph']) {
+  // What Mermaid paints from the <style> it puts in the diagram: each
+  // selector, the paint read, and the examples it is checked on.
+  const SHEET_PAINTED: [string, string, 'stroke' | 'fill'][] = [
+    ['flowchart', 'path.flowchart-link', 'stroke'],
+    ['flowchart', 'marker path', 'stroke'],
+    ['sequence', 'line.actor-line', 'stroke'],
+    ['sequence', '[class^="messageLine"]', 'stroke'],
+    ['sequence', '.loopLine', 'stroke'],
+    ['sequence', 'rect.actor', 'stroke'],
+    ['gantt', '.tick text', 'fill'],
+    ['er', '.relationshipLine', 'stroke'],
+    ['class', '.relation', 'stroke'],
+    ['mindmap', '.section-edge-0', 'stroke'],
+    ['radar', '.radarCurve-1', 'fill'],
+  ];
+  for (const name of new Set(SHEET_PAINTED.map(([example]) => example))) {
+    test(`repaints what the ${name} example's stylesheet paints in high contrast, and gives it back after`, async ({ page }) => {
+      // Edges, arrowheads, lifelines, axis dates and a radar series painted
+      // by Mermaid's stylesheet stayed dark on the black backdrop; a pale
+      // yellow series or branch was taken for the page and painted it.
+      const paints = async (): Promise<string[]> => Promise.all(SHEET_PAINTED
+        .filter(([example]) => example === name)
+        .map(async ([, selector, property]) => {
+          const values = await page.locator(`svg[maidr] ${selector}`).evaluateAll(
+            (elements, paint) => elements
+              .filter(element => element.closest('[data-maidr-owned]') === null)
+              .map(element => getComputedStyle(element).getPropertyValue(paint)),
+            property,
+          );
+          return `${selector}: ${[...new Set(values)].join(', ')}`;
+        }));
+      await openExample(page, name);
+      const before = await diagramPaint(page);
+      expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+      for (const painted of await paints()) {
+        expect(painted).toMatch(/: rgb\(255, 255, 255\)$/);
+      }
+
+      expect(await press(page, 'c')).toContain('High Contrast Mode off');
+      expect(await diagramPaint(page)).toEqual(before);
+    });
+  }
+
+  for (const name of ['eventmodeling', 'zenuml', 'ishikawa', 'timeline', 'packet', 'gitgraph', 'flowchart', 'gantt', 'journey', 'mindmap']) {
     test(`keeps every label of the ${name} example readable on what it is drawn on, in high contrast`, async ({ page }) => {
       // Labels were sent light whatever they were drawn on, so a label on a
       // box left light, or lifted light, went white on white.

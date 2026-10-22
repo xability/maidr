@@ -929,6 +929,140 @@ describe('highContrastService', () => {
     expect(harness.svg.classList.contains('high-contrast')).toBe(false);
   });
 
+  describe('paint a stylesheet gives', () => {
+    // Mermaid paints its edges, markers, lifelines, node fills and axis text
+    // from the <style> it puts in the diagram. None of it was captured, and
+    // where an attribute was rewritten instead the rule still won, so the
+    // diagram's lines stayed dark on the black backdrop.
+    const SHEET_LIGHT = '#ffffff';
+    const SHEET_DARK = '#000000';
+
+    /** Builds a chart from markup drawn into the SVG, under a stylesheet. */
+    function chartOf(markup: string, css: string): void {
+      rebuild([{ fill: 'none', stroke: 'none' }], {
+        beforeService: () => {
+          document.head.insertAdjacentHTML('beforeend', `<style>${css}</style>`);
+          const chart = document.querySelector('#chart') as SVGSVGElement;
+          chart.innerHTML = markup;
+        },
+      });
+    }
+
+    it('repaints a line a rule strokes, and hands it back to the rule after', () => {
+      chartOf('<path class="edge" d="M 0 0 L 10 10"></path>', '#chart .edge { stroke: #333333; fill: none; }');
+      const edge = harness.svg.querySelector('.edge') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(edge.style.getPropertyValue('stroke')).toBe(SHEET_LIGHT);
+      expect(edge.style.getPropertyPriority('stroke')).toBe('important');
+      expect(edge.style.getPropertyValue('fill')).toBe('');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(edge.hasAttribute('style')).toBe(false);
+    });
+
+    it('repaints text a rule colours over its fill attribute, and leaves the attribute alone', () => {
+      // D3's and Mermaid's axis ticks: `fill="#000"` under `.tick text`.
+      chartOf('<g class="tick"><text fill="#000">2026-01-11</text></g>', '#chart .tick text { fill: #333333; }');
+      const tick = harness.svg.querySelector('text') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(tick.style.getPropertyValue('fill')).toBe(SHEET_LIGHT);
+      expect(tick.getAttribute('fill')).toBe('#000');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(tick.style.getPropertyValue('fill')).toBe('');
+      expect(tick.getAttribute('fill')).toBe('#000');
+    });
+
+    it('repaints a fill an important rule gives, over the rule', () => {
+      // A Mermaid classDef is an `!important` rule.
+      chartOf('<rect class="box"></rect>', '#chart rect.box { fill: #f0f0f0 !important; }');
+      const box = harness.svg.querySelector('.box') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(box.style.getPropertyValue('fill')).toBe(SHEET_DARK);
+      expect(box.style.getPropertyPriority('fill')).toBe('important');
+    });
+
+    it('takes an inline paint over the attribute it hides', () => {
+      // C4 and Mermaid's sequence actors write both. The hidden attribute was
+      // counted as the outline that kept the box visible, and the box was
+      // left black on black.
+      chartOf(
+        '<rect fill="#eaeaea" stroke="#666666" style="fill: #fff7ed; stroke: #fb923c"></rect>',
+        '',
+      );
+      const box = harness.svg.querySelector('rect') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(box.getAttribute('style')).toContain('stroke:#ffffff');
+      expect(box.getAttribute('stroke')).toBe('#666666');
+    });
+
+    it('repaints a span a rule colours itself, as well as its label', () => {
+      // Mermaid's `.loopText > tspan`, which kept a loop's condition dark.
+      chartOf(
+        '<text class="loopText"><tspan>[Until the password matches]</tspan></text>',
+        '#chart .loopText, #chart .loopText > tspan { fill: #333333; }',
+      );
+      const span = harness.svg.querySelector('tspan') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(span.style.getPropertyValue('fill')).toBe(SHEET_LIGHT);
+      expect(span.style.getPropertyPriority('fill')).toBe('important');
+    });
+
+    it('repaints the markers a rule fills', () => {
+      chartOf(
+        '<defs><marker id="arrow"><path class="arrowhead" d="M 0 0 L 5 5"></path></marker></defs>',
+        '#chart .arrowhead { fill: #333333; stroke: #333333; }',
+      );
+      const head = harness.svg.querySelector('.arrowhead') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(head.style.getPropertyValue('fill')).toBe(SHEET_LIGHT);
+      expect(head.style.getPropertyValue('stroke')).toBe(SHEET_LIGHT);
+    });
+
+    it('paints a pale yellow as ink, not as the page showing through', () => {
+      // Mermaid draws a radar series, and a mindmap's section and its
+      // branches, in #ffff78: as light as paper, but a colour. Taken for the
+      // page, the series and the branches were painted the background colour.
+      chartOf(
+        '<path class="curve" d="M 0 0 L 10 10 Z"></path><path class="branch" d="M 0 0 L 10 10"></path>',
+        '#chart .curve { fill: #ffff78; stroke: #ffff78; } #chart .branch { fill: none; stroke: #ffff78; }',
+      );
+      const curve = harness.svg.querySelector('.curve') as SVGElement;
+      const branch = harness.svg.querySelector('.branch') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(curve.style.getPropertyValue('fill')).toBe(SHEET_LIGHT);
+      expect(branch.style.getPropertyValue('stroke')).toBe(SHEET_LIGHT);
+    });
+
+    it('reads a rule nested in an at-rule, and none that matches no element', () => {
+      chartOf(
+        '<path class="edge" d="M 0 0 L 10 10"></path>',
+        '@media screen { #chart .edge { stroke: #333333; } } #chart .edge::after { fill: red; }',
+      );
+      const edge = harness.svg.querySelector('.edge') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(edge.style.getPropertyValue('stroke')).toBe(SHEET_LIGHT);
+    });
+  });
+
   describe('a label and the shape under it', () => {
     // A box lifted to the light colour: its fill and outline both map to the
     // background, so its fill is lifted off it -- as Mermaid's event model

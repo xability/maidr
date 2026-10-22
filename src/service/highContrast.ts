@@ -44,6 +44,9 @@ const HighContrastConstants = {
   // reduced opacity, so it stays visible without competing with the data.
   LIGHT_GREY_LUMINANCE_SCALE: 0.25,
   GREY_MAX_CHANNEL_SPREAD: 24,
+  // Paper is white, or a tint of it: Mermaid's #ececff, #ffffde. A pale
+  // yellow as light, such as Mermaid's #ffff78 series and sections, is ink.
+  PAPER_MAX_CHANNEL_SPREAD: 64,
   FAINT_INK_ALPHA: 0.5,
   MIN_COMPLEX_PATH_LENGTH: 120,
   MIN_COLOR_INTERPOLATION_COUNT: 2,
@@ -185,6 +188,73 @@ const DRAWING_SELECTOR = [
 
 const HIDDEN_VISIBILITY: ReadonlySet<string> = new Set(['hidden', 'collapse']);
 
+/** The paints an SVG element is given. */
+type PaintProperty = 'fill' | 'stroke';
+const PAINT_PROPERTIES: readonly PaintProperty[] = ['fill', 'stroke'];
+
+/**
+ * The elements under `roots` a stylesheet rule paints, and which of their
+ * paints. A rule outranks a presentation attribute, so such a paint is what
+ * the element shows whatever its `fill` or `stroke` attribute says: Mermaid
+ * paints edges, markers, node fills and axis text this way, from the
+ * `<style>` it puts in the diagram. Rules nested in at-rules and imported
+ * sheets count; a sheet another origin serves cannot be read, and a selector
+ * `querySelectorAll` rejects -- a pseudo-element -- paints no element.
+ */
+function stylesheetPaints(roots: Element[]): Map<Element, Set<PaintProperty>> {
+  const painted = new Map<Element, Set<PaintProperty>>();
+  const sheets: CSSStyleSheet[] = [];
+  for (const scope of new Set(roots.map(root => root.getRootNode()))) {
+    if ('styleSheets' in scope) {
+      const { styleSheets, adoptedStyleSheets } = scope as Document | ShadowRoot;
+      sheets.push(...Array.from(styleSheets), ...(adoptedStyleSheets ?? []));
+    }
+  }
+  // Rules are told apart by what they hold rather than by class, which
+  // differs in a chart drawn in another frame.
+  const visit = (rules: CSSRuleList): void => {
+    for (const rule of Array.from(rules)) {
+      const { selectorText, style } = rule as Partial<CSSStyleRule>;
+      if (typeof selectorText === 'string' && style !== undefined) {
+        const properties = PAINT_PROPERTIES.filter(property => style.getPropertyValue(property) !== '');
+        for (const root of properties.length === 0 ? [] : roots) {
+          let matches: Element[] = [];
+          try {
+            matches = Array.from(root.querySelectorAll(selectorText));
+          } catch {
+            // A selector no element can match, such as a pseudo-element.
+          }
+          for (const element of matches) {
+            const paints = painted.get(element) ?? new Set<PaintProperty>();
+            properties.forEach(property => paints.add(property));
+            painted.set(element, paints);
+          }
+        }
+      }
+      const { styleSheet } = rule as Partial<CSSImportRule>;
+      const { cssRules } = rule as Partial<CSSGroupingRule>;
+      if (styleSheet) {
+        sheets.push(styleSheet);
+      } else if (cssRules) {
+        // At-rules that group rules, and rules nested in a style rule.
+        visit(cssRules);
+      }
+    }
+  };
+  // Grows as imported sheets are found.
+  for (let at = 0; at < sheets.length; at++) {
+    let rules: CSSRuleList;
+    try {
+      rules = sheets[at].cssRules;
+    } catch {
+      // Served from another origin: its rules cannot be read.
+      continue;
+    }
+    visit(rules);
+  }
+  return painted;
+}
+
 /**
  * Whether an element is positioned wholly where no scroll can reach: above
  * the document's top, or before its start in a left-to-right page. Plotly
@@ -308,7 +378,12 @@ interface ElementColorInfo {
   traceType?: string;
   cantBeBackground: boolean;
   attr: 'fill' | 'stroke';
-  attrType?: 'style' | 'attribute';
+  /**
+   * Where the paint is written: the style attribute, a presentation
+   * attribute, or a stylesheet rule -- whose computed value is captured, and
+   * overridden with an inline declaration.
+   */
+  attrType?: 'style' | 'attribute' | 'computed';
 }
 
 /** An inline declaration this service overrode, and what it held before. */
@@ -317,6 +392,8 @@ interface InlineStyleSnapshot {
   property: string;
   value: string;
   priority: string;
+  /** Whether the element had a style attribute at all. */
+  hadStyle: boolean;
 }
 
 /**
@@ -359,6 +436,10 @@ export class HighContrastService implements Disposable {
   // without an inline fill, whether it was drawn near-white.
   private backgroundSurfaces: (HTMLElement | SVGElement)[] = [];
   private uncapturedTextIsPaper = new Map<SVGElement, boolean>();
+
+  // The paints a stylesheet rule gives each element of the chart, read on
+  // every capture.
+  private sheetPaints = new Map<Element, Set<PaintProperty>>();
 
   // Cache of all trace elements for high contrast mode, each with the type
   // of the layer that selects it
@@ -527,6 +608,7 @@ export class HighContrastService implements Disposable {
    */
   private captureOriginalColors(): void {
     // Capture SVG element colors
+    this.sheetPaints = stylesheetPaints(this.getColorRoots());
     this.originalColorInfo = this.getOriginalColorInfo();
     this.captureSurfacesAndText();
   }
@@ -570,8 +652,10 @@ export class HighContrastService implements Disposable {
         text.tagName !== 'text'
         && parent !== null
         && window.getComputedStyle(parent).getPropertyValue('fill') === computedFill
+        && !this.sheetPaints.get(text)?.has('fill')
       ) {
-        // A span that takes its colour from its <text> follows it there.
+        // A span that takes its colour from its <text> follows it there. One
+        // a rule colours keeps that colour, however it compares.
         continue;
       }
       const fill = this.resolvePaint(text, 'fill', computedFill);
@@ -580,7 +664,7 @@ export class HighContrastService implements Disposable {
         text,
         parts !== null
         && !this.isTiledChart()
-        && this.isNearWhite(parts.hex, HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE),
+        && this.isPaperColor(parts.hex),
       );
     }
   }
@@ -704,6 +788,15 @@ export class HighContrastService implements Disposable {
     }
 
     this.overrideInlineStyles();
+    // A paint a stylesheet rule gives is overridden inline, `!important`, the
+    // one declaration an `!important` rule -- a Mermaid classDef -- cannot
+    // beat. After the overrides above, which start by putting every inline
+    // declaration back.
+    for (const item of highContrastElInfo) {
+      if (item.attrType === 'computed') {
+        this.overrideInlineStyle(item.element, item.attr, item.color, 'important');
+      }
+    }
 
     // Add text shadow filter
     const hasGlowFilter = this.addGlowShadowFilter();
@@ -890,6 +983,7 @@ export class HighContrastService implements Disposable {
         text,
         'fill',
         isPaper ? this.highContrastDarkColor : this.highContrastLightColor,
+        'important',
       );
     }
 
@@ -937,6 +1031,7 @@ export class HighContrastService implements Disposable {
       property,
       value: element.style.getPropertyValue(property),
       priority: element.style.getPropertyPriority(property),
+      hadStyle: element.hasAttribute('style'),
     });
     element.style.setProperty(property, value, priority);
   }
@@ -1208,6 +1303,11 @@ export class HighContrastService implements Disposable {
       } else {
         snapshot.element.style.setProperty(snapshot.property, snapshot.value, snapshot.priority);
       }
+      // An element given its first inline declaration here goes back to
+      // having none, rather than keeping an empty style attribute.
+      if (!snapshot.hadStyle && snapshot.element.getAttribute('style') === '') {
+        snapshot.element.removeAttribute('style');
+      }
     }
     this.inlineStyleSnapshots = [];
   }
@@ -1340,8 +1440,8 @@ export class HighContrastService implements Disposable {
 
       const capture = (
         value: string,
-        attr: 'fill' | 'stroke',
-        attrType: 'style' | 'attribute',
+        attr: PaintProperty,
+        attrType: 'style' | 'attribute' | 'computed',
       ): void => {
         const color = value.trim();
         originalColorInfo.push({
@@ -1356,24 +1456,55 @@ export class HighContrastService implements Disposable {
         });
       };
 
-      if (styleFillMatch) {
-        capture(styleFillMatch[1], 'fill', 'style');
-      }
-      if (styleStrokeMatch) {
-        capture(styleStrokeMatch[1], 'stroke', 'style');
-      }
-
-      const attrFill = el.getAttribute('fill');
-      if (attrFill) {
-        capture(attrFill, 'fill', 'attribute');
-      }
-      const attrStroke = el.getAttribute('stroke');
-      if (attrStroke) {
-        capture(attrStroke, 'stroke', 'attribute');
+      // Each paint is captured where it is shown from: an inline declaration,
+      // else a stylesheet rule, which outranks a presentation attribute, else
+      // the attribute. An inline declaration loses only to an `!important`
+      // rule; an attribute under either paints nothing.
+      const declared = { fill: styleFillMatch?.[1], stroke: styleStrokeMatch?.[1] };
+      for (const attr of PAINT_PROPERTIES) {
+        const inline = declared[attr];
+        if (this.sheetPaints.get(el)?.has(attr) && !this.inlineOutranksRules(el, attr, inline)) {
+          // Text coloured only by a rule is left to captureSurfacesAndText.
+          const textFill = attr === 'fill' && TEXT_TAGS.has(el.tagName)
+            && inline === undefined && !el.hasAttribute('fill');
+          const computed = window.getComputedStyle(el).getPropertyValue(attr).trim();
+          if (!textFill && this.resolvePaint(el, attr, computed) !== null) {
+            capture(computed, attr, 'computed');
+          }
+          continue;
+        }
+        if (inline !== undefined) {
+          capture(inline, attr, 'style');
+          continue;
+        }
+        const attribute = el.getAttribute(attr);
+        if (attribute) {
+          capture(attribute, attr, 'attribute');
+        }
       }
     }
 
     return originalColorInfo;
+  }
+
+  /**
+   * Whether an element's inline paint is the one it shows over the rules
+   * that paint it too: when it is `!important`, or shows the colour it
+   * declares. An inline paint that names no colour -- `none`, a pattern --
+   * outranks a rule that names none either.
+   */
+  private inlineOutranksRules(element: Element, attr: PaintProperty, inline: string | undefined): boolean {
+    if (inline === undefined) {
+      return false;
+    }
+    if ((element as SVGElement).style?.getPropertyPriority(attr) === 'important') {
+      return true;
+    }
+    const computed = window.getComputedStyle(element).getPropertyValue(attr).trim();
+    const own = this.resolvePaint(element, attr, inline.trim());
+    return own === null
+      ? this.resolvePaint(element, attr, computed) === null
+      : own === this.resolvePaint(element, attr, computed);
   }
 
   private getHighContrastColors(
@@ -1480,7 +1611,7 @@ export class HighContrastService implements Disposable {
     if (parts === null) {
       return false;
     }
-    return this.isNearWhite(parts.hex, HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE)
+    return this.isPaperColor(parts.hex)
       || (!item.isInSelectors && item.attr === 'fill' && this.isLightGrey(parts.hex));
   }
 
@@ -1639,7 +1770,7 @@ export class HighContrastService implements Disposable {
     const withAlpha = (hex: string): string => this.applyAlpha(hex, original.alpha);
 
     const nearWhiteScale = HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE;
-    const isPaper = this.isNearWhite(original.hex, nearWhiteScale);
+    const isPaper = this.isPaperColor(original.hex);
 
     if (this.isTextDescendant(colorInfo.element, textDescendants)) {
       // Text sits on the page, and reads light on the dark background --
@@ -1834,6 +1965,21 @@ export class HighContrastService implements Disposable {
     const spread = Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b);
     return spread <= HighContrastConstants.GREY_MAX_CHANNEL_SPREAD
       && this.isNearWhite(hex, HighContrastConstants.LIGHT_GREY_LUMINANCE_SCALE);
+  }
+
+  /**
+   * A colour of the paper: near-white, and nearly colourless. Luminance
+   * alone would take a pale yellow, drawn as a series or a section, for the
+   * page showing through, and paint it the background colour.
+   */
+  private isPaperColor(hex: string): boolean {
+    const rgb = this.parseColorToRgb(hex);
+    if (!rgb) {
+      return false;
+    }
+    const spread = Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b);
+    return spread <= HighContrastConstants.PAPER_MAX_CHANNEL_SPREAD
+      && this.isNearWhite(hex, HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE);
   }
 
   private isNearWhite(hex: string, nearWhiteScale: number): boolean {
