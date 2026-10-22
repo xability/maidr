@@ -1027,6 +1027,50 @@ The data property is defined as a list of objects where each object is a record 
 
 ```
 
+### Sankey, alluvial and chord (`sankey`, `alluvial`, `chord`) [experimental]
+
+Weighted flows between nodes. `data` is one entry per **flow**; the nodes are
+the names the flows give their two ends, so there is no node list to keep in
+step with them:
+
+```javascript
+{
+  type: 'sankey',
+  axes: { y: { label: 'Petajoules' } },  // what a value measures; defaults to "Value"
+  selectors: '#chart path.link',          // optional: one element per flow, in declared order
+  flowOptions: {                          // optional: where the nodes were drawn
+    columns: [['Gas', 'Solar'], ['Electricity'], ['Heating', 'Homes']],
+  },
+  data: [
+    { source: 'Solar', target: 'Electricity', value: 40 },
+    { source: 'Gas', target: 'Electricity', value: 60 },
+    { source: 'Gas', target: 'Heating', value: 45 },
+    { source: 'Electricity', target: 'Homes', value: 100 },
+  ],
+}
+```
+
+- `source` and `target` name the flow's ends, and `value` how much flows; a
+  flow whose value is not a number is left out.
+- `flowOptions.columns` lists the columns the chart drew its nodes in, left to
+  right, each naming its nodes top to bottom. Without it MAIDR places each node
+  one column past the furthest node feeding it, and orders a column by the
+  first flow naming each of its nodes. Not every library lays a sankey out that
+  way: d3-sankey's default alignment, which Mermaid uses, puts every node
+  nothing leaves in the last column -- Heating, above -- and reorders each
+  column. Declare the columns when the chart's layout is known, and Up and
+  Down walk each column as it is drawn, the stereo position follows the
+  columns from left to right, and the braille rows and the object list's
+  stages are the drawn columns. They are used only when they name every node
+  once and every flow runs from one column to a later one, so a chord diagram,
+  which cycles, declares none and is read as one stage. Read by these three
+  types and ignored by every other.
+
+Right follows the largest flow out of a node and left the largest flow into
+it, each step announcing the flow it went along; up and down walk the nodes of
+the column. The rotor's **Outgoing** and **Incoming** units page through the
+rest of a node's flows.
+
 ### Directed graph (`directed_graph`) [experimental]
 
 A computation graph -- a neural network's architecture as TensorBoard's Graphs

@@ -1,4 +1,4 @@
-import type { FlowPoint, MaidrLayer } from '@type/grammar';
+import type { FlowOptions, FlowPoint, MaidrLayer } from '@type/grammar';
 import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
 import type {
@@ -168,8 +168,10 @@ function asPercent(fraction: number): string {
  * it represents. So the trace remembers the edge it arrived by and announces
  * it: *Coal to Electricity, 34, 60.7% of Coal*.
  *
- * **Stages are derived, and a cycle is answered honestly.** A node's column is
- * its longest distance from a source, which is how these layouts are built. A
+ * **Stages are the drawing's columns, and a cycle is answered honestly.** A
+ * producer that knows where it drew each node says so
+ * ({@link FlowOptions.columns}). Otherwise a node's column is its longest
+ * distance from a source, which is how these layouts are commonly built. A
  * chord diagram is cyclic and has no such thing, so when the graph does not
  * sort, every node goes in one stage: the ribbons still follow, and nothing is
  * claimed about an ordering the data does not have.
@@ -238,7 +240,8 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
 
     const flows = layer.data as FlowPoint[];
     this.nodes = FlowTrace.buildNodes(flows);
-    this.stages = FlowTrace.assignStages(this.nodes);
+    this.stages = FlowTrace.drawnStages(this.nodes, layer.flowOptions?.columns)
+      ?? FlowTrace.assignStages(this.nodes);
     for (const [stage, members] of this.stages.entries()) {
       for (const [index, node] of members.entries()) {
         this.nodes[node].stage = stage;
@@ -324,7 +327,57 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   }
 
   /**
-   * Places every node in a column.
+   * The columns the producer drew the nodes in, when it declared them and
+   * they are a drawing of these flows.
+   *
+   * A layout library places nodes by rules of its own -- d3-sankey's default
+   * alignment puts every sink in the last column, and orders each column by
+   * relaxing the ribbons -- so a derived column or order can contradict the
+   * chart: Up said there was nothing above a node drawn under another, and a
+   * sink drawn at the right was heard in the middle. Declared columns are
+   * taken as they are, top to bottom, but only when they name every node
+   * once and every flow runs from one column to a later one; anything else
+   * is not a layout of this graph, and the stages are derived instead.
+   *
+   * @param nodes - Every node, with its edges
+   * @param columns - The declared columns, left to right, by node name
+   * @returns Node indices per stage, or null to derive them
+   */
+  private static drawnStages(
+    nodes: FlowNode[],
+    columns: (string | number)[][] | undefined,
+  ): number[][] | null {
+    if (!Array.isArray(columns) || nodes.length === 0) {
+      return null;
+    }
+    const byName = new Map(nodes.map((node, index) => [node.name, index]));
+    const stageOf = new Map<number, number>();
+    const stages: number[][] = [];
+    for (const column of columns) {
+      if (!Array.isArray(column) || column.length === 0) {
+        return null;
+      }
+      const members: number[] = [];
+      for (const name of column) {
+        const index = byName.get(String(name));
+        if (index === undefined || stageOf.has(index)) {
+          return null;
+        }
+        stageOf.set(index, stages.length);
+        members.push(index);
+      }
+      stages.push(members);
+    }
+    if (stageOf.size !== nodes.length) {
+      return null;
+    }
+    const forward = nodes.every((node, index) =>
+      node.out.every(edge => (stageOf.get(index) ?? 0) < (stageOf.get(edge.to) ?? 0)));
+    return forward ? stages : null;
+  }
+
+  /**
+   * Places every node in a column, when the producer did not say where.
    *
    * A node's stage is its longest distance from a source, which is how these
    * layouts are built: a node sits one column past the furthest thing that

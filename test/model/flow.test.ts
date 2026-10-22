@@ -556,6 +556,79 @@ describe('the flow walk can be entered in either direction', () => {
   });
 });
 
+describe('the columns the producer drew', () => {
+  /** Mermaid's example, as its flows declare it. */
+  const MERMAID: FlowPoint[] = [
+    { source: 'Solar', target: 'Electricity', value: 40 },
+    { source: 'Wind', target: 'Electricity', value: 35 },
+    { source: 'Gas', target: 'Electricity', value: 60 },
+    { source: 'Gas', target: 'Heating', value: 45 },
+    { source: 'Electricity', target: 'Homes', value: 70 },
+    { source: 'Electricity', target: 'Industry', value: 65 },
+  ];
+
+  /** Where Mermaid draws them: Heating, a sink, in the last column. */
+  const DRAWN = [['Gas', 'Solar', 'Wind'], ['Electricity'], ['Heating', 'Homes', 'Industry']];
+
+  /**
+   * A sankey over Mermaid's flows, entered.
+   * @param columns The columns the layer declares, if any
+   * @returns The trace, on its first node
+   */
+  function drawnAs(columns?: (string | number)[][]): FlowTrace {
+    const trace = TraceFactory.create({
+      ...createLayer(MERMAID),
+      ...(columns === undefined ? {} : { flowOptions: { columns } }),
+    }) as FlowTrace;
+    trace.moveOnce('FORWARD');
+    return trace;
+  }
+
+  /**
+   * The throughput per stage, which the braille rows carry.
+   * @param trace The trace to read
+   * @returns One row per stage
+   */
+  function stages(trace: FlowTrace): number[][] {
+    const braille = nonEmptyState(trace).braille;
+    if (braille.empty) {
+      throw new Error('Expected a populated braille state');
+    }
+    return braille.values as number[][];
+  }
+
+  test('they place each node, and order each column top to bottom', () => {
+    // Derived, Heating sat one column past Gas, beside Electricity, and the
+    // first column was walked Solar, Wind, Gas: Up from Solar said there was
+    // no more data with Gas drawn above it.
+    const trace = drawnAs(DRAWN);
+
+    expect(stages(trace)).toEqual([[105, 40, 35], [135], [45, 70, 65]]);
+    expect(nonEmptyState(trace).text.main.value).toBe('Gas');
+    expect(walk(trace, 'DOWNWARD', 'UPWARD')).toEqual(['Solar', 'Gas']);
+  });
+
+  test('a sink drawn in the last column is heard there', () => {
+    const trace = drawnAs(DRAWN);
+    trace.moveToIndex(0, 2);
+
+    const state = nonEmptyState(trace);
+    expect(state.text.main.value).toBe('Heating');
+    expect(state.audio.panning).toMatchObject({ x: 2, cols: 3 });
+  });
+
+  test.each([
+    ['leave a node out', [['Gas', 'Solar', 'Wind'], ['Electricity'], ['Homes', 'Industry']]],
+    ['name a node twice', [['Gas', 'Solar', 'Wind', 'Gas'], ['Electricity'], ['Heating', 'Homes', 'Industry']]],
+    ['name a node the flows do not', [['Gas', 'Solar', 'Wind', 'Coal'], ['Electricity'], ['Heating', 'Homes', 'Industry']]],
+    ['run a flow backwards', [['Heating', 'Homes', 'Industry'], ['Electricity'], ['Gas', 'Solar', 'Wind']]],
+    ['put a flow within one column', [['Gas', 'Solar', 'Wind', 'Electricity'], ['Heating', 'Homes', 'Industry']]],
+  ])('columns that %s are not the drawing, and the stages are derived', (_case, columns) => {
+    expect(stages(drawnAs(columns))).toEqual(stages(drawnAs()));
+    expect(stages(drawnAs())).toEqual([[40, 35, 105], [135, 45], [70, 65]]);
+  });
+});
+
 describe('FlowTrace values', () => {
   test('carries a sink\'s throughput, not its empty outflow, as the X value', () => {
     // Audio, text and braille read a node's throughput; the values grid the

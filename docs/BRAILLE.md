@@ -923,6 +923,12 @@ a single scale across the chart is dominated by the largest source and every
 node past the first split sits near its floor; per-stage scaling is what keeps
 the column a reader is actually walking legible.
 
+The stages are the columns the chart drew when the layer declares them
+(`flowOptions.columns` in [the schema](SCHEMA.md)), as the Mermaid adapter
+does from the drawing, each row then listing its column's nodes top to bottom.
+Otherwise a node sits one column past the furthest node feeding it, and a row
+lists its nodes in the order the flows first name them.
+
 The rows are the stages even though the *cursor* is addressed the other way
 round. The arrows are given the chart's geometry -- left and right follow a
 ribbon between columns, up and down walk the nodes stacked within one -- so the

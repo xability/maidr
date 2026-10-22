@@ -1055,7 +1055,9 @@ export interface TreemapPoint {
  * A flow names both of its ends, so the **nodes are derived from the edges**
  * and a separate node list would be a second source of truth for something the
  * data already says -- the treemap's reasoning about paths, applied to a graph.
- * Their order is first appearance, which is the order the producer drew them.
+ * Each is placed one column past the furthest node feeding it, and a column is
+ * in order of first appearance, unless the layer says where they were drawn
+ * ({@link FlowOptions.columns}).
  *
  * @example
  * { source: 'Coal', target: 'Electricity', value: 34 }
@@ -1067,6 +1069,34 @@ export interface FlowPoint {
   target: string | number;
   /** How much flows. */
   value: number;
+}
+
+/**
+ * How a sankey, alluvial or chord layer's nodes were laid out, read by
+ * `FlowTrace` and ignored by every other trace type.
+ */
+export interface FlowOptions {
+  /**
+   * The columns the chart drew its nodes in, left to right, each naming its
+   * nodes top to bottom as `FlowPoint.source` and `target` name them.
+   *
+   * Without it MAIDR derives the columns: a node sits one column past the
+   * furthest node feeding it, and a column is in the order the flows first
+   * name its nodes. A library that lays its nodes out otherwise -- d3-sankey's
+   * `justify` alignment, which Mermaid draws with, puts every sink in the
+   * last column, and its relaxation reorders each column -- declares where
+   * it drew them, so that Up and Down, the stereo position, the braille rows
+   * and the object list's stages follow the drawing.
+   *
+   * Used only when it names every node exactly once and every flow runs from
+   * one column to a later one; otherwise the columns are derived. A chord
+   * diagram, which cycles, has no columns to declare.
+   *
+   * @example
+   * // Mermaid's sankey example: Heating, a sink, drawn in the last column
+   * columns: [['Gas', 'Solar', 'Wind'], ['Electricity'], ['Heating', 'Homes', 'Industry']]
+   */
+  columns?: (string | number)[][];
 }
 
 /**
@@ -2042,6 +2072,8 @@ export interface MaidrLayer {
   };
   /** Display configuration for a forest plot layer. */
   forestOptions?: ForestOptions;
+  /** Where a sankey, alluvial or chord layer's nodes were drawn. */
+  flowOptions?: FlowOptions;
   /** Threshold configuration for a volcano or Manhattan plot layer. */
   thresholdOptions?: ThresholdOptions;
   /**
