@@ -7,7 +7,7 @@ import { describe, expect, it } from '@jest/globals';
 import { convert, layersOf } from './helpers';
 
 /**
- * The other graphs (`diagrams/graphs.ts`): git graphs, C4 and architecture diagrams.
+ * The other graphs (`diagrams/graphs.ts`): git graphs, C4, architecture and event modeling diagrams.
  *
  * Stand-in databases shaped as Mermaid 12's; see `./helpers`.
  */
@@ -47,5 +47,23 @@ describe('the other graphs', () => {
       getEdges: () => [{ lhsId: 'db', rhsId: 'web', lhsInto: true, rhsInto: false }],
     }))[0].data as DirectedGraphPoint[];
     expect(data[0]).toMatchObject({ label: 'Database', path: ['API'], inputs: ['web'] });
+  });
+
+  it('reads an event model\'s boxes as entities, each with its frame', () => {
+    const layer = layersOf(convert('eventmodeling', {
+      getState: () => ({
+        boxes: [
+          { index: 0, text: 'CartUI', frame: { name: '01', modelEntityType: 'ui', entityIdentifier: 'CartUI' }, swimlane: { label: 'UI/Automation' } },
+          { index: 1, text: 'AddItem', frame: { name: '02', modelEntityType: 'cmd', entityIdentifier: 'AddItem' }, swimlane: { label: 'Command/Read Model' } },
+        ],
+        relations: [{ sourceBox: { index: 0 }, targetBox: { index: 1 } }],
+      }),
+    }))[0];
+
+    const [cart, add] = layer.data as DirectedGraphPoint[];
+
+    expect(layer.axes).toEqual({ x: { label: 'Entity' } });
+    expect(cart).toMatchObject({ label: 'CartUI', path: ['UI/Automation'], attributes: { Frame: '01', Type: 'UI' } });
+    expect(add).toMatchObject({ inputs: ['0'], attributes: { Frame: '02', Type: 'command' } });
   });
 });

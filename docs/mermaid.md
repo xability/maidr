@@ -148,7 +148,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Block diagram [experimental] | `block` | a `directed_graph`: blocks inside composite blocks, block arrows by their direction |
 | Architecture diagram [experimental] | `architecture-beta` | a `directed_graph`: services and junctions in their groups |
 | Git graph [experimental] | `gitGraph` | a `directed_graph`: commits on their branches, each fed by its parents, with tags and merge and cherry-pick commits named |
-| Event model [experimental] | `eventmodeling` | a `directed_graph`: time frames in their swimlanes, along the flow between them |
+| Event model [experimental] | `eventmodeling` | a `directed_graph`: each time frame's entity (UI, command, read model, event, processor) in its swimlane, with its frame, along the flow between them |
 | Swimlane diagram [experimental] | `swimlane-beta` | a `directed_graph`: steps lane by lane |
 | Agent flow [experimental] | `agentflow-beta` | a `directed_graph`: an agent's steps, tools and decisions inside its flows |
 | Mindmap [experimental] | `mindmap` | a `tree` from the central topic |

@@ -349,6 +349,17 @@ test.describe('Mermaid adapter', () => {
     expect(element).not.toContain('Requirement is');
   });
 
+  test('announces an event model\'s entity and its frame under different names', async ({ page }) => {
+    await openExample(page, 'eventmodeling');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    const box = await press(page, 'ArrowDown');
+
+    expect(box).toContain('Entity is CartUI');
+    expect(box).toContain('Frame is 01');
+    expect(box).not.toContain('Frame is CartUI');
+  });
+
   test('reads a ZenUML diagram from its text, nested calls and replies included', async ({ page }) => {
     await openExample(page, 'zenuml');
     await press(page, 'ArrowRight');

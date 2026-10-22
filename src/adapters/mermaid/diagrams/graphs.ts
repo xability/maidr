@@ -262,6 +262,9 @@ const EVENT_MODEL_TYPES: Record<string, string> = {
  * Event modeling diagrams: time frames in their swimlanes -- UI, commands and
  * read models, events -- joined by the flow from one frame to the next.
  *
+ * A box is announced as the frame's entity, `Entity is CartUI`, and the
+ * frame it is in as `Frame is 01`.
+ *
  * @param context - The diagram
  * @returns The conversion
  */
@@ -290,5 +293,5 @@ export function eventModeling(context: DiagramContext): DiagramConversion {
     from: String((relation.sourceBox as Row | undefined)?.index ?? ''),
     to: String((relation.targetBox as Row | undefined)?.index ?? ''),
   }));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Frame' }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Entity' }));
 }
