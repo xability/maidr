@@ -546,6 +546,43 @@ describe('ScatterTrace rotor cursor reporting', () => {
     });
   });
 
+  describe('column navigation', () => {
+    test('position names the same row for a point as row navigation does', () => {
+      // Announce Position reads panning y/rows. Campaign A was "row 1 of 1"
+      // across and "row 3 of 4" after Up, on the same point.
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0.3, y: 0.6 },
+        { x: 0.45, y: 0.23 },
+        { x: 0.57, y: 0.69 },
+        { x: 0.78, y: 0.34 },
+      ]));
+      trace.moveOnce('FORWARD');
+      const across = panningOf(trace);
+
+      trace.moveOnce('UPWARD');
+      const down = panningOf(trace);
+
+      expect(across).toEqual({ x: 0, y: 2, rows: 4, cols: 4 });
+      expect(down).toEqual(across);
+    });
+
+    test('a column of several points names the row Up turns into', () => {
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0, y: 1 },
+        { x: 0, y: 2 },
+        { x: 0, y: 3 },
+        { x: 1, y: 4 },
+      ]));
+      trace.moveOnce('FORWARD');
+      const across = panningOf(trace);
+
+      trace.moveOnce('UPWARD');
+
+      expect(across.rows).toBe(4);
+      expect(across.y).toBe(panningOf(trace).y);
+    });
+  });
+
   describe('intersection mode', () => {
     test('COL position advances through the stack instead of freezing at row 1', () => {
       // panning.y is what Announce Position reports; pinning it to 0 said

@@ -934,9 +934,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           max: this.maxY,
         },
         panning: {
-          y: this.row,
+          // The row Up or Down turns into, counted among the rows they walk,
+          // which is what the position announcement reads. `this.row` is 0
+          // throughout column navigation, and with the column's own height
+          // it said "row 1 of 1" of a point Up then placed in row 3 of 4.
+          // Only `x` and `cols` reach the stereo panner.
+          y: this.rowEnteredFrom(current),
           x: this.col,
-          rows: current.y.length,
+          rows: this.yPoints.length,
           cols: this.xPoints.length,
         },
         zIntensity: this.zIntensityFor(current.z),
@@ -1783,23 +1788,24 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
+   * The row Up or Down turns into from a column: the row of the column's
+   * middle point, or the first row when that y is on no row (a NaN y).
+   *
+   * @param column - The column the reader is on
+   * @returns The row index
+   */
+  private rowEnteredFrom(column: ScatterXPoint): number {
+    const row = this.yIndexOf(column.y[Math.floor(column.y.length / 2)]);
+    return row === -1 ? 0 : row;
+  }
+
+  /**
    * Toggles between COL and ROW navigation modes while maintaining logical position mapping.
    */
   private toggleNavigation(): void {
     if (this.mode === NavMode.COL) {
       // Switch from COL to ROW mode
-      const currentXPoint = this.xPoints[this.col];
-      const middleYValue
-        = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
-      const targetRow = this.yIndexOf(middleYValue);
-
-      // Safety check: ensure the calculated row is valid
-      if (targetRow === -1 || targetRow >= this.yPoints.length) {
-        this.row = 0; // Use 0 as fallback
-      } else {
-        this.row = targetRow; // Use the calculated row to maintain logical connection
-      }
-
+      this.row = this.rowEnteredFrom(this.xPoints[this.col]);
       this.mode = NavMode.ROW;
     } else {
       // Switch from ROW to COL mode
