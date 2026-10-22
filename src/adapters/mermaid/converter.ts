@@ -67,11 +67,40 @@ export function supportedMermaidDiagrams(): string[] {
 }
 
 /**
+ * Gives a drawing Mermaid sized to its container a width of its own.
+ *
+ * With `useMaxWidth`, Mermaid's default, a drawing is `width="100%"` with an
+ * inline `max-width` of the width it was laid out at: as wide as its
+ * container, up to that. MAIDR's plot is only as wide as what it holds
+ * (`width: fit-content`), so the percentage had nothing to resolve against
+ * and the browser fell back to 300px, drawing a wide diagram's labels a few
+ * pixels tall. `width: <max-width>; max-width: 100%` is the same size in any
+ * container that has a width, and gives the plot one to fit.
+ *
+ * A width set any other way -- absolute, a percentage other than 100%, or
+ * inline -- is left as it is.
+ *
+ * @param svg - The drawing
+ */
+function fitToFigure(svg: SVGSVGElement): void {
+  const maxWidth = svg.style.maxWidth.trim();
+  if (svg.getAttribute('width')?.trim() !== '100%' || svg.style.width !== ''
+    || maxWidth === '' || maxWidth === 'none' || maxWidth.endsWith('%')) {
+    return;
+  }
+  svg.style.width = maxWidth;
+  svg.style.maxWidth = '100%';
+}
+
+/**
  * Converts a parsed diagram against its rendered SVG.
  *
  * Separate from {@link createMaidrFromMermaid} so a caller that already holds
  * the parsed diagram -- or a test with a stand-in database -- need not parse
  * again.
+ *
+ * A drawing Mermaid sized to its container is given the width it was drawn
+ * at, so MAIDR's figure draws it at Mermaid's size.
  *
  * @param diagram - The parsed diagram: its type and database
  * @param diagram.type - The diagram type Mermaid detected
@@ -119,6 +148,7 @@ export function convertMermaidDiagram(
     ?? conversion.title
     ?? (plain(call(diagram.db, 'getDiagramTitle')) || plain(call(diagram.db, 'getTitle')) || undefined);
   const caption = options.caption ?? (plain(call(diagram.db, 'getAccDescription')) || undefined);
+  fitToFigure(svg);
   return {
     id,
     ...(title ? { title } : {}),

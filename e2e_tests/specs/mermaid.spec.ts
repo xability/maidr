@@ -121,6 +121,21 @@ async function press(page: Page, key: string): Promise<string> {
 }
 
 /**
+ * How wide the drawing is, how wide Mermaid drew it (its viewBox), and how
+ * wide the figure it sits in is.
+ *
+ * @param page - The page
+ * @returns The three widths, in CSS pixels
+ */
+async function widths(page: Page): Promise<{ drawing: number; drawn: number; figure: number }> {
+  return page.locator('svg[maidr]').first().evaluate((svg: SVGSVGElement) => ({
+    drawing: svg.getBoundingClientRect().width,
+    drawn: svg.viewBox.baseVal.width,
+    figure: (svg.closest('figure[id^="maidr-figure-"]') as HTMLElement).getBoundingClientRect().width,
+  }));
+}
+
+/**
  * The layer types MAIDR was handed.
  *
  * @param page - The page
@@ -221,5 +236,37 @@ test.describe('Mermaid adapter', () => {
 
     expect(research).toContain('Research (done)');
     expect(research).toContain('Length is 10 days');
+  });
+
+  // Mermaid draws a diagram `width="100%"`, up to the width it laid it out
+  // at. In MAIDR's plot, which is as wide as what it holds, the browser drew
+  // that at its 300px fallback.
+  for (const name of ['flowchart', 'gantt', 'mindmap']) {
+    test(`draws the ${name} example at Mermaid's size, not at 300px`, async ({ page }) => {
+      await openExample(page, name);
+
+      const { drawing, drawn, figure } = await widths(page);
+      expect(Math.min(drawn, figure)).toBeGreaterThan(300);
+      expect(Math.abs(drawing - Math.min(drawn, figure))).toBeLessThanOrEqual(1);
+    });
+  }
+
+  test('outlines a gantt task at the size it is drawn', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+
+    const box = await page.locator(HIGHLIGHT).first().boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(15);
+  });
+
+  test('shrinks a diagram to a page narrower than it, without scrolling sideways', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.setViewportSize({ width: 360, height: 800 });
+
+    const { drawing, figure } = await widths(page);
+    expect(drawing).toBeLessThanOrEqual(figure + 0.5);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
 });
