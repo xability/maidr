@@ -7,7 +7,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextAside, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
@@ -636,14 +636,15 @@ export class TreemapTrace extends AbstractTrace {
     // Off both axes -- a share, a count and an ancestry are none of them
     // positions on one -- so they travel as asides, which the text service
     // emits as their own clauses and never runs through an axis formatter.
-    const asides: { label: string; value: string }[] = [];
+    const asides: TextAside[] = [];
 
     const ancestors = this.ancestorsOf(node);
     if (ancestors.length > 1) {
       // The breadcrumb, from the second level down. At the first level the
       // parent's name is the whole of the path and the share clause below
       // already carries it.
-      asides.push({ label: t('model.asidePath'), value: ancestors.join(' > ') });
+      const path = ancestors.join(' > ');
+      asides.push({ label: t('model.asidePath'), value: path, terse: t('model.tersePath', { path }) });
     }
 
     // The two share clauses need no `valued` guard of their own, and one was
@@ -658,12 +659,15 @@ export class TreemapTrace extends AbstractTrace {
       : this.nodes[node.parent.row]?.[node.parent.col] ?? null;
     if (parent !== null && parent.value !== 0) {
       // The comparison the rectangles are drawn to support, and the one a
-      // sighted reader estimates worst. The parent is named in the label so
-      // terse mode -- which drops aside labels -- still has one clause
-      // carrying both, rather than a bare percentage of nothing stated.
+      // sighted reader estimates worst. The parent is named with the share in
+      // terse mode too, which drops the label that names it in verbose: a
+      // bare percentage of nothing stated would sound like the share of the
+      // whole a top-level node is announced with.
+      const share = asPercent(node.value / parent.value);
       asides.push({
         label: t('model.asideShareOfParent', { parent: parent.name }),
-        value: asPercent(node.value / parent.value),
+        value: share,
+        terse: t('model.terseShareOfParent', { share, parent: parent.name }),
       });
     } else if (parent === null && this.grandTotal !== 0) {
       asides.push({
@@ -675,7 +679,12 @@ export class TreemapTrace extends AbstractTrace {
     if (node.children.length > 0) {
       // Whether there is anything below, which is the one thing the reader
       // cannot discover without pressing down and being told there is not.
-      asides.push({ label: t('model.asideChildren'), value: String(node.children.length) });
+      const count = node.children.length;
+      asides.push({
+        label: t('model.asideChildren'),
+        value: String(count),
+        terse: t(count === 1 ? 'model.terseChildrenOne' : 'model.terseChildrenMany', { count }),
+      });
     }
 
     return {

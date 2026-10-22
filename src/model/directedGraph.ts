@@ -8,7 +8,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, HighlightState, TextAside, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { centrality, withinCentralityBudget } from '@util/graphCentrality';
 import { t } from '@util/i18n';
@@ -877,12 +877,15 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     }
 
     // None of these is a position on an axis, so they travel as asides,
-    // which the text service speaks as their own clauses.
-    const asides: { label: string; value: string }[] = [];
+    // which the text service speaks as their own clauses. Those whose value
+    // is a bare name, or a list of them, keep a word of their label in terse
+    // mode, so the scope, the inputs and the outputs do not run together.
+    const asides: TextAside[] = [];
 
     const path = DirectedGraphTrace.pathOf(item);
     if (path.length > 0) {
-      asides.push({ label: t('model.asidePath'), value: path.join(PATH_JOIN) });
+      const joined = path.join(PATH_JOIN);
+      asides.push({ label: t('model.asidePath'), value: joined, terse: t('model.tersePath', { path: joined }) });
     }
 
     if (item.kind === 'scope') {
@@ -907,10 +910,12 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     }
 
     if (item.inputs.length > 0) {
-      asides.push({ label: t('model.tableFrom'), value: this.nameList(item.inputs, item, 'inputs') });
+      const names = this.nameList(item.inputs, item, 'inputs');
+      asides.push({ label: t('model.tableFrom'), value: names, terse: t('model.terseFrom', { names }) });
     }
     if (item.outputs.length > 0) {
-      asides.push({ label: t('model.tableTo'), value: this.nameList(item.outputs, item, 'outputs') });
+      const names = this.nameList(item.outputs, item, 'outputs');
+      asides.push({ label: t('model.tableTo'), value: names, terse: t('model.terseTo', { names }) });
     }
 
     for (const [label, value] of item.attributes) {

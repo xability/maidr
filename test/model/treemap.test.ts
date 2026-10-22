@@ -224,20 +224,20 @@ describe('a node is announced with its place in the tree', () => {
   test('a top-level node carries its share of the whole', () => {
     expect(nonEmptyState(treemap()).text.asides).toEqual([
       { label: 'Share of total', value: '8.7%' },
-      { label: 'Children', value: '2' },
+      { label: 'Children', value: '2', terse: '2 children' },
     ]);
   });
 
   test('a child carries its share of its parent, which is what the area shows', () => {
     // The comparison the rectangles are drawn to support, and the one a
-    // sighted reader estimates worst. The parent is named in the label, so
-    // terse mode -- which drops aside labels -- still says which whole the
-    // percentage is of.
+    // sighted reader estimates worst. The parent is named in the label, and
+    // in the clause terse mode -- which drops aside labels -- says instead,
+    // so both say which whole the percentage is of.
     const trace = treemap();
     walk(trace, 'DOWNWARD');
 
     expect(nonEmptyState(trace).text.asides)
-      .toEqual([{ label: 'Share of Europe', value: '44.7%' }]);
+      .toEqual([{ label: 'Share of Europe', value: '44.7%', terse: '44.7% of Europe' }]);
   });
 
   test('the breadcrumb appears once the parent alone stops locating you', () => {
@@ -248,7 +248,7 @@ describe('a node is announced with its place in the tree', () => {
     walk(trace, 'DOWNWARD', 'DOWNWARD', 'DOWNWARD');
 
     expect(nonEmptyState(trace).text.asides?.[0])
-      .toEqual({ label: 'Path', value: 'World > Europe > France' });
+      .toEqual({ label: 'Path', value: 'World > Europe > France', terse: 'in World > Europe > France' });
   });
 
   test('a leaf says nothing about children rather than saying none', () => {

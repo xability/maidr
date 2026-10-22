@@ -278,6 +278,23 @@ test.describe('Graphviz adapter, patchwork treemap', () => {
     await expect(page.locator(`${CELL} title`)).toHaveText('salaries');
   });
 
+  test('should name a leaf\'s branch with its share in terse mode', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.toggleTextMode();
+    await plot.moveToDataPointBelow();
+
+    // A branch's share is of the whole, and its children are counted as
+    // children rather than as a bare number.
+    expect(normalizeText(await plot.getInstructionText())).toBe('people, 65, 65.0%, 2 children');
+
+    await plot.moveToDataPointBelow();
+
+    // A leaf's share is of its branch, which terse mode names: a bare 76.9%
+    // sounded like the share of the whole the branch was just announced with.
+    expect(normalizeText(await plot.getInstructionText())).toBe('Salaries, 50, 76.9% of people');
+  });
+
   test('should draw every leaf with its label inside its own rectangle', async ({ page }) => {
     // Graphviz centres a leaf's label on its rectangle however narrow the
     // rectangle is. At 60 and 5, Training was 24pt wide for a 48pt label,

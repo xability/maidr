@@ -358,6 +358,28 @@ export interface HeatmapBrailleState extends BaseBrailleState {
 export type AxisType = 'x' | 'y' | 'z';
 
 /**
+ * One fact a point carries that sits on neither axis -- see
+ * {@link TextState.asides}.
+ */
+export interface TextAside {
+  label: string;
+  value: string;
+  /**
+   * What terse mode says in place of `value`, when `value` alone does not
+   * say what it is.
+   *
+   * Terse mode drops every label, so it speaks `value` alone. That is enough
+   * for a value that names itself -- "2 inputs, 1 output", "15.0%" on a
+   * chart with one whole -- and not for one whose meaning is in the label: a
+   * share whose whole is named only there, a count of children, a list of
+   * names that would run into the next list. Such an aside carries the
+   * shortest clause that still does -- "71.4% of infrastructure", "2
+   * children", "from In stock?" -- and terse mode speaks that instead.
+   */
+  terse?: string;
+}
+
+/**
  * Text description state containing labels and values for screen reader output.
  */
 export interface TextState {
@@ -450,8 +472,11 @@ export interface TextState {
    * The values arrive already formatted, because only the trace knows what
    * they are: a share is a percentage and a tally is an integer, and there is
    * no axis to ask.
+   *
+   * Terse mode speaks each one's `value`, or its {@link TextAside.terse}
+   * where the value needs a word of its label to be understood.
    */
-  asides?: { label: string; value: string }[];
+  asides?: TextAside[];
   section?: string;
   /**
    * Original axis identity for main value.

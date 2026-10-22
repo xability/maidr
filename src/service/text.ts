@@ -860,10 +860,11 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Terse drops the labels, as it does everywhere else, but keeps each
     // aside its own comma-separated clause: fusing one onto a neighbouring
-    // value is exactly what made `section` unusable for them.
+    // value is exactly what made `section` unusable for them. An aside whose
+    // value means nothing without its label brings its own terse clause.
     if (state.asides !== undefined) {
       for (const aside of state.asides) {
-        clauses.push(aside.value);
+        clauses.push(aside.terse ?? aside.value);
       }
     }
 
