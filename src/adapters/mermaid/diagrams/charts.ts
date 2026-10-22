@@ -177,13 +177,15 @@ export function packet(context: DiagramContext): DiagramConversion {
 }
 
 /**
- * Quadrant charts: labelled points on two axes running from 0 to 1, read in
- * the order they were declared, with the quadrants' names in the figure
- * subtitle. Not in the layer title: a chart of one layer is named by its
- * layer's title in place of the diagram's own.
+ * Quadrant charts: labelled points on two axes running from 0 to 1, with the
+ * quadrants' names in the figure subtitle. Not in the layer title: a chart of
+ * one layer is named by its layer's title in place of the diagram's own.
  *
- * Mermaid's database hands the points back already laid out, in pixels and in
- * reverse order, so the values are recovered from the quadrants' own extent.
+ * Mermaid's database hands the points back already laid out, in pixels, so the
+ * values are recovered from the quadrants' own extent. They are kept in the
+ * order Mermaid draws them, which is the reverse of the order they were
+ * declared: point and grid navigation pair the layer's i-th point with the
+ * i-th mark its selector matches, so the two orders must agree.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -200,7 +202,8 @@ export function quadrant(context: DiagramContext): DiagramConversion {
   const bottom = Math.max(...quadrants.map(one => (num(one.y) ?? 0) + (num(one.height) ?? 0)));
   const round = (value: number): number => Math.round(value * 1000) / 1000;
 
-  const points = rows(built?.points).reverse();
+  // The array Mermaid draws one `g.data-point` for each entry of, in order.
+  const points = rows(built?.points);
   const data: ScatterPoint[] = points.map((point) => {
     const x = right > left ? ((num(point.x) ?? 0) - left) / (right - left) : 0;
     const y = bottom > top ? 1 - ((num(point.y) ?? 0) - top) / (bottom - top) : 0;

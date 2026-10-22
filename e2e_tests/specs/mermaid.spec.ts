@@ -578,6 +578,39 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 's')).toContain('Subtitle is Quadrants: We should expand (top right)');
   });
 
+  test('outlines the quadrant point it announces, in every navigation mode', async ({ page }) => {
+    await openExample(page, 'quadrant');
+    // The campaign whose drawn circle the highlight sits on.
+    const outlined = (): Promise<string> => page.evaluate(() => {
+      const highlight = document.querySelector('circle[id^="maidr-highlight"]');
+      const mark = [...document.querySelectorAll('#diagram-svg-1 g.data-point:not([data-maidr-owned])')]
+        .find(point => ['cx', 'cy'].every(at =>
+          point.querySelector('circle')?.getAttribute(at) === highlight?.getAttribute(at)));
+      return mark?.querySelector('text')?.textContent ?? '';
+    });
+
+    expect(await press(page, 'ArrowRight')).toContain('Name is Campaign A');
+    await expect.poll(outlined).toBe('Campaign A');
+
+    // Grid navigation, the quadrants: D alone in the bottom right, C in the top right.
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    expect(await press(page, 'ArrowRight')).toContain('point is: (0.78, 0.34)');
+    await expect.poll(outlined).toBe('Campaign D');
+    expect(await press(page, 'ArrowUp')).toContain('point is: (0.57, 0.69)');
+    await expect.poll(outlined).toBe('Campaign C');
+    expect(await press(page, 'Enter')).toContain('Name is Campaign C');
+    await expect.poll(outlined).toBe('Campaign C');
+    await page.keyboard.press('Escape');
+
+    // Point navigation.
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    for (const key of ['ArrowRight', 'ArrowRight', 'ArrowLeft']) {
+      const name = /Name is (Campaign \w)/.exec(await press(page, key))?.[1];
+      expect(name).toBeDefined();
+      await expect.poll(outlined).toBe(name);
+    }
+  });
+
   test('names a kanban column as a column and a card as a card', async ({ page }) => {
     await openExample(page, 'kanban');
     const column = await press(page, 'ArrowRight');

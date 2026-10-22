@@ -76,28 +76,43 @@ describe('the charts', () => {
     expect(wrapOf({ bitsPerRow: 0 })).toBeUndefined();
   });
 
-  it('recovers a quadrant chart\'s values from its laid-out points, in declared order', () => {
-    const figure = convert('quadrantChart', {
-      getDiagramTitle: () => 'Reach',
-      getQuadrantData: () => ({
-        quadrants: [
-          { x: 50, y: 0, width: 50, height: 50, text: { text: 'Expand' } },
-          { x: 0, y: 0, width: 50, height: 50, text: { text: 'Promote' } },
-          { x: 0, y: 50, width: 50, height: 50, text: { text: '' } },
-          { x: 50, y: 50, width: 50, height: 50, text: { text: '' } },
-        ],
-        // Mermaid prepends each point it is given.
-        points: [{ x: 75, y: 25, text: { text: 'B' } }, { x: 10, y: 90, text: { text: 'A' } }],
-        axisLabels: [{ text: 'Low' }, { text: 'High' }, { text: 'Bottom' }, { text: 'Top' }],
-      }),
-    });
+  /** A quadrant chart's database, its points as Mermaid lays them out. */
+  const quadrantDb = {
+    getDiagramTitle: () => 'Reach',
+    getQuadrantData: () => ({
+      quadrants: [
+        { x: 50, y: 0, width: 50, height: 50, text: { text: 'Expand' } },
+        { x: 0, y: 0, width: 50, height: 50, text: { text: 'Promote' } },
+        { x: 0, y: 50, width: 50, height: 50, text: { text: '' } },
+        { x: 50, y: 50, width: 50, height: 50, text: { text: '' } },
+      ],
+      // Mermaid prepends each point it is given, so B was declared after A.
+      points: [{ x: 75, y: 25, text: { text: 'B' } }, { x: 10, y: 90, text: { text: 'A' } }],
+      axisLabels: [{ text: 'Low' }, { text: 'High' }, { text: 'Bottom' }, { text: 'Top' }],
+    }),
+  };
+
+  it('recovers a quadrant chart\'s values from its laid-out points, in the order Mermaid draws them', () => {
+    const figure = convert('quadrantChart', quadrantDb);
     const layer = layersOf(figure)[0];
-    expect(layer.data as ScatterPoint[]).toEqual([{ x: 0.1, y: 0.1, label: 'A' }, { x: 0.75, y: 0.75, label: 'B' }]);
+    expect(layer.data as ScatterPoint[]).toEqual([{ x: 0.75, y: 0.75, label: 'B' }, { x: 0.1, y: 0.1, label: 'A' }]);
     expect(layer.axes?.x?.label).toBe('Low to High');
     // The layer title would name the chart in place of the diagram's title.
     expect(layer.title).toBeUndefined();
     expect(figure.title).toBe('Reach');
     expect(figure.subtitle).toBe('Quadrants: Expand (top right); Promote (top left)');
+  });
+
+  it('pairs each quadrant point with the mark Mermaid drew for it', () => {
+    // Drawn as Mermaid draws them: one group per laid-out point, in its order.
+    const svg = drawn('q', '<g class="data-point"><circle></circle><text>B</text></g>'
+      + '<g class="data-point"><circle></circle><text>A</text></g>');
+    const layer = layersOf(convert('quadrantChart', quadrantDb, svg))[0];
+    expect(layer.selectors).toBe('#q g.data-point circle');
+    expect(matched(layer)).toBe(2);
+    // Point and grid navigation outline the i-th match for the i-th point.
+    expect((layer.data as ScatterPoint[]).map(point => point.label))
+      .toEqual([...svg.querySelectorAll('g.data-point text')].map(text => text.textContent));
   });
 
   it('names no quadrants when the chart labels none, and lets the author\'s subtitle stand', () => {
