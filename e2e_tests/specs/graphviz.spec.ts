@@ -251,6 +251,7 @@ test.describe('Graphviz adapter, patchwork treemap', () => {
 
     expect(announcement).toContain('Item is people');
     expect(announcement).toContain('Area is 65');
+    expect(announcement).toContain('Share of total is 65.0%');
     expect(announcement).toContain('Children is 2');
     await expect(page.locator(`${CELL} title`)).toHaveText('cluster_people');
     await expect(page.locator(`${CELL} polygon`)).toHaveCSS('stroke', HIGHLIGHT_STROKE);
@@ -270,6 +271,10 @@ test.describe('Graphviz adapter, patchwork treemap', () => {
 
     expect(announcement).toContain('Item is Salaries');
     expect(announcement).toContain('Area is 50');
+    // Its share of the branch, as docs/graphviz.md says; its share of the
+    // whole is in the chart description.
+    expect(announcement).toContain('Share of people is 76.9%');
+    expect(announcement).not.toContain('Share of total');
     await expect(page.locator(`${CELL} title`)).toHaveText('salaries');
   });
 
