@@ -247,6 +247,16 @@ test.describe('Mermaid adapter', () => {
       .toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
 
+  test('outlines every node inside a flowchart\'s subgraph while the reader is on it', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, 'ArrowRight')).toContain('Step is Shipping');
+    await expect.poll(async () => (await page.locator(HIGHLIGHT).allTextContents()).map(text => text.trim()).sort())
+      .toEqual(['Pack items', 'Print label', 'Ship']);
+  });
+
   test('walks a sequence diagram in time, and a lifeline keeping the moment', async ({ page }) => {
     await openExample(page, 'sequence');
     await press(page, 'ArrowRight');

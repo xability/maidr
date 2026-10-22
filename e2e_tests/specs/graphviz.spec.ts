@@ -204,6 +204,10 @@ test.describe('Graphviz adapter, clusters', () => {
     expect(announcement).toContain('Component is Backend');
     expect(announcement).toContain('4 nodes inside');
     expect(announcement).toContain('To is Email worker');
+    // Graphviz drew the cluster, but MAIDR derives the scope from its nodes:
+    // every node inside it is outlined.
+    await expect.poll(async () => (await page.locator(`${OUTLINE} title`).allTextContents()).sort())
+      .toEqual(['api', 'cache', 'db', 'payments']);
   });
 
   test('should open nested clusters with down and leave them with up', async ({ page }) => {
