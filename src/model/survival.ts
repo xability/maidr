@@ -109,7 +109,7 @@ export class SurvivalTrace extends StepTrace {
     // itself by its raw layer type. A survival curve is a step chart, but it
     // is not *a* step chart to a reader, and the type is one of the few places
     // they learn what they are looking at.
-    return base.empty ? base : { ...base, plotType: t('model.plotTypeSurvival') };
+    return base.empty ? base : { ...base, plotType: this.spokenPlotType(t('model.plotTypeSurvival')) };
   }
 
   protected override get text(): TextState {

@@ -170,6 +170,24 @@ describe('pre-activation name', () => {
     expect(description).toContain('This is a maidr plot of type: vertical bar.');
   });
 
+  test('names a chart read as another type by the type its layer names', () => {
+    // A packet diagram read as a gantt: a gantt chart is not what it is.
+    const layer: MaidrLayer = {
+      id: 'packet-layer',
+      type: TraceType.GANTT,
+      orientation: Orientation.HORIZONTAL,
+      typeLabel: 'Packet Diagram',
+      axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
+      data: { points: [[{ x: 'Bits 0 to 31', start: 0, end: 15 }]], unit: 'bits' },
+    };
+
+    const { name, description } = announcementOf({ id: 'name-test', title: 'UDP packet', subplots: [[{ layers: [layer] }]] });
+
+    expect(name).toBe('UDP packet, Packet Diagram');
+    // As the trace calls itself once the reader is in the chart.
+    expect(description).toContain('This is a maidr plot of type: horizontal Packet Diagram.');
+  });
+
   test('names a plot of several layers by their count', () => {
     const { name } = announcementOf({
       id: 'name-test',

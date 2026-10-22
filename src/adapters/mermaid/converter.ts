@@ -168,16 +168,24 @@ export function convertMermaidDiagram(
   // reader who reaches it hears that rather than nothing at all.
   const conversion: DiagramConversion = convert(context);
 
+  // Most databases carry the title and accessible description themselves; a
+  // timeline's keeps them only in Mermaid's common database, which every
+  // diagram shares and a timeline clears before each parse.
+  const common = call(diagram.db, 'getCommonDb');
+  const declared = (getter: string): string | undefined =>
+    plain(call(diagram.db, getter)) || plain(call(common, getter)) || undefined;
   const title = options.title
     ?? conversion.title
-    ?? (plain(call(diagram.db, 'getDiagramTitle')) || plain(call(diagram.db, 'getTitle')) || undefined);
-  const caption = options.caption ?? (plain(call(diagram.db, 'getAccDescription')) || undefined);
+    ?? declared('getDiagramTitle')
+    ?? (plain(call(diagram.db, 'getTitle')) || undefined);
+  const subtitle = options.subtitle ?? conversion.subtitle;
+  const caption = options.caption ?? declared('getAccDescription');
   fitToFigure(svg);
   leaveRoomForFocusRing(svg);
   return {
     id,
     ...(title ? { title } : {}),
-    ...(options.subtitle ? { subtitle: options.subtitle } : {}),
+    ...(subtitle ? { subtitle } : {}),
     ...(caption ? { caption } : {}),
     subplots: [[{ layers: conversion.layers }]],
   };

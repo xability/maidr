@@ -132,7 +132,8 @@ export function gantt(context: DiagramContext): DiagramConversion {
 
 /**
  * Packet diagrams: the fields of a network packet, one lane per row of bits,
- * each field an interval of bits.
+ * each field an interval of bits from its first to its last, as Mermaid
+ * writes and draws it, panned by where it starts in its row.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -147,26 +148,39 @@ export function packet(context: DiagramContext): DiagramConversion {
     return fields.map(field => ({
       x: lane,
       start: num(field.start) ?? Number.NaN,
-      end: (num(field.end) ?? Number.NaN) + 1,
+      end: num(field.end) ?? Number.NaN,
       label: plain(field.label),
     }));
   }).filter(lane => lane.length > 0);
   const blocks = all(context.svg, 'rect.packetBlock');
   const count = lanes.flat().length;
+  // The row length the rows above were split at, so a field pans by where
+  // its row draws it. Not for bits drawn right to left, whose rows are also
+  // walked against the drawing; those still pan along the whole packet.
+  const config = call(context.db, 'getConfig') as Row | undefined;
+  const bitsPerRow = num(config?.bitsPerRow);
+  const wrap = bitsPerRow !== undefined && bitsPerRow > 0 && str(config?.bitOrder) !== 'descending'
+    ? { wrap: bitsPerRow }
+    : {};
   const layer: MaidrLayer = {
     id: context.layerId('packet'),
     type: TraceType.GANTT,
+    // Read as a gantt for its lanes of intervals, but not a schedule, and not
+    // to be introduced as one.
+    typeLabel: 'Packet Diagram',
     orientation: Orientation.HORIZONTAL,
     axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
     ...(blocks.length === count && count > 0 ? { selectors: selectorsFor(blocks) } : {}),
-    data: { points: lanes, unit: 'bits' },
+    data: { points: lanes, unit: 'bits', inclusive: true, ...wrap },
   };
   return { layers: count > 0 ? [layer] : [] };
 }
 
 /**
  * Quadrant charts: labelled points on two axes running from 0 to 1, read in
- * the order they were declared, with the quadrants' names in the axis labels.
+ * the order they were declared, with the quadrants' names in the figure
+ * subtitle. Not in the layer title: a chart of one layer is named by its
+ * layer's title in place of the diagram's own.
  *
  * Mermaid's database hands the points back already laid out, in pixels and in
  * reverse order, so the values are recovered from the quadrants' own extent.
@@ -214,15 +228,18 @@ export function quadrant(context: DiagramContext): DiagramConversion {
       : {}),
     data,
   };
+  if (data.length === 0) {
+    return { layers: [] };
+  }
   // Mermaid numbers its quadrants from the top right, anticlockwise.
   const corners = ['top right', 'top left', 'bottom left', 'bottom right'];
   const names = quadrants
     .map((one, at) => (plain(one.text) ? `${plain(one.text)} (${corners[at] ?? ''})` : ''))
     .filter(Boolean);
-  if (names.length > 0) {
-    layer.title = `Quadrants: ${names.join('; ')}`;
-  }
-  return { layers: data.length > 0 ? [layer] : [] };
+  return {
+    layers: [layer],
+    ...(names.length > 0 ? { subtitle: `Quadrants: ${names.join('; ')}` } : {}),
+  };
 }
 
 /**
@@ -374,39 +391,40 @@ function mood(score: number): string {
 }
 
 /**
- * User journeys: the tasks of each section as a line of satisfaction scores,
- * each task naming who takes part and the mood the score is drawn with.
+ * User journeys: the tasks as one line of satisfaction scores, in the order
+ * Mermaid draws them across the journey, each task naming who takes part,
+ * the mood the score is drawn with and the section it is in.
+ *
+ * One line rather than one per section: Mermaid draws a journey as a single
+ * timeline, and sections that share no task would be lines a reader could
+ * not move between, each pitched on its own range of scores.
  *
  * @param context - The diagram
  * @returns The conversion
  */
 export function journey(context: DiagramContext): DiagramConversion {
   const tasks = rows(call(context.db, 'getTasks'));
-  const sections: string[] = [];
-  const lines: LinePoint[][] = [];
-  for (const task of tasks) {
-    const section = plain(task.section) || 'Tasks';
-    let at = sections.indexOf(section);
-    if (at < 0) {
-      sections.push(section);
-      lines.push([]);
-      at = sections.length - 1;
-    }
+  const line: LinePoint[] = tasks.map((task) => {
+    const section = plain(task.section);
     const people = Array.isArray(task.people) ? task.people.map(plain).filter(Boolean) : [];
     const score = num(task.score) ?? null;
     const name = plain(task.task);
-    lines[at].push({
+    return {
       x: people.length > 0 ? `${name} (${people.join(', ')})` : name,
       y: score,
-      z: section,
+      ...(section ? { z: section } : {}),
       ...(score === null ? {} : { label: `${score}, ${mood(score)}` }),
-    });
-  }
+    };
+  });
   const layer: MaidrLayer = {
     id: context.layerId('journey'),
     type: TraceType.LINE,
-    axes: { x: { label: 'Task' }, y: { label: 'Score', min: 1, max: 5 } },
-    data: lines,
+    axes: {
+      x: { label: 'Task' },
+      y: { label: 'Score', min: 1, max: 5 },
+      ...(line.some(point => point.z !== undefined) ? { z: { label: 'Section' } } : {}),
+    },
+    data: [line],
   };
-  return { layers: lines.length > 0 ? [layer] : [] };
+  return { layers: line.length > 0 ? [layer] : [] };
 }

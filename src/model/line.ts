@@ -264,6 +264,29 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
+   * The groups the samples of a single series name, in the order it meets
+   * them.
+   *
+   * A series is ordinarily named once, by its first sample, which is what
+   * {@link LineTrace.authoredGroupNameAt} reads. One series can also run
+   * through several groups -- a user journey's one line of tasks, each in its
+   * own section -- and `text` announces each sample's. Naming such a series
+   * after its first sample's group would tell the reader the whole line is
+   * in it.
+   *
+   * @returns The distinct names, in order
+   */
+  private sampleGroupNames(): string[] {
+    const names = new Set<string>();
+    for (const { z } of this.points[0] ?? []) {
+      if (z !== undefined && z !== null && z !== '') {
+        names.add(typeof z === 'number' ? defaultLabelFormat(z) : String(z));
+      }
+    }
+    return [...names];
+  }
+
+  /**
    * Human-readable name of a single line: the authored name when the spec
    * provides one, otherwise a positional fallback ("Line 2").
    *
@@ -436,6 +459,10 @@ export class LineTrace extends AbstractTrace {
   public get description(): DescriptionState {
     const isMultiline = this.points.length > 1;
     const labels = this.seriesLabels;
+    // A single series whose samples name more than one group, which the
+    // summary and the table both describe sample by sample.
+    const sampleGroups = isMultiline ? [] : this.sampleGroupNames();
+    const groupedBySample = sampleGroups.length > 1;
 
     // Over the populated series only, and stated as a span when they disagree.
     // The label is a claim about every line, and a ragged layer -- a hue level
@@ -504,6 +531,10 @@ export class LineTrace extends AbstractTrace {
         .map((_line, i) => this.groupNameAt(i))
         .join(', ');
       stats.push({ label: labels.names, value: lineNames });
+    } else if (groupedBySample) {
+      // Every group the line runs through, under the label each sample is
+      // announced with, rather than the first of them as the line's name.
+      stats.push({ label: this.groupLabel, value: sampleGroups.join(', ') });
     } else {
       const only = this.authoredGroupNameAt(0);
       if (only !== undefined) {
@@ -565,6 +596,12 @@ export class LineTrace extends AbstractTrace {
         const lineName = this.groupNameAt(i);
         return line.map(p => [p.x, cellOf(p), lineName]);
       });
+    } else if (groupedBySample) {
+      // The group column a multiline table has, filled from each sample, so
+      // the table says what the announcement did at every step.
+      headers = [this.xAxis, this.yAxis, this.seriesColumnHeader];
+      columnAxes = ['x', 'y', 'z'];
+      allRows = (this.points[0] ?? []).map(p => [p.x, cellOf(p), p.z ?? '']);
     } else {
       headers = [this.xAxis, this.yAxis];
       columnAxes = ['x', 'y'];
@@ -1704,7 +1741,7 @@ export class LineTrace extends AbstractTrace {
     // Add the plotType field for non-empty states
     const stateWithPlotType = {
       ...baseState,
-      plotType: t(isMultiline ? 'model.plotTypeMultiline' : 'model.plotTypeSingleLine'),
+      plotType: this.spokenPlotType(t(isMultiline ? 'model.plotTypeMultiline' : 'model.plotTypeSingleLine')),
       ...(isMultiline && { groupCount: this.points.length }),
       ...(group && { group }),
     };

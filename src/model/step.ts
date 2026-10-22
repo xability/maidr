@@ -298,7 +298,7 @@ export class StepTrace extends LineTrace {
 
     return {
       ...baseState,
-      plotType: t('model.plotTypeStep'),
+      plotType: this.spokenPlotType(t('model.plotTypeStep')),
     };
   }
 

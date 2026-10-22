@@ -394,7 +394,7 @@ export class PrCurveTrace extends RateCurveTrace {
     }
     // `LineTrace` says "line" or "multiline", and the type is one of the few
     // places a reader learns what they are looking at.
-    return { ...base, plotType: t('model.plotTypePrCurveSpoken') };
+    return { ...base, plotType: this.spokenPlotType(t('model.plotTypePrCurveSpoken')) };
   }
 
   /**

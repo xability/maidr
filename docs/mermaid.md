@@ -114,7 +114,7 @@ Quarto 1.10 bundles Mermaid 11.12, and the adapter reads it. Mermaid 11 does not
 3. **Pairs the reading with the drawing** -- each point is matched to the element Mermaid drew for it, so the highlight follows the reader. Mermaid's element ids carry counters that move from one parse to the next, so the adapter matches on everything but the counter and falls back to drawing order; a layer whose elements cannot all be paired is read without a highlight rather than with one on the wrong shape.
 4. **Hands the figure to MAIDR** -- by setting the `maidr` attribute on the SVG.
 
-The title comes from the diagram's `title` (or its front matter), and the caption from its `accDescr`.
+The title comes from the diagram's `title` (or its front matter), and the caption from its `accDescr`. A quadrant chart's subtitle names its quadrants.
 
 ## Supported Diagram Types
 
@@ -126,8 +126,8 @@ Every diagram type in Mermaid 12 is read, and ZenUML through its plugin. Several
 |---------|-----------------|-------------------|
 | Pie | `pie` | one `pie` slice per section; a slice Mermaid leaves undrawn (under 1%) is still read |
 | XY chart (bar and line) | `xychart` | one `bar` or `line` layer per plot; Page Up / Page Down switch between them |
-| User journey | `journey` | a `line` per section, a task's score with the mood it is drawn with and who takes part |
-| Quadrant chart | `quadrantChart` | a `point` layer of the named points on two axes from 0 to 1, gridded by quadrant; the quadrants are named in the layer title |
+| User journey | `journey` | one `line` of the tasks in the order Mermaid draws them, across the sections: a task's score with the mood it is drawn with, who takes part and its section |
+| Quadrant chart | `quadrantChart` | a `point` layer of the named points on two axes from 0 to 1, gridded by quadrant; the quadrants are named in the figure subtitle (<kbd>L</kbd>, then <kbd>S</kbd>) |
 | Wardley map | `wardley-beta` | a `point` layer of the components by evolution and visibility, gridded in quarters, and a `directed_graph` of the value chain |
 
 ### Experimental chart types
@@ -157,9 +157,9 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Ishikawa diagram [experimental] | `ishikawa-beta` | a `tree` from the effect to its categories of cause and their causes |
 | Timeline [experimental] | `timeline` | a `tree` of sections, periods and their events |
 | Railroad diagram [experimental] | `railroad-beta`, `railroad-ebnf-beta`, `railroad-abnf-beta`, `railroad-peg-beta` | a `tree` of grammar rules and the expressions they are made of |
-| Cynefin framework [experimental] | `cynefin-beta` | a `tree` of domains and what sits in each, and a `directed_graph` of the transitions between domains |
+| Cynefin framework [experimental] | `cynefin-beta` | a `tree` of the five domains Mermaid draws, each with the decision model and practice drawn under it, and what sits in each, and a `directed_graph` of the transitions between domains |
 | Gantt chart [experimental] | `gantt` | a `gantt` lane per section, each task an interval announced as dates, with its status (done, active, critical, milestone) |
-| Packet diagram [experimental] | `packet` | a `gantt` lane per row of bits, each field an interval of bits |
+| Packet diagram [experimental] | `packet` | a `gantt`, named a packet diagram: a lane per row of bits, each field an interval of bits announced by its first and last bit and its width, and panned by where it starts in its row |
 | Radar chart [experimental] | `radar-beta` | a `radar` curve per series |
 | Sankey diagram [experimental] | `sankey` | a `sankey` flow per link |
 | Treemap [experimental] | `treemap-beta` | a `treemap` of sections and sized items |
@@ -182,6 +182,7 @@ ZenUML (`zenuml`) is drawn by a separate Mermaid plugin that keeps no diagram da
 
 - **Arrows are read in the direction they point.** A class edge written `Animal <|-- Duck` is read as Duck inheriting from Animal, and an architecture connection drawn with an arrow runs the way the arrow points. An architecture connection drawn as a plain line, or with an arrow at each end, is read both ways, as a C4 two-way relationship is. A composition or aggregation runs from the whole, where its diamond is drawn: `Car *-- Wheel` and `Wheel --* Car` are both read as Car composed of Wheel. Each cardinality is read with its class, in the order the edge runs: `Shape "1" <|-- "many" Circle` is `cardinality many Circle to 1 Shape`. A class relation with a head at each end, `Teacher <--> Student`, is read both ways, each in the words of its own head. A solid `-->` is an association and a dashed `..>` a dependency, though Mermaid draws them with the same head.
 - **An edge to a group is read as entering or leaving it.** `subgraph --> step` in a flowchart leaves from the subgraph's last steps; a transition into a composite state enters on its initial states. A group that ends in a loop is left from the states or steps in the loop and those leading to it, never from its initial state, and one that starts in a loop is entered on them, never on its final state.
+- **A hierarchy's nodes are named for what they are.** A kanban board announces `Column is To do`, and then `Card is Write the docs` for a card in it. An Ishikawa diagram's nodes are an `Effect`, `Category` or `Cause`; a timeline's a `Section`, `Period` or `Event`; a Cynefin framework's a `Domain` or `Item`; and a railroad diagram's a `Rule`, an `Expression`, a `Terminal` or a `Reference` to another rule. The description's table lists them in a Kind column.
 - **Notes are folded into what they annotate.** A note attached to a class or state is announced with it as `Note`, rather than read as a step of its own.
 - **Sizes Mermaid made up are not announced.** A Venn diagram without sizes is laid out with sizes Mermaid chooses; those are the layout's, so such a diagram is read without sizes.
 - **An empty diagram is still a diagram.** A gantt with no tasks or a quadrant chart with no points becomes a figure with nothing in it, and a reader who reaches it is told it has nothing to describe yet rather than hearing nothing.
@@ -231,7 +232,7 @@ journey
 </pre>
 ```
 
-Each task is announced with its score, the mood Mermaid draws it with, and who takes part: `Task is Do work (Me, Cat), Score is 1, unhappy`.
+Each task is announced with its score, the mood Mermaid draws it with, who takes part and its section: `Task is Do work (Me, Cat), Score is 1, unhappy, Section is Go to work`. The tasks are one line, so right arrow runs on from the last task of a section to the first of the next, and every score is sounded on the same scale.
 
 #### Quadrant chart
 
@@ -391,7 +392,7 @@ The highlight outlines the shape Mermaid drew for the point the reader is on: a 
 |--------|------|-------------|
 | `id` | `string` | ID of the MAIDR figure. Defaults to the SVG's id. |
 | `title` | `string` | Figure title. Defaults to the diagram's own title or front matter `title`. |
-| `subtitle` | `string` | Figure subtitle. |
+| `subtitle` | `string` | Figure subtitle. Defaults to a quadrant chart's quadrant names. |
 | `caption` | `string` | Figure caption. Defaults to the diagram's `accDescr`. |
 
 `bindMermaid(mermaid, selector = '.mermaid', root = document)` renders and binds every matching element and resolves to the figures it made. A diagram that fails to parse or convert is reported on the console and left as Mermaid drew it; the others are still bound.

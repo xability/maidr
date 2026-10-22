@@ -1,3 +1,4 @@
+import type { MaidrLayer } from '@type/grammar';
 import type { MessageKey } from '@util/i18n';
 import { TraceType } from '@type/grammar';
 import { t } from '@util/i18n';
@@ -87,4 +88,21 @@ const CHART_TYPE_LABEL: Record<TraceType, MessageKey> = {
  */
 export function chartTypeLabel(type: TraceType): string {
   return t(CHART_TYPE_LABEL[type]);
+}
+
+/**
+ * The name a layer gives its own chart type, when it is read as a trace type
+ * it is not ({@link MaidrLayer.typeLabel}).
+ *
+ * Beside {@link chartTypeLabel} for the reason that is a free function: the
+ * chart's accessible name is built from it before any model exists. Guarded
+ * rather than trusted, as a title is, because a producer's JSON can carry
+ * anything.
+ *
+ * @param layer - The layer, when there is one
+ * @returns The name, trimmed, or undefined when the layer gives none
+ */
+export function ownTypeLabel(layer?: Pick<MaidrLayer, 'typeLabel'>): string | undefined {
+  const label: unknown = layer?.typeLabel;
+  return typeof label === 'string' && label.trim() !== '' ? label.trim() : undefined;
 }

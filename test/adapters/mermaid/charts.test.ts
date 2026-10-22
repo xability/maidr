@@ -3,7 +3,10 @@
  */
 
 import type { GanttData, LinePoint, PiePoint, ScatterPoint, TreemapPoint } from '@type/grammar';
+import type { NonEmptyTraceState } from '@type/state';
+import { convertMermaidDiagram } from '@adapters/mermaid/converter';
 import { describe, expect, it } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
@@ -40,18 +43,42 @@ describe('the charts', () => {
     expect(matched(layer)).toBe(2);
   });
 
-  it('reads a packet as bit intervals, one lane per row', () => {
+  it('reads a packet as bit intervals, one lane per row, each ending on its last bit', () => {
     const layer = layersOf(convert('packet', {
-      getPacket: () => [[{ start: 0, end: 15, label: 'Source Port' }, { start: 16, end: 31, label: 'Destination Port' }]],
+      getPacket: () => [
+        [{ start: 0, end: 15, label: 'Source Port' }, { start: 16, end: 31, label: 'Destination Port' }],
+        [{ start: 32, end: 32, label: 'Flag' }],
+      ],
     }))[0];
-    expect((layer.data as GanttData).points[0]).toEqual([
-      { x: 'Bits 0 to 31', start: 0, end: 16, label: 'Source Port' },
-      { x: 'Bits 0 to 31', start: 16, end: 32, label: 'Destination Port' },
+    expect(layer.type).toBe(TraceType.GANTT);
+    expect(layer.typeLabel).toBe('Packet Diagram');
+    const data = layer.data as GanttData;
+    expect(data.points).toEqual([
+      [
+        { x: 'Bits 0 to 31', start: 0, end: 15, label: 'Source Port' },
+        { x: 'Bits 0 to 31', start: 16, end: 31, label: 'Destination Port' },
+      ],
+      [{ x: 'Bits 32 to 32', start: 32, end: 32, label: 'Flag' }],
     ]);
+    expect(data.inclusive).toBe(true);
+    // A database with no configuration says nothing of how its rows are drawn.
+    expect(data.wrap).toBeUndefined();
+  });
+
+  it('folds a packet\'s bits into the rows Mermaid draws, left to right', () => {
+    const wrapOf = (config: object): number | undefined => (layersOf(convert('packet', {
+      getPacket: () => [[{ start: 0, end: 15, label: 'Port' }]],
+      getConfig: () => config,
+    }))[0].data as GanttData).wrap;
+    expect(wrapOf({ bitsPerRow: 32 })).toBe(32);
+    expect(wrapOf({ bitsPerRow: 16 })).toBe(16);
+    expect(wrapOf({ bitsPerRow: 32, bitOrder: 'descending' })).toBeUndefined();
+    expect(wrapOf({ bitsPerRow: 0 })).toBeUndefined();
   });
 
   it('recovers a quadrant chart\'s values from its laid-out points, in declared order', () => {
-    const layer = layersOf(convert('quadrantChart', {
+    const figure = convert('quadrantChart', {
+      getDiagramTitle: () => 'Reach',
       getQuadrantData: () => ({
         quadrants: [
           { x: 50, y: 0, width: 50, height: 50, text: { text: 'Expand' } },
@@ -63,10 +90,26 @@ describe('the charts', () => {
         points: [{ x: 75, y: 25, text: { text: 'B' } }, { x: 10, y: 90, text: { text: 'A' } }],
         axisLabels: [{ text: 'Low' }, { text: 'High' }, { text: 'Bottom' }, { text: 'Top' }],
       }),
-    }))[0];
+    });
+    const layer = layersOf(figure)[0];
     expect(layer.data as ScatterPoint[]).toEqual([{ x: 0.1, y: 0.1, label: 'A' }, { x: 0.75, y: 0.75, label: 'B' }]);
     expect(layer.axes?.x?.label).toBe('Low to High');
-    expect(layer.title).toBe('Quadrants: Expand (top right); Promote (top left)');
+    // The layer title would name the chart in place of the diagram's title.
+    expect(layer.title).toBeUndefined();
+    expect(figure.title).toBe('Reach');
+    expect(figure.subtitle).toBe('Quadrants: Expand (top right); Promote (top left)');
+  });
+
+  it('names no quadrants when the chart labels none, and lets the author\'s subtitle stand', () => {
+    const quadrants = (text: string): object => ({
+      getQuadrantData: () => ({
+        quadrants: [{ x: 0, y: 0, width: 50, height: 50, text: { text } }],
+        points: [{ x: 10, y: 10, text: { text: 'A' } }],
+      }),
+    });
+    expect(convert('quadrantChart', quadrants('')).subtitle).toBeUndefined();
+    const authored = convertMermaidDiagram({ type: 'quadrantChart', db: quadrants('Expand') }, drawn('q'), { subtitle: 'Mine' });
+    expect(authored.subtitle).toBe('Mine');
   });
 
   it('reads an XY chart as one layer per plot', () => {
@@ -85,11 +128,48 @@ describe('the charts', () => {
     expect((layers[1].data as LinePoint[][])[0]).toEqual([{ x: 'jan', y: 5 }, { x: 'feb', y: 6 }]);
   });
 
-  it('reads a journey as scores per section, with who takes part', () => {
+  it('reads a journey as one line of scores across its sections, with who takes part', () => {
     const layer = layersOf(convert('journey', {
-      getTasks: () => [{ section: 'Go to work', task: 'Make tea', score: 5, people: ['Me'] }],
+      getTasks: () => [
+        { section: 'Go to work', task: 'Make tea', score: 5, people: ['Me'] },
+        { section: 'Go to work', task: 'Do work', score: 1, people: ['Me', 'Cat'] },
+        { section: 'Go home', task: 'Go downstairs', score: 5, people: ['Me'] },
+      ],
     }))[0];
-    expect((layer.data as LinePoint[][])[0][0]).toEqual({ x: 'Make tea (Me)', y: 5, z: 'Go to work', label: '5, happy' });
+    // One line, so a reader walks from one section into the next and every
+    // score is pitched on the same range.
+    expect(layer.data as LinePoint[][]).toEqual([[
+      { x: 'Make tea (Me)', y: 5, z: 'Go to work', label: '5, happy' },
+      { x: 'Do work (Me, Cat)', y: 1, z: 'Go to work', label: '1, unhappy' },
+      { x: 'Go downstairs (Me)', y: 5, z: 'Go home', label: '5, happy' },
+    ]]);
+    expect(layer.axes?.z).toEqual({ label: 'Section' });
+
+    // The last 5 sounds as high as the first and pans at the timeline's end;
+    // in a section of its own it was the bottom of a range of one.
+    const trace = TraceFactory.create(layer);
+    trace.moveToIndex(0, 2);
+    const { audio } = trace.state as NonEmptyTraceState;
+    expect(audio.freq).toMatchObject({ min: 1, max: 5, raw: 5 });
+    expect(audio.panning).toMatchObject({ x: 2, cols: 3 });
+    trace.dispose();
+  });
+
+  it('keeps a journey\'s tasks in the order Mermaid draws them, whatever their sections', () => {
+    const layer = layersOf(convert('journey', {
+      getTasks: () => [
+        { section: 'A', task: 'One', score: 3 },
+        { section: 'B', task: 'Two', score: 4 },
+        { section: 'A', task: 'Three', score: 2 },
+      ],
+    }))[0];
+    expect((layer.data as LinePoint[][])[0].map(point => [point.x, point.z])).toEqual([['One', 'A'], ['Two', 'B'], ['Three', 'A']]);
+  });
+
+  it('names no section for a journey that declares none', () => {
+    const layer = layersOf(convert('journey', { getTasks: () => [{ section: '', task: 'Make tea', score: 5 }] }))[0];
+    expect((layer.data as LinePoint[][])[0]).toEqual([{ x: 'Make tea', y: 5, label: '5, happy' }]);
+    expect(layer.axes?.z).toBeUndefined();
   });
 
   it('reads a treemap\'s sections and sized items', () => {

@@ -19,7 +19,7 @@ import type {
 } from '@type/state';
 import type { Trace } from './plot';
 import { Orientation, TraceType } from '@type/grammar';
-import { chartTypeLabel } from '@util/chartTypeLabel';
+import { chartTypeLabel, ownTypeLabel } from '@util/chartTypeLabel';
 import { t } from '@util/i18n';
 import {
   extractXValueFromPoints,
@@ -619,7 +619,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       layerId: this.id,
       traceType: this.type,
       // Default to the trace type for plot types that do not name themselves.
-      plotType: plotTypeLabel(this.type),
+      plotType: this.spokenPlotType(plotTypeLabel(this.type)),
       title: this.title,
       name: this.name,
       xAxis: this.xAxis,
@@ -838,7 +838,24 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * Falls back to the raw layer type if no mapping is registered.
    */
   protected getChartTypeLabel(): string {
-    return chartTypeLabel(this.layer.type);
+    return ownTypeLabel(this.layer) ?? chartTypeLabel(this.layer.type);
+  }
+
+  /**
+   * What the entry instruction calls this chart: the name the layer gives
+   * its own chart type ({@link MaidrLayer.typeLabel}), or the trace's word.
+   *
+   * A trace that names itself -- a line "single line" or "multiline", a
+   * radar "polar area" -- passes its word through here, so a layer that
+   * names its chart type is called by that name whichever trace reads it,
+   * and the instruction a reader hears once in the chart says what the one
+   * built from the layer before it said.
+   *
+   * @param own - The trace's word for its type
+   * @returns The word the instruction uses
+   */
+  protected spokenPlotType(own: string): string {
+    return ownTypeLabel(this.layer) ?? own;
   }
 
   /**
@@ -859,9 +876,13 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   /**
    * A plain-language introduction to this layer's chart type, for the
    * description dialog. See {@link chartGuide}.
+   *
+   * None for a layer that names its own chart type: the guide explains the
+   * trace type it is read as, which is not what the chart is, and a gantt's
+   * tasks, dates and project plans said of a packet's bit fields are false.
    */
-  public get guide(): ChartGuide {
-    return chartGuide(this.type);
+  public get guide(): ChartGuide | undefined {
+    return ownTypeLabel(this.layer) === undefined ? chartGuide(this.type) : undefined;
   }
 
   /**

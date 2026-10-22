@@ -743,6 +743,27 @@ export interface GanttData {
    * a unit rather than guessing one.
    */
   unit?: string;
+  /**
+   * Whether an interval's `end` is the last unit it covers rather than the
+   * point where it stops: a packet field written `0-15` covers 16 bits and
+   * ends on bit 15.
+   *
+   * Set, an interval is measured as `end - start + 1` and announced with the
+   * `end` it was given, so the length and the ends both say what the chart
+   * draws. Omitted, `end` is the boundary, as a schedule's is.
+   */
+  inclusive?: boolean;
+  /**
+   * How many units of the axis one lane is drawn across, when the lanes are
+   * one axis folded into rows rather than lanes sharing an axis: a packet
+   * diagram's 32 bits a row.
+   *
+   * Stereo position then follows where an interval starts within its row,
+   * which is where it is drawn, rather than along the whole axis, so two
+   * intervals drawn one above the other sound in the same place. Omitted,
+   * the lanes share one axis, as a schedule's do.
+   */
+  wrap?: number;
 }
 
 /**
@@ -1013,6 +1034,15 @@ export interface TreemapPoint {
    * A top-level node omits it or declares `[]`.
    */
   path?: (string | number)[];
+  /**
+   * What sort of node this is, as the diagram calls it, when the layer's x
+   * label is not true of every node: a kanban board's `Column`s and `Card`s,
+   * an Ishikawa diagram's `Effect` above its `Category`s of `Cause`.
+   * Announced in place of the x label for this node, and tabulated beside
+   * its name. A node that declares none, or a blank one, and an ancestor no
+   * point declares, are announced with the x label.
+   */
+  kind?: string;
 }
 
 /**
@@ -1772,6 +1802,21 @@ export interface MaidrLayer {
    * name: 'Male'
    */
   name?: string;
+  /**
+   * What the chart is called, when it is read as a trace type it is not: a
+   * Mermaid packet diagram read as a `gantt`, its fields intervals of bits.
+   *
+   * Said in place of the trace type's name wherever the chart's type is
+   * named -- its accessible name, the instruction on entering it, the
+   * description's Chart Type and layer tab, a layer switch -- and the
+   * description leaves out its "About this chart type" guide, which explains
+   * the trace type rather than this chart. Written as given, in every
+   * language, as `title` is.
+   *
+   * @example
+   * typeLabel: 'Packet Diagram'
+   */
+  typeLabel?: string;
   /**
    * Which element of the chart each point of the layer is drawn as.
    *

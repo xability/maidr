@@ -595,7 +595,7 @@ export class PercentileBandTrace extends LineTrace {
     }
     // The line calls itself "multiline", which tells a reader nothing about
     // nested bands.
-    return { ...base, plotType: t('model.plotTypePercentileBandSpoken') };
+    return { ...base, plotType: this.spokenPlotType(t('model.plotTypePercentileBandSpoken')) };
   }
 
   /**

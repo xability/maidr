@@ -3,7 +3,7 @@ import type { Maidr as MaidrData } from '@type/grammar';
 import type { JSX, ReactNode, PointerEvent as ReactPointerEvent } from 'react';
 import { TraceType } from '@type/grammar';
 import { visuallyHidden } from '@ui/visuallyHidden';
-import { chartTypeLabel } from '@util/chartTypeLabel';
+import { chartTypeLabel, ownTypeLabel } from '@util/chartTypeLabel';
 import { Constant } from '@util/constant';
 import { ensureDocumentStyle } from '@util/documentStyle';
 import { t } from '@util/i18n';
@@ -106,10 +106,8 @@ function getInitialInstruction(data: MaidrData): string {
 
   // Resolved the same way the trace model resolves it, so the pre-activation
   // announcement and the one DisplayService writes on focus-in agree.
-  const displayType = formatPlotType(
-    plotType,
-    resolveOrientation(traceType ?? '', firstLayer?.orientation),
-  );
+  const orientation = resolveOrientation(traceType ?? '', firstLayer?.orientation);
+  const displayType = formatPlotType(plotType, orientation);
 
   if (layerCount > 1) {
     return t('model.initialInstructionSubplot', {
@@ -120,8 +118,12 @@ function getInitialInstruction(data: MaidrData): string {
     });
   }
 
+  // A layer that names the chart type it is read as -- a packet diagram read
+  // as a gantt -- is called by that name, as its trace calls itself once the
+  // reader is in it.
+  const ownType = ownTypeLabel(firstLayer);
   return t('model.instructionTrace', {
-    displayType,
+    displayType: ownType === undefined ? displayType : formatPlotType(ownType, orientation),
     groupCount: groupCountText,
     clickPrompt,
   });
@@ -139,9 +141,10 @@ function getInitialInstruction(data: MaidrData): string {
  * They are the chart's description now ({@link getInitialInstruction}).
  *
  * The title is the figure's, or, for a single panel, its first layer's:
- * producers give every layer the chart's title. A figure of several panels
- * with no title of its own is named by its panel count, as no one panel names
- * it.
+ * producers give every layer the chart's title. The type is the one that
+ * layer names when it is read as another (`typeLabel`). A figure of several
+ * panels with no title of its own is named by its panel count, as no one
+ * panel names it.
  *
  * @param data - The chart's MAIDR data
  * @returns The name, e.g. `Tips by day, Bar Chart`
@@ -157,7 +160,9 @@ function getChartName(data: MaidrData): string {
     type = t('model.chartNameLayers', { size: layers.length });
   } else {
     const traceType = layers[0]?.type;
-    type = traceType === undefined ? t('model.plotTypeUnknownChart') : chartTypeLabel(traceType);
+    type = traceType === undefined
+      ? t('model.plotTypeUnknownChart')
+      : ownTypeLabel(layers[0]) ?? chartTypeLabel(traceType);
   }
 
   const title = titleText(data.title) || titleText(layers[0]?.title);

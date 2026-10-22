@@ -59,6 +59,8 @@ interface TreeNode {
   value: number;
   /** Index into the declared array, for highlight selectors. */
   source: number | null;
+  /** What sort of node its point says it is, when it says. */
+  kind?: string;
 }
 
 /** The rotor unit's key, which the trace recognises a move request by. */
@@ -319,6 +321,10 @@ export class TreemapTrace extends AbstractTrace {
       if (typeof point.y === 'number' && Number.isFinite(point.y)) {
         node.declared = point.y;
       }
+      const kind = typeof point.kind === 'string' ? point.kind.trim() : '';
+      if (kind !== '') {
+        node.kind = kind;
+      }
     }
 
     // Deepest first, so a parent's children are already totalled when it is
@@ -458,6 +464,17 @@ export class TreemapTrace extends AbstractTrace {
    */
   private get nodeLabel(): string {
     return named(this.layer.axes?.x?.label, nodeAxis());
+  }
+
+  /**
+   * What one node is called: the sort of node its point says it is, or the
+   * layer's {@link TreemapTrace.nodeLabel} when it says nothing.
+   *
+   * @param node - The node
+   * @returns The noun its name is announced with
+   */
+  private kindOf(node: TreeNode): string {
+    return node.kind ?? this.nodeLabel;
   }
 
   /** @see {@link TreemapTrace.nodeLabel} */
@@ -662,7 +679,7 @@ export class TreemapTrace extends AbstractTrace {
     }
 
     return {
-      main: { label: this.nodeLabel, value: node.name },
+      main: { label: this.kindOf(node), value: node.name },
       // Omitted rather than sent as 0, or as the layout's per-link 1: both
       // announce a number no rectangle on the page stands for.
       ...(this.valued ? { cross: { label: this.valueLabel, value: node.value } } : {}),
@@ -1053,6 +1070,14 @@ export class TreemapTrace extends AbstractTrace {
       });
     }
 
+    // What each node is, beside its name, when the nodes say: the noun each
+    // one is announced with, which the x label heading the names is not true
+    // of for every row. Sits on no axis.
+    const kinded = every.some(node => node.kind !== undefined);
+    const kindHeader = kinded ? [t('model.tableKind')] : [];
+    const kindAxis = kinded ? [undefined] : [];
+    const kindCell = (node: TreeNode): string[] => (kinded ? [this.kindOf(node)] : []);
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
@@ -1062,6 +1087,7 @@ export class TreemapTrace extends AbstractTrace {
         ? {
             headers: [
               t('model.asidePath'),
+              ...kindHeader,
               this.nodeLabel,
               this.valueLabel,
               t('model.asideShareOfTotal'),
@@ -1070,9 +1096,10 @@ export class TreemapTrace extends AbstractTrace {
             // announcement already speaks a node through. The path is an
             // ancestry joined here and the share is divided out of the total,
             // so neither is a reading the layer declared an axis for.
-            columnAxes: [undefined, 'x', 'y', undefined],
+            columnAxes: [undefined, ...kindAxis, 'x', 'y', undefined],
             rows: every.map(node => [
               this.ancestorsOf(node).join(' > '),
+              ...kindCell(node),
               node.name,
               node.value,
               this.grandTotal === 0 ? '' : asPercent(node.value / this.grandTotal),
@@ -1082,12 +1109,13 @@ export class TreemapTrace extends AbstractTrace {
             // Two columns rather than four, half of them zeroes and blanks:
             // the ancestry and the name are the whole of what a pure
             // hierarchy has to tabulate.
-            headers: [t('model.asidePath'), this.nodeLabel],
+            headers: [t('model.asidePath'), ...kindHeader, this.nodeLabel],
             // The same two columns, so the same two entries: the joined
             // ancestry sits on no axis, the name on x.
-            columnAxes: [undefined, 'x'],
+            columnAxes: [undefined, ...kindAxis, 'x'],
             rows: every.map(node => [
               this.ancestorsOf(node).join(' > '),
+              ...kindCell(node),
               node.name,
             ]),
           },

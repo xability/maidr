@@ -520,4 +520,97 @@ test.describe('Mermaid adapter', () => {
     expect(drawing).toBeLessThanOrEqual(figure + 0.5);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
+
+  test('reads a packet field from its first bit to its last', async ({ page }) => {
+    await openExample(page, 'packet');
+    // Folded into Mermaid's rows of 32 bits, so a field pans by where its row
+    // draws it.
+    const json = await page.locator('svg[maidr]').first().getAttribute('maidr');
+    const maidr = JSON.parse(json ?? '{}') as { subplots: { layers: { data: { wrap?: number } }[] }[][] };
+    expect(maidr.subplots[0][0].layers[0].data.wrap).toBe(32);
+
+    const source = await press(page, 'ArrowRight');
+    expect(source).toContain('Source port, Bit is 0 through 15');
+    expect(source).toContain('Length is 16 bits');
+    expect(await press(page, 'ArrowRight')).toContain('Bit is 16 through 31');
+
+    await page.keyboard.press('d');
+    await expect(page.getByRole('dialog')).toContainText('Spans: 0 to 95');
+  });
+
+  test('introduces a packet diagram as a packet diagram, not a gantt chart', async ({ page }) => {
+    await openExample(page, 'packet');
+    await expect(page.locator(FOCUS_TARGET).first()).toHaveAttribute('aria-label', 'UDP packet, Packet Diagram');
+    await press(page, 'ArrowRight');
+
+    await page.keyboard.press('d');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Chart Type: Packet Diagram');
+    await expect(dialog).not.toContainText(/gantt/i);
+  });
+
+  test('walks a user journey from one section into the next', async ({ page }) => {
+    await openExample(page, 'journey');
+    for (let task = 0; task < 3; task++) {
+      await press(page, 'ArrowRight');
+    }
+    const next = await press(page, 'ArrowRight');
+    expect(next).toContain('Go downstairs (Me)');
+    expect(next).toContain('Section is Go home');
+    expect(await press(page, 'ArrowRight')).toContain('Sit down (Me)');
+
+    // One row of five cells, the 5s at either end as high as each other.
+    await page.keyboard.press('b');
+    const braille = page.locator(BRAILLE).first();
+    await expect.poll(async () => (await braille.inputValue()).trim()).toMatch(BRAILLE_CELLS);
+    const cells = [...(await braille.inputValue()).trim()];
+    expect(cells).toHaveLength(5);
+    expect(cells[4]).toBe(cells[0]);
+  });
+
+  test('names a quadrant chart by its title, and its quadrants in the subtitle', async ({ page }) => {
+    await openExample(page, 'quadrant');
+    await press(page, 'ArrowRight');
+
+    await page.keyboard.press('l');
+    expect(await press(page, 't')).toContain('Title is Reach and engagement of campaigns');
+    await page.keyboard.press('l');
+    expect(await press(page, 's')).toContain('Subtitle is Quadrants: We should expand (top right)');
+  });
+
+  test('names a kanban column as a column and a card as a card', async ({ page }) => {
+    await openExample(page, 'kanban');
+    const column = await press(page, 'ArrowRight');
+    expect(column).toContain('Column is To do');
+    expect(await press(page, 'ArrowDown')).toContain('Card is Write the docs');
+  });
+
+  test('names each level of a hierarchy for what it is', async ({ page }) => {
+    await openExample(page, 'ishikawa');
+    expect(await press(page, 'ArrowRight')).toContain('Effect is Blurry photo');
+    expect(await press(page, 'ArrowDown')).toContain('Category is ');
+    expect(await press(page, 'ArrowDown')).toContain('Cause is ');
+
+    await openExample(page, 'timeline');
+    expect(await press(page, 'ArrowRight')).toContain('Section is Guidelines');
+    expect(await press(page, 'ArrowDown')).toContain('Period is 1999');
+    expect(await press(page, 'ArrowDown')).toContain('Event is WCAG 1.0');
+  });
+
+  test('reads the Cynefin framework text, and reaches the Confusion it draws', async ({ page }) => {
+    await openExample(page, 'cynefin');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Complex (Probe → Sense → Respond, Emergent Practices)');
+    for (let domain = 0; domain < 3; domain++) {
+      await press(page, 'ArrowRight');
+    }
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Confusion (Disorder)');
+  });
+
+  test('names a timeline by the title it declares', async ({ page }) => {
+    await openExample(page, 'timeline');
+
+    await expect(page.locator(FOCUS_TARGET).first()).toHaveAttribute('aria-label', /^Web accessibility milestones, /);
+    await page.keyboard.press('l');
+    expect(await press(page, 't')).toContain('Title is Web accessibility milestones');
+  });
 });

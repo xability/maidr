@@ -33,7 +33,7 @@ export class SmoothTrace extends LineTrace {
 
     return {
       ...baseState,
-      plotType: t('model.plotTypeSmooth'),
+      plotType: this.spokenPlotType(t('model.plotTypeSmooth')),
     };
   }
 

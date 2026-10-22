@@ -29,13 +29,26 @@ function withoutFloatNoise(value: number): number {
 }
 
 /**
+ * Where an interval stops: its end, or the boundary one unit past it when the
+ * end is the last unit it covers (see {@link GanttData.inclusive}).
+ *
+ * @param point - The interval
+ * @param inclusive - Whether its end is the last unit it covers
+ * @returns The boundary it stops at
+ */
+function closeOf(point: GanttPoint, inclusive: boolean): number {
+  return Number(point.end) + (inclusive ? 1 : 0);
+}
+
+/**
  * The length one interval covers.
  *
  * @param point - The interval to measure
+ * @param inclusive - Whether its end is the last unit it covers
  * @returns Its length along the axis
  */
-function lengthOf(point: GanttPoint): number {
-  return withoutFloatNoise(Number(point.end) - Number(point.start));
+function lengthOf(point: GanttPoint, inclusive: boolean): number {
+  return withoutFloatNoise(closeOf(point, inclusive) - Number(point.start));
 }
 
 /**
@@ -58,7 +71,8 @@ function lengthOf(point: GanttPoint): number {
  * the magnitude the chart is drawn to compare. Stereo position carries the
  * start, mapped along the whole axis rather than by column index, so a lane
  * whose work happens late sounds late -- and two lanes whose intervals line up
- * sound like they line up, which is the overlap question answered by ear.
+ * sound like they line up, which is the overlap question answered by ear. On
+ * an axis folded into rows, a packet's bits, it is the start within the row.
  */
 export class GanttTrace extends AbstractTrace {
   protected readonly supportsExtrema = false;
@@ -67,12 +81,16 @@ export class GanttTrace extends AbstractTrace {
   private readonly lanes: GanttPoint[][];
   private readonly lengths: number[][];
   private readonly unit?: string;
+  /** Whether an end is the last unit an interval covers. */
+  private readonly inclusive: boolean;
   private readonly laneNames: (string | number)[];
   private readonly orientation: Orientation;
 
   /** The axis extent, taken from the intervals rather than from the layer. */
   private readonly axisMin: number;
   private readonly axisSpan: number;
+  /** How long a drawn row is, for an axis folded into rows. */
+  private readonly wrap?: number;
 
   private readonly min: number;
   private readonly max: number;
@@ -128,19 +146,23 @@ export class GanttTrace extends AbstractTrace {
     const data = layer.data as GanttData;
     this.lanes = data.points;
     this.unit = data.unit?.trim() || undefined;
+    this.inclusive = data.inclusive === true;
     this.laneNames = data.lanes ?? [];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.lengths = this.lanes.map(lane => lane.map(lengthOf));
+    this.lengths = this.lanes.map(lane => lane.map(point => lengthOf(point, this.inclusive)));
 
     const starts = this.lanes.flat().map(point => Number(point.start));
-    const ends = this.lanes.flat().map(point => Number(point.end));
+    const ends = this.lanes.flat().map(point => closeOf(point, this.inclusive));
     const extent = MathUtil.minMax([...starts, ...ends]);
     this.axisMin = extent.min;
     // Zero rather than the difference when a chart occupies a single instant,
     // so the division that follows is guarded at its one source instead of at
     // every use.
     this.axisSpan = extent.max > extent.min ? extent.max - extent.min : 0;
+    this.wrap = typeof data.wrap === 'number' && Number.isFinite(data.wrap) && data.wrap > 0
+      ? data.wrap
+      : undefined;
 
     const bounds = MathUtil.minMax(this.lengths.flat());
     this.min = bounds.min;
@@ -275,15 +297,32 @@ export class GanttTrace extends AbstractTrace {
       // simultaneous tasks at different ones -- erasing the overlap the chart
       // exists to show.
       panning: {
-        x: this.axisSpan === 0
-          ? 0.5
-          : (Number(point?.start ?? this.axisMin) - this.axisMin) / this.axisSpan,
+        x: this.panAt(Number(point?.start ?? this.axisMin)),
         y: this.row,
         rows: this.lanes.length,
         cols: 2,
       },
       group: this.row,
     };
+  }
+
+  /**
+   * Where a start sits across the stereo field, from 0 at the left to 1.
+   *
+   * Along the whole axis, so lanes sharing it sound aligned where they are
+   * aligned -- or, on an axis folded into rows ({@link GanttData.wrap}),
+   * within the row, which is where the interval is drawn. Measured along the
+   * whole axis there, the rows would split the field between them, and two
+   * fields drawn one above the other would sound a row's width apart.
+   *
+   * @param start - Where an interval starts
+   * @returns Its fraction of the axis, or of its row
+   */
+  private panAt(start: number): number {
+    if (this.wrap !== undefined) {
+      return (((start % this.wrap) + this.wrap) % this.wrap) / this.wrap;
+    }
+    return this.axisSpan === 0 ? 0.5 : (start - this.axisMin) / this.axisSpan;
   }
 
   /**
@@ -368,7 +407,11 @@ export class GanttTrace extends AbstractTrace {
       // Carried for the traces and modes that read a single cross value; the
       // span below replaces it wherever both are present.
       cross: { label: crossLabel, value: Number(point.start) },
-      crossRange: { min: Number(point.start), max: Number(point.end) },
+      // An interval of one unit, given inclusively, is that unit: "Bit is
+      // 32" rather than "32 through 32".
+      ...(this.inclusive && Number(point.start) === Number(point.end)
+        ? {}
+        : { crossRange: { min: Number(point.start), max: Number(point.end) } }),
       // The length, with the unit the chart named. A bare number cannot say
       // whether a task runs for 40 days or 40 weeks, and the axis format that
       // renders the ends as dates says nothing about the difference between
@@ -552,7 +595,10 @@ export class GanttTrace extends AbstractTrace {
       .flat()
       .flatMap((point) => {
         const start = Number(point.start);
-        const end = Number(point.end);
+        // Where it stops rather than its last unit, so two intervals that
+        // merely adjoin -- bits 0-15 and 16-31 -- are not counted as running
+        // together, and two that share a unit are.
+        const end = closeOf(point, this.inclusive);
         // Both ends or neither: dropping only the unparseable half would
         // leave an interval that opens and never closes, and every moment
         // after it would be counted as overlapping something that ended.

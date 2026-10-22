@@ -75,6 +75,35 @@ describe('the converter', () => {
     expect(figure.caption).toBe('Adopted this year');
   });
 
+  it('reads the title and description a timeline keeps in Mermaid\'s common database', () => {
+    const figure = convert('timeline', {
+      getSections: () => [],
+      getTasks: () => [{ task: '2002', events: [] }],
+      getCommonDb: () => ({ getDiagramTitle: () => 'Milestones', getAccDescription: () => 'Two strands' }),
+    });
+    expect(figure.title).toBe('Milestones');
+    expect(figure.caption).toBe('Two strands');
+  });
+
+  it('prefers the database\'s own title to the common database\'s', () => {
+    const figure = convert('pie', {
+      getSections: () => new Map([['Dogs', 3]]),
+      getDiagramTitle: () => 'Own',
+      getCommonDb: () => ({ getDiagramTitle: () => 'Common' }),
+    });
+    expect(figure.title).toBe('Own');
+  });
+
+  it('reads no title from a common database that is missing or throws', () => {
+    for (const getCommonDb of [() => null, () => {
+      throw new Error('moved on');
+    }]) {
+      const figure = convert('timeline', { getSections: () => [], getTasks: () => [{ task: '2002' }], getCommonDb });
+      expect(figure.title).toBeUndefined();
+      expect(figure.caption).toBeUndefined();
+    }
+  });
+
   it('reads a front matter title, which Mermaid keeps out of the database', () => {
     expect(frontMatterTitle('---\ntitle: Animal example\n---\nclassDiagram\n')).toBe('Animal example');
     expect(frontMatterTitle('---\nconfig:\n  theme: base\ntitle: "Quoted"\n---\npie\n')).toBe('Quoted');
