@@ -8,7 +8,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
@@ -219,8 +219,9 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   /**
    * Every ribbon the chart drew, in declared flow order.
    *
-   * The highlight covers one ribbon per node -- the widest one touching it --
-   * because that is what an eye is drawn to. A renderer showing the chart's
+   * The highlight covers one ribbon at a time -- the one just travelled, or
+   * the widest one touching the node -- because that is what the reader
+   * heard about or what an eye is drawn to. A renderer showing the chart's
    * shape wants all of them: the thin cross-flows are most of what an
    * alluvial has to say, and a display drawn from the highlight alone shows
    * six blocks where the chart shows fourteen bands.
@@ -998,8 +999,9 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    *
    * A selector list is one entry per **flow**, in declared order, because a
    * ribbon is what the chart draws -- the nodes are the gaps between them. The
-   * cursor sits on a node, so a node highlights every ribbon it touches, which
-   * is what a sighted reader's eye is drawn to when they look at one.
+   * cursor sits on a node, so each cell holds the node's own ribbon, from
+   * {@link ribbonOf}; the highlight swaps in the ribbon just travelled when
+   * there is one (see {@link highlightedRibbon}).
    *
    * @param selectors - Whatever the layer declared
    * @param declared - How many flows the layer declared
@@ -1069,17 +1071,8 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   }
 
   /**
-   * The one ribbon a node's highlight covers, as its position in the declared
-   * flow array.
-   *
-   * **This is the single expression both highlight channels read.** A node
-   * touches every flow on either side of it, but the chart is not asked to
-   * outline all of them: `mapToSvgElements` takes one element per cell, and
-   * {@link highlightedPointIndices} names one index. Writing the rule twice is
-   * how the two would come to disagree -- an adapter publishing
-   * `[...out, ...in]` while the SVG path outlined `out[0]` puts a canvas
-   * highlight and an SVG highlight on different ribbons for the same trace at
-   * the same cursor position, which reads as correct and is not.
+   * A node's own ribbon, as its position in the declared flow array: the one
+   * the highlight covers when the cursor did not arrive along a ribbon.
    *
    * Outgoing first, because that is the direction the chart is drawn in and the
    * ribbon the FORWARD arrow follows; a sink has no outgoing flow, so it falls
@@ -1098,6 +1091,38 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   }
 
   /**
+   * The one ribbon the highlight covers, as its position in the declared flow
+   * array: the ribbon just travelled, which the announcement names as the
+   * step's "Along", or else the node's own from {@link ribbonOf}.
+   *
+   * **This is the single expression both highlight channels read.** A node
+   * touches every flow on either side of it, but the chart is not asked to
+   * outline all of them: `highlight` takes one ribbon, and
+   * {@link highlightedPointIndices} names one index. Writing the rule twice is
+   * how the two would come to disagree -- a canvas highlight and an SVG
+   * highlight on different ribbons for the same trace at the same cursor
+   * position, which reads as correct and is not. Arriving along a ribbon and
+   * lighting another one was that same mistake between the highlight and the
+   * announcement: Wind, Solar and Gas all lit Electricity's widest outflow on
+   * arrival, while each step named its own flow in.
+   *
+   * @returns Its index into the declared flows, or undefined when the cursor
+   *   is on no node or on one no ribbon was drawn for
+   */
+  private highlightedRibbon(): number | undefined {
+    return this.arrivedVia?.at ?? FlowTrace.ribbonOf(this.current);
+  }
+
+  protected override get highlight(): HighlightState {
+    if (this.highlightValues === null || this.isInitialEntry) {
+      return super.highlight;
+    }
+    const at = this.highlightedRibbon();
+    const ribbon = at === undefined ? undefined : this.ribbons[at];
+    return ribbon === undefined ? super.highlight : { empty: false, elements: ribbon };
+  }
+
+  /**
    * The ribbon the highlight currently covers, as an index into this layer's
    * `data` array.
    *
@@ -1108,9 +1133,9 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    * position it occupies in the flow array the adapter supplied, and the
    * adapter inverts that against its own extraction walk.
    *
-   * Derived from {@link ribbonOf}, the same expression `mapToSvgElements`
-   * indexes its elements with, so the canvas highlight and the SVG highlight
-   * cannot name different ribbons.
+   * Derived from {@link highlightedRibbon}, the same expression `highlight`
+   * picks its ribbon by, so the canvas highlight and the SVG highlight cannot
+   * name different ribbons.
    *
    * Deliberately not gated on SVG availability: a canvas chart has no elements
    * by definition, and that is the case this exists to serve.
@@ -1125,7 +1150,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       // thing, so the two agree at every position including this one.
       return [];
     }
-    const at = FlowTrace.ribbonOf(this.current);
+    const at = this.highlightedRibbon();
     return at === undefined ? [] : [at];
   }
 

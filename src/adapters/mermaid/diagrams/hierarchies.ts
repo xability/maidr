@@ -328,9 +328,12 @@ export function cynefin(context: DiagramContext): DiagramConversion {
 
   const transitions = rows(call(context.db, 'getTransitions'));
   if (transitions.length > 0) {
-    const nodes: GraphNode[] = domains.map(domain => ({
+    // Outlined by the same drawn labels the domains layer pairs them with:
+    // `roots` begins with the declared domains, in this order.
+    const nodes: GraphNode[] = domains.map((domain, at) => ({
       id: plain(domain.name),
       label: domainName(plain(domain.name)),
+      element: roots[at].element,
     }));
     const edges: GraphEdge[] = transitions.map(one => ({
       from: plain(one.from),

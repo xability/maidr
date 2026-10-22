@@ -425,6 +425,14 @@ test.describe('Mermaid adapter', () => {
     expect(reply).toContain('Route is Store to API');
     expect(reply).toContain('Kind is reply');
 
+    // The plugin draws every call before every reply; each is outlined in
+    // the order it happens all the same.
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('available');
+    for (const message of ['reserve(seat)', 'confirmation', 'sold out', 'receipt e-mailed']) {
+      expect(await press(page, 'ArrowRight')).toContain(`Message is ${message}`);
+      await expect(page.locator(HIGHLIGHT).first()).toContainText(message);
+    }
+
     // ZenUML's own numbers are not read yet; the description invents none.
     await page.keyboard.press('d');
     await expect(page.getByRole('dialog').locator('th', { hasText: 'Message' })).toBeVisible();
@@ -568,6 +576,32 @@ test.describe('Mermaid adapter', () => {
     expect(cells[4]).toBe(cells[0]);
   });
 
+  test('outlines the sankey flow a step announces as the one it went along', async ({ page }) => {
+    await openExample(page, 'sankey');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowDown')).toContain('Node is Wind');
+    const arrived = await press(page, 'ArrowRight');
+    expect(arrived).toContain('Node is Electricity');
+    expect(arrived).toContain('Along is Wind to Electricity');
+
+    // Mermaid draws a link per flow, in the order the flows are written.
+    const wind = page.locator('svg[maidr] g.link:not([data-maidr-owned]) path').nth(1);
+    const lit = page.locator(`${HIGHLIGHT} path`).first();
+    expect(await lit.getAttribute('d')).toBe(await wind.getAttribute('d'));
+  });
+
+  test('outlines a journey task by the face drawn at its score', async ({ page }) => {
+    await openExample(page, 'journey');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowRight')).toContain('Task is Go upstairs (Me)');
+
+    const highlight = page.locator(HIGHLIGHT).first();
+    await expect(highlight).toHaveClass(/face/);
+    const face = page.locator('svg[maidr] circle.face:not([data-maidr-owned])').nth(1);
+    expect(await highlight.getAttribute('cx')).toBe(await face.getAttribute('cx'));
+    expect(await highlight.getAttribute('cy')).toBe(await face.getAttribute('cy'));
+  });
+
   test('names a quadrant chart by its title, and its quadrants in the subtitle', async ({ page }) => {
     await openExample(page, 'quadrant');
     await press(page, 'ArrowRight');
@@ -576,6 +610,55 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 't')).toContain('Title is Reach and engagement of campaigns');
     await page.keyboard.press('l');
     expect(await press(page, 's')).toContain('Subtitle is Quadrants: We should expand (top right)');
+  });
+
+  test('outlines the quadrant point it announces, in every navigation mode', async ({ page }) => {
+    await openExample(page, 'quadrant');
+    // The campaign whose drawn circle the highlight sits on.
+    const outlined = (): Promise<string> => page.evaluate(() => {
+      const highlight = document.querySelector('circle[id^="maidr-highlight"]');
+      const mark = [...document.querySelectorAll('#diagram-svg-1 g.data-point:not([data-maidr-owned])')]
+        .find(point => ['cx', 'cy'].every(at =>
+          point.querySelector('circle')?.getAttribute(at) === highlight?.getAttribute(at)));
+      return mark?.querySelector('text')?.textContent ?? '';
+    });
+
+    expect(await press(page, 'ArrowRight')).toContain('Name is Campaign A');
+    await expect.poll(outlined).toBe('Campaign A');
+
+    // Grid navigation, the quadrants: D alone in the bottom right, C in the top right.
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    expect(await press(page, 'ArrowRight')).toContain('point is: (0.78, 0.34)');
+    await expect.poll(outlined).toBe('Campaign D');
+    expect(await press(page, 'ArrowUp')).toContain('point is: (0.57, 0.69)');
+    await expect.poll(outlined).toBe('Campaign C');
+    expect(await press(page, 'Enter')).toContain('Name is Campaign C');
+    await expect.poll(outlined).toBe('Campaign C');
+    await page.keyboard.press('Escape');
+
+    // Point navigation.
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    for (const key of ['ArrowRight', 'ArrowRight', 'ArrowLeft']) {
+      const name = /Name is (Campaign \w)/.exec(await press(page, key))?.[1];
+      expect(name).toBeDefined();
+      await expect.poll(outlined).toBe(name);
+    }
+  });
+
+  test('outlines a treemap\'s section or item by its rectangle, not its label', async ({ page }) => {
+    await openExample(page, 'treemap');
+    const highlight = page.locator(HIGHLIGHT).first();
+    const outlined = (): Promise<{ tag: string; group: string }> => highlight.evaluate(element => ({
+      tag: element.tagName.toLowerCase(),
+      group: element.parentElement?.querySelector('text')?.textContent ?? '',
+    }));
+
+    expect(await press(page, 'ArrowRight')).toContain('Item is Products');
+    await expect(highlight).toHaveClass(/treemapSection\b/);
+    expect(await outlined()).toEqual({ tag: 'rect', group: 'Products' });
+    expect(await press(page, 'ArrowDown')).toContain('Item is Laptops');
+    await expect(highlight).toHaveClass(/treemapLeaf/);
+    expect(await outlined()).toEqual({ tag: 'rect', group: 'Laptops' });
   });
 
   test('names a kanban column as a column and a card as a card', async ({ page }) => {
@@ -604,6 +687,46 @@ test.describe('Mermaid adapter', () => {
       await press(page, 'ArrowRight');
     }
     expect(await press(page, 'ArrowRight')).toContain('Domain is Confusion (Disorder)');
+  });
+
+  test('outlines the domain a Cynefin transition is on, as the domains layer does', async ({ page }) => {
+    const unresolved: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('resolved to no element')) {
+        unresolved.push(message.text());
+      }
+    });
+    await openExample(page, 'cynefin');
+    await press(page, 'ArrowRight');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Complex');
+
+    expect(await press(page, 'PageUp')).toContain('Transitions');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Chaotic');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Chaotic');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Complex');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Complex');
+    expect(unresolved).toEqual([]);
+  });
+
+  test('outlines a Wardley map\'s component in both its layers', async ({ page }) => {
+    const unresolved: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('resolved to no element')) {
+        unresolved.push(message.text());
+      }
+    });
+    await openExample(page, 'wardley');
+    // Columns run by evolution, so the first is Kettle's, drawn as a dot.
+    expect(await press(page, 'ArrowRight')).toContain('Name is Kettle');
+    const dot = page.locator(`circle${HIGHLIGHT}`);
+    await expect(dot).toHaveCount(1);
+    const kettle = page.locator('svg[maidr] g.wardley-node:not([data-maidr-owned])', { hasText: 'Kettle' }).locator('circle').first();
+    expect(await dot.getAttribute('cx')).toBe(await kettle.getAttribute('cx'));
+
+    expect(await press(page, 'PageUp')).toContain('Value chain');
+    expect(await press(page, 'ArrowRight')).toContain('Component is Business');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Business');
+    expect(unresolved).toEqual([]);
   });
 
   test('names a timeline by the title it declares', async ({ page }) => {

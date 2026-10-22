@@ -405,9 +405,10 @@ chart's shape.
 - **A violin** keeps its density curve on the pins while you are on the inner
   box. The box is the layer you land on first, and drawn alone it is a bare
   whisker; the curve is the shape that names the chart.
-- **A sankey or an alluvial** draws every ribbon, including the thin
-  cross-flows no node ever highlights, and fills the widest ribbon at the node
-  you are on — the one the arrow keys follow.
+- **A sankey or an alluvial** draws every ribbon, the thin cross-flows
+  included, and fills the ribbon you just travelled along — the one the step
+  announced — or, after a move up or down or a jump, the widest ribbon at the
+  node you are on.
 
 ### Layers
 

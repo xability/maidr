@@ -122,6 +122,20 @@ test.describe('Sankey diagram', () => {
     expect(announcement).toContain('60.7%');
   });
 
+  test('should highlight the ribbon it travelled, the one it announced', async ({ page }) => {
+    // Electricity's widest ribbon is the one out to Homes, which every step
+    // into Electricity used to light while naming the flow it came in by.
+    const plot = new SankeyPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Coal to Electricity');
+    const highlight = page.locator('path[id^="maidr-highlight"]');
+    await expect(highlight).toHaveCount(1);
+    expect(await highlight.getAttribute('d')).toBe(await page.locator('#ribbon-1').first().getAttribute('d'));
+  });
+
   test('should walk the column with up and down', async ({ page }) => {
     const plot = new SankeyPage(page);
     await plot.activateMaidr();

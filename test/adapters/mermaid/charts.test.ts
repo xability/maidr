@@ -76,28 +76,43 @@ describe('the charts', () => {
     expect(wrapOf({ bitsPerRow: 0 })).toBeUndefined();
   });
 
-  it('recovers a quadrant chart\'s values from its laid-out points, in declared order', () => {
-    const figure = convert('quadrantChart', {
-      getDiagramTitle: () => 'Reach',
-      getQuadrantData: () => ({
-        quadrants: [
-          { x: 50, y: 0, width: 50, height: 50, text: { text: 'Expand' } },
-          { x: 0, y: 0, width: 50, height: 50, text: { text: 'Promote' } },
-          { x: 0, y: 50, width: 50, height: 50, text: { text: '' } },
-          { x: 50, y: 50, width: 50, height: 50, text: { text: '' } },
-        ],
-        // Mermaid prepends each point it is given.
-        points: [{ x: 75, y: 25, text: { text: 'B' } }, { x: 10, y: 90, text: { text: 'A' } }],
-        axisLabels: [{ text: 'Low' }, { text: 'High' }, { text: 'Bottom' }, { text: 'Top' }],
-      }),
-    });
+  /** A quadrant chart's database, its points as Mermaid lays them out. */
+  const quadrantDb = {
+    getDiagramTitle: () => 'Reach',
+    getQuadrantData: () => ({
+      quadrants: [
+        { x: 50, y: 0, width: 50, height: 50, text: { text: 'Expand' } },
+        { x: 0, y: 0, width: 50, height: 50, text: { text: 'Promote' } },
+        { x: 0, y: 50, width: 50, height: 50, text: { text: '' } },
+        { x: 50, y: 50, width: 50, height: 50, text: { text: '' } },
+      ],
+      // Mermaid prepends each point it is given, so B was declared after A.
+      points: [{ x: 75, y: 25, text: { text: 'B' } }, { x: 10, y: 90, text: { text: 'A' } }],
+      axisLabels: [{ text: 'Low' }, { text: 'High' }, { text: 'Bottom' }, { text: 'Top' }],
+    }),
+  };
+
+  it('recovers a quadrant chart\'s values from its laid-out points, in the order Mermaid draws them', () => {
+    const figure = convert('quadrantChart', quadrantDb);
     const layer = layersOf(figure)[0];
-    expect(layer.data as ScatterPoint[]).toEqual([{ x: 0.1, y: 0.1, label: 'A' }, { x: 0.75, y: 0.75, label: 'B' }]);
+    expect(layer.data as ScatterPoint[]).toEqual([{ x: 0.75, y: 0.75, label: 'B' }, { x: 0.1, y: 0.1, label: 'A' }]);
     expect(layer.axes?.x?.label).toBe('Low to High');
     // The layer title would name the chart in place of the diagram's title.
     expect(layer.title).toBeUndefined();
     expect(figure.title).toBe('Reach');
     expect(figure.subtitle).toBe('Quadrants: Expand (top right); Promote (top left)');
+  });
+
+  it('pairs each quadrant point with the mark Mermaid drew for it', () => {
+    // Drawn as Mermaid draws them: one group per laid-out point, in its order.
+    const svg = drawn('q', '<g class="data-point"><circle></circle><text>B</text></g>'
+      + '<g class="data-point"><circle></circle><text>A</text></g>');
+    const layer = layersOf(convert('quadrantChart', quadrantDb, svg))[0];
+    expect(layer.selectors).toBe('#q g.data-point circle');
+    expect(matched(layer)).toBe(2);
+    // Point and grid navigation outline the i-th match for the i-th point.
+    expect((layer.data as ScatterPoint[]).map(point => point.label))
+      .toEqual([...svg.querySelectorAll('g.data-point text')].map(text => text.textContent));
   });
 
   it('names no quadrants when the chart labels none, and lets the author\'s subtitle stand', () => {
@@ -166,6 +181,25 @@ describe('the charts', () => {
     expect((layer.data as LinePoint[][])[0].map(point => [point.x, point.z])).toEqual([['One', 'A'], ['Two', 'B'], ['Three', 'A']]);
   });
 
+  it('outlines each journey task by the face Mermaid draws at its score', () => {
+    // A group per task, in the order of the tasks, sections A, B and A again.
+    const task = (score: number): string => `<g><line class="task-line"></line><circle class="face" data-score="${score}"></circle>`
+      + '<g><circle></circle><circle></circle></g><rect class="task"></rect></g>';
+    const tasks = [
+      { section: 'A', task: 'One', score: 3 },
+      { section: 'B', task: 'Two', score: 4 },
+      { section: 'A', task: 'Three', score: 2 },
+    ];
+    const layer = layersOf(convert('journey', { getTasks: () => tasks }, drawn('j', tasks.map(one => task(one.score)).join(''))))[0];
+    const selectors = layer.selectors as string[];
+    expect(selectors).toHaveLength(1);
+    expect([...document.querySelectorAll(selectors[0])].map(face => face.getAttribute('data-score'))).toEqual(['3', '4', '2']);
+
+    // A face short, and the pairing would slip from there on.
+    const short = layersOf(convert('journey', { getTasks: () => tasks }, drawn('j', task(3) + task(4))))[0];
+    expect(short.selectors).toBeUndefined();
+  });
+
   it('names no section for a journey that declares none', () => {
     const layer = layersOf(convert('journey', { getTasks: () => [{ section: '', task: 'Make tea', score: 5 }] }))[0];
     expect((layer.data as LinePoint[][])[0]).toEqual([{ x: 'Make tea', y: 5, label: '5, happy' }]);
@@ -178,5 +212,53 @@ describe('the charts', () => {
     }))[0];
     expect(layer.type).toBe(TraceType.TREEMAP);
     expect(layer.data as TreemapPoint[]).toEqual([{ x: 'A' }, { x: 'A1', path: ['A'], y: 10 }]);
+  });
+
+  describe('a treemap\'s highlight', () => {
+    /** Two sections, declared smaller first, each holding an item named Other. */
+    const db = {
+      getRoot: () => ({
+        name: '',
+        children: [
+          { name: 'Small', children: [{ name: 'Other', value: 5 }, { name: 'Alpha', value: 4 }] },
+          { name: 'Big', children: [{ name: 'Other', value: 50 }, { name: 'Beta', value: 20 }] },
+        ],
+      }),
+    };
+    const section = (test: string, label: string): string => `<g class="treemapSection" data-test="${test}">`
+      + '<rect class="treemapSectionHeader"></rect><rect class="treemapSection"></rect>'
+      + `<text class="treemapSectionLabel">${label}</text></g>`;
+    const item = (test: string, label: string): string => `<g class="treemapNode treemapLeafGroup" data-test="${test}">`
+      + `<rect class="treemapLeaf"></rect><text class="treemapLabel">${label}</text></g>`;
+    /**
+     * Drawn as Mermaid draws it, largest first: the hidden root and the
+     * sections breadth first, then the items depth first.
+     */
+    const drawing = (bigLabel = 'Big', items = [item('big-other', 'Other'), item('big-beta', 'Beta'), item('small-other', 'Other'), item('small-alpha', 'Alpha')]): SVGSVGElement =>
+      drawn('t', section('root', '') + section('big', bigLabel) + section('small', 'Small') + items.join(''));
+    /** The group each selector's element sits in. */
+    const groups = (selectors: unknown): (string | null | undefined)[] =>
+      (selectors as string[]).map(one => document.querySelector(one)?.closest('g')?.getAttribute('data-test'));
+
+    it('pairs each section and item with its rectangle, in the order Mermaid sorts them', () => {
+      const layer = layersOf(convert('treemap', db, drawing()))[0];
+      // Read in declared order: Small and its items, then Big and its items.
+      expect((layer.data as TreemapPoint[]).map(point => point.x)).toEqual(['Small', 'Other', 'Alpha', 'Big', 'Other', 'Beta']);
+      expect((layer.selectors as string[]).map(one => document.querySelector(one)?.getAttribute('class')))
+        .toEqual(['treemapSection', 'treemapLeaf', 'treemapLeaf', 'treemapSection', 'treemapLeaf', 'treemapLeaf']);
+      expect(groups(layer.selectors)).toEqual(['small', 'small-other', 'small-alpha', 'big', 'big-other', 'big-beta']);
+    });
+
+    it('pairs a section whose name Mermaid cut to fit its header', () => {
+      const layer = layersOf(convert('treemap', db, drawing('Bi...')))[0];
+      expect(groups(layer.selectors)[3]).toBe('big');
+    });
+
+    it('is withdrawn when the drawing disagrees with the order it is read in', () => {
+      const swapped = [item('big-beta', 'Beta'), item('big-other', 'Other'), item('small-other', 'Other'), item('small-alpha', 'Alpha')];
+      expect(layersOf(convert('treemap', db, drawing('Big', swapped)))[0].selectors).toBeUndefined();
+      const missing = [item('big-other', 'Other'), item('big-beta', 'Beta'), item('small-other', 'Other')];
+      expect(layersOf(convert('treemap', db, drawing('Big', missing)))[0].selectors).toBeUndefined();
+    });
   });
 });

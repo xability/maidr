@@ -68,9 +68,41 @@ describe('a ZenUML diagram', () => {
     ]);
   });
 
-  it('pairs each message and reply with the group the plugin drew for it', () => {
-    const svg = drawn('z', '<g class="message"></g><g class="message"></g><g class="return"></g>');
+  /**
+   * What each of a layer's selectors outlines.
+   *
+   * @param selectors - The layer's selectors
+   * @returns The text of the element each one matches
+   */
+  const outlined = (selectors: unknown): string[] =>
+    (selectors as string[]).map(one => document.querySelector(one)?.textContent ?? '');
+
+  it('pairs each message and reply with the group the plugin drew for it, in time', () => {
+    // Drawn as the plugin draws them: every call before every reply, each at
+    // the height of its moment.
+    const svg = drawn('z', '<g class="message"><line y1="87"></line><text y="84">get()</text></g>'
+      + '<g class="message"><line y1="152"></line><text y="149">hi</text></g>'
+      + '<g class="return"><line y1="119"></line><text y="116">x</text></g>');
     const layer = layersOf(convertMermaidDiagram({ type: 'zenuml', db: {}, text: 'zenuml\n  x = A.get()\n  A->B: hi' }, svg))[0];
     expect(matched(layer)).toBe(3);
+    expect(outlined(layer.selectors)).toEqual(['get()', 'x', 'hi']);
+  });
+
+  it('places a call to self and its reply by their labels, which they draw without a line', () => {
+    const svg = drawn('z', '<g class="message"><line y1="87"></line><text y="84">go()</text></g>'
+      + '<g class="message"><line y1="250"></line><text y="247">hi</text></g>'
+      + '<g class="message self-call"><svg y="128"></svg><text y="126">validate()</text></g>'
+      + '<g class="return return-self"><g transform="translate(1,148)"></g><text y="159">fine</text></g>');
+    const text = 'zenuml\n  A.go() {\n    A.validate() {\n      return fine\n    }\n  }\n  A->B: hi';
+    const layer = layersOf(convertMermaidDiagram({ type: 'zenuml', db: {}, text }, svg))[0];
+    expect((layer.data as SequenceData).messages.map(message => message.text)).toEqual(['go()', 'validate()', 'fine', 'hi']);
+    expect(outlined(layer.selectors)).toEqual(['go()', 'validate()', 'fine', 'hi']);
+  });
+
+  it('withdraws the highlight when a group says nothing of where it was drawn', () => {
+    const svg = drawn('z', '<g class="message"><line y1="87"></line></g><g class="message"><path></path></g>'
+      + '<g class="return"><line y1="119"></line></g>');
+    const layer = layersOf(convertMermaidDiagram({ type: 'zenuml', db: {}, text: 'zenuml\n  x = A.get()\n  A->B: hi' }, svg))[0];
+    expect(layer.selectors).toBeUndefined();
   });
 });

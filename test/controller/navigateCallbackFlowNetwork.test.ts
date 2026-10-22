@@ -150,8 +150,9 @@ describe('the navigate callback reaches a flow or network trace', () => {
 
     // Electricity receives flow 1 and sends flow 3. `[...out, ...in]` would
     // publish `[3, 1]` here, and an overlay would light both bands while an
-    // SVG renderer lit one — the disagreement #904 exists to prevent.
-    expect(seen.at(-1)?.pointIndices).toEqual([3]);
+    // SVG renderer lit one — the disagreement #904 exists to prevent. The one
+    // is flow 1, the ribbon the step arrived along and announced.
+    expect(seen.at(-1)?.pointIndices).toEqual([1]);
   });
 
   it('names the lines a network node highlighted', () => {
