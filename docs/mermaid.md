@@ -139,7 +139,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Flowchart [experimental] | `flowchart`, `graph` | a `directed_graph`: steps, subgraphs as scopes, each arrow by its label, a node's shape when it means something (decision, database) |
 | Sequence diagram [experimental] | `sequenceDiagram` | a `sequence`: messages in time, lifelines, fragments, notes and sequence numbers |
 | ZenUML sequence diagram [experimental] | `zenuml` (with the `@mermaid-js/mermaid-zenuml` plugin) | a `sequence`: sync, async, creation and reply messages, nested calls and their fragments |
-| Class diagram [experimental] | `classDiagram` | a `directed_graph`: classes with their attributes and methods; inheritance, composition and aggregation with cardinalities; namespaces as scopes |
+| Class diagram [experimental] | `classDiagram` | a `directed_graph`: classes with their attributes and methods; inheritance, realization, composition, aggregation, association and dependency with cardinalities; namespaces as scopes |
 | State diagram [experimental] | `stateDiagram-v2` | a `directed_graph`: states joined by their events, composite states and concurrent regions as scopes, start and end named |
 | Entity relationship diagram [experimental] | `erDiagram` | a `directed_graph`: entities with their attributes and keys, each relationship by its verb and both cardinalities |
 | Requirement diagram [experimental] | `requirementDiagram` | a `directed_graph`: requirements with id, text, risk and verification; elements; relationships by what they assert |
@@ -180,7 +180,7 @@ ZenUML (`zenuml`) is drawn by a separate Mermaid plugin that keeps no diagram da
 
 ### What the adapter reads, not the drawing
 
-- **Arrows are read in the direction they point.** A class edge written `Animal <|-- Duck` is read as Duck inheriting from Animal, and an architecture connection drawn with an arrow runs the way the arrow points.
+- **Arrows are read in the direction they point.** A class edge written `Animal <|-- Duck` is read as Duck inheriting from Animal, and an architecture connection drawn with an arrow runs the way the arrow points. A class relation with a head at each end, `Teacher <--> Student`, is read both ways, each in the words of its own head. A solid `-->` is an association and a dashed `..>` a dependency, though Mermaid draws them with the same head.
 - **An edge to a group is read as entering or leaving it.** `subgraph --> step` in a flowchart leaves from the subgraph's last steps; a transition into a composite state enters on its initial states.
 - **Notes are folded into what they annotate.** A note attached to a class or state is announced with it as `Note`, rather than read as a step of its own.
 - **Sizes Mermaid made up are not announced.** A Venn diagram without sizes is laid out with sizes Mermaid chooses; those are the layout's, so such a diagram is read without sizes.

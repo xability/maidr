@@ -200,23 +200,6 @@ function readData(context: DiagramContext): {
 }
 
 /**
- * Points an edge the way its arrowhead does: a class edge drawn
- * `Animal <|-- Duck` has its head at `Animal`, so Duck is the one that
- * inherits and the edge runs from Duck to Animal.
- *
- * @param edge - The edge, as `getData()` stores it
- * @returns The edge, its ends in the direction the arrow points
- */
-function byArrowhead(edge: GraphEdge & { row: Row }): GraphEdge & { row: Row } {
-  const start = str(edge.row.arrowTypeStart) ?? 'none';
-  const end = str(edge.row.arrowTypeEnd) ?? 'none';
-  if (start !== 'none' && start !== '' && (end === 'none' || end === '')) {
-    return { ...edge, from: edge.to, to: edge.from };
-  }
-  return edge;
-}
-
-/**
  * The words for what an arrowhead says, when it says something.
  *
  * @param arrow - The arrowhead's name
@@ -228,6 +211,27 @@ function arrowWords(arrow: unknown): string | undefined {
     return undefined;
   }
   return ARROW_WORDS[name] ?? name.replace(/_/g, ' ');
+}
+
+/**
+ * The words for what a class relation's head says, read with the line it
+ * ends: a dashed inheritance is a realization, and an open arrow on a solid
+ * line an association rather than a dependency -- Mermaid names the head of
+ * `-->` and of `..>` alike.
+ *
+ * @param arrow - The arrowhead's name
+ * @param dashed - Whether the line is dashed
+ * @returns The words, or undefined for a plain head
+ */
+function relationWords(arrow: unknown, dashed: boolean): string | undefined {
+  const words = arrowWords(arrow);
+  if (words === ARROW_WORDS.extension && dashed) {
+    return 'realizes';
+  }
+  if (words === ARROW_WORDS.dependency && !dashed) {
+    return 'associated with';
+  }
+  return words;
 }
 
 /**
@@ -321,7 +325,14 @@ function memberText(member: Row): string {
 /**
  * Class diagrams: classes with their attributes and methods, joined by
  * relations named for what they are -- inheritance, composition,
- * aggregation -- with their cardinalities, nested in namespaces.
+ * aggregation, association -- with their cardinalities, nested in
+ * namespaces.
+ *
+ * Each head of a relation is read as the relation running to its end: a
+ * class edge drawn `Animal <|-- Duck` has its head at `Animal`, so Duck is
+ * the one that inherits and the edge runs from Duck to Animal. A relation
+ * with a head at both ends runs both ways, each in the words of its own head,
+ * and one with no head runs as it was written.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -349,7 +360,7 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
   }
   const relations = rows(call(context.db, 'getRelations'));
   const taken = new Set<Row>();
-  const labelled = edges.map((edge) => {
+  const labelled = edges.flatMap((edge) => {
     // Paired by their ends, the first not yet taken, since two classes can
     // be related twice.
     const relation = relations.find(one => !taken.has(one)
@@ -363,14 +374,20 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
           str(relation.relationTitle1) !== 'none' ? plain(relation.relationTitle1) : undefined,
           str(relation.relationTitle2) !== 'none' ? plain(relation.relationTitle2) : undefined,
         );
-    const turned = byArrowhead(edge);
-    const kind = arrowWords(edge.row.arrowTypeStart) ?? arrowWords(edge.row.arrowTypeEnd);
     const dashed = str(edge.row.pattern) === 'dashed' || str(edge.row.pattern) === 'dotted';
-    const words = kind === 'inherits from' && dashed ? 'realizes' : kind;
-    return {
-      ...turned,
-      label: joinLabel(edge.label, words, cardinality ? `cardinality ${cardinality}` : undefined),
-    };
+    const heads = [
+      { arrow: edge.row.arrowTypeStart, at: edge.from, other: edge.to },
+      { arrow: edge.row.arrowTypeEnd, at: edge.to, other: edge.from },
+    ].flatMap(({ arrow, at, other }) => {
+      const words = relationWords(arrow, dashed);
+      return words === undefined ? [] : [{ from: other, to: at, words }];
+    });
+    const label = (words?: string): string | undefined =>
+      joinLabel(edge.label, words, cardinality ? `cardinality ${cardinality}` : undefined);
+    if (heads.length === 0) {
+      return [{ ...edge, label: label() }];
+    }
+    return heads.map(head => ({ ...edge, from: head.from, to: head.to, label: label(head.words) }));
   });
   const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: 'Class' });
   return { layers: layer ? [layer] : [] };

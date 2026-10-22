@@ -93,6 +93,52 @@ describe('a class diagram', () => {
     expect(data[0]).toMatchObject({ inputs: ['Duck'], inputLabels: ['inherits from, cardinality 1..*'] });
     expect(data[1].attributes).toEqual({ Note: 'can fly' });
   });
+
+  it('tells an association from a dependency by its line', () => {
+    const figure = convert('classDiagram', {
+      getData: () => ({
+        nodes: [{ id: 'Teacher' }, { id: 'Student' }, { id: 'Book' }],
+        edges: [
+          { start: 'Teacher', end: 'Student', label: 'teaches', arrowTypeStart: 'none', arrowTypeEnd: 'dependency', pattern: 'solid' },
+          { start: 'Student', end: 'Book', arrowTypeStart: 'none', arrowTypeEnd: 'dependency', pattern: 'dashed' },
+        ],
+      }),
+      getClasses: () => new Map(),
+      getRelations: () => [
+        { id1: 'Teacher', id2: 'Student', relationTitle1: 'none', relationTitle2: 'none' },
+        { id1: 'Student', id2: 'Book', relationTitle1: 'none', relationTitle2: 'none' },
+      ],
+    });
+
+    const [, student, book] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(student).toMatchObject({ inputs: ['Teacher'], inputLabels: ['teaches, associated with'] });
+    expect(book).toMatchObject({ inputs: ['Student'], inputLabels: ['depends on'] });
+  });
+
+  it('reads a relation with a head at each end both ways, each in its own head\'s words', () => {
+    const figure = convert('classDiagram', {
+      getData: () => ({
+        nodes: [{ id: 'A' }, { id: 'B' }, { id: 'C' }, { id: 'D' }],
+        edges: [
+          { start: 'A', end: 'B', label: 'talks', arrowTypeStart: 'dependency', arrowTypeEnd: 'dependency', pattern: 'solid' },
+          { start: 'C', end: 'D', arrowTypeStart: 'extension', arrowTypeEnd: 'dependency', pattern: 'dashed' },
+        ],
+      }),
+      getClasses: () => new Map(),
+      getRelations: () => [
+        { id1: 'A', id2: 'B', relationTitle1: 'none', relationTitle2: 'none' },
+        { id1: 'C', id2: 'D', relationTitle1: 'none', relationTitle2: 'none' },
+      ],
+    });
+
+    const [a, b, c, d] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(a).toMatchObject({ inputs: ['B'], inputLabels: ['talks, associated with'] });
+    expect(b).toMatchObject({ inputs: ['A'], inputLabels: ['talks, associated with'] });
+    expect(c).toMatchObject({ inputs: ['D'], inputLabels: ['realizes'] });
+    expect(d).toMatchObject({ inputs: ['C'], inputLabels: ['depends on'] });
+  });
 });
 
 describe('an entity-relationship diagram', () => {
