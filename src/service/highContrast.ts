@@ -3,10 +3,13 @@ import type { Figure } from '@model/plot';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
+import type { Rgb } from '@type/color';
 import type { Disposable } from '@type/disposable';
 import { PatternService } from '@service/pattern';
+import { Color } from '@util/color';
 import { Constant } from '@util/constant';
 import { t } from '@util/i18n';
+import { Svg } from '@util/svg';
 
 /**
  * Settings paths for high contrast configuration.
@@ -32,6 +35,10 @@ const HighContrastConstants = {
 
   // Thresholds
   NEAR_WHITE_LUMINANCE_SCALE: 0.1,
+  // Under a label, a paint this faint is a hit area rather than a surface,
+  // and one this solid hides whatever is drawn beneath it.
+  MIN_SURFACE_ALPHA: 0.05,
+  OPAQUE_SURFACE_ALPHA: 0.99,
   // A light grey that is not part of the data -- a gridline, an axis, a frame
   // -- is drawn faint on purpose, and is kept faint: the light colour at
   // reduced opacity, so it stays visible without competing with the data.
@@ -97,6 +104,49 @@ const BAR_LIKE_TRACE_TYPES: ReadonlySet<string> = new Set(['bar', 'hist']);
 
 /** Elements that draw text rather than a shape. */
 const TEXT_TAGS: ReadonlySet<string> = new Set(['text', 'tspan', 'textPath']);
+
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml';
+
+/** The shapes a label can be drawn on. */
+const SURFACE_TAGS: ReadonlySet<string> = new Set([
+  'rect',
+  'circle',
+  'ellipse',
+  'polygon',
+  'path',
+  'polyline',
+]);
+
+/** Containers whose content is defined for use elsewhere, not drawn there. */
+const DEFINITION_CONTAINERS = 'defs, clipPath, mask, marker, pattern, symbol';
+
+/**
+ * Whether an element is one of MAIDR's own copies, or inside one: the hidden
+ * copies highlights are cloned from, and the highlights themselves, which
+ * come and go with the reader.
+ */
+function isInMaidrCopy(element: Element): boolean {
+  for (let node: Element | null = element; node !== null; node = node.parentElement) {
+    if (Svg.isOwned(node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** A paint laid over what is beneath it: its colour, and how much it covers. */
+interface SurfaceLayer {
+  rgb: Rgb;
+  alpha: number;
+}
+
+/** A label, the end of the reader's pair it reads in, and the paint it takes. */
+interface LabelChoice {
+  label: HTMLElement | SVGElement;
+  property: 'fill' | 'color';
+  color: string;
+}
 
 /** The element maidr builds around a chart and everything it shows for it. */
 const CHART_ROOT_SELECTOR = `article[id^="${Constant.MAIDR_ARTICLE}-"]`;
@@ -727,6 +777,8 @@ export class HighContrastService implements Disposable {
       }
     }
 
+    this.pairLabelsWithSurfaces(textDescendants);
+
     this.highContrastApplied = true;
   }
 
@@ -878,6 +930,7 @@ export class HighContrastService implements Disposable {
     element: HTMLElement | SVGElement,
     property: string,
     value: string,
+    priority: '' | 'important' = '',
   ): void {
     this.inlineStyleSnapshots.push({
       element,
@@ -885,7 +938,266 @@ export class HighContrastService implements Disposable {
       value: element.style.getPropertyValue(property),
       priority: element.style.getPropertyPriority(property),
     });
-    element.style.setProperty(property, value);
+    element.style.setProperty(property, value, priority);
+  }
+
+  /**
+   * Gives each label the end of the reader's pair that reads on the surface
+   * actually under it, once every paint is final.
+   *
+   * Labels and shapes are mapped one paint at a time, so nothing else keeps
+   * them apart: a dark label is sent light, and so is a pastel box lifted
+   * off the background, or a box a stylesheet paints and nothing captures --
+   * white on white. Each label with a shape under it now takes whichever of
+   * the two colours stands out more from that shape, as it is painted now;
+   * a label on nothing keeps the colour it was given. Text that draws its own
+   * halo is already kept apart from what lies beneath, and the labels of a
+   * tiled chart keep their glow instead. The labels of MAIDR's hidden copies
+   * are paired too, with the original drawn beneath them, since the reader's
+   * highlight is cloned from a copy and shows its labels over the original.
+   *
+   * Every choice is read before any is written, so the pass costs a style
+   * pass for the labels and one more for the spans inside them.
+   */
+  private pairLabelsWithSurfaces(textDescendants: Map<Element, boolean>): void {
+    if (this.isTiledChart()) {
+      return;
+    }
+    const light = this.parseColorToRgb(this.highContrastLightColor);
+    const dark = this.parseColorToRgb(this.highContrastDarkColor);
+    if (light === null || dark === null) {
+      return;
+    }
+
+    // Document order, overlays after the plot: what is drawn later is drawn
+    // on top.
+    const painted = this.getColorRoots().flatMap(root => Array.from(root.querySelectorAll('*')));
+    const order = new Map<Element, number>(painted.map((element, index) => [element, index]));
+
+    const rects = new Map<Element, DOMRect>();
+    const rectOf = (element: Element): DOMRect => {
+      let rect = rects.get(element);
+      if (rect === undefined) {
+        rect = element.getBoundingClientRect();
+        rects.set(element, rect);
+      }
+      return rect;
+    };
+    const styles = new Map<Element, CSSStyleDeclaration>();
+    const styleOf = (element: Element): CSSStyleDeclaration => {
+      let style = styles.get(element);
+      if (style === undefined) {
+        style = window.getComputedStyle(element);
+        styles.set(element, style);
+      }
+      return style;
+    };
+    const opacities = new Map<Element, number>();
+    const opacityOf = (element: Element): number => {
+      const cached = opacities.get(element);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const own = Number.parseFloat(styleOf(element).opacity);
+      const parent = element.parentElement;
+      const opacity = (Number.isNaN(own) ? 1 : own) * (parent === null ? 1 : opacityOf(parent));
+      opacities.set(element, opacity);
+      return opacity;
+    };
+    const isDrawn = (element: Element): boolean => {
+      if (element.closest(DEFINITION_CONTAINERS) !== null || isInMaidrCopy(element)) {
+        return false;
+      }
+      const style = styleOf(element);
+      return style.display !== 'none' && !HIDDEN_VISIBILITY.has(style.visibility);
+    };
+    // A label in one of MAIDR's copies is hidden only until a highlight shows
+    // it, over its original: the highlight is cloned from the copy, label and
+    // all, and outlines the shapes it holds without filling them.
+    const isLabelShown = (element: Element): boolean => {
+      if (element.closest(DEFINITION_CONTAINERS) !== null) {
+        return false;
+      }
+      const style = styleOf(element);
+      return style.display !== 'none'
+        && (isInMaidrCopy(element) || !HIDDEN_VISIBILITY.has(style.visibility));
+    };
+
+    // A paint under the point: a layer, nothing (`undefined`), or one that
+    // cannot be read -- a gradient or pattern -- which ends the search.
+    const layerAt = (element: Element, x: number, y: number): SurfaceLayer | undefined | null => {
+      if (element.namespaceURI !== SVG_NAMESPACE || !SURFACE_TAGS.has(element.localName)) {
+        return undefined;
+      }
+      const rect = rectOf(element);
+      if (rect.width <= 0 || rect.height <= 0
+        || x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        return undefined;
+      }
+      if (!isDrawn(element) || this.isTextDescendant(element, textDescendants)
+        || !this.fillsPoint(element, x, y)) {
+        return undefined;
+      }
+      const style = styleOf(element);
+      // A computed fill is empty only where styles are not resolved at all.
+      const fill = style.getPropertyValue('fill').trim() || (element.getAttribute('fill') ?? '');
+      if (fill === '' || fill === 'none') {
+        return undefined;
+      }
+      const parsed = fill.startsWith('url(') ? null : this.parseCssColor(fill);
+      const parts = parsed === null ? null : this.splitAlpha(parsed);
+      const rgb = parts === null ? null : this.parseColorToRgb(parts.hex);
+      if (parts === null || rgb === null) {
+        return null;
+      }
+      const fillOpacity = Number.parseFloat(style.getPropertyValue('fill-opacity'));
+      const alpha = parts.alpha * (Number.isNaN(fillOpacity) ? 1 : fillOpacity) * opacityOf(element);
+      return alpha < HighContrastConstants.MIN_SURFACE_ALPHA ? undefined : { rgb, alpha };
+    };
+
+    // What a reader sees at a point under the element at `index`: the layers
+    // drawn there down to the first opaque one, over the dark backdrop when
+    // none is. `null` when nothing is drawn there, or it cannot be read.
+    const surfaceUnder = (index: number, x: number, y: number, above: SurfaceLayer[]): Rgb | null => {
+      const layers = [...above];
+      const isOpaque = (layer: SurfaceLayer): boolean =>
+        layer.alpha >= HighContrastConstants.OPAQUE_SURFACE_ALPHA;
+      for (let at = index - 1; at >= 0 && !layers.some(isOpaque); at--) {
+        const layer = layerAt(painted[at], x, y);
+        if (layer === null) {
+          return null;
+        }
+        if (layer !== undefined) {
+          layers.push(layer);
+        }
+      }
+      if (layers.length === 0) {
+        return null;
+      }
+      const opaqueAt = layers.findIndex(isOpaque);
+      const stack = opaqueAt === -1 ? layers : layers.slice(0, opaqueAt + 1);
+      let seen: Rgb = opaqueAt === -1 ? dark : stack[stack.length - 1].rgb;
+      for (let at = (opaqueAt === -1 ? stack.length : opaqueAt) - 1; at >= 0; at--) {
+        const { rgb, alpha } = stack[at];
+        seen = {
+          r: rgb.r * alpha + seen.r * (1 - alpha),
+          g: rgb.g * alpha + seen.g * (1 - alpha),
+          b: rgb.b * alpha + seen.b * (1 - alpha),
+        };
+      }
+      return seen;
+    };
+
+    const choose = (surface: Rgb): string =>
+      Color.getContrastRatio(surface, light) >= Color.getContrastRatio(surface, dark)
+        ? this.highContrastLightColor
+        : this.highContrastDarkColor;
+    const centreOf = (element: Element): { x: number; y: number } | null => {
+      const rect = rectOf(element);
+      return rect.width <= 0 || rect.height <= 0
+        ? null
+        : { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    };
+    const hasOwnText = (element: Element): boolean => Array.from(element.childNodes).some(node =>
+      node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '');
+
+    const choices: LabelChoice[] = [];
+    painted.forEach((element, index) => {
+      if (element.namespaceURI !== SVG_NAMESPACE) {
+        return;
+      }
+      if (element.localName === 'text') {
+        // The glyphs are drawn by the elements holding the text, which may be
+        // spans with a stroke of their own, or none where the label has one.
+        const glyphs = [element, ...Array.from(element.querySelectorAll('tspan, textPath'))]
+          .filter(hasOwnText);
+        const centre = centreOf(element);
+        if (centre === null || glyphs.length === 0 || !isLabelShown(element)
+          || glyphs.every(glyph => this.hasHalo(styleOf(glyph)))) {
+          return;
+        }
+        const surface = surfaceUnder(index, centre.x, centre.y, []);
+        if (surface !== null) {
+          choices.push({ label: element as SVGElement, property: 'fill', color: choose(surface) });
+        }
+      } else if (element.localName === 'foreignObject') {
+        // HTML drawn inside the SVG, as Mermaid draws its labels: coloured by
+        // CSS `color`, and maybe on a box of its own.
+        for (const leaf of Array.from(element.querySelectorAll<HTMLElement>('*'))) {
+          const centre = leaf.namespaceURI === HTML_NAMESPACE && hasOwnText(leaf) ? centreOf(leaf) : null;
+          if (centre === null || !isLabelShown(leaf)) {
+            continue;
+          }
+          const boxes: SurfaceLayer[] = [];
+          for (let node: Element | null = leaf; node !== null && node !== element; node = node.parentElement) {
+            const background = this.parseCssColor(styleOf(node).backgroundColor);
+            const parts = background === null ? null : this.splitAlpha(background);
+            const rgb = parts === null ? null : this.parseColorToRgb(parts.hex);
+            if (parts !== null && rgb !== null && parts.alpha > 0) {
+              boxes.push({ rgb, alpha: parts.alpha * opacityOf(node) });
+            }
+          }
+          const surface = surfaceUnder(order.get(element) ?? index, centre.x, centre.y, boxes);
+          if (surface !== null) {
+            choices.push({ label: leaf, property: 'color', color: choose(surface) });
+          }
+        }
+      }
+    });
+
+    const differs = (element: Element, property: 'fill' | 'color', color: string): boolean => {
+      const shown = this.parseColorToRgb(window.getComputedStyle(element).getPropertyValue(property));
+      const wanted = this.parseColorToRgb(color);
+      return shown === null || wanted === null
+        || shown.r !== wanted.r || shown.g !== wanted.g || shown.b !== wanted.b;
+    };
+    // `!important`, which a stylesheet's `!important` rule -- a Mermaid
+    // classDef -- cannot beat.
+    for (const choice of choices.filter(choice => differs(choice.label, choice.property, choice.color))) {
+      this.overrideInlineStyle(choice.label, choice.property, choice.color, 'important');
+    }
+    // A span a rule colours itself, such as Mermaid's `.loopText > tspan`,
+    // does not follow its label; it is given the label's colour.
+    const spans = choices
+      .filter(choice => choice.property === 'fill')
+      .flatMap(choice => Array.from(choice.label.querySelectorAll<SVGElement>('tspan, textPath'))
+        .map(span => ({ ...choice, label: span })))
+      .filter(choice => differs(choice.label, 'fill', choice.color));
+    for (const span of spans) {
+      this.overrideInlineStyle(span.label, 'fill', span.color, 'important');
+    }
+  }
+
+  /**
+   * Whether text draws a halo around its glyphs: a solid stroke of some
+   * width, which keeps it apart from whatever lies beneath.
+   */
+  private hasHalo(style: CSSStyleDeclaration): boolean {
+    const stroke = style.getPropertyValue('stroke').trim();
+    const parsed = stroke === '' || stroke === 'none' || stroke.startsWith('url(')
+      ? null
+      : this.parseCssColor(stroke);
+    const parts = parsed === null ? null : this.splitAlpha(parsed);
+    const width = Number.parseFloat(style.getPropertyValue('stroke-width'));
+    return parts !== null && parts.alpha > 0 && width > 0;
+  }
+
+  /**
+   * Whether a point, in client coordinates, falls inside a shape's fill and
+   * not merely its box: a pie wedge or a diagonal band covers only part of
+   * the box around it. A shape that cannot be asked is taken by its box.
+   */
+  private fillsPoint(element: Element, x: number, y: number): boolean {
+    const shape = element as SVGGeometryElement;
+    if (typeof shape.isPointInFill !== 'function' || typeof shape.getScreenCTM !== 'function') {
+      return true;
+    }
+    const matrix = shape.getScreenCTM();
+    if (matrix === null) {
+      return true;
+    }
+    const point = new DOMPoint(x, y).matrixTransform(matrix.inverse());
+    return shape.isPointInFill(point);
   }
 
   private restoreInlineStyles(): void {

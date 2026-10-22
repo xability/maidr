@@ -929,6 +929,190 @@ describe('highContrastService', () => {
     expect(harness.svg.classList.contains('high-contrast')).toBe(false);
   });
 
+  describe('a label and the shape under it', () => {
+    // A box lifted to the light colour: its fill and outline both map to the
+    // background, so its fill is lifted off it -- as Mermaid's event model
+    // boxes are.
+    const LIFTED_BOX: MarkSpec = { fill: '#bcd6fe', stroke: '#679ac3' };
+    // A box whose fill goes dark behind an outline that goes light.
+    const DARKENED_BOX: MarkSpec = { fill: '#ffb778', stroke: '#c19a0f' };
+    // An inline fill as jsdom reports it: as written, where it serialises
+    // `color` as rgb().
+    const DARK_FILL = '#000000';
+    const LIGHT_FILL = '#ffffff';
+
+    /**
+     * Builds a chart of one box with a label drawn on it, the label coloured
+     * by a stylesheet as Mermaid colours its text, and lays them out.
+     */
+    function labelOn(
+      box: MarkSpec,
+      options: { css?: string; boxStyle?: string; traceType?: string; copied?: boolean } = {},
+    ): SVGElement {
+      rebuild([box], {
+        traceType: options.traceType,
+        beforeService: () => {
+          document.head.insertAdjacentHTML('beforeend', `<style>#chart .lab { fill: #333333; } ${options.css ?? ''}</style>`);
+          const chart = document.querySelector('#chart') as SVGSVGElement;
+          if (options.boxStyle !== undefined) {
+            chart.querySelector('rect')?.setAttribute('style', options.boxStyle);
+          }
+          const label = document.createElementNS(SVG_NAMESPACE, 'text');
+          label.setAttribute('class', 'lab');
+          label.textContent = 'Add item';
+          chart.appendChild(label);
+          if (options.copied) {
+            // The hidden copy MAIDR stands beside a node, as Svg.cloneHidden does.
+            const copy = document.createElementNS(SVG_NAMESPACE, 'g');
+            copy.setAttribute('data-maidr-owned', 'true');
+            copy.setAttribute('visibility', 'hidden');
+            copy.append(chart.querySelector('rect')?.cloneNode(true) ?? '', label.cloneNode(true));
+            chart.appendChild(copy);
+          }
+        },
+      });
+      const label = harness.svg.querySelector('text.lab') as SVGElement;
+      placeAt(harness.bar, 0, 0, 100, 40);
+      placeAt(label, 10, 10, 60, 16);
+      const copy = harness.svg.querySelector('[data-maidr-owned]');
+      if (copy !== null) {
+        placeAt(copy.querySelector('rect') as Element, 0, 0, 100, 40);
+        placeAt(copy.querySelector('text') as Element, 10, 10, 60, 16);
+      }
+      return label;
+    }
+
+    it('gives a label the colour that reads on the box under it, and takes it back after', () => {
+      const label = labelOn(LIFTED_BOX);
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.getAttribute('fill')).toBe('#ffffff');
+      expect(label.style.getPropertyValue('fill')).toBe(DARK_FILL);
+      expect(label.style.getPropertyPriority('fill')).toBe('important');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(label.style.getPropertyValue('fill')).toBe('');
+    });
+
+    it('gives an HTML label inside the SVG the colour that reads on the box under it', () => {
+      rebuild([LIFTED_BOX], {
+        beforeService: () => {
+          const object = document.createElementNS(SVG_NAMESPACE, 'foreignObject');
+          const div = document.createElement('div');
+          div.textContent = 'Add item';
+          object.appendChild(div);
+          document.querySelector('#chart')?.appendChild(object);
+        },
+      });
+      const div = harness.svg.querySelector('foreignObject div') as HTMLElement;
+      placeAt(harness.bar, 0, 0, 100, 40);
+      placeAt(div, 10, 10, 60, 16);
+
+      harness.service.initializeHighContrast();
+
+      expect(div.style.getPropertyValue('color')).toBe(DARK);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(div.style.getPropertyValue('color')).toBe('');
+    });
+
+    it('keeps a label light on a box that went dark', () => {
+      const label = labelOn(DARKENED_BOX);
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.getAttribute('fill')).toBe('#000000');
+      expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+    });
+
+    it('leaves a label with nothing under it the colour it was given', () => {
+      const label = labelOn(LIFTED_BOX);
+      placeAt(harness.bar, 200, 200, 100, 40);
+
+      harness.service.initializeHighContrast();
+
+      expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+    });
+
+    it('sees a translucent box as it shows over the dark backdrop', () => {
+      // White at 0.3 over black is a dark grey, which light text reads on;
+      // at 0.6 it is a light grey, which dark text reads on.
+      const faint = labelOn(LIFTED_BOX, { boxStyle: 'opacity: 0.3' });
+      harness.service.initializeHighContrast();
+      const faintFill = faint.style.getPropertyValue('fill');
+
+      const solid = labelOn(LIFTED_BOX, { boxStyle: 'opacity: 0.6' });
+      harness.service.initializeHighContrast();
+
+      expect(faintFill).toBe(LIGHT_FILL);
+      expect(solid.style.getPropertyValue('fill')).toBe(DARK_FILL);
+    });
+
+    it('does not take one of MAIDR\'s highlights for the surface', () => {
+      const label = labelOn(DARKENED_BOX);
+      harness.service.initializeHighContrast();
+      const highlight = document.createElementNS(SVG_NAMESPACE, 'rect');
+      highlight.setAttribute('data-maidr-owned', 'true');
+      highlight.setAttribute('style', 'fill: rgb(3, 200, 9)');
+      placeAt(highlight, 0, 0, 100, 40);
+      harness.svg.insertBefore(highlight, label);
+
+      turnHighContrastOff(harness.settings);
+      turnHighContrastOn(harness.settings);
+
+      expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+    });
+
+    it('gives the label in the copy a highlight is cloned from its original\'s colour, and takes it back after', () => {
+      // The highlight is cloned from MAIDR's hidden copy, and outlines the box
+      // without filling it, so the copy's label shows over the original box:
+      // left light, the label of the node the reader was on went white on white.
+      const label = labelOn(LIFTED_BOX, { copied: true });
+      const copied = harness.svg.querySelector('[data-maidr-owned] text') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(label.style.getPropertyValue('fill')).toBe(DARK_FILL);
+      expect(copied.style.getPropertyValue('fill')).toBe(DARK_FILL);
+      expect(copied.style.getPropertyPriority('fill')).toBe('important');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(copied.style.getPropertyValue('fill')).toBe('');
+    });
+
+    it('leaves text that draws its own halo, and the labels of a tiled chart, as they were', () => {
+      const haloed = labelOn(LIFTED_BOX, { css: '#chart .lab { stroke: #ffffff; stroke-width: 3px; }' });
+      harness.service.initializeHighContrast();
+      const haloedFill = haloed.style.getPropertyValue('fill');
+
+      const onCell = labelOn({ fill: '#1f77b4', stroke: 'none' }, { traceType: 'heat' });
+      harness.service.initializeHighContrast();
+
+      expect(haloedFill).toBe(LIGHT_FILL);
+      expect(onCell.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+    });
+
+    it('gives a span its own rule colours the colour of its label, and takes it back after', () => {
+      // Mermaid colours a sequence diagram's `.loopText > tspan` itself.
+      const label = labelOn(LIFTED_BOX, { css: '#chart .lab > tspan { fill: #333333; }' });
+      const span = document.createElementNS(SVG_NAMESPACE, 'tspan');
+      span.textContent = 'loop';
+      label.replaceChildren(span);
+
+      harness.service.initializeHighContrast();
+
+      expect(span.style.getPropertyValue('fill')).toBe(DARK_FILL);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(span.style.getPropertyValue('fill')).toBe('');
+    });
+  });
+
   describe('what it paints behind the chart', () => {
     it('paints the page behind a chart that has the document to itself', () => {
       rebuild([{ fill: BAR_FILL }], {

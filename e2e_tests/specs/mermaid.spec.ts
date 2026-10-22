@@ -201,6 +201,121 @@ function paintAgainstMark(highlight: Element): { ratio: number; stroke: string; 
 }
 
 /**
+ * The labels of the diagram that read below 4.5:1 on what is drawn under
+ * them, as a reader sees it: each element holding a label's text -- SVG text
+ * or a span inside it, or HTML inside a `<foreignObject>` -- against the
+ * paints under its centre, composited down to the first opaque one. A label
+ * on a gradient or pattern, which cannot be read as one colour, is left out.
+ * MAIDR's own copies are never taken for the surface, and their labels are
+ * read only when asked for those of the highlight, the copy a reader sees.
+ *
+ * @param page - The page
+ * @param within - The labels to read: the diagram's own, or the highlight's
+ * @returns Each failing label's text, its contrast, its colour and the
+ *   surface; for the highlight, a failure too when it holds no label at all
+ */
+async function unreadableLabels(page: Page, within: 'diagram' | 'highlight' = 'diagram'): Promise<string[]> {
+  return page.locator('svg[maidr]').first().evaluate((svg, within) => {
+    const shapes = new Set(['rect', 'circle', 'ellipse', 'polygon', 'path', 'polyline']);
+    const parse = (color: string): { rgb: number[]; alpha: number } | null => {
+      const match = /rgba?\(([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)(?:[ ,/]+([\d.]+))?\)/.exec(color);
+      return match === null
+        ? null
+        : { rgb: [+match[1], +match[2], +match[3]], alpha: match[4] === undefined ? 1 : +match[4] };
+    };
+    const luminance = (rgb: number[]): number => {
+      const [r, g, b] = rgb.map((channel) => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a: number[], b: number[]): number => {
+      const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (high + 0.05) / (low + 0.05);
+    };
+    const opacity = (element: Element): number => {
+      let value = 1;
+      for (let node: Element | null = element; node !== null; node = node.parentElement) {
+        value *= Number(getComputedStyle(node).opacity);
+      }
+      return value;
+    };
+    const isMaidrs = (element: Element): boolean =>
+      element.closest('[data-maidr-owned], [id^="maidr-highlight"]') !== null;
+    const surface = (label: Element): number[] | null => {
+      // Hit-testing sees only what is in the viewport.
+      label.scrollIntoView({ block: 'center', inline: 'center' });
+      const box = label.getBoundingClientRect();
+      const layers: { rgb: number[]; alpha: number }[] = [];
+      for (const element of document.elementsFromPoint(box.left + box.width / 2, box.top + box.height / 2)) {
+        if (label.contains(element) || isMaidrs(element) || element.closest('text') !== null) {
+          continue;
+        }
+        const style = getComputedStyle(element);
+        const isShape = element.namespaceURI === 'http://www.w3.org/2000/svg' && shapes.has(element.localName);
+        if (isShape && style.fill.startsWith('url')) {
+          return null;
+        }
+        const paint = parse(isShape ? style.fill : style.backgroundColor);
+        if (paint !== null) {
+          paint.alpha *= (isShape ? Number(style.fillOpacity) : 1) * opacity(element);
+          if (paint.alpha > 0.05) {
+            layers.push(paint);
+            if (paint.alpha >= 0.99) {
+              break;
+            }
+          }
+        }
+      }
+      return layers.reduceRight((under, layer) =>
+        under.map((channel, at) => layer.rgb[at] * layer.alpha + channel * (1 - layer.alpha)), [255, 255, 255]);
+    };
+    const holdsText = (element: Element): boolean => Array.from(element.childNodes)
+      .some(node => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '');
+    const labels = [
+      ...Array.from(svg.querySelectorAll('text, tspan, textPath')).map(glyphs => ({ glyphs, property: 'fill' })),
+      ...Array.from(svg.querySelectorAll('foreignObject *')).map(glyphs => ({ glyphs, property: 'color' })),
+    ].filter(({ glyphs }) => {
+      const box = glyphs.getBoundingClientRect();
+      const inScope = within === 'highlight'
+        ? glyphs.closest('[id^="maidr-highlight"]') !== null
+        : !isMaidrs(glyphs);
+      return holdsText(glyphs) && inScope && box.width > 0 && box.height > 0
+        && glyphs.closest('defs, marker') === null && getComputedStyle(glyphs).visibility !== 'hidden';
+    });
+    if (within === 'highlight' && labels.length === 0) {
+      return ['no label in the highlight'];
+    }
+    return labels.flatMap(({ glyphs, property }) => {
+      const color = getComputedStyle(glyphs).getPropertyValue(property);
+      const ink = parse(color);
+      const under = surface(glyphs);
+      const ratio = ink === null || under === null ? Infinity : contrast(ink.rgb, under);
+      return ratio < 4.5
+        ? [`${(glyphs.textContent ?? '').trim()} ${ratio.toFixed(2)}:1 (${color} on rgb(${under?.map(Math.round).join(', ')}))`]
+        : [];
+    });
+  }, within);
+}
+
+/**
+ * Every colour the diagram paints with, in document order, leaving out
+ * MAIDR's highlight and the definitions high contrast adds.
+ *
+ * @param page - The page
+ * @returns Each element's fill, stroke, colour, background and blend mode
+ */
+async function diagramPaint(page: Page): Promise<string[]> {
+  return page.locator('svg[maidr]').first().evaluate(svg => Array.from(svg.querySelectorAll('*'))
+    .filter(element => element.closest('defs, [id^="maidr-highlight"]') === null)
+    .map((element) => {
+      const style = getComputedStyle(element);
+      return [style.fill, style.stroke, style.color, style.backgroundColor, style.mixBlendMode].join('|');
+    }));
+}
+
+/**
  * The layer types MAIDR was handed.
  *
  * @param page - The page
@@ -403,6 +518,45 @@ test.describe('Mermaid adapter', () => {
     const after = (await blendModes()).filter(mode => mode.startsWith('link'));
     expect(new Set(after)).toEqual(new Set(['link:multiply']));
   });
+
+  for (const name of ['eventmodeling', 'zenuml', 'ishikawa', 'timeline', 'packet', 'gitgraph']) {
+    test(`keeps every label of the ${name} example readable on what it is drawn on, in high contrast`, async ({ page }) => {
+      // Labels were sent light whatever they were drawn on, so a label on a
+      // box left light, or lifted light, went white on white.
+      await openExample(page, name);
+      const before = await diagramPaint(page);
+      expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+      expect(await unreadableLabels(page)).toEqual([]);
+
+      expect(await press(page, 'c')).toContain('High Contrast Mode off');
+      expect(await diagramPaint(page)).toEqual(before);
+    });
+  }
+
+  // A node the reader reaches, the keys that reach it, and its label.
+  const HIGHLIGHTED_LABELS: [string, string[], string][] = [
+    ['kanban', ['c', 'ArrowRight'], 'To do'],
+    ['kanban', ['ArrowRight', 'c'], 'To do'],
+    ['mindmap', ['c', 'ArrowRight', 'ArrowRight', 'ArrowDown'], 'Audio'],
+    ['timeline', ['c', 'ArrowRight', 'ArrowRight'], 'Standards'],
+    ['eventmodeling', ['c', 'ArrowRight', 'ArrowRight'], 'InventoryProcessor'],
+  ];
+  for (const [name, keys, label] of HIGHLIGHTED_LABELS) {
+    test(`keeps the label of the ${name} node the reader is on readable in high contrast, after ${keys.join(' ')}`, async ({ page }) => {
+      // The highlight is cloned from MAIDR's hidden copy of the node, whose
+      // label kept the light colour every label is first given: over the
+      // node's light box the label of the node the reader was on, and only
+      // that one, went white on white.
+      await openExample(page, name);
+      for (const key of keys) {
+        await press(page, key);
+      }
+
+      await expect(page.locator(HIGHLIGHT, { hasText: label })).toHaveCount(1);
+      expect(await unreadableLabels(page, 'highlight')).toEqual([]);
+    });
+  }
 
   test('numbers only what a sequence diagram numbers, in its description', async ({ page }) => {
     await openExample(page, 'sequence');
