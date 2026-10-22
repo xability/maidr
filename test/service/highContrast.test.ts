@@ -591,6 +591,33 @@ describe('highContrastService', () => {
     expect(harness.bar.getAttribute('fill')).toBe('rgba(255, 255, 255, 0.0001)');
   });
 
+  it('draws a faint outline no fainter than a faint gridline, and keeps a faint fill and a hit area as they were', () => {
+    // Mermaid outlines a block diagram's composites rgba(170, 170, 51, 0.2):
+    // white at 0.2 on the black backdrop is under 2:1, a frame far fainter
+    // than any gridline.
+    const paints = [
+      { fill: 'rgba(255, 255, 222, 0.5)', stroke: 'rgba(170, 170, 51, 0.2)' },
+      { fill: 'none', stroke: 'rgba(31, 119, 180, 0.0001)' },
+      { fill: 'none', stroke: 'rgba(31, 119, 180, 0.2)' },
+      { fill: 'none', stroke: 'rgba(31, 119, 180, 0.8)' },
+      { fill: 'none', stroke: 'rgba(221, 221, 221, 0.4)' },
+      { fill: 'rgba(31, 119, 180, 0.2)', stroke: 'none' },
+    ].map((spec) => {
+      rebuild([spec]);
+      harness.service.initializeHighContrast();
+      return [harness.bar.getAttribute('fill'), harness.bar.getAttribute('stroke')];
+    });
+
+    expect(paints).toEqual([
+      ['rgba(0, 0, 0, 0.5)', 'rgba(255, 255, 255, 0.5)'],
+      ['none', 'rgba(255, 255, 255, 0.0001)'],
+      ['none', 'rgba(255, 255, 255, 0.5)'],
+      ['none', 'rgba(255, 255, 255, 0.8)'],
+      ['none', 'rgba(255, 255, 255, 0.5)'],
+      ['rgba(255, 255, 255, 0.2)', null],
+    ]);
+  });
+
   it('never leaves a shape wholly in the background colour', () => {
     // A dark bar with no outline used to be matched to the dark end of the
     // ramp -- the background -- and vanish.

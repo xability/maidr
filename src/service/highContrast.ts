@@ -1675,7 +1675,7 @@ export class HighContrastService implements Disposable {
           const frame = parts !== null && !stroke.isInSelectors && this.isLightGrey(parts.hex);
           stroke.color = this.applyAlpha(
             this.highContrastLightColor,
-            frame ? alpha * HighContrastConstants.FAINT_INK_ALPHA : alpha,
+            this.inkLineAlpha(alpha, frame ? alpha * HighContrastConstants.FAINT_INK_ALPHA : alpha),
           );
         }
         continue;
@@ -1687,7 +1687,10 @@ export class HighContrastService implements Disposable {
         continue;
       }
       const alpha = this.splitAlpha(lift.resolvedColor ?? '')?.alpha ?? 1;
-      lift.color = this.applyAlpha(this.highContrastLightColor, alpha);
+      lift.color = this.applyAlpha(
+        this.highContrastLightColor,
+        lift.attr === 'stroke' ? this.inkLineAlpha(alpha, alpha) : alpha,
+      );
     }
   }
 
@@ -1912,14 +1915,17 @@ export class HighContrastService implements Disposable {
         // A faint grey line -- a gridline, an axis, a frame -- stays, faint. A
         // faint grey area is a panel or plot background, and is paper.
         return colorInfo.attr === 'stroke'
-          ? this.applyAlpha(this.highContrastLightColor, original.alpha * HighContrastConstants.FAINT_INK_ALPHA)
+          ? this.applyAlpha(
+              this.highContrastLightColor,
+              this.inkLineAlpha(original.alpha, original.alpha * HighContrastConstants.FAINT_INK_ALPHA),
+            )
           : withAlpha(this.highContrastDarkColor);
       }
     }
 
     // Any other paint maps across the ramp; keepShapesVisible then lifts any
     // shape this leaves wholly in the background colour.
-    return withAlpha(this.findClosestColor(
+    const mapped = this.findClosestColor(
       hex,
       colorEquivalents,
       useNearWhite,
@@ -1927,7 +1933,28 @@ export class HighContrastService implements Disposable {
       // A long path must not vanish as a line, but a tiled area is read
       // against its neighbours whichever end it takes.
       colorInfo.cantBeBackground && !(this.isTiledMark(colorInfo) && colorInfo.attr === 'fill'),
-    ));
+    );
+    const inkLine = colorInfo.attr === 'stroke' && !this.isTiledMark(colorInfo)
+      && this.parseCssColor(mapped) !== this.parseCssColor(this.highContrastDarkColor);
+    return inkLine
+      ? this.applyAlpha(mapped, this.inkLineAlpha(original.alpha, original.alpha))
+      : withAlpha(mapped);
+  }
+
+  /**
+   * The opacity a line drawn in ink is given: its own, but no less than a
+   * faint gridline's. An outline drawn faintly on a light page -- Mermaid
+   * outlines a block diagram's composites at 0.2 -- drawn that faintly on
+   * the dark backdrop is under 2:1, fainter than any gridline. A hit area
+   * drawn at near-zero opacity stays invisible.
+   *
+   * @param original - The opacity the chart drew the line at
+   * @param drawn - The opacity it would be drawn at otherwise
+   */
+  private inkLineAlpha(original: number, drawn: number): number {
+    return original < HighContrastConstants.MIN_SURFACE_ALPHA
+      ? drawn
+      : Math.max(drawn, HighContrastConstants.FAINT_INK_ALPHA);
   }
 
   /**

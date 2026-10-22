@@ -386,7 +386,7 @@ The highlight outlines the shape Mermaid drew for the point the reader is on: a 
 
 ## High contrast
 
-<kbd>C</kbd> repaints the diagram in the reader's high contrast colours (see [Modes](CONTROLS.md#modes)): what lies behind it takes the dark colour, and Mermaid's lines, text and coloured shapes take the light one. A node filled in a tint of the page, as a flowchart's are, goes dark inside an outline that goes light, so it reads as the same box drawn hollow. A box Mermaid fills and outlines in two tints of the page, as it draws a railroad diagram's terminals, keeps its outline in the light colour too; a grey frame drawn that way, such as an event model's swimlane, stays faint, as gridlines do.
+<kbd>C</kbd> repaints the diagram in the reader's high contrast colours (see [Modes](CONTROLS.md#modes)): what lies behind it takes the dark colour, and Mermaid's lines, text and coloured shapes take the light one. A node filled in a tint of the page, as a flowchart's are, goes dark inside an outline that goes light, so it reads as the same box drawn hollow. A box Mermaid fills and outlines in two tints of the page, as it draws a railroad diagram's terminals, keeps its outline in the light colour too; a grey frame drawn that way, such as an event model's swimlane, stays faint, as gridlines do. An outline Mermaid draws translucent, as it draws a block diagram's composite blocks, is drawn no fainter than a gridline, while a translucent fill keeps its own opacity.
 
 ## Configuration Options
 
