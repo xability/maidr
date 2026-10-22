@@ -134,6 +134,7 @@ export const text = {
   // Jumping to a layer's extreme value.
   'text.noMinimumValue': 'इस लेयर में जाने के लिए कोई न्यूनतम मान नहीं',
   'text.noMaximumValue': 'इस लेयर में जाने के लिए कोई अधिकतम मान नहीं',
+  'text.noExtrema': 'इस लेयर में जाने के लिए कोई चरम मान नहीं',
   'text.pointPosition': '{point}, {total} में से {position}',
   'text.noObjectList': 'इस परत के लिए कोई ऑब्जेक्ट सूची नहीं है। तीर कुंजियों से आगे बढ़ें।',
 } satisfies Partial<Record<MessageKey, string>>;

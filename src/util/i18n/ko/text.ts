@@ -136,6 +136,7 @@ export const text = {
   // Jumping to a layer's extreme value.
   'text.noMinimumValue': '이 레이어에는 이동할 최솟값이 없습니다',
   'text.noMaximumValue': '이 레이어에는 이동할 최댓값이 없습니다',
+  'text.noExtrema': '이 레이어에는 이동할 극값이 없습니다',
   'text.pointPosition': '{point}, {total}개 중 {position}',
   'text.noObjectList': '이 레이어에는 오브젝트 목록이 없습니다. 화살표 키로 이동하세요.',
 } satisfies Partial<Record<MessageKey, string>>;

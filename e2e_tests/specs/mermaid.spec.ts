@@ -512,6 +512,14 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowRight')).toContain('Prototype');
   });
 
+  test('says a flowchart has no extrema to go to, rather than ignoring g', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, 'g')).toContain('No extrema to go to in this layer');
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+  });
+
   test('offers a flowchart\'s outputs first in the rotor, not values its nodes lack', async ({ page }) => {
     await openExample(page, 'flowchart');
     await press(page, 'ArrowRight');

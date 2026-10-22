@@ -48,6 +48,10 @@ Control + Left (Command + Left) moves to the first bar and Control + Right
 (Command + Right) to the last, and MAIDR announces the bar it lands on. Home and
 End are not chart shortcuts.
 
+On a layer with nothing to jump to, such as a flowchart, whose nodes carry no
+values, [ and ] say there is no minimum or maximum value to go to, and G plays
+the warning tone and says there are no extrema to go to.
+
 **Layers.** A chart drawn in more than one layer — a bar chart with a line over
 it, or a violin plot's box and density curve — moves between its
 layers with Page Up and Page Down. Past the first or

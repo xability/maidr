@@ -311,6 +311,8 @@ export class CommandFactory {
         return new GoToExtremaToggleCommand(
           this.context,
           this.goToExtremaViewModel,
+          this.notificationService,
+          this.audioService,
         );
       case 'GO_TO_MIN_VALUE':
         return new GoToMinValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);

@@ -428,10 +428,10 @@ describe('GoToExtremaViewModel scope transitions (what drives the menu cues)', (
   test('toggle() enters the modal scope when the trace is extrema-navigable', () => {
     const store = createMaidrStore();
     const service = createServiceStub(true);
-    const trace = createTraceStub(['2019-11-03']);
+    const trace = createTraceStub(['2019-11-03'], [{ label: 't0' } as ExtremaTarget]);
     const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
 
-    vm.toggle(TRACE_STATE);
+    expect(vm.toggle(TRACE_STATE)).toBe(true);
 
     expect(service.toggle).toHaveBeenCalledTimes(1);
     expect(service.returnToTraceScope).not.toHaveBeenCalled();
@@ -443,9 +443,24 @@ describe('GoToExtremaViewModel scope transitions (what drives the menu cues)', (
     const trace = createTraceStub(['2019-11-03']);
     const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
 
-    vm.toggle(TRACE_STATE);
+    expect(vm.toggle(TRACE_STATE)).toBe(false);
 
     expect(service.toggle).not.toHaveBeenCalled();
+  });
+
+  test('toggle() does not enter the modal scope when the trace reports no targets', () => {
+    // The dialog renders nothing without targets: entering its scope would
+    // play the menu-open cue over nothing and hold the keys in an invisible
+    // dialog.
+    const store = createMaidrStore();
+    const service = createServiceStub(true);
+    const trace = createTraceStub(['2019-11-03'], []);
+    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
+
+    expect(vm.toggle(TRACE_STATE)).toBe(false);
+
+    expect(service.toggle).not.toHaveBeenCalled();
+    expect(vm.state.visible).toBe(false);
   });
 
   test('hide() leaves the modal scope once', () => {
