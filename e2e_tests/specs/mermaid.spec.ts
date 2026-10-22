@@ -354,6 +354,56 @@ test.describe('Mermaid adapter', () => {
     expect(new Set(bars)).toEqual(new Set(['rgb(255, 255, 255)']));
   });
 
+  test('screens a sankey\'s links in high contrast, so they and the labels under the highlight show', async ({ page }) => {
+    // Mermaid draws each link `mix-blend-mode: multiply`; multiplied over the
+    // black backdrop every link, the highlighted one too, was drawn black.
+    // Drawn normally instead, the highlighted link covered the labels at its
+    // ends, which Mermaid draws beneath the links.
+    const blendModes = async (): Promise<string[]> => page.locator('svg[maidr] g.link')
+      .evaluateAll(links => links.map(link =>
+        `${link.id.startsWith('maidr-highlight') ? 'highlight' : 'link'}:${getComputedStyle(link).mixBlendMode}`));
+    // The share of a label's box the screen shows near-white: its glyphs,
+    // where nothing covers them.
+    const lightShare = async (name: string): Promise<number> => {
+      const shot = await page.locator('svg[maidr] text', { hasText: name }).first().screenshot();
+      return page.evaluate(async (png) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${png}`;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext('2d');
+        if (context === null) {
+          return 0;
+        }
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let light = 0;
+        for (let at = 0; at < pixels.length; at += 4) {
+          light += pixels[at] > 200 && pixels[at + 1] > 200 && pixels[at + 2] > 200 ? 1 : 0;
+        }
+        return light / (pixels.length / 4);
+      }, shot.toString('base64'));
+    };
+    await openExample(page, 'sankey');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+    expect(await press(page, 'ArrowRight')).toContain('Along is Electricity to Homes');
+
+    const during = await blendModes();
+    expect(during).toContain('highlight:screen');
+    expect(new Set(during)).toEqual(new Set(['link:screen', 'highlight:screen']));
+    for (const end of ['Electricity', 'Homes']) {
+      expect(await lightShare(end)).toBeGreaterThan(0.03);
+    }
+
+    expect(await press(page, 'c')).toContain('High Contrast Mode off');
+    const after = (await blendModes()).filter(mode => mode.startsWith('link'));
+    expect(new Set(after)).toEqual(new Set(['link:multiply']));
+  });
+
   test('numbers only what a sequence diagram numbers, in its description', async ({ page }) => {
     await openExample(page, 'sequence');
     await press(page, 'ArrowRight');

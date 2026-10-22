@@ -790,6 +790,89 @@ describe('highContrastService', () => {
     expect(harness.svg.style.backgroundColor).toBe('white');
   });
 
+  describe('a mark blended with what lies beneath it', () => {
+    // Mermaid draws a sankey's links `mix-blend-mode: multiply`, inline and
+    // from its stylesheet; multiplied over the black backdrop every link was
+    // drawn black. Drawn normally instead, the highlighted link covered the
+    // labels at its ends.
+    function blended(mode: string): void {
+      rebuild([{ fill: BAR_FILL }], {
+        beforeService: () => document.querySelector('#chart rect')?.setAttribute('style', `mix-blend-mode: ${mode}`),
+      });
+    }
+
+    it('is screened over the dark backdrop, and multiplied again after', () => {
+      blended('multiply');
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.style.getPropertyValue('mix-blend-mode')).toBe('screen');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(harness.bar.style.getPropertyValue('mix-blend-mode')).toBe('multiply');
+      expect(harness.bar.getAttribute('style')).toContain('mix-blend-mode: multiply');
+    });
+
+    it('takes the dark backdrop\'s counterpart of each darkening mode, and is drawn normally in any other', () => {
+      const modes = ['darken', 'color-burn', 'overlay', 'lighten'].map((mode) => {
+        blended(mode);
+        harness.service.initializeHighContrast();
+        return harness.bar.style.getPropertyValue('mix-blend-mode');
+      });
+
+      expect(modes).toEqual(['lighten', 'color-dodge', 'normal', 'lighten']);
+    });
+
+    it('keeps its own colour over a backdrop the reader made light', () => {
+      const modes = ['multiply', 'screen'].map((mode) => {
+        blended(mode);
+        harness.settings.saveSettings({
+          ...harness.settings.loadSettings(),
+          general: { ...harness.settings.loadSettings().general, highContrastDarkColor: '#ffffff', highContrastLightColor: '#000000' },
+        });
+        harness.service.initializeHighContrast();
+        return harness.bar.style.getPropertyValue('mix-blend-mode');
+      });
+
+      expect(modes).toEqual(['multiply', 'multiply']);
+    });
+
+    it('is screened when a stylesheet blends it, and handed back to the stylesheet after', () => {
+      rebuild([{ fill: BAR_FILL }], {
+        beforeService: () => {
+          document.head.insertAdjacentHTML('beforeend', '<style>#chart rect { mix-blend-mode: multiply; }</style>');
+        },
+      });
+
+      harness.service.initializeHighContrast();
+
+      expect(window.getComputedStyle(harness.bar).getPropertyValue('mix-blend-mode')).toBe('screen');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(harness.bar.style.getPropertyValue('mix-blend-mode')).toBe('');
+      expect(window.getComputedStyle(harness.bar).getPropertyValue('mix-blend-mode')).toBe('multiply');
+    });
+
+    it('is screened in the hidden copy a highlight is cloned from', () => {
+      const copy = document.createElementNS(SVG_NAMESPACE, 'rect');
+      copy.setAttribute('visibility', 'hidden');
+      copy.setAttribute('style', 'mix-blend-mode: multiply');
+      rebuild([{ fill: BAR_FILL }], { beforeService: () => document.querySelector('#chart')?.appendChild(copy) });
+
+      harness.service.initializeHighContrast();
+
+      expect(copy.style.getPropertyValue('mix-blend-mode')).toBe('screen');
+    });
+
+    it('is the only mark given a blend mode', () => {
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.style.getPropertyValue('mix-blend-mode')).toBe('');
+    });
+  });
+
   it('puts pattern and glow definitions inside the SVG when the plot is a wrapper', () => {
     // A <pattern> outside an <svg> renders nothing, so every patterned wedge
     // disappeared on a chart whose SVG had no <defs> of its own.

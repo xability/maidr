@@ -61,6 +61,18 @@ const HighContrastConstants = {
 } as const;
 
 /**
+ * Blend modes that keep a mark's own colour over a light backdrop, each with
+ * its counterpart over a dark one: multiplied over white, or screened over
+ * black, a colour stays as it is; multiplied over black, or screened over
+ * white, it is lost in the backdrop.
+ */
+const BLEND_MODE_COUNTERPARTS: readonly (readonly [light: string, dark: string])[] = [
+  ['multiply', 'screen'],
+  ['darken', 'lighten'],
+  ['color-burn', 'color-dodge'],
+];
+
+/**
  * Trace types whose marks tile the plot and encode a value by their colour
  * alone -- a heat map cell, a choropleth region. Their paints keep mapping onto
  * the whole ramp, background colour included: a dark cell still reads against
@@ -827,6 +839,31 @@ export class HighContrastService implements Disposable {
         'fill',
         isPaper ? this.highContrastDarkColor : this.highContrastLightColor,
       );
+    }
+
+    // A blended mark takes its colour from what lies beneath it, which is now
+    // the reader's backdrop: Mermaid draws a sankey's links `multiply`, and
+    // anything multiplied over black is black, whatever colour it is given.
+    // A mode with a counterpart takes the one that suits the backdrop: over a
+    // dark one, a link screened keeps its colour, and the light labels it is
+    // drawn over show through it, the highlight's included, as dark labels
+    // show through a link multiplied on a white page. Any other mode is drawn
+    // normally. Every element is read before any is written, so the scan
+    // costs one style pass. Asked on every apply, so it also reaches the
+    // hidden copies highlights are cloned from, and a highlight already drawn.
+    const darkBackdrop = this.getRelativeLuminance(this.highContrastDarkColor)
+      <= this.getRelativeLuminance(this.highContrastLightColor);
+    const blended = this.getColorRoots()
+      .flatMap(root => [root, ...Array.from(root.querySelectorAll('*'))])
+      .map(element => ({ element, mode: window.getComputedStyle(element).getPropertyValue('mix-blend-mode') }))
+      .filter((blend): blend is { element: HTMLElement | SVGElement; mode: string } =>
+        'style' in blend.element && blend.mode !== '' && blend.mode !== 'normal');
+    for (const { element, mode } of blended) {
+      const counterparts = BLEND_MODE_COUNTERPARTS.find(modes => modes.includes(mode));
+      const wanted = counterparts === undefined ? 'normal' : counterparts[darkBackdrop ? 1 : 0];
+      if (wanted !== mode) {
+        this.overrideInlineStyle(element, 'mix-blend-mode', wanted);
+      }
     }
   }
 
