@@ -121,6 +121,9 @@ const SURFACE_TAGS: ReadonlySet<string> = new Set([
   'polyline',
 ]);
 
+/** The shapes a legend draws its keys with. */
+const SWATCH_TAGS: ReadonlySet<string> = new Set(['rect', 'path', 'circle', 'ellipse', 'polygon']);
+
 /** Containers whose content is defined for use elsewhere, not drawn there. */
 const DEFINITION_CONTAINERS = 'defs, clipPath, mask, marker, pattern, symbol';
 
@@ -901,7 +904,7 @@ export class HighContrastService implements Disposable {
         || this.context.instructionContext.type === 'stacked_normalized_bar'
         || this.context.instructionContext.type === 'mosaic'
       ) {
-        this.applyPatternsToElements(highContrastElInfo);
+        this.applyPatternsToElements(highContrastElInfo, textDescendants);
       }
     }
 
@@ -2369,6 +2372,7 @@ export class HighContrastService implements Disposable {
 
   private applyPatternsToElements(
     highContrastElInfo: ElementColorInfo[],
+    textDescendants: Map<Element, boolean>,
   ): void {
     if (!this.originalColorInfo)
       return;
@@ -2401,8 +2405,10 @@ export class HighContrastService implements Disposable {
       }
     }
 
+    const keys = this.legendKeys(colorGroups, textDescendants);
+
     let patternIndex = 0;
-    for (const [_color, elements] of colorGroups) {
+    for (const [color, elements] of colorGroups) {
       const patternType
         = this.patternService.getPatternTypeByIndex(patternIndex);
 
@@ -2420,8 +2426,48 @@ export class HighContrastService implements Disposable {
         });
       }
 
+      // A key takes its marks' pattern -- the same one, from the cache -- so
+      // the legend still says which pattern is which series.
+      const baseColor = elementToHighContrastColor.get(elements[0].element) || this.highContrastLightColor;
+      for (const key of keys.get(color) ?? []) {
+        this.patternService.applyPattern(key.element, {
+          type: patternType,
+          baseColor,
+          patternColor: this.getMostContrastingColor(baseColor),
+        });
+      }
+
       patternIndex++;
     }
+  }
+
+  /**
+   * The legend keys of each group of marks: a shape no layer selects, drawn
+   * after the group's first mark in exactly its colour. Mermaid, matplotlib,
+   * ggplot and Plotly all draw the legend after the marks, and a background
+   * or panel before them. A key of white, the paper's colour, is not told
+   * from the frame around the legend, and keeps its plain colour.
+   */
+  private legendKeys(
+    colorGroups: Map<string, ElementColorInfo[]>,
+    textDescendants: Map<Element, boolean>,
+  ): Map<string, ElementColorInfo[]> {
+    const keys = new Map<string, ElementColorInfo[]>();
+    for (const item of this.originalColorInfo ?? []) {
+      if (item.isInSelectors || item.attr !== 'fill' || item.resolvedColor === null
+        || !SWATCH_TAGS.has(item.element.tagName) || this.isTextDescendant(item.element, textDescendants)
+        || isInMaidrCopy(item.element)) {
+        continue;
+      }
+      const color = this.normalizeColor(item.resolvedColor);
+      const marks = colorGroups.get(color);
+      if (marks === undefined || color === '#ffffff'
+        || !(marks[0].element.compareDocumentPosition(item.element) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+        continue;
+      }
+      keys.set(color, [...(keys.get(color) ?? []), item]);
+    }
+    return keys;
   }
 
   private getMostContrastingColor(color: string): string {

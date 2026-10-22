@@ -888,6 +888,68 @@ describe('highContrastService', () => {
     expect(harness.display.plot.querySelector(':scope > defs')).toBeNull();
   });
 
+  describe('the legend of a patterned chart', () => {
+    // A pie's wedges are told apart by pattern in high contrast, and its
+    // legend keys were left a plain colour: black on black, or white, the
+    // same for every series.
+
+    /** Draws `markup` after the marks, as a legend is drawn. */
+    function withLegend(specs: MarkSpec[], markup: string, before = false): void {
+      rebuild(specs, {
+        traceType: 'pie',
+        beforeService: () => {
+          const chart = document.querySelector('#chart') as SVGSVGElement;
+          const legend = document.createElementNS(SVG_NAMESPACE, 'g');
+          legend.innerHTML = markup;
+          chart.insertBefore(legend, before ? chart.firstChild : null);
+        },
+      });
+    }
+
+    /** The paint a key is drawn with, from its style or its attribute. */
+    const fillOf = (element: Element): string =>
+      element.getAttribute('style')?.match(/fill:\s*([^;]+)/)?.[1].trim() ?? element.getAttribute('fill') ?? '';
+
+    it('gives each key the pattern of the marks it keys, and its own colour back after', () => {
+      withLegend(
+        [{ fill: '#ececff' }, { fill: '#b5ff20' }],
+        '<rect class="key" style="fill: rgb(236, 236, 255); stroke: rgb(236, 236, 255)"></rect>'
+        + '<rect class="key" fill="#b5ff20"></rect>',
+      );
+      const keys = Array.from(harness.svg.querySelectorAll('.key'));
+
+      harness.service.initializeHighContrast();
+
+      expect(keys.map(fillOf)).toEqual(harness.marks.map(mark => mark.getAttribute('fill')));
+      expect(fillOf(keys[0])).toMatch(/^url\(#maidr-pattern-/);
+      expect(fillOf(keys[0])).not.toBe(fillOf(keys[1]));
+
+      turnHighContrastOff(harness.settings);
+
+      expect(keys.map(fillOf)).toEqual(['rgb(236, 236, 255)', '#b5ff20']);
+    });
+
+    it('leaves a shape of a series colour drawn before the marks alone', () => {
+      withLegend([{ fill: '#ececff' }, { fill: '#b5ff20' }], '<rect class="panel" fill="#b5ff20"></rect>', true);
+
+      harness.service.initializeHighContrast();
+
+      expect(fillOf(harness.svg.querySelector('.panel') as Element)).not.toMatch(/^url\(/);
+    });
+
+    it('patterns no text, and no key of a white series', () => {
+      withLegend(
+        [{ fill: '#ffffff' }, { fill: '#b5ff20' }],
+        '<text class="label" fill="#b5ff20">Cats</text><rect class="frame" fill="#ffffff"></rect>',
+      );
+
+      harness.service.initializeHighContrast();
+
+      expect(fillOf(harness.svg.querySelector('.label') as Element)).not.toMatch(/^url\(/);
+      expect(fillOf(harness.svg.querySelector('.frame') as Element)).not.toMatch(/^url\(/);
+    });
+  });
+
   it('recolours the layers drawn over the plot with it', () => {
     const overlay = document.createElementNS(SVG_NAMESPACE, 'svg');
     const title = document.createElementNS(SVG_NAMESPACE, 'text');

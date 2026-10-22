@@ -563,6 +563,28 @@ test.describe('Mermaid adapter', () => {
     });
   }
 
+  test('gives each pie legend key its slice\'s pattern in high contrast, and its colour back after', async ({ page }) => {
+    // The slices took patterns and the keys a plain colour, black on black
+    // for Dogs and Cats and white for the rest, so the legend named nothing.
+    const fills = async (selector: string): Promise<string[]> => page.locator(`svg[maidr] ${selector}`)
+      .evaluateAll(shapes => shapes
+        .filter(shape => shape.closest('[data-maidr-owned]') === null)
+        .map(shape => getComputedStyle(shape).fill));
+    await openExample(page, 'pie');
+    const before = await fills('.legend rect');
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+    const keys = await fills('.legend rect');
+    expect(keys).toEqual(await fills('path.pieCircle'));
+    expect(new Set(keys).size).toBe(4);
+    for (const key of keys) {
+      expect(key).toMatch(/^url\("#maidr-pattern-/);
+    }
+
+    expect(await press(page, 'c')).toContain('High Contrast Mode off');
+    expect(await fills('.legend rect')).toEqual(before);
+  });
+
   test('recolours the HTML labels a rule colours in high contrast, and gives them back after', async ({ page }) => {
     // Venn items and use case actors are HTML in a <foreignObject>, coloured
     // by a rule of their own that outranked the backdrop's light colour.
