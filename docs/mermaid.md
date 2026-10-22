@@ -29,6 +29,8 @@ flowchart LR
 
 `startOnLoad: false` matters. Mermaid replaces each diagram's text with its drawing, and the adapter needs the text; with `startOnLoad` left on, Mermaid would draw the diagrams before the adapter could read them.
 
+MAIDR shows its text and dialogs inside the element a diagram is drawn in. Once a diagram is drawn in a `<pre>`, the adapter gives the `<pre>` the page's font (`font-family: inherit`), so they are not set in its monospace. Mermaid's diagrams carry their own font and look the same; a Wardley map, which has none, takes the page's font, the one Mermaid laid it out in. A font set in the `<pre>`'s own `style` attribute is kept.
+
 ## Using with npm/Bundlers
 
 ```bash

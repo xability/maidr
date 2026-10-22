@@ -335,6 +335,18 @@ test.describe('Mermaid adapter', () => {
     });
   }
 
+  test('shows MAIDR\'s text in the page\'s font, not the monospace of Mermaid\'s <pre>', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await press(page, 'ArrowRight');
+
+    const fonts = await page.evaluate(() => {
+      const text = getComputedStyle(document.querySelector('#maidr-text-container p') as Element);
+      return { text: text.fontFamily, size: text.fontSize, page: getComputedStyle(document.body).fontFamily };
+    });
+    expect(fonts.text).toBe(fonts.page);
+    expect(fonts.size).toBe('16px');
+  });
+
   test('shrinks a diagram to a page narrower than it, without scrolling sideways', async ({ page }) => {
     await openExample(page, 'flowchart');
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
