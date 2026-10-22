@@ -8,6 +8,8 @@ import type { BarPoint, LinePoint, ScatterPoint, SegmentedPoint, SmoothPoint } f
 export interface GridNavigable {
   setGridMode: (enabled: boolean) => void;
   supportsGridMode: () => boolean;
+  /** Whether the reader is navigating by grid cells now (the rotor's grid mode). */
+  isGridModeActive: () => boolean;
   moveGridUp: () => boolean;
   moveGridDown: () => boolean;
   moveGridLeft: () => boolean;
@@ -32,6 +34,18 @@ export function isGridNavigable(plot: unknown): plot is GridNavigable {
     && 'supportsGridMode' in plot
     && typeof (plot as GridNavigable).supportsGridMode === 'function'
   );
+}
+
+/**
+ * Whether Enter has a grid cell to open: the plot has a grid and the reader
+ * is navigating it by cells. A scatter whose axes declare a grid has one in
+ * ordinary navigation too, where the reader stands on a point, not in a cell.
+ *
+ * @param plot - The active plot
+ * @returns True when Enter would open the cell under the reader
+ */
+export function canEnterGridCell(plot: unknown): boolean {
+  return isGridNavigable(plot) && plot.supportsGridMode() && plot.isGridModeActive();
 }
 
 /**

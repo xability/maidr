@@ -778,6 +778,16 @@ test.describe('Mermaid adapter', () => {
     expect(await outlined()).toEqual({ tag: 'rect', group: 'Laptops' });
   });
 
+  test('keeps Enter quiet on a quadrant chart\'s point outside grid navigation', async ({ page }) => {
+    await openExample(page, 'quadrant');
+    const point = await press(page, 'ArrowRight');
+    await page.keyboard.press('Enter');
+    // Nothing to wait for: Enter used to say "No points in this cell" at once.
+    await page.waitForTimeout(500);
+
+    expect(await announcement(page)).toBe(point);
+  });
+
   test('names a kanban column as a column and a card as a card', async ({ page }) => {
     await openExample(page, 'kanban');
     const column = await press(page, 'ArrowRight');

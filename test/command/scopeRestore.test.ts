@@ -154,9 +154,23 @@ describe('EnterGridCellCommand', () => {
     expect(notification.notify).not.toHaveBeenCalled();
   });
 
-  test('stays silent when the trace supports the interface but grid mode is off', () => {
+  test('stays silent when the trace has no grid', () => {
     const context = createMockContext({
-      active: { supportsGridMode: jest.fn(() => false) },
+      active: { supportsGridMode: jest.fn(() => false), isGridModeActive: jest.fn(() => false) },
+    });
+    const notification = createNotification();
+
+    new EnterGridCellCommand(context, notification).execute();
+
+    expect(context.enterGridCell).not.toHaveBeenCalled();
+    expect(notification.notify).not.toHaveBeenCalled();
+  });
+
+  test('stays silent when the trace has a grid but grid mode is off', () => {
+    // The reader stands on a point, not in a cell: "No points in this cell"
+    // would be false.
+    const context = createMockContext({
+      active: { supportsGridMode: jest.fn(() => true), isGridModeActive: jest.fn(() => false) },
     });
     const notification = createNotification();
 
@@ -168,7 +182,7 @@ describe('EnterGridCellCommand', () => {
 
   test('announces an empty cell only for genuinely grid-capable traces', () => {
     const context = createMockContext({
-      active: { supportsGridMode: jest.fn(() => true) },
+      active: { supportsGridMode: jest.fn(() => true), isGridModeActive: jest.fn(() => true) },
       enterGridCell: jest.fn(() => false),
     });
     const notification = createNotification();
@@ -180,7 +194,7 @@ describe('EnterGridCellCommand', () => {
 
   test('does not announce when entering a populated cell succeeds', () => {
     const context = createMockContext({
-      active: { supportsGridMode: jest.fn(() => true) },
+      active: { supportsGridMode: jest.fn(() => true), isGridModeActive: jest.fn(() => true) },
       enterGridCell: jest.fn(() => true),
     });
     const notification = createNotification();

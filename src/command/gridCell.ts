@@ -1,7 +1,7 @@
 import type { Context } from '@model/context';
 import type { NotificationService } from '@service/notification';
 import type { Command } from './command';
-import { isGridNavigable } from '@type/navigation';
+import { canEnterGridCell } from '@type/navigation';
 import { t } from '@util/i18n';
 
 /**
@@ -20,8 +20,9 @@ export class EnterGridCellCommand implements Command {
     // Enter is bound across the whole TRACE scope, so this fires on every trace
     // type. Traces that don't support grid navigation have no cells to enter;
     // stay silent rather than announcing a grid mode the chart does not have.
-    const activeTrace = this.context.active;
-    if (!isGridNavigable(activeTrace) || !activeTrace.supportsGridMode()) {
+    // Nor does a trace with a grid the reader is not navigating by cells: they
+    // stand on a point, and "No points in this cell" would be false.
+    if (!canEnterGridCell(this.context.active)) {
       return;
     }
 
