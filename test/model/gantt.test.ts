@@ -232,6 +232,52 @@ describe('navigation walks lanes and intervals', () => {
   });
 });
 
+describe('the rotor finds a shorter or longer task in the lane', () => {
+  test('offers the lower and higher value modes', () => {
+    expect(gantt().supportsCompareMode()).toBe(true);
+  });
+
+  test('lower to the right finds the next shorter task', () => {
+    const trace = gantt(0, 0);
+
+    expect(trace.moveToNextCompareValue('right', 'lower')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Design, Revisions');
+  });
+
+  test('higher to the left finds the longer task before it', () => {
+    const trace = gantt(0, 1);
+
+    expect(trace.moveToNextCompareValue('left', 'higher')).toBe(true);
+    expect(trace.col).toBe(0);
+  });
+
+  test('nothing longer further on is a boundary, and the cursor stays', () => {
+    const trace = gantt(0, 1);
+    const seen: unknown[] = [];
+    trace.addObserver({ update: state => seen.push(state) });
+
+    expect(trace.moveToNextCompareValue('right', 'higher')).toBe(false);
+    expect(trace.col).toBe(1);
+    expect(seen.at(-1)).toMatchObject({ empty: true, warning: true });
+  });
+
+  test('up and down have no lane value to compare, and say so', () => {
+    const trace = gantt(0, 0);
+    const seen: unknown[] = [];
+    trace.addObserver({ update: state => seen.push(state) });
+
+    expect(trace.moveToNextCompareValue('up', 'lower')).toBe(false);
+    expect(trace.row).toBe(0);
+    expect(seen.at(-1)).toMatchObject({ empty: true, warning: true });
+  });
+
+  test('an empty lane is a boundary rather than a crash', () => {
+    const trace = gantt(1, 0, [[{ x: 'Design', start: 0, end: 30 }], []]);
+
+    expect(trace.moveToNextCompareValue('right', 'lower')).toBe(false);
+  });
+});
+
 describe('braille is a length profile, one row per lane', () => {
   test('carries the lengths the pitch carries', () => {
     const { braille } = nonEmptyState(gantt());

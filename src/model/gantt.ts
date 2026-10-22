@@ -704,6 +704,28 @@ export class GanttTrace extends AbstractTrace {
   }
 
   /**
+   * The rotor's lower and higher value search, along the current lane.
+   *
+   * Over the lengths, the magnitude the pitch and the braille carry, so
+   * "higher" from a ten-day task finds the next longer one in its lane. Up
+   * and down change lanes, and a lane has no value to compare, so they report
+   * the boundary as the rug does.
+   * @param direction - Which way to search
+   * @param type - Whether a shorter or a longer interval is sought
+   * @returns True when a matching interval was found and moved to
+   */
+  public override moveToNextCompareValue(
+    direction: 'left' | 'right' | 'up' | 'down',
+    type: 'lower' | 'higher',
+  ): boolean {
+    if (direction === 'up' || direction === 'down') {
+      this.notifyRotorBounds();
+      return false;
+    }
+    return this.compareSearchAlongRow(this.lengths[this.row] ?? [], direction, type);
+  }
+
+  /**
    * Releases the viewport watch the centres are invalidated by.
    */
   public override dispose(): void {
