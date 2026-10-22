@@ -314,6 +314,47 @@ describe('a flow walk carries on from where it has reached', () => {
     ]);
   });
 
+  test('a press back past the flow the walk began with is refused, not walked on', () => {
+    // Left straight after Right went on to Electricity's flows from the far
+    // end -- Industry, then Homes -- so Left moved downstream and the flow the
+    // reader came along could not be reached again.
+    const trace = flow(MERMAID);
+    trace.moveToRotorFilter('outgoing', 'right');
+
+    expect(trace.moveToRotorFilter('outgoing', 'left')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Electricity');
+    expect(nonEmptyState(trace).text.asides?.[0]?.value)
+      .toBe('Solar to Electricity, 40, 100.0% of Solar');
+  });
+
+  test('a press back pages back through the node\'s flows and stops at the first', () => {
+    // Gas has two flows. Back from the second lands on the first again, and
+    // back past that went on to Electricity's last flow.
+    const trace = flow(MERMAID);
+    walk(trace, 'DOWNWARD', 'DOWNWARD');
+    trace.moveToRotorFilter('outgoing', 'right');
+    trace.moveToRotorFilter('outgoing', 'right');
+
+    expect(trace.moveToRotorFilter('outgoing', 'left')).toBe(true);
+    expect(nonEmptyState(trace).text.asides?.[0]?.value)
+      .toBe('Gas to Electricity, 60, 57.1% of Gas');
+    expect(trace.moveToRotorFilter('outgoing', 'left')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Electricity');
+  });
+
+  test('a walk begun leftwards carries on leftwards, and refuses a press back', () => {
+    // Left pages a node's flows smallest first and carries on the same way;
+    // Right is then the press back, past the flow Electricity's walk began with.
+    const trace = flow(MERMAID);
+    trace.moveToRotorFilter('outgoing', 'left');
+
+    expect(trace.moveToRotorFilter('outgoing', 'left')).toBe(true);
+    expect(nonEmptyState(trace).text.asides?.[0]?.value)
+      .toBe('Electricity to Industry, 65, 48.1% of Electricity');
+    expect(trace.moveToRotorFilter('outgoing', 'right')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Industry');
+  });
+
   test('an arrow ends the walk, even one that comes back to where it stopped', () => {
     // Gas's walk stopped on Electricity; Right and Left came back to it, and
     // the next press carried on through Gas's flows rather than Electricity's.

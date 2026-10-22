@@ -759,10 +759,15 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     // Once the start node's flows run out this way, the walk carries on with
     // the flows of the node it has reached. Refusing there said "No outgoing
     // flows found to the right of the current value" about the start node
-    // while the reader was on another, often one with several.
+    // while the reader was on another, often one with several. Only a press
+    // the way the walk runs carries it on; a press back past the flow it
+    // began with is refused, as on a fresh walk. Carrying that on as well
+    // began a reversed walk of the node reached, so Left straight after Right
+    // went on downstream and never back along the flow just taken.
     const current = this.current;
+    const way = anchor.way ?? direction;
     const step = FlowTrace.stepFrom(anchor, along, direction)
-      ?? (current !== null && current !== anchor.node
+      ?? (way === direction && current !== null && current !== anchor.node
         ? FlowTrace.stepFrom({ node: current, index: -1 }, along, direction)
         : null);
     if (step === null) {
@@ -772,7 +777,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
 
     const { from, index, edge } = step;
     const to = this.nodes[along === 'out' ? edge.to : edge.from];
-    this.flowWalk = { from, along, index, at: { row: to.index, col: to.stage } };
+    this.flowWalk = { from, along, index, way, at: { row: to.index, col: to.stage } };
     this.arrivedVia = edge;
     this.movable.moveToIndex(to.index, to.stage);
     this.notifyStateUpdate();
@@ -782,14 +787,17 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   /**
    * The walk in progress: whose flows, in which direction, and how far along.
    *
-   * `at` is how the walk notices it has been abandoned -- if the cursor is no
-   * longer where the last step left it, the reader moved some other way. An
-   * arrow, a jump to the end of a route and a jump to a node end it outright.
+   * `way` is the press that began walking `from`'s flows: the walk carries on
+   * past their end only that way. `at` is how the walk notices it has been
+   * abandoned -- if the cursor is no longer where the last step left it, the
+   * reader moved some other way. An arrow, a jump to the end of a route and a
+   * jump to a node end it outright.
    */
   private flowWalk: {
     from: FlowNode;
     along: 'out' | 'in';
     index: number;
+    way: 'left' | 'right';
     at: Coordinate;
   } | null = null;
 
@@ -825,19 +833,22 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    * The node whose flows the rotor is enumerating, and how far it has got.
    *
    * @param along - Which side is being walked
-   * @returns The anchor, or null when the cursor is nowhere
+   * @returns The anchor, with the way its walk runs (null on a fresh one), or
+   * null when the cursor is nowhere
    */
-  private rotorAnchor(along: 'out' | 'in'): { node: FlowNode; index: number } | null {
+  private rotorAnchor(
+    along: 'out' | 'in',
+  ): { node: FlowNode; index: number; way: 'left' | 'right' | null } | null {
     const walk = this.flowWalk;
     const continuing = walk !== null
       && walk.along === along
       && walk.at.row === this.row
       && walk.at.col === this.col;
     if (continuing && walk !== null) {
-      return { node: walk.from, index: walk.index };
+      return { node: walk.from, index: walk.index, way: walk.way };
     }
     const node = this.current;
-    return node === null ? null : { node, index: -1 };
+    return node === null ? null : { node, index: -1, way: null };
   }
 
   /**

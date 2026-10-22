@@ -954,8 +954,10 @@ The rotor's **Outgoing** and **Incoming** modes page through one node's flows,
 largest first, each press landing on the node at the other end. Once that
 node's flows run out, the next press carries on with the flows of the node the
 reader has reached, and only a node with none that way answers that there are
-no more. An arrow key ends the walk, so the next one starts from wherever the
-reader is.
+no more. A press the other way pages back through the same node's flows, and
+back past the one the walk began with answers that there are no more, rather
+than starting on the flows of the node reached. An arrow key ends the walk, so
+the next one starts from wherever the reader is.
 
 ```
 Stage   Cells
