@@ -202,9 +202,16 @@ export class TreemapTrace extends AbstractTrace {
   private readonly depthMax: number[];
 
   /**
-   * Each node's child count plus one, shaped as `nodes` is, with its per-depth
-   * extremes: what braille and the pitch carry for a tree that declares no
-   * magnitude (see {@link TreemapTrace.valued}). A null node counts as a leaf.
+   * Each node's child count plus one, shaped as `nodes` is, with the range
+   * each depth is scaled over: what braille and the pitch carry for a tree
+   * that declares no magnitude (see {@link TreemapTrace.valued}). A null node
+   * counts as a leaf.
+   *
+   * The range runs from a leaf's 1 up to the depth's bushiest node, rather
+   * than from the depth's own smallest count. A depth with no leaves on it --
+   * a lone root, or a timeline's periods of one event each -- otherwise put
+   * its least-branched node on the floor of the range, where it sounded and
+   * read exactly as a leaf does.
    */
   private readonly shape: number[][];
   private readonly shapeMin: number[];
@@ -273,7 +280,7 @@ export class TreemapTrace extends AbstractTrace {
     this.depthMin = this.nodeValues.map(level => MathUtil.safeMin(level));
     this.depthMax = this.nodeValues.map(level => MathUtil.safeMax(level));
     this.shape = this.nodes.map(level => level.map(node => (node?.children.length ?? 0) + 1));
-    this.shapeMin = this.shape.map(level => MathUtil.safeMin(level));
+    this.shapeMin = this.shape.map(() => 1);
     this.shapeMax = this.shape.map(level => MathUtil.safeMax(level));
     this.grandTotal = (this.nodes[0] ?? []).reduce(
       (total, node) => total + (node?.value ?? 0),
@@ -581,8 +588,8 @@ export class TreemapTrace extends AbstractTrace {
   protected get audio(): AudioState {
     if (!this.valued) {
       // A pure hierarchy is pitched by its shape, the child count braille
-      // shows (each node's count plus one, scaled per level): a leaf the
-      // lowest, the bushiest node of its level the highest. Sounded as a
+      // shows (each node's count plus one, scaled per level from a leaf up):
+      // a leaf the lowest, the bushiest node of its level the highest. Sounded as a
       // node with no value, every node played the empty tone -- the tone a
       // refused move plays, at the same pan -- so with text off a reader
       // could not tell a step onto a node from hitting the edge, and a flat
@@ -729,8 +736,8 @@ export class TreemapTrace extends AbstractTrace {
       // to zero everywhere, and a zero is a blank cell: the display stayed
       // empty however the reader moved. Its shape is what it has, so each
       // cell is the node's child count plus one, a leaf the lowest dot and a
-      // node with many children the tallest, scaled per level as the
-      // magnitudes are -- and as the pitch is.
+      // node with many children the tallest, scaled per level from a leaf up
+      // -- as the pitch is.
       return {
         empty: false,
         id: this.id,

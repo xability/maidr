@@ -406,7 +406,8 @@ describe('the modalities read the tree by depth', () => {
     }
 
     expect(braille.values).toEqual([[3], [2, 1], [1]]);
-    expect(braille.min).toEqual([3, 1, 1]);
+    // Every level scaled from a leaf up, so the lone CEO is not a leaf's dot.
+    expect(braille.min).toEqual([1, 1, 1]);
     expect(braille.max).toEqual([3, 2, 1]);
   });
 });
@@ -589,8 +590,8 @@ describe('a tree that declares no magnitude', () => {
   test('is pitched by its shape, the child count braille shows', () => {
     // Sounded as a node with no value, every node played the empty tone --
     // the tone a refused move plays -- so a step and a wall sounded alike.
-    // Each node's count plus one, scaled per level: Ada has two reports, Bo
-    // two and Cy one, and the third level is all leaves.
+    // Each node's count plus one, scaled per level from a leaf up: Ada has
+    // two reports, Bo two and Cy one, and the third level is all leaves.
     const trace = treemap(ORG);
     const at = (): unknown => nonEmptyState(trace).audio.freq;
 
@@ -602,10 +603,42 @@ describe('a tree that declares no magnitude', () => {
     walk(trace, 'BACKWARD', 'DOWNWARD');
     const engineering = at();
 
-    expect(ada).toEqual({ min: 3, max: 3, raw: 3 });
-    expect(bo).toEqual({ min: 2, max: 3, raw: 3 });
-    expect(cy).toEqual({ min: 2, max: 3, raw: 2 });
+    expect(ada).toEqual({ min: 1, max: 3, raw: 3 });
+    expect(bo).toEqual({ min: 1, max: 3, raw: 3 });
+    expect(cy).toEqual({ min: 1, max: 3, raw: 2 });
     expect(engineering).toEqual({ min: 1, max: 1, raw: 1 });
+  });
+
+  test('a node with children never sounds or reads as a leaf, whatever its level holds', () => {
+    // Scaled from the level's own smallest count, a lone root and a level of
+    // periods with one event each sat on the floor of their range: the pitch
+    // and the dot a leaf gets. Each period here has one event, and the root
+    // is alone on its level.
+    const trace = treemap([
+      { x: 'Timeline' },
+      { x: '1999', path: ['Timeline'] },
+      { x: '2008', path: ['Timeline'] },
+      { x: 'WCAG 1.0', path: ['Timeline', '1999'] },
+      { x: 'WCAG 2.0', path: ['Timeline', '2008'] },
+    ]);
+    /** Where the node sits in its level's range: 0 is a leaf's floor. */
+    const height = (): number => {
+      const { min, max, raw } = nonEmptyState(trace).audio.freq;
+      return max === min ? 0 : ((raw as number) - (min as number)) / ((max as number) - (min as number));
+    };
+
+    const root = height();
+    walk(trace, 'DOWNWARD');
+    const period = height();
+    walk(trace, 'DOWNWARD');
+    const event = height();
+
+    expect(root).toBe(1);
+    expect(period).toBe(1);
+    expect(event).toBe(0);
+    // Braille is scaled by the same range, so its dots agree.
+    const braille = nonEmptyState(trace).braille;
+    expect(braille.empty ? null : [braille.min, braille.max]).toEqual([[1, 1, 1], [3, 2, 1]]);
   });
 
   test('the pitch and the braille cell are one reading at every node', () => {
