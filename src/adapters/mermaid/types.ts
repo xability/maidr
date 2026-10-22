@@ -43,7 +43,7 @@ export interface MermaidAdapterOptions {
   id?: string;
   /** Figure title. Defaults to the diagram's own title, when it has one. */
   title?: string;
-  /** Figure subtitle. */
+  /** Figure subtitle. Defaults to a quadrant chart's quadrant names. */
   subtitle?: string;
   /** Figure caption. Defaults to the diagram's accessible description. */
   caption?: string;
@@ -75,11 +75,16 @@ export interface DiagramContext {
   layerId: (suffix: string) => string;
 }
 
-/** What a diagram converter returns: the figure's layers, and its title. */
+/**
+ * What a diagram converter returns: the figure's layers, and its title and
+ * subtitle.
+ */
 export interface DiagramConversion {
   layers: MaidrLayer[];
   /** The title the diagram declares, when the database carries one. */
   title?: string;
+  /** A subtitle the diagram implies, such as a quadrant chart's quadrant names. */
+  subtitle?: string;
 }
 
 /** Converts one Mermaid diagram type. */

@@ -521,6 +521,16 @@ test.describe('Mermaid adapter', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
 
+  test('names a quadrant chart by its title, and its quadrants in the subtitle', async ({ page }) => {
+    await openExample(page, 'quadrant');
+    await press(page, 'ArrowRight');
+
+    await page.keyboard.press('l');
+    expect(await press(page, 't')).toContain('Title is Reach and engagement of campaigns');
+    await page.keyboard.press('l');
+    expect(await press(page, 's')).toContain('Subtitle is Quadrants: We should expand (top right)');
+  });
+
   test('names a timeline by the title it declares', async ({ page }) => {
     await openExample(page, 'timeline');
 

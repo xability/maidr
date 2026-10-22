@@ -166,7 +166,9 @@ export function packet(context: DiagramContext): DiagramConversion {
 
 /**
  * Quadrant charts: labelled points on two axes running from 0 to 1, read in
- * the order they were declared, with the quadrants' names in the axis labels.
+ * the order they were declared, with the quadrants' names in the figure
+ * subtitle. Not in the layer title: a chart of one layer is named by its
+ * layer's title in place of the diagram's own.
  *
  * Mermaid's database hands the points back already laid out, in pixels and in
  * reverse order, so the values are recovered from the quadrants' own extent.
@@ -214,15 +216,18 @@ export function quadrant(context: DiagramContext): DiagramConversion {
       : {}),
     data,
   };
+  if (data.length === 0) {
+    return { layers: [] };
+  }
   // Mermaid numbers its quadrants from the top right, anticlockwise.
   const corners = ['top right', 'top left', 'bottom left', 'bottom right'];
   const names = quadrants
     .map((one, at) => (plain(one.text) ? `${plain(one.text)} (${corners[at] ?? ''})` : ''))
     .filter(Boolean);
-  if (names.length > 0) {
-    layer.title = `Quadrants: ${names.join('; ')}`;
-  }
-  return { layers: data.length > 0 ? [layer] : [] };
+  return {
+    layers: [layer],
+    ...(names.length > 0 ? { subtitle: `Quadrants: ${names.join('; ')}` } : {}),
+  };
 }
 
 /**

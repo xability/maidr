@@ -178,13 +178,14 @@ export function convertMermaidDiagram(
     ?? conversion.title
     ?? declared('getDiagramTitle')
     ?? (plain(call(diagram.db, 'getTitle')) || undefined);
+  const subtitle = options.subtitle ?? conversion.subtitle;
   const caption = options.caption ?? declared('getAccDescription');
   fitToFigure(svg);
   leaveRoomForFocusRing(svg);
   return {
     id,
     ...(title ? { title } : {}),
-    ...(options.subtitle ? { subtitle: options.subtitle } : {}),
+    ...(subtitle ? { subtitle } : {}),
     ...(caption ? { caption } : {}),
     subplots: [[{ layers: conversion.layers }]],
   };

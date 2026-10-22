@@ -3,6 +3,7 @@
  */
 
 import type { GanttData, LinePoint, PiePoint, ScatterPoint, TreemapPoint } from '@type/grammar';
+import { convertMermaidDiagram } from '@adapters/mermaid/converter';
 import { describe, expect, it } from '@jest/globals';
 import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
@@ -51,7 +52,8 @@ describe('the charts', () => {
   });
 
   it('recovers a quadrant chart\'s values from its laid-out points, in declared order', () => {
-    const layer = layersOf(convert('quadrantChart', {
+    const figure = convert('quadrantChart', {
+      getDiagramTitle: () => 'Reach',
       getQuadrantData: () => ({
         quadrants: [
           { x: 50, y: 0, width: 50, height: 50, text: { text: 'Expand' } },
@@ -63,10 +65,26 @@ describe('the charts', () => {
         points: [{ x: 75, y: 25, text: { text: 'B' } }, { x: 10, y: 90, text: { text: 'A' } }],
         axisLabels: [{ text: 'Low' }, { text: 'High' }, { text: 'Bottom' }, { text: 'Top' }],
       }),
-    }))[0];
+    });
+    const layer = layersOf(figure)[0];
     expect(layer.data as ScatterPoint[]).toEqual([{ x: 0.1, y: 0.1, label: 'A' }, { x: 0.75, y: 0.75, label: 'B' }]);
     expect(layer.axes?.x?.label).toBe('Low to High');
-    expect(layer.title).toBe('Quadrants: Expand (top right); Promote (top left)');
+    // The layer title would name the chart in place of the diagram's title.
+    expect(layer.title).toBeUndefined();
+    expect(figure.title).toBe('Reach');
+    expect(figure.subtitle).toBe('Quadrants: Expand (top right); Promote (top left)');
+  });
+
+  it('names no quadrants when the chart labels none, and lets the author\'s subtitle stand', () => {
+    const quadrants = (text: string): object => ({
+      getQuadrantData: () => ({
+        quadrants: [{ x: 0, y: 0, width: 50, height: 50, text: { text } }],
+        points: [{ x: 10, y: 10, text: { text: 'A' } }],
+      }),
+    });
+    expect(convert('quadrantChart', quadrants('')).subtitle).toBeUndefined();
+    const authored = convertMermaidDiagram({ type: 'quadrantChart', db: quadrants('Expand') }, drawn('q'), { subtitle: 'Mine' });
+    expect(authored.subtitle).toBe('Mine');
   });
 
   it('reads an XY chart as one layer per plot', () => {
