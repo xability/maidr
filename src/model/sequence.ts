@@ -530,11 +530,44 @@ export class SequenceTrace extends AbstractTrace {
     return false;
   }
 
+  /**
+   * How many combined fragments the diagram draws boxes for.
+   *
+   * Counted along the messages in time, so a fragment is the run of messages
+   * that sit in it: two loops with one label, one after the other, are two.
+   * A later section of a fragment is labelled with the fragment's own label,
+   * a comma and the section -- `alt cached, else` -- and continues the
+   * fragment rather than opening another, so an alt and its else are one, as
+   * the diagram draws them. A fragment with no message in it is not counted:
+   * nothing in the data says it is there.
+   *
+   * @returns The count
+   */
+  private countFragments(): number {
+    let count = 0;
+    let previous: string[] = [];
+    // The label each fragment open at a depth was first met with.
+    const open: string[] = [];
+    for (const { fragments: path } of this.steps) {
+      for (let depth = 0; depth < path.length; depth++) {
+        const entry = path[depth];
+        const sameOuter = path.slice(0, depth).every((outer, at) => outer === previous[at]);
+        const continues = sameOuter && previous[depth] !== undefined
+          && (entry === previous[depth] || entry.startsWith(`${open[depth]}, `));
+        if (!continues) {
+          count++;
+          open[depth] = entry;
+        }
+      }
+      previous = path;
+    }
+    return count;
+  }
+
   public get description(): DescriptionState {
     const messages = this.steps.filter(step => step.kind !== 'note');
     const notes = this.steps.length - messages.length;
-    const fragments = new Set(this.steps.flatMap(step =>
-      step.fragments.map((_, depth) => step.fragments.slice(0, depth + 1).join(PATH_JOIN))));
+    const fragments = this.countFragments();
     const selfMessages = messages.filter(step => step.from === step.to).length;
 
     const stats: DescriptionState['stats'] = [
@@ -550,8 +583,8 @@ export class SequenceTrace extends AbstractTrace {
     if (notes > 0) {
       stats.push({ label: t('model.seqStatNotes'), value: notes });
     }
-    if (fragments.size > 0) {
-      stats.push({ label: t('model.seqStatFragments'), value: fragments.size });
+    if (fragments > 0) {
+      stats.push({ label: t('model.seqStatFragments'), value: fragments });
     }
     if (selfMessages > 0) {
       stats.push({ label: t('model.seqStatSelfMessages'), value: selfMessages });

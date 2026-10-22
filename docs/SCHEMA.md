@@ -1103,7 +1103,9 @@ is an object, because a participant no message reaches is still a lifeline:
 - `messages` run in time order. `kind` is one of `sync` (the default),
   `async`, `reply`, `create`, `destroy` or `note`; `fragments` lists the
   enclosing loops and alternatives, outermost first, as the diagram labels
-  them; `number` is the sequence number the diagram prints, omitted for a
+  them, a later section written as its fragment's label, a comma and the
+  section (`alt cached, else`), so it is heard with what it is the
+  alternative of and counted with its fragment; `number` is the sequence number the diagram prints, omitted for a
   message it does not number and for a note. The description's table shows
   only those numbers, a blank where there is none, and has no Number column
   when nothing is numbered.

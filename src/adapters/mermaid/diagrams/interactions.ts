@@ -124,6 +124,9 @@ export function sequence(context: DiagramContext): DiagramConversion {
   const messages: SequenceMessage[] = [];
   const elements: (Element | null)[] = [];
   const fragments: string[] = [];
+  // The label each open fragment opened with, so a later section names the
+  // fragment it belongs to rather than only its operator word.
+  const openers: string[] = [];
   let numbering = call(db, 'showSequenceNumbers') === true;
   let next = 1;
   let step = 1;
@@ -142,19 +145,23 @@ export function sequence(context: DiagramContext): DiagramConversion {
       return;
     }
     if (type in FRAGMENT_STARTS) {
-      fragments.push(text ? `${FRAGMENT_STARTS[type]} ${text}` : FRAGMENT_STARTS[type]);
+      const label = text ? `${FRAGMENT_STARTS[type]} ${text}` : FRAGMENT_STARTS[type];
+      fragments.push(label);
+      openers.push(label);
       return;
     }
     if (type in FRAGMENT_SECTIONS) {
       if (fragments.length > 0) {
-        const opened = fragments[fragments.length - 1].split(' ')[0];
+        // `alt Two-factor enabled, else`: the section with the fragment it
+        // is the alternative of, which `alt, else` left unsaid.
         const section = text ? `${FRAGMENT_SECTIONS[type]} ${text}` : FRAGMENT_SECTIONS[type];
-        fragments[fragments.length - 1] = `${opened}, ${section}`;
+        fragments[fragments.length - 1] = `${openers[openers.length - 1]}, ${section}`;
       }
       return;
     }
     if (FRAGMENT_ENDS.includes(type)) {
       fragments.pop();
+      openers.pop();
       return;
     }
     const from = str(message.from);

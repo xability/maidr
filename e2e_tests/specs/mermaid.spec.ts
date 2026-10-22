@@ -340,6 +340,17 @@ test.describe('Mermaid adapter', () => {
     await expect(dialog.locator('tr', { hasText: 'Session stored' }).locator('th, td').first()).toHaveText('');
   });
 
+  test('counts a sequence diagram\'s fragments as it draws them, and names an else by its alt', async ({ page }) => {
+    await openExample(page, 'sequence');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('d');
+
+    // One loop and one alt with an else: two boxes, not three.
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Fragments: 2');
+    await expect(dialog.locator('tr', { hasText: 'Welcome' })).toContainText('alt Two-factor enabled, else');
+  });
+
   test('sets a participant\'s kind off from its name, in a lifeline and the description', async ({ page }) => {
     await openExample(page, 'zenuml');
     await press(page, 'ArrowRight');

@@ -48,7 +48,7 @@ describe('a ZenUML diagram', () => {
       { from: 'S', to: 'API', text: 'available', kind: 'reply' },
       { from: 'API', to: 'Ticket', text: 'new Ticket(seat)', kind: 'create', fragments: ['alt available'] },
       { from: 'API', to: 'Customer', text: 'confirmation', kind: 'reply', fragments: ['alt available'] },
-      { from: 'API', to: 'Customer', text: 'sold out', kind: 'reply', fragments: ['alt, else'] },
+      { from: 'API', to: 'Customer', text: 'sold out', kind: 'reply', fragments: ['alt available, else'] },
       { from: 'API', to: 'Customer', text: 'receipt', kind: 'reply' },
     ]);
   });
@@ -65,6 +65,20 @@ describe('a ZenUML diagram', () => {
       ['A', 'B', ['loop more']],
       ['_STARTER_', 'B', ['try']],
       ['B', 'A', ['try, catch']],
+    ]);
+  });
+
+  it('names every section of an else-if chain with the condition the chain opened on', () => {
+    const data = layersOf(convertMermaidDiagram({
+      type: 'zenuml',
+      db: {},
+      text: 'zenuml\n  if(a) {\n    A->B: x\n  } else if(b) {\n    A->B: y\n  } else {\n    A->B: z\n  }',
+    }, drawn('z')))[0].data as SequenceData;
+
+    expect(data.messages.map(message => message.fragments)).toEqual([
+      ['alt a'],
+      ['alt a, else if b'],
+      ['alt a, else'],
     ]);
   });
 

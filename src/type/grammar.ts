@@ -1177,6 +1177,12 @@ export interface SequenceMessage {
    * The combined fragments it sits in, outermost first, each as the
    * diagram labels it: `loop Every minute`, `alt is sick`. Omitted or `[]`
    * outside every fragment.
+   *
+   * A later section of a fragment -- an else, a par's and, a critical's
+   * option -- is written as the fragment's label, a comma and the section:
+   * `alt is sick, else`. It is then announced with what it is the
+   * alternative of, and counted with its fragment rather than as one of its
+   * own.
    */
   fragments?: string[];
   /** The number the diagram prints beside it, when it numbers its messages. */

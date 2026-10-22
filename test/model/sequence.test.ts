@@ -257,6 +257,27 @@ describe('the description', () => {
     expect(stat(trace, 'Busiest participant')).toBe('Server, in 5 messages');
   });
 
+  test.each([
+    ['an alt and its else are one fragment', [['loop L'], ['loop L'], ['alt A'], ['alt A, else']], 2],
+    ['two fragments with one label, apart in time, are two', [['loop L'], [], ['loop L']], 2],
+    ['a return to the first section opens a new fragment', [['alt A'], ['alt A, else'], ['alt A']], 2],
+    ['a loop in each section of an alt is two loops', [['alt A', 'loop L'], ['alt A, else', 'loop L']], 3],
+    ['an alt nested in a loop', [['loop L'], ['loop L', 'alt A'], ['loop L', 'alt A, else'], ['loop L']], 2],
+    ['every section of a par', [['par X'], ['par X, and Y'], ['par X, and Z']], 1],
+    ['every section of an else-if chain', [['alt a'], ['alt a, else if b'], ['alt a, else']], 1],
+    ['a label with a comma of its own', [['loop Every minute, forever'], ['loop Every minute, forever']], 1],
+  ])('counts fragments as the diagram draws them: %s', (_name, paths, expected) => {
+    // Counting the distinct labels counted an alt and its else as two, and
+    // two loops of one label as one: "Fragments: 3" for a diagram that draws
+    // two boxes.
+    const trace = sequence({
+      participants: [{ id: 'A' }, { id: 'B' }],
+      messages: (paths as string[][]).map(fragments => ({ from: 'A', to: 'B', text: 'm', fragments })),
+    });
+
+    expect(stat(trace, 'Fragments')).toBe(expected);
+  });
+
   test('lists the participants with each kind set off from its name', () => {
     // Joined with a comma, the kinds read as participants of their own:
     // "Browser, actor, Server, Database, database, Cache" -- six names for
