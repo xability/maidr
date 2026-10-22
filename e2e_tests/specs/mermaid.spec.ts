@@ -1275,12 +1275,14 @@ test.describe('Mermaid adapter', () => {
     const kettle = page.locator('svg[maidr] g.wardley-node:not([data-maidr-owned])', { hasText: 'Kettle' }).locator('circle').first();
     expect(await dot.getAttribute('cx')).toBe(await kettle.getAttribute('cx'));
 
-    // A place on the map is no node of the value chain, so the switch enters
-    // the value chain on its first node, outlined.
-    expect(await press(page, 'PageUp')).toContain('Value chain at Component is Business');
-    await expect(page.locator(HIGHLIGHT).first()).toContainText('Business');
-    expect(await press(page, 'ArrowRight')).toContain('Component is Cup of Tea');
-    await expect(page.locator(HIGHLIGHT).first()).toContainText('Cup of Tea');
+    // Every component is a node of the value chain too, so the switch keeps
+    // the reader on Kettle, outlined, and back on the map on the node they
+    // left the chain from.
+    expect(await press(page, 'PageUp')).toContain('Value chain at Component is Kettle');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Kettle');
+    expect(await press(page, 'ArrowRight')).toContain('Component is Power');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Power');
+    expect(await press(page, 'PageDown')).toContain('Components at Evolution is 0.7, Visibility is 0.1, Name is Power');
     expect(unresolved).toEqual([]);
   });
 

@@ -5,6 +5,7 @@
 import type { ScatterPoint, SequenceData, VennPoint } from '@type/grammar';
 import { describe, expect, it, jest } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
+import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
@@ -153,9 +154,38 @@ describe('a Wardley map', () => {
     }));
     expect(layers.map(layer => layer.type)).toEqual([TraceType.SCATTER, TraceType.DIRECTED_GRAPH]);
     expect(layers[0].data as ScatterPoint[]).toEqual([
-      { x: 0.5, y: 0.95, label: 'User, anchor' },
-      { x: 0.8, y: 0.6, label: 'Tea, evolving to 0.9' },
+      { x: 0.5, y: 0.95, label: 'User (anchor)' },
+      { x: 0.8, y: 0.6, label: 'Tea (evolving to 0.9)' },
     ]);
+  });
+
+  it('keeps the reader on a component with a note when they switch layers', () => {
+    // The map wrote "Kettle, evolving to 0.62", which no switch reads as a
+    // note, so Page Up from Kettle entered the value chain on its first node.
+    const layers = layersOf(convert('wardley', {
+      getWardleyData: () => ({
+        nodes: [
+          { id: 'Business', label: 'Business', x: 63, y: 95, className: 'anchor' },
+          { id: 'Kettle', label: 'Kettle', x: 35, y: 43 },
+        ],
+        links: [{ source: 'Business', target: 'Kettle' }],
+        trends: [{ nodeId: 'Kettle', targetX: 62 }],
+      }),
+    }));
+    const subplot = new Figure({ id: 'map', subplots: [[{ layers }]] }).activeSubplot;
+    subplot.activeTrace?.moveOnce('FORWARD'); // Kettle, the least evolved.
+    const read = (): unknown => {
+      const state = subplot.activeTrace?.state;
+      return state === undefined || state.empty ? undefined : state.text;
+    };
+
+    expect(read()).toMatchObject({ main: { value: 0.35 }, asides: [{ value: 'Kettle (evolving to 0.62)' }] });
+    subplot.switchLayer('UPWARD');
+    expect(read()).toMatchObject({ main: { value: 'Kettle' } });
+    subplot.activeTrace?.moveOnce('BACKWARD');
+    expect(read()).toMatchObject({ main: { value: 'Business' } });
+    subplot.switchLayer('DOWNWARD');
+    expect(read()).toMatchObject({ main: { value: 0.63 }, asides: [{ value: 'Business (anchor)' }] });
   });
 
   /**
