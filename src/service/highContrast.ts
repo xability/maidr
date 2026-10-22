@@ -152,6 +152,9 @@ const SWATCH_TAGS: ReadonlySet<string> = new Set(['rect', 'path', 'circle', 'ell
 /** Containers whose content is defined for use elsewhere, not drawn there. */
 const DEFINITION_CONTAINERS = 'defs, clipPath, mask, marker, pattern, symbol';
 
+/** The shapes a line may draw at its points as markers. */
+const MARKER_TAGS = 'circle, ellipse, rect, path, polygon, use';
+
 /**
  * Whether an element is one of MAIDR's own copies, or inside one: the hidden
  * copies highlights are cloned from, and the highlights themselves, which
@@ -2022,10 +2025,14 @@ export class HighContrastService implements Disposable {
    * drawn over a light bar is lost in it -- Mermaid's XY chart draws its line
    * over its bars. Over the backdrop the casing is lost instead, and the line
    * shows as it did. A line the page filters itself keeps its own filter.
+   * The markers a line draws at its points are cased with it (see
+   * markersBeside), or the point it passes through is lost on a bar.
    *
    * Each casing is a filter sized to its line in the line's own units: one
    * sized by the line's box draws nothing for a flat line, whose box has no
-   * height.
+   * height. A marker has a box, and its casing is sized by it, which holds
+   * however the marker is placed: a `<use>`'s `x` and `y` move it in units
+   * of its own.
    */
   private caseLinesOverBars(): void {
     const traces = this.figure.subplots.flat().flatMap(subplot => subplot.traces.flat());
@@ -2040,6 +2047,13 @@ export class HighContrastService implements Disposable {
         return shapes.length > 0 ? shapes : trace.getAllOriginalElements();
       })
       .filter(line => !line.hasAttribute('filter') && typeof (line as SVGGraphicsElement).getBBox === 'function');
+    const paints = new Map<Element, Partial<Record<PaintProperty, string>>>();
+    for (const item of this.originalColorInfo ?? []) {
+      if (item.resolvedColor !== null) {
+        paints.set(item.element, { ...paints.get(item.element), [item.attr]: item.resolvedColor });
+      }
+    }
+    const markers = lines.map(line => this.markersBeside(line, paints));
 
     const radius = HighContrastConstants.LINE_CASING_RADIUS;
     const make = <K extends keyof SVGElementTagNameMap>(tag: K, attributes: Record<string, string | number>): SVGElementTagNameMap[K] => {
@@ -2049,24 +2063,22 @@ export class HighContrastService implements Disposable {
       }
       return element;
     };
-    for (const line of lines) {
-      let box: DOMRect;
+    // How far a casing has to reach past a shape's box: half its stroke,
+    // the casing, and one more unit.
+    const marginOf = (shape: SVGElement): number => {
+      const width = Number.parseFloat(window.getComputedStyle(shape).strokeWidth);
+      return (Number.isNaN(width) ? 1 : width) / 2 + radius + 1;
+    };
+    const boxOf = (shape: SVGElement): DOMRect | null => {
       try {
-        box = (line as SVGGraphicsElement).getBBox();
+        return (shape as SVGGraphicsElement).getBBox();
       } catch {
         // Not rendered, so there is nothing to case.
-        continue;
+        return null;
       }
-      const width = Number.parseFloat(window.getComputedStyle(line).strokeWidth);
-      const margin = (Number.isNaN(width) ? 1 : width) / 2 + radius + 1;
-      const filter = make('filter', {
-        id: `${this.context.id}-line-casing-${this.lineCasings.length}`,
-        filterUnits: 'userSpaceOnUse',
-        x: box.x - margin,
-        y: box.y - margin,
-        width: box.width + 2 * margin,
-        height: box.height + 2 * margin,
-      });
+    };
+    const addCasing = (shapes: SVGElement[], region: Record<string, string | number>): void => {
+      const filter = make('filter', { id: `${this.context.id}-line-casing-${this.lineCasings.length}`, ...region });
       const merge = make('feMerge', {});
       merge.append(make('feMergeNode', {}), make('feMergeNode', { in: 'SourceGraphic' }));
       filter.append(
@@ -2081,9 +2093,78 @@ export class HighContrastService implements Disposable {
         svg.insertBefore(defs, svg.firstChild);
       }
       defs.appendChild(filter);
-      line.setAttribute('filter', `url(#${filter.id})`);
-      this.lineCasings.push({ line, filter });
+      for (const shape of shapes) {
+        shape.setAttribute('filter', `url(#${filter.id})`);
+        this.lineCasings.push({ line: shape, filter });
+      }
+    };
+
+    lines.forEach((line, index) => {
+      const box = boxOf(line);
+      if (box !== null) {
+        const margin = marginOf(line);
+        addCasing([line], {
+          filterUnits: 'userSpaceOnUse',
+          x: box.x - margin,
+          y: box.y - margin,
+          width: box.width + 2 * margin,
+          height: box.height + 2 * margin,
+        });
+      }
+
+      // One casing for all of a line's markers, reaching past the smallest
+      // as far as the line's reaches past the line.
+      const drawn: SVGElement[] = [];
+      let side = Number.POSITIVE_INFINITY;
+      let margin = 0;
+      for (const marker of markers[index]) {
+        const markerBox = boxOf(marker);
+        if (markerBox !== null && markerBox.width > 0 && markerBox.height > 0) {
+          drawn.push(marker);
+          side = Math.min(side, markerBox.width, markerBox.height);
+          margin = Math.max(margin, marginOf(marker));
+        }
+      }
+      if (drawn.length === 0) {
+        return;
+      }
+      const reach = margin / side;
+      addCasing(drawn, {
+        filterUnits: 'objectBoundingBox',
+        x: -reach,
+        y: -reach,
+        width: 1 + 2 * reach,
+        height: 1 + 2 * reach,
+      });
+    });
+  }
+
+  /**
+   * The markers a line draws at its points: shapes in the line's own group,
+   * in the colour it was stroked in, as matplotlib draws a line plotted with
+   * `marker='o'` -- a `<use>` per point beside the path, which py-maidr's
+   * selector does not name. maidr's own copies, a marker's template in
+   * `<defs>`, text, a mark another kind of layer selects and anything the
+   * page filters are not among them, and nor is anything when the line
+   * sits in no group of its own.
+   */
+  private markersBeside(line: SVGElement, paints: Map<Element, Partial<Record<PaintProperty, string>>>): SVGElement[] {
+    const group = line.parentElement;
+    const stroke = paints.get(line)?.stroke;
+    if (group === null || group.tagName.toLowerCase() !== 'g' || stroke === undefined) {
+      return [];
     }
+    const traceElements = this.getAllTraceElements();
+    return Array.from(group.querySelectorAll<SVGElement>(MARKER_TAGS)).filter((shape) => {
+      const type = traceElements.get(shape);
+      return shape !== line
+        && !shape.hasAttribute('filter')
+        && (type === undefined || LINE_TRACE_TYPES.has(type))
+        && shape.closest(DEFINITION_CONTAINERS) === null
+        && !isInMaidrCopy(shape)
+        && !this.hasTextAncestor(shape)
+        && (paints.get(shape)?.fill === stroke || paints.get(shape)?.stroke === stroke);
+    });
   }
 
   /**

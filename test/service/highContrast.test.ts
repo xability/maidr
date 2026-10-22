@@ -891,6 +891,55 @@ describe('highContrastService', () => {
       expect(filtered.getAttribute('filter')).toBe('url(#page-glow)');
     });
 
+    it('cases the markers a line draws at its points with it, and takes their casing away after', () => {
+      // py-maidr draws a line plotted with `marker='o'` as a path and a <use>
+      // per point in the line's own group, and selects the path alone. The
+      // path was cased; the markers stayed light on a light bar, so the point
+      // the line passed through vanished where it crossed one
+      // (examples/multilayer_plot.html).
+      rebuild([
+        { fill: '#1f77b4', stroke: 'none' },
+        { fill: 'none', stroke: '#ff0000', complexPath: true, strokeWidth: '1.5' },
+      ]);
+      const [bar, line] = harness.marks;
+      const group = document.createElementNS(SVG_NAMESPACE, 'g');
+      line.replaceWith(group);
+      group.innerHTML = '<defs><path id="marker" d="M 0 -3 L 3 0 L 0 3 L -3 0 z" fill="#ff0000"></path></defs>'
+        + '<g><use class="marker" href="#marker" x="10" y="20" style="fill: #ff0000; stroke: #ff0000"></use>'
+        + '<use class="marker" href="#marker" x="30" y="40" style="fill: #ff0000; stroke: #ff0000"></use></g>'
+        + '<circle class="own" fill="#ff0000" visibility="hidden" data-maidr-owned="true"></circle>';
+      group.prepend(line);
+      const markers = Array.from(group.querySelectorAll('.marker')) as SVGElement[];
+      const template = group.querySelector('#marker') as SVGElement;
+      const own = group.querySelector('.own') as SVGElement;
+      (line as unknown as SVGGraphicsElement).getBBox = (): DOMRect => ({ x: 10, y: 20, width: 20, height: 20 }) as DOMRect;
+      for (const shape of [...markers, template, own]) {
+        (shape as unknown as SVGGraphicsElement).getBBox = (): DOMRect => ({ x: -3, y: -3, width: 6, height: 6 }) as DOMRect;
+      }
+      serviceFor(createFigure([
+        { traceType: 'bar', elements: [bar] },
+        { traceType: 'line', elements: [], geometry: [line] },
+      ]));
+
+      harness.service.initializeHighContrast();
+
+      const id = markers[0].getAttribute('filter')?.match(/^url\(#(.+)\)$/)?.[1] ?? '';
+      const casing = harness.svg.querySelector(`filter[id="${id}"]`);
+      expect(markers[1].getAttribute('filter')).toBe(`url(#${id})`);
+      expect(line.getAttribute('filter')).not.toBe(`url(#${id})`);
+      expect(casing?.querySelector('feFlood')?.getAttribute('flood-color')).toBe('#000000');
+      // The casing reaches past each marker as far as the line's does past
+      // the line, the marker's box being the measure.
+      expect(Number(casing?.getAttribute('x'))).toBeLessThanOrEqual(-(0.5 + 2 + 1) / 6);
+      expect(template.hasAttribute('filter')).toBe(false);
+      expect(own.hasAttribute('filter')).toBe(false);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(markers.some(marker => marker.hasAttribute('filter'))).toBe(false);
+      expect(harness.svg.querySelector('filter')).toBeNull();
+    });
+
     it('keeps a near-white bar a bar in each of several panels', () => {
       rebuild([{ fill: '#ececff', stroke: 'none' }, { fill: '#f4f4ff', stroke: 'none' }]);
       const panels = harness.marks.map(mark => ({
