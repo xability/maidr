@@ -264,6 +264,70 @@ describe('the rotor enumerates the flows the arrows skip', () => {
   });
 });
 
+describe('a flow walk carries on from where it has reached', () => {
+  /** Mermaid's example: Solar, Wind and Gas feed Electricity, which splits. */
+  const MERMAID: FlowPoint[] = [
+    { source: 'Solar', target: 'Electricity', value: 40 },
+    { source: 'Wind', target: 'Electricity', value: 35 },
+    { source: 'Gas', target: 'Electricity', value: 60 },
+    { source: 'Gas', target: 'Heating', value: 45 },
+    { source: 'Electricity', target: 'Homes', value: 70 },
+    { source: 'Electricity', target: 'Industry', value: 65 },
+  ];
+
+  /**
+   * Presses one way in a rotor mode until it is refused.
+   * @param trace The trace to drive
+   * @param key Which flow unit
+   * @returns Each node landed on, and the flow announced on the way
+   */
+  function rotorWalk(trace: FlowTrace, key: 'outgoing' | 'incoming'): string[] {
+    const visited: string[] = [];
+    while (visited.length < 8 && trace.moveToRotorFilter(key, 'right')) {
+      visited.push(String(nonEmptyState(trace).text.asides?.[0]?.value));
+    }
+    return visited;
+  }
+
+  test('once the start node\'s flows run out, the node reached is walked next', () => {
+    // Solar's one flow lands on Electricity, which splits two ways. The next
+    // press said "No outgoing flows found to the right of the current value"
+    // -- of Solar, though the reader was on Electricity.
+    const trace = flow(MERMAID);
+
+    expect(rotorWalk(trace, 'outgoing')).toEqual([
+      'Solar to Electricity, 40, 100.0% of Solar',
+      'Electricity to Homes, 70, 51.9% of Electricity',
+      'Electricity to Industry, 65, 48.1% of Electricity',
+    ]);
+  });
+
+  test('the incoming side carries on upstream the same way', () => {
+    const trace = flow(MERMAID);
+    walk(trace, 'FORWARD', 'FORWARD');
+
+    expect(rotorWalk(trace, 'incoming')).toEqual([
+      'Electricity to Homes, 70, 51.9% of Electricity',
+      'Gas to Electricity, 60, 57.1% of Gas',
+      'Solar to Electricity, 40, 100.0% of Solar',
+      'Wind to Electricity, 35, 100.0% of Wind',
+    ]);
+  });
+
+  test('an arrow ends the walk, even one that comes back to where it stopped', () => {
+    // Gas's walk stopped on Electricity; Right and Left came back to it, and
+    // the next press carried on through Gas's flows rather than Electricity's.
+    const trace = flow(MERMAID);
+    walk(trace, 'DOWNWARD', 'DOWNWARD');
+    trace.moveToRotorFilter('outgoing', 'right');
+
+    expect(walk(trace, 'FORWARD', 'BACKWARD')).toEqual(['Homes', 'Electricity']);
+    expect(trace.moveToRotorFilter('outgoing', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.asides?.[0]?.value)
+      .toBe('Electricity to Homes, 70, 51.9% of Electricity');
+  });
+});
+
 describe('the extremes follow the ribbon to its end', () => {
   test('right jumps to the end of the widest route', () => {
     const trace = flow();

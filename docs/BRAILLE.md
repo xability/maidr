@@ -944,6 +944,13 @@ enumerates the flows the arrows skip, and the description names the largest
 flow and the widest route end to end. The display gives the sizes; the
 announcement gives the routing.
 
+The rotor's **Outgoing** and **Incoming** modes page through one node's flows,
+largest first, each press landing on the node at the other end. Once that
+node's flows run out, the next press carries on with the flows of the node the
+reader has reached, and only a node with none that way answers that there are
+no more. An arrow key ends the walk, so the next one starts from wherever the
+reader is.
+
 ```
 Stage   Cells
 0       ⣿⠶

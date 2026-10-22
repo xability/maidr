@@ -496,6 +496,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   }
 
   public override moveOnce(direction: MovableDirection): boolean {
+    // An arrow ends a flow walk, even one that comes back to the node the
+    // walk stopped on: the walk's own check, that the cursor is still where
+    // it left it, cannot tell that apart from not having moved.
+    this.flowWalk = null;
     // Recorded before the move, because `super.moveOnce` notifies during the
     // call and the announcement is assembled from `text` at that moment.
     // The initial entry lands on the first node without following anything,
@@ -516,8 +520,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
 
   public override moveToExtreme(direction: MovableDirection): boolean {
     // A jump follows many ribbons rather than one, so naming any of them
-    // would name an arbitrary hop of the path taken.
+    // would name an arbitrary hop of the path taken. It ends a flow walk as
+    // an arrow does.
     this.arrivedVia = null;
+    this.flowWalk = null;
     return super.moveToExtreme(direction);
   }
 
@@ -697,23 +703,23 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       return false;
     }
 
-    const edges = anchor.node[along];
-    // A fresh walk has no position to step from, so it is seeded at whichever
-    // end the reader is entering from. A single "before the first element"
-    // sentinel only reads correctly rightwards: stepping back from it lands
-    // at -2, which is not a position, and the mode reports no flows on a node
-    // that plainly has several.
-    const index = anchor.index >= 0
-      ? anchor.index + (direction === 'right' ? 1 : -1)
-      : (direction === 'right' ? 0 : edges.length - 1);
-    const edge = edges[index];
-    if (edge === undefined) {
+    // Once the start node's flows run out this way, the walk carries on with
+    // the flows of the node it has reached. Refusing there said "No outgoing
+    // flows found to the right of the current value" about the start node
+    // while the reader was on another, often one with several.
+    const current = this.current;
+    const step = FlowTrace.stepFrom(anchor, along, direction)
+      ?? (current !== null && current !== anchor.node
+        ? FlowTrace.stepFrom({ node: current, index: -1 }, along, direction)
+        : null);
+    if (step === null) {
       this.notifyRotorBounds();
       return false;
     }
 
+    const { from, index, edge } = step;
     const to = this.nodes[along === 'out' ? edge.to : edge.from];
-    this.flowWalk = { from: anchor.node, along, index, at: { row: to.index, col: to.stage } };
+    this.flowWalk = { from, along, index, at: { row: to.index, col: to.stage } };
     this.arrivedVia = edge;
     this.movable.moveToIndex(to.index, to.stage);
     this.notifyStateUpdate();
@@ -724,7 +730,8 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    * The walk in progress: whose flows, in which direction, and how far along.
    *
    * `at` is how the walk notices it has been abandoned -- if the cursor is no
-   * longer where the last step left it, the reader moved with the arrows.
+   * longer where the last step left it, the reader moved some other way. An
+   * arrow, a jump to the end of a route and a jump to a node end it outright.
    */
   private flowWalk: {
     from: FlowNode;
@@ -732,6 +739,34 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     index: number;
     at: Coordinate;
   } | null = null;
+
+  /**
+   * The next flow of a walk, one press on.
+   *
+   * @param anchor - Where the walk is
+   * @param anchor.node - Whose flows it walks
+   * @param anchor.index - How far along them it is; -1 is a fresh walk
+   * @param along - Which side is being walked
+   * @param direction - Which way the press goes
+   * @returns The flow and its place in the list, or null past either end
+   */
+  private static stepFrom(
+    anchor: { node: FlowNode; index: number },
+    along: 'out' | 'in',
+    direction: 'left' | 'right',
+  ): { from: FlowNode; index: number; edge: Edge } | null {
+    const edges = anchor.node[along];
+    // A fresh walk has no position to step from, so it is seeded at whichever
+    // end the reader is entering from. A single "before the first element"
+    // sentinel only reads correctly rightwards: stepping back from it lands
+    // at -2, which is not a position, and the mode reports no flows on a node
+    // that plainly has several.
+    const index = anchor.index >= 0
+      ? anchor.index + (direction === 'right' ? 1 : -1)
+      : (direction === 'right' ? 0 : edges.length - 1);
+    const edge = edges[index];
+    return edge === undefined ? null : { from: anchor.node, index, edge };
+  }
 
   /**
    * The node whose flows the rotor is enumerating, and how far it has got.
