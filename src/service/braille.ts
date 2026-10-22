@@ -198,6 +198,9 @@ interface EncodedBraille {
  *   physical braille displays advance to the next line; `\n` does not render
  *   on physical hardware.
  * @param colOffset - Horizontal windowing offset; used only when windowing is active
+ * @param topFirst - When true, a multiline display keeps row 0 on its top
+ *   line, for a trace that draws row 0 at the top (see
+ *   `BaseBrailleState.rowsTopFirst`)
  * @returns Encoded braille with cell mappings
  */
 function encodeWithWrapping(
@@ -207,6 +210,7 @@ function encodeWithWrapping(
   displaySize: number,
   multiline: boolean = false,
   colOffset: number = 0,
+  topFirst: boolean = false,
 ): EncodedBraille {
   const values = new Array<string>();
   const cellToIndex = new Array<Array<number>>();
@@ -234,10 +238,12 @@ function encodeWithWrapping(
   // When multiline, encode from the last row to the first so that
   // row 0 (the initially focused / lowest element) appears at the
   // bottom of the physical braille display and UP (row++) moves the
-  // cursor upward.
-  const start = multiline ? rowCount - 1 : 0;
-  const end = multiline ? -1 : rowCount;
-  const step = multiline ? -1 : 1;
+  // cursor upward. A trace that draws row 0 at the top moves to row++ with
+  // DOWN, so it keeps row 0 on the top line and the cursor moves down.
+  const bottomUp = multiline && !topFirst;
+  const start = bottomUp ? rowCount - 1 : 0;
+  const end = bottomUp ? -1 : rowCount;
+  const step = bottomUp ? -1 : 1;
 
   // Per-row sentinel semantics differ across the three output modes and are
   // documented here once because all three paths append to
@@ -350,6 +356,7 @@ function encodeWithWrapping(
  */
 interface TimeSeries {
   values: number[][];
+  rowsTopFirst?: boolean;
 }
 
 /**
@@ -365,7 +372,9 @@ interface TimeSeries {
  *   2. Row encoding order — encodes data rows from last to first so that
  *      row 0 (the initially focused / lowest data row) appears at the bottom
  *      of the physical braille display. This makes UP-arrow navigation
- *      (which increments `row`) move the cursor upward on the display.
+ *      (which increments `row`) move the cursor upward on the display. A
+ *      state with `rowsTopFirst` is drawn the other way up and increments
+ *      `row` on DOWN, so its rows are encoded first to last instead.
  *
  * `colOffset` enables horizontal page-windowing for plots wider than the
  * display; it is meaningful only when `multiline=true` and the state has
@@ -435,6 +444,7 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
       displaySize,
       multiline,
       colOffset,
+      state.rowsTopFirst === true,
     );
   }
 }
@@ -495,10 +505,12 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
     }
 
     // When multiline, encode from the last row to the first so UP
-    // moves the cursor upward on the physical braille display.
-    const start = multiline ? rowCount - 1 : 0;
-    const end = multiline ? -1 : rowCount;
-    const step = multiline ? -1 : 1;
+    // moves the cursor upward on the physical braille display, unless the
+    // trace draws row 0 at the top, as `encodeWithWrapping` does.
+    const bottomUp = multiline && state.rowsTopFirst !== true;
+    const start = bottomUp ? rowCount - 1 : 0;
+    const end = bottomUp ? -1 : rowCount;
+    const step = bottomUp ? -1 : 1;
 
     for (let row = start; row !== end; row += step) {
       const rowStartIdx = values.length;
@@ -805,6 +817,7 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
       displaySize,
       multiline,
       colOffset,
+      state.rowsTopFirst === true,
     );
   }
 }
@@ -865,6 +878,7 @@ implements BrailleEncoder<T> {
       displaySize,
       multiline,
       colOffset,
+      state.rowsTopFirst === true,
     );
   }
 
@@ -1438,7 +1452,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
     //     after a `\n` is hidden. Spaces padded to `displaySize` are the
     //     only way to push content onto the next physical display line.
     //   - row order is reversed so row 0 (initially focused) appears at the
-    //     bottom of the display and UP-arrow moves the cursor upward.
+    //     bottom of the display and UP-arrow moves the cursor upward, except
+    //     on a trace that draws row 0 at the top (`rowsTopFirst`), where it
+    //     stays on the top line and DOWN-arrow moves the cursor downward.
     const isMultilineMode = this.displayLines > 1;
 
     // For plots whose rows can overflow a single display line, compute the
@@ -1450,7 +1466,11 @@ implements Observer<SubplotState | TraceState>, Disposable {
     const targetOffset = willWindow
       ? Math.max(0, Math.floor(braille.col / this.displaySize) * this.displaySize)
       : 0;
-    const cacheKey = willWindow ? `${braille.id}|${targetOffset}` : braille.id;
+    // The row order is part of the encoding, and a trace can learn which way
+    // up it is drawn only once it is laid out, so the same layer may report
+    // `rowsTopFirst` after an encoding made without it.
+    const layerKey = braille.rowsTopFirst === true ? `${braille.id}|top` : braille.id;
+    const cacheKey = willWindow ? `${layerKey}|${targetOffset}` : layerKey;
     // `braille.values` is a stable reference to the active trace's underlying
     // data array: it survives cursor navigation (same trace, same array) but is
     // replaced whenever the model is rebuilt — live setData/appendData creates

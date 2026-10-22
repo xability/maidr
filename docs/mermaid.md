@@ -350,7 +350,7 @@ gantt
 </pre>
 ```
 
-`Section is Design, Research (done), Date is 1/5/2026 through 1/15/2026, Length is 10 days`.
+`Section is Design, Research (done), Date is 1/5/2026 through 1/15/2026, Length is 10 days`. Down moves to the next section, drawn below, and Up back; left and right walk a section's tasks. A packet diagram reads the same way, a row of bits at a time.
 
 #### Mindmap [experimental]
 

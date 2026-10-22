@@ -502,6 +502,23 @@ test.describe('Mermaid adapter', () => {
     expect(research).toContain('Length is 10 days');
   });
 
+  test('moves down a gantt chart\'s sections as Mermaid draws them, and back up', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, 'ArrowDown')).toContain('Section is Build');
+    expect(await press(page, 'ArrowDown')).toContain('Section is Ship');
+    expect(await press(page, 'ArrowDown')).toContain('No more data');
+    expect(await press(page, 'ArrowUp')).toContain('Section is Build');
+  });
+
+  test('moves down a packet diagram\'s rows as Mermaid draws them', async ({ page }) => {
+    await openExample(page, 'packet');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, 'ArrowDown')).toContain('Row is Bits 32 to 63');
+  });
+
   test('jumps to a gantt chart\'s longest and shortest task', async ({ page }) => {
     await openExample(page, 'gantt');
     await press(page, 'ArrowRight');

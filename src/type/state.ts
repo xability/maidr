@@ -320,6 +320,14 @@ interface BaseBrailleState {
   row: number;
   col: number;
   custom?: string[];
+  /**
+   * Whether row 0 is drawn at the top, so the next row is the one drawn
+   * below it and Down moves to it. A multi-line display then keeps row 0 on
+   * its top line, so the caret moves down when Down does. Absent, row 0 is
+   * on the bottom line and Up moves the caret up, as the grid's own rule
+   * has it.
+   */
+  rowsTopFirst?: boolean;
 }
 
 /**

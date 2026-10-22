@@ -714,6 +714,10 @@ export interface GanttData {
    * The lanes, in the order the chart draws them, each holding the intervals
    * of one lane.
    *
+   * Either end may come first. On a chart whose bars run left to right, Up
+   * and Down follow the drawing: when the first lane is drawn above the last,
+   * Down moves to the next lane, and when it is drawn below, Up does.
+   *
    * Nested rather than flat so a lane with no intervals still exists: an empty
    * row is a real statement about a schedule -- nothing is booked -- and a
    * flat list grouped by `x` cannot say it.

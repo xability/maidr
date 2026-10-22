@@ -572,6 +572,14 @@ same half of it.
 Gantt charts use one line per lane on a multiline display, so several lanes'
 workloads can be compared with one sweep rather than by toggling between rows.
 
+The lanes run down the display the way the chart draws them, so the caret
+moves the way the arrow keys do. On a schedule drawn with its first lane at
+the top, which is how most charting libraries and Mermaid draw one, that lane
+is on the top line and Down moves the caret to the line below, as it moves to
+the lane drawn below. A schedule drawn with its first lane at the bottom keeps
+it on the bottom line, where Up moves the caret up, as on every other
+multiline display.
+
 ### Parallel coordinates [experimental]
 
 One row per observation, one cell per axis, each row scaled from 0 to 1.

@@ -1677,6 +1677,56 @@ describe('BrailleService display-size encoding', () => {
     service.dispose();
   });
 
+  describe('multiline mode: a trace that draws row 0 at the top', () => {
+    const box = {
+      lowerOutliers: [] as number[],
+      min: 10,
+      q1: 25,
+      q2: 50,
+      q3: 75,
+      max: 90,
+      upperOutliers: [] as number[],
+    };
+    const states: Array<[string, () => TraceState]> = [
+      ['bar', () => createBarTraceState([[1, 2, 3], [10, 20, 30]], 0, 0)],
+      ['line', () => createLineTraceState([[1, 2, 3], [10, 20, 30]], 0, 0)],
+      ['heatmap', () => createHeatmapTraceState([[1, 2, 3], [10, 20, 30]], 0, 0)],
+      ['box', () => createBoxTraceState([box, box], 0, 100, 0, 3)],
+    ];
+
+    /**
+     * The display line the caret is on, from the top.
+     * @param state - The state to show
+     * @returns The line, counted from 0
+     */
+    function caretLine(state: TraceState): number {
+      const { service } = createMultilineBrailleService(32, 2);
+      let index = -1;
+      const disposable = service.onChange((event) => {
+        index = event.index;
+      });
+      service.toggle(state);
+      disposable.dispose();
+      service.dispose();
+      return Math.floor(index / 32);
+    }
+
+    test.each(states)('%s: keeps row 0 on the top line', (_name, create) => {
+      const state = create();
+      if (state.empty || state.braille.empty) {
+        throw new Error('expected a populated braille state');
+      }
+
+      const line = caretLine({ ...state, braille: { ...state.braille, rowsTopFirst: true } });
+
+      expect(line).toBe(0);
+    });
+
+    test.each(states)('%s: without it, keeps row 0 on the bottom line', (_name, create) => {
+      expect(caretLine(create())).toBe(1);
+    });
+  });
+
   test('horizontal windowing: colOffset resets to 0 when brailleDisplayLines changes', () => {
     // Before the settings change, place the cursor in a non-zero window.
     // After changing the setting (with the cursor moved back to col=0 in
