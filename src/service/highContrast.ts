@@ -436,6 +436,11 @@ export class HighContrastService implements Disposable {
   // without an inline fill, whether it was drawn near-white.
   private backgroundSurfaces: (HTMLElement | SVGElement)[] = [];
   private uncapturedTextIsPaper = new Map<SVGElement, boolean>();
+  // HTML drawn inside the SVG, as Mermaid draws its labels: the boxes that
+  // paint a CSS background, and for each element holding text, whether its
+  // CSS colour was near-white.
+  private htmlSurfaces: HTMLElement[] = [];
+  private htmlTextIsPaper = new Map<HTMLElement, boolean>();
 
   // The paints a stylesheet rule gives each element of the chart, read on
   // every capture.
@@ -621,10 +626,15 @@ export class HighContrastService implements Disposable {
    *   stylesheet, so the computed value is what is checked.
    * - Text coloured by a stylesheet rule or by inheritance has no fill of its
    *   own to capture; its computed fill decides which end it takes.
+   * - HTML inside a `<foreignObject>` takes its colour from CSS `color`, which
+   *   neither a fill nor the backdrop's colour reaches past a rule of its own,
+   *   and may sit on a box of its own: Mermaid's labels.
    */
   private captureSurfacesAndText(): void {
     this.backgroundSurfaces = [];
     this.uncapturedTextIsPaper = new Map();
+    this.htmlSurfaces = [];
+    this.htmlTextIsPaper = new Map();
 
     const roots = this.getColorRoots();
     const surfaces = roots.flatMap(root => [
@@ -665,6 +675,31 @@ export class HighContrastService implements Disposable {
         parts !== null
         && !this.isTiledChart()
         && this.isPaperColor(parts.hex),
+      );
+    }
+
+    // Told by namespace, which holds for a chart drawn in another frame.
+    const html = roots.flatMap(root => Array.from(root.querySelectorAll<HTMLElement>('foreignObject *')))
+      .filter(element => element.namespaceURI === HTML_NAMESPACE);
+    for (const element of html) {
+      const style = window.getComputedStyle(element);
+      const background = this.parseCssColor(style.backgroundColor);
+      const backgroundParts = background === null ? null : this.splitAlpha(background);
+      if (backgroundParts !== null && backgroundParts.alpha > 0) {
+        this.htmlSurfaces.push(element);
+      }
+      // Only an element holding text draws glyphs in its colour.
+      const holdsText = Array.from(element.childNodes).some(node =>
+        node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '');
+      if (!holdsText) {
+        continue;
+      }
+      const color = this.parseCssColor(style.color);
+      const parts = color === null ? null : this.splitAlpha(color);
+      // The rule SVG text follows: light, unless drawn near-white.
+      this.htmlTextIsPaper.set(
+        element,
+        parts !== null && !this.isTiledChart() && this.isPaperColor(parts.hex),
       );
     }
   }
@@ -976,6 +1011,20 @@ export class HighContrastService implements Disposable {
 
     for (const surface of this.backgroundSurfaces) {
       this.overrideInlineStyle(surface, 'background-color', this.highContrastDarkColor);
+    }
+
+    // `!important`, which a Mermaid classDef -- an `!important` rule, or an
+    // `!important` declaration Mermaid writes inline -- cannot beat.
+    for (const surface of this.htmlSurfaces) {
+      this.overrideInlineStyle(surface, 'background-color', this.highContrastDarkColor, 'important');
+    }
+    for (const [label, isPaper] of this.htmlTextIsPaper) {
+      this.overrideInlineStyle(
+        label,
+        'color',
+        isPaper ? this.highContrastDarkColor : this.highContrastLightColor,
+        'important',
+      );
     }
 
     for (const [text, isPaper] of this.uncapturedTextIsPaper) {

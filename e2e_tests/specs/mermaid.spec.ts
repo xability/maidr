@@ -563,7 +563,27 @@ test.describe('Mermaid adapter', () => {
     });
   }
 
-  for (const name of ['eventmodeling', 'zenuml', 'ishikawa', 'timeline', 'packet', 'gitgraph', 'flowchart', 'gantt', 'journey', 'mindmap']) {
+  test('recolours the HTML labels a rule colours in high contrast, and gives them back after', async ({ page }) => {
+    // Venn items and use case actors are HTML in a <foreignObject>, coloured
+    // by a rule of their own that outranked the backdrop's light colour.
+    const colours = async (selector: string): Promise<string[]> => page.locator(`svg[maidr] ${selector}`)
+      .evaluateAll(labels => [...new Set(labels
+        .filter(label => label.closest('[data-maidr-owned]') === null && Array.from(label.childNodes)
+          .some(node => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== ''))
+        .map(label => getComputedStyle(label).color))]);
+    for (const [name, selector] of [['venn', 'span.venn-text-node'], ['usecase', '.usecase-actor foreignObject *']]) {
+      await openExample(page, name);
+      const before = await colours(selector);
+      expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+      expect(await colours(selector)).toEqual(['rgb(255, 255, 255)']);
+
+      expect(await press(page, 'c')).toContain('High Contrast Mode off');
+      expect(await colours(selector)).toEqual(before);
+    }
+  });
+
+  for (const name of ['eventmodeling', 'zenuml', 'ishikawa', 'timeline', 'packet', 'gitgraph', 'flowchart', 'gantt', 'journey', 'mindmap', 'venn', 'usecase', 'class', 'state', 'er']) {
     test(`keeps every label of the ${name} example readable on what it is drawn on, in high contrast`, async ({ page }) => {
       // Labels were sent light whatever they were drawn on, so a label on a
       // box left light, or lifted light, went white on white.

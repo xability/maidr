@@ -1063,6 +1063,75 @@ describe('highContrastService', () => {
     });
   });
 
+  describe('HTML drawn inside the SVG', () => {
+    // Mermaid draws its labels as HTML in a <foreignObject>, coloured by CSS
+    // `color`. A rule on the label outranked the colour it would take from
+    // the backdrop, so Venn items and use case actors stayed dark on black.
+
+    /** Builds a chart holding `markup` in a foreignObject, under `css`. */
+    function htmlChart(markup: string, css: string, options: HarnessOptions = {}): HTMLElement {
+      rebuild([{ fill: 'none', stroke: 'none' }], {
+        ...options,
+        beforeService: () => {
+          document.head.insertAdjacentHTML('beforeend', `<style>${css}</style>`);
+          const object = document.createElementNS(SVG_NAMESPACE, 'foreignObject');
+          object.innerHTML = markup;
+          document.querySelector('#chart')?.appendChild(object);
+        },
+      });
+      return harness.svg.querySelector('foreignObject') as unknown as HTMLElement;
+    }
+
+    it('recolours HTML text a stylesheet colours, and hands it back after', () => {
+      const object = htmlChart(
+        '<div><span class="venn-text-node">React</span></div>',
+        '#chart .venn-text-node { color: rgb(40, 37, 61); }',
+      );
+      const label = object.querySelector('span') as HTMLElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(label.style.getPropertyValue('color')).toBe(LIGHT);
+      expect(label.style.getPropertyPriority('color')).toBe('important');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(label.style.getPropertyValue('color')).toBe('');
+      expect(label.hasAttribute('style')).toBe(false);
+    });
+
+    it('turns near-white HTML text dark', () => {
+      const object = htmlChart('<p class="on-mark">Ship</p>', '#chart .on-mark { color: rgb(255, 255, 255); }');
+
+      harness.service.initializeHighContrast();
+
+      expect((object.querySelector('p') as HTMLElement).style.getPropertyValue('color')).toBe(DARK);
+    });
+
+    it('darkens a label box drawn in HTML, and restores it after', () => {
+      // Mermaid's edge labels: `.edgeLabel p { background-color: ... }`.
+      const object = htmlChart('<p class="edgeLabel">yes</p>', '#chart .edgeLabel { background-color: rgba(232, 232, 232, 0.8); }');
+      const box = object.querySelector('p') as HTMLElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(box.style.getPropertyValue('background-color')).toBe(DARK);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(box.style.getPropertyValue('background-color')).toBe('');
+    });
+
+    it('leaves HTML outside the SVG alone', () => {
+      htmlChart('<span>React</span>', '#react-container-chart p { color: rgb(40, 37, 61); }', { article: true });
+      const announcement = document.querySelector('#react-container-chart p') as HTMLElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(announcement.style.getPropertyValue('color')).toBe('');
+    });
+  });
+
   describe('a label and the shape under it', () => {
     // A box lifted to the light colour: its fill and outline both map to the
     // background, so its fill is lifted off it -- as Mermaid's event model
