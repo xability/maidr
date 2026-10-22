@@ -425,6 +425,14 @@ test.describe('Mermaid adapter', () => {
     expect(reply).toContain('Route is Store to API');
     expect(reply).toContain('Kind is reply');
 
+    // The plugin draws every call before every reply; each is outlined in
+    // the order it happens all the same.
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('available');
+    for (const message of ['reserve(seat)', 'confirmation', 'sold out', 'receipt e-mailed']) {
+      expect(await press(page, 'ArrowRight')).toContain(`Message is ${message}`);
+      await expect(page.locator(HIGHLIGHT).first()).toContainText(message);
+    }
+
     // ZenUML's own numbers are not read yet; the description invents none.
     await page.keyboard.press('d');
     await expect(page.getByRole('dialog').locator('th', { hasText: 'Message' })).toBeVisible();

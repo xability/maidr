@@ -403,6 +403,26 @@ export function parseZenUml(source: string): {
 }
 
 /**
+ * How far down the page the plugin drew a message or a reply, from the
+ * coordinates it wrote: its arrow's line, or, for a call or a reply to itself,
+ * which draws no line, its label.
+ *
+ * Read from the attributes rather than measured, because a diagram in a
+ * container that is not showing -- a tab not chosen yet -- measures nothing.
+ *
+ * @param group - The group the plugin drew for one message
+ * @returns Its height on the page, or null when it carries none
+ */
+function drawnAt(group: Element): number | null {
+  const anchor = Array.from(group.children).find(child => child.localName === 'line' || child.localName === 'text');
+  if (!anchor) {
+    return null;
+  }
+  const y = Number.parseFloat(anchor.getAttribute(anchor.localName === 'line' ? 'y1' : 'y') ?? '');
+  return Number.isFinite(y) ? y : null;
+}
+
+/**
  * ZenUML diagrams, read from their text into a sequence layer.
  *
  * @param context - The diagram
@@ -413,9 +433,17 @@ export function zenuml(context: DiagramContext): DiagramConversion {
   if (messages.length === 0 && participants.length === 0) {
     return { layers: [] };
   }
-  // The plugin draws each message and each reply as a group, in the order
-  // they happen; fragments and occurrences are drawn apart from them.
-  const drawn = all(context.svg, 'g.message, g.return, g.creation');
+  // The plugin draws each message and each reply as a group, but in passes
+  // by kind -- every call, then the calls to self, the creations and the
+  // replies -- and an assigned call's reply ahead of the replies inside it.
+  // Each is drawn at the height its moment has, so the groups are put back
+  // in time order by that. A group with no height to read would have to be
+  // paired blindly, and an outline on the wrong message misleads more than
+  // none does, so the highlight is withdrawn instead.
+  const placed = all(context.svg, 'g.message, g.return, g.creation').map(group => ({ group, y: drawnAt(group) }));
+  const drawn = placed.every(one => one.y !== null)
+    ? placed.sort((a, b) => (a.y ?? 0) - (b.y ?? 0)).map(one => one.group)
+    : [];
   const selectors = drawn.length === messages.length ? selectorsFor(drawn) : undefined;
   const layer: MaidrLayer = {
     id: context.layerId('sequence'),
