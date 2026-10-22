@@ -99,6 +99,35 @@ for (const example of ['boxplot-horizontal', 'barplot']) {
   });
 }
 
+test('wraps the text at the chart\'s width in a host that does not wrap', async ({ page }) => {
+  await page.goto('examples/barplot.html');
+  await page.locator(PLOT).first().waitFor({ state: 'attached' });
+  await shrinkWrap(page);
+  // A <pre>, as Mermaid's own markup puts a diagram in, which every element
+  // MAIDR shows inherits `white-space: pre` from.
+  await page.evaluate(() => {
+    const chart = document.querySelector('[data-maidr-embed]') as HTMLElement;
+    const pre = document.createElement('pre');
+    chart.before(pre);
+    pre.append(chart);
+  });
+  const pageWidth = (): Promise<number> => page.evaluate(() => document.documentElement.scrollWidth);
+  const before = await pageWidth();
+
+  await page.locator(PLOT).first().focus();
+  await expect(page.locator('#maidr-text-container')).toContainText(/\S/);
+
+  const inChart = await layout(page);
+  const text = await page.locator('#maidr-text-container').evaluate(element => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+  }));
+  expect(inChart.textWidth).toBeCloseTo(inChart.chartWidth, 0);
+  expect(text.scrollWidth).toBeLessThanOrEqual(text.clientWidth + 1);
+  // Nor does it widen the page.
+  expect(await pageWidth()).toBe(before);
+});
+
 test('keeps a chart in the page flow where it is as the reader comes and goes', async ({ page }) => {
   await page.goto('examples/boxplot-horizontal.html');
   await page.locator(PLOT).first().waitFor({ state: 'attached' });

@@ -159,6 +159,20 @@ async function underFocusRing(page: Page): Promise<string[]> {
 }
 
 /**
+ * Which of the elements a selector matches hold a line longer than they are
+ * wide.
+ *
+ * @param page - The page
+ * @param selector - The elements
+ * @returns Each overflowing element's text
+ */
+async function overflowing(page: Page, selector: string): Promise<string[]> {
+  return page.locator(selector).evaluateAll(elements => elements
+    .filter(element => element.scrollWidth > element.clientWidth + 1)
+    .map(element => (element.textContent ?? '').slice(0, 60)));
+}
+
+/**
  * The layer types MAIDR was handed.
  *
  * @param page - The page
@@ -292,6 +306,32 @@ test.describe('Mermaid adapter', () => {
       await press(page, 'ArrowRight');
 
       expect(await underFocusRing(page)).toEqual([]);
+    });
+  }
+
+  // Mermaid's markup puts a diagram in a `<pre class="mermaid">`, and what
+  // MAIDR shows is mounted inside it, dialogs included.
+  for (const width of [undefined, 320]) {
+    test(`wraps MAIDR's text and dialogs inside the <pre> Mermaid draws into${width ? ` at ${width}px` : ''}`, async ({ page }) => {
+      if (width !== undefined) {
+        await page.setViewportSize({ width, height: 800 });
+      }
+      await openExample(page, 'c4');
+      await press(page, 'ArrowRight');
+
+      expect(await overflowing(page, TEXT)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+      await page.keyboard.press('o');
+      await expect(page.locator('#object-list-description')).toBeVisible();
+      expect(await overflowing(page, '#object-list-description')).toEqual([]);
+
+      await page.keyboard.press('Escape');
+      await expect(page.locator('#object-list-description')).toHaveCount(0);
+      await page.keyboard.press('d');
+      await page.getByRole('dialog').getByRole('button', { name: /About this chart type/ }).click();
+      await expect(page.locator('[role="dialog"] dd').first()).toBeVisible();
+      expect(await overflowing(page, '[role="dialog"] dd')).toEqual([]);
     });
   }
 
