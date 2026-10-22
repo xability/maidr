@@ -20,6 +20,7 @@ import type { StorageService } from '@service/storage';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { HighContrastService } from '@service/highContrast';
 import { SettingsService } from '@service/settings';
+import { Color } from '@util/color';
 
 // `jest-environment-jsdom` does not expose `structuredClone`, which
 // `SettingsService` uses to clone the default settings.
@@ -1001,6 +1002,72 @@ describe('highContrastService', () => {
       harness.service.initializeHighContrast();
 
       expect(copy.style.getPropertyValue('mix-blend-mode')).toBe('screen');
+    });
+
+    describe('painted with a gradient', () => {
+      // Mermaid strokes each sankey link with a gradient from its source's
+      // colour to its target's, at half opacity. Left as drawn, screened at
+      // half opacity over the black backdrop, most links came out under
+      // 2.7:1 -- #e15759 at 2.1:1.
+      function link(stops: string[], opacity = '0.5', traceType?: string): SVGStopElement[] {
+        rebuild([{ fill: 'none', stroke: 'url(#flow)', complexPath: true }], {
+          traceType,
+          beforeService: () => {
+            const chart = document.querySelector('#chart') as SVGSVGElement;
+            chart.insertAdjacentHTML('afterbegin', `<linearGradient id="flow">${
+              stops.map(color => `<stop stop-color="${color}"></stop>`).join('')}</linearGradient>`);
+            chart.querySelector('path')?.setAttribute('style', `stroke-opacity: ${opacity}; mix-blend-mode: multiply`);
+          },
+        });
+        return Array.from(harness.svg.querySelectorAll('stop'));
+      }
+
+      /** How a stop shows at `alpha` over the black backdrop, against it. */
+      function contrastOf(stop: SVGStopElement, alpha: number): number {
+        const [r, g, b] = (stop.style.getPropertyValue('stop-color') || stop.getAttribute('stop-color') || '')
+          .match(/\d+/g)
+          ?.map(Number) ?? [0, 0, 0];
+        const shown = { r: r * alpha, g: g * alpha, b: b * alpha };
+        return Color.getContrastRatio(shown, { r: 0, g: 0, b: 0 });
+      }
+
+      it('lifts each colour until it reads at 3:1 on the backdrop at the opacity it is drawn, and puts it back after', () => {
+        const stops = link(['#e15759', '#4e79a7']);
+
+        harness.service.initializeHighContrast();
+
+        expect(stops.map(stop => stop.style.getPropertyValue('stop-color'))).not.toContain('');
+        expect(stops.every(stop => contrastOf(stop, 0.5) >= 3)).toBe(true);
+
+        turnHighContrastOff(harness.settings);
+
+        expect(stops.map(stop => stop.hasAttribute('style'))).toEqual([false, false]);
+        expect(stops.map(stop => stop.getAttribute('stop-color'))).toEqual(['#e15759', '#4e79a7']);
+      });
+
+      it('keeps the hue of each colour, and leaves one that already reads alone', () => {
+        const stops = link(['#e15759', '#ff9da7'], '1');
+
+        harness.service.initializeHighContrast();
+
+        const [red, pink] = stops.map(stop => stop.style.getPropertyValue('stop-color'));
+        expect(red).toBe('');
+        expect(pink).toBe('');
+
+        const lifted = link(['#c04040'])[0];
+        harness.service.initializeHighContrast();
+        const [r, g, b] = lifted.style.getPropertyValue('stop-color').match(/\d+/g)?.map(Number) ?? [];
+        expect(r).toBeGreaterThan(g);
+        expect(g).toBe(b);
+      });
+
+      it('leaves the colour scale of a tiled chart as drawn', () => {
+        const stops = link(['#440154', '#21918c'], '1', 'heat');
+
+        harness.service.initializeHighContrast();
+
+        expect(stops.map(stop => stop.hasAttribute('style'))).toEqual([false, false]);
+      });
     });
 
     it('is the only mark given a blend mode', () => {

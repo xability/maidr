@@ -61,6 +61,12 @@ const HighContrastConstants = {
   // round #ffffde is 0.07 darker.
   PAPER_OUTLINE_MIN_STEP: 0.03,
   FAINT_INK_ALPHA: 0.5,
+  // The contrast a gradient's colours are lifted to against the backdrop:
+  // the 3:1 a graphical object needs (WCAG 1.4.11), with room for the
+  // colours a gradient mixes between two stops, which can show darker than
+  // either. And how closely the lifted colour is sought.
+  GRADIENT_STOP_CONTRAST: 3.5,
+  GRADIENT_LIFT_STEPS: 12,
   // How far a line's casing reaches past its stroke on each side, in the
   // line's own units.
   LINE_CASING_RADIUS: 2,
@@ -867,6 +873,7 @@ export class HighContrastService implements Disposable {
     }
 
     this.overrideInlineStyles();
+    this.liftGradients();
     // A paint a stylesheet rule gives is overridden inline, `!important`, the
     // one declaration an `!important` rule -- a Mermaid classDef -- cannot
     // beat. After the overrides above, which start by putting every inline
@@ -1117,6 +1124,127 @@ export class HighContrastService implements Disposable {
         this.overrideInlineStyle(element, 'mix-blend-mode', wanted);
       }
     }
+  }
+
+  /**
+   * Lifts the colours of each gradient the chart paints with until, at the
+   * opacity it is drawn at, each reads at better than 3:1 against the dark
+   * backdrop.
+   *
+   * A gradient names no one colour to map onto the ramp, so it is drawn as
+   * the chart drew it: Mermaid strokes a sankey's links with a gradient from
+   * the source's colour to the target's at half opacity, which on the dark
+   * backdrop came out under 2.7:1. Each colour keeps its hue, lightened
+   * towards the light colour only as far as it needs, so touching links stay
+   * apart by colour; one that already reads, or is drawn as faintly as a hit
+   * area, is left alone. A gradient several paints use is lifted for the
+   * faintest of them. On a tiled chart a gradient is its colour scale, read
+   * against the cells, and is left as drawn.
+   */
+  private liftGradients(): void {
+    const light = this.parseColorToRgb(this.highContrastLightColor);
+    const dark = this.parseColorToRgb(this.highContrastDarkColor);
+    if (light === null || dark === null || this.isTiledChart()) {
+      return;
+    }
+
+    // Read every paint before writing any colour, so the scan costs one
+    // style pass.
+    const opacities = new Map<Element, number>();
+    const opacityOf = (element: Element): number => {
+      const cached = opacities.get(element);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const own = Number.parseFloat(window.getComputedStyle(element).opacity);
+      const parent = element.parentElement;
+      const opacity = (Number.isNaN(own) ? 1 : own) * (parent === null ? 1 : opacityOf(parent));
+      opacities.set(element, opacity);
+      return opacity;
+    };
+    const faintest = new Map<SVGStopElement, number>();
+    for (const element of this.getColorRoots().flatMap(root => Array.from(root.querySelectorAll('*')))) {
+      const style = window.getComputedStyle(element);
+      for (const attr of PAINT_PROPERTIES) {
+        // A computed paint is empty only where styles are not resolved at all.
+        const paint = style.getPropertyValue(attr).trim() || (element.getAttribute(attr) ?? '');
+        const id = paint.match(/^url\(\s*["']?#([^"')\s]+)["']?\s*\)$/)?.[1];
+        const stops = id === undefined ? [] : this.gradientStops(element.ownerDocument.getElementById(id));
+        if (stops.length === 0) {
+          continue;
+        }
+        const own = Number.parseFloat(style.getPropertyValue(`${attr}-opacity`));
+        const alpha = (Number.isNaN(own) ? 1 : own) * opacityOf(element);
+        for (const stop of stops) {
+          faintest.set(stop, Math.min(faintest.get(stop) ?? 1, alpha));
+        }
+      }
+    }
+
+    const lifts: { stop: SVGStopElement; color: string }[] = [];
+    for (const [stop, paintAlpha] of faintest) {
+      const style = window.getComputedStyle(stop);
+      const value = style.getPropertyValue('stop-color').trim() || (stop.getAttribute('stop-color') ?? '');
+      const parsed = this.parseCssColor(value);
+      const parts = parsed === null ? null : this.splitAlpha(parsed);
+      const rgb = parts === null ? null : this.parseColorToRgb(parts.hex);
+      const stopOpacity = Number.parseFloat(style.getPropertyValue('stop-opacity') || (stop.getAttribute('stop-opacity') ?? ''));
+      if (parts === null || rgb === null) {
+        continue;
+      }
+      const alpha = paintAlpha * parts.alpha * (Number.isNaN(stopOpacity) ? 1 : stopOpacity);
+      const toward = (t: number): Rgb => ({
+        r: rgb.r + t * (light.r - rgb.r),
+        g: rgb.g + t * (light.g - rgb.g),
+        b: rgb.b + t * (light.b - rgb.b),
+      });
+      const reads = (t: number): boolean => {
+        const color = toward(t);
+        const shown = {
+          r: color.r * alpha + dark.r * (1 - alpha),
+          g: color.g * alpha + dark.g * (1 - alpha),
+          b: color.b * alpha + dark.b * (1 - alpha),
+        };
+        return Color.getContrastRatio(shown, dark) >= HighContrastConstants.GRADIENT_STOP_CONTRAST;
+      };
+      if (alpha < HighContrastConstants.MIN_SURFACE_ALPHA || reads(0)) {
+        continue;
+      }
+      // The least lift that reads, or the light colour itself.
+      let [low, high] = [0, 1];
+      for (let step = 0; step < HighContrastConstants.GRADIENT_LIFT_STEPS; step++) {
+        const middle = (low + high) / 2;
+        [low, high] = reads(middle) ? [low, middle] : [middle, high];
+      }
+      const lifted = toward(high);
+      const hex = this.rgbToHex({ r: Math.round(lifted.r), g: Math.round(lifted.g), b: Math.round(lifted.b) });
+      lifts.push({ stop, color: this.applyAlpha(hex, parts.alpha) });
+    }
+    for (const { stop, color } of lifts) {
+      this.overrideInlineStyle(stop, 'stop-color', color, 'important');
+    }
+  }
+
+  /**
+   * The stops of a linear or radial gradient, or of the one it takes them
+   * from through `href` when it has none of its own; none for anything else.
+   */
+  private gradientStops(element: Element | null): SVGStopElement[] {
+    let gradient = element;
+    for (let hops = 0; gradient !== null && hops < 8; hops++) {
+      if (gradient.namespaceURI !== SVG_NAMESPACE
+        || (gradient.localName !== 'linearGradient' && gradient.localName !== 'radialGradient')) {
+        return [];
+      }
+      const stops = Array.from(gradient.children)
+        .filter((child): child is SVGStopElement => child.namespaceURI === SVG_NAMESPACE && child.localName === 'stop');
+      if (stops.length > 0) {
+        return stops;
+      }
+      const href = gradient.getAttribute('href') ?? gradient.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+      gradient = href?.startsWith('#') ? gradient.ownerDocument.getElementById(href.slice(1)) : null;
+    }
+    return [];
   }
 
   /**
