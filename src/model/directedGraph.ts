@@ -1574,21 +1574,14 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     const outputs = this.order
       .filter(node => this.successors[node].length === 0 && this.predecessors[node].length > 0)
       .map(node => nodes[node]);
-    // Every declared node that branches or merges, by all of its own edges,
-    // and every scope a move calls one, named so each can be found. Counted
-    // over the declared graph alone, the summary called a node a branch
-    // point that no move or list calls one -- its edges both enter one closed
-    // scope, as a skip connection enters its block -- and missed a scope a
-    // move calls a merge point; counted over the items alone, it would drop
-    // that skip connection and disagree with the table below. A node a move
-    // calls a branch or merge point has at least as many declared edges, so
-    // it is always among them.
-    const branches = items.filter(item => item.source === null
-      ? item.outputs.length > 1
-      : this.successors[item.source].length > 1);
-    const merges = items.filter(item => item.source === null
-      ? item.inputs.length > 1
-      : this.predecessors[item.source].length > 1);
+    // The items a move and the object list call branch or merge points, each
+    // as seen from its scope, named so each can be found. Counted by the
+    // declared nodes' own edges, the summary named points nothing else calls
+    // one: a node whose two edges both enter one closed scope, which a move
+    // hears as one output, and an end three states inside a composite feed,
+    // which a move reaches from the composite alone.
+    const branches = items.filter(item => item.outputs.length > 1);
+    const merges = items.filter(item => item.inputs.length > 1);
 
     const stats: DescriptionState['stats'] = [
       { label: t('model.statNumberOfNodes'), value: nodes.length },
