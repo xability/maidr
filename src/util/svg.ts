@@ -823,7 +823,10 @@ export abstract class Svg {
    * best, and nothing at all at worst. Each shape is stroked here instead,
    * wider than drawn, as `!important` inline style, the one declaration a
    * stylesheet's `!important` rule cannot beat; and left unfilled, so the
-   * group shows through. Text keeps its own colour.
+   * group shows through. Text keeps its own colour, and the arrowheads a
+   * shape's markers draw are left to the shape under the outline: a marker
+   * is scaled by the width of the line it is on, so the outline's copy drew
+   * the arrowhead larger, in its own paint, over the line it outlined.
    *
    * The colour is not derived from the group, whose fill is only what it
    * inherited.
@@ -866,6 +869,9 @@ export abstract class Svg {
       shape.style.setProperty('stroke-opacity', '1', 'important');
       shape.style.setProperty(Constant.STROKE_WIDTH, `${width}px`, 'important');
       shape.style.setProperty(Constant.FILL, 'none', 'important');
+      for (const marker of ['marker-start', 'marker-mid', 'marker-end']) {
+        shape.style.setProperty(marker, 'none', 'important');
+      }
       outlined = true;
     });
     if (outlined) {
