@@ -3,10 +3,15 @@ import type { Figure } from '@model/plot';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
+import type { Rgb } from '@type/color';
 import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
 import { PatternService } from '@service/pattern';
+import { Emitter } from '@type/event';
+import { Color } from '@util/color';
 import { Constant } from '@util/constant';
 import { t } from '@util/i18n';
+import { Svg } from '@util/svg';
 
 /**
  * Settings paths for high contrast configuration.
@@ -32,11 +37,18 @@ const HighContrastConstants = {
 
   // Thresholds
   NEAR_WHITE_LUMINANCE_SCALE: 0.1,
+  // Under a label, a paint this faint is a hit area rather than a surface,
+  // and one this solid hides whatever is drawn beneath it.
+  MIN_SURFACE_ALPHA: 0.05,
+  OPAQUE_SURFACE_ALPHA: 0.99,
   // A light grey that is not part of the data -- a gridline, an axis, a frame
   // -- is drawn faint on purpose, and is kept faint: the light colour at
   // reduced opacity, so it stays visible without competing with the data.
   LIGHT_GREY_LUMINANCE_SCALE: 0.25,
   GREY_MAX_CHANNEL_SPREAD: 24,
+  // Paper is white, or a tint of it: Mermaid's #ececff, #ffffde. A pale
+  // yellow as light, such as Mermaid's #ffff78 series and sections, is ink.
+  PAPER_MAX_CHANNEL_SPREAD: 64,
   FAINT_INK_ALPHA: 0.5,
   MIN_COMPLEX_PATH_LENGTH: 120,
   MIN_COLOR_INTERPOLATION_COUNT: 2,
@@ -61,6 +73,18 @@ const HighContrastConstants = {
 } as const;
 
 /**
+ * Blend modes that keep a mark's own colour over a light backdrop, each with
+ * its counterpart over a dark one: multiplied over white, or screened over
+ * black, a colour stays as it is; multiplied over black, or screened over
+ * white, it is lost in the backdrop.
+ */
+const BLEND_MODE_COUNTERPARTS: readonly (readonly [light: string, dark: string])[] = [
+  ['multiply', 'screen'],
+  ['darken', 'lighten'],
+  ['color-burn', 'color-dodge'],
+];
+
+/**
  * Trace types whose marks tile the plot and encode a value by their colour
  * alone -- a heat map cell, a choropleth region. Their paints keep mapping onto
  * the whole ramp, background colour included: a dark cell still reads against
@@ -77,8 +101,60 @@ const TILED_TRACE_TYPES: ReadonlySet<string> = new Set([
   'boxen',
 ]);
 
+/**
+ * Trace types whose marks are bars: a bar's own near-white fill is still a
+ * bar, where any other near-white paint is the paper showing through.
+ */
+const BAR_LIKE_TRACE_TYPES: ReadonlySet<string> = new Set(['bar', 'hist']);
+
 /** Elements that draw text rather than a shape. */
 const TEXT_TAGS: ReadonlySet<string> = new Set(['text', 'tspan', 'textPath']);
+
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml';
+
+/** The shapes a label can be drawn on. */
+const SURFACE_TAGS: ReadonlySet<string> = new Set([
+  'rect',
+  'circle',
+  'ellipse',
+  'polygon',
+  'path',
+  'polyline',
+]);
+
+/** The shapes a legend draws its keys with. */
+const SWATCH_TAGS: ReadonlySet<string> = new Set(['rect', 'path', 'circle', 'ellipse', 'polygon']);
+
+/** Containers whose content is defined for use elsewhere, not drawn there. */
+const DEFINITION_CONTAINERS = 'defs, clipPath, mask, marker, pattern, symbol';
+
+/**
+ * Whether an element is one of MAIDR's own copies, or inside one: the hidden
+ * copies highlights are cloned from, and the highlights themselves, which
+ * come and go with the reader.
+ */
+function isInMaidrCopy(element: Element): boolean {
+  for (let node: Element | null = element; node !== null; node = node.parentElement) {
+    if (Svg.isOwned(node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** A paint laid over what is beneath it: its colour, and how much it covers. */
+interface SurfaceLayer {
+  rgb: Rgb;
+  alpha: number;
+}
+
+/** A label, the end of the reader's pair it reads in, and the paint it takes. */
+interface LabelChoice {
+  label: HTMLElement | SVGElement;
+  property: 'fill' | 'color';
+  color: string;
+}
 
 /** The element maidr builds around a chart and everything it shows for it. */
 const CHART_ROOT_SELECTOR = `article[id^="${Constant.MAIDR_ARTICLE}-"]`;
@@ -116,6 +192,73 @@ const DRAWING_SELECTOR = [
 ].join(', ');
 
 const HIDDEN_VISIBILITY: ReadonlySet<string> = new Set(['hidden', 'collapse']);
+
+/** The paints an SVG element is given. */
+type PaintProperty = 'fill' | 'stroke';
+const PAINT_PROPERTIES: readonly PaintProperty[] = ['fill', 'stroke'];
+
+/**
+ * The elements under `roots` a stylesheet rule paints, and which of their
+ * paints. A rule outranks a presentation attribute, so such a paint is what
+ * the element shows whatever its `fill` or `stroke` attribute says: Mermaid
+ * paints edges, markers, node fills and axis text this way, from the
+ * `<style>` it puts in the diagram. Rules nested in at-rules and imported
+ * sheets count; a sheet another origin serves cannot be read, and a selector
+ * `querySelectorAll` rejects -- a pseudo-element -- paints no element.
+ */
+function stylesheetPaints(roots: Element[]): Map<Element, Set<PaintProperty>> {
+  const painted = new Map<Element, Set<PaintProperty>>();
+  const sheets: CSSStyleSheet[] = [];
+  for (const scope of new Set(roots.map(root => root.getRootNode()))) {
+    if ('styleSheets' in scope) {
+      const { styleSheets, adoptedStyleSheets } = scope as Document | ShadowRoot;
+      sheets.push(...Array.from(styleSheets), ...(adoptedStyleSheets ?? []));
+    }
+  }
+  // Rules are told apart by what they hold rather than by class, which
+  // differs in a chart drawn in another frame.
+  const visit = (rules: CSSRuleList): void => {
+    for (const rule of Array.from(rules)) {
+      const { selectorText, style } = rule as Partial<CSSStyleRule>;
+      if (typeof selectorText === 'string' && style !== undefined) {
+        const properties = PAINT_PROPERTIES.filter(property => style.getPropertyValue(property) !== '');
+        for (const root of properties.length === 0 ? [] : roots) {
+          let matches: Element[] = [];
+          try {
+            matches = Array.from(root.querySelectorAll(selectorText));
+          } catch {
+            // A selector no element can match, such as a pseudo-element.
+          }
+          for (const element of matches) {
+            const paints = painted.get(element) ?? new Set<PaintProperty>();
+            properties.forEach(property => paints.add(property));
+            painted.set(element, paints);
+          }
+        }
+      }
+      const { styleSheet } = rule as Partial<CSSImportRule>;
+      const { cssRules } = rule as Partial<CSSGroupingRule>;
+      if (styleSheet) {
+        sheets.push(styleSheet);
+      } else if (cssRules) {
+        // At-rules that group rules, and rules nested in a style rule.
+        visit(cssRules);
+      }
+    }
+  };
+  // Grows as imported sheets are found.
+  for (let at = 0; at < sheets.length; at++) {
+    let rules: CSSRuleList;
+    try {
+      rules = sheets[at].cssRules;
+    } catch {
+      // Served from another origin: its rules cannot be read.
+      continue;
+    }
+    visit(rules);
+  }
+  return painted;
+}
 
 /**
  * Whether an element is positioned wholly where no scroll can reach: above
@@ -236,9 +379,16 @@ interface ElementColorInfo {
   /** The resolved colour after the luminance spread, when one applied. */
   spreadColor?: string;
   isInSelectors: boolean;
+  /** The type of the layer whose selectors pick this element, when one does. */
+  traceType?: string;
   cantBeBackground: boolean;
   attr: 'fill' | 'stroke';
-  attrType?: 'style' | 'attribute';
+  /**
+   * Where the paint is written: the style attribute, a presentation
+   * attribute, or a stylesheet rule -- whose computed value is captured, and
+   * overridden with an inline declaration.
+   */
+  attrType?: 'style' | 'attribute' | 'computed';
 }
 
 /** An inline declaration this service overrode, and what it held before. */
@@ -247,6 +397,8 @@ interface InlineStyleSnapshot {
   property: string;
   value: string;
   priority: string;
+  /** Whether the element had a style attribute at all. */
+  hadStyle: boolean;
 }
 
 /**
@@ -274,6 +426,8 @@ export class HighContrastService implements Disposable {
   // Disposable for settings change subscription
   private settingsDisposable: Disposable | null = null;
 
+  private readonly onDidRepaintEmitter = new Emitter<void>();
+
   // Cached original colors - captured once on first application
   private originalColorInfo: ElementColorInfo[] | null = null;
 
@@ -289,9 +443,19 @@ export class HighContrastService implements Disposable {
   // without an inline fill, whether it was drawn near-white.
   private backgroundSurfaces: (HTMLElement | SVGElement)[] = [];
   private uncapturedTextIsPaper = new Map<SVGElement, boolean>();
+  // HTML drawn inside the SVG, as Mermaid draws its labels: the boxes that
+  // paint a CSS background, and for each element holding text, whether its
+  // CSS colour was near-white.
+  private htmlSurfaces: HTMLElement[] = [];
+  private htmlTextIsPaper = new Map<HTMLElement, boolean>();
 
-  // Cache of all trace elements for high contrast mode
-  private traceElementsCache: Set<SVGElement> | null = null;
+  // The paints a stylesheet rule gives each element of the chart, read on
+  // every capture.
+  private sheetPaints = new Map<Element, Set<PaintProperty>>();
+
+  // Cache of all trace elements for high contrast mode, each with the type
+  // of the layer that selects it
+  private traceElementsCache: Map<SVGElement, string> | null = null;
 
   // Pattern service for high contrast mode patterns
   private patternService: PatternService | null = null;
@@ -383,6 +547,7 @@ export class HighContrastService implements Disposable {
         // originals, as a live update does, so the change shows straight away.
         this.restoreOriginalColors();
         this.applyHighContrast();
+        this.onDidRepaintEmitter.fire();
       }
     });
 
@@ -456,6 +621,7 @@ export class HighContrastService implements Disposable {
    */
   private captureOriginalColors(): void {
     // Capture SVG element colors
+    this.sheetPaints = stylesheetPaints(this.getColorRoots());
     this.originalColorInfo = this.getOriginalColorInfo();
     this.captureSurfacesAndText();
   }
@@ -468,10 +634,15 @@ export class HighContrastService implements Disposable {
    *   stylesheet, so the computed value is what is checked.
    * - Text coloured by a stylesheet rule or by inheritance has no fill of its
    *   own to capture; its computed fill decides which end it takes.
+   * - HTML inside a `<foreignObject>` takes its colour from CSS `color`, which
+   *   neither a fill nor the backdrop's colour reaches past a rule of its own,
+   *   and may sit on a box of its own: Mermaid's labels.
    */
   private captureSurfacesAndText(): void {
     this.backgroundSurfaces = [];
     this.uncapturedTextIsPaper = new Map();
+    this.htmlSurfaces = [];
+    this.htmlTextIsPaper = new Map();
 
     const roots = this.getColorRoots();
     const surfaces = roots.flatMap(root => [
@@ -499,8 +670,10 @@ export class HighContrastService implements Disposable {
         text.tagName !== 'text'
         && parent !== null
         && window.getComputedStyle(parent).getPropertyValue('fill') === computedFill
+        && !this.sheetPaints.get(text)?.has('fill')
       ) {
-        // A span that takes its colour from its <text> follows it there.
+        // A span that takes its colour from its <text> follows it there. One
+        // a rule colours keeps that colour, however it compares.
         continue;
       }
       const fill = this.resolvePaint(text, 'fill', computedFill);
@@ -509,7 +682,32 @@ export class HighContrastService implements Disposable {
         text,
         parts !== null
         && !this.isTiledChart()
-        && this.isNearWhite(parts.hex, HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE),
+        && this.isPaperColor(parts.hex),
+      );
+    }
+
+    // Told by namespace, which holds for a chart drawn in another frame.
+    const html = roots.flatMap(root => Array.from(root.querySelectorAll<HTMLElement>('foreignObject *')))
+      .filter(element => element.namespaceURI === HTML_NAMESPACE);
+    for (const element of html) {
+      const style = window.getComputedStyle(element);
+      const background = this.parseCssColor(style.backgroundColor);
+      const backgroundParts = background === null ? null : this.splitAlpha(background);
+      if (backgroundParts !== null && backgroundParts.alpha > 0) {
+        this.htmlSurfaces.push(element);
+      }
+      // Only an element holding text draws glyphs in its colour.
+      const holdsText = Array.from(element.childNodes).some(node =>
+        node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '');
+      if (!holdsText) {
+        continue;
+      }
+      const color = this.parseCssColor(style.color);
+      const parts = color === null ? null : this.splitAlpha(color);
+      // The rule SVG text follows: light, unless drawn near-white.
+      this.htmlTextIsPaper.set(
+        element,
+        parts !== null && !this.isTiledChart() && this.isPaperColor(parts.hex),
       );
     }
   }
@@ -541,12 +739,22 @@ export class HighContrastService implements Disposable {
     }
   }
 
+  /**
+   * Fires once the reader has turned high contrast on or off, or changed its
+   * colours or levels, and the chart has been repainted to match. A copy
+   * taken of the chart's paint before -- the highlight -- is stale from then.
+   */
+  public get onDidRepaint(): Event<void> {
+    return this.onDidRepaintEmitter.event;
+  }
+
   public dispose(): void {
     // Unsubscribe from settings changes
     if (this.settingsDisposable) {
       this.settingsDisposable.dispose();
       this.settingsDisposable = null;
     }
+    this.onDidRepaintEmitter.dispose();
 
     // Clean up pattern service if exists
     if (this.patternService) {
@@ -577,6 +785,7 @@ export class HighContrastService implements Disposable {
       } else {
         this.restoreOriginalColors();
       }
+      this.onDidRepaintEmitter.fire();
     }
   }
 
@@ -633,6 +842,15 @@ export class HighContrastService implements Disposable {
     }
 
     this.overrideInlineStyles();
+    // A paint a stylesheet rule gives is overridden inline, `!important`, the
+    // one declaration an `!important` rule -- a Mermaid classDef -- cannot
+    // beat. After the overrides above, which start by putting every inline
+    // declaration back.
+    for (const item of highContrastElInfo) {
+      if (item.attrType === 'computed') {
+        this.overrideInlineStyle(item.element, item.attr, item.color, 'important');
+      }
+    }
 
     // Add text shadow filter
     const hasGlowFilter = this.addGlowShadowFilter();
@@ -702,9 +920,11 @@ export class HighContrastService implements Disposable {
         || this.context.instructionContext.type === 'stacked_normalized_bar'
         || this.context.instructionContext.type === 'mosaic'
       ) {
-        this.applyPatternsToElements(highContrastElInfo);
+        this.applyPatternsToElements(highContrastElInfo, textDescendants);
       }
     }
+
+    this.pairLabelsWithSurfaces(textDescendants);
 
     this.highContrastApplied = true;
   }
@@ -812,12 +1032,52 @@ export class HighContrastService implements Disposable {
       this.overrideInlineStyle(surface, 'background-color', this.highContrastDarkColor);
     }
 
+    // `!important`, which a Mermaid classDef -- an `!important` rule, or an
+    // `!important` declaration Mermaid writes inline -- cannot beat.
+    for (const surface of this.htmlSurfaces) {
+      this.overrideInlineStyle(surface, 'background-color', this.highContrastDarkColor, 'important');
+    }
+    for (const [label, isPaper] of this.htmlTextIsPaper) {
+      this.overrideInlineStyle(
+        label,
+        'color',
+        isPaper ? this.highContrastDarkColor : this.highContrastLightColor,
+        'important',
+      );
+    }
+
     for (const [text, isPaper] of this.uncapturedTextIsPaper) {
       this.overrideInlineStyle(
         text,
         'fill',
         isPaper ? this.highContrastDarkColor : this.highContrastLightColor,
+        'important',
       );
+    }
+
+    // A blended mark takes its colour from what lies beneath it, which is now
+    // the reader's backdrop: Mermaid draws a sankey's links `multiply`, and
+    // anything multiplied over black is black, whatever colour it is given.
+    // A mode with a counterpart takes the one that suits the backdrop: over a
+    // dark one, a link screened keeps its colour, and the light labels it is
+    // drawn over show through it, the highlight's included, as dark labels
+    // show through a link multiplied on a white page. Any other mode is drawn
+    // normally. Every element is read before any is written, so the scan
+    // costs one style pass. Asked on every apply, so it also reaches the
+    // hidden copies highlights are cloned from, and a highlight already drawn.
+    const darkBackdrop = this.getRelativeLuminance(this.highContrastDarkColor)
+      <= this.getRelativeLuminance(this.highContrastLightColor);
+    const blended = this.getColorRoots()
+      .flatMap(root => [root, ...Array.from(root.querySelectorAll('*'))])
+      .map(element => ({ element, mode: window.getComputedStyle(element).getPropertyValue('mix-blend-mode') }))
+      .filter((blend): blend is { element: HTMLElement | SVGElement; mode: string } =>
+        'style' in blend.element && blend.mode !== '' && blend.mode !== 'normal');
+    for (const { element, mode } of blended) {
+      const counterparts = BLEND_MODE_COUNTERPARTS.find(modes => modes.includes(mode));
+      const wanted = counterparts === undefined ? 'normal' : counterparts[darkBackdrop ? 1 : 0];
+      if (wanted !== mode) {
+        this.overrideInlineStyle(element, 'mix-blend-mode', wanted);
+      }
     }
   }
 
@@ -832,14 +1092,275 @@ export class HighContrastService implements Disposable {
     element: HTMLElement | SVGElement,
     property: string,
     value: string,
+    priority: '' | 'important' = '',
   ): void {
     this.inlineStyleSnapshots.push({
       element,
       property,
       value: element.style.getPropertyValue(property),
       priority: element.style.getPropertyPriority(property),
+      hadStyle: element.hasAttribute('style'),
     });
-    element.style.setProperty(property, value);
+    element.style.setProperty(property, value, priority);
+  }
+
+  /**
+   * Gives each label the end of the reader's pair that reads on the surface
+   * actually under it, once every paint is final.
+   *
+   * Labels and shapes are mapped one paint at a time, so nothing else keeps
+   * them apart: a dark label is sent light, and so is a pastel box lifted
+   * off the background, or a box a stylesheet paints and nothing captures --
+   * white on white. Each label with a shape under it now takes whichever of
+   * the two colours stands out more from that shape, as it is painted now;
+   * a label on nothing keeps the colour it was given. Text that draws its own
+   * halo is already kept apart from what lies beneath, and the labels of a
+   * tiled chart keep their glow instead. The labels of MAIDR's hidden copies
+   * are paired too, with the original drawn beneath them, since the reader's
+   * highlight is cloned from a copy and shows its labels over the original.
+   *
+   * Every choice is read before any is written, so the pass costs a style
+   * pass for the labels and one more for the spans inside them.
+   */
+  private pairLabelsWithSurfaces(textDescendants: Map<Element, boolean>): void {
+    if (this.isTiledChart()) {
+      return;
+    }
+    const light = this.parseColorToRgb(this.highContrastLightColor);
+    const dark = this.parseColorToRgb(this.highContrastDarkColor);
+    if (light === null || dark === null) {
+      return;
+    }
+
+    // Document order, overlays after the plot: what is drawn later is drawn
+    // on top.
+    const painted = this.getColorRoots().flatMap(root => Array.from(root.querySelectorAll('*')));
+    const order = new Map<Element, number>(painted.map((element, index) => [element, index]));
+
+    const rects = new Map<Element, DOMRect>();
+    const rectOf = (element: Element): DOMRect => {
+      let rect = rects.get(element);
+      if (rect === undefined) {
+        rect = element.getBoundingClientRect();
+        rects.set(element, rect);
+      }
+      return rect;
+    };
+    const styles = new Map<Element, CSSStyleDeclaration>();
+    const styleOf = (element: Element): CSSStyleDeclaration => {
+      let style = styles.get(element);
+      if (style === undefined) {
+        style = window.getComputedStyle(element);
+        styles.set(element, style);
+      }
+      return style;
+    };
+    const opacities = new Map<Element, number>();
+    const opacityOf = (element: Element): number => {
+      const cached = opacities.get(element);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const own = Number.parseFloat(styleOf(element).opacity);
+      const parent = element.parentElement;
+      const opacity = (Number.isNaN(own) ? 1 : own) * (parent === null ? 1 : opacityOf(parent));
+      opacities.set(element, opacity);
+      return opacity;
+    };
+    const isDrawn = (element: Element): boolean => {
+      if (element.closest(DEFINITION_CONTAINERS) !== null || isInMaidrCopy(element)) {
+        return false;
+      }
+      const style = styleOf(element);
+      return style.display !== 'none' && !HIDDEN_VISIBILITY.has(style.visibility);
+    };
+    // A label in one of MAIDR's copies is hidden only until a highlight shows
+    // it, over its original: the highlight is cloned from the copy, label and
+    // all, and outlines the shapes it holds without filling them.
+    const isLabelShown = (element: Element): boolean => {
+      if (element.closest(DEFINITION_CONTAINERS) !== null) {
+        return false;
+      }
+      const style = styleOf(element);
+      return style.display !== 'none'
+        && (isInMaidrCopy(element) || !HIDDEN_VISIBILITY.has(style.visibility));
+    };
+
+    // A paint under the point: a layer, nothing (`undefined`), or one that
+    // cannot be read -- a gradient or pattern -- which ends the search.
+    const layerAt = (element: Element, x: number, y: number): SurfaceLayer | undefined | null => {
+      if (element.namespaceURI !== SVG_NAMESPACE || !SURFACE_TAGS.has(element.localName)) {
+        return undefined;
+      }
+      const rect = rectOf(element);
+      if (rect.width <= 0 || rect.height <= 0
+        || x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        return undefined;
+      }
+      if (!isDrawn(element) || this.isTextDescendant(element, textDescendants)
+        || !this.fillsPoint(element, x, y)) {
+        return undefined;
+      }
+      const style = styleOf(element);
+      // A computed fill is empty only where styles are not resolved at all.
+      const fill = style.getPropertyValue('fill').trim() || (element.getAttribute('fill') ?? '');
+      if (fill === '' || fill === 'none') {
+        return undefined;
+      }
+      const parsed = fill.startsWith('url(') ? null : this.parseCssColor(fill);
+      const parts = parsed === null ? null : this.splitAlpha(parsed);
+      const rgb = parts === null ? null : this.parseColorToRgb(parts.hex);
+      if (parts === null || rgb === null) {
+        return null;
+      }
+      const fillOpacity = Number.parseFloat(style.getPropertyValue('fill-opacity'));
+      const alpha = parts.alpha * (Number.isNaN(fillOpacity) ? 1 : fillOpacity) * opacityOf(element);
+      return alpha < HighContrastConstants.MIN_SURFACE_ALPHA ? undefined : { rgb, alpha };
+    };
+
+    // What a reader sees at a point under the element at `index`: the layers
+    // drawn there down to the first opaque one, over the dark backdrop when
+    // none is. `null` when nothing is drawn there, or it cannot be read.
+    const surfaceUnder = (index: number, x: number, y: number, above: SurfaceLayer[]): Rgb | null => {
+      const layers = [...above];
+      const isOpaque = (layer: SurfaceLayer): boolean =>
+        layer.alpha >= HighContrastConstants.OPAQUE_SURFACE_ALPHA;
+      for (let at = index - 1; at >= 0 && !layers.some(isOpaque); at--) {
+        const layer = layerAt(painted[at], x, y);
+        if (layer === null) {
+          return null;
+        }
+        if (layer !== undefined) {
+          layers.push(layer);
+        }
+      }
+      if (layers.length === 0) {
+        return null;
+      }
+      const opaqueAt = layers.findIndex(isOpaque);
+      const stack = opaqueAt === -1 ? layers : layers.slice(0, opaqueAt + 1);
+      let seen: Rgb = opaqueAt === -1 ? dark : stack[stack.length - 1].rgb;
+      for (let at = (opaqueAt === -1 ? stack.length : opaqueAt) - 1; at >= 0; at--) {
+        const { rgb, alpha } = stack[at];
+        seen = {
+          r: rgb.r * alpha + seen.r * (1 - alpha),
+          g: rgb.g * alpha + seen.g * (1 - alpha),
+          b: rgb.b * alpha + seen.b * (1 - alpha),
+        };
+      }
+      return seen;
+    };
+
+    const choose = (surface: Rgb): string =>
+      Color.getContrastRatio(surface, light) >= Color.getContrastRatio(surface, dark)
+        ? this.highContrastLightColor
+        : this.highContrastDarkColor;
+    const centreOf = (element: Element): { x: number; y: number } | null => {
+      const rect = rectOf(element);
+      return rect.width <= 0 || rect.height <= 0
+        ? null
+        : { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    };
+    const hasOwnText = (element: Element): boolean => Array.from(element.childNodes).some(node =>
+      node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '');
+
+    const choices: LabelChoice[] = [];
+    painted.forEach((element, index) => {
+      if (element.namespaceURI !== SVG_NAMESPACE) {
+        return;
+      }
+      if (element.localName === 'text') {
+        // The glyphs are drawn by the elements holding the text, which may be
+        // spans with a stroke of their own, or none where the label has one.
+        const glyphs = [element, ...Array.from(element.querySelectorAll('tspan, textPath'))]
+          .filter(hasOwnText);
+        const centre = centreOf(element);
+        if (centre === null || glyphs.length === 0 || !isLabelShown(element)
+          || glyphs.every(glyph => this.hasHalo(styleOf(glyph)))) {
+          return;
+        }
+        const surface = surfaceUnder(index, centre.x, centre.y, []);
+        if (surface !== null) {
+          choices.push({ label: element as SVGElement, property: 'fill', color: choose(surface) });
+        }
+      } else if (element.localName === 'foreignObject') {
+        // HTML drawn inside the SVG, as Mermaid draws its labels: coloured by
+        // CSS `color`, and maybe on a box of its own.
+        for (const leaf of Array.from(element.querySelectorAll<HTMLElement>('*'))) {
+          const centre = leaf.namespaceURI === HTML_NAMESPACE && hasOwnText(leaf) ? centreOf(leaf) : null;
+          if (centre === null || !isLabelShown(leaf)) {
+            continue;
+          }
+          const boxes: SurfaceLayer[] = [];
+          for (let node: Element | null = leaf; node !== null && node !== element; node = node.parentElement) {
+            const background = this.parseCssColor(styleOf(node).backgroundColor);
+            const parts = background === null ? null : this.splitAlpha(background);
+            const rgb = parts === null ? null : this.parseColorToRgb(parts.hex);
+            if (parts !== null && rgb !== null && parts.alpha > 0) {
+              boxes.push({ rgb, alpha: parts.alpha * opacityOf(node) });
+            }
+          }
+          const surface = surfaceUnder(order.get(element) ?? index, centre.x, centre.y, boxes);
+          if (surface !== null) {
+            choices.push({ label: leaf, property: 'color', color: choose(surface) });
+          }
+        }
+      }
+    });
+
+    const differs = (element: Element, property: 'fill' | 'color', color: string): boolean => {
+      const shown = this.parseColorToRgb(window.getComputedStyle(element).getPropertyValue(property));
+      const wanted = this.parseColorToRgb(color);
+      return shown === null || wanted === null
+        || shown.r !== wanted.r || shown.g !== wanted.g || shown.b !== wanted.b;
+    };
+    // `!important`, which a stylesheet's `!important` rule -- a Mermaid
+    // classDef -- cannot beat.
+    for (const choice of choices.filter(choice => differs(choice.label, choice.property, choice.color))) {
+      this.overrideInlineStyle(choice.label, choice.property, choice.color, 'important');
+    }
+    // A span a rule colours itself, such as Mermaid's `.loopText > tspan`,
+    // does not follow its label; it is given the label's colour.
+    const spans = choices
+      .filter(choice => choice.property === 'fill')
+      .flatMap(choice => Array.from(choice.label.querySelectorAll<SVGElement>('tspan, textPath'))
+        .map(span => ({ ...choice, label: span })))
+      .filter(choice => differs(choice.label, 'fill', choice.color));
+    for (const span of spans) {
+      this.overrideInlineStyle(span.label, 'fill', span.color, 'important');
+    }
+  }
+
+  /**
+   * Whether text draws a halo around its glyphs: a solid stroke of some
+   * width, which keeps it apart from whatever lies beneath.
+   */
+  private hasHalo(style: CSSStyleDeclaration): boolean {
+    const stroke = style.getPropertyValue('stroke').trim();
+    const parsed = stroke === '' || stroke === 'none' || stroke.startsWith('url(')
+      ? null
+      : this.parseCssColor(stroke);
+    const parts = parsed === null ? null : this.splitAlpha(parsed);
+    const width = Number.parseFloat(style.getPropertyValue('stroke-width'));
+    return parts !== null && parts.alpha > 0 && width > 0;
+  }
+
+  /**
+   * Whether a point, in client coordinates, falls inside a shape's fill and
+   * not merely its box: a pie wedge or a diagonal band covers only part of
+   * the box around it. A shape that cannot be asked is taken by its box.
+   */
+  private fillsPoint(element: Element, x: number, y: number): boolean {
+    const shape = element as SVGGeometryElement;
+    if (typeof shape.isPointInFill !== 'function' || typeof shape.getScreenCTM !== 'function') {
+      return true;
+    }
+    const matrix = shape.getScreenCTM();
+    if (matrix === null) {
+      return true;
+    }
+    const point = new DOMPoint(x, y).matrixTransform(matrix.inverse());
+    return shape.isPointInFill(point);
   }
 
   private restoreInlineStyles(): void {
@@ -850,27 +1371,38 @@ export class HighContrastService implements Disposable {
       } else {
         snapshot.element.style.setProperty(snapshot.property, snapshot.value, snapshot.priority);
       }
+      // An element given its first inline declaration here goes back to
+      // having none, rather than keeping an empty style attribute.
+      if (!snapshot.hadStyle && snapshot.element.getAttribute('style') === '') {
+        snapshot.element.removeAttribute('style');
+      }
     }
     this.inlineStyleSnapshots = [];
   }
 
   /**
-   * Get all SVG elements from all traces in the Figure hierarchy.
+   * Get all SVG elements from all traces in the Figure hierarchy, each with
+   * the type of the layer that selects it. An element two layers select keeps
+   * the first one's type, unless a later one is a bar: a bar's near-white fill
+   * must stay a bar.
    */
-  private getAllTraceElements(): Set<SVGElement> {
+  private getAllTraceElements(): Map<SVGElement, string> {
     if (this.traceElementsCache !== null) {
       return this.traceElementsCache;
     }
 
-    const elements = new Set<SVGElement>();
+    const elements = new Map<SVGElement, string>();
 
     for (const subplotRow of this.figure.subplots) {
       for (const subplot of subplotRow) {
         for (const traceRow of subplot.traces) {
           for (const trace of traceRow) {
+            const traceType = String(trace.traceType);
             const traceElements = trace.getAllOriginalElements();
             for (const el of traceElements) {
-              elements.add(el);
+              if (!elements.has(el) || BAR_LIKE_TRACE_TYPES.has(traceType)) {
+                elements.set(el, traceType);
+              }
             }
           }
         }
@@ -879,13 +1411,6 @@ export class HighContrastService implements Disposable {
 
     this.traceElementsCache = elements;
     return elements;
-  }
-
-  private isTraceElement(
-    element: Element,
-    traceElements: Set<SVGElement>,
-  ): boolean {
-    return traceElements.has(element as SVGElement);
   }
 
   /**
@@ -970,7 +1495,8 @@ export class HighContrastService implements Disposable {
       const styleFillMatch = style.match(/fill:\s*([^;]+)/i);
       const styleStrokeMatch = style.match(/stroke:\s*([^;]+)/i);
 
-      const isInSelectors = this.isTraceElement(el, traceElements);
+      const traceType = traceElements.get(el as SVGElement);
+      const isInSelectors = traceType !== undefined;
 
       const complexPath = el.getAttribute('d');
       let isComplexPath = false;
@@ -982,8 +1508,8 @@ export class HighContrastService implements Disposable {
 
       const capture = (
         value: string,
-        attr: 'fill' | 'stroke',
-        attrType: 'style' | 'attribute',
+        attr: PaintProperty,
+        attrType: 'style' | 'attribute' | 'computed',
       ): void => {
         const color = value.trim();
         originalColorInfo.push({
@@ -991,30 +1517,62 @@ export class HighContrastService implements Disposable {
           color,
           resolvedColor: this.resolvePaint(el, attr, color),
           isInSelectors,
+          traceType,
           cantBeBackground,
           attr,
           attrType,
         });
       };
 
-      if (styleFillMatch) {
-        capture(styleFillMatch[1], 'fill', 'style');
-      }
-      if (styleStrokeMatch) {
-        capture(styleStrokeMatch[1], 'stroke', 'style');
-      }
-
-      const attrFill = el.getAttribute('fill');
-      if (attrFill) {
-        capture(attrFill, 'fill', 'attribute');
-      }
-      const attrStroke = el.getAttribute('stroke');
-      if (attrStroke) {
-        capture(attrStroke, 'stroke', 'attribute');
+      // Each paint is captured where it is shown from: an inline declaration,
+      // else a stylesheet rule, which outranks a presentation attribute, else
+      // the attribute. An inline declaration loses only to an `!important`
+      // rule; an attribute under either paints nothing.
+      const declared = { fill: styleFillMatch?.[1], stroke: styleStrokeMatch?.[1] };
+      for (const attr of PAINT_PROPERTIES) {
+        const inline = declared[attr];
+        if (this.sheetPaints.get(el)?.has(attr) && !this.inlineOutranksRules(el, attr, inline)) {
+          // Text coloured only by a rule is left to captureSurfacesAndText.
+          const textFill = attr === 'fill' && TEXT_TAGS.has(el.tagName)
+            && inline === undefined && !el.hasAttribute('fill');
+          const computed = window.getComputedStyle(el).getPropertyValue(attr).trim();
+          if (!textFill && this.resolvePaint(el, attr, computed) !== null) {
+            capture(computed, attr, 'computed');
+          }
+          continue;
+        }
+        if (inline !== undefined) {
+          capture(inline, attr, 'style');
+          continue;
+        }
+        const attribute = el.getAttribute(attr);
+        if (attribute) {
+          capture(attribute, attr, 'attribute');
+        }
       }
     }
 
     return originalColorInfo;
+  }
+
+  /**
+   * Whether an element's inline paint is the one it shows over the rules
+   * that paint it too: when it is `!important`, or shows the colour it
+   * declares. An inline paint that names no colour -- `none`, a pattern --
+   * outranks a rule that names none either.
+   */
+  private inlineOutranksRules(element: Element, attr: PaintProperty, inline: string | undefined): boolean {
+    if (inline === undefined) {
+      return false;
+    }
+    if ((element as SVGElement).style?.getPropertyPriority(attr) === 'important') {
+      return true;
+    }
+    const computed = window.getComputedStyle(element).getPropertyValue(attr).trim();
+    const own = this.resolvePaint(element, attr, inline.trim());
+    return own === null
+      ? this.resolvePaint(element, attr, computed) === null
+      : own === this.resolvePaint(element, attr, computed);
   }
 
   private getHighContrastColors(
@@ -1121,7 +1679,7 @@ export class HighContrastService implements Disposable {
     if (parts === null) {
       return false;
     }
-    return this.isNearWhite(parts.hex, HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE)
+    return this.isPaperColor(parts.hex)
       || (!item.isInSelectors && item.attr === 'fill' && this.isLightGrey(parts.hex));
   }
 
@@ -1280,7 +1838,7 @@ export class HighContrastService implements Disposable {
     const withAlpha = (hex: string): string => this.applyAlpha(hex, original.alpha);
 
     const nearWhiteScale = HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE;
-    const isPaper = this.isNearWhite(original.hex, nearWhiteScale);
+    const isPaper = this.isPaperColor(original.hex);
 
     if (this.isTextDescendant(colorInfo.element, textDescendants)) {
       // Text sits on the page, and reads light on the dark background --
@@ -1299,11 +1857,11 @@ export class HighContrastService implements Disposable {
 
     const hex = colorInfo.spreadColor ?? original.hex;
 
-    const traceType: string | undefined = 'type' in this.context.instructionContext
-      ? String(this.context.instructionContext.type)
-      : undefined;
-    const isBarLike = traceType === 'bar' || traceType === 'hist';
-    const useNearWhite = isBarLike && colorInfo.isInSelectors;
+    // Decided per element, from the layer that selects it: a chart with
+    // several layers or panels has no single type, and its bars are bars all
+    // the same.
+    const useNearWhite = colorInfo.traceType !== undefined
+      && BAR_LIKE_TRACE_TYPES.has(colorInfo.traceType);
 
     if (!this.isTiledMark(colorInfo)) {
       // A near-white paint is the paper showing through -- the chart's
@@ -1475,6 +2033,21 @@ export class HighContrastService implements Disposable {
     const spread = Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b);
     return spread <= HighContrastConstants.GREY_MAX_CHANNEL_SPREAD
       && this.isNearWhite(hex, HighContrastConstants.LIGHT_GREY_LUMINANCE_SCALE);
+  }
+
+  /**
+   * A colour of the paper: near-white, and nearly colourless. Luminance
+   * alone would take a pale yellow, drawn as a series or a section, for the
+   * page showing through, and paint it the background colour.
+   */
+  private isPaperColor(hex: string): boolean {
+    const rgb = this.parseColorToRgb(hex);
+    if (!rgb) {
+      return false;
+    }
+    const spread = Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b);
+    return spread <= HighContrastConstants.PAPER_MAX_CHANNEL_SPREAD
+      && this.isNearWhite(hex, HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE);
   }
 
   private isNearWhite(hex: string, nearWhiteScale: number): boolean {
@@ -1815,6 +2388,7 @@ export class HighContrastService implements Disposable {
 
   private applyPatternsToElements(
     highContrastElInfo: ElementColorInfo[],
+    textDescendants: Map<Element, boolean>,
   ): void {
     if (!this.originalColorInfo)
       return;
@@ -1847,8 +2421,10 @@ export class HighContrastService implements Disposable {
       }
     }
 
+    const keys = this.legendKeys(colorGroups, textDescendants);
+
     let patternIndex = 0;
-    for (const [_color, elements] of colorGroups) {
+    for (const [color, elements] of colorGroups) {
       const patternType
         = this.patternService.getPatternTypeByIndex(patternIndex);
 
@@ -1866,8 +2442,48 @@ export class HighContrastService implements Disposable {
         });
       }
 
+      // A key takes its marks' pattern -- the same one, from the cache -- so
+      // the legend still says which pattern is which series.
+      const baseColor = elementToHighContrastColor.get(elements[0].element) || this.highContrastLightColor;
+      for (const key of keys.get(color) ?? []) {
+        this.patternService.applyPattern(key.element, {
+          type: patternType,
+          baseColor,
+          patternColor: this.getMostContrastingColor(baseColor),
+        });
+      }
+
       patternIndex++;
     }
+  }
+
+  /**
+   * The legend keys of each group of marks: a shape no layer selects, drawn
+   * after the group's first mark in exactly its colour. Mermaid, matplotlib,
+   * ggplot and Plotly all draw the legend after the marks, and a background
+   * or panel before them. A key of white, the paper's colour, is not told
+   * from the frame around the legend, and keeps its plain colour.
+   */
+  private legendKeys(
+    colorGroups: Map<string, ElementColorInfo[]>,
+    textDescendants: Map<Element, boolean>,
+  ): Map<string, ElementColorInfo[]> {
+    const keys = new Map<string, ElementColorInfo[]>();
+    for (const item of this.originalColorInfo ?? []) {
+      if (item.isInSelectors || item.attr !== 'fill' || item.resolvedColor === null
+        || !SWATCH_TAGS.has(item.element.tagName) || this.isTextDescendant(item.element, textDescendants)
+        || isInMaidrCopy(item.element)) {
+        continue;
+      }
+      const color = this.normalizeColor(item.resolvedColor);
+      const marks = colorGroups.get(color);
+      if (marks === undefined || color === '#ffffff'
+        || !(marks[0].element.compareDocumentPosition(item.element) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+        continue;
+      }
+      keys.set(color, [...(keys.get(color) ?? []), item]);
+    }
+    return keys;
   }
 
   private getMostContrastingColor(color: string): string {

@@ -201,6 +201,121 @@ function paintAgainstMark(highlight: Element): { ratio: number; stroke: string; 
 }
 
 /**
+ * The labels of the diagram that read below 4.5:1 on what is drawn under
+ * them, as a reader sees it: each element holding a label's text -- SVG text
+ * or a span inside it, or HTML inside a `<foreignObject>` -- against the
+ * paints under its centre, composited down to the first opaque one. A label
+ * on a gradient or pattern, which cannot be read as one colour, is left out.
+ * MAIDR's own copies are never taken for the surface, and their labels are
+ * read only when asked for those of the highlight, the copy a reader sees.
+ *
+ * @param page - The page
+ * @param within - The labels to read: the diagram's own, or the highlight's
+ * @returns Each failing label's text, its contrast, its colour and the
+ *   surface; for the highlight, a failure too when it holds no label at all
+ */
+async function unreadableLabels(page: Page, within: 'diagram' | 'highlight' = 'diagram'): Promise<string[]> {
+  return page.locator('svg[maidr]').first().evaluate((svg, within) => {
+    const shapes = new Set(['rect', 'circle', 'ellipse', 'polygon', 'path', 'polyline']);
+    const parse = (color: string): { rgb: number[]; alpha: number } | null => {
+      const match = /rgba?\(([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)(?:[ ,/]+([\d.]+))?\)/.exec(color);
+      return match === null
+        ? null
+        : { rgb: [+match[1], +match[2], +match[3]], alpha: match[4] === undefined ? 1 : +match[4] };
+    };
+    const luminance = (rgb: number[]): number => {
+      const [r, g, b] = rgb.map((channel) => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a: number[], b: number[]): number => {
+      const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (high + 0.05) / (low + 0.05);
+    };
+    const opacity = (element: Element): number => {
+      let value = 1;
+      for (let node: Element | null = element; node !== null; node = node.parentElement) {
+        value *= Number(getComputedStyle(node).opacity);
+      }
+      return value;
+    };
+    const isMaidrs = (element: Element): boolean =>
+      element.closest('[data-maidr-owned], [id^="maidr-highlight"]') !== null;
+    const surface = (label: Element): number[] | null => {
+      // Hit-testing sees only what is in the viewport.
+      label.scrollIntoView({ block: 'center', inline: 'center' });
+      const box = label.getBoundingClientRect();
+      const layers: { rgb: number[]; alpha: number }[] = [];
+      for (const element of document.elementsFromPoint(box.left + box.width / 2, box.top + box.height / 2)) {
+        if (label.contains(element) || isMaidrs(element) || element.closest('text') !== null) {
+          continue;
+        }
+        const style = getComputedStyle(element);
+        const isShape = element.namespaceURI === 'http://www.w3.org/2000/svg' && shapes.has(element.localName);
+        if (isShape && style.fill.startsWith('url')) {
+          return null;
+        }
+        const paint = parse(isShape ? style.fill : style.backgroundColor);
+        if (paint !== null) {
+          paint.alpha *= (isShape ? Number(style.fillOpacity) : 1) * opacity(element);
+          if (paint.alpha > 0.05) {
+            layers.push(paint);
+            if (paint.alpha >= 0.99) {
+              break;
+            }
+          }
+        }
+      }
+      return layers.reduceRight((under, layer) =>
+        under.map((channel, at) => layer.rgb[at] * layer.alpha + channel * (1 - layer.alpha)), [255, 255, 255]);
+    };
+    const holdsText = (element: Element): boolean => Array.from(element.childNodes)
+      .some(node => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '');
+    const labels = [
+      ...Array.from(svg.querySelectorAll('text, tspan, textPath')).map(glyphs => ({ glyphs, property: 'fill' })),
+      ...Array.from(svg.querySelectorAll('foreignObject *')).map(glyphs => ({ glyphs, property: 'color' })),
+    ].filter(({ glyphs }) => {
+      const box = glyphs.getBoundingClientRect();
+      const inScope = within === 'highlight'
+        ? glyphs.closest('[id^="maidr-highlight"]') !== null
+        : !isMaidrs(glyphs);
+      return holdsText(glyphs) && inScope && box.width > 0 && box.height > 0
+        && glyphs.closest('defs, marker') === null && getComputedStyle(glyphs).visibility !== 'hidden';
+    });
+    if (within === 'highlight' && labels.length === 0) {
+      return ['no label in the highlight'];
+    }
+    return labels.flatMap(({ glyphs, property }) => {
+      const color = getComputedStyle(glyphs).getPropertyValue(property);
+      const ink = parse(color);
+      const under = surface(glyphs);
+      const ratio = ink === null || under === null ? Infinity : contrast(ink.rgb, under);
+      return ratio < 4.5
+        ? [`${(glyphs.textContent ?? '').trim()} ${ratio.toFixed(2)}:1 (${color} on rgb(${under?.map(Math.round).join(', ')}))`]
+        : [];
+    });
+  }, within);
+}
+
+/**
+ * Every colour the diagram paints with, in document order, leaving out
+ * MAIDR's highlight and the definitions high contrast adds.
+ *
+ * @param page - The page
+ * @returns Each element's fill, stroke, colour, background and blend mode
+ */
+async function diagramPaint(page: Page): Promise<string[]> {
+  return page.locator('svg[maidr]').first().evaluate(svg => Array.from(svg.querySelectorAll('*'))
+    .filter(element => element.closest('defs, [id^="maidr-highlight"]') === null)
+    .map((element) => {
+      const style = getComputedStyle(element);
+      return [style.fill, style.stroke, style.color, style.backgroundColor, style.mixBlendMode].join('|');
+    }));
+}
+
+/**
  * The layer types MAIDR was handed.
  *
  * @param page - The page
@@ -341,6 +456,214 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowRight')).toContain('Domain is Complicated');
     await expect(page.locator(HIGHLIGHT)).toHaveCSS('fill', HIGHLIGHT_STROKE);
   });
+
+  test('keeps the XY chart\'s bars in high contrast beside its line', async ({ page }) => {
+    // The chart has a bar and a line layer, so no single trace type; its
+    // near-white bars were taken for paper and painted the background colour.
+    await openExample(page, 'xychart');
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+    const bars = await page.locator('svg[maidr] rect[data-maidr-ref^="mm"]:not([visibility="hidden"])')
+      .evaluateAll(rects => rects.map(rect => getComputedStyle(rect).fill));
+    expect(bars).toHaveLength(6);
+    expect(new Set(bars)).toEqual(new Set(['rgb(255, 255, 255)']));
+  });
+
+  test('screens a sankey\'s links in high contrast, so they and the labels under the highlight show', async ({ page }) => {
+    // Mermaid draws each link `mix-blend-mode: multiply`; multiplied over the
+    // black backdrop every link, the highlighted one too, was drawn black.
+    // Drawn normally instead, the highlighted link covered the labels at its
+    // ends, which Mermaid draws beneath the links.
+    const blendModes = async (): Promise<string[]> => page.locator('svg[maidr] g.link')
+      .evaluateAll(links => links.map(link =>
+        `${link.id.startsWith('maidr-highlight') ? 'highlight' : 'link'}:${getComputedStyle(link).mixBlendMode}`));
+    // The share of a label's box the screen shows near-white: its glyphs,
+    // where nothing covers them.
+    const lightShare = async (name: string): Promise<number> => {
+      const shot = await page.locator('svg[maidr] text', { hasText: name }).first().screenshot();
+      return page.evaluate(async (png) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${png}`;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext('2d');
+        if (context === null) {
+          return 0;
+        }
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let light = 0;
+        for (let at = 0; at < pixels.length; at += 4) {
+          light += pixels[at] > 200 && pixels[at + 1] > 200 && pixels[at + 2] > 200 ? 1 : 0;
+        }
+        return light / (pixels.length / 4);
+      }, shot.toString('base64'));
+    };
+    await openExample(page, 'sankey');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+    expect(await press(page, 'ArrowRight')).toContain('Along is Electricity to Homes');
+
+    const during = await blendModes();
+    expect(during).toContain('highlight:screen');
+    expect(new Set(during)).toEqual(new Set(['link:screen', 'highlight:screen']));
+    for (const end of ['Electricity', 'Homes']) {
+      expect(await lightShare(end)).toBeGreaterThan(0.03);
+    }
+
+    expect(await press(page, 'c')).toContain('High Contrast Mode off');
+    const after = (await blendModes()).filter(mode => mode.startsWith('link'));
+    expect(new Set(after)).toEqual(new Set(['link:multiply']));
+  });
+
+  // What Mermaid paints from the <style> it puts in the diagram: each
+  // selector, the paint read, and the examples it is checked on.
+  const SHEET_PAINTED: [string, string, 'stroke' | 'fill'][] = [
+    ['flowchart', 'path.flowchart-link', 'stroke'],
+    ['flowchart', 'marker path', 'stroke'],
+    ['sequence', 'line.actor-line', 'stroke'],
+    ['sequence', '[class^="messageLine"]', 'stroke'],
+    ['sequence', '.loopLine', 'stroke'],
+    ['sequence', 'rect.actor', 'stroke'],
+    ['gantt', '.tick text', 'fill'],
+    ['er', '.relationshipLine', 'stroke'],
+    ['class', '.relation', 'stroke'],
+    ['mindmap', '.section-edge-0', 'stroke'],
+    ['radar', '.radarCurve-1', 'fill'],
+  ];
+  for (const name of new Set(SHEET_PAINTED.map(([example]) => example))) {
+    test(`repaints what the ${name} example's stylesheet paints in high contrast, and gives it back after`, async ({ page }) => {
+      // Edges, arrowheads, lifelines, axis dates and a radar series painted
+      // by Mermaid's stylesheet stayed dark on the black backdrop; a pale
+      // yellow series or branch was taken for the page and painted it.
+      const paints = async (): Promise<string[]> => Promise.all(SHEET_PAINTED
+        .filter(([example]) => example === name)
+        .map(async ([, selector, property]) => {
+          const values = await page.locator(`svg[maidr] ${selector}`).evaluateAll(
+            (elements, paint) => elements
+              .filter(element => element.closest('[data-maidr-owned]') === null)
+              .map(element => getComputedStyle(element).getPropertyValue(paint)),
+            property,
+          );
+          return `${selector}: ${[...new Set(values)].join(', ')}`;
+        }));
+      await openExample(page, name);
+      const before = await diagramPaint(page);
+      expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+      for (const painted of await paints()) {
+        expect(painted).toMatch(/: rgb\(255, 255, 255\)$/);
+      }
+
+      expect(await press(page, 'c')).toContain('High Contrast Mode off');
+      expect(await diagramPaint(page)).toEqual(before);
+    });
+  }
+
+  test('draws the highlight again in the new palette when high contrast is toggled on it', async ({ page }) => {
+    // The highlight is a copy of the node, taken as it was painted: toggled
+    // on it, the copy kept the node's dark label over the node repainted
+    // light-on-dark until the reader moved.
+    const labels = async (): Promise<string[]> => page.locator(HIGHLIGHT).evaluate((outline) => {
+      const holder = (group: Element): Element => [...group.querySelectorAll('foreignObject *')]
+        .find(element => [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE)) as Element;
+      const text = holder(outline).textContent;
+      const node = [...document.querySelectorAll('svg[maidr] g.node:not([data-maidr-owned])')]
+        .find(candidate => holder(candidate)?.textContent === text) as Element;
+      return [holder(outline), holder(node)].map(element => getComputedStyle(element).color);
+    });
+    await openExample(page, 'flowchart');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+    await expect(page.locator(HIGHLIGHT)).toHaveCount(1);
+    expect(await labels()).toEqual(['rgb(255, 255, 255)', 'rgb(255, 255, 255)']);
+  });
+
+  test('gives each pie legend key its slice\'s pattern in high contrast, and its colour back after', async ({ page }) => {
+    // The slices took patterns and the keys a plain colour, black on black
+    // for Dogs and Cats and white for the rest, so the legend named nothing.
+    const fills = async (selector: string): Promise<string[]> => page.locator(`svg[maidr] ${selector}`)
+      .evaluateAll(shapes => shapes
+        .filter(shape => shape.closest('[data-maidr-owned]') === null)
+        .map(shape => getComputedStyle(shape).fill));
+    await openExample(page, 'pie');
+    const before = await fills('.legend rect');
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+    const keys = await fills('.legend rect');
+    expect(keys).toEqual(await fills('path.pieCircle'));
+    expect(new Set(keys).size).toBe(4);
+    for (const key of keys) {
+      expect(key).toMatch(/^url\("#maidr-pattern-/);
+    }
+
+    expect(await press(page, 'c')).toContain('High Contrast Mode off');
+    expect(await fills('.legend rect')).toEqual(before);
+  });
+
+  test('recolours the HTML labels a rule colours in high contrast, and gives them back after', async ({ page }) => {
+    // Venn items and use case actors are HTML in a <foreignObject>, coloured
+    // by a rule of their own that outranked the backdrop's light colour.
+    const colours = async (selector: string): Promise<string[]> => page.locator(`svg[maidr] ${selector}`)
+      .evaluateAll(labels => [...new Set(labels
+        .filter(label => label.closest('[data-maidr-owned]') === null && Array.from(label.childNodes)
+          .some(node => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== ''))
+        .map(label => getComputedStyle(label).color))]);
+    for (const [name, selector] of [['venn', 'span.venn-text-node'], ['usecase', '.usecase-actor foreignObject *']]) {
+      await openExample(page, name);
+      const before = await colours(selector);
+      expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+      expect(await colours(selector)).toEqual(['rgb(255, 255, 255)']);
+
+      expect(await press(page, 'c')).toContain('High Contrast Mode off');
+      expect(await colours(selector)).toEqual(before);
+    }
+  });
+
+  for (const name of ['eventmodeling', 'zenuml', 'ishikawa', 'timeline', 'packet', 'gitgraph', 'flowchart', 'gantt', 'journey', 'mindmap', 'venn', 'usecase', 'class', 'state', 'er']) {
+    test(`keeps every label of the ${name} example readable on what it is drawn on, in high contrast`, async ({ page }) => {
+      // Labels were sent light whatever they were drawn on, so a label on a
+      // box left light, or lifted light, went white on white.
+      await openExample(page, name);
+      const before = await diagramPaint(page);
+      expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+      expect(await unreadableLabels(page)).toEqual([]);
+
+      expect(await press(page, 'c')).toContain('High Contrast Mode off');
+      expect(await diagramPaint(page)).toEqual(before);
+    });
+  }
+
+  // A node the reader reaches, the keys that reach it, and its label.
+  const HIGHLIGHTED_LABELS: [string, string[], string][] = [
+    ['kanban', ['c', 'ArrowRight'], 'To do'],
+    ['kanban', ['ArrowRight', 'c'], 'To do'],
+    ['mindmap', ['c', 'ArrowRight', 'ArrowRight', 'ArrowDown'], 'Audio'],
+    ['timeline', ['c', 'ArrowRight', 'ArrowRight'], 'Standards'],
+    ['eventmodeling', ['c', 'ArrowRight', 'ArrowRight'], 'InventoryProcessor'],
+  ];
+  for (const [name, keys, label] of HIGHLIGHTED_LABELS) {
+    test(`keeps the label of the ${name} node the reader is on readable in high contrast, after ${keys.join(' ')}`, async ({ page }) => {
+      // The highlight is cloned from MAIDR's hidden copy of the node, whose
+      // label kept the light colour every label is first given: over the
+      // node's light box the label of the node the reader was on, and only
+      // that one, went white on white.
+      await openExample(page, name);
+      for (const key of keys) {
+        await press(page, key);
+      }
+
+      await expect(page.locator(HIGHLIGHT, { hasText: label })).toHaveCount(1);
+      expect(await unreadableLabels(page, 'highlight')).toEqual([]);
+    });
+  }
 
   test('numbers only what a sequence diagram numbers, in its description', async ({ page }) => {
     await openExample(page, 'sequence');

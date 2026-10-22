@@ -158,8 +158,54 @@ implements Observer<HighlightStateUnion>, Disposable {
    * @param settings - The updated settings object containing the new highlight color
    */
   private handleSettingsUpdate(settings: Settings): void {
+    const colorChanged = settings.general.highlightColor !== this.currentHighlightColor;
     this.currentHighlightColor = settings.general.highlightColor;
     this.highContrastMode = settings.general.highContrastMode;
+    if (colorChanged) {
+      this.redraw();
+    }
+  }
+
+  /**
+   * Draws the current highlight again, as the next move would: from the
+   * marks as they are painted now, in the highlight colour as it is set now.
+   *
+   * A highlight is a copy of its mark, taken when it is drawn. Once high
+   * contrast repaints the chart, or the highlight colour changes, the copy
+   * keeps the old palette until the reader moves: a Graphviz node's copy
+   * covered its new light outline with the old black one, and a black tile
+   * stayed on a chart put back to light. Settings are read afresh, since
+   * the change that called this may not have reached this service yet.
+   */
+  public redraw(): void {
+    const { general } = this.settingsService.loadSettings();
+    this.currentHighlightColor = general.highlightColor;
+    this.highContrastMode = general.highContrastMode;
+
+    for (const [original, clone] of [...this.highlightedElements]) {
+      // A live update may have replaced the mark without telling this
+      // service, and kept the reader's place: the copy stays, in the palette
+      // it was drawn in, until the next move draws the new mark. Dropped,
+      // it left that place unmarked.
+      if (!original.isConnected) {
+        continue;
+      }
+      // Removed first, so the new copy lands where the old one was.
+      clone.remove();
+      this.highlightedElements.delete(original);
+      try {
+        this.highlightedElements.set(original, this.createHighlightElement(original));
+      } catch (error) {
+        console.error('[HighlightService] Failed to redraw highlight:', error);
+      }
+    }
+
+    const figureBackground = this.figureBackground();
+    for (const element of this.highlightedSubplots) {
+      if (element.isConnected) {
+        Svg.setSubplotHighlightSvgWithAdaptiveColor(element, this.currentHighlightColor, figureBackground);
+      }
+    }
   }
 
   /**
@@ -299,12 +345,7 @@ implements Observer<HighlightStateUnion>, Disposable {
    */
   private highlightSubplotElements(elements: SVGElement[]): void {
     this.unhighlightSubplotElements();
-    const figure = this.chartRoots()
-      .map(root => root.querySelector('g[id^="maidr-"] > path[style*="fill"]'))
-      .find(path => path !== null)
-      ?.parentElement as SVGElement | null;
-    const figureBgElement
-      = (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
+    const figureBgElement = this.figureBackground();
     for (const element of elements) {
       Svg.setSubplotHighlightSvgWithAdaptiveColor(
         element,
@@ -313,6 +354,18 @@ implements Observer<HighlightStateUnion>, Disposable {
       );
       this.highlightedSubplots.add(element);
     }
+  }
+
+  /**
+   * The figure's background, py-maidr's figure patch, which a panel's outline
+   * is measured against; `undefined` for a chart without one.
+   */
+  private figureBackground(): SVGElement | undefined {
+    const figure = this.chartRoots()
+      .map(root => root.querySelector('g[id^="maidr-"] > path[style*="fill"]'))
+      .find(path => path !== null)
+      ?.parentElement as SVGElement | null;
+    return (figure?.querySelector('path[style*="fill"]') as SVGElement) || undefined;
   }
 
   /**

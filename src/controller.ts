@@ -188,6 +188,8 @@ export class Controller implements Disposable {
    */
   private readonly scopeSubscription: Disposable;
   private readonly agentToolsSubscription: Disposable;
+  /** Draws the highlight again each time high contrast repaints the chart. */
+  private readonly highContrastRepaintSubscription: Disposable;
   private readonly commandExecutor: CommandExecutor;
   private readonly viewModelRegistry: ViewModelRegistry;
 
@@ -286,6 +288,9 @@ export class Controller implements Disposable {
     this.highlightService = new HighlightService(
       this.settingsService,
       () => chartRoots(this.displayService.plot),
+    );
+    this.highContrastRepaintSubscription = this.highContrastService.onDidRepaint(
+      () => this.highlightService.redraw(),
     );
     this.tactileService = new TactileService(
       this.displayService,
@@ -911,6 +916,7 @@ export class Controller implements Disposable {
    */
   public dispose(): void {
     this.scopeSubscription.dispose();
+    this.highContrastRepaintSubscription.dispose();
     this.agentToolsSubscription.dispose();
     this.settingsService.removeObserver(this.keybinding);
     this.keybinding.unregister();

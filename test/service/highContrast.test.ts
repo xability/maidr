@@ -99,18 +99,27 @@ function createStorage(): StorageService {
   };
 }
 
+/** A layer as the service reads it: its type and the elements it selects. */
+interface LayerSpec {
+  traceType: string;
+  elements: SVGElement[];
+}
+
 /**
- * An empty figure. The service only walks it to decide which elements belong
- * to a trace, and these tests assert on the page and on chart colours that do
- * not depend on that classification.
+ * A figure of one subplot holding the given layers, or an empty one. The
+ * service only walks it to decide which elements belong to a trace, and of
+ * which type.
  */
-function createFigure(traceElements: SVGElement[] = []): Figure {
-  if (traceElements.length === 0) {
+function createFigure(layers: LayerSpec[] = []): Figure {
+  if (layers.length === 0) {
     const figure: Pick<Figure, 'subplots'> = { subplots: [] };
     return figure as unknown as Figure;
   }
-  const trace = { getAllOriginalElements: (): SVGElement[] => traceElements };
-  const figure = { subplots: [[{ traces: [[trace]] }]] };
+  const traces = layers.map(layer => ({
+    traceType: layer.traceType,
+    getAllOriginalElements: (): SVGElement[] => layer.elements,
+  }));
+  const figure = { subplots: [[{ traces: [traces] }]] };
   return figure as unknown as Figure;
 }
 
@@ -261,7 +270,7 @@ function createHarness(
     settings,
     notification as unknown as NotificationService,
     displayService,
-    createFigure(options.traceType === undefined ? [] : marks),
+    createFigure(options.traceType === undefined ? [] : [{ traceType: options.traceType, elements: marks }]),
     context as unknown as Context,
     () => overlays,
   );
@@ -702,6 +711,55 @@ describe('highContrastService', () => {
     expect(harness.bar.getAttribute('fill')).toBe('#ffffff');
   });
 
+  describe('on a chart of more than one layer or panel', () => {
+    /**
+     * Replaces the harness's service with one reading `figure`, under a
+     * context that reports no single type, as a Subplot of several layers or
+     * a Figure of several panels does.
+     */
+    function serviceFor(figure: Figure): void {
+      harness.service.dispose();
+      harness = { ...harness, service: new HighContrastService(
+        harness.settings,
+        { notify: () => {} } as unknown as NotificationService,
+        harness.display as unknown as DisplayService,
+        figure,
+        { id: 'chart', instructionContext: {} } as unknown as Context,
+      ) };
+    }
+
+    it('keeps a near-white bar a bar beside a line', () => {
+      // Mermaid's XY chart draws its bars #ECECFF beside a line; they were
+      // taken for paper, painted the background colour and vanished.
+      rebuild([
+        { fill: '#ececff', stroke: 'none' },
+        { fill: 'none', stroke: '#808080', complexPath: true },
+      ]);
+      const [bar, line] = harness.marks;
+      serviceFor(createFigure([
+        { traceType: 'bar', elements: [bar] },
+        { traceType: 'line', elements: [line] },
+      ]));
+
+      harness.service.initializeHighContrast();
+
+      expect(bar.getAttribute('fill')).toBe('#ffffff');
+      expect(line.getAttribute('stroke')).toBe('#ffffff');
+    });
+
+    it('keeps a near-white bar a bar in each of several panels', () => {
+      rebuild([{ fill: '#ececff', stroke: 'none' }, { fill: '#f4f4ff', stroke: 'none' }]);
+      const panels = harness.marks.map(mark => ({
+        traces: [[{ traceType: 'bar', getAllOriginalElements: (): SVGElement[] => [mark] }]],
+      }));
+      serviceFor({ subplots: [panels] } as unknown as Figure);
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.marks.map(mark => mark.getAttribute('fill'))).toEqual(['#ffffff', '#ffffff']);
+    });
+  });
+
   it('lifts the labels of a tiled chart off their cells, and lets them go after', () => {
     // A heat map label may land on a cell of either shade, so it is given the
     // glow; the glow goes when high contrast does.
@@ -732,6 +790,89 @@ describe('highContrastService', () => {
     expect(harness.svg.style.backgroundColor).toBe('white');
   });
 
+  describe('a mark blended with what lies beneath it', () => {
+    // Mermaid draws a sankey's links `mix-blend-mode: multiply`, inline and
+    // from its stylesheet; multiplied over the black backdrop every link was
+    // drawn black. Drawn normally instead, the highlighted link covered the
+    // labels at its ends.
+    function blended(mode: string): void {
+      rebuild([{ fill: BAR_FILL }], {
+        beforeService: () => document.querySelector('#chart rect')?.setAttribute('style', `mix-blend-mode: ${mode}`),
+      });
+    }
+
+    it('is screened over the dark backdrop, and multiplied again after', () => {
+      blended('multiply');
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.style.getPropertyValue('mix-blend-mode')).toBe('screen');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(harness.bar.style.getPropertyValue('mix-blend-mode')).toBe('multiply');
+      expect(harness.bar.getAttribute('style')).toContain('mix-blend-mode: multiply');
+    });
+
+    it('takes the dark backdrop\'s counterpart of each darkening mode, and is drawn normally in any other', () => {
+      const modes = ['darken', 'color-burn', 'overlay', 'lighten'].map((mode) => {
+        blended(mode);
+        harness.service.initializeHighContrast();
+        return harness.bar.style.getPropertyValue('mix-blend-mode');
+      });
+
+      expect(modes).toEqual(['lighten', 'color-dodge', 'normal', 'lighten']);
+    });
+
+    it('keeps its own colour over a backdrop the reader made light', () => {
+      const modes = ['multiply', 'screen'].map((mode) => {
+        blended(mode);
+        harness.settings.saveSettings({
+          ...harness.settings.loadSettings(),
+          general: { ...harness.settings.loadSettings().general, highContrastDarkColor: '#ffffff', highContrastLightColor: '#000000' },
+        });
+        harness.service.initializeHighContrast();
+        return harness.bar.style.getPropertyValue('mix-blend-mode');
+      });
+
+      expect(modes).toEqual(['multiply', 'multiply']);
+    });
+
+    it('is screened when a stylesheet blends it, and handed back to the stylesheet after', () => {
+      rebuild([{ fill: BAR_FILL }], {
+        beforeService: () => {
+          document.head.insertAdjacentHTML('beforeend', '<style>#chart rect { mix-blend-mode: multiply; }</style>');
+        },
+      });
+
+      harness.service.initializeHighContrast();
+
+      expect(window.getComputedStyle(harness.bar).getPropertyValue('mix-blend-mode')).toBe('screen');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(harness.bar.style.getPropertyValue('mix-blend-mode')).toBe('');
+      expect(window.getComputedStyle(harness.bar).getPropertyValue('mix-blend-mode')).toBe('multiply');
+    });
+
+    it('is screened in the hidden copy a highlight is cloned from', () => {
+      const copy = document.createElementNS(SVG_NAMESPACE, 'rect');
+      copy.setAttribute('visibility', 'hidden');
+      copy.setAttribute('style', 'mix-blend-mode: multiply');
+      rebuild([{ fill: BAR_FILL }], { beforeService: () => document.querySelector('#chart')?.appendChild(copy) });
+
+      harness.service.initializeHighContrast();
+
+      expect(copy.style.getPropertyValue('mix-blend-mode')).toBe('screen');
+    });
+
+    it('is the only mark given a blend mode', () => {
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.style.getPropertyValue('mix-blend-mode')).toBe('');
+    });
+  });
+
   it('puts pattern and glow definitions inside the SVG when the plot is a wrapper', () => {
     // A <pattern> outside an <svg> renders nothing, so every patterned wedge
     // disappeared on a chart whose SVG had no <defs> of its own.
@@ -745,6 +886,112 @@ describe('highContrastService', () => {
     expect(harness.svg.querySelectorAll('pattern')).toHaveLength(2);
     expect(harness.svg.querySelector('#glow-shadow')).not.toBeNull();
     expect(harness.display.plot.querySelector(':scope > defs')).toBeNull();
+  });
+
+  describe('telling the highlight the chart was repainted', () => {
+    // The highlight copies a mark as it is painted, so it is drawn again each
+    // time the reader repaints the chart -- and only then.
+    function countRepaints(): () => number {
+      let repaints = 0;
+      harness.service.onDidRepaint(() => {
+        repaints++;
+      });
+      return () => repaints;
+    }
+
+    it('tells it once each time high contrast is turned on or off', () => {
+      const repaints = countRepaints();
+      turnHighContrastOff(harness.settings);
+      const afterOff = repaints();
+
+      turnHighContrastOn(harness.settings);
+
+      expect(afterOff).toBe(1);
+      expect(repaints()).toBe(2);
+    });
+
+    it('tells it once when new levels are saved while painted', () => {
+      harness.service.initializeHighContrast();
+      const repaints = countRepaints();
+
+      harness.settings.saveSettings({
+        ...harness.settings.loadSettings(),
+        general: { ...harness.settings.loadSettings().general, highContrastLevels: 4 },
+      });
+
+      expect(repaints()).toBe(1);
+    });
+
+    it('does not tell it when the chart is painted on focus or put back on blur', () => {
+      const repaints = countRepaints();
+
+      harness.service.initializeHighContrast();
+      harness.service.suspendHighContrast();
+
+      expect(repaints()).toBe(0);
+    });
+  });
+
+  describe('the legend of a patterned chart', () => {
+    // A pie's wedges are told apart by pattern in high contrast, and its
+    // legend keys were left a plain colour: black on black, or white, the
+    // same for every series.
+
+    /** Draws `markup` after the marks, as a legend is drawn. */
+    function withLegend(specs: MarkSpec[], markup: string, before = false): void {
+      rebuild(specs, {
+        traceType: 'pie',
+        beforeService: () => {
+          const chart = document.querySelector('#chart') as SVGSVGElement;
+          const legend = document.createElementNS(SVG_NAMESPACE, 'g');
+          legend.innerHTML = markup;
+          chart.insertBefore(legend, before ? chart.firstChild : null);
+        },
+      });
+    }
+
+    /** The paint a key is drawn with, from its style or its attribute. */
+    const fillOf = (element: Element): string =>
+      element.getAttribute('style')?.match(/fill:\s*([^;]+)/)?.[1].trim() ?? element.getAttribute('fill') ?? '';
+
+    it('gives each key the pattern of the marks it keys, and its own colour back after', () => {
+      withLegend(
+        [{ fill: '#ececff' }, { fill: '#b5ff20' }],
+        '<rect class="key" style="fill: rgb(236, 236, 255); stroke: rgb(236, 236, 255)"></rect>'
+        + '<rect class="key" fill="#b5ff20"></rect>',
+      );
+      const keys = Array.from(harness.svg.querySelectorAll('.key'));
+
+      harness.service.initializeHighContrast();
+
+      expect(keys.map(fillOf)).toEqual(harness.marks.map(mark => mark.getAttribute('fill')));
+      expect(fillOf(keys[0])).toMatch(/^url\(#maidr-pattern-/);
+      expect(fillOf(keys[0])).not.toBe(fillOf(keys[1]));
+
+      turnHighContrastOff(harness.settings);
+
+      expect(keys.map(fillOf)).toEqual(['rgb(236, 236, 255)', '#b5ff20']);
+    });
+
+    it('leaves a shape of a series colour drawn before the marks alone', () => {
+      withLegend([{ fill: '#ececff' }, { fill: '#b5ff20' }], '<rect class="panel" fill="#b5ff20"></rect>', true);
+
+      harness.service.initializeHighContrast();
+
+      expect(fillOf(harness.svg.querySelector('.panel') as Element)).not.toMatch(/^url\(/);
+    });
+
+    it('patterns no text, and no key of a white series', () => {
+      withLegend(
+        [{ fill: '#ffffff' }, { fill: '#b5ff20' }],
+        '<text class="label" fill="#b5ff20">Cats</text><rect class="frame" fill="#ffffff"></rect>',
+      );
+
+      harness.service.initializeHighContrast();
+
+      expect(fillOf(harness.svg.querySelector('.label') as Element)).not.toMatch(/^url\(/);
+      expect(fillOf(harness.svg.querySelector('.frame') as Element)).not.toMatch(/^url\(/);
+    });
   });
 
   it('recolours the layers drawn over the plot with it', () => {
@@ -786,6 +1033,393 @@ describe('highContrastService', () => {
     turnHighContrastOff(harness.settings);
 
     expect(harness.svg.classList.contains('high-contrast')).toBe(false);
+  });
+
+  describe('paint a stylesheet gives', () => {
+    // Mermaid paints its edges, markers, lifelines, node fills and axis text
+    // from the <style> it puts in the diagram. None of it was captured, and
+    // where an attribute was rewritten instead the rule still won, so the
+    // diagram's lines stayed dark on the black backdrop.
+    const SHEET_LIGHT = '#ffffff';
+    const SHEET_DARK = '#000000';
+
+    /** Builds a chart from markup drawn into the SVG, under a stylesheet. */
+    function chartOf(markup: string, css: string): void {
+      rebuild([{ fill: 'none', stroke: 'none' }], {
+        beforeService: () => {
+          document.head.insertAdjacentHTML('beforeend', `<style>${css}</style>`);
+          const chart = document.querySelector('#chart') as SVGSVGElement;
+          chart.innerHTML = markup;
+        },
+      });
+    }
+
+    it('repaints a line a rule strokes, and hands it back to the rule after', () => {
+      chartOf('<path class="edge" d="M 0 0 L 10 10"></path>', '#chart .edge { stroke: #333333; fill: none; }');
+      const edge = harness.svg.querySelector('.edge') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(edge.style.getPropertyValue('stroke')).toBe(SHEET_LIGHT);
+      expect(edge.style.getPropertyPriority('stroke')).toBe('important');
+      expect(edge.style.getPropertyValue('fill')).toBe('');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(edge.hasAttribute('style')).toBe(false);
+    });
+
+    it('repaints text a rule colours over its fill attribute, and leaves the attribute alone', () => {
+      // D3's and Mermaid's axis ticks: `fill="#000"` under `.tick text`.
+      chartOf('<g class="tick"><text fill="#000">2026-01-11</text></g>', '#chart .tick text { fill: #333333; }');
+      const tick = harness.svg.querySelector('text') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(tick.style.getPropertyValue('fill')).toBe(SHEET_LIGHT);
+      expect(tick.getAttribute('fill')).toBe('#000');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(tick.style.getPropertyValue('fill')).toBe('');
+      expect(tick.getAttribute('fill')).toBe('#000');
+    });
+
+    it('repaints a fill an important rule gives, over the rule', () => {
+      // A Mermaid classDef is an `!important` rule.
+      chartOf('<rect class="box"></rect>', '#chart rect.box { fill: #f0f0f0 !important; }');
+      const box = harness.svg.querySelector('.box') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(box.style.getPropertyValue('fill')).toBe(SHEET_DARK);
+      expect(box.style.getPropertyPriority('fill')).toBe('important');
+    });
+
+    it('takes an inline paint over the attribute it hides', () => {
+      // C4 and Mermaid's sequence actors write both. The hidden attribute was
+      // counted as the outline that kept the box visible, and the box was
+      // left black on black.
+      chartOf(
+        '<rect fill="#eaeaea" stroke="#666666" style="fill: #fff7ed; stroke: #fb923c"></rect>',
+        '',
+      );
+      const box = harness.svg.querySelector('rect') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(box.getAttribute('style')).toContain('stroke:#ffffff');
+      expect(box.getAttribute('stroke')).toBe('#666666');
+    });
+
+    it('repaints a span a rule colours itself, as well as its label', () => {
+      // Mermaid's `.loopText > tspan`, which kept a loop's condition dark.
+      chartOf(
+        '<text class="loopText"><tspan>[Until the password matches]</tspan></text>',
+        '#chart .loopText, #chart .loopText > tspan { fill: #333333; }',
+      );
+      const span = harness.svg.querySelector('tspan') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(span.style.getPropertyValue('fill')).toBe(SHEET_LIGHT);
+      expect(span.style.getPropertyPriority('fill')).toBe('important');
+    });
+
+    it('repaints the markers a rule fills', () => {
+      chartOf(
+        '<defs><marker id="arrow"><path class="arrowhead" d="M 0 0 L 5 5"></path></marker></defs>',
+        '#chart .arrowhead { fill: #333333; stroke: #333333; }',
+      );
+      const head = harness.svg.querySelector('.arrowhead') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(head.style.getPropertyValue('fill')).toBe(SHEET_LIGHT);
+      expect(head.style.getPropertyValue('stroke')).toBe(SHEET_LIGHT);
+    });
+
+    it('paints a pale yellow as ink, not as the page showing through', () => {
+      // Mermaid draws a radar series, and a mindmap's section and its
+      // branches, in #ffff78: as light as paper, but a colour. Taken for the
+      // page, the series and the branches were painted the background colour.
+      chartOf(
+        '<path class="curve" d="M 0 0 L 10 10 Z"></path><path class="branch" d="M 0 0 L 10 10"></path>',
+        '#chart .curve { fill: #ffff78; stroke: #ffff78; } #chart .branch { fill: none; stroke: #ffff78; }',
+      );
+      const curve = harness.svg.querySelector('.curve') as SVGElement;
+      const branch = harness.svg.querySelector('.branch') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(curve.style.getPropertyValue('fill')).toBe(SHEET_LIGHT);
+      expect(branch.style.getPropertyValue('stroke')).toBe(SHEET_LIGHT);
+    });
+
+    it('reads a rule nested in an at-rule, and none that matches no element', () => {
+      chartOf(
+        '<path class="edge" d="M 0 0 L 10 10"></path>',
+        '@media screen { #chart .edge { stroke: #333333; } } #chart .edge::after { fill: red; }',
+      );
+      const edge = harness.svg.querySelector('.edge') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(edge.style.getPropertyValue('stroke')).toBe(SHEET_LIGHT);
+    });
+  });
+
+  describe('HTML drawn inside the SVG', () => {
+    // Mermaid draws its labels as HTML in a <foreignObject>, coloured by CSS
+    // `color`. A rule on the label outranked the colour it would take from
+    // the backdrop, so Venn items and use case actors stayed dark on black.
+
+    /** Builds a chart holding `markup` in a foreignObject, under `css`. */
+    function htmlChart(markup: string, css: string, options: HarnessOptions = {}): HTMLElement {
+      rebuild([{ fill: 'none', stroke: 'none' }], {
+        ...options,
+        beforeService: () => {
+          document.head.insertAdjacentHTML('beforeend', `<style>${css}</style>`);
+          const object = document.createElementNS(SVG_NAMESPACE, 'foreignObject');
+          object.innerHTML = markup;
+          document.querySelector('#chart')?.appendChild(object);
+        },
+      });
+      return harness.svg.querySelector('foreignObject') as unknown as HTMLElement;
+    }
+
+    it('recolours HTML text a stylesheet colours, and hands it back after', () => {
+      const object = htmlChart(
+        '<div><span class="venn-text-node">React</span></div>',
+        '#chart .venn-text-node { color: rgb(40, 37, 61); }',
+      );
+      const label = object.querySelector('span') as HTMLElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(label.style.getPropertyValue('color')).toBe(LIGHT);
+      expect(label.style.getPropertyPriority('color')).toBe('important');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(label.style.getPropertyValue('color')).toBe('');
+      expect(label.hasAttribute('style')).toBe(false);
+    });
+
+    it('turns near-white HTML text dark', () => {
+      const object = htmlChart('<p class="on-mark">Ship</p>', '#chart .on-mark { color: rgb(255, 255, 255); }');
+
+      harness.service.initializeHighContrast();
+
+      expect((object.querySelector('p') as HTMLElement).style.getPropertyValue('color')).toBe(DARK);
+    });
+
+    it('darkens a label box drawn in HTML, and restores it after', () => {
+      // Mermaid's edge labels: `.edgeLabel p { background-color: ... }`.
+      const object = htmlChart('<p class="edgeLabel">yes</p>', '#chart .edgeLabel { background-color: rgba(232, 232, 232, 0.8); }');
+      const box = object.querySelector('p') as HTMLElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(box.style.getPropertyValue('background-color')).toBe(DARK);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(box.style.getPropertyValue('background-color')).toBe('');
+    });
+
+    it('leaves HTML outside the SVG alone', () => {
+      htmlChart('<span>React</span>', '#react-container-chart p { color: rgb(40, 37, 61); }', { article: true });
+      const announcement = document.querySelector('#react-container-chart p') as HTMLElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(announcement.style.getPropertyValue('color')).toBe('');
+    });
+  });
+
+  describe('a label and the shape under it', () => {
+    // A box lifted to the light colour: its fill and outline both map to the
+    // background, so its fill is lifted off it -- as Mermaid's event model
+    // boxes are.
+    const LIFTED_BOX: MarkSpec = { fill: '#bcd6fe', stroke: '#679ac3' };
+    // A box whose fill goes dark behind an outline that goes light.
+    const DARKENED_BOX: MarkSpec = { fill: '#ffb778', stroke: '#c19a0f' };
+    // An inline fill as jsdom reports it: as written, where it serialises
+    // `color` as rgb().
+    const DARK_FILL = '#000000';
+    const LIGHT_FILL = '#ffffff';
+
+    /**
+     * Builds a chart of one box with a label drawn on it, the label coloured
+     * by a stylesheet as Mermaid colours its text, and lays them out.
+     */
+    function labelOn(
+      box: MarkSpec,
+      options: { css?: string; boxStyle?: string; traceType?: string; copied?: boolean } = {},
+    ): SVGElement {
+      rebuild([box], {
+        traceType: options.traceType,
+        beforeService: () => {
+          document.head.insertAdjacentHTML('beforeend', `<style>#chart .lab { fill: #333333; } ${options.css ?? ''}</style>`);
+          const chart = document.querySelector('#chart') as SVGSVGElement;
+          if (options.boxStyle !== undefined) {
+            chart.querySelector('rect')?.setAttribute('style', options.boxStyle);
+          }
+          const label = document.createElementNS(SVG_NAMESPACE, 'text');
+          label.setAttribute('class', 'lab');
+          label.textContent = 'Add item';
+          chart.appendChild(label);
+          if (options.copied) {
+            // The hidden copy MAIDR stands beside a node, as Svg.cloneHidden does.
+            const copy = document.createElementNS(SVG_NAMESPACE, 'g');
+            copy.setAttribute('data-maidr-owned', 'true');
+            copy.setAttribute('visibility', 'hidden');
+            copy.append(chart.querySelector('rect')?.cloneNode(true) ?? '', label.cloneNode(true));
+            chart.appendChild(copy);
+          }
+        },
+      });
+      const label = harness.svg.querySelector('text.lab') as SVGElement;
+      placeAt(harness.bar, 0, 0, 100, 40);
+      placeAt(label, 10, 10, 60, 16);
+      const copy = harness.svg.querySelector('[data-maidr-owned]');
+      if (copy !== null) {
+        placeAt(copy.querySelector('rect') as Element, 0, 0, 100, 40);
+        placeAt(copy.querySelector('text') as Element, 10, 10, 60, 16);
+      }
+      return label;
+    }
+
+    it('gives a label the colour that reads on the box under it, and takes it back after', () => {
+      const label = labelOn(LIFTED_BOX);
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.getAttribute('fill')).toBe('#ffffff');
+      expect(label.style.getPropertyValue('fill')).toBe(DARK_FILL);
+      expect(label.style.getPropertyPriority('fill')).toBe('important');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(label.style.getPropertyValue('fill')).toBe('');
+    });
+
+    it('gives an HTML label inside the SVG the colour that reads on the box under it', () => {
+      rebuild([LIFTED_BOX], {
+        beforeService: () => {
+          const object = document.createElementNS(SVG_NAMESPACE, 'foreignObject');
+          const div = document.createElement('div');
+          div.textContent = 'Add item';
+          object.appendChild(div);
+          document.querySelector('#chart')?.appendChild(object);
+        },
+      });
+      const div = harness.svg.querySelector('foreignObject div') as HTMLElement;
+      placeAt(harness.bar, 0, 0, 100, 40);
+      placeAt(div, 10, 10, 60, 16);
+
+      harness.service.initializeHighContrast();
+
+      expect(div.style.getPropertyValue('color')).toBe(DARK);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(div.style.getPropertyValue('color')).toBe('');
+    });
+
+    it('keeps a label light on a box that went dark', () => {
+      const label = labelOn(DARKENED_BOX);
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.getAttribute('fill')).toBe('#000000');
+      expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+    });
+
+    it('leaves a label with nothing under it the colour it was given', () => {
+      const label = labelOn(LIFTED_BOX);
+      placeAt(harness.bar, 200, 200, 100, 40);
+
+      harness.service.initializeHighContrast();
+
+      expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+    });
+
+    it('sees a translucent box as it shows over the dark backdrop', () => {
+      // White at 0.3 over black is a dark grey, which light text reads on;
+      // at 0.6 it is a light grey, which dark text reads on.
+      const faint = labelOn(LIFTED_BOX, { boxStyle: 'opacity: 0.3' });
+      harness.service.initializeHighContrast();
+      const faintFill = faint.style.getPropertyValue('fill');
+
+      const solid = labelOn(LIFTED_BOX, { boxStyle: 'opacity: 0.6' });
+      harness.service.initializeHighContrast();
+
+      expect(faintFill).toBe(LIGHT_FILL);
+      expect(solid.style.getPropertyValue('fill')).toBe(DARK_FILL);
+    });
+
+    it('does not take one of MAIDR\'s highlights for the surface', () => {
+      const label = labelOn(DARKENED_BOX);
+      harness.service.initializeHighContrast();
+      const highlight = document.createElementNS(SVG_NAMESPACE, 'rect');
+      highlight.setAttribute('data-maidr-owned', 'true');
+      highlight.setAttribute('style', 'fill: rgb(3, 200, 9)');
+      placeAt(highlight, 0, 0, 100, 40);
+      harness.svg.insertBefore(highlight, label);
+
+      turnHighContrastOff(harness.settings);
+      turnHighContrastOn(harness.settings);
+
+      expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+    });
+
+    it('gives the label in the copy a highlight is cloned from its original\'s colour, and takes it back after', () => {
+      // The highlight is cloned from MAIDR's hidden copy, and outlines the box
+      // without filling it, so the copy's label shows over the original box:
+      // left light, the label of the node the reader was on went white on white.
+      const label = labelOn(LIFTED_BOX, { copied: true });
+      const copied = harness.svg.querySelector('[data-maidr-owned] text') as SVGElement;
+
+      harness.service.initializeHighContrast();
+
+      expect(label.style.getPropertyValue('fill')).toBe(DARK_FILL);
+      expect(copied.style.getPropertyValue('fill')).toBe(DARK_FILL);
+      expect(copied.style.getPropertyPriority('fill')).toBe('important');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(copied.style.getPropertyValue('fill')).toBe('');
+    });
+
+    it('leaves text that draws its own halo, and the labels of a tiled chart, as they were', () => {
+      const haloed = labelOn(LIFTED_BOX, { css: '#chart .lab { stroke: #ffffff; stroke-width: 3px; }' });
+      harness.service.initializeHighContrast();
+      const haloedFill = haloed.style.getPropertyValue('fill');
+
+      const onCell = labelOn({ fill: '#1f77b4', stroke: 'none' }, { traceType: 'heat' });
+      harness.service.initializeHighContrast();
+
+      expect(haloedFill).toBe(LIGHT_FILL);
+      expect(onCell.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+    });
+
+    it('gives a span its own rule colours the colour of its label, and takes it back after', () => {
+      // Mermaid colours a sequence diagram's `.loopText > tspan` itself.
+      const label = labelOn(LIFTED_BOX, { css: '#chart .lab > tspan { fill: #333333; }' });
+      const span = document.createElementNS(SVG_NAMESPACE, 'tspan');
+      span.textContent = 'loop';
+      label.replaceChildren(span);
+
+      harness.service.initializeHighContrast();
+
+      expect(span.style.getPropertyValue('fill')).toBe(DARK_FILL);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(span.style.getPropertyValue('fill')).toBe('');
+    });
   });
 
   describe('what it paints behind the chart', () => {
