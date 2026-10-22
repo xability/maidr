@@ -397,6 +397,14 @@ page which drew a chart's marks elsewhere keeps its highlight.
 - **`BoxSelector[]`** and **`CandlestickSelector`** name the parts of a box or
   a candle; their fields are described under those plot types below.
 
+A named shape -- a `<rect>`, `<path>`, `<circle>` and so on -- is drawn over in
+the highlight colour. A named group, or any element holding such shapes, is
+outlined through them instead: each shape inside it that draws anything is
+stroked in the highlight colour, wider than drawn, over whatever paint its own
+attributes or the page's stylesheet give it, and left unfilled, so the group
+shows through; its text keeps its colour. The outline is drawn last in the
+group's parent, above the marks drawn after it.
+
 ### By layer type
 
 | Layer types | Shapes read | How the matches pair with the data |

@@ -24,6 +24,9 @@ const FOCUS_TARGET = '[id^="maidr-figure-"] [tabindex="0"]';
 const BRAILLE = 'textarea[id^="maidr-braille-textarea-"]';
 const HIGHLIGHT = '[id^="maidr-highlight"]';
 
+/** The default highlight colour, as a computed stroke. */
+const HIGHLIGHT_STROKE = 'rgb(3, 200, 9)';
+
 /**
  * Every braille cell MAIDR can emit lives in the Unicode braille block, but
  * for the blank a scatter's grid leaves in a cell with no points.
@@ -214,6 +217,9 @@ test.describe('Mermaid adapter', () => {
     expect(decision).toContain('Back-order (no)');
     expect(decision).toContain('Shape is decision');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('In stock?');
+    // The diamond itself, which Mermaid's stylesheet paints, not only its label.
+    await expect(page.locator(`${HIGHLIGHT} :is(rect, path, polygon)`).first())
+      .toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
 
   test('walks a sequence diagram in time, and a lifeline keeping the moment', async ({ page }) => {
@@ -230,6 +236,16 @@ test.describe('Mermaid adapter', () => {
     const lifeline = await press(page, 'ArrowDown');
     expect(lifeline).toContain('Lifeline is Web app');
     expect(lifeline).toContain('User row');
+  });
+
+  test('outlines a sequence diagram\'s message and note over Mermaid\'s own paint', async ({ page }) => {
+    await openExample(page, 'sequence');
+    await press(page, 'ArrowRight');
+    // Mermaid's stylesheet draws a message 1.5px wide, over the attribute.
+    await expect(page.locator(HIGHLIGHT)).toHaveCSS('stroke-width', '3.5px');
+
+    expect(await press(page, 'Control+ArrowRight')).toContain('Note is Session stored');
+    await expect(page.locator(`${HIGHLIGHT} rect`)).toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
 
   test('goes into a Venn diagram\'s overlaps and back out', async ({ page }) => {

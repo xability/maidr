@@ -381,7 +381,7 @@ Every other diagram type has a runnable page under [Examples](#examples).
 
 ## Highlighting
 
-The highlight outlines the shape Mermaid drew for the point the reader is on: a flowchart's node, a sequence diagram's arrow or note, a gantt task, a Venn region. Where a diagram's shapes cannot all be paired with what was read -- a railroad diagram's expressions are drawn as one path, a journey's tasks are not told apart in the SVG -- the diagram is read without a highlight, and every modality still works.
+The highlight outlines the shape Mermaid drew for the point the reader is on: a flowchart's node, a sequence diagram's arrow or note, a gantt task, a Venn region. A node, a note or a column is drawn as a group of shapes, and each of them is outlined in the highlight colour over the paint Mermaid's stylesheet gives it, with its fill and its label left as drawn; an arrow is drawn thicker. Where a diagram's shapes cannot all be paired with what was read -- a railroad diagram's expressions are drawn as one path, a journey's tasks are not told apart in the SVG -- the diagram is read without a highlight, and every modality still works.
 
 ## Configuration Options
 

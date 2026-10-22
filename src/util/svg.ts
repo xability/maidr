@@ -665,9 +665,14 @@ export abstract class Svg {
    */
   private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.01;
   /**
-   * Amount to increase stroke width for highlighting line elements.
+   * Amount to increase stroke width for highlighting line elements, and the
+   * shapes a highlighted group is outlined through.
    */
   private static readonly STROKE_WIDTH_HIGHLIGHT_INCREASE = 2;
+  /**
+   * The shapes a highlighted group is outlined through.
+   */
+  private static readonly HIGHLIGHT_SHAPES = 'rect, path, circle, ellipse, polygon, line, polyline';
 
   /**
    * Adjusts opacity values to ensure visibility, returning '1' if below threshold.
@@ -689,6 +694,10 @@ export abstract class Svg {
    * When the element has a zero-size bounding box (e.g. a single-point
    * ``<path d="M x y">`` used for median markers in violin plots), a
    * visible ``<circle>`` is created at that position instead.
+   *
+   * A group that holds shapes, as a Mermaid or Graphviz node, edge or cluster
+   * does, is outlined through those shapes instead of painted whole (see
+   * {@link outlineShapes}).
    *
    * @param element - The SVG element to highlight
    * @param fallbackColor - Color to use if original color cannot be determined
@@ -720,21 +729,30 @@ export abstract class Svg {
     }
 
     const clone = this.markOwned(element.cloneNode(true) as SVGElement);
+    const computed = window.getComputedStyle(element);
+    const fillOpacity = computed.getPropertyValue('fill-opacity');
+    const strokeOpacity = computed.getPropertyValue('stroke-opacity');
+    clone.style.fillOpacity = this.getAdjustedOpacity(fillOpacity, this.MIN_VISIBLE_FILL_OPACITY);
+    clone.style.strokeOpacity = this.getAdjustedOpacity(strokeOpacity, this.MIN_VISIBLE_STROKE_OPACITY);
+    clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
+
+    if (this.outlineShapes(element, clone, fallbackColor)) {
+      // Last in its parent, so the marks drawn after the group -- the leaves
+      // a Graphviz patchwork tiles over its branch -- cannot cover the
+      // outline. Its shapes are unfilled, so the group shows through it, and
+      // it takes no pointer events from what lies beneath.
+      clone.style.pointerEvents = 'none';
+      element.parentNode?.appendChild(clone);
+      return clone;
+    }
+
     const tag = element.tagName.toLowerCase();
     const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
-
-    const computed = window.getComputedStyle(element);
     const originalColor = isLineElement
       ? computed.getPropertyValue(Constant.STROKE)
       : computed.getPropertyValue(Constant.FILL);
     const color = this.getHighlightColor(originalColor, fallbackColor);
 
-    const fillOpacity = computed.getPropertyValue('fill-opacity');
-    const strokeOpacity = computed.getPropertyValue('stroke-opacity');
-    clone.style.fillOpacity = this.getAdjustedOpacity(fillOpacity, this.MIN_VISIBLE_FILL_OPACITY);
-    clone.style.strokeOpacity = this.getAdjustedOpacity(strokeOpacity, this.MIN_VISIBLE_STROKE_OPACITY);
-
-    clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
     clone.setAttribute(Constant.STROKE, color);
     clone.setAttribute(Constant.FILL, color);
     clone.style.fill = color;
@@ -746,21 +764,89 @@ export abstract class Svg {
       // style, so reading it there would always fall through to the increment.
       const strokeWidth = computed.getPropertyValue(Constant.STROKE_WIDTH);
       const match = strokeWidth.match(/^([0-9.]+)([a-z%]*)$/i);
+      let width: string;
       if (match) {
         const value = Number.parseFloat(match[1]);
         const unit = match[2] || '';
-        clone.setAttribute(Constant.STROKE_WIDTH, `${value + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}${unit}`);
+        width = `${value + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}${unit}`;
       } else {
         const parsed = Number.parseFloat(strokeWidth);
         const value = Number.isNaN(parsed)
           ? this.STROKE_WIDTH_HIGHLIGHT_INCREASE
           : parsed + this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
-        clone.setAttribute(Constant.STROKE_WIDTH, `${value}`);
+        width = `${value}`;
       }
+      // Inline as well: a stylesheet rule, such as Mermaid's
+      // `.messageLine0 { stroke-width: 1.5px }`, beats the attribute, and
+      // kept the line as thin as it was drawn.
+      clone.setAttribute(Constant.STROKE_WIDTH, width);
+      clone.style.strokeWidth = width;
     }
 
     element.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
+  }
+
+  /**
+   * Outlines the shapes inside a highlighted group in the highlight colour.
+   *
+   * A group's own fill and stroke reach a child only by inheritance, and lose
+   * to any paint the child declares: Graphviz writes `stroke="black"` on every
+   * polygon and path, Mermaid styles `.node rect` from its stylesheet, and C4
+   * inline with `!important`. Painting the group left its shapes as drawn, so
+   * a node, an edge or a cluster showed its label in the highlight colour at
+   * best, and nothing at all at worst. Each shape is stroked here instead,
+   * wider than drawn, as `!important` inline style, the one declaration a
+   * stylesheet's `!important` rule cannot beat; and left unfilled, so the
+   * group shows through. Text keeps its own colour.
+   *
+   * The colour is not derived from the group, whose fill is only what it
+   * inherited.
+   *
+   * @param element - The element highlighted, in the document, so its shapes'
+   *   styles resolve
+   * @param clone - Its deep clone, whose shapes are its own in the same order
+   * @param color - The highlight colour
+   * @returns Whether any shape was outlined: never for a shape itself, nor for
+   *   a group drawing nothing but text, which is painted whole instead
+   */
+  private static outlineShapes(element: SVGElement, clone: SVGElement, color: string): boolean {
+    if (element.matches(this.HIGHLIGHT_SHAPES)) {
+      return false;
+    }
+    const shapes = clone.querySelectorAll<SVGElement>(this.HIGHLIGHT_SHAPES);
+    let outlined = false;
+    element.querySelectorAll<SVGElement>(this.HIGHLIGHT_SHAPES).forEach((source, at) => {
+      const style = window.getComputedStyle(source);
+      const stroked = this.isPainted(style.stroke, style.strokeOpacity)
+        && Number.parseFloat(style.strokeWidth) !== 0;
+      // A shape the chart draws with no paint, such as a hit area, stays
+      // invisible rather than growing an outline nobody saw before.
+      if (style.display === 'none' || (!stroked && !this.isPainted(style.fill, style.fillOpacity))) {
+        return;
+      }
+      const width = (Number.parseFloat(style.strokeWidth) || 0) + this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
+      const shape = shapes[at];
+      shape.style.setProperty(Constant.STROKE, color, 'important');
+      shape.style.setProperty('stroke-opacity', '1', 'important');
+      shape.style.setProperty(Constant.STROKE_WIDTH, `${width}px`, 'important');
+      shape.style.setProperty(Constant.FILL, 'none', 'important');
+      outlined = true;
+    });
+    return outlined;
+  }
+
+  /**
+   * Whether a computed fill or stroke draws anything.
+   * @param paint - The computed paint
+   * @param opacity - Its computed opacity
+   * @returns False for `none`, a fully transparent colour, or zero opacity
+   */
+  private static isPainted(paint: string, opacity: string): boolean {
+    return paint !== 'none'
+      && paint !== Constant.TRANSPARENT
+      && Color.parseRgba(paint)?.a !== 0
+      && Number.parseFloat(opacity) !== 0;
   }
 
   /**

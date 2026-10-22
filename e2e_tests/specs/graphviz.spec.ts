@@ -19,6 +19,9 @@ const BRAILLE_CELL = /^\p{Script=Braille}+$/u;
 /** The outline MAIDR draws over the node the reader is on. */
 const OUTLINE = '[data-maidr-graphviz-node][data-maidr-owned]:not([visibility="hidden"])';
 
+/** The default highlight colour, as a computed stroke. */
+const HIGHLIGHT_STROKE = 'rgb(3, 200, 9)';
+
 class GraphvizPage extends BasePage {
   protected override readonly selectors = {
     notification: `#${TestConstants.MAIDR_NOTIFICATION_CONTAINER} ${TestConstants.PARAGRAPH}`,
@@ -98,6 +101,9 @@ test.describe('Graphviz adapter', () => {
     expect(announcement).toContain('0 inputs, 1 output');
     await expect(page.locator(OUTLINE)).toHaveCount(1);
     await expect(page.locator(`${OUTLINE} title`)).toHaveText('received');
+    // The node's own shape, which Graphviz strokes black, not only its label.
+    await expect(page.locator(`${OUTLINE} :is(polygon, path, ellipse)`).first())
+      .toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
 
   test('should follow the edges and name a merge by its edge labels', async ({ page }) => {
@@ -160,6 +166,7 @@ test.describe('Graphviz adapter, undirected graph', () => {
 
     expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ben');
     await expect(page.locator(`${LINK} title`)).toHaveText('ben--chloe');
+    await expect(page.locator(`${LINK} path`)).toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
 });
 
@@ -224,6 +231,11 @@ test.describe('Graphviz adapter, patchwork treemap', () => {
     expect(announcement).toContain('Area is 65');
     expect(announcement).toContain('Children is 2');
     await expect(page.locator(`${CELL} title`)).toHaveText('cluster_people');
+    await expect(page.locator(`${CELL} polygon`)).toHaveCSS('stroke', HIGHLIGHT_STROKE);
+    // Drawn after the leaves Graphviz tiles over the branch, or they would
+    // cover its border.
+    expect(await page.locator(CELL).evaluate(cell => cell.parentElement?.lastElementChild === cell))
+      .toBe(true);
   });
 
   test('should open a branch onto its leaves, each with its area', async ({ page }) => {

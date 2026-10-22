@@ -43,7 +43,7 @@ Graphviz's SVG is regular: the graph is a `<g class="graph">`, each node a `<g c
 
 Graphviz draws a cluster's nodes beside the cluster's group, not inside it, so what puts a node in a cluster is the outline drawn around it: the adapter reads each node's position from the drawing's own coordinates and puts it inside every cluster whose outline holds it.
 
-Each node of a directed graph, and each link of a network, is paired with its own group in the drawing, so what the reader is on is outlined. Graphviz numbers its groups `node1`, `edge1`, ... afresh in every drawing, so the adapter marks each group with `data-maidr-graphviz-node` or `data-maidr-graphviz-edge` and gives the SVG an id when it has none: two graphs on one page are kept apart.
+Each node of a directed graph, and each link of a network, is paired with its own group in the drawing, so what the reader is on is outlined: the shapes of its group are stroked in the highlight colour over the colour Graphviz drew them in, and its fill and label are left as drawn. Graphviz numbers its groups `node1`, `edge1`, ... afresh in every drawing, so the adapter marks each group with `data-maidr-graphviz-node` or `data-maidr-graphviz-edge` and gives the SVG an id when it has none: two graphs on one page are kept apart.
 
 ## Supported Graph Types
 

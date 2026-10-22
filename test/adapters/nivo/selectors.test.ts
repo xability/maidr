@@ -311,6 +311,21 @@ describe('syncHighlightCopies', () => {
     expect(copy?.querySelector('rect')?.getAttribute('width')).toBe('30');
   });
 
+  it('finds a cell\'s outline drawn last in the group, after the other cells', () => {
+    const container = containerWith(`<svg>
+      <g data-testid="cell.a.x" transform="translate(40, 0)"><rect width="30"></rect></g>
+      <g data-testid="cell.a.x" data-maidr-owned="true" visibility="hidden" transform="translate(20, 0)"><rect width="15"></rect></g>
+      <g data-testid="cell.a.y" transform="translate(70, 0)"><rect width="30"></rect></g>
+      <g id="outline" data-testid="cell.a.x" data-maidr-owned="true" transform="translate(20, 0)"><rect width="15"></rect></g>
+    </svg>`);
+
+    syncHighlightCopies(container);
+
+    const outline = document.getElementById('outline');
+    expect(outline?.getAttribute('transform')).toBe('translate(40, 0)');
+    expect(outline?.querySelector('rect')?.getAttribute('width')).toBe('30');
+  });
+
   it('leaves copies it cannot pair with their mark alone', () => {
     const container = containerWith(`<svg><g data-key="boxplot.0.0">
       <line x1="0" x2="10"></line>
