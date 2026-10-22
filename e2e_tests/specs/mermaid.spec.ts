@@ -521,6 +521,17 @@ test.describe('Mermaid adapter', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
 
+  test('reads a packet field from its first bit to its last', async ({ page }) => {
+    await openExample(page, 'packet');
+    const source = await press(page, 'ArrowRight');
+    expect(source).toContain('Source port, Bit is 0 through 15');
+    expect(source).toContain('Length is 16 bits');
+    expect(await press(page, 'ArrowRight')).toContain('Bit is 16 through 31');
+
+    await page.keyboard.press('d');
+    await expect(page.getByRole('dialog')).toContainText('Spans: 0 to 95');
+  });
+
   test('walks a user journey from one section into the next', async ({ page }) => {
     await openExample(page, 'journey');
     for (let task = 0; task < 3; task++) {

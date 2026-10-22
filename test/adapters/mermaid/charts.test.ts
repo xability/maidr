@@ -43,14 +43,22 @@ describe('the charts', () => {
     expect(matched(layer)).toBe(2);
   });
 
-  it('reads a packet as bit intervals, one lane per row', () => {
+  it('reads a packet as bit intervals, one lane per row, each ending on its last bit', () => {
     const layer = layersOf(convert('packet', {
-      getPacket: () => [[{ start: 0, end: 15, label: 'Source Port' }, { start: 16, end: 31, label: 'Destination Port' }]],
+      getPacket: () => [
+        [{ start: 0, end: 15, label: 'Source Port' }, { start: 16, end: 31, label: 'Destination Port' }],
+        [{ start: 32, end: 32, label: 'Flag' }],
+      ],
     }))[0];
-    expect((layer.data as GanttData).points[0]).toEqual([
-      { x: 'Bits 0 to 31', start: 0, end: 16, label: 'Source Port' },
-      { x: 'Bits 0 to 31', start: 16, end: 32, label: 'Destination Port' },
+    const data = layer.data as GanttData;
+    expect(data.points).toEqual([
+      [
+        { x: 'Bits 0 to 31', start: 0, end: 15, label: 'Source Port' },
+        { x: 'Bits 0 to 31', start: 16, end: 31, label: 'Destination Port' },
+      ],
+      [{ x: 'Bits 32 to 32', start: 32, end: 32, label: 'Flag' }],
     ]);
+    expect(data.inclusive).toBe(true);
   });
 
   it('recovers a quadrant chart\'s values from its laid-out points, in declared order', () => {

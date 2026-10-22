@@ -132,7 +132,8 @@ export function gantt(context: DiagramContext): DiagramConversion {
 
 /**
  * Packet diagrams: the fields of a network packet, one lane per row of bits,
- * each field an interval of bits.
+ * each field an interval of bits from its first to its last, as Mermaid
+ * writes and draws it.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -147,7 +148,7 @@ export function packet(context: DiagramContext): DiagramConversion {
     return fields.map(field => ({
       x: lane,
       start: num(field.start) ?? Number.NaN,
-      end: (num(field.end) ?? Number.NaN) + 1,
+      end: num(field.end) ?? Number.NaN,
       label: plain(field.label),
     }));
   }).filter(lane => lane.length > 0);
@@ -159,7 +160,7 @@ export function packet(context: DiagramContext): DiagramConversion {
     orientation: Orientation.HORIZONTAL,
     axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
     ...(blocks.length === count && count > 0 ? { selectors: selectorsFor(blocks) } : {}),
-    data: { points: lanes, unit: 'bits' },
+    data: { points: lanes, unit: 'bits', inclusive: true },
   };
   return { layers: count > 0 ? [layer] : [] };
 }
