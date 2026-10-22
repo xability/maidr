@@ -206,6 +206,55 @@ describe('the charts', () => {
     expect(layer.axes?.z).toBeUndefined();
   });
 
+  describe('a sankey\'s columns', () => {
+    /** Mermaid's example, in the order its database holds the nodes. */
+    const NODES = ['Solar', 'Electricity', 'Wind', 'Gas', 'Heating', 'Homes', 'Industry'];
+    /** Where Mermaid 12 draws them: each node's left edge and top. */
+    const PLACES: [number, number][] = [[0, 228.8], [295, 114.8], [0, 332.7], [0, 0], [590, 0], [590, 113.5], [590, 275.1]];
+    const VALUES = [40, 135, 35, 105, 45, 70, 65];
+    const db = {
+      getNodes: () => NODES.map(ID => ({ ID })),
+      getLinks: () => [
+        ['Solar', 'Electricity', 40],
+        ['Wind', 'Electricity', 35],
+        ['Gas', 'Electricity', 60],
+        ['Gas', 'Heating', 45],
+        ['Electricity', 'Homes', 70],
+        ['Electricity', 'Industry', 65],
+      ].map(([source, target, value]) => ({ source: { ID: source }, target: { ID: target }, value })),
+    };
+    /**
+     * Drawn as Mermaid draws a sankey: a group per node at its place, then
+     * a label per node, both in the database's order.
+     */
+    const drawing = (labels: string[] = NODES): SVGSVGElement => drawn('s', `<g class="nodes">${
+      PLACES.map(([x, y]) => `<g class="node" x="${x}" y="${y}" transform="translate(${x},${y})"><rect></rect></g>`).join('')
+    }</g><g class="node-labels">${
+      labels.map((name, at) => `<text>${name}\n${VALUES[at]}</text>`).join('')
+    }</g><g class="links">${'<g class="link"><path></path></g>'.repeat(6)}</g>`);
+
+    it('declares the columns Mermaid drew the nodes in, each top to bottom', () => {
+      // d3-sankey's justify alignment puts Heating, a sink, in the last
+      // column, and orders the first column Gas, Solar, Wind.
+      const layer = layersOf(convert('sankey', db, drawing()))[0];
+      expect(layer.flowOptions).toEqual({
+        columns: [['Gas', 'Solar', 'Wind'], ['Electricity'], ['Heating', 'Homes', 'Industry']],
+      });
+
+      const trace = TraceFactory.create(layer);
+      trace.moveOnce('FORWARD');
+      expect((trace.state as NonEmptyTraceState).text.main.value).toBe('Gas');
+      trace.moveToIndex(0, 2);
+      expect((trace.state as NonEmptyTraceState).text.main.value).toBe('Heating');
+    });
+
+    it('declares none when a drawn node cannot be paired with its name', () => {
+      const swapped = ['Electricity', 'Solar', ...NODES.slice(2)];
+      expect(layersOf(convert('sankey', db, drawing(swapped)))[0].flowOptions).toBeUndefined();
+      expect(layersOf(convert('sankey', db, drawing(NODES.slice(1))))[0].flowOptions).toBeUndefined();
+    });
+  });
+
   it('reads a treemap\'s sections and sized items', () => {
     const layer = layersOf(convert('treemap', {
       getRoot: () => ({ name: '', children: [{ name: 'A', children: [{ name: 'A1', value: 10 }] }] }),

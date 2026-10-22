@@ -1129,7 +1129,9 @@ test.describe('Mermaid adapter', () => {
 
   test('outlines the sankey flow a step announces as the one it went along', async ({ page }) => {
     await openExample(page, 'sankey');
-    await press(page, 'ArrowRight');
+    // The first column is walked as Mermaid draws it: Gas, Solar, Wind.
+    expect(await press(page, 'ArrowRight')).toContain('Node is Gas');
+    expect(await press(page, 'ArrowDown')).toContain('Node is Solar');
     expect(await press(page, 'ArrowDown')).toContain('Node is Wind');
     const arrived = await press(page, 'ArrowRight');
     expect(arrived).toContain('Node is Electricity');

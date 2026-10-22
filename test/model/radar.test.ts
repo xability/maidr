@@ -253,6 +253,49 @@ describe('the sweep goes round rather than across', () => {
   });
 });
 
+describe('a refused move is heard from where the spoke is', () => {
+  /**
+   * The empty state a refused move pushes to observers.
+   * @param trace The positioned trace
+   * @param direction The move to refuse
+   * @returns The pushed state's audio
+   */
+  function refused(trace: RadarTrace, direction: 'FORWARD' | 'BACKWARD' | 'UPWARD' | 'DOWNWARD'): AudioState {
+    const pushed: unknown[] = [];
+    trace.addObserver({ update: state => pushed.push(state) });
+
+    expect(trace.moveOnce(direction)).toBe(false);
+
+    expect(pushed).toHaveLength(1);
+    expect(pushed[0]).toMatchObject({ empty: true, type: 'trace' });
+    return { panning: (pushed[0] as { audio: AudioState['panning'] }).audio } as AudioState;
+  }
+
+  test('the boundary tone pans where the spoke\'s own tone does', () => {
+    // Down from the first series is refused on every spoke. Panned by the
+    // spoke's index, the chord swept from hard left to hard right while the
+    // spoke's tone went round: 3 o'clock chimed left of centre, and 9
+    // o'clock hard right.
+    for (let col = 0; col < 4; col++) {
+      const point = panOf(nonEmptyState(radar(0, col)));
+
+      expect(pan(refused(radar(0, col), 'DOWNWARD'))).toBeCloseTo(point, 10);
+    }
+  });
+
+  test('the first and last spokes chime where they sit, not at the ends of a row', () => {
+    expect(pan(refused(radar(0, 0), 'BACKWARD'))).toBeCloseTo(0, 10);
+    expect(pan(refused(radar(1, 3), 'FORWARD'))).toBeCloseTo(-1, 10);
+    expect(pan(refused(radar(1, 1), 'UPWARD'))).toBeCloseTo(1, 10);
+  });
+
+  test('a radar with no points still answers a refused move', () => {
+    const trace = TraceFactory.create(createLayer(TraceType.RADAR, [[]])) as RadarTrace;
+
+    expect(() => trace.notifyOutOfBounds()).not.toThrow();
+  });
+});
+
 describe('spoke angles', () => {
   test('are taken from the longest series, not the first', () => {
     // A ragged chart is not what a radar is for, but a producer can emit one,

@@ -867,6 +867,28 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
 abstract class AbstractTimeSeriesEncoder<T extends TimeSeries>
 implements BrailleEncoder<T> {
   /**
+   * Whether single-line mode writes the last row first, as multiline mode
+   * always does.
+   */
+  private readonly lastRowFirst: boolean;
+
+  /**
+   * Creates a time series encoder.
+   *
+   * @param lastRowFirst - Write the last row first in single-line mode too,
+   *   for a trace whose rows are series stacked bottom up -- UP is row + 1 --
+   *   with no drawn top-to-bottom order of their own to keep: a radar's or a
+   *   polar area's series, which share their spokes. Written row 0 first, the
+   *   on-screen field put the first series on its top line and UP moved the
+   *   caret down a line. Off, single-line mode keeps row 0 first, as a line
+   *   chart's series are read: UP there moves to the series drawn above, not
+   *   to the next row.
+   */
+  public constructor(lastRowFirst: boolean = false) {
+    this.lastRowFirst = lastRowFirst;
+  }
+
+  /**
    * Encodes a single data point to a braille character.
    * @param state - Time series state
    * @param row - Row index
@@ -918,6 +940,7 @@ implements BrailleEncoder<T> {
       multiline,
       colOffset,
       state.rowsTopFirst === true,
+      multiline || this.lastRowFirst,
     );
   }
 
@@ -1340,9 +1363,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // A radar's rows are series and its columns spokes, which is the line
       // encoder's input exactly. The circle is what the *pan* carries; braille
       // has no way to express an angle, and a row of magnitudes per series is
-      // the honest thing a display can show.
-      [TraceType.POLAR_AREA, asGeneric(new LineBrailleEncoder())],
-      [TraceType.RADAR, asGeneric(new LineBrailleEncoder())],
+      // the honest thing a display can show. UP is the next series, so the
+      // series are written last first on a single line as well as on several.
+      [TraceType.POLAR_AREA, asGeneric(new LineBrailleEncoder(true))],
+      [TraceType.RADAR, asGeneric(new LineBrailleEncoder(true))],
       // Both are scatters, and their braille is a scatter's. The threshold
       // has no representation and needs none: it is a line on the value axis
       // rather than a magnitude, and a cell height cannot say "this is where

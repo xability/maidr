@@ -147,6 +147,22 @@ describe('the pitch is the rate on the unit interval', () => {
     expect(panning).toEqual({ x: 0.6, y: 0, rows: 2, cols: 2 });
     expect(stateOf(roc(1, 0)).audio.panning).toEqual({ x: 0, y: 1, rows: 2, cols: 2 });
   });
+
+  test('a refused move sounds its boundary where the point sounds', () => {
+    // Logistic is the upper curve at x = 0.1, so Up is refused there. Panned
+    // by index, column 2 of 7, the chord came from a third of the way right
+    // of hard left while the point sounds near the left edge.
+    const trace = roc(0, 2);
+    const pushed: unknown[] = [];
+    trace.addObserver({ update: state => pushed.push(state) });
+
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+
+    expect(pushed).toEqual([expect.objectContaining({
+      empty: true,
+      audio: { x: 0.1, y: 0, rows: 2, cols: 2 },
+    })]);
+  });
 });
 
 describe('each point says its threshold and where it stands against chance', () => {

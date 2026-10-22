@@ -264,6 +264,111 @@ describe('the rotor enumerates the flows the arrows skip', () => {
   });
 });
 
+describe('a flow walk carries on from where it has reached', () => {
+  /** Mermaid's example: Solar, Wind and Gas feed Electricity, which splits. */
+  const MERMAID: FlowPoint[] = [
+    { source: 'Solar', target: 'Electricity', value: 40 },
+    { source: 'Wind', target: 'Electricity', value: 35 },
+    { source: 'Gas', target: 'Electricity', value: 60 },
+    { source: 'Gas', target: 'Heating', value: 45 },
+    { source: 'Electricity', target: 'Homes', value: 70 },
+    { source: 'Electricity', target: 'Industry', value: 65 },
+  ];
+
+  /**
+   * Presses one way in a rotor mode until it is refused.
+   * @param trace The trace to drive
+   * @param key Which flow unit
+   * @returns Each node landed on, and the flow announced on the way
+   */
+  function rotorWalk(trace: FlowTrace, key: 'outgoing' | 'incoming'): string[] {
+    const visited: string[] = [];
+    while (visited.length < 8 && trace.moveToRotorFilter(key, 'right')) {
+      visited.push(String(nonEmptyState(trace).text.asides?.[0]?.value));
+    }
+    return visited;
+  }
+
+  test('once the start node\'s flows run out, the node reached is walked next', () => {
+    // Solar's one flow lands on Electricity, which splits two ways. The next
+    // press said "No outgoing flows found to the right of the current value"
+    // -- of Solar, though the reader was on Electricity.
+    const trace = flow(MERMAID);
+
+    expect(rotorWalk(trace, 'outgoing')).toEqual([
+      'Solar to Electricity, 40, 100.0% of Solar',
+      'Electricity to Homes, 70, 51.9% of Electricity',
+      'Electricity to Industry, 65, 48.1% of Electricity',
+    ]);
+  });
+
+  test('the incoming side carries on upstream the same way', () => {
+    const trace = flow(MERMAID);
+    walk(trace, 'FORWARD', 'FORWARD');
+
+    expect(rotorWalk(trace, 'incoming')).toEqual([
+      'Electricity to Homes, 70, 51.9% of Electricity',
+      'Gas to Electricity, 60, 57.1% of Gas',
+      'Solar to Electricity, 40, 100.0% of Solar',
+      'Wind to Electricity, 35, 100.0% of Wind',
+    ]);
+  });
+
+  test('a press back past the flow the walk began with is refused, not walked on', () => {
+    // Left straight after Right went on to Electricity's flows from the far
+    // end -- Industry, then Homes -- so Left moved downstream and the flow the
+    // reader came along could not be reached again.
+    const trace = flow(MERMAID);
+    trace.moveToRotorFilter('outgoing', 'right');
+
+    expect(trace.moveToRotorFilter('outgoing', 'left')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Electricity');
+    expect(nonEmptyState(trace).text.asides?.[0]?.value)
+      .toBe('Solar to Electricity, 40, 100.0% of Solar');
+  });
+
+  test('a press back pages back through the node\'s flows and stops at the first', () => {
+    // Gas has two flows. Back from the second lands on the first again, and
+    // back past that went on to Electricity's last flow.
+    const trace = flow(MERMAID);
+    walk(trace, 'DOWNWARD', 'DOWNWARD');
+    trace.moveToRotorFilter('outgoing', 'right');
+    trace.moveToRotorFilter('outgoing', 'right');
+
+    expect(trace.moveToRotorFilter('outgoing', 'left')).toBe(true);
+    expect(nonEmptyState(trace).text.asides?.[0]?.value)
+      .toBe('Gas to Electricity, 60, 57.1% of Gas');
+    expect(trace.moveToRotorFilter('outgoing', 'left')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Electricity');
+  });
+
+  test('a walk begun leftwards carries on leftwards, and refuses a press back', () => {
+    // Left pages a node's flows smallest first and carries on the same way;
+    // Right is then the press back, past the flow Electricity's walk began with.
+    const trace = flow(MERMAID);
+    trace.moveToRotorFilter('outgoing', 'left');
+
+    expect(trace.moveToRotorFilter('outgoing', 'left')).toBe(true);
+    expect(nonEmptyState(trace).text.asides?.[0]?.value)
+      .toBe('Electricity to Industry, 65, 48.1% of Electricity');
+    expect(trace.moveToRotorFilter('outgoing', 'right')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Industry');
+  });
+
+  test('an arrow ends the walk, even one that comes back to where it stopped', () => {
+    // Gas's walk stopped on Electricity; Right and Left came back to it, and
+    // the next press carried on through Gas's flows rather than Electricity's.
+    const trace = flow(MERMAID);
+    walk(trace, 'DOWNWARD', 'DOWNWARD');
+    trace.moveToRotorFilter('outgoing', 'right');
+
+    expect(walk(trace, 'FORWARD', 'BACKWARD')).toEqual(['Homes', 'Electricity']);
+    expect(trace.moveToRotorFilter('outgoing', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.asides?.[0]?.value)
+      .toBe('Electricity to Homes, 70, 51.9% of Electricity');
+  });
+});
+
 describe('the extremes follow the ribbon to its end', () => {
   test('right jumps to the end of the widest route', () => {
     const trace = flow();
@@ -446,6 +551,25 @@ describe('the modalities read the flow by stage', () => {
     expect(freq).toEqual({ min: 8, max: 46, raw: 46 });
   });
 
+  test('a single source, alone in its stage, is pitched against the whole chart', () => {
+    const trace = flow([
+      { source: 'A', target: 'B', value: 5 },
+      { source: 'B', target: 'C', value: 3 },
+      { source: 'B', target: 'D', value: 2 },
+    ]);
+
+    expect(nonEmptyState(trace).audio.freq).toEqual({ min: 2, max: 5, raw: 5 });
+  });
+
+  test('a stage of equal nodes on a chart of equal nodes keeps its empty range', () => {
+    const trace = flow([
+      { source: 'A', target: 'B', value: 4 },
+      { source: 'B', target: 'C', value: 4 },
+    ]);
+
+    expect(nonEmptyState(trace).audio.freq).toEqual({ min: 4, max: 4, raw: 4 });
+  });
+
   test('the sound pans downstream as the reader moves downstream', () => {
     const source = nonEmptyState(flow()).audio.panning;
     const trace = flow();
@@ -489,6 +613,96 @@ describe('the flow walk can be entered in either direction', () => {
 
     expect(trace.moveToRotorFilter('outgoing', 'right')).toBe(true);
     expect(nonEmptyState(trace).text.main.value).toBe(last);
+  });
+});
+
+describe('the columns the producer drew', () => {
+  /** Mermaid's example, as its flows declare it. */
+  const MERMAID: FlowPoint[] = [
+    { source: 'Solar', target: 'Electricity', value: 40 },
+    { source: 'Wind', target: 'Electricity', value: 35 },
+    { source: 'Gas', target: 'Electricity', value: 60 },
+    { source: 'Gas', target: 'Heating', value: 45 },
+    { source: 'Electricity', target: 'Homes', value: 70 },
+    { source: 'Electricity', target: 'Industry', value: 65 },
+  ];
+
+  /** Where Mermaid draws them: Heating, a sink, in the last column. */
+  const DRAWN = [['Gas', 'Solar', 'Wind'], ['Electricity'], ['Heating', 'Homes', 'Industry']];
+
+  /**
+   * A sankey over Mermaid's flows, entered.
+   * @param columns The columns the layer declares, if any
+   * @returns The trace, on its first node
+   */
+  function drawnAs(columns?: (string | number)[][]): FlowTrace {
+    const trace = TraceFactory.create({
+      ...createLayer(MERMAID),
+      ...(columns === undefined ? {} : { flowOptions: { columns } }),
+    }) as FlowTrace;
+    trace.moveOnce('FORWARD');
+    return trace;
+  }
+
+  /**
+   * The throughput per stage, which the braille rows carry.
+   * @param trace The trace to read
+   * @returns One row per stage
+   */
+  function stages(trace: FlowTrace): number[][] {
+    const braille = nonEmptyState(trace).braille;
+    if (braille.empty) {
+      throw new Error('Expected a populated braille state');
+    }
+    return braille.values as number[][];
+  }
+
+  test('they place each node, and order each column top to bottom', () => {
+    // Derived, Heating sat one column past Gas, beside Electricity, and the
+    // first column was walked Solar, Wind, Gas: Up from Solar said there was
+    // no more data with Gas drawn above it.
+    const trace = drawnAs(DRAWN);
+
+    expect(stages(trace)).toEqual([[105, 40, 35], [135], [45, 70, 65]]);
+    expect(nonEmptyState(trace).text.main.value).toBe('Gas');
+    expect(walk(trace, 'DOWNWARD', 'UPWARD')).toEqual(['Solar', 'Gas']);
+  });
+
+  test('a node alone in its column is scaled against the whole chart, not at its floor', () => {
+    // Electricity carries the most and is drawn alone in the middle column.
+    // Scaled within that column alone, its range was empty, and it sounded
+    // the lowest note and showed the lowest cell between Gas and Homes, the
+    // tops of theirs.
+    const trace = drawnAs(DRAWN);
+    walk(trace, 'FORWARD');
+
+    const state = nonEmptyState(trace);
+    expect(state.text.main.value).toBe('Electricity');
+    expect(state.audio.freq).toEqual({ min: 35, max: 135, raw: 135 });
+    if (state.braille.empty) {
+      throw new Error('Expected a populated braille state');
+    }
+    expect(state.braille).toMatchObject({ min: [35, 35, 45], max: [105, 135, 70] });
+  });
+
+  test('a sink drawn in the last column is heard there', () => {
+    const trace = drawnAs(DRAWN);
+    trace.moveToIndex(0, 2);
+
+    const state = nonEmptyState(trace);
+    expect(state.text.main.value).toBe('Heating');
+    expect(state.audio.panning).toMatchObject({ x: 2, cols: 3 });
+  });
+
+  test.each([
+    ['leave a node out', [['Gas', 'Solar', 'Wind'], ['Electricity'], ['Homes', 'Industry']]],
+    ['name a node twice', [['Gas', 'Solar', 'Wind', 'Gas'], ['Electricity'], ['Heating', 'Homes', 'Industry']]],
+    ['name a node the flows do not', [['Gas', 'Solar', 'Wind', 'Coal'], ['Electricity'], ['Heating', 'Homes', 'Industry']]],
+    ['run a flow backwards', [['Heating', 'Homes', 'Industry'], ['Electricity'], ['Gas', 'Solar', 'Wind']]],
+    ['put a flow within one column', [['Gas', 'Solar', 'Wind', 'Electricity'], ['Heating', 'Homes', 'Industry']]],
+  ])('columns that %s are not the drawing, and the stages are derived', (_case, columns) => {
+    expect(stages(drawnAs(columns))).toEqual(stages(drawnAs()));
+    expect(stages(drawnAs())).toEqual([[40, 35, 105], [135, 45], [70, 65]]);
   });
 });
 

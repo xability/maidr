@@ -2,7 +2,14 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, PiePoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { ChartObject, ChartObjectList, ObjectMeasure, ObjectSortOption } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
+import type {
+  AudioState,
+  BrailleState,
+  DescriptionState,
+  TextState,
+  TraceEmptyState,
+  TraceState,
+} from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { PieDirection } from '@type/grammar';
 import { defaultFormat } from '@util/format';
@@ -333,19 +340,55 @@ export class PieTrace extends AbstractTrace {
     // 12 o'clock centre, 3 o'clock hard right, 6 o'clock centre again, 9
     // o'clock hard left. Sweeping the slices now goes out and comes back,
     // which is what distinguishes a circle from a row.
-    const pan = Math.sin(this.midAngles[this.col]);
     return {
       freq: {
         min: this.min,
         max: this.max,
         raw: this.sliceValues[this.row][this.col],
       },
-      panning: {
-        x: (pan + 1) / 2,
-        y: 0,
-        rows: 1,
-        cols: 2,
-      },
+      panning: this.panningAt(this.midAngles[this.col]),
+    };
+  }
+
+  /**
+   * The boundary tone sounds where the slice the reader stopped at sounds:
+   * Up and Down, which a single row refuses, Left before the first slice,
+   * Right past the last, and a layer switch on a figure with one layer.
+   *
+   * The base pans it by the slice's index across the row, the mapping the
+   * slice's own tone rejects: the first slice of a pie starting at 12 o'clock
+   * sits right of centre and chimed hard left, and the last, left of centre,
+   * chimed hard right.
+   *
+   * @returns The empty trace state, panned to the cursor's slice
+   */
+  protected override get outOfBoundsState(): TraceEmptyState {
+    const angle = this.midAngles[this.col];
+    if (angle === undefined) {
+      // A pie with no slices has no angle to pan to.
+      return super.outOfBoundsState;
+    }
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
+      audio: this.panningAt(angle),
+    };
+  }
+
+  /**
+   * Where a slice sits in the stereo field, from its midpoint on the dial.
+   *
+   * @param angle - The slice's mid-angle, radians clockwise from 12 o'clock
+   * @returns The panning, `sin θ` expressed through `x` and `cols: 2`
+   */
+  private panningAt(angle: number): AudioState['panning'] {
+    const pan = Math.sin(angle);
+    return {
+      x: (pan + 1) / 2,
+      y: 0,
+      rows: 1,
+      cols: 2,
     };
   }
 

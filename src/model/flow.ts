@@ -1,4 +1,4 @@
-import type { FlowPoint, MaidrLayer } from '@type/grammar';
+import type { FlowOptions, FlowPoint, MaidrLayer } from '@type/grammar';
 import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
 import type {
@@ -168,8 +168,10 @@ function asPercent(fraction: number): string {
  * it represents. So the trace remembers the edge it arrived by and announces
  * it: *Coal to Electricity, 34, 60.7% of Coal*.
  *
- * **Stages are derived, and a cycle is answered honestly.** A node's column is
- * its longest distance from a source, which is how these layouts are built. A
+ * **Stages are the drawing's columns, and a cycle is answered honestly.** A
+ * producer that knows where it drew each node says so
+ * ({@link FlowOptions.columns}). Otherwise a node's column is its longest
+ * distance from a source, which is how these layouts are commonly built. A
  * chord diagram is cyclic and has no such thing, so when the graph does not
  * sort, every node goes in one stage: the ribbons still follow, and nothing is
  * claimed about an ordering the data does not have.
@@ -201,7 +203,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   /** Throughput in the same shape, which is what the modalities read. */
   private readonly flowValues: number[][];
 
-  /** Per-stage extremes, for the pitch range. */
+  /**
+   * Per-stage extremes, for the pitch range and the braille rows; the whole
+   * chart's for a stage with no spread.
+   */
   private readonly stageMin: number[];
   private readonly stageMax: number[];
 
@@ -238,7 +243,8 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
 
     const flows = layer.data as FlowPoint[];
     this.nodes = FlowTrace.buildNodes(flows);
-    this.stages = FlowTrace.assignStages(this.nodes);
+    this.stages = FlowTrace.drawnStages(this.nodes, layer.flowOptions?.columns)
+      ?? FlowTrace.assignStages(this.nodes);
     for (const [stage, members] of this.stages.entries()) {
       for (const [index, node] of members.entries()) {
         this.nodes[node].stage = stage;
@@ -253,10 +259,21 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     this.flowValues = this.grid.map(row =>
       row.map(node => (node === null ? Number.NaN : this.throughputOf(node))));
 
-    this.stageMin = this.stages.map(members =>
-      MathUtil.safeMin(members.map(node => this.throughputOf(this.nodes[node]))));
-    this.stageMax = this.stages.map(members =>
-      MathUtil.safeMax(members.map(node => this.throughputOf(this.nodes[node]))));
+    // A stage whose nodes are all one size -- most often a node alone in its
+    // column -- has nothing to scale within, and an empty range sounds at the
+    // floor and fills the lowest cell: Electricity, alone in the middle of
+    // Mermaid's sankey and the largest node in it, was its lowest note. Such
+    // a stage is scaled against the whole chart instead.
+    const throughputs = this.stages.map(members =>
+      members.map(node => this.throughputOf(this.nodes[node])));
+    const chartMin = MathUtil.safeMin(throughputs.flat());
+    const chartMax = MathUtil.safeMax(throughputs.flat());
+    const spread = throughputs.map(values =>
+      MathUtil.safeMin(values) < MathUtil.safeMax(values));
+    this.stageMin = throughputs.map((values, stage) =>
+      spread[stage] ? MathUtil.safeMin(values) : chartMin);
+    this.stageMax = throughputs.map((values, stage) =>
+      spread[stage] ? MathUtil.safeMax(values) : chartMax);
 
     this.highlightValues = this.mapToSvgElements(layer.selectors, flows.length);
     this.movable = new MovableGraph(this.buildGraph());
@@ -324,7 +341,57 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   }
 
   /**
-   * Places every node in a column.
+   * The columns the producer drew the nodes in, when it declared them and
+   * they are a drawing of these flows.
+   *
+   * A layout library places nodes by rules of its own -- d3-sankey's default
+   * alignment puts every sink in the last column, and orders each column by
+   * relaxing the ribbons -- so a derived column or order can contradict the
+   * chart: Up said there was nothing above a node drawn under another, and a
+   * sink drawn at the right was heard in the middle. Declared columns are
+   * taken as they are, top to bottom, but only when they name every node
+   * once and every flow runs from one column to a later one; anything else
+   * is not a layout of this graph, and the stages are derived instead.
+   *
+   * @param nodes - Every node, with its edges
+   * @param columns - The declared columns, left to right, by node name
+   * @returns Node indices per stage, or null to derive them
+   */
+  private static drawnStages(
+    nodes: FlowNode[],
+    columns: (string | number)[][] | undefined,
+  ): number[][] | null {
+    if (!Array.isArray(columns) || nodes.length === 0) {
+      return null;
+    }
+    const byName = new Map(nodes.map((node, index) => [node.name, index]));
+    const stageOf = new Map<number, number>();
+    const stages: number[][] = [];
+    for (const column of columns) {
+      if (!Array.isArray(column) || column.length === 0) {
+        return null;
+      }
+      const members: number[] = [];
+      for (const name of column) {
+        const index = byName.get(String(name));
+        if (index === undefined || stageOf.has(index)) {
+          return null;
+        }
+        stageOf.set(index, stages.length);
+        members.push(index);
+      }
+      stages.push(members);
+    }
+    if (stageOf.size !== nodes.length) {
+      return null;
+    }
+    const forward = nodes.every((node, index) =>
+      node.out.every(edge => (stageOf.get(index) ?? 0) < (stageOf.get(edge.to) ?? 0)));
+    return forward ? stages : null;
+  }
+
+  /**
+   * Places every node in a column, when the producer did not say where.
    *
    * A node's stage is its longest distance from a source, which is how these
    * layouts are built: a node sits one column past the furthest thing that
@@ -496,6 +563,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   }
 
   public override moveOnce(direction: MovableDirection): boolean {
+    // An arrow ends a flow walk, even one that comes back to the node the
+    // walk stopped on: the walk's own check, that the cursor is still where
+    // it left it, cannot tell that apart from not having moved.
+    this.flowWalk = null;
     // Recorded before the move, because `super.moveOnce` notifies during the
     // call and the announcement is assembled from `text` at that moment.
     // The initial entry lands on the first node without following anything,
@@ -516,8 +587,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
 
   public override moveToExtreme(direction: MovableDirection): boolean {
     // A jump follows many ribbons rather than one, so naming any of them
-    // would name an arbitrary hop of the path taken.
+    // would name an arbitrary hop of the path taken. It ends a flow walk as
+    // an arrow does.
     this.arrivedVia = null;
+    this.flowWalk = null;
     return super.moveToExtreme(direction);
   }
 
@@ -697,6 +770,66 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       return false;
     }
 
+    // Once the start node's flows run out this way, the walk carries on with
+    // the flows of the node it has reached. Refusing there said "No outgoing
+    // flows found to the right of the current value" about the start node
+    // while the reader was on another, often one with several. Only a press
+    // the way the walk runs carries it on; a press back past the flow it
+    // began with is refused, as on a fresh walk. Carrying that on as well
+    // began a reversed walk of the node reached, so Left straight after Right
+    // went on downstream and never back along the flow just taken.
+    const current = this.current;
+    const way = anchor.way ?? direction;
+    const step = FlowTrace.stepFrom(anchor, along, direction)
+      ?? (way === direction && current !== null && current !== anchor.node
+        ? FlowTrace.stepFrom({ node: current, index: -1 }, along, direction)
+        : null);
+    if (step === null) {
+      this.notifyRotorBounds();
+      return false;
+    }
+
+    const { from, index, edge } = step;
+    const to = this.nodes[along === 'out' ? edge.to : edge.from];
+    this.flowWalk = { from, along, index, way, at: { row: to.index, col: to.stage } };
+    this.arrivedVia = edge;
+    this.movable.moveToIndex(to.index, to.stage);
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * The walk in progress: whose flows, in which direction, and how far along.
+   *
+   * `way` is the press that began walking `from`'s flows: the walk carries on
+   * past their end only that way. `at` is how the walk notices it has been
+   * abandoned -- if the cursor is no longer where the last step left it, the
+   * reader moved some other way. An arrow, a jump to the end of a route and a
+   * jump to a node end it outright.
+   */
+  private flowWalk: {
+    from: FlowNode;
+    along: 'out' | 'in';
+    index: number;
+    way: 'left' | 'right';
+    at: Coordinate;
+  } | null = null;
+
+  /**
+   * The next flow of a walk, one press on.
+   *
+   * @param anchor - Where the walk is
+   * @param anchor.node - Whose flows it walks
+   * @param anchor.index - How far along them it is; -1 is a fresh walk
+   * @param along - Which side is being walked
+   * @param direction - Which way the press goes
+   * @returns The flow and its place in the list, or null past either end
+   */
+  private static stepFrom(
+    anchor: { node: FlowNode; index: number },
+    along: 'out' | 'in',
+    direction: 'left' | 'right',
+  ): { from: FlowNode; index: number; edge: Edge } | null {
     const edges = anchor.node[along];
     // A fresh walk has no position to step from, so it is seeded at whichever
     // end the reader is entering from. A single "before the first element"
@@ -707,49 +840,29 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       ? anchor.index + (direction === 'right' ? 1 : -1)
       : (direction === 'right' ? 0 : edges.length - 1);
     const edge = edges[index];
-    if (edge === undefined) {
-      this.notifyRotorBounds();
-      return false;
-    }
-
-    const to = this.nodes[along === 'out' ? edge.to : edge.from];
-    this.flowWalk = { from: anchor.node, along, index, at: { row: to.index, col: to.stage } };
-    this.arrivedVia = edge;
-    this.movable.moveToIndex(to.index, to.stage);
-    this.notifyStateUpdate();
-    return true;
+    return edge === undefined ? null : { from: anchor.node, index, edge };
   }
-
-  /**
-   * The walk in progress: whose flows, in which direction, and how far along.
-   *
-   * `at` is how the walk notices it has been abandoned -- if the cursor is no
-   * longer where the last step left it, the reader moved with the arrows.
-   */
-  private flowWalk: {
-    from: FlowNode;
-    along: 'out' | 'in';
-    index: number;
-    at: Coordinate;
-  } | null = null;
 
   /**
    * The node whose flows the rotor is enumerating, and how far it has got.
    *
    * @param along - Which side is being walked
-   * @returns The anchor, or null when the cursor is nowhere
+   * @returns The anchor, with the way its walk runs (null on a fresh one), or
+   * null when the cursor is nowhere
    */
-  private rotorAnchor(along: 'out' | 'in'): { node: FlowNode; index: number } | null {
+  private rotorAnchor(
+    along: 'out' | 'in',
+  ): { node: FlowNode; index: number; way: 'left' | 'right' | null } | null {
     const walk = this.flowWalk;
     const continuing = walk !== null
       && walk.along === along
       && walk.at.row === this.row
       && walk.at.col === this.col;
     if (continuing && walk !== null) {
-      return { node: walk.from, index: walk.index };
+      return { node: walk.from, index: walk.index, way: walk.way };
     }
     const node = this.current;
-    return node === null ? null : { node, index: -1 };
+    return node === null ? null : { node, index: -1, way: null };
   }
 
   /**

@@ -499,11 +499,16 @@ compared with one sweep rather than by toggling between rows.
 
 ### Radar and polar area [experimental]
 
-A radar's braille is the multi-line encoding unchanged: **one row per series**,
-one cell per spoke, each row scaled against its own range. Up and Down move
-between those rows in the order the series are declared, Up to the next, as on
-a multi-line display; a line chart moves to the next higher or lower value
-instead, but a radar's values do not rise up the screen.
+A radar's braille is the multi-line encoding: **one row per series**, one cell
+per spoke, each row scaled against its own range. Up and Down move between
+those rows in the order the series are declared, Up to the next; a line chart
+moves to the next higher or lower value instead, but a radar's values do not
+rise up the screen.
+
+So the series are listed **last first**, the first series on the bottom line,
+in the on-screen braille field as on a multiline display: the up arrow moves
+the cursor up a line, to the next series. On Mermaid's example Bob's row is
+above Alice's. A line chart's on-screen field keeps its first series on top.
 
 What braille cannot carry here is the circle. A display is a line of cells and
 a spoke's angle has nowhere to go in it, so the row reads as the sequence of
@@ -511,7 +516,8 @@ values it is — first spoke to last, in the order the chart declares them.
 
 That is not a loss the way a missing magnitude would be, because the angle is
 carried elsewhere and better: the **stereo position** follows the spoke around
-the dial, so a sweep goes out and comes back. Braille answers "how do the
+the dial, so a sweep goes out and comes back, and the boundary tone of a move
+refused on a spoke sounds from that spoke. Braille answers "how do the
 series compare across the spokes"; audio answers "where on the circle am I".
 Encoding a rotation into cell heights would answer neither.
 
@@ -915,14 +921,29 @@ One row per **stage** -- one column of the drawing -- with one cell per node in
 it, each row scaled against its own stage. Flow is conserved along a sankey, so
 a single scale across the chart is dominated by the largest source and every
 node past the first split sits near its floor; per-stage scaling is what keeps
-the column a reader is actually walking legible.
+the column a reader is actually walking legible. A stage whose nodes are all
+one size, most often a node alone in its column, has nothing to scale within,
+so it is scaled against the whole chart, and the pitch follows: Electricity,
+alone in the middle of Mermaid's sankey and the largest node in it, is a full
+cell and a high note rather than the lowest of both.
+
+The stages are the columns the chart drew when the layer declares them
+(`flowOptions.columns` in [the schema](SCHEMA.md)), as the Mermaid adapter
+does from the drawing, each row then listing its column's nodes top to bottom.
+Otherwise a node sits one column past the furthest node feeding it, and a row
+lists its nodes in the order the flows first name them.
 
 The rows are the stages even though the *cursor* is addressed the other way
 round. The arrows are given the chart's geometry -- left and right follow a
 ribbon between columns, up and down walk the nodes stacked within one -- so the
 cursor's own row is a position within a stage. A braille line has to be a
 stage, or a row would be "the third node of every column", which is not a
-thing, so the state is transposed on its way out.
+thing, so the state is transposed on its way out. The position key reads it
+back the same way: P names the stage as the column and the node's place in
+that stage as the row, so the last node of a two-node column is "column 3 of
+3, row 2 of 2" however tall another column is, and a node alone in its column
+is "row 1 of 1". Only a chain, one node to every column, is named by its place
+along the chain alone, "Position is 2 of 3".
 
 **The ribbons have no representation at all**, and that is the whole of what
 this chart draws. A cell is a node's throughput; nothing in the dots says where
@@ -934,6 +955,15 @@ ribbon it travelled with its magnitude and its share of the source, the rotor
 enumerates the flows the arrows skip, and the description names the largest
 flow and the widest route end to end. The display gives the sizes; the
 announcement gives the routing.
+
+The rotor's **Outgoing** and **Incoming** modes page through one node's flows,
+largest first, each press landing on the node at the other end. Once that
+node's flows run out, the next press carries on with the flows of the node the
+reader has reached, and only a node with none that way answers that there are
+no more. A press the other way pages back through the same node's flows, and
+back past the one the walk began with answers that there are no more, rather
+than starting on the flows of the node reached. An arrow key ends the walk, so
+the next one starts from wherever the reader is.
 
 ```
 Stage   Cells

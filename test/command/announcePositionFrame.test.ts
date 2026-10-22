@@ -156,6 +156,86 @@ describe('a ROC curve', () => {
   });
 });
 
+describe('a sankey', () => {
+  /**
+   * Mermaid's example: three sources, a node they feed, and three sinks.
+   * MAIDR stages it as Solar, Wind and Gas; Electricity and Heating; Homes
+   * and Industry -- columns of three, two and two.
+   */
+  const ENERGY = {
+    id: 'sankey',
+    type: TraceType.SANKEY,
+    data: [
+      { source: 'Solar', target: 'Electricity', value: 40 },
+      { source: 'Wind', target: 'Electricity', value: 35 },
+      { source: 'Gas', target: 'Electricity', value: 60 },
+      { source: 'Gas', target: 'Heating', value: 45 },
+      { source: 'Electricity', target: 'Homes', value: 70 },
+      { source: 'Electricity', target: 'Industry', value: 65 },
+    ],
+  } as unknown as MaidrLayer;
+
+  test('is at a node of the column the arrows walk, not of the tallest column', () => {
+    // The cursor is addressed `[index within the stage][stage]`. Read from the
+    // pan, every column was as tall as the tallest: Industry, the last of two,
+    // was "row 2 of 3" and Down from it said there was nothing more.
+    expect(announce(at(ENERGY, 0, 1))).toBe('Position is column 2 of 3, row 1 of 2');
+    expect(announce(at(ENERGY, 1, 2))).toBe('Position is column 3 of 3, row 2 of 2');
+    expect(announce(at(ENERGY, 2, 0))).toBe('Position is column 1 of 3, row 3 of 3');
+    expect(announce(at(ENERGY, 1, 2), 'terse')).toBe('100%, 100%');
+  });
+
+  test('alone in its column is still at a column and a row', () => {
+    // A single source, alone in the first column, and the node it feeds,
+    // alone in the second. Counted against their own columns they had no
+    // row to name, and said "Position is 1 of 3" and "Position is 2 of 3"
+    // while the two nodes of the last column said column and row.
+    const layer = {
+      id: 'sankey',
+      type: TraceType.SANKEY,
+      data: [
+        { source: 'A', target: 'B', value: 5 },
+        { source: 'B', target: 'C', value: 3 },
+        { source: 'B', target: 'D', value: 2 },
+      ],
+    } as unknown as MaidrLayer;
+
+    expect(announce(at(layer, 0, 0))).toBe('Position is column 1 of 3, row 1 of 1');
+    expect(announce(at(layer, 0, 1))).toBe('Position is column 2 of 3, row 1 of 1');
+    expect(announce(at(layer, 0, 1), 'terse')).toBe('50%, 0%');
+    expect(announce(at(layer, 1, 2))).toBe('Position is column 3 of 3, row 2 of 2');
+  });
+
+  test('of a chain, one node to a column, is a place along it', () => {
+    const layer = {
+      id: 'sankey',
+      type: TraceType.SANKEY,
+      data: [
+        { source: 'A', target: 'B', value: 5 },
+        { source: 'B', target: 'C', value: 5 },
+      ],
+    } as unknown as MaidrLayer;
+
+    expect(announce(at(layer, 0, 1))).toBe('Position is 2 of 3');
+  });
+
+  test('of one stage, a cycle, is in its one column', () => {
+    // A chord diagram, or any flow that cycles, is one stage holding every
+    // node; the pan spreads it over two columns so it is not dead centre.
+    const layer = {
+      id: 'chord',
+      type: TraceType.CHORD,
+      data: [
+        { source: 'A', target: 'B', value: 3 },
+        { source: 'B', target: 'C', value: 2 },
+        { source: 'C', target: 'A', value: 1 },
+      ],
+    } as unknown as MaidrLayer;
+
+    expect(announce(at(layer, 1, 0))).toBe('Position is column 1 of 1, row 2 of 3');
+  });
+});
+
 describe('a tree', () => {
   const BOARD = {
     id: 'board',

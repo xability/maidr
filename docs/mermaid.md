@@ -161,7 +161,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Gantt chart [experimental] | `gantt` | a `gantt` lane per section, each task an interval announced as dates, with its status (done, active, critical, milestone) |
 | Packet diagram [experimental] | `packet` | a `gantt`, named a packet diagram: a lane per row of bits, each field an interval of bits announced by its first and last bit and its width, and panned by where it starts in its row |
 | Radar chart [experimental] | `radar-beta` | a `radar` curve per series |
-| Sankey diagram [experimental] | `sankey` | a `sankey` flow per link |
+| Sankey diagram [experimental] | `sankey` | a `sankey` flow per link, its nodes in the columns and the order Mermaid draws them in |
 | Treemap [experimental] | `treemap-beta` | a `treemap` of sections and sized items |
 | Venn diagram [experimental] | `venn-beta` | a `venn`: the sets, then their overlaps by depth, each with its name, size and the items written in it |
 

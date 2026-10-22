@@ -332,7 +332,59 @@ export function radar(context: DiagramContext): DiagramConversion {
 }
 
 /**
- * Sankey diagrams: one flow per link.
+ * Where Mermaid drew a sankey's nodes, as columns of names, left to right and
+ * each top to bottom.
+ *
+ * Mermaid lays a sankey out with d3-sankey, aligned `justify` by default:
+ * every sink goes in the last column, and each column is ordered by relaxing
+ * the ribbons rather than by the order the flows name its nodes, so MAIDR's
+ * own columns would contradict the drawing. Mermaid draws a group per node,
+ * in the order its database holds them, carrying the node's left edge and top
+ * as `x` and `y`, and then a label per node in the same order. Each group is
+ * paired with its node through the label, so a drawing in some other order
+ * declares nothing and MAIDR derives the columns instead.
+ *
+ * @param context - The diagram
+ * @returns The columns, or undefined when the drawing cannot be paired
+ */
+function sankeyColumns(context: DiagramContext): string[][] | undefined {
+  const names = rows(call(context.db, 'getNodes')).map(node => plain(node.ID ?? node.id ?? node.name));
+  const groups = all(context.svg, '.nodes > .node');
+  // An outlined label is drawn twice, a halo under the text.
+  const labels = all(context.svg, '.node-labels > text:not(.sankey-label-bg)');
+  if (names.length === 0 || groups.length !== names.length || labels.length !== names.length) {
+    return undefined;
+  }
+
+  const placed: { name: string; x: number; y: number }[] = [];
+  for (const [at, name] of names.entries()) {
+    // The label is the name, then the value on a line of its own. Drawn text
+    // is read as shown, as drawnText reads it, never put through plain().
+    const label = (labels[at].textContent ?? '').split('\n')[0].replace(/\s+/g, ' ').trim();
+    const x = num(groups[at].getAttribute('x'));
+    const y = num(groups[at].getAttribute('y'));
+    if (name === '' || label !== name || x === undefined || y === undefined) {
+      return undefined;
+    }
+    placed.push({ name, x, y });
+  }
+
+  placed.sort((a, b) => a.x - b.x);
+  const columns: { x: number; nodes: typeof placed }[] = [];
+  for (const node of placed) {
+    const column = columns[columns.length - 1];
+    if (column !== undefined && Math.abs(node.x - column.x) < 0.5) {
+      column.nodes.push(node);
+    } else {
+      columns.push({ x: node.x, nodes: [node] });
+    }
+  }
+  return columns.map(column => [...column.nodes].sort((a, b) => a.y - b.y).map(node => node.name));
+}
+
+/**
+ * Sankey diagrams: one flow per link, with the nodes in the columns Mermaid
+ * drew them in.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -346,11 +398,13 @@ export function sankey(context: DiagramContext): DiagramConversion {
     value: num(link.value) ?? Number.NaN,
   })).filter(flow => Number.isFinite(flow.value));
   const links = all(context.svg, '.link');
+  const columns = sankeyColumns(context);
   const layer: MaidrLayer = {
     id: context.layerId('sankey'),
     type: TraceType.SANKEY,
     axes: { y: { label: 'Value' } },
     ...(links.length === data.length && data.length > 0 ? { selectors: selectorsFor(links) } : {}),
+    ...(columns !== undefined ? { flowOptions: { columns } } : {}),
     data,
   };
   return { layers: data.length > 0 ? [layer] : [] };
