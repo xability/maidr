@@ -550,6 +550,9 @@ export const GoToExtrema: React.FC = () => {
               left: '50%',
               transform: 'translate(-50%, -50%)',
               bgcolor: 'background.paper',
+              // Its own text colour, as MUI's Paper sets one: inherited, text would
+              // take the light colour high contrast gives the chart's backdrop.
+              color: 'text.primary',
               border: 1,
               borderColor: 'divider',
               borderRadius: 2,

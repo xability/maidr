@@ -120,6 +120,11 @@ does to form fields:
   dark theme that sets a field's background without its colour) does maidr set
   the chart's own text and background colours on the field instead.
 
+MAIDR's dialogs (the help, description and settings dialogs, the Go To
+Extrema list, the object list and the candlestick delta picker) keep their own
+dark text on their own light panel in high contrast mode. The reader's colours
+paint the chart and what lies behind it, not the dialogs drawn over it.
+
 Under forced colours (Windows High Contrast) the system's colours apply and
 maidr sets none.
 
