@@ -2,8 +2,10 @@
  * @jest-environment jsdom
  */
 
+import type { DirectedGraphTrace } from '@model/directedGraph';
 import type { DirectedGraphPoint } from '@type/grammar';
 import { describe, expect, it } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { convert, layersOf } from './helpers';
 
 /**
@@ -69,6 +71,33 @@ describe('the other graphs', () => {
     expect(d).toMatchObject({ inputs: ['c'], inputLabels: ['sync'] });
     expect(e.inputs).toBeUndefined();
     expect(f.inputs).toEqual(['e']);
+  });
+
+  // A plain line is declared as an edge each way, since a directed graph has
+  // no edge without a direction, so the example's three connections are
+  // counted as four, its plain line as a cycle, and Database as a merge point.
+  // docs/mermaid.md says so. This turns red when the schema can declare an
+  // undirected link: delete the pin and that paragraph then.
+  it.failing('counts a connection drawn as a plain line once, as it is drawn', () => {
+    const layer = layersOf(convert('architecture', {
+      getGroups: () => [{ id: 'api', title: 'API' }],
+      getServices: () => [
+        { id: 'gateway', title: 'Gateway' },
+        { id: 'server', title: 'Server', in: 'api' },
+        { id: 'db', title: 'Database', in: 'api' },
+        { id: 'disk', title: 'Storage', in: 'api' },
+      ],
+      getJunctions: () => [],
+      getEdges: () => [
+        { lhsId: 'gateway', rhsId: 'server', lhsInto: false, rhsInto: true },
+        { lhsId: 'server', rhsId: 'db', lhsInto: false, rhsInto: true },
+        { lhsId: 'disk', rhsId: 'db', lhsInto: false, rhsInto: false },
+      ],
+    }))[0];
+    const trace = TraceFactory.create(layer) as DirectedGraphTrace;
+    const edges = trace.description.stats.find(entry => entry.label === 'Number of edges')?.value;
+
+    expect(edges).toBe(3);
   });
 
   it('names architecture items neutrally, so a group or a junction is not called a service', () => {

@@ -2,8 +2,10 @@
  * @jest-environment jsdom
  */
 
+import type { DirectedGraphTrace } from '@model/directedGraph';
 import type { DirectedGraphPoint } from '@type/grammar';
 import { describe, expect, it } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
@@ -315,31 +317,37 @@ describe('a state diagram', () => {
     expect(data[2].inputs).toEqual(['inner_start']);
   });
 
+  /**
+   * A composite state that ends in a loop, left by stop and quit: the
+   * example's state diagram.
+   */
+  const RUNNING = {
+    getData: () => ({
+      nodes: [
+        { id: 'root_start', shape: 'stateStart' },
+        { id: 'Idle', label: 'Idle' },
+        { id: 'Running', label: 'Running', isGroup: true },
+        { id: 'Running_start', shape: 'stateStart', parentId: 'Running' },
+        { id: 'Loading', label: 'Loading', parentId: 'Running' },
+        { id: 'Playing', label: 'Playing', parentId: 'Running' },
+        { id: 'Paused', label: 'Paused', parentId: 'Running' },
+        { id: 'root_end', shape: 'stateEnd' },
+      ],
+      edges: [
+        { start: 'root_start', end: 'Idle' },
+        { start: 'Idle', end: 'Running', label: 'start' },
+        { start: 'Running_start', end: 'Loading' },
+        { start: 'Loading', end: 'Playing', label: 'loaded' },
+        { start: 'Playing', end: 'Paused', label: 'pause' },
+        { start: 'Paused', end: 'Playing', label: 'resume' },
+        { start: 'Running', end: 'Idle', label: 'stop' },
+        { start: 'Running', end: 'root_end', label: 'quit' },
+      ],
+    }),
+  };
+
   it('leaves a composite state that ends in a loop from its states, not its initial state', () => {
-    const figure = convert('stateDiagram', {
-      getData: () => ({
-        nodes: [
-          { id: 'root_start', shape: 'stateStart' },
-          { id: 'Idle', label: 'Idle' },
-          { id: 'Running', label: 'Running', isGroup: true },
-          { id: 'Running_start', shape: 'stateStart', parentId: 'Running' },
-          { id: 'Loading', label: 'Loading', parentId: 'Running' },
-          { id: 'Playing', label: 'Playing', parentId: 'Running' },
-          { id: 'Paused', label: 'Paused', parentId: 'Running' },
-          { id: 'root_end', shape: 'stateEnd' },
-        ],
-        edges: [
-          { start: 'root_start', end: 'Idle' },
-          { start: 'Idle', end: 'Running', label: 'start' },
-          { start: 'Running_start', end: 'Loading' },
-          { start: 'Loading', end: 'Playing', label: 'loaded' },
-          { start: 'Playing', end: 'Paused', label: 'pause' },
-          { start: 'Paused', end: 'Playing', label: 'resume' },
-          { start: 'Running', end: 'Idle', label: 'stop' },
-          { start: 'Running', end: 'root_end', label: 'quit' },
-        ],
-      }),
-    });
+    const figure = convert('stateDiagram', RUNNING);
 
     const data = layersOf(figure)[0].data as DirectedGraphPoint[];
     const byId = new Map(data.map(point => [point.id, point]));
@@ -348,6 +356,19 @@ describe('a state diagram', () => {
     expect(byId.get('root_end')?.inputs).toEqual(['Loading', 'Playing', 'Paused']);
     expect(byId.get('Running_start')?.inputs).toEqual(['Idle']);
     expect(data.filter(point => point.inputs?.includes('Running_start')).map(point => point.id)).toEqual(['Loading']);
+  });
+
+  // A transition out of a composite state is declared once from each state it
+  // leaves from, since a directed graph declares edges between nodes only, so
+  // the description counts 12 edges for the 8 transitions drawn. docs/mermaid.md
+  // says so. This turns red when the schema can declare an edge from a scope:
+  // delete the pin and that paragraph then.
+  it.failing('counts a transition out of a composite state once, as it is drawn', () => {
+    const layer = layersOf(convert('stateDiagram', RUNNING))[0];
+    const trace = TraceFactory.create(layer) as DirectedGraphTrace;
+    const edges = trace.description.stats.find(entry => entry.label === 'Number of edges')?.value;
+
+    expect(edges).toBe(8);
   });
 
   it('enters a composite state that starts in a loop on its states, not its final state', () => {
