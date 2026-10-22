@@ -342,6 +342,18 @@ test.describe('Mermaid adapter', () => {
     await expect(page.locator(HIGHLIGHT)).toHaveCSS('fill', HIGHLIGHT_STROKE);
   });
 
+  test('keeps the XY chart\'s bars in high contrast beside its line', async ({ page }) => {
+    // The chart has a bar and a line layer, so no single trace type; its
+    // near-white bars were taken for paper and painted the background colour.
+    await openExample(page, 'xychart');
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+    const bars = await page.locator('svg[maidr] rect[data-maidr-ref^="mm"]:not([visibility="hidden"])')
+      .evaluateAll(rects => rects.map(rect => getComputedStyle(rect).fill));
+    expect(bars).toHaveLength(6);
+    expect(new Set(bars)).toEqual(new Set(['rgb(255, 255, 255)']));
+  });
+
   test('numbers only what a sequence diagram numbers, in its description', async ({ page }) => {
     await openExample(page, 'sequence');
     await press(page, 'ArrowRight');

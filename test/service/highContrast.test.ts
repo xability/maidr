@@ -99,18 +99,27 @@ function createStorage(): StorageService {
   };
 }
 
+/** A layer as the service reads it: its type and the elements it selects. */
+interface LayerSpec {
+  traceType: string;
+  elements: SVGElement[];
+}
+
 /**
- * An empty figure. The service only walks it to decide which elements belong
- * to a trace, and these tests assert on the page and on chart colours that do
- * not depend on that classification.
+ * A figure of one subplot holding the given layers, or an empty one. The
+ * service only walks it to decide which elements belong to a trace, and of
+ * which type.
  */
-function createFigure(traceElements: SVGElement[] = []): Figure {
-  if (traceElements.length === 0) {
+function createFigure(layers: LayerSpec[] = []): Figure {
+  if (layers.length === 0) {
     const figure: Pick<Figure, 'subplots'> = { subplots: [] };
     return figure as unknown as Figure;
   }
-  const trace = { getAllOriginalElements: (): SVGElement[] => traceElements };
-  const figure = { subplots: [[{ traces: [[trace]] }]] };
+  const traces = layers.map(layer => ({
+    traceType: layer.traceType,
+    getAllOriginalElements: (): SVGElement[] => layer.elements,
+  }));
+  const figure = { subplots: [[{ traces: [traces] }]] };
   return figure as unknown as Figure;
 }
 
@@ -261,7 +270,7 @@ function createHarness(
     settings,
     notification as unknown as NotificationService,
     displayService,
-    createFigure(options.traceType === undefined ? [] : marks),
+    createFigure(options.traceType === undefined ? [] : [{ traceType: options.traceType, elements: marks }]),
     context as unknown as Context,
     () => overlays,
   );
@@ -700,6 +709,55 @@ describe('highContrastService', () => {
     harness.service.initializeHighContrast();
 
     expect(harness.bar.getAttribute('fill')).toBe('#ffffff');
+  });
+
+  describe('on a chart of more than one layer or panel', () => {
+    /**
+     * Replaces the harness's service with one reading `figure`, under a
+     * context that reports no single type, as a Subplot of several layers or
+     * a Figure of several panels does.
+     */
+    function serviceFor(figure: Figure): void {
+      harness.service.dispose();
+      harness = { ...harness, service: new HighContrastService(
+        harness.settings,
+        { notify: () => {} } as unknown as NotificationService,
+        harness.display as unknown as DisplayService,
+        figure,
+        { id: 'chart', instructionContext: {} } as unknown as Context,
+      ) };
+    }
+
+    it('keeps a near-white bar a bar beside a line', () => {
+      // Mermaid's XY chart draws its bars #ECECFF beside a line; they were
+      // taken for paper, painted the background colour and vanished.
+      rebuild([
+        { fill: '#ececff', stroke: 'none' },
+        { fill: 'none', stroke: '#808080', complexPath: true },
+      ]);
+      const [bar, line] = harness.marks;
+      serviceFor(createFigure([
+        { traceType: 'bar', elements: [bar] },
+        { traceType: 'line', elements: [line] },
+      ]));
+
+      harness.service.initializeHighContrast();
+
+      expect(bar.getAttribute('fill')).toBe('#ffffff');
+      expect(line.getAttribute('stroke')).toBe('#ffffff');
+    });
+
+    it('keeps a near-white bar a bar in each of several panels', () => {
+      rebuild([{ fill: '#ececff', stroke: 'none' }, { fill: '#f4f4ff', stroke: 'none' }]);
+      const panels = harness.marks.map(mark => ({
+        traces: [[{ traceType: 'bar', getAllOriginalElements: (): SVGElement[] => [mark] }]],
+      }));
+      serviceFor({ subplots: [panels] } as unknown as Figure);
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.marks.map(mark => mark.getAttribute('fill'))).toEqual(['#ffffff', '#ffffff']);
+    });
   });
 
   it('lifts the labels of a tiled chart off their cells, and lets them go after', () => {

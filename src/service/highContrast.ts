@@ -77,6 +77,12 @@ const TILED_TRACE_TYPES: ReadonlySet<string> = new Set([
   'boxen',
 ]);
 
+/**
+ * Trace types whose marks are bars: a bar's own near-white fill is still a
+ * bar, where any other near-white paint is the paper showing through.
+ */
+const BAR_LIKE_TRACE_TYPES: ReadonlySet<string> = new Set(['bar', 'hist']);
+
 /** Elements that draw text rather than a shape. */
 const TEXT_TAGS: ReadonlySet<string> = new Set(['text', 'tspan', 'textPath']);
 
@@ -236,6 +242,8 @@ interface ElementColorInfo {
   /** The resolved colour after the luminance spread, when one applied. */
   spreadColor?: string;
   isInSelectors: boolean;
+  /** The type of the layer whose selectors pick this element, when one does. */
+  traceType?: string;
   cantBeBackground: boolean;
   attr: 'fill' | 'stroke';
   attrType?: 'style' | 'attribute';
@@ -290,8 +298,9 @@ export class HighContrastService implements Disposable {
   private backgroundSurfaces: (HTMLElement | SVGElement)[] = [];
   private uncapturedTextIsPaper = new Map<SVGElement, boolean>();
 
-  // Cache of all trace elements for high contrast mode
-  private traceElementsCache: Set<SVGElement> | null = null;
+  // Cache of all trace elements for high contrast mode, each with the type
+  // of the layer that selects it
+  private traceElementsCache: Map<SVGElement, string> | null = null;
 
   // Pattern service for high contrast mode patterns
   private patternService: PatternService | null = null;
@@ -855,22 +864,28 @@ export class HighContrastService implements Disposable {
   }
 
   /**
-   * Get all SVG elements from all traces in the Figure hierarchy.
+   * Get all SVG elements from all traces in the Figure hierarchy, each with
+   * the type of the layer that selects it. An element two layers select keeps
+   * the first one's type, unless a later one is a bar: a bar's near-white fill
+   * must stay a bar.
    */
-  private getAllTraceElements(): Set<SVGElement> {
+  private getAllTraceElements(): Map<SVGElement, string> {
     if (this.traceElementsCache !== null) {
       return this.traceElementsCache;
     }
 
-    const elements = new Set<SVGElement>();
+    const elements = new Map<SVGElement, string>();
 
     for (const subplotRow of this.figure.subplots) {
       for (const subplot of subplotRow) {
         for (const traceRow of subplot.traces) {
           for (const trace of traceRow) {
+            const traceType = String(trace.traceType);
             const traceElements = trace.getAllOriginalElements();
             for (const el of traceElements) {
-              elements.add(el);
+              if (!elements.has(el) || BAR_LIKE_TRACE_TYPES.has(traceType)) {
+                elements.set(el, traceType);
+              }
             }
           }
         }
@@ -879,13 +894,6 @@ export class HighContrastService implements Disposable {
 
     this.traceElementsCache = elements;
     return elements;
-  }
-
-  private isTraceElement(
-    element: Element,
-    traceElements: Set<SVGElement>,
-  ): boolean {
-    return traceElements.has(element as SVGElement);
   }
 
   /**
@@ -970,7 +978,8 @@ export class HighContrastService implements Disposable {
       const styleFillMatch = style.match(/fill:\s*([^;]+)/i);
       const styleStrokeMatch = style.match(/stroke:\s*([^;]+)/i);
 
-      const isInSelectors = this.isTraceElement(el, traceElements);
+      const traceType = traceElements.get(el as SVGElement);
+      const isInSelectors = traceType !== undefined;
 
       const complexPath = el.getAttribute('d');
       let isComplexPath = false;
@@ -991,6 +1000,7 @@ export class HighContrastService implements Disposable {
           color,
           resolvedColor: this.resolvePaint(el, attr, color),
           isInSelectors,
+          traceType,
           cantBeBackground,
           attr,
           attrType,
@@ -1299,11 +1309,11 @@ export class HighContrastService implements Disposable {
 
     const hex = colorInfo.spreadColor ?? original.hex;
 
-    const traceType: string | undefined = 'type' in this.context.instructionContext
-      ? String(this.context.instructionContext.type)
-      : undefined;
-    const isBarLike = traceType === 'bar' || traceType === 'hist';
-    const useNearWhite = isBarLike && colorInfo.isInSelectors;
+    // Decided per element, from the layer that selects it: a chart with
+    // several layers or panels has no single type, and its bars are bars all
+    // the same.
+    const useNearWhite = colorInfo.traceType !== undefined
+      && BAR_LIKE_TRACE_TYPES.has(colorInfo.traceType);
 
     if (!this.isTiledMark(colorInfo)) {
       // A near-white paint is the paper showing through -- the chart's
