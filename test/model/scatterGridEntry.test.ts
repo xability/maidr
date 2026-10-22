@@ -1,5 +1,6 @@
 import type { MaidrLayer } from '@type/grammar';
 import { describe, expect, test } from '@jest/globals';
+import { Figure } from '@model/plot';
 import { ScatterTrace } from '@model/scatter';
 import { TraceType } from '@type/grammar';
 
@@ -28,6 +29,16 @@ function quadrant(): MaidrLayer {
   };
 }
 
+/** A second layer, of bars that name no campaign, for a switch to miss. */
+function budget(): MaidrLayer {
+  return {
+    id: 'budget',
+    type: TraceType.BAR,
+    axes: { x: { label: 'Quarter' }, y: { label: 'Budget' } },
+    data: [{ x: 'Q1', y: 3 }, { x: 'Q2', y: 5 }],
+  };
+}
+
 /** A quadrant chart with the reader on Campaign C, the third column. */
 function onCampaignC(): ScatterTrace {
   const trace = new ScatterTrace(quadrant());
@@ -35,6 +46,18 @@ function onCampaignC(): ScatterTrace {
   trace.moveOnce('FORWARD');
   trace.moveOnce('FORWARD');
   return trace;
+}
+
+/**
+ * Turns the rotor from point to grid navigation as the rotor service does:
+ * it leaves every mode before it enters the new one, so the trace is out of
+ * point navigation by the time it is asked into the grid.
+ */
+function leavePointForGrid(trace: ScatterTrace): void {
+  trace.setGridMode(false);
+  trace.setPointMode(false);
+  trace.setIntersectionMode(false);
+  trace.setGridMode(true);
 }
 
 describe('entering grid navigation', () => {
@@ -64,6 +87,59 @@ describe('entering grid navigation', () => {
     trace.setGridMode(true);
 
     expect(trace.getGridPosition()).toEqual({ row: 1, col: 2 });
+  });
+
+  test('from point navigation, starts in the cell of the point the reader reached', () => {
+    const trace = new ScatterTrace(quadrant());
+    trace.moveOnce('FORWARD'); // Campaign A's column, top left.
+    trace.setPointMode(true); // On Campaign A.
+    trace.movePointRight(); // Campaign D, bottom right.
+
+    leavePointForGrid(trace);
+
+    expect(trace.getGridPosition()).toEqual({ row: 1, col: 2 });
+  });
+
+  test('from point navigation, the first arrow moves from that point\'s cell', () => {
+    const trace = new ScatterTrace(quadrant());
+    trace.moveOnce('FORWARD');
+    trace.setPointMode(true);
+    trace.movePointRight(); // Campaign D, bottom right.
+    leavePointForGrid(trace);
+
+    expect(trace.moveGridUp()).toBe(true);
+
+    expect(trace.getGridPosition()).toEqual({ row: 2, col: 2 });
+  });
+
+  test('after a move in row and column navigation, starts from where that move went', () => {
+    const trace = new ScatterTrace(quadrant());
+    trace.moveOnce('FORWARD'); // Campaign A's column.
+    trace.setPointMode(true);
+    trace.movePointRight(); // Campaign D.
+    trace.setPointMode(false); // The rotor turned back to row and column navigation.
+    trace.moveOnce('FORWARD'); // Campaign B's column.
+    trace.moveOnce('FORWARD'); // Campaign C's column, top right.
+
+    trace.setGridMode(true);
+
+    expect(trace.getGridPosition()).toEqual({ row: 2, col: 2 });
+  });
+
+  test('after a layer switch back that says where the reader is, starts from there', () => {
+    const subplot = new Figure({ id: 'chart', subplots: [[{ layers: [quadrant(), budget()] }]] })
+      .activeSubplot;
+    const campaigns = subplot.activeTrace as ScatterTrace;
+    campaigns.moveOnce('FORWARD'); // Campaign A's column.
+    campaigns.setPointMode(true);
+    campaigns.movePointRight(); // Campaign D.
+    campaigns.setPointMode(false); // A layer switch turns the rotor back first.
+    subplot.switchLayer('UPWARD'); // The budget, which names no campaign.
+    subplot.switchLayer('DOWNWARD'); // Back, announced at Campaign A's column.
+
+    campaigns.setGridMode(true);
+
+    expect(campaigns.getGridPosition()).toEqual({ row: 2, col: 1 });
   });
 
   test('starts in the bottom-left cell before the reader has entered the data', () => {

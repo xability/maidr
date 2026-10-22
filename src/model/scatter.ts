@@ -343,6 +343,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   private readonly columnPos: number[];
   protected isInPointMode: boolean;
   protected pointModeIndex: number;
+  /**
+   * The point the reader was on when they left point navigation, until they
+   * hear another, or null. Leaving point navigation leaves the row and
+   * column cursor where it was, so this is the one record of where they are
+   * when the rotor's next mode is entered: the rotor leaves every mode before
+   * it enters the new one.
+   */
+  private pointModeExitIndex: number | null;
 
   // Intersection navigation state (INTERSECTION_MODE)
   // - xPointsSvg / yPointsSvg: parallel to xPoints / yPoints. Indexed the
@@ -581,6 +589,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     this.isInPointMode = false;
     this.pointModeIndex = 0;
+    this.pointModeExitIndex = null;
 
     // Intersection mode setup. xPointsSvg / yPointsSvg parallel xPoints /
     // yPoints respectively and are built only when the binder supplied one
@@ -2368,10 +2377,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * Enters or leaves grid navigation.
    *
    * Entry starts in the cell holding the point the reader is on -- the one
-   * {@link setPointMode} would start on -- so the first arrow moves from
-   * where they are, and the point still outlined lies in the cell the cursor
-   * is on. Before the reader has entered the data, or when that point lies
-   * outside the grid, it starts in the bottom-left cell. Always starting
+   * they reached in point navigation when they come straight from it, else
+   * the one {@link setPointMode} would start on -- so the first arrow moves
+   * from where they are, and the point still outlined lies in the cell the
+   * cursor is on. Before the reader has entered the data, or when that point
+   * lies outside the grid, it starts in the bottom-left cell. Always starting
    * there put the cursor in a cell the reader was not in, unannounced, with
    * their own point still outlined elsewhere.
    *
@@ -2384,10 +2394,33 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     this.isInGridMode = enabled;
     if (enabled) {
-      const cell = this.isInitialEntry ? null : this.gridCellOf(this.computeEntryPointIndex());
+      const point = this.pointModeExitIndex ?? this.computeEntryPointIndex();
+      const cell = this.isInitialEntry ? null : this.gridCellOf(point);
       this.gridRow = cell?.row ?? 0;
       this.gridCol = cell?.col ?? 0;
+      this.pointModeExitIndex = null;
     }
+  }
+
+  /**
+   * Notifies the observers of the reader's new place. Whatever they hear
+   * now, they are no longer on the point they left point navigation on.
+   */
+  public override notifyStateUpdate(): void {
+    this.pointModeExitIndex = null;
+    super.notifyStateUpdate();
+  }
+
+  /**
+   * Notifies the observers of a state built for them, as a layer switch
+   * announces the layer it lands on. As {@link notifyStateUpdate}, the
+   * reader is then on the point announced.
+   *
+   * @param state - The state to announce
+   */
+  public override notifyObserversWithState(state: TraceState): void {
+    this.pointModeExitIndex = null;
+    super.notifyObserversWithState(state);
   }
 
   /**
@@ -2786,7 +2819,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    *
    * On exit, no state needs to be unwound; the existing row/col indices are
    * untouched while in point mode, so ROW_COL navigation resumes where it
-   * left off.
+   * left off. The point the reader was on is kept until they hear another,
+   * so grid navigation entered next starts in its cell (see
+   * {@link setGridMode}).
    */
   public setPointMode(enabled: boolean): void {
     if (enabled === this.isInPointMode) {
@@ -2800,6 +2835,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // autoplay's first tick — it takes the initial-entry branch, notifies
       // without moving, and replays the point the user is already standing on.
       this.isInitialEntry = false;
+    } else {
+      this.pointModeExitIndex = this.pointModeIndex;
     }
   }
 
