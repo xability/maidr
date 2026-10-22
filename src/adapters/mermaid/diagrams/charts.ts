@@ -358,8 +358,9 @@ function sankeyColumns(context: DiagramContext): string[][] | undefined {
 
   const placed: { name: string; x: number; y: number }[] = [];
   for (const [at, name] of names.entries()) {
-    // The label is the name, then the value on a line of its own.
-    const label = plain((labels[at].textContent ?? '').split('\n')[0]);
+    // The label is the name, then the value on a line of its own. Drawn text
+    // is read as shown, as drawnText reads it, never put through plain().
+    const label = (labels[at].textContent ?? '').split('\n')[0].replace(/\s+/g, ' ').trim();
     const x = num(groups[at].getAttribute('x'));
     const y = num(groups[at].getAttribute('y'));
     if (name === '' || label !== name || x === undefined || y === undefined) {
