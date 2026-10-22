@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { FormatFunction, GanttData, GanttPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
@@ -10,6 +11,7 @@ import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
 import { isMeasured, missingText } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -75,7 +77,7 @@ function lengthOf(point: GanttPoint, inclusive: boolean): number {
  * an axis folded into rows, a packet's bits, it is the start within the row.
  */
 export class GanttTrace extends AbstractTrace {
-  protected readonly supportsExtrema = false;
+  protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
 
   private readonly lanes: GanttPoint[][];
@@ -701,6 +703,65 @@ export class GanttTrace extends AbstractTrace {
     }
 
     return nearest;
+  }
+
+  /**
+   * The longest and shortest tasks, for `[`, `]` and the Go To dialog.
+   *
+   * Over the whole schedule rather than per lane: every lane shares one pitch
+   * scale, and which task is longest is the question a schedule is read for.
+   * Every task holding the extreme is offered, lane by lane, so a tie is
+   * walked down the chart. An empty lane offers nothing, a length that did
+   * not parse is never an extreme, and a milestone's zero is a real length.
+   *
+   * @returns The tasks holding the longest and shortest lengths, or none when
+   *   no length is measured
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const measured = this.lengths.flat().filter(isMeasured);
+    if (measured.length === 0) {
+      return [];
+    }
+
+    const targets: ExtremaTarget[] = [];
+    const collect = (value: number, type: 'max' | 'min', name: string): void => {
+      this.lengths.forEach((lane, row) => lane.forEach((length, col) => {
+        const point = this.lanes[row]?.[col];
+        if (length !== value || point === undefined) {
+          return;
+        }
+        const where = point.label
+          ? t('model.ganttLabelled', { name: point.x, label: point.label })
+          : point.x;
+        targets.push({
+          ...extremumAt(name, where),
+          value,
+          pointIndex: col,
+          segment: 'interval',
+          type,
+          navigationType: 'group',
+          groupIndex: row,
+          categoryIndex: col,
+        });
+      }));
+    };
+    collect(MathUtil.safeMax(measured), 'max', t('model.extremaLongestInterval'));
+    collect(MathUtil.safeMin(measured), 'min', t('model.extremaShortestInterval'));
+    return targets;
+  }
+
+  /**
+   * Moves the cursor to a chosen extrema target.
+   *
+   * @param target - The task to go to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex === undefined || target.categoryIndex === undefined) {
+      return;
+    }
+    this.row = target.groupIndex;
+    this.col = target.categoryIndex;
+    this.finalizeNavigation();
   }
 
   /**

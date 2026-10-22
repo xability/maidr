@@ -598,6 +598,10 @@ export const model = {
   'model.wordCloudTermSummary': '{term}（{weight}）',
   'model.extremaHeaviestTerm': '权重最大的词',
   'model.extremaLightestTerm': '权重最小的词',
+  'model.extremaLargestSlice': '最大扇区',
+  'model.extremaSmallestSlice': '最小扇区',
+  'model.extremaLongestInterval': '最长区间',
+  'model.extremaShortestInterval': '最短区间',
   // Volcano and Manhattan plots: which points clear the threshold.
   'model.rotorUnitSignificant': '显著',
   'model.rotorNounSignificantPoints': '显著点',

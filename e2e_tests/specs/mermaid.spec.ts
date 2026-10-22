@@ -502,6 +502,24 @@ test.describe('Mermaid adapter', () => {
     expect(research).toContain('Length is 10 days');
   });
 
+  test('jumps to a gantt chart\'s longest and shortest task', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+
+    const longest = await press(page, ']');
+    expect(longest).toContain('Adapter (critical)');
+    expect(longest).toContain('Length is 20 days');
+    expect(await press(page, '[')).toContain('Release (milestone)');
+  });
+
+  test('jumps to a pie\'s smallest and largest slice', async ({ page }) => {
+    await openExample(page, 'pie');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, '[')).toContain('Birds');
+    expect(await press(page, ']')).toContain('Dogs');
+  });
+
   test('finds the next longer task in a gantt lane with the rotor', async ({ page }) => {
     await openExample(page, 'gantt');
     await press(page, 'ArrowRight');
