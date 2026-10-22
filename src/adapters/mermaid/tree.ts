@@ -23,8 +23,10 @@ export interface TreeNode {
 export interface TreeParts {
   roots: TreeNode[];
   /**
-   * What the layer calls a node: `Topic`, `Cause`, `Event`. A node is
-   * announced with it unless it names its own kind.
+   * What the layer calls a node: `Topic`, `Entry`. A node is announced with
+   * it unless it names its own kind, and l x and the description name the
+   * layer's nodes with it, so where the levels are different kinds it is a
+   * word true of all of them: `Item`, not `Column` or `Card`.
    */
   nodeLabel?: string;
   /** What the magnitude measures, when there is one. */
