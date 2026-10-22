@@ -165,10 +165,12 @@ export function drawnText(element: Element | null | undefined): string {
 let refCounter = 0;
 
 /**
- * Leaves out the hidden copies MAIDR inserts beside an element it highlights.
+ * Leaves out the hidden copies MAIDR inserts beside an element it highlights,
+ * and whatever is inside one: a layer that pairs a whole node keeps a copy of
+ * the node, marks and all, and only the copy itself is marked as MAIDR's.
  * Mirrors the private `Svg.OWNED_ATTRIBUTE` in `src/util/svg.ts`.
  */
-const NOT_OWNED = ':not([data-maidr-owned])';
+const NOT_OWNED = ':not([data-maidr-owned], [data-maidr-owned] *)';
 
 /**
  * Names an element with a selector that reaches it alone.
