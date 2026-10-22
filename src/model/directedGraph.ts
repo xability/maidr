@@ -1555,7 +1555,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
 
   public get description(): DescriptionState {
     const nodes = this.nodeItems;
-    const scopes = this.allItems(this.roots).filter(item => item.kind === 'scope');
+    const items = this.allItems(this.roots);
+    const scopes = items.filter(item => item.kind === 'scope');
     const listed = (items: GraphItem[]): string => {
       const shown = items.slice(0, NAMED_NODES)
         .map(item => DirectedGraphTrace.nameFrom(item, null))
@@ -1573,8 +1574,21 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     const outputs = this.order
       .filter(node => this.successors[node].length === 0 && this.predecessors[node].length > 0)
       .map(node => nodes[node]);
-    const branches = this.successors.filter(list => list.length > 1).length;
-    const merges = this.predecessors.filter(list => list.length > 1).length;
+    // Every declared node that branches or merges, by all of its own edges,
+    // and every scope a move calls one, named so each can be found. Counted
+    // over the declared graph alone, the summary called a node a branch
+    // point that no move or list calls one -- its edges both enter one closed
+    // scope, as a skip connection enters its block -- and missed a scope a
+    // move calls a merge point; counted over the items alone, it would drop
+    // that skip connection and disagree with the table below. A node a move
+    // calls a branch or merge point has at least as many declared edges, so
+    // it is always among them.
+    const branches = items.filter(item => item.source === null
+      ? item.outputs.length > 1
+      : this.successors[item.source].length > 1);
+    const merges = items.filter(item => item.source === null
+      ? item.inputs.length > 1
+      : this.predecessors[item.source].length > 1);
 
     const stats: DescriptionState['stats'] = [
       { label: t('model.statNumberOfNodes'), value: nodes.length },
@@ -1601,8 +1615,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     if (outputs.length > 0) {
       stats.push({ label: t('model.statGraphOutputs'), value: listed(outputs) });
     }
-    stats.push({ label: t('model.statBranchPoints'), value: branches });
-    stats.push({ label: t('model.statMergePoints'), value: merges });
+    stats.push({ label: t('model.statBranchPoints'), value: branches.length > 0 ? listed(branches) : 0 });
+    stats.push({ label: t('model.statMergePoints'), value: merges.length > 0 ? listed(merges) : 0 });
     if (this.cyclic) {
       stats.push({ label: t('model.statCycle'), value: t('model.dagCycle') });
     }

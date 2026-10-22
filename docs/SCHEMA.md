@@ -1080,6 +1080,14 @@ place in the scope's order. A scope is announced as a scope rather than by the
 x axis's noun for a node -- `Scope is block1, Size is 3 nodes inside` -- and is
 called not connected only when nothing inside it has an edge.
 
+The description speaks of the whole graph at once, as declared: its table
+lists every node's own inputs and outputs, and its branch and merge points
+name each node with more than one output or input of its own -- the skip
+connection's `input_1` above, though its two edges both enter the closed
+`block1`, so a move there hears one output -- and each scope a move calls a
+branch or merge point, so every item announced as one is among them:
+`Branch points: 1: input_1`, `Merge points: 1: block1 > add`.
+
 ### Sequence diagram (`sequence`) [experimental]
 
 Participants and the messages between them, in the order they happen. `data`
