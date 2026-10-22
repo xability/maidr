@@ -74,6 +74,18 @@ function kindName(kind: SequenceMessageKind): string {
 }
 
 /**
+ * The number the diagram prints beside a message, when it prints one. A note,
+ * and a message the diagram does not number, has none.
+ *
+ * @param message - The message
+ * @returns Its number, or undefined
+ */
+function printedNumber(message: SequenceMessage): number | undefined {
+  const number = message.number;
+  return typeof number === 'number' && Number.isFinite(number) ? number : undefined;
+}
+
+/**
  * Trace implementation for sequence diagrams.
  *
  * **The messages are the points, in the order they happen.** A sequence
@@ -442,8 +454,8 @@ export class SequenceTrace extends AbstractTrace {
     if (step.fragments.length > 0) {
       asides.push({ label: t('model.seqFragment'), value: step.fragments.join(PATH_JOIN) });
     }
-    const number = step.message.number;
-    if (typeof number === 'number' && Number.isFinite(number)) {
+    const number = printedNumber(step.message);
+    if (number !== undefined) {
       asides.push({ label: t('model.seqNumber'), value: String(number) });
     }
     const cells = this.rows[this.row];
@@ -561,8 +573,11 @@ export class SequenceTrace extends AbstractTrace {
       });
     }
 
-    const allRows = this.steps.map((step, at) => [
-      step.message.number ?? at + 1,
+    // Only the numbers the diagram prints: a row it leaves unnumbered is
+    // blank, and a diagram that numbers nothing has no Number column.
+    const numbered = this.steps.some(step => printedNumber(step.message) !== undefined);
+    const allRows = this.steps.map(step => [
+      ...(numbered ? [printedNumber(step.message) ?? ''] : []),
       this.lanes[step.from]?.name ?? '',
       this.lanes[step.to]?.name ?? '',
       kindName(step.kind),
@@ -584,14 +599,14 @@ export class SequenceTrace extends AbstractTrace {
       stats,
       dataTable: {
         headers: [
-          t('model.seqNumber'),
+          ...(numbered ? [t('model.seqNumber')] : []),
           t('model.tableFrom'),
           t('model.tableTo'),
           t('model.tableKind'),
           this.messageLabel,
           t('model.seqFragment'),
         ],
-        columnAxes: [undefined, undefined, undefined, undefined, 'x', undefined],
+        columnAxes: [...(numbered ? [undefined] : []), undefined, undefined, undefined, 'x', undefined],
         rows,
       },
     };

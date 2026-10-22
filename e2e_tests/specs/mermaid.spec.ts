@@ -307,6 +307,17 @@ test.describe('Mermaid adapter', () => {
     await expect(page.locator(HIGHLIGHT)).toHaveCSS('fill', HIGHLIGHT_STROKE);
   });
 
+  test('numbers only what a sequence diagram numbers, in its description', async ({ page }) => {
+    await openExample(page, 'sequence');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('d');
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('tr', { hasText: 'Log in' }).locator('th, td').first()).toHaveText('1');
+    // `autonumber` numbers the messages; the note it leaves unnumbered.
+    await expect(dialog.locator('tr', { hasText: 'Session stored' }).locator('th, td').first()).toHaveText('');
+  });
+
   test('goes into a Venn diagram\'s overlaps and back out', async ({ page }) => {
     await openExample(page, 'venn');
     const set = await press(page, 'ArrowRight');
@@ -413,6 +424,11 @@ test.describe('Mermaid adapter', () => {
     const reply = await press(page, 'ArrowRight');
     expect(reply).toContain('Route is Store to API');
     expect(reply).toContain('Kind is reply');
+
+    // ZenUML's own numbers are not read yet; the description invents none.
+    await page.keyboard.press('d');
+    await expect(page.getByRole('dialog').locator('th', { hasText: 'Message' })).toBeVisible();
+    await expect(page.getByRole('dialog').locator('th', { hasText: 'Number' })).toHaveCount(0);
   });
 
   test('reads a gantt chart\'s tasks as dates with their status', async ({ page }) => {

@@ -1098,7 +1098,10 @@ is an object, because a participant no message reaches is still a lifeline:
 - `messages` run in time order. `kind` is one of `sync` (the default),
   `async`, `reply`, `create`, `destroy` or `note`; `fragments` lists the
   enclosing loops and alternatives, outermost first, as the diagram labels
-  them; `number` is the sequence number the diagram prints.
+  them; `number` is the sequence number the diagram prints, omitted for a
+  message it does not number and for a note. The description's table shows
+  only those numbers, a blank where there is none, and has no Number column
+  when nothing is numbered.
 
 Left and right walk the messages in time. Down moves from the row of every
 message onto the first participant's lifeline, and on to the next participant,
