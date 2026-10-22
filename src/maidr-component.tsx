@@ -216,6 +216,8 @@ const EMBEDDED = `:where([${Constant.MAIDR_EMBED}]) > article[id^="maidr-article
  * band inside it, the outline of the chart's own `<svg>`, keeps it visible on
  * a dark plot; the `<svg>` sits directly in the plot, or inside the
  * `display: contents` element a chart bound from the page is adopted into.
+ * Together they cover the drawing's outer 5px, so a drawing that reaches its
+ * own edge needs that much room, as the Mermaid adapter pads its diagrams.
  * Both colours can be set by a page, through `--maidr-focus-ring-color` and
  * `--maidr-focus-ring-inner`. Under forced colours the ring takes the
  * system's highlight colour and the band goes.
@@ -432,9 +434,14 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
             widened the figure to its container as the reader came in, and
             the chart moved sideways, and grew where the page scales it to
             its figure (#1438). The text wraps at the chart's width instead,
-            and a field wider than the chart runs past the figure's edge. */}
+            and a field wider than the chart runs past the figure's edge.
+            It wraps wherever the chart sits, the dialogs rendered in here
+            too: in a host that does not wrap, as Mermaid's
+            `<pre class="mermaid">` or a nowrap table cell, the text ran
+            on one line past the page's edge. Only what MAIDR shows is
+            reset; the drawing keeps rendering as its library drew it. */}
         {contextValue && plotRef.current && announcer && (
-          <div id={`react-container-${data.id}`} style={{ contain: 'inline-size' }}>
+          <div id={`react-container-${data.id}`} style={{ contain: 'inline-size', whiteSpace: 'normal' }}>
             <MaidrApp
               plot={plotRef.current}
               announcer={announcer}

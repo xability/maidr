@@ -93,6 +93,17 @@ test.describe('Quarto diagrams', () => {
     await expect(page.locator(HIGHLIGHT).first()).toBeAttached();
   });
 
+  test('draws a {mermaid} cell at the size Mermaid drew it, not at 300px', async ({ page }) => {
+    const { drawing, drawn, figure } = await page.locator('#fig-flow-mermaid').evaluate((svg: SVGSVGElement) => ({
+      drawing: svg.getBoundingClientRect().width,
+      drawn: svg.viewBox.baseVal.width,
+      figure: (svg.closest('figure[id^="maidr-figure-"]') as HTMLElement).getBoundingClientRect().width,
+    }));
+
+    expect(Math.min(drawn, figure)).toBeGreaterThan(300);
+    expect(Math.abs(drawing - Math.min(drawn, figure))).toBeLessThanOrEqual(1);
+  });
+
   test('walks the sequence diagram, the pie and the {dot} graph, in text and braille', async ({ page }) => {
     expect(await pressOn(page, 1, 'ArrowRight')).toContain('Hello');
 

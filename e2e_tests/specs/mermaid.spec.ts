@@ -121,6 +121,58 @@ async function press(page: Page, key: string): Promise<string> {
 }
 
 /**
+ * How wide the drawing is, how wide Mermaid drew it (its viewBox), and how
+ * wide the figure it sits in is.
+ *
+ * @param page - The page
+ * @returns The three widths, in CSS pixels
+ */
+async function widths(page: Page): Promise<{ drawing: number; drawn: number; figure: number }> {
+  return page.locator('svg[maidr]').first().evaluate((svg: SVGSVGElement) => ({
+    drawing: svg.getBoundingClientRect().width,
+    drawn: svg.viewBox.baseVal.width,
+    figure: (svg.closest('figure[id^="maidr-figure-"]') as HTMLElement).getBoundingClientRect().width,
+  }));
+}
+
+/**
+ * What MAIDR's focus ring covers of the focused diagram: each label, and
+ * each box short of the whole drawing, that reaches into the 5px the ring is
+ * drawn over on the left, top or right.
+ *
+ * @param page - The page
+ * @returns The labels' text, or the boxes' tag
+ */
+async function underFocusRing(page: Page): Promise<string[]> {
+  return page.locator(FOCUS_TARGET).first().evaluate((plot) => {
+    const ring = 5;
+    const edge = plot.getBoundingClientRect();
+    const svg = plot.querySelector('svg') as SVGSVGElement;
+    const whole = svg.getBoundingClientRect();
+    return [...svg.querySelectorAll('text, rect')].filter((element) => {
+      const box = element.getBoundingClientRect();
+      return box.width > 0 && box.width < whole.width * 0.95 && element.closest('defs') === null
+        && (box.left < edge.left + ring - 0.5 || box.top < edge.top + ring - 0.5
+          || box.right > edge.right - ring + 0.5);
+    }).map(element => element.textContent?.trim() || element.tagName);
+  });
+}
+
+/**
+ * Which of the elements a selector matches hold a line longer than they are
+ * wide.
+ *
+ * @param page - The page
+ * @param selector - The elements
+ * @returns Each overflowing element's text
+ */
+async function overflowing(page: Page, selector: string): Promise<string[]> {
+  return page.locator(selector).evaluateAll(elements => elements
+    .filter(element => element.scrollWidth > element.clientWidth + 1)
+    .map(element => (element.textContent ?? '').slice(0, 60)));
+}
+
+/**
  * The layer types MAIDR was handed.
  *
  * @param page - The page
@@ -221,5 +273,87 @@ test.describe('Mermaid adapter', () => {
 
     expect(research).toContain('Research (done)');
     expect(research).toContain('Length is 10 days');
+  });
+
+  // Mermaid draws a diagram `width="100%"`, up to the width it laid it out
+  // at. In MAIDR's plot, which is as wide as what it holds, the browser drew
+  // that at its 300px fallback.
+  for (const name of ['flowchart', 'gantt', 'mindmap']) {
+    test(`draws the ${name} example at Mermaid's size, not at 300px`, async ({ page }) => {
+      await openExample(page, name);
+
+      const { drawing, drawn, figure } = await widths(page);
+      expect(Math.min(drawn, figure)).toBeGreaterThan(300);
+      expect(Math.abs(drawing - Math.min(drawn, figure))).toBeLessThanOrEqual(1);
+    });
+  }
+
+  test('outlines a gantt task at the size it is drawn', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+
+    const box = await page.locator(HIGHLIGHT).first().boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(15);
+  });
+
+  // The ring is drawn inside the chart, over what is there, and these draw
+  // at the drawing's edge: a railroad's rule names, a packet's bit numbers,
+  // a sankey's node bars.
+  for (const name of ['railroad', 'packet', 'sankey']) {
+    test(`keeps the focus ring off the ${name} example's drawing`, async ({ page }) => {
+      await openExample(page, name);
+      await press(page, 'ArrowRight');
+
+      expect(await underFocusRing(page)).toEqual([]);
+    });
+  }
+
+  // Mermaid's markup puts a diagram in a `<pre class="mermaid">`, and what
+  // MAIDR shows is mounted inside it, dialogs included.
+  for (const width of [undefined, 320]) {
+    test(`wraps MAIDR's text and dialogs inside the <pre> Mermaid draws into${width ? ` at ${width}px` : ''}`, async ({ page }) => {
+      if (width !== undefined) {
+        await page.setViewportSize({ width, height: 800 });
+      }
+      await openExample(page, 'c4');
+      await press(page, 'ArrowRight');
+
+      expect(await overflowing(page, TEXT)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+      await page.keyboard.press('o');
+      await expect(page.locator('#object-list-description')).toBeVisible();
+      expect(await overflowing(page, '#object-list-description')).toEqual([]);
+
+      await page.keyboard.press('Escape');
+      await expect(page.locator('#object-list-description')).toHaveCount(0);
+      await page.keyboard.press('d');
+      await page.getByRole('dialog').getByRole('button', { name: /About this chart type/ }).click();
+      await expect(page.locator('[role="dialog"] dd').first()).toBeVisible();
+      expect(await overflowing(page, '[role="dialog"] dd')).toEqual([]);
+    });
+  }
+
+  test('shows MAIDR\'s text in the page\'s font, not the monospace of Mermaid\'s <pre>', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await press(page, 'ArrowRight');
+
+    const fonts = await page.evaluate(() => {
+      const text = getComputedStyle(document.querySelector('#maidr-text-container p') as Element);
+      return { text: text.fontFamily, size: text.fontSize, page: getComputedStyle(document.body).fontFamily };
+    });
+    expect(fonts.text).toBe(fonts.page);
+    expect(fonts.size).toBe('16px');
+  });
+
+  test('shrinks a diagram to a page narrower than it, without scrolling sideways', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.setViewportSize({ width: 360, height: 800 });
+
+    const { drawing, figure } = await widths(page);
+    expect(drawing).toBeLessThanOrEqual(figure + 0.5);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
 });

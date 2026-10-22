@@ -85,6 +85,27 @@ function nameOf(element: Element): string {
 }
 
 /**
+ * Gives a `<pre>` holding a diagram the page's font.
+ *
+ * Mermaid's markup puts a diagram in a `<pre class="mermaid">`, and MAIDR
+ * shows its text and dialogs inside the element the diagram is in, so they
+ * took the `<pre>`'s monospace, at 13px, rather than the page's font. Once
+ * the diagram is drawn the `<pre>` holds only the drawing, which carries a
+ * font of its own, so it can take the page's. A Wardley map has none, and
+ * takes the page's font too: the one `mermaid.render` laid it out in, in a
+ * scratch element in the page's body. A font set on the element itself is
+ * left alone, and so is a host that is not a `<pre>`.
+ *
+ * @param element - The element the diagram was drawn in
+ */
+function inheritPageFont(element: Element): void {
+  const host = element as HTMLElement;
+  if (host.tagName === 'PRE' && host.style.fontFamily === '') {
+    host.style.fontFamily = 'inherit';
+  }
+}
+
+/**
  * Renders one diagram into an element and makes it accessible.
  *
  * @param mermaid - The Mermaid API
@@ -114,6 +135,7 @@ export async function renderMermaid(
   }
   const maidr = await createMaidrFromMermaid(mermaid, source, drawing, options);
   drawing.setAttribute('maidr', JSON.stringify(maidr));
+  inheritPageFont(element);
   return maidr;
 }
 

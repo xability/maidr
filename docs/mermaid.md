@@ -29,6 +29,8 @@ flowchart LR
 
 `startOnLoad: false` matters. Mermaid replaces each diagram's text with its drawing, and the adapter needs the text; with `startOnLoad` left on, Mermaid would draw the diagrams before the adapter could read them.
 
+MAIDR shows its text and dialogs inside the element a diagram is drawn in. Once a diagram is drawn in a `<pre>`, the adapter gives the `<pre>` the page's font (`font-family: inherit`), so they are not set in its monospace. Mermaid's diagrams carry their own font and look the same; a Wardley map, which has none, takes the page's font, the one Mermaid laid it out in. A font set in the `<pre>`'s own `style` attribute is kept.
+
 ## Using with npm/Bundlers
 
 ```bash
@@ -60,6 +62,10 @@ drawing.setAttribute('maidr', JSON.stringify(maidr));
 ```
 
 `renderMermaid(mermaid, element, text?)` does the same for one element: it renders `text` (or the element's own text) into the element and binds it.
+
+Both leave the drawing at the size Mermaid gave it. By default Mermaid draws a diagram `width="100%"`, up to an inline `max-width` of the width it laid it out at; MAIDR's figure is only as wide as the chart it holds, so that percentage would have nothing to resolve against and the browser would draw the diagram at 300px. The adapter writes the same size the other way round, `width: <max-width>; max-width: 100%`: as wide as Mermaid laid it out, and no wider than the page. A width you set yourself is left alone.
+
+They also pad the drawing by 5px inside that size (`padding: 5px; box-sizing: border-box`). MAIDR's focus ring is drawn 5px into the chart, and Mermaid crops a diagram to what it drew, so without the padding the ring would cover a railroad's rule names, a packet's bit numbers or a sankey's node bars while the reader is in the diagram. A padding you set on the drawing yourself is left alone.
 
 ## Quarto
 

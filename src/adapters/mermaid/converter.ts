@@ -67,11 +67,64 @@ export function supportedMermaidDiagrams(): string[] {
 }
 
 /**
+ * Gives a drawing Mermaid sized to its container a width of its own.
+ *
+ * With `useMaxWidth`, Mermaid's default, a drawing is `width="100%"` with an
+ * inline `max-width` of the width it was laid out at: as wide as its
+ * container, up to that. MAIDR's plot is only as wide as what it holds
+ * (`width: fit-content`), so the percentage had nothing to resolve against
+ * and the browser fell back to 300px, drawing a wide diagram's labels a few
+ * pixels tall. `width: <max-width>; max-width: 100%` is the same size in any
+ * container that has a width, and gives the plot one to fit.
+ *
+ * A width set any other way -- absolute, a percentage other than 100%, or
+ * inline -- is left as it is.
+ *
+ * @param svg - The drawing
+ */
+function fitToFigure(svg: SVGSVGElement): void {
+  const maxWidth = svg.style.maxWidth.trim();
+  if (svg.getAttribute('width')?.trim() !== '100%' || svg.style.width !== ''
+    || maxWidth === '' || maxWidth === 'none' || maxWidth.endsWith('%')) {
+    return;
+  }
+  svg.style.width = maxWidth;
+  svg.style.maxWidth = '100%';
+}
+
+/**
+ * Leaves room inside a drawing for MAIDR's focus ring.
+ *
+ * The ring is drawn 5px into the chart -- a 3px ring and a 2px band inside
+ * it (`FOCUS_RING_RULES` in `maidr-component.tsx`) -- over what is there.
+ * Mermaid crops a drawing to what it drew, and some diagrams draw at its very
+ * edge or past it: a railroad's rule names, a packet's bit numbers, a
+ * sankey's node bars, a radar's title. The ring covered them for as long as
+ * the reader was in the chart. As much padding, inside the size the drawing
+ * already has (`border-box`), puts the ring over the padding instead.
+ *
+ * A padding of the drawing's own is left as it is.
+ *
+ * @param svg - The drawing
+ */
+function leaveRoomForFocusRing(svg: SVGSVGElement): void {
+  if (svg.style.padding !== '') {
+    return;
+  }
+  svg.style.padding = '5px';
+  svg.style.boxSizing = 'border-box';
+}
+
+/**
  * Converts a parsed diagram against its rendered SVG.
  *
  * Separate from {@link createMaidrFromMermaid} so a caller that already holds
  * the parsed diagram -- or a test with a stand-in database -- need not parse
  * again.
+ *
+ * A drawing Mermaid sized to its container is given the width it was drawn
+ * at, so MAIDR's figure draws it at Mermaid's size, and every drawing is
+ * padded inside that size so MAIDR's focus ring covers none of it.
  *
  * @param diagram - The parsed diagram: its type and database
  * @param diagram.type - The diagram type Mermaid detected
@@ -119,6 +172,8 @@ export function convertMermaidDiagram(
     ?? conversion.title
     ?? (plain(call(diagram.db, 'getDiagramTitle')) || plain(call(diagram.db, 'getTitle')) || undefined);
   const caption = options.caption ?? (plain(call(diagram.db, 'getAccDescription')) || undefined);
+  fitToFigure(svg);
+  leaveRoomForFocusRing(svg);
   return {
     id,
     ...(title ? { title } : {}),
