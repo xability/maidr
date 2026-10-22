@@ -1070,8 +1070,10 @@ Left and right walk the items of one scope in topological order, input to
 output; down opens a scope onto its first member and up closes it again;
 Ctrl with an arrow goes to the first or last item of the scope, out to the
 top-level item, or down to the deepest first member. The rotor's **Outputs**
-and **Inputs** units follow the edges downstream and upstream. An edge to a
-node inside a closed scope arrives at the scope. Each move announces the node,
+and **Inputs** units follow the edges downstream and upstream, each press
+taking the next edge of the item the walk started from; an arrow move ends the
+walk, so the next press follows the edges of the item the reader is on. An
+edge to a node inside a closed scope arrives at the scope. Each move announces the node,
 its connections as `2 inputs, 1 output`, whether it is a graph input or output
 or a branch or merge point, the names on either side, its attributes, and its
 place in the scope's order. A scope is announced as a scope rather than by the

@@ -278,7 +278,7 @@ flowchart LR
 </pre>
 ```
 
-Left and right walk the steps in flow order. Each step names what it comes from and leads to, with the arrows' labels: `Step is In stock?, From is Order received, Back-order, To is Pack items (yes), Back-order (no), Shape is decision`. The rotor's **Outputs** and **Inputs** follow the arrows themselves.
+Left and right walk the steps in flow order. Each step names what it comes from and leads to, with the arrows' labels: `Step is In stock?, From is Order received, Back-order, To is Pack items (yes), Back-order (no), Shape is decision`. The rotor's **Outputs** and **Inputs** follow the arrows themselves. Each Left or Right press takes the next arrow of the step the walk started from; an ordinary move ends the walk, so on a step the reader comes back to, the next press follows that step's own arrows.
 
 #### Sequence diagram [experimental]
 

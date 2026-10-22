@@ -178,7 +178,8 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
 
   /**
    * The link walk in progress: whose links, how far along, and where the last
-   * step left the cursor.
+   * step left the cursor. Every move the walk did not make itself ends it --
+   * see {@link NetworkTrace.moveOnce}.
    */
   private linkWalk: { from: number; index: number; at: Coordinate } | null = null;
 
@@ -622,10 +623,16 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    * from which a group of forty is a walk of up to thirty-nine presses back.
    * Which way is which is the grid's: Up is the next group.
    *
+   * Any arrow move ends a link walk. The walk knew the reader had moved off
+   * only by the cursor no longer being where its last step left it, which a
+   * move away and back cannot show, so the next Links step carried on
+   * through the neighbours of the node the walk started from.
+   *
    * @param direction - The key's direction
    * @returns True when the cursor moved
    */
   public override moveOnce(direction: MovableDirection): boolean {
+    this.linkWalk = null;
     const vertical = direction === 'UPWARD' || direction === 'DOWNWARD';
     if (this.isInitialEntry || !vertical) {
       return super.moveOnce(direction);
@@ -639,6 +646,18 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     this.movable.moveToIndex(target, this.leftAt.get(target) ?? 0);
     this.notifyStateUpdate();
     return true;
+  }
+
+  /**
+   * Ends any link walk before a move to the end of a group, for the reason
+   * {@link NetworkTrace.moveOnce} gives.
+   *
+   * @param direction - The key's direction
+   * @returns True when the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    this.linkWalk = null;
+    return super.moveToExtreme(direction);
   }
 
   /**

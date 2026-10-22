@@ -349,6 +349,38 @@ describe('the rotor follows the edges in their direction', () => {
     expect(trace.moveToRotorFilter('inputs', 'right')).toBe(false);
     expect(at(trace)).toBe('input');
   });
+
+  test('an arrow move ends the walk, so coming back follows the item\'s own edges', () => {
+    // The walk from conv1 stepped to conv2. Left and Right put the cursor back
+    // on the cell that step left it on, and the next step carried on through
+    // conv1's outputs -- it has no second one -- and said conv2 had none.
+    const trace = graph();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+    trace.moveToRotorFilter('outputs', 'right');
+    trace.moveOnce('BACKWARD');
+    trace.moveOnce('FORWARD');
+
+    expect(at(trace)).toBe('conv2');
+    expect(trace.moveToRotorFilter('outputs', 'right')).toBe(true);
+    expect(at(trace)).toBe('add');
+  });
+
+  test('a move to either end of the scope ends the walk as well', () => {
+    // a feeds b and b feeds a. The walk from a steps to b; Ctrl+Left and
+    // Ctrl+Right come back to b, whose own output is a.
+    const trace = graph([
+      { id: 'a', inputs: ['b'] },
+      { id: 'b', inputs: ['a'] },
+    ]);
+    trace.moveToRotorFilter('outputs', 'right');
+    trace.moveToExtreme('BACKWARD');
+    trace.moveToExtreme('FORWARD');
+
+    expect(at(trace)).toBe('b');
+    expect(trace.moveToRotorFilter('outputs', 'right')).toBe(true);
+    expect(at(trace)).toBe('a');
+  });
 });
 
 describe('the edges are read as declared, and no further', () => {

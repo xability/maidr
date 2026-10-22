@@ -303,6 +303,32 @@ describe('the rotor is where following a link lives', () => {
       .toContain(String(nonEmptyState(trace).text.main.value));
   });
 
+  test('walking away and back ends the walk, so it follows where you are', () => {
+    // The walk from Ada stepped to Grace. Left and Right put the cursor back
+    // on Grace, and the next step carried on through Ada's links, to Alan,
+    // rather than through Grace's own, Ada and Alan.
+    const trace = network();
+    trace.moveToRotorFilter('links', 'right');
+    walk(trace, 'BACKWARD', 'FORWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Grace');
+    expect(trace.moveToRotorFilter('links', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Ada');
+  });
+
+  test('a move to either end of the group ends the walk as well', () => {
+    // Entered leftwards, the walk from Ada steps to Barbara, the last node of
+    // the group; Ctrl+Left and Ctrl+Right come back to her, linked to Ada.
+    const trace = network();
+    trace.moveToRotorFilter('links', 'left');
+    trace.moveToExtreme('BACKWARD');
+    trace.moveToExtreme('FORWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('Barbara');
+    expect(trace.moveToRotorFilter('links', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Ada');
+  });
+
   test('it is withheld on a chart where nothing is linked', () => {
     const alone: NetworkPoint[] = [{ source: 'A', target: 'A' }];
     const keys = network(alone).getRotorFilterUnits().map(unit => unit.key);
