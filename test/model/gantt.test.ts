@@ -1,6 +1,6 @@
 import type { GanttPoint, MaidrLayer } from '@type/grammar';
-import type { AudioState, NonEmptyTraceState } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import type { AudioState, NonEmptyTraceState, TraceState } from '@type/state';
+import { describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { GanttTrace } from '@model/gantt';
 import { Orientation, TraceType } from '@type/grammar';
@@ -97,9 +97,27 @@ function gantt(
  * @param audio The audio state to read
  * @returns The pan, from -1 (hard left) to 1 (hard right)
  */
-function pan(audio: AudioState): number {
+function pan(audio: Pick<AudioState, 'panning'>): number {
   const { x, cols } = audio.panning;
   return (x / (cols - 1)) * 2 - 1;
+}
+
+/**
+ * The pan of the boundary tone a refused move sounds.
+ * @param trace The trace, on the interval the move starts from
+ * @param direction Which way to move
+ * @returns The pan, from -1 to 1
+ */
+function boundaryPan(trace: GanttTrace, direction: 'FORWARD' | 'BACKWARD' | 'UPWARD' | 'DOWNWARD'): number {
+  const update = jest.fn();
+  trace.addObserver({ update });
+
+  expect(trace.moveOnce(direction)).toBe(false);
+  const state = update.mock.calls.at(-1)?.[0] as TraceState | undefined;
+  if (state === undefined || !state.empty) {
+    throw new Error('Expected an out-of-bounds state');
+  }
+  return pan({ panning: state.audio });
 }
 
 describe('gantt registration', () => {
@@ -207,6 +225,30 @@ describe('position is carried in the pan, not in the column index', () => {
     const earlier = pan(nonEmptyState(gantt(1, 0)).audio);
 
     expect(later).toBeGreaterThan(earlier);
+  });
+
+  test('the boundary tone sounds where the interval it stops at sounds', () => {
+    // `Build` holds one interval in a chart whose widest lane holds two. By
+    // column index its only interval is the first of two, hard left, while
+    // its tone is at 30 of 100.
+    const trace = gantt(1, 0);
+    const tone = pan(nonEmptyState(trace).audio);
+
+    expect(tone).toBeCloseTo(-0.4);
+    expect(boundaryPan(trace, 'FORWARD')).toBeCloseTo(tone);
+  });
+
+  test('a lane that ends the schedule bounds on the right, whichever way the reader is stopped', () => {
+    const shipped: GanttPoint[][] = [...LANES, [{ x: 'Ship', start: 100, end: 100 }]];
+
+    for (const direction of ['FORWARD', 'BACKWARD', 'UPWARD'] as const) {
+      expect(boundaryPan(gantt(2, 0, shipped), direction)).toBeCloseTo(1);
+    }
+  });
+
+  test('the last interval of a longer lane bounds where it sounds, not at the edge of the field', () => {
+    // `Revisions` starts at 60 of 100.
+    expect(boundaryPan(gantt(0, 1), 'FORWARD')).toBeCloseTo(0.2);
   });
 
   test('a chart occupying one instant pans to centre rather than dividing by zero', () => {
@@ -330,6 +372,16 @@ describe('a lane with nothing booked is enterable, not a crash', () => {
     trace.moveOnce('UPWARD');
 
     expect(Number.isNaN(Number(nonEmptyState(trace).audio.freq.raw))).toBe(true);
+  });
+
+  test('has no start to pan by, so it sounds in the centre, and so does its edge', () => {
+    // Read from the axis's start, it claimed the far left of a schedule it
+    // has no place in.
+    const trace = gantt(0, 0, WITH_EMPTY);
+    trace.moveOnce('UPWARD');
+
+    expect(pan(nonEmptyState(trace).audio)).toBeCloseTo(0);
+    expect(boundaryPan(trace, 'FORWARD')).toBeCloseTo(0);
   });
 
   test('names itself from the declared lane names', () => {
