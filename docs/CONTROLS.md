@@ -97,7 +97,9 @@ Label mode is described under [Label Mode](#label-mode-announce-axis-labels).
 
 Escape leaves braille mode. In review mode the arrow keys, Home, End, Page Up and
 Page Down move through the review text the way they do in any text field, and R
-(**Exit Review Mode** in the help menu) leaves it.
+(**Exit Review Mode** in the help menu) leaves it. The review text can be
+selected and copied but not changed: a typed character, Delete, Backspace or a
+paste leaves it reading what MAIDR announced.
 
 The braille and review fields are kept readable whatever the page around them
 does to form fields:
