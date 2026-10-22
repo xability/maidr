@@ -254,13 +254,23 @@ import { bindGraphviz, createMaidrFromGraphviz, renderGraphviz } from 'maidr/gra
 
 ## Keyboard Controls
 
-| Key | Action |
-|-----|--------|
-| Arrow keys | Move between nodes |
-| `T` | Toggle text descriptions |
-| `B` | Toggle braille output |
-| `S` | Toggle sonification |
-| `H` | Open the help menu, which lists every command |
+Once a drawing is focused, use the standard MAIDR keyboard shortcuts:
+
+| Function | Key (Windows) | Key (Mac) |
+|----------|--------------|-----------|
+| Move between nodes, or between the items of one treemap branch | Left / Right Arrow | Left / Right Arrow |
+| Open a cluster or a treemap branch / leave it | Down / Up Arrow | Down / Up Arrow |
+| Move to the next / previous connected group (network) | Up / Down Arrow | Up / Down Arrow |
+| Follow the edges (Outputs, Inputs; a network's Links) or walk one treemap level (Level) | Rotor (Alt + Shift + Up / Down), then Left / Right | Rotor (Option + Shift + Up / Down), then Left / Right |
+| Open the object list | O | O |
+| Toggle Sonification | S | S |
+| Toggle Braille Mode | B | B |
+| Toggle Text Mode | T | T |
+| Toggle Review Mode | R | R |
+| Open Chart Description | D | D |
+| Open/Close Help, which lists every shortcut | Control + / | Command + / |
+
+For the full list, see the [Keyboard Controls](CONTROLS.md) reference.
 
 ## API Documentation
 
