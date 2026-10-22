@@ -139,7 +139,50 @@ describe('the walk runs input to output, scope by scope', () => {
     trace.moveOnce('FORWARD');
 
     expect(at(trace)).toBe('block1');
-    expect(aside(trace, 'Scope')).toBe('3 nodes inside');
+    expect(aside(trace, 'Size')).toBe('3 nodes inside');
+  });
+
+  test('a scope is announced as a scope, not by the noun for a node', () => {
+    // The x axis names what a node is -- here a layer, on a Mermaid git
+    // graph a commit -- so a scope announced by it was "Layer is block1",
+    // "Commit is main": the wrong kind, before the size could correct it.
+    const trace = graph();
+    trace.moveOnce('FORWARD');
+
+    expect(nonEmptyState(trace).text.main.label).toBe('Scope');
+    expect(at(trace)).toBe('block1');
+    expect(aside(trace, 'Scope')).toBeUndefined();
+  });
+
+  test('a node keeps the noun its producer gave it, inside a scope too', () => {
+    const trace = graph();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+
+    expect(at(trace)).toBe('conv1');
+    expect(nonEmptyState(trace).text.main.label).toBe('Layer');
+  });
+
+  test('a scope whose nodes connect only to each other is not called not connected', () => {
+    // An agent flow drawn as one scope holds the whole graph: no edge
+    // crosses its boundary, and every step inside it is connected.
+    const trace = graph([
+      { id: 'a', path: ['flow'] },
+      { id: 'b', path: ['flow'], inputs: ['a'] },
+    ]);
+
+    expect(at(trace)).toBe('flow');
+    expect(aside(trace, 'Connections')).toBe('0 inputs, 0 outputs');
+    expect(aside(trace, 'Role')).toBeUndefined();
+  });
+
+  test('a scope whose nodes have no edges at all is not connected', () => {
+    const trace = graph([
+      { id: 'a', path: ['g'] },
+      { id: 'b', path: ['g'] },
+    ]);
+
+    expect(aside(trace, 'Role')).toBe('not connected');
   });
 
   test('down opens a scope onto its first member, and up closes it again', () => {

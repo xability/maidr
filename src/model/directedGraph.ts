@@ -818,17 +818,35 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   }
 
   /**
+   * Whether nothing inside an item has an edge at all.
+   *
+   * A node with no inputs and no outputs has none. A scope with none has no
+   * edge crossing its boundary, which says nothing about the edges between
+   * its members: an agent flow drawn as one scope holds the whole graph, and
+   * calling it not connected says the diagram has no arrows.
+   *
+   * @param item - The item
+   * @returns True when no member has an edge
+   */
+  private isolated(item: GraphItem): boolean {
+    return item.members.every(member =>
+      this.successors[member].length === 0 && this.predecessors[member].length === 0);
+  }
+
+  /**
    * What an item is in the flow: where data enters or leaves the graph, and
-   * where it branches or merges. Nothing for a link in a chain.
+   * where it branches or merges. Nothing for a link in a chain, nor for a
+   * scope whose edges all stay inside it.
    *
    * @param item - The item to describe
+   * @param isolated - Whether nothing inside it has an edge at all
    * @returns The role, or null
    */
-  private static roleOf(item: GraphItem): string | null {
+  private static roleOf(item: GraphItem, isolated: boolean): string | null {
     const inputs = item.inputs.length;
     const outputs = item.outputs.length;
     if (inputs === 0 && outputs === 0) {
-      return t('model.dagRoleIsolated');
+      return isolated ? t('model.dagRoleIsolated') : null;
     }
     const roles: string[] = [];
     if (inputs === 0) {
@@ -906,10 +924,11 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     }
 
     if (item.kind === 'scope') {
-      // Said first, so a reader on a closed block knows it is one and that
-      // there is something to open before hearing anything else about it.
+      // Said first, so a reader on a closed block knows how much there is to
+      // open before hearing anything else about it. The main clause already
+      // calls it a scope.
       asides.push({
-        label: t('model.asideScope'),
+        label: t('model.asideScopeSize'),
         value: t(item.members.length === 1 ? 'model.dagScopeSizeOne' : 'model.dagScopeSizeMany', {
           count: item.members.length,
         }),
@@ -921,7 +940,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       value: DirectedGraphTrace.degreePhrase(item.inputs.length, item.outputs.length),
     });
 
-    const role = DirectedGraphTrace.roleOf(item);
+    const role = DirectedGraphTrace.roleOf(item, this.isolated(item));
     if (role !== null) {
       asides.push({ label: t('model.asideRole'), value: role });
     }
@@ -948,7 +967,10 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     }
 
     return {
-      main: { label: this.nodeLabel, value: item.name },
+      // The x axis names what a node is -- a step, a commit, a layer -- which
+      // a scope is not: a branch announced as "Commit is main" said the
+      // wrong kind before the size clause could correct it.
+      main: { label: item.kind === 'scope' ? t('model.asideScope') : this.nodeLabel, value: item.name },
       mainAxis: 'x',
       crossAxis: 'y',
       asides,
@@ -1108,7 +1130,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
         row: item.depth,
         col: item.index,
         measures,
-        groups: DirectedGraphTrace.objectGroups(item, upstream, downstream, filtered),
+        groups: DirectedGraphTrace.objectGroups(item, this.isolated(item), upstream, downstream, filtered),
       };
     });
 
@@ -1179,9 +1201,16 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       }
     }
 
+    // The list holds the scopes as well as the nodes, and the description
+    // counts the nodes alone, so the scopes are counted as scopes.
+    const scopeCount = items.filter(item => item.kind === 'scope').length;
+    const nodes = counter('model.objectNodesOne', 'model.objectNodesMany');
+    const scopes = counter('model.objectScopesOne', 'model.objectScopesMany');
     return {
       title: t('model.objectsNodes'),
-      count: counter('model.objectNodesOne', 'model.objectNodesMany'),
+      count: scopeCount === 0
+        ? nodes
+        : total => t('model.objectNodesAndScopes', { nodes: nodes(total - scopeCount), scopes: scopes(scopeCount) }),
       objects,
       measures: [
         ...(byConnections ? [connections] : []),
@@ -1251,7 +1280,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       }));
     }
     parts.push(DirectedGraphTrace.degreePhrase(item.inputs.length, item.outputs.length));
-    const role = DirectedGraphTrace.roleOf(item);
+    const role = DirectedGraphTrace.roleOf(item, this.isolated(item));
     if (role !== null) {
       parts.push(role);
     }
@@ -1266,6 +1295,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * that branches is in both of those.
    *
    * @param item - The item
+   * @param isolated - Whether nothing inside it has an edge at all
    * @param upstream - What feeds the item under the cursor, however far back
    * @param downstream - What it feeds, however far on
    * @param filtered - The attributes the list filters by
@@ -1273,6 +1303,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    */
   private static objectGroups(
     item: GraphItem,
+    isolated: boolean,
     upstream: ReadonlySet<GraphItem>,
     downstream: ReadonlySet<GraphItem>,
     filtered: ReadonlySet<string>,
@@ -1298,7 +1329,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     if (inputs > 1) {
       groups.push(MERGE_POINTS);
     }
-    if (inputs === 0 && outputs === 0) {
+    if (inputs === 0 && outputs === 0 && isolated) {
       groups.push(NOT_CONNECTED);
     }
     groups.push(levelFilterId(item.depth));

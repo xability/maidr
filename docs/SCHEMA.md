@@ -1070,7 +1070,9 @@ and **Inputs** units follow the edges downstream and upstream. An edge to a
 node inside a closed scope arrives at the scope. Each move announces the node,
 its connections as `2 inputs, 1 output`, whether it is a graph input or output
 or a branch or merge point, the names on either side, its attributes, and its
-place in the scope's order.
+place in the scope's order. A scope is announced as a scope rather than by the
+x axis's noun for a node -- `Scope is block1, Size is 3 nodes inside` -- and is
+called not connected only when nothing inside it has an edge.
 
 ### Sequence diagram (`sequence`) [experimental]
 

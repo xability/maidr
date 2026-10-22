@@ -201,8 +201,9 @@ test.describe('Graphviz adapter, clusters', () => {
 
     const announcement = normalizeText(await plot.getInstructionText());
 
-    expect(announcement).toContain('Component is Backend');
-    expect(announcement).toContain('4 nodes inside');
+    // A cluster is a scope, not a component.
+    expect(announcement).toContain('Scope is Backend');
+    expect(announcement).toContain('Size is 4 nodes inside');
     expect(announcement).toContain('To is Email worker');
     // Graphviz drew the cluster, but MAIDR derives the scope from its nodes:
     // every node inside it is outlined.
@@ -230,7 +231,7 @@ test.describe('Graphviz adapter, clusters', () => {
     await plot.moveToDataPointAbove();
     await plot.moveToDataPointAbove();
 
-    expect(normalizeText(await plot.getInstructionText())).toContain('Component is Backend');
+    expect(normalizeText(await plot.getInstructionText())).toContain('Scope is Backend');
   });
 });
 

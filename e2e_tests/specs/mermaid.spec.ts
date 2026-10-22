@@ -274,7 +274,7 @@ test.describe('Mermaid adapter', () => {
     await press(page, 'ArrowRight');
     await press(page, 'ArrowRight');
 
-    expect(await press(page, 'ArrowRight')).toContain('Step is Shipping');
+    expect(await press(page, 'ArrowRight')).toContain('Scope is Shipping');
     await expect.poll(async () => (await page.locator(HIGHLIGHT).allTextContents()).map(text => text.trim()).sort())
       .toEqual(['Pack items', 'Print label', 'Ship']);
   });
@@ -393,14 +393,26 @@ test.describe('Mermaid adapter', () => {
     expect(box).not.toContain('Frame is CartUI');
   });
 
-  test('calls an architecture diagram\'s group an element, not a service', async ({ page }) => {
+  test('calls an architecture diagram\'s group a scope, not a service', async ({ page }) => {
     await openExample(page, 'architecture');
     await press(page, 'ArrowRight');
     const group = await press(page, 'ArrowRight');
 
-    expect(group).toContain('Element is API');
-    expect(group).toContain('Scope is 3 nodes inside');
+    expect(group).toContain('Scope is API');
+    expect(group).toContain('Size is 3 nodes inside');
     expect(group).not.toContain('Service is');
+  });
+
+  test('calls a git branch and an agent\'s flow scopes, and a flow of connected steps connected', async ({ page }) => {
+    await openExample(page, 'gitgraph');
+    const branch = await press(page, 'ArrowRight');
+    expect(branch).toContain('Scope is main');
+    expect(branch).not.toContain('Commit is main');
+
+    await openExample(page, 'agentflow');
+    const flow = await press(page, 'ArrowRight');
+    expect(flow).toContain('Scope is Review Agent');
+    expect(flow).not.toContain('not connected');
   });
 
   test('reads an architecture connection drawn without an arrow both ways', async ({ page }) => {
