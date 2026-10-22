@@ -101,8 +101,8 @@ interface Harness {
  * wired against stubbed display focus handling.
  * @returns The test harness
  */
-function createHarness(): Harness {
-  const context = new Context(new Figure(createMaidr()));
+function createHarness(maidr: Maidr = createMaidr()): Harness {
+  const context = new Context(new Figure(maidr));
   const notification = new NotificationService();
   const notify = jest.fn();
   notification.onChange(event => notify(event.value));
@@ -159,6 +159,19 @@ describe('candlestickDeltaService activation', () => {
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('Escape'));
     expect(service.isActive).toBe(true);
     expect(service.selectedReference).toBe('ma-layer:0');
+  });
+
+  test('a candlestick with no axis labels gives the delta layer none to announce', () => {
+    // The candlestick's own state used to stand in a hard-coded 'X' for an
+    // unlabelled axis, so the delta layer's x label was announced as "X".
+    const maidr = createMaidr();
+    delete maidr.subplots[0][0].layers[0].axes;
+    const { context, service } = createHarness(maidr);
+
+    expect(service.activate('ma-layer:0')).toBe(true);
+
+    const state = context.active.state;
+    expect(state.type === 'trace' && !state.empty && [state.xAxis, state.yAxis]).toEqual(['', 'Y delta']);
   });
 
   test('activate with no argument uses the remembered reference', () => {

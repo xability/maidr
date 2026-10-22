@@ -795,6 +795,16 @@ test.describe('Mermaid adapter', () => {
     expect(unresolved).toEqual([]);
   });
 
+  test('says an axis label a diagram does not have is not available', async ({ page }) => {
+    await openExample(page, 'mindmap');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('l');
+    expect(await press(page, 'x')).toContain('X label is Topic');
+    await page.keyboard.press('l');
+    // A tree has no y axis; "Y label is Y" named a placeholder as a label.
+    expect(await press(page, 'y')).toContain('Y label is not available');
+  });
+
   test('names a timeline by the title it declares', async ({ page }) => {
     await openExample(page, 'timeline');
 

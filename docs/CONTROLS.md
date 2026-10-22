@@ -329,6 +329,10 @@ Press **L** to enter label mode, then press one of the following keys to announc
 
 Escape leaves label mode without announcing anything.
 
+A label the chart does not have -- a sequence diagram's or a tree's Y label,
+an axis its producer left unnamed -- is announced as not available, with the
+warning tone, rather than by a generic name such as "Y label is Y".
+
 ## Violin Plot Controls
 
 Violin plots have two layers (box and KDE) that share the same subplot. Navigation differs by layer:

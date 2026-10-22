@@ -442,8 +442,11 @@ export class CandlestickDeltaService implements Disposable {
     initialField: CandlestickDeltaField,
   ): CandlestickDeltaTrace {
     const candleState = candlestick.state;
-    const xAxis = candleState.empty ? 'X' : candleState.xAxis;
-    const yAxis = candleState.empty ? 'Y' : candleState.yAxis;
+    // The candlestick's authored labels, empty where it authored none: the
+    // delta layer then has no x label either, as the chart it reads has
+    // none, and its y label still names a delta of the generic axis.
+    const xAxis = candleState.empty ? '' : candleState.xAxis;
+    const yAxis = (candleState.empty ? '' : candleState.yAxis) || t('model.defaultYAxis');
 
     const layer: MaidrLayer = {
       // Reuse the candlestick layer id so per-layer value formatters (dates,

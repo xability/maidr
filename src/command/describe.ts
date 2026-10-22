@@ -169,9 +169,10 @@ abstract class AnnounceCommand implements Command {
 
     const traceState = this.resolveActiveTraceState();
     const label = traceState !== null ? (axis === 'x' ? traceState.xAxis : traceState.yAxis) : '';
-    // A blank / whitespace-only label is announced as "not available" (matching
-    // the title/subtitle/caption commands), so an authored `axes.x.label: ""`
-    // never speaks a bare "X label is ".
+    // A label the layer did not author -- which the trace state carries as
+    // empty, never as the generic 'X' or 'Y' -- or a blank one is announced
+    // as "not available" (matching the title/subtitle/caption commands), so
+    // a chart with no y axis never says "Y label is Y".
     if (traceState !== null && label.trim() !== '') {
       const text = this.textService.isTerse()
         ? label
@@ -216,8 +217,9 @@ export class AnnounceXCommand extends AnnounceCommand {
    * Precedence at the figure lobby: an authored figure-wide X label wins
    * ("Figure X label is ..."); otherwise {@link resolveActiveTraceState} reads
    * the focused subplot's trace ("Subplot N, X label is ..."). Inside a
-   * subplot / single-panel the trace's own axis is used unchanged. A blank or
-   * whitespace-only label is announced as "not available".
+   * subplot / single-panel the trace's own axis is used unchanged. An
+   * unauthored, blank or whitespace-only label is announced as "not
+   * available".
    */
   public execute(): void {
     this.announceAxisLabel('x');
@@ -252,8 +254,9 @@ export class AnnounceYCommand extends AnnounceCommand {
    * Precedence at the figure lobby: an authored figure-wide Y label wins
    * ("Figure Y label is ..."); otherwise {@link resolveActiveTraceState} reads
    * the focused subplot's trace ("Subplot N, Y label is ..."). Inside a
-   * subplot / single-panel the trace's own axis is used unchanged. A blank or
-   * whitespace-only label is announced as "not available".
+   * subplot / single-panel the trace's own axis is used unchanged. An
+   * unauthored, blank or whitespace-only label is announced as "not
+   * available".
    */
   public execute(): void {
     this.announceAxisLabel('y');

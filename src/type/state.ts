@@ -87,7 +87,13 @@ export type TraceState
        * trace type, which cannot tell two layers of one kind apart.
        */
       name?: string;
+      /**
+       * The x axis label the layer authored; empty when it authored none, or
+       * a blank one -- as {@link FigureState} does. Point announcements use
+       * the trace's own generic fallback, not this.
+       */
       xAxis: string;
+      /** The y axis label the layer authored, or empty. See `xAxis`. */
       yAxis: string;
       z: string;
       hasMultiPoints: boolean;
