@@ -968,9 +968,13 @@ data, so there is nothing there to put in a cell.
 
 ```
 Group   Cells
-1       ⣿⡶⡶⠆⠆
 2       ⡶⡶⡶
+1       ⣿⡶⡶⠆⠆
 ```
+
+The groups are listed last first, the first group on the bottom line, because
+Up moves to the next group: the up arrow moves the cursor up a line, in the
+on-screen braille field and on a multiline display alike.
 
 #### Multiline Displays
 
