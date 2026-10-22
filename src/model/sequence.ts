@@ -429,10 +429,13 @@ export class SequenceTrace extends AbstractTrace {
       ? undefined
       : step.to > step.from ? 'up' as const : 'down' as const;
     return {
+      // Counted from one, as braille is: an exact 0 is the audio service's
+      // zero marker, which outranks the glide, and the leftmost participant
+      // is a lane, not a value of zero. Every other lane keeps its pitch.
       freq: {
-        min: 0,
-        max: Math.max(1, lanes - 1),
-        raw: step === null ? Number.NaN : step.to,
+        min: 1,
+        max: lanes,
+        raw: step === null ? Number.NaN : step.to + 1,
       },
       // The arriving participant's place across the diagram, so the sound
       // sits where the arrow ends.
