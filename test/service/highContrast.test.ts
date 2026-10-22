@@ -20,6 +20,7 @@ import type { StorageService } from '@service/storage';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { HighContrastService } from '@service/highContrast';
 import { SettingsService } from '@service/settings';
+import { Color } from '@util/color';
 
 // `jest-environment-jsdom` does not expose `structuredClone`, which
 // `SettingsService` uses to clone the default settings.
@@ -99,10 +100,14 @@ function createStorage(): StorageService {
   };
 }
 
-/** A layer as the service reads it: its type and the elements it selects. */
+/**
+ * A layer as the service reads it: its type, the elements it selects, and
+ * the shapes it was read from when its highlight marks stand in for them.
+ */
 interface LayerSpec {
   traceType: string;
   elements: SVGElement[];
+  geometry?: SVGElement[];
 }
 
 /**
@@ -118,6 +123,7 @@ function createFigure(layers: LayerSpec[] = []): Figure {
   const traces = layers.map(layer => ({
     traceType: layer.traceType,
     getAllOriginalElements: (): SVGElement[] => layer.elements,
+    getGeometryElements: (): SVGElement[] => layer.geometry ?? [],
   }));
   const figure = { subplots: [[{ traces: [traces] }]] };
   return figure as unknown as Figure;
@@ -148,6 +154,17 @@ interface HarnessOptions {
   unstyledText?: boolean;
   /** Runs once the page is built, before the service captures it. */
   beforeService?: () => void;
+  /**
+   * The marks are the shapes the layer was read from, not elements it
+   * selects: a line whose path maidr marks with circles of its own.
+   */
+  marksAreGeometry?: boolean;
+  /**
+   * Shapes the layer was read from beside the marks it selects, asked for
+   * once the page is built: a radar's polygons, drawn beside the markers its
+   * selectors name.
+   */
+  geometry?: () => SVGElement[];
   /**
    * Mounts the plot as maidr does: a `display: contents` div holding
    * `article#maidr-article-chart > figure#maidr-figure-chart`, the plot and
@@ -270,7 +287,11 @@ function createHarness(
     settings,
     notification as unknown as NotificationService,
     displayService,
-    createFigure(options.traceType === undefined ? [] : [{ traceType: options.traceType, elements: marks }]),
+    createFigure(options.traceType === undefined
+      ? []
+      : [options.marksAreGeometry
+          ? { traceType: options.traceType, elements: [], geometry: marks }
+          : { traceType: options.traceType, elements: marks, geometry: options.geometry?.() }]),
     context as unknown as Context,
     () => overlays,
   );
@@ -591,6 +612,33 @@ describe('highContrastService', () => {
     expect(harness.bar.getAttribute('fill')).toBe('rgba(255, 255, 255, 0.0001)');
   });
 
+  it('draws a faint outline no fainter than a faint gridline, and keeps a faint fill and a hit area as they were', () => {
+    // Mermaid outlines a block diagram's composites rgba(170, 170, 51, 0.2):
+    // white at 0.2 on the black backdrop is under 2:1, a frame far fainter
+    // than any gridline.
+    const paints = [
+      { fill: 'rgba(255, 255, 222, 0.5)', stroke: 'rgba(170, 170, 51, 0.2)' },
+      { fill: 'none', stroke: 'rgba(31, 119, 180, 0.0001)' },
+      { fill: 'none', stroke: 'rgba(31, 119, 180, 0.2)' },
+      { fill: 'none', stroke: 'rgba(31, 119, 180, 0.8)' },
+      { fill: 'none', stroke: 'rgba(221, 221, 221, 0.4)' },
+      { fill: 'rgba(31, 119, 180, 0.2)', stroke: 'none' },
+    ].map((spec) => {
+      rebuild([spec]);
+      harness.service.initializeHighContrast();
+      return [harness.bar.getAttribute('fill'), harness.bar.getAttribute('stroke')];
+    });
+
+    expect(paints).toEqual([
+      ['rgba(0, 0, 0, 0.5)', 'rgba(255, 255, 255, 0.5)'],
+      ['none', 'rgba(255, 255, 255, 0.0001)'],
+      ['none', 'rgba(255, 255, 255, 0.5)'],
+      ['none', 'rgba(255, 255, 255, 0.8)'],
+      ['none', 'rgba(255, 255, 255, 0.5)'],
+      ['rgba(255, 255, 255, 0.2)', null],
+    ]);
+  });
+
   it('never leaves a shape wholly in the background colour', () => {
     // A dark bar with no outline used to be matched to the dark end of the
     // ramp -- the background -- and vanish.
@@ -618,6 +666,45 @@ describe('highContrastService', () => {
 
     expect(harness.bar.getAttribute('fill')).toBe('#ffffff');
     expect(harness.bar.getAttribute('stroke')).toBe('#000000');
+  });
+
+  describe('a box drawn in tints of the page', () => {
+    // Mermaid fills a railroad diagram's terminals #ffffde and outlines them
+    // #eeeebc, both as light as paper. Both went to the background colour,
+    // and every terminal box vanished from the black backdrop.
+    function paintsOf(spec: MarkSpec): [string | null, string | null] {
+      rebuild([spec]);
+      harness.service.initializeHighContrast();
+      return [harness.bar.getAttribute('fill'), harness.bar.getAttribute('stroke')];
+    }
+
+    it('keeps an outline drawn darker than its fill, in the light colour, and its own paints after', () => {
+      expect(paintsOf({ fill: '#ffffde', stroke: '#eeeebc' })).toEqual(['#000000', '#ffffff']);
+
+      turnHighContrastOff(harness.settings);
+
+      expect([harness.bar.getAttribute('fill'), harness.bar.getAttribute('stroke')]).toEqual(['#ffffde', '#eeeebc']);
+    });
+
+    it('keeps a grey frame drawn on a white panel faint, as other frames are', () => {
+      expect(paintsOf({ fill: '#ffffff', stroke: '#eeeeee' })).toEqual(['#000000', 'rgba(255, 255, 255, 0.5)']);
+    });
+
+    it('leaves a panel outlined in its own colour, or lighter, or not at all, in the background colour', () => {
+      const panels = [
+        paintsOf({ fill: '#ffffde', stroke: '#ffffde' }),
+        paintsOf({ fill: '#eeeebc', stroke: '#ffffff' }),
+        paintsOf({ fill: '#ffffde', stroke: 'none' }),
+        paintsOf({ fill: '#ffffde', stroke: '#eeeebc', strokeWidth: '0' }),
+      ];
+
+      expect(panels).toEqual([
+        ['#000000', '#000000'],
+        ['#000000', '#000000'],
+        ['#000000', null],
+        ['#000000', '#000000'],
+      ]);
+    });
   });
 
   it('draws text light, whatever colour it was', () => {
@@ -747,6 +834,112 @@ describe('highContrastService', () => {
       expect(line.getAttribute('stroke')).toBe('#ffffff');
     });
 
+    it('cases a line drawn beside bars in the background colour, and takes the casing away after', () => {
+      // Mermaid's XY chart draws its line over its bars, and both are light:
+      // every segment that crossed a bar was lost in it.
+      rebuild([
+        { fill: '#ececff', stroke: 'none' },
+        { fill: 'none', stroke: '#8493a6', complexPath: true, strokeWidth: '2' },
+      ]);
+      const [bar, line] = harness.marks;
+      // A flat line has a box of no height, which a filter sized by that box
+      // would leave undrawn.
+      (line as unknown as SVGGraphicsElement).getBBox = (): DOMRect => ({ x: 10, y: 50, width: 300, height: 0 }) as DOMRect;
+      serviceFor(createFigure([
+        { traceType: 'bar', elements: [bar] },
+        { traceType: 'line', elements: [], geometry: [line] },
+      ]));
+
+      harness.service.initializeHighContrast();
+
+      const id = line.getAttribute('filter')?.match(/^url\(#(.+)\)$/)?.[1] ?? '';
+      const casing = harness.svg.querySelector(`filter[id="${id}"]`);
+      expect(bar.getAttribute('fill')).toBe('#ffffff');
+      expect(line.getAttribute('stroke')).toBe('#ffffff');
+      expect(casing?.getAttribute('filterUnits')).toBe('userSpaceOnUse');
+      expect(Number(casing?.getAttribute('height'))).toBeGreaterThan(0);
+      expect(casing?.querySelector('feFlood')?.getAttribute('flood-color')).toBe('#000000');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(line.hasAttribute('filter')).toBe(false);
+      expect(harness.svg.querySelector('filter')).toBeNull();
+    });
+
+    it('cases no line on a chart without bars, nor one the page filters itself', () => {
+      rebuild([
+        { fill: '#ececff', stroke: 'none' },
+        { fill: 'none', stroke: '#8493a6', complexPath: true },
+        { fill: 'none', stroke: '#1f77b4', complexPath: true },
+      ]);
+      const [bar, line, filtered] = harness.marks;
+      filtered.setAttribute('filter', 'url(#page-glow)');
+      for (const mark of [line, filtered]) {
+        (mark as unknown as SVGGraphicsElement).getBBox = (): DOMRect => ({ x: 0, y: 0, width: 300, height: 100 }) as DOMRect;
+      }
+      serviceFor(createFigure([{ traceType: 'line', elements: [], geometry: [line] }]));
+      harness.service.initializeHighContrast();
+      const alone = line.getAttribute('filter');
+      serviceFor(createFigure([
+        { traceType: 'bar', elements: [bar] },
+        { traceType: 'line', elements: [], geometry: [filtered] },
+      ]));
+
+      harness.service.initializeHighContrast();
+
+      expect(alone).toBeNull();
+      expect(filtered.getAttribute('filter')).toBe('url(#page-glow)');
+    });
+
+    it('cases the markers a line draws at its points with it, and takes their casing away after', () => {
+      // py-maidr draws a line plotted with `marker='o'` as a path and a <use>
+      // per point in the line's own group, and selects the path alone. The
+      // path was cased; the markers stayed light on a light bar, so the point
+      // the line passed through vanished where it crossed one
+      // (examples/multilayer_plot.html).
+      rebuild([
+        { fill: '#1f77b4', stroke: 'none' },
+        { fill: 'none', stroke: '#ff0000', complexPath: true, strokeWidth: '1.5' },
+      ]);
+      const [bar, line] = harness.marks;
+      const group = document.createElementNS(SVG_NAMESPACE, 'g');
+      line.replaceWith(group);
+      group.innerHTML = '<defs><path id="marker" d="M 0 -3 L 3 0 L 0 3 L -3 0 z" fill="#ff0000"></path></defs>'
+        + '<g><use class="marker" href="#marker" x="10" y="20" style="fill: #ff0000; stroke: #ff0000"></use>'
+        + '<use class="marker" href="#marker" x="30" y="40" style="fill: #ff0000; stroke: #ff0000"></use></g>'
+        + '<circle class="own" fill="#ff0000" visibility="hidden" data-maidr-owned="true"></circle>';
+      group.prepend(line);
+      const markers = Array.from(group.querySelectorAll('.marker')) as SVGElement[];
+      const template = group.querySelector('#marker') as SVGElement;
+      const own = group.querySelector('.own') as SVGElement;
+      (line as unknown as SVGGraphicsElement).getBBox = (): DOMRect => ({ x: 10, y: 20, width: 20, height: 20 }) as DOMRect;
+      for (const shape of [...markers, template, own]) {
+        (shape as unknown as SVGGraphicsElement).getBBox = (): DOMRect => ({ x: -3, y: -3, width: 6, height: 6 }) as DOMRect;
+      }
+      serviceFor(createFigure([
+        { traceType: 'bar', elements: [bar] },
+        { traceType: 'line', elements: [], geometry: [line] },
+      ]));
+
+      harness.service.initializeHighContrast();
+
+      const id = markers[0].getAttribute('filter')?.match(/^url\(#(.+)\)$/)?.[1] ?? '';
+      const casing = harness.svg.querySelector(`filter[id="${id}"]`);
+      expect(markers[1].getAttribute('filter')).toBe(`url(#${id})`);
+      expect(line.getAttribute('filter')).not.toBe(`url(#${id})`);
+      expect(casing?.querySelector('feFlood')?.getAttribute('flood-color')).toBe('#000000');
+      // The casing reaches past each marker as far as the line's does past
+      // the line, the marker's box being the measure.
+      expect(Number(casing?.getAttribute('x'))).toBeLessThanOrEqual(-(0.5 + 2 + 1) / 6);
+      expect(template.hasAttribute('filter')).toBe(false);
+      expect(own.hasAttribute('filter')).toBe(false);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(markers.some(marker => marker.hasAttribute('filter'))).toBe(false);
+      expect(harness.svg.querySelector('filter')).toBeNull();
+    });
+
     it('keeps a near-white bar a bar in each of several panels', () => {
       rebuild([{ fill: '#ececff', stroke: 'none' }, { fill: '#f4f4ff', stroke: 'none' }]);
       const panels = harness.marks.map(mark => ({
@@ -866,6 +1059,72 @@ describe('highContrastService', () => {
       expect(copy.style.getPropertyValue('mix-blend-mode')).toBe('screen');
     });
 
+    describe('painted with a gradient', () => {
+      // Mermaid strokes each sankey link with a gradient from its source's
+      // colour to its target's, at half opacity. Left as drawn, screened at
+      // half opacity over the black backdrop, most links came out under
+      // 2.7:1 -- #e15759 at 2.1:1.
+      function link(stops: string[], opacity = '0.5', traceType?: string): SVGStopElement[] {
+        rebuild([{ fill: 'none', stroke: 'url(#flow)', complexPath: true }], {
+          traceType,
+          beforeService: () => {
+            const chart = document.querySelector('#chart') as SVGSVGElement;
+            chart.insertAdjacentHTML('afterbegin', `<linearGradient id="flow">${
+              stops.map(color => `<stop stop-color="${color}"></stop>`).join('')}</linearGradient>`);
+            chart.querySelector('path')?.setAttribute('style', `stroke-opacity: ${opacity}; mix-blend-mode: multiply`);
+          },
+        });
+        return Array.from(harness.svg.querySelectorAll('stop'));
+      }
+
+      /** How a stop shows at `alpha` over the black backdrop, against it. */
+      function contrastOf(stop: SVGStopElement, alpha: number): number {
+        const [r, g, b] = (stop.style.getPropertyValue('stop-color') || stop.getAttribute('stop-color') || '')
+          .match(/\d+/g)
+          ?.map(Number) ?? [0, 0, 0];
+        const shown = { r: r * alpha, g: g * alpha, b: b * alpha };
+        return Color.getContrastRatio(shown, { r: 0, g: 0, b: 0 });
+      }
+
+      it('lifts each colour until it reads at 3:1 on the backdrop at the opacity it is drawn, and puts it back after', () => {
+        const stops = link(['#e15759', '#4e79a7']);
+
+        harness.service.initializeHighContrast();
+
+        expect(stops.map(stop => stop.style.getPropertyValue('stop-color'))).not.toContain('');
+        expect(stops.every(stop => contrastOf(stop, 0.5) >= 3)).toBe(true);
+
+        turnHighContrastOff(harness.settings);
+
+        expect(stops.map(stop => stop.hasAttribute('style'))).toEqual([false, false]);
+        expect(stops.map(stop => stop.getAttribute('stop-color'))).toEqual(['#e15759', '#4e79a7']);
+      });
+
+      it('keeps the hue of each colour, and leaves one that already reads alone', () => {
+        const stops = link(['#e15759', '#ff9da7'], '1');
+
+        harness.service.initializeHighContrast();
+
+        const [red, pink] = stops.map(stop => stop.style.getPropertyValue('stop-color'));
+        expect(red).toBe('');
+        expect(pink).toBe('');
+
+        const lifted = link(['#c04040'])[0];
+        harness.service.initializeHighContrast();
+        const [r, g, b] = lifted.style.getPropertyValue('stop-color').match(/\d+/g)?.map(Number) ?? [];
+        expect(r).toBeGreaterThan(g);
+        expect(g).toBe(b);
+      });
+
+      it('leaves the colour scale of a tiled chart as drawn', () => {
+        const stops = link(['#440154', '#21918c'], '1', 'heat');
+
+        harness.service.initializeHighContrast();
+
+        expect(stops.map(stop => stop.hasAttribute('style'))).toEqual([false, false]);
+      });
+    });
+
     it('is the only mark given a blend mode', () => {
       harness.service.initializeHighContrast();
 
@@ -938,9 +1197,10 @@ describe('highContrastService', () => {
     // same for every series.
 
     /** Draws `markup` after the marks, as a legend is drawn. */
-    function withLegend(specs: MarkSpec[], markup: string, before = false): void {
+    function withLegend(specs: MarkSpec[], markup: string, before = false, options: HarnessOptions = {}): void {
       rebuild(specs, {
         traceType: 'pie',
+        ...options,
         beforeService: () => {
           const chart = document.querySelector('#chart') as SVGSVGElement;
           const legend = document.createElementNS(SVG_NAMESPACE, 'g');
@@ -971,6 +1231,81 @@ describe('highContrastService', () => {
       turnHighContrastOff(harness.settings);
 
       expect(keys.map(fillOf)).toEqual(['rgb(236, 236, 255)', '#b5ff20']);
+    });
+
+    it('tells a radar\'s overlapping series apart, and gives each key its series\' pattern', () => {
+      // Mermaid draws a radar's series #8686ff and #ffff78, translucent, one
+      // over the other. Both went white with a white outline, and both keys
+      // white: nothing said which outline was Alice and which Bob. The layer
+      // names the curves, and maidr marks their vertices with circles of its
+      // own, so the curves are the shapes it was read from.
+      withLegend(
+        [
+          { fill: '#8686ff', stroke: '#8686ff', complexPath: true },
+          { fill: '#ffff78', stroke: '#ffff78', complexPath: true },
+        ],
+        '<rect class="key" fill="#8686ff"></rect><rect class="key" fill="#ffff78"></rect>',
+        false,
+        { traceType: 'radar', marksAreGeometry: true },
+      );
+      const keys = Array.from(harness.svg.querySelectorAll('.key'));
+
+      harness.service.initializeHighContrast();
+
+      const curves = harness.marks.map(mark => mark.getAttribute('fill'));
+      expect(curves[0]).toMatch(/^url\(#maidr-pattern-/);
+      expect(curves[1]).toMatch(/^url\(#maidr-pattern-/);
+      expect(curves[0]).not.toBe(curves[1]);
+      expect(keys.map(fillOf)).toEqual(curves);
+      expect(harness.marks.map(mark => mark.getAttribute('stroke'))).toEqual(['#ffffff', '#ffffff']);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(harness.marks.map(mark => mark.getAttribute('fill'))).toEqual(['#8686ff', '#ffff78']);
+      expect(keys.map(fillOf)).toEqual(['#8686ff', '#ffff78']);
+    });
+
+    it('patterns a radar\'s areas, and keeps the markers its selectors name at the vertices solid', () => {
+      // examples/radar.html draws each series as a translucent polygon with
+      // a 10px dot at each vertex, and its selectors name the dots. The dots
+      // took their series' pattern too, and a stripe or a dot of it as wide
+      // as a marker blacked most of the marker out.
+      const areas: SVGElement[] = [];
+      rebuild(
+        [
+          { fill: '#4c72b0', stroke: 'none' },
+          { fill: '#4c72b0', stroke: 'none' },
+          { fill: '#c44e52', stroke: 'none' },
+          { fill: '#c44e52', stroke: 'none' },
+        ],
+        {
+          traceType: 'radar',
+          beforeService: () => {
+            const markers = Array.from(document.querySelectorAll('#chart rect'));
+            for (const marker of [markers[0], markers[2]]) {
+              const color = marker.getAttribute('fill') ?? '';
+              const area = document.createElementNS(SVG_NAMESPACE, 'polygon');
+              area.setAttribute('style', `fill: ${color}; fill-opacity: 0.25; stroke: ${color}`);
+              marker.before(area);
+              areas.push(area);
+            }
+          },
+          geometry: () => areas,
+        },
+      );
+
+      harness.service.initializeHighContrast();
+
+      const fills = areas.map(fillOf);
+      expect(fills[0]).toMatch(/^url\(#maidr-pattern-/);
+      expect(fills[1]).toMatch(/^url\(#maidr-pattern-/);
+      expect(fills[0]).not.toBe(fills[1]);
+      expect(harness.marks.map(mark => mark.getAttribute('fill'))).toEqual(['#ffffff', '#ffffff', '#ffffff', '#ffffff']);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(areas.map(fillOf)).toEqual(['#4c72b0', '#c44e52']);
+      expect(harness.marks.map(mark => mark.getAttribute('fill'))).toEqual(['#4c72b0', '#4c72b0', '#c44e52', '#c44e52']);
     });
 
     it('leaves a shape of a series colour drawn before the marks alone', () => {
@@ -1344,6 +1679,57 @@ describe('highContrastService', () => {
       harness.service.initializeHighContrast();
 
       expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+    });
+
+    it('gives a label drawn across a box\'s edge the colour that reads on more of it, haloed in the other, and takes both back after', () => {
+      // A C4 relationship's label is drawn at the middle of its arrow, here
+      // with its right end over a cylinder that goes white. Read at its
+      // centre alone it was on nothing, and was left white on the cylinder.
+      const label = labelOn(LIFTED_BOX);
+      placeAt(label, 80, 10, 80, 16);
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.getAttribute('fill')).toBe('#ffffff');
+      expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+      expect(label.style.getPropertyValue('stroke')).toBe(DARK_FILL);
+      expect(label.style.getPropertyValue('stroke-width')).toBe('3px');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(label.hasAttribute('style')).toBe(false);
+    });
+
+    it('draws no halo round a label wholly on one box', () => {
+      const label = labelOn(LIFTED_BOX);
+
+      harness.service.initializeHighContrast();
+
+      expect(label.style.getPropertyValue('stroke')).toBe('');
+    });
+
+    it('halos an HTML label drawn across a box\'s edge', () => {
+      rebuild([LIFTED_BOX], {
+        beforeService: () => {
+          const object = document.createElementNS(SVG_NAMESPACE, 'foreignObject');
+          const div = document.createElement('div');
+          div.textContent = 'Reads accounts';
+          object.appendChild(div);
+          document.querySelector('#chart')?.appendChild(object);
+        },
+      });
+      const div = harness.svg.querySelector('foreignObject div') as HTMLElement;
+      placeAt(harness.bar, 0, 0, 100, 40);
+      placeAt(div, 30, 10, 80, 16);
+
+      harness.service.initializeHighContrast();
+
+      expect(div.style.getPropertyValue('color')).toBe(DARK);
+      expect(div.style.getPropertyValue('text-shadow')).toContain('#ffffff');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(div.style.getPropertyValue('text-shadow')).toBe('');
     });
 
     it('sees a translucent box as it shows over the dark backdrop', () => {

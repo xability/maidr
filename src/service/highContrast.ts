@@ -41,6 +41,13 @@ const HighContrastConstants = {
   // and one this solid hides whatever is drawn beneath it.
   MIN_SURFACE_ALPHA: 0.05,
   OPAQUE_SURFACE_ALPHA: 0.99,
+  // Where a label's surface is read, across the line through its middle:
+  // its centre first, then near each end.
+  LABEL_SAMPLE_FRACTIONS: [0.5, 0.05, 0.95],
+  // The halo given a label drawn across the edge of a shape: an SVG text's
+  // stroke, and the reach of an HTML label's shadow.
+  LABEL_HALO_WIDTH: '3px',
+  LABEL_HALO_BLUR: '2px',
   // A light grey that is not part of the data -- a gridline, an axis, a frame
   // -- is drawn faint on purpose, and is kept faint: the light colour at
   // reduced opacity, so it stays visible without competing with the data.
@@ -49,7 +56,20 @@ const HighContrastConstants = {
   // Paper is white, or a tint of it: Mermaid's #ececff, #ffffde. A pale
   // yellow as light, such as Mermaid's #ffff78 series and sections, is ink.
   PAPER_MAX_CHANNEL_SPREAD: 64,
+  // An outline this much darker than its fill, on the 0-1 luminance scale,
+  // shows as the edge of a box drawn in tints of the paper: Mermaid's #eeeebc
+  // round #ffffde is 0.07 darker.
+  PAPER_OUTLINE_MIN_STEP: 0.03,
   FAINT_INK_ALPHA: 0.5,
+  // The contrast a gradient's colours are lifted to against the backdrop:
+  // the 3:1 a graphical object needs (WCAG 1.4.11), with room for the
+  // colours a gradient mixes between two stops, which can show darker than
+  // either. And how closely the lifted colour is sought.
+  GRADIENT_STOP_CONTRAST: 3.5,
+  GRADIENT_LIFT_STEPS: 12,
+  // How far a line's casing reaches past its stroke on each side, in the
+  // line's own units.
+  LINE_CASING_RADIUS: 2,
   MIN_COMPLEX_PATH_LENGTH: 120,
   MIN_COLOR_INTERPOLATION_COUNT: 2,
   LIGHTNESS_MIDPOINT: 0.5,
@@ -107,6 +127,9 @@ const TILED_TRACE_TYPES: ReadonlySet<string> = new Set([
  */
 const BAR_LIKE_TRACE_TYPES: ReadonlySet<string> = new Set(['bar', 'hist']);
 
+/** Trace types drawn as a line through their points. */
+const LINE_TRACE_TYPES: ReadonlySet<string> = new Set(['line', 'step']);
+
 /** Elements that draw text rather than a shape. */
 const TEXT_TAGS: ReadonlySet<string> = new Set(['text', 'tspan', 'textPath']);
 
@@ -129,6 +152,9 @@ const SWATCH_TAGS: ReadonlySet<string> = new Set(['rect', 'path', 'circle', 'ell
 /** Containers whose content is defined for use elsewhere, not drawn there. */
 const DEFINITION_CONTAINERS = 'defs, clipPath, mask, marker, pattern, symbol';
 
+/** The shapes a line may draw at its points as markers. */
+const MARKER_TAGS = 'circle, ellipse, rect, path, polygon, use';
+
 /**
  * Whether an element is one of MAIDR's own copies, or inside one: the hidden
  * copies highlights are cloned from, and the highlights themselves, which
@@ -149,11 +175,15 @@ interface SurfaceLayer {
   alpha: number;
 }
 
-/** A label, the end of the reader's pair it reads in, and the paint it takes. */
+/**
+ * A label, the end of the reader's pair it reads in, the paint it takes, and
+ * the other end as a halo when no one colour reads on all of it.
+ */
 interface LabelChoice {
   label: HTMLElement | SVGElement;
   property: 'fill' | 'color';
   color: string;
+  halo: string | null;
 }
 
 /** The element maidr builds around a chart and everything it shows for it. */
@@ -459,6 +489,10 @@ export class HighContrastService implements Disposable {
 
   // Pattern service for high contrast mode patterns
   private patternService: PatternService | null = null;
+
+  // The lines cased in the background colour while high contrast is painted,
+  // each with the filter that draws its casing.
+  private lineCasings: { line: SVGElement; filter: SVGFilterElement }[] = [];
 
   // Track previous high contrast mode state to detect changes
   private previousHighContrastMode: boolean = false;
@@ -842,6 +876,7 @@ export class HighContrastService implements Disposable {
     }
 
     this.overrideInlineStyles();
+    this.liftGradients();
     // A paint a stylesheet rule gives is overridden inline, `!important`, the
     // one declaration an `!important` rule -- a Mermaid classDef -- cannot
     // beat. After the overrides above, which start by putting every inline
@@ -888,6 +923,8 @@ export class HighContrastService implements Disposable {
       }
     }
 
+    this.caseLinesOverBars();
+
     // Handle line chart exception. Step charts render as the same kind of
     // stroked polyline, so they need the same treatment.
     if ('type' in this.context.instructionContext) {
@@ -903,15 +940,17 @@ export class HighContrastService implements Disposable {
     // styles on the plot element (e.g. React's `width: fit-content`) are preserved.
     this.displayService.plot.style.setProperty('fill', this.highContrastLightColor);
 
-    // Handle stacked/dodged/normalized bar, mosaic and pie exceptions: apply
-    // patterns.
+    // Handle stacked/dodged/normalized bar, mosaic, pie and radar exceptions:
+    // apply patterns.
     //
-    // These are the chart types whose marks touch each other, so the boundary
-    // between two of them is carried by their fill alone. High contrast then
-    // pushes neighbouring fills toward the same end of the ramp and the marks
-    // merge into one shape — adjacent pie wedges of a similar hue are the worst
-    // case, since a pie is nothing but touching marks. A distinct pattern per
-    // original fill keeps them separable without relying on colour.
+    // These are the chart types whose marks touch or overlap each other, so
+    // the boundary between two of them is carried by their fill alone. High
+    // contrast then pushes neighbouring fills toward the same end of the ramp
+    // and the marks merge into one shape — adjacent pie wedges of a similar
+    // hue are the worst case, since a pie is nothing but touching marks, and a
+    // radar's series are filled areas drawn one over another. A distinct
+    // pattern per original fill keeps them separable without relying on
+    // colour.
     if ('type' in this.context.instructionContext) {
       if (
         this.context.instructionContext.type === 'stacked_bar'
@@ -919,6 +958,7 @@ export class HighContrastService implements Disposable {
         || this.context.instructionContext.type === 'pie'
         || this.context.instructionContext.type === 'stacked_normalized_bar'
         || this.context.instructionContext.type === 'mosaic'
+        || this.context.instructionContext.type === 'radar'
       ) {
         this.applyPatternsToElements(highContrastElInfo, textDescendants);
       }
@@ -976,6 +1016,14 @@ export class HighContrastService implements Disposable {
 
     // The glow filter was added for the text; nothing refers to it any more.
     this.getPlotSvg()?.querySelector('#glow-shadow')?.remove();
+
+    for (const { line, filter } of this.lineCasings) {
+      if (line.getAttribute('filter') === `url(#${filter.id})`) {
+        line.removeAttribute('filter');
+      }
+      filter.remove();
+    }
+    this.lineCasings = [];
 
     // Clean up pattern service
     if (this.patternService) {
@@ -1082,6 +1130,127 @@ export class HighContrastService implements Disposable {
   }
 
   /**
+   * Lifts the colours of each gradient the chart paints with until, at the
+   * opacity it is drawn at, each reads at better than 3:1 against the dark
+   * backdrop.
+   *
+   * A gradient names no one colour to map onto the ramp, so it is drawn as
+   * the chart drew it: Mermaid strokes a sankey's links with a gradient from
+   * the source's colour to the target's at half opacity, which on the dark
+   * backdrop came out under 2.7:1. Each colour keeps its hue, lightened
+   * towards the light colour only as far as it needs, so touching links stay
+   * apart by colour; one that already reads, or is drawn as faintly as a hit
+   * area, is left alone. A gradient several paints use is lifted for the
+   * faintest of them. On a tiled chart a gradient is its colour scale, read
+   * against the cells, and is left as drawn.
+   */
+  private liftGradients(): void {
+    const light = this.parseColorToRgb(this.highContrastLightColor);
+    const dark = this.parseColorToRgb(this.highContrastDarkColor);
+    if (light === null || dark === null || this.isTiledChart()) {
+      return;
+    }
+
+    // Read every paint before writing any colour, so the scan costs one
+    // style pass.
+    const opacities = new Map<Element, number>();
+    const opacityOf = (element: Element): number => {
+      const cached = opacities.get(element);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const own = Number.parseFloat(window.getComputedStyle(element).opacity);
+      const parent = element.parentElement;
+      const opacity = (Number.isNaN(own) ? 1 : own) * (parent === null ? 1 : opacityOf(parent));
+      opacities.set(element, opacity);
+      return opacity;
+    };
+    const faintest = new Map<SVGStopElement, number>();
+    for (const element of this.getColorRoots().flatMap(root => Array.from(root.querySelectorAll('*')))) {
+      const style = window.getComputedStyle(element);
+      for (const attr of PAINT_PROPERTIES) {
+        // A computed paint is empty only where styles are not resolved at all.
+        const paint = style.getPropertyValue(attr).trim() || (element.getAttribute(attr) ?? '');
+        const id = paint.match(/^url\(\s*["']?#([^"')\s]+)["']?\s*\)$/)?.[1];
+        const stops = id === undefined ? [] : this.gradientStops(element.ownerDocument.getElementById(id));
+        if (stops.length === 0) {
+          continue;
+        }
+        const own = Number.parseFloat(style.getPropertyValue(`${attr}-opacity`));
+        const alpha = (Number.isNaN(own) ? 1 : own) * opacityOf(element);
+        for (const stop of stops) {
+          faintest.set(stop, Math.min(faintest.get(stop) ?? 1, alpha));
+        }
+      }
+    }
+
+    const lifts: { stop: SVGStopElement; color: string }[] = [];
+    for (const [stop, paintAlpha] of faintest) {
+      const style = window.getComputedStyle(stop);
+      const value = style.getPropertyValue('stop-color').trim() || (stop.getAttribute('stop-color') ?? '');
+      const parsed = this.parseCssColor(value);
+      const parts = parsed === null ? null : this.splitAlpha(parsed);
+      const rgb = parts === null ? null : this.parseColorToRgb(parts.hex);
+      const stopOpacity = Number.parseFloat(style.getPropertyValue('stop-opacity') || (stop.getAttribute('stop-opacity') ?? ''));
+      if (parts === null || rgb === null) {
+        continue;
+      }
+      const alpha = paintAlpha * parts.alpha * (Number.isNaN(stopOpacity) ? 1 : stopOpacity);
+      const toward = (t: number): Rgb => ({
+        r: rgb.r + t * (light.r - rgb.r),
+        g: rgb.g + t * (light.g - rgb.g),
+        b: rgb.b + t * (light.b - rgb.b),
+      });
+      const reads = (t: number): boolean => {
+        const color = toward(t);
+        const shown = {
+          r: color.r * alpha + dark.r * (1 - alpha),
+          g: color.g * alpha + dark.g * (1 - alpha),
+          b: color.b * alpha + dark.b * (1 - alpha),
+        };
+        return Color.getContrastRatio(shown, dark) >= HighContrastConstants.GRADIENT_STOP_CONTRAST;
+      };
+      if (alpha < HighContrastConstants.MIN_SURFACE_ALPHA || reads(0)) {
+        continue;
+      }
+      // The least lift that reads, or the light colour itself.
+      let [low, high] = [0, 1];
+      for (let step = 0; step < HighContrastConstants.GRADIENT_LIFT_STEPS; step++) {
+        const middle = (low + high) / 2;
+        [low, high] = reads(middle) ? [low, middle] : [middle, high];
+      }
+      const lifted = toward(high);
+      const hex = this.rgbToHex({ r: Math.round(lifted.r), g: Math.round(lifted.g), b: Math.round(lifted.b) });
+      lifts.push({ stop, color: this.applyAlpha(hex, parts.alpha) });
+    }
+    for (const { stop, color } of lifts) {
+      this.overrideInlineStyle(stop, 'stop-color', color, 'important');
+    }
+  }
+
+  /**
+   * The stops of a linear or radial gradient, or of the one it takes them
+   * from through `href` when it has none of its own; none for anything else.
+   */
+  private gradientStops(element: Element | null): SVGStopElement[] {
+    let gradient = element;
+    for (let hops = 0; gradient !== null && hops < 8; hops++) {
+      if (gradient.namespaceURI !== SVG_NAMESPACE
+        || (gradient.localName !== 'linearGradient' && gradient.localName !== 'radialGradient')) {
+        return [];
+      }
+      const stops = Array.from(gradient.children)
+        .filter((child): child is SVGStopElement => child.namespaceURI === SVG_NAMESPACE && child.localName === 'stop');
+      if (stops.length > 0) {
+        return stops;
+      }
+      const href = gradient.getAttribute('href') ?? gradient.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+      gradient = href?.startsWith('#') ? gradient.ownerDocument.getElementById(href.slice(1)) : null;
+    }
+    return [];
+  }
+
+  /**
    * Overrides one inline declaration, recording what it held. The same
    * declaration can be overridden twice in one apply -- the backdrop is the
    * plot itself when the plot has no article around it, and the plot can be
@@ -1113,7 +1282,10 @@ export class HighContrastService implements Disposable {
    * off the background, or a box a stylesheet paints and nothing captures --
    * white on white. Each label with a shape under it now takes whichever of
    * the two colours stands out more from that shape, as it is painted now;
-   * a label on nothing keeps the colour it was given. Text that draws its own
+   * a label on nothing keeps the colour it was given. A label drawn across
+   * the edge of a shape, part on it and part off, can take no one colour that
+   * reads on both: it takes the one that reads on more of it, with a halo of
+   * the other round its glyphs. Text that draws its own
    * halo is already kept apart from what lies beneath, and the labels of a
    * tiled chart keep their glow instead. The labels of MAIDR's hidden copies
    * are paired too, with the original drawn beneath them, since the reader's
@@ -1220,8 +1392,9 @@ export class HighContrastService implements Disposable {
 
     // What a reader sees at a point under the element at `index`: the layers
     // drawn there down to the first opaque one, over the dark backdrop when
-    // none is. `null` when nothing is drawn there, or it cannot be read.
-    const surfaceUnder = (index: number, x: number, y: number, above: SurfaceLayer[]): Rgb | null => {
+    // none is. `undefined` when nothing is drawn there, `null` when what is
+    // cannot be read.
+    const surfaceUnder = (index: number, x: number, y: number, above: SurfaceLayer[]): Rgb | null | undefined => {
       const layers = [...above];
       const isOpaque = (layer: SurfaceLayer): boolean =>
         layer.alpha >= HighContrastConstants.OPAQUE_SURFACE_ALPHA;
@@ -1235,7 +1408,7 @@ export class HighContrastService implements Disposable {
         }
       }
       if (layers.length === 0) {
-        return null;
+        return undefined;
       }
       const opaqueAt = layers.findIndex(isOpaque);
       const stack = opaqueAt === -1 ? layers : layers.slice(0, opaqueAt + 1);
@@ -1255,11 +1428,30 @@ export class HighContrastService implements Disposable {
       Color.getContrastRatio(surface, light) >= Color.getContrastRatio(surface, dark)
         ? this.highContrastLightColor
         : this.highContrastDarkColor;
-    const centreOf = (element: Element): { x: number; y: number } | null => {
+    // The paint a label takes, read from its centre and its two ends, and a
+    // halo when they disagree. `null` keeps the colour it was given: its
+    // centre cannot be read, or nothing is drawn under any of it. Where
+    // something is drawn under part of it, the rest is on the dark backdrop.
+    const pick = (element: Element, index: number, above: SurfaceLayer[]): Omit<LabelChoice, 'label' | 'property'> | null => {
       const rect = rectOf(element);
-      return rect.width <= 0 || rect.height <= 0
-        ? null
-        : { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+      const y = rect.top + rect.height / 2;
+      const seen = HighContrastConstants.LABEL_SAMPLE_FRACTIONS
+        .map(fraction => surfaceUnder(index, rect.left + rect.width * fraction, y, above));
+      if (seen[0] === null || seen.every(surface => surface == null)) {
+        return null;
+      }
+      const choices = seen
+        .filter((surface): surface is Rgb | undefined => surface !== null)
+        .map(surface => choose(surface ?? dark));
+      const lightShare = choices.filter(choice => choice === this.highContrastLightColor).length / choices.length;
+      const color = lightShare === 0.5
+        ? choices[0]
+        : lightShare > 0.5 ? this.highContrastLightColor : this.highContrastDarkColor;
+      const other = color === this.highContrastLightColor ? this.highContrastDarkColor : this.highContrastLightColor;
+      return { color, halo: choices.every(choice => choice === color) ? null : other };
     };
     const hasOwnText = (element: Element): boolean => Array.from(element.childNodes).some(node =>
       node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '');
@@ -1274,21 +1466,19 @@ export class HighContrastService implements Disposable {
         // spans with a stroke of their own, or none where the label has one.
         const glyphs = [element, ...Array.from(element.querySelectorAll('tspan, textPath'))]
           .filter(hasOwnText);
-        const centre = centreOf(element);
-        if (centre === null || glyphs.length === 0 || !isLabelShown(element)
+        if (glyphs.length === 0 || !isLabelShown(element)
           || glyphs.every(glyph => this.hasHalo(styleOf(glyph)))) {
           return;
         }
-        const surface = surfaceUnder(index, centre.x, centre.y, []);
-        if (surface !== null) {
-          choices.push({ label: element as SVGElement, property: 'fill', color: choose(surface) });
+        const choice = pick(element, index, []);
+        if (choice !== null) {
+          choices.push({ label: element as SVGElement, property: 'fill', ...choice });
         }
       } else if (element.localName === 'foreignObject') {
         // HTML drawn inside the SVG, as Mermaid draws its labels: coloured by
         // CSS `color`, and maybe on a box of its own.
         for (const leaf of Array.from(element.querySelectorAll<HTMLElement>('*'))) {
-          const centre = leaf.namespaceURI === HTML_NAMESPACE && hasOwnText(leaf) ? centreOf(leaf) : null;
-          if (centre === null || !isLabelShown(leaf)) {
+          if (leaf.namespaceURI !== HTML_NAMESPACE || !hasOwnText(leaf) || !isLabelShown(leaf)) {
             continue;
           }
           const boxes: SurfaceLayer[] = [];
@@ -1300,9 +1490,9 @@ export class HighContrastService implements Disposable {
               boxes.push({ rgb, alpha: parts.alpha * opacityOf(node) });
             }
           }
-          const surface = surfaceUnder(order.get(element) ?? index, centre.x, centre.y, boxes);
-          if (surface !== null) {
-            choices.push({ label: leaf, property: 'color', color: choose(surface) });
+          const choice = pick(leaf, order.get(element) ?? index, boxes);
+          if (choice !== null) {
+            choices.push({ label: leaf, property: 'color', ...choice });
           }
         }
       }
@@ -1319,6 +1509,11 @@ export class HighContrastService implements Disposable {
     for (const choice of choices.filter(choice => differs(choice.label, choice.property, choice.color))) {
       this.overrideInlineStyle(choice.label, choice.property, choice.color, 'important');
     }
+    for (const { label, property, halo } of choices) {
+      if (halo !== null) {
+        this.drawHalo(label, property, halo);
+      }
+    }
     // A span a rule colours itself, such as Mermaid's `.loopText > tspan`,
     // does not follow its label; it is given the label's colour.
     const spans = choices
@@ -1329,6 +1524,24 @@ export class HighContrastService implements Disposable {
     for (const span of spans) {
       this.overrideInlineStyle(span.label, 'fill', span.color, 'important');
     }
+  }
+
+  /**
+   * Draws a halo of `color` round a label's glyphs: a stroke painted beneath
+   * an SVG text's fill, or a shadow round HTML text, which every browser
+   * draws beneath it.
+   */
+  private drawHalo(label: HTMLElement | SVGElement, property: 'fill' | 'color', color: string): void {
+    const { LABEL_HALO_WIDTH, LABEL_HALO_BLUR } = HighContrastConstants;
+    if (property === 'color') {
+      const shadow = `0 0 ${LABEL_HALO_BLUR} ${color}`;
+      this.overrideInlineStyle(label, 'text-shadow', [shadow, shadow, shadow].join(', '), 'important');
+      return;
+    }
+    this.overrideInlineStyle(label, 'stroke', color, 'important');
+    this.overrideInlineStyle(label, 'stroke-width', LABEL_HALO_WIDTH, 'important');
+    this.overrideInlineStyle(label, 'stroke-linejoin', 'round', 'important');
+    this.overrideInlineStyle(label, 'paint-order', 'stroke', 'important');
   }
 
   /**
@@ -1411,6 +1624,27 @@ export class HighContrastService implements Disposable {
 
     this.traceElementsCache = elements;
     return elements;
+  }
+
+  /**
+   * The shapes the traces were read from where their highlight marks stand
+   * in for them: a line's or a radar's path, whose vertices maidr marks with
+   * circles of its own, so that the path is no element the layer selects.
+   */
+  private getTraceShapes(): Set<SVGElement> {
+    const shapes = new Set<SVGElement>();
+    for (const subplotRow of this.figure.subplots) {
+      for (const subplot of subplotRow) {
+        for (const traceRow of subplot.traces) {
+          for (const trace of traceRow) {
+            for (const shape of trace.getGeometryElements?.() ?? []) {
+              shapes.add(shape);
+            }
+          }
+        }
+      }
+    }
+    return shapes;
   }
 
   /**
@@ -1610,6 +1844,8 @@ export class HighContrastService implements Disposable {
    * -- visible. A shape with no light paint left, though, vanishes into the
    * page. That shape gets its fill lifted to the light colour; when the fill
    * was the paper showing through (a hollow marker), its outline instead.
+   * A box drawn wholly in tints of the paper keeps an outline drawn darker
+   * than its fill, which is its edge rather than the page.
    * A tiled chart is exempt, since a dark cell reads against its neighbours.
    */
   private keepShapesVisible(
@@ -1648,8 +1884,7 @@ export class HighContrastService implements Disposable {
     };
 
     for (const [element, paints] of byElement) {
-      const ink = paints.filter(item => !this.isPaperPaint(item));
-      if (ink.length === 0 || paints.some(item => !isBackground(item) && isVisible(item))) {
+      if (paints.some(item => !isBackground(item) && isVisible(item))) {
         continue;
       }
       if (element.getAttribute('visibility') === 'hidden') {
@@ -1658,6 +1893,23 @@ export class HighContrastService implements Disposable {
 
       const fill = paints.find(item => item.attr === 'fill');
       const stroke = paints.find(item => item.attr === 'stroke');
+      if (paints.every(item => this.isPaperPaint(item))) {
+        // A page or a panel, unless it is a box drawn in tints of the paper:
+        // an outline drawn darker than its own fill is the box's edge, not
+        // the paper showing through -- Mermaid's railroad terminals, #ffffde
+        // outlined #eeeebc. It keeps its edge light, as a box outlined in ink
+        // does; a grey one is a frame, and stays faint as frames do.
+        if (fill !== undefined && stroke !== undefined && isVisible(stroke) && this.outlinesFill(stroke, fill)) {
+          const parts = this.splitAlpha(stroke.resolvedColor ?? '');
+          const alpha = parts?.alpha ?? 1;
+          const frame = parts !== null && !stroke.isInSelectors && this.isLightGrey(parts.hex);
+          stroke.color = this.applyAlpha(
+            this.highContrastLightColor,
+            this.inkLineAlpha(alpha, frame ? alpha * HighContrastConstants.FAINT_INK_ALPHA : alpha),
+          );
+        }
+        continue;
+      }
       const lift = fill !== undefined && !this.isPaperPaint(fill)
         ? fill
         : stroke ?? fill;
@@ -1665,8 +1917,23 @@ export class HighContrastService implements Disposable {
         continue;
       }
       const alpha = this.splitAlpha(lift.resolvedColor ?? '')?.alpha ?? 1;
-      lift.color = this.applyAlpha(this.highContrastLightColor, alpha);
+      lift.color = this.applyAlpha(
+        this.highContrastLightColor,
+        lift.attr === 'stroke' ? this.inkLineAlpha(alpha, alpha) : alpha,
+      );
     }
+  }
+
+  /**
+   * Whether an outline is drawn visibly darker than the fill it goes round,
+   * so that on the page it shows as the shape's edge.
+   */
+  private outlinesFill(stroke: ElementColorInfo, fill: ElementColorInfo): boolean {
+    const strokeParts = this.splitAlpha(stroke.resolvedColor ?? '');
+    const fillParts = this.splitAlpha(fill.resolvedColor ?? '');
+    return strokeParts !== null && fillParts !== null
+      && this.getRelativeLuminance(fillParts.hex) - this.getRelativeLuminance(strokeParts.hex)
+      >= HighContrastConstants.PAPER_OUTLINE_MIN_STEP;
   }
 
   /**
@@ -1749,6 +2016,155 @@ export class HighContrastService implements Disposable {
     }
 
     return false;
+  }
+
+  /**
+   * Cases each line of a chart that also draws bars in the background
+   * colour, so the line reads where it crosses a bar. A bar beside a line is
+   * kept light, as the line is (see getAllTraceElements), and a light line
+   * drawn over a light bar is lost in it -- Mermaid's XY chart draws its line
+   * over its bars. Over the backdrop the casing is lost instead, and the line
+   * shows as it did. A line the page filters itself keeps its own filter.
+   * The markers a line draws at its points are cased with it (see
+   * markersBeside), or the point it passes through is lost on a bar.
+   *
+   * Each casing is a filter sized to its line in the line's own units: one
+   * sized by the line's box draws nothing for a flat line, whose box has no
+   * height. A marker has a box, and its casing is sized by it, which holds
+   * however the marker is placed: a `<use>`'s `x` and `y` move it in units
+   * of its own.
+   */
+  private caseLinesOverBars(): void {
+    const traces = this.figure.subplots.flat().flatMap(subplot => subplot.traces.flat());
+    const svg = this.getPlotSvg();
+    if (svg === null || !traces.some(trace => BAR_LIKE_TRACE_TYPES.has(String(trace.traceType)))) {
+      return;
+    }
+    const lines = traces
+      .filter(trace => LINE_TRACE_TYPES.has(String(trace.traceType)))
+      .flatMap((trace) => {
+        const shapes = trace.getGeometryElements?.() ?? [];
+        return shapes.length > 0 ? shapes : trace.getAllOriginalElements();
+      })
+      .filter(line => !line.hasAttribute('filter') && typeof (line as SVGGraphicsElement).getBBox === 'function');
+    const paints = new Map<Element, Partial<Record<PaintProperty, string>>>();
+    for (const item of this.originalColorInfo ?? []) {
+      if (item.resolvedColor !== null) {
+        paints.set(item.element, { ...paints.get(item.element), [item.attr]: item.resolvedColor });
+      }
+    }
+    const markers = lines.map(line => this.markersBeside(line, paints));
+
+    const radius = HighContrastConstants.LINE_CASING_RADIUS;
+    const make = <K extends keyof SVGElementTagNameMap>(tag: K, attributes: Record<string, string | number>): SVGElementTagNameMap[K] => {
+      const element = document.createElementNS(SVG_NAMESPACE, tag);
+      for (const [name, value] of Object.entries(attributes)) {
+        element.setAttribute(name, String(value));
+      }
+      return element;
+    };
+    // How far a casing has to reach past a shape's box: half its stroke,
+    // the casing, and one more unit.
+    const marginOf = (shape: SVGElement): number => {
+      const width = Number.parseFloat(window.getComputedStyle(shape).strokeWidth);
+      return (Number.isNaN(width) ? 1 : width) / 2 + radius + 1;
+    };
+    const boxOf = (shape: SVGElement): DOMRect | null => {
+      try {
+        return (shape as SVGGraphicsElement).getBBox();
+      } catch {
+        // Not rendered, so there is nothing to case.
+        return null;
+      }
+    };
+    const addCasing = (shapes: SVGElement[], region: Record<string, string | number>): void => {
+      const filter = make('filter', { id: `${this.context.id}-line-casing-${this.lineCasings.length}`, ...region });
+      const merge = make('feMerge', {});
+      merge.append(make('feMergeNode', {}), make('feMergeNode', { in: 'SourceGraphic' }));
+      filter.append(
+        make('feMorphology', { in: 'SourceAlpha', operator: 'dilate', radius, result: 'casing' }),
+        make('feFlood', { 'flood-color': this.highContrastDarkColor }),
+        make('feComposite', { in2: 'casing', operator: 'in' }),
+        merge,
+      );
+      let defs = svg.querySelector('defs');
+      if (defs === null) {
+        defs = document.createElementNS(SVG_NAMESPACE, 'defs');
+        svg.insertBefore(defs, svg.firstChild);
+      }
+      defs.appendChild(filter);
+      for (const shape of shapes) {
+        shape.setAttribute('filter', `url(#${filter.id})`);
+        this.lineCasings.push({ line: shape, filter });
+      }
+    };
+
+    lines.forEach((line, index) => {
+      const box = boxOf(line);
+      if (box !== null) {
+        const margin = marginOf(line);
+        addCasing([line], {
+          filterUnits: 'userSpaceOnUse',
+          x: box.x - margin,
+          y: box.y - margin,
+          width: box.width + 2 * margin,
+          height: box.height + 2 * margin,
+        });
+      }
+
+      // One casing for all of a line's markers, reaching past the smallest
+      // as far as the line's reaches past the line.
+      const drawn: SVGElement[] = [];
+      let side = Number.POSITIVE_INFINITY;
+      let margin = 0;
+      for (const marker of markers[index]) {
+        const markerBox = boxOf(marker);
+        if (markerBox !== null && markerBox.width > 0 && markerBox.height > 0) {
+          drawn.push(marker);
+          side = Math.min(side, markerBox.width, markerBox.height);
+          margin = Math.max(margin, marginOf(marker));
+        }
+      }
+      if (drawn.length === 0) {
+        return;
+      }
+      const reach = margin / side;
+      addCasing(drawn, {
+        filterUnits: 'objectBoundingBox',
+        x: -reach,
+        y: -reach,
+        width: 1 + 2 * reach,
+        height: 1 + 2 * reach,
+      });
+    });
+  }
+
+  /**
+   * The markers a line draws at its points: shapes in the line's own group,
+   * in the colour it was stroked in, as matplotlib draws a line plotted with
+   * `marker='o'` -- a `<use>` per point beside the path, which py-maidr's
+   * selector does not name. maidr's own copies, a marker's template in
+   * `<defs>`, text, a mark another kind of layer selects and anything the
+   * page filters are not among them, and nor is anything when the line
+   * sits in no group of its own.
+   */
+  private markersBeside(line: SVGElement, paints: Map<Element, Partial<Record<PaintProperty, string>>>): SVGElement[] {
+    const group = line.parentElement;
+    const stroke = paints.get(line)?.stroke;
+    if (group === null || group.tagName.toLowerCase() !== 'g' || stroke === undefined) {
+      return [];
+    }
+    const traceElements = this.getAllTraceElements();
+    return Array.from(group.querySelectorAll<SVGElement>(MARKER_TAGS)).filter((shape) => {
+      const type = traceElements.get(shape);
+      return shape !== line
+        && !shape.hasAttribute('filter')
+        && (type === undefined || LINE_TRACE_TYPES.has(type))
+        && shape.closest(DEFINITION_CONTAINERS) === null
+        && !isInMaidrCopy(shape)
+        && !this.hasTextAncestor(shape)
+        && (paints.get(shape)?.fill === stroke || paints.get(shape)?.stroke === stroke);
+    });
   }
 
   /**
@@ -1878,14 +2294,17 @@ export class HighContrastService implements Disposable {
         // A faint grey line -- a gridline, an axis, a frame -- stays, faint. A
         // faint grey area is a panel or plot background, and is paper.
         return colorInfo.attr === 'stroke'
-          ? this.applyAlpha(this.highContrastLightColor, original.alpha * HighContrastConstants.FAINT_INK_ALPHA)
+          ? this.applyAlpha(
+              this.highContrastLightColor,
+              this.inkLineAlpha(original.alpha, original.alpha * HighContrastConstants.FAINT_INK_ALPHA),
+            )
           : withAlpha(this.highContrastDarkColor);
       }
     }
 
     // Any other paint maps across the ramp; keepShapesVisible then lifts any
     // shape this leaves wholly in the background colour.
-    return withAlpha(this.findClosestColor(
+    const mapped = this.findClosestColor(
       hex,
       colorEquivalents,
       useNearWhite,
@@ -1893,7 +2312,28 @@ export class HighContrastService implements Disposable {
       // A long path must not vanish as a line, but a tiled area is read
       // against its neighbours whichever end it takes.
       colorInfo.cantBeBackground && !(this.isTiledMark(colorInfo) && colorInfo.attr === 'fill'),
-    ));
+    );
+    const inkLine = colorInfo.attr === 'stroke' && !this.isTiledMark(colorInfo)
+      && this.parseCssColor(mapped) !== this.parseCssColor(this.highContrastDarkColor);
+    return inkLine
+      ? this.applyAlpha(mapped, this.inkLineAlpha(original.alpha, original.alpha))
+      : withAlpha(mapped);
+  }
+
+  /**
+   * The opacity a line drawn in ink is given: its own, but no less than a
+   * faint gridline's. An outline drawn faintly on a light page -- Mermaid
+   * outlines a block diagram's composites at 0.2 -- drawn that faintly on
+   * the dark backdrop is under 2:1, fainter than any gridline. A hit area
+   * drawn at near-zero opacity stays invisible.
+   *
+   * @param original - The opacity the chart drew the line at
+   * @param drawn - The opacity it would be drawn at otherwise
+   */
+  private inkLineAlpha(original: number, drawn: number): number {
+    return original < HighContrastConstants.MIN_SURFACE_ALPHA
+      ? drawn
+      : Math.max(drawn, HighContrastConstants.FAINT_INK_ALPHA);
   }
 
   /**
@@ -2402,9 +2842,20 @@ export class HighContrastService implements Disposable {
       this.patternService.initialize(svg);
     }
 
+    // The marks are the elements the layers select, and the shapes a layer
+    // was read from where its highlight marks stand in for them: a radar's
+    // curves, whose vertices maidr marks with circles of its own. A radar's
+    // series is its area, so the markers its selectors may name at the
+    // vertices keep their solid colour: a stripe or a dot of a pattern is as
+    // wide as such a marker, and blacked most of it out.
+    const shapes = this.getTraceShapes();
+    const isMarkFill = (item: ElementColorInfo): boolean =>
+      (shapes.has(item.element) || (item.isInSelectors && item.traceType !== 'radar'))
+      && item.attr === 'fill' && item.resolvedColor !== null;
+
     const elementToHighContrastColor = new Map<SVGElement, string>();
     for (const item of highContrastElInfo) {
-      if (item.isInSelectors && item.attr === 'fill' && item.resolvedColor !== null) {
+      if (isMarkFill(item)) {
         elementToHighContrastColor.set(item.element, item.color);
       }
     }
@@ -2412,7 +2863,7 @@ export class HighContrastService implements Disposable {
     const colorGroups = new Map<string, ElementColorInfo[]>();
 
     for (const item of this.originalColorInfo) {
-      if (item.isInSelectors && item.attr === 'fill' && item.resolvedColor !== null) {
+      if (isMarkFill(item)) {
         const normalizedColor = this.normalizeColor(item.resolvedColor ?? item.color);
         if (!colorGroups.has(normalizedColor)) {
           colorGroups.set(normalizedColor, []);
@@ -2421,7 +2872,7 @@ export class HighContrastService implements Disposable {
       }
     }
 
-    const keys = this.legendKeys(colorGroups, textDescendants);
+    const keys = this.legendKeys(colorGroups, shapes, textDescendants);
 
     let patternIndex = 0;
     for (const [color, elements] of colorGroups) {
@@ -2458,19 +2909,20 @@ export class HighContrastService implements Disposable {
   }
 
   /**
-   * The legend keys of each group of marks: a shape no layer selects, drawn
-   * after the group's first mark in exactly its colour. Mermaid, matplotlib,
+   * The legend keys of each group of marks: a shape no layer selects or was
+   * read from, drawn after the group's first mark in exactly its colour. Mermaid, matplotlib,
    * ggplot and Plotly all draw the legend after the marks, and a background
    * or panel before them. A key of white, the paper's colour, is not told
    * from the frame around the legend, and keeps its plain colour.
    */
   private legendKeys(
     colorGroups: Map<string, ElementColorInfo[]>,
+    shapes: Set<SVGElement>,
     textDescendants: Map<Element, boolean>,
   ): Map<string, ElementColorInfo[]> {
     const keys = new Map<string, ElementColorInfo[]>();
     for (const item of this.originalColorInfo ?? []) {
-      if (item.isInSelectors || item.attr !== 'fill' || item.resolvedColor === null
+      if (item.isInSelectors || shapes.has(item.element) || item.attr !== 'fill' || item.resolvedColor === null
         || !SWATCH_TAGS.has(item.element.tagName) || this.isTextDescendant(item.element, textDescendants)
         || isInMaidrCopy(item.element)) {
         continue;
