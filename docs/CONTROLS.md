@@ -73,6 +73,9 @@ where two lines cross.
 | Access Labels (label mode)                | L, then a letter            | L, then a letter            |
 | Open Chart Description                    | D                           | D                           |
 
+Before your first move, Space enters the chart at its first point, as an
+arrow key does, so the next arrow moves on from there.
+
 Label mode is described under [Label Mode](#label-mode-announce-axis-labels).
 
 ### Modes

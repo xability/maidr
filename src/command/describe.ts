@@ -593,6 +593,13 @@ export class AnnouncePointCommand extends AnnounceCommand {
    * Executes the command to describe the current point with multiple modalities.
    */
   public execute(): void {
+    // Before the first move there is no current point to replay: the cursor
+    // is parked where entry will land, unhighlighted, and the next arrow
+    // would enter there and announce it again. So Space enters as that arrow
+    // does, through the model, and the observers announce it.
+    if (this.context.enterIfInitialEntry()) {
+      return;
+    }
     const state = this.context.state;
     switch (state.type) {
       case 'figure':
