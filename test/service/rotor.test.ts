@@ -824,3 +824,45 @@ describe('RotorNavigationService mode labels', () => {
     expect(wrapped.labels[wrapped.index]).toBe(service.getMode());
   });
 });
+
+describe('RotorNavigationService tells the trace which of its units it is on', () => {
+  /**
+   * The name a trace state announces.
+   * @param state The trace's state
+   * @returns The announced name, or null on an empty state
+   */
+  function standingOn(state: unknown): unknown {
+    const read = state as { empty: boolean; text?: { main: { value: unknown } } };
+    return read.empty ? null : read.text?.main.value;
+  }
+
+  test('a tree on Level sends ctrl left and right to the ends of the level, and back off it', () => {
+    // Ctrl with an arrow does not pass through the rotor, so the tree has to
+    // know Left and Right are walking the whole level to jump to its ends.
+    const trace = TraceFactory.create({
+      id: 'tree',
+      type: TraceType.TREE,
+      data: [
+        { x: 'France', path: ['Europe'] },
+        { x: 'Germany', path: ['Europe'] },
+        { x: 'Japan', path: ['Asia'] },
+        { x: 'Korea', path: ['Asia'] },
+      ],
+    });
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+
+    cycleTo(service, t('model.rotorUnitLevel'));
+    const onLevel = [trace.moveToExtreme('FORWARD'), standingOn(trace.state)];
+    service.resetToDataMode();
+    const offLevel = [trace.moveToExtreme('BACKWARD'), standingOn(trace.state)];
+
+    expect(onLevel).toEqual([true, 'Korea']);
+    expect(offLevel).toEqual([true, 'Japan']);
+  });
+});

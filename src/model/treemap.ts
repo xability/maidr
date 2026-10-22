@@ -1,5 +1,5 @@
 import type { MaidrLayer, TreemapPoint } from '@type/grammar';
-import type { Coordinate, Node } from '@type/movable';
+import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type {
   ChartObject,
@@ -222,6 +222,12 @@ export class TreemapTrace extends AbstractTrace {
    * and Right walk, and what a treemap's and a pack's pan follows.
    */
   private readonly siblingPlace: number[][];
+
+  /**
+   * Whether the rotor is on the Level unit, where Left and Right walk the
+   * whole level across parents (see {@link moveToExtreme}).
+   */
+  private walkingLevel = false;
 
   /** Every top-level node's total, added up. */
   private readonly grandTotal: number;
@@ -916,6 +922,55 @@ export class TreemapTrace extends AbstractTrace {
 
     if (target < 0 || target >= level.length) {
       this.notifyRotorBounds();
+      return false;
+    }
+
+    this.movable.moveToIndex(this.row, target);
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * Hears whether the rotor is on the Level unit, which changes where
+   * Control with Left and Right goes (see {@link moveToExtreme}).
+   *
+   * @param key - The active unit's key, or null
+   */
+  public override setRotorFilterUnit(key: string | null): void {
+    this.walkingLevel = key === LEVEL_ROTOR_KEY;
+  }
+
+  /**
+   * Jumps to an extreme of what the arrow keys walk.
+   *
+   * On the Level unit, Left and Right walk the whole level across parents,
+   * so Control with them goes to the first or last node of the level, and is
+   * refused only there. It went to the ends of the node's siblings instead:
+   * on a timeline's last period of a section, Control+Right said there was
+   * no more data while Right went on to the next section's first period. Up
+   * and down, and every jump off the Level unit, keep the tree's own
+   * extremes.
+   *
+   * @param direction - Which extreme
+   * @returns True when the cursor moved, or entered the tree
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (!this.walkingLevel || (direction !== 'FORWARD' && direction !== 'BACKWARD')) {
+      return super.moveToExtreme(direction);
+    }
+
+    // On entering, landing on the first node is the move, as it is for the
+    // tree's own extremes.
+    const entering = this.isInitialEntry;
+    if (entering) {
+      this.movable.handleInitialEntry();
+    }
+
+    const level = this.nodes[this.row] ?? [];
+    const drawn = level.flatMap((node, col) => (node === null ? [] : [col]));
+    const target = direction === 'FORWARD' ? drawn[drawn.length - 1] : drawn[0];
+    if (target === undefined || (target === this.col && !entering)) {
+      this.notifyOutOfBounds();
       return false;
     }
 

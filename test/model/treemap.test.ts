@@ -574,6 +574,39 @@ describe('the level rotor reads the band an icicle is drawn as', () => {
     expect(nonEmptyState(trace).text.main.value).toBe('France');
   });
 
+  test('under it, ctrl left and right go to the ends of the level, not of the siblings', () => {
+    // Left and Right walk the whole level here. Control with them went to
+    // the ends of the node's siblings, so on Germany, Europe's last child,
+    // Control+Right said there was no more data while Right went on to Japan.
+    const trace = treemap();
+    walk(trace, 'DOWNWARD', 'FORWARD');
+    trace.setRotorFilterUnit('level');
+
+    const landed = (['FORWARD', 'FORWARD', 'BACKWARD', 'BACKWARD'] as const).map(direction =>
+      trace.moveToExtreme(direction) ? String(nonEmptyState(trace).text.main.value) : null);
+
+    expect(landed).toEqual(['Korea', null, 'France', null]);
+  });
+
+  test('under it, ctrl up and down keep the tree\'s own extremes', () => {
+    const trace = treemap();
+    walk(trace, 'FORWARD', 'DOWNWARD', 'FORWARD');
+    trace.setRotorFilterUnit('level');
+
+    expect(trace.moveToExtreme('UPWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Asia');
+  });
+
+  test('off it, ctrl goes back to the ends of the siblings', () => {
+    const trace = treemap();
+    walk(trace, 'DOWNWARD');
+    trace.setRotorFilterUnit('level');
+    trace.setRotorFilterUnit(null);
+
+    expect(trace.moveToExtreme('FORWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Germany');
+  });
+
   test('it is offered once a level holds more than one node', () => {
     const keys = treemap().getRotorFilterUnits().map(unit => unit.key);
 

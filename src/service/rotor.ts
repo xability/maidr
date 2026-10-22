@@ -359,6 +359,7 @@ export class RotorNavigationService {
    */
   public setMode(): void {
     const mode = this.activeMode();
+    this.notifyFilterUnit(mode);
     if (mode.key === 'data') {
       this.context.setRotorEnabled(false);
       this.notifyGridMode(false);
@@ -721,6 +722,19 @@ export class RotorNavigationService {
     const activeTrace = this.context.active;
     if (isGridNavigable(activeTrace)) {
       activeTrace.setGridMode(enabled);
+    }
+  }
+
+  /**
+   * Tells the active trace which of its own filter units the rotor is on, or
+   * that it is on none. Control with an arrow goes to the trace, not through
+   * the rotor, so a unit that changes what Left and Right walk -- a tree's
+   * Level -- is how the trace knows where that jump should end.
+   */
+  private notifyFilterUnit(mode: RotorMode): void {
+    const activeTrace = this.context.active;
+    if (activeTrace instanceof AbstractTrace) {
+      activeTrace.setRotorFilterUnit(this.getActiveFilterUnit(mode)?.key ?? null);
     }
   }
 
