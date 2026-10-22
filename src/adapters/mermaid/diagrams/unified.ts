@@ -337,8 +337,9 @@ function memberText(member: Row): string {
  * Duck to Animal. A diamond marks the whole, the end it runs from:
  * `Car *-- Wheel` and `Wheel --* Car` are both Car composed of Wheel. A
  * relation whose heads run opposite ways runs both ways, each in the words
- * of its own head, and one with no head runs as it was written. The
- * cardinalities are read in the order the edge runs.
+ * of its own head, and one with no head runs as it was written. Each
+ * cardinality is read with its class, in the order the edge runs:
+ * `cardinality many Circle to 1 Shape`.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -374,10 +375,14 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
     if (relation) {
       taken.add(relation);
     }
-    // relationTitle1 sits at the start, relationTitle2 at the end.
-    const titles = relation === undefined
+    // Each cardinality with the class it sits at: relationTitle1 at the
+    // start, relationTitle2 at the end.
+    const cardinalities = relation === undefined
       ? []
-      : [relation.relationTitle1, relation.relationTitle2].map(title => (str(title) !== 'none' ? plain(title) : undefined));
+      : ([[relation.relationTitle1, edge.from], [relation.relationTitle2, edge.to]] as const).map(([title, id]) => {
+          const value = str(title) !== 'none' ? plain(title).trim() : '';
+          return value ? `${value} ${byId.get(id)?.label || id}` : undefined;
+        });
     const dashed = str(edge.row.pattern) === 'dashed' || str(edge.row.pattern) === 'dotted';
     const heads = [
       { arrow: edge.row.arrowTypeStart, at: edge.from, other: edge.to },
@@ -390,8 +395,8 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
       return [DIAMONDS.has(str(arrow) ?? '') ? { from: at, to: other, words } : { from: other, to: at, words }];
     });
     const label = (from: string, words?: string): string | undefined => {
-      const cardinality = joinLabel(...(from === edge.from ? titles : [...titles].reverse()));
-      return joinLabel(edge.label, words, cardinality ? `cardinality ${cardinality}` : undefined);
+      const ends = (from === edge.from ? cardinalities : [...cardinalities].reverse()).filter(Boolean);
+      return joinLabel(edge.label, words, ends.length > 0 ? `cardinality ${ends.join(' to ')}` : undefined);
     };
     if (heads.length === 0) {
       return [{ ...edge, label: label(edge.from) }];

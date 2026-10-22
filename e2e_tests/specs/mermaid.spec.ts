@@ -331,7 +331,7 @@ test.describe('Mermaid adapter', () => {
 
     const duck = await press(page, 'ArrowRight');
     expect(duck).toContain('Class is Duck');
-    expect(duck).toContain('From is Pond (lives in, aggregates');
+    expect(duck).toContain('From is Pond (lives in, aggregates, cardinality 1 Pond to * Duck)');
     expect(duck).toContain('To is Animal (inherits from)');
     expect(duck).toContain('Methods is public swim(); public quack()');
     expect(duck).toContain('Note is can fly and swim');

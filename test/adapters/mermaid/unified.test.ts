@@ -90,7 +90,7 @@ describe('a class diagram', () => {
       Attributes: 'public int age',
       Methods: 'private mate(), static',
     });
-    expect(data[0]).toMatchObject({ inputs: ['Duck'], inputLabels: ['inherits from, cardinality 1..*'] });
+    expect(data[0]).toMatchObject({ inputs: ['Duck'], inputLabels: ['inherits from, cardinality 1..* Duck'] });
     expect(data[1].attributes).toEqual({ Note: 'can fly' });
   });
 
@@ -117,12 +117,38 @@ describe('a class diagram', () => {
 
     const [car, wheel, duck, pond, animal, engine] = layersOf(figure)[0].data as DirectedGraphPoint[];
 
-    expect(wheel).toMatchObject({ inputs: ['Car'], inputLabels: ['has, composed of, cardinality 1, 4'] });
-    expect(duck).toMatchObject({ inputs: ['Pond'], inputLabels: ['aggregates, cardinality 1, *'] });
+    expect(wheel).toMatchObject({ inputs: ['Car'], inputLabels: ['has, composed of, cardinality 1 Car to 4 Wheel'] });
+    expect(duck).toMatchObject({ inputs: ['Pond'], inputLabels: ['aggregates, cardinality 1 Pond to * Duck'] });
     expect(car.inputs).toBeUndefined();
     expect(pond.inputs).toBeUndefined();
-    expect(animal).toMatchObject({ inputs: ['Duck'], inputLabels: ['inherits from, cardinality many, 1'] });
+    expect(animal).toMatchObject({ inputs: ['Duck'], inputLabels: ['inherits from, cardinality many Duck to 1 Animal'] });
     expect(engine).toMatchObject({ inputs: ['Car'], inputLabels: ['composed of, associated with'] });
+  });
+
+  it('names each cardinality with its class, however the relation was written', () => {
+    // `Shape "1" <|-- "many" Circle`, `Circle2 "many" --|> "1" Shape2` and `Box~T~ "0..1" <|-- Item`.
+    const figure = convert('classDiagram', {
+      getData: () => ({
+        nodes: [{ id: 'Shape' }, { id: 'Circle' }, { id: 'Circle2' }, { id: 'Shape2' }, { id: 'Box', label: 'Box' }, { id: 'Item' }],
+        edges: [
+          { start: 'Shape', end: 'Circle', arrowTypeStart: 'extension', arrowTypeEnd: 'none', pattern: 'solid' },
+          { start: 'Circle2', end: 'Shape2', arrowTypeStart: 'none', arrowTypeEnd: 'extension', pattern: 'solid' },
+          { start: 'Box', end: 'Item', arrowTypeStart: 'extension', arrowTypeEnd: 'none', pattern: 'solid' },
+        ],
+      }),
+      getClasses: () => new Map([['Box', { id: 'Box', type: 'T', members: [], methods: [] }]]),
+      getRelations: () => [
+        { id1: 'Shape', id2: 'Circle', relationTitle1: '1', relationTitle2: 'many' },
+        { id1: 'Circle2', id2: 'Shape2', relationTitle1: 'many', relationTitle2: '1' },
+        { id1: 'Box', id2: 'Item', relationTitle1: '0..1', relationTitle2: 'none' },
+      ],
+    });
+
+    const [shape, , , shape2, box] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(shape.inputLabels).toEqual(['inherits from, cardinality many Circle to 1 Shape']);
+    expect(shape2.inputLabels).toEqual(['inherits from, cardinality many Circle2 to 1 Shape2']);
+    expect(box.inputLabels).toEqual(['inherits from, cardinality 0..1 Box<T>']);
   });
 
   it('tells an association from a dependency by its line', () => {
