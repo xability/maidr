@@ -370,6 +370,22 @@ test.describe('Mermaid adapter', () => {
     expect(group).not.toContain('Service is');
   });
 
+  test('reads an architecture connection drawn without an arrow both ways', async ({ page }) => {
+    await openExample(page, 'architecture');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowDown');
+    // `disk:T -- B:db` is a plain line: neither end leads to the other.
+    const database = await press(page, 'ArrowRight');
+    expect(database).toContain('Element is Database');
+    expect(database).toContain('To is Storage');
+
+    const storage = await press(page, 'ArrowRight');
+    expect(storage).toContain('Element is Storage');
+    expect(storage).toContain('From is Database');
+    expect(storage).not.toContain('graph input');
+  });
+
   test('reads a ZenUML diagram from its text, nested calls and replies included', async ({ page }) => {
     await openExample(page, 'zenuml');
     await press(page, 'ArrowRight');

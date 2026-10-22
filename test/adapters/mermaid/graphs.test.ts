@@ -49,6 +49,28 @@ describe('the other graphs', () => {
     expect(data[0]).toMatchObject({ label: 'Database', path: ['API'], inputs: ['web'] });
   });
 
+  it('reads an architecture connection with no arrow, or an arrow at each end, both ways', () => {
+    const data = layersOf(convert('architecture', {
+      getGroups: () => [],
+      getServices: () => ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id })),
+      getJunctions: () => [],
+      getEdges: () => [
+        { lhsId: 'a', rhsId: 'b', lhsInto: false, rhsInto: false },
+        { lhsId: 'c', rhsId: 'd', lhsInto: true, rhsInto: true, title: 'sync' },
+        { lhsId: 'e', rhsId: 'f', lhsInto: false, rhsInto: true },
+      ],
+    }))[0].data as DirectedGraphPoint[];
+
+    const [a, b, c, d, e, f] = data;
+
+    expect(a.inputs).toEqual(['b']);
+    expect(b.inputs).toEqual(['a']);
+    expect(c).toMatchObject({ inputs: ['d'], inputLabels: ['sync'] });
+    expect(d).toMatchObject({ inputs: ['c'], inputLabels: ['sync'] });
+    expect(e.inputs).toBeUndefined();
+    expect(f.inputs).toEqual(['e']);
+  });
+
   it('names architecture items neutrally, so a group or a junction is not called a service', () => {
     const layer = layersOf(convert('architecture', {
       getGroups: () => [{ id: 'api', title: 'API' }],
