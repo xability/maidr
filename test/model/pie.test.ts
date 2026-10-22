@@ -483,6 +483,41 @@ describe('pie navigation', () => {
     expect(update.mock.calls[0][0]).toMatchObject({ empty: true, type: 'trace' });
   });
 
+  it('sounds a refused move where the slice the reader is on sounds', () => {
+    // Up, Down, Left before the first slice and Right past the last all push
+    // the out-of-bounds state, and its pan is where the boundary chord
+    // sounds. Panned by index, the first of four slices -- at 1:30, heard on
+    // the right -- chimed hard left, and the last -- at 10:30, heard on the
+    // left -- hard right.
+    const trace = new PieTrace(pieLayer([1, 1, 1, 1]));
+    const update = jest.fn();
+    trace.addObserver({ update });
+
+    for (const col of [0, 1, 2, 3]) {
+      const slice = stateAtSlice(trace, col).audio.panning;
+      update.mockClear();
+
+      expect(trace.moveOnce('UPWARD')).toBe(false);
+
+      expect(update.mock.calls[0][0]).toEqual({
+        empty: true,
+        type: 'trace',
+        traceType: TraceType.PIE,
+        audio: slice,
+      });
+    }
+
+    trace.moveToIndex(0, 0);
+    update.mockClear();
+    expect(trace.moveOnce('BACKWARD')).toBe(false);
+    expect((update.mock.calls[0][0] as { audio: { x: number } }).audio.x).toBeGreaterThan(0.5);
+
+    trace.moveToIndex(0, 3);
+    update.mockClear();
+    expect(trace.moveOnce('FORWARD')).toBe(false);
+    expect((update.mock.calls[0][0] as { audio: { x: number } }).audio.x).toBeLessThan(0.5);
+  });
+
   it('rejects a jump to a second row', () => {
     const trace = new PieTrace(pieLayer([30, 50, 20]));
 

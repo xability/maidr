@@ -677,7 +677,8 @@ The data property is defined as a list of objects where each object is a record 
     //
     //MAIDR walks a pie CLOCKWISE: Right steps to the next slice round the
     //dial the way a clock hand goes, the audio pans each slice to where it
-    //sits, and `p` names its clock position. Two optional keys say how the
+    //sits -- and the boundary tone of a move it refuses on that slice with
+    //it -- and `p` names its clock position. Two optional keys say how the
     //slices were laid out so that reading matches the drawing:
     //
     //`startAngle`: where the first slice begins, in degrees clockwise from
