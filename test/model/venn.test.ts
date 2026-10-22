@@ -92,6 +92,36 @@ describe('the regions are read by how many sets they join', () => {
     expect(trace.description.stats.find(one => one.label === 'Number of sets')?.value).toBe(2);
   });
 
+  test('a lone region in its row is panned to the centre, not hard left', () => {
+    // A row of one region has no left or right. Counted as two columns, its
+    // only region sat at the left edge and the position claimed a second one.
+    const trace = venn();
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+
+    const panning = state(trace).audio.panning;
+
+    expect(state(trace).text.main.value).toBe('Desirable, Feasible and Viable');
+    expect(panning).toEqual({ x: 0, y: 2, rows: 3, cols: 1 });
+  });
+
+  test('a row of several regions pans across all of them', () => {
+    const trace = venn();
+
+    const sets = state(trace).audio.panning.cols;
+    trace.moveOnce('DOWNWARD');
+    const pairs = state(trace).audio.panning.cols;
+
+    expect(sets).toBe(3);
+    expect(pairs).toBe(3);
+  });
+
+  test('a diagram of one set is centred', () => {
+    const trace = venn([{ sets: ['Only'], size: 3 }]);
+
+    expect(state(trace).audio.panning.cols).toBe(1);
+  });
+
   test('without sizes the pitch is the item count, and no size is announced', () => {
     const trace = venn([{ sets: ['A'], items: ['a', 'b'] }, { sets: ['B'], items: ['c'] }]);
     expect(state(trace).audio.freq.raw).toBe(2);
