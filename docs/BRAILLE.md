@@ -921,7 +921,11 @@ One row per **stage** -- one column of the drawing -- with one cell per node in
 it, each row scaled against its own stage. Flow is conserved along a sankey, so
 a single scale across the chart is dominated by the largest source and every
 node past the first split sits near its floor; per-stage scaling is what keeps
-the column a reader is actually walking legible.
+the column a reader is actually walking legible. A stage whose nodes are all
+one size, most often a node alone in its column, has nothing to scale within,
+so it is scaled against the whole chart, and the pitch follows: Electricity,
+alone in the middle of Mermaid's sankey and the largest node in it, is a full
+cell and a high note rather than the lowest of both.
 
 The stages are the columns the chart drew when the layer declares them
 (`flowOptions.columns` in [the schema](SCHEMA.md)), as the Mermaid adapter

@@ -203,7 +203,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   /** Throughput in the same shape, which is what the modalities read. */
   private readonly flowValues: number[][];
 
-  /** Per-stage extremes, for the pitch range. */
+  /**
+   * Per-stage extremes, for the pitch range and the braille rows; the whole
+   * chart's for a stage with no spread.
+   */
   private readonly stageMin: number[];
   private readonly stageMax: number[];
 
@@ -256,10 +259,21 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     this.flowValues = this.grid.map(row =>
       row.map(node => (node === null ? Number.NaN : this.throughputOf(node))));
 
-    this.stageMin = this.stages.map(members =>
-      MathUtil.safeMin(members.map(node => this.throughputOf(this.nodes[node]))));
-    this.stageMax = this.stages.map(members =>
-      MathUtil.safeMax(members.map(node => this.throughputOf(this.nodes[node]))));
+    // A stage whose nodes are all one size -- most often a node alone in its
+    // column -- has nothing to scale within, and an empty range sounds at the
+    // floor and fills the lowest cell: Electricity, alone in the middle of
+    // Mermaid's sankey and the largest node in it, was its lowest note. Such
+    // a stage is scaled against the whole chart instead.
+    const throughputs = this.stages.map(members =>
+      members.map(node => this.throughputOf(this.nodes[node])));
+    const chartMin = MathUtil.safeMin(throughputs.flat());
+    const chartMax = MathUtil.safeMax(throughputs.flat());
+    const spread = throughputs.map(values =>
+      MathUtil.safeMin(values) < MathUtil.safeMax(values));
+    this.stageMin = throughputs.map((values, stage) =>
+      spread[stage] ? MathUtil.safeMin(values) : chartMin);
+    this.stageMax = throughputs.map((values, stage) =>
+      spread[stage] ? MathUtil.safeMax(values) : chartMax);
 
     this.highlightValues = this.mapToSvgElements(layer.selectors, flows.length);
     this.movable = new MovableGraph(this.buildGraph());

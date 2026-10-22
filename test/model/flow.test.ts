@@ -551,6 +551,25 @@ describe('the modalities read the flow by stage', () => {
     expect(freq).toEqual({ min: 8, max: 46, raw: 46 });
   });
 
+  test('a single source, alone in its stage, is pitched against the whole chart', () => {
+    const trace = flow([
+      { source: 'A', target: 'B', value: 5 },
+      { source: 'B', target: 'C', value: 3 },
+      { source: 'B', target: 'D', value: 2 },
+    ]);
+
+    expect(nonEmptyState(trace).audio.freq).toEqual({ min: 2, max: 5, raw: 5 });
+  });
+
+  test('a stage of equal nodes on a chart of equal nodes keeps its empty range', () => {
+    const trace = flow([
+      { source: 'A', target: 'B', value: 4 },
+      { source: 'B', target: 'C', value: 4 },
+    ]);
+
+    expect(nonEmptyState(trace).audio.freq).toEqual({ min: 4, max: 4, raw: 4 });
+  });
+
   test('the sound pans downstream as the reader moves downstream', () => {
     const source = nonEmptyState(flow()).audio.panning;
     const trace = flow();
@@ -647,6 +666,23 @@ describe('the columns the producer drew', () => {
     expect(stages(trace)).toEqual([[105, 40, 35], [135], [45, 70, 65]]);
     expect(nonEmptyState(trace).text.main.value).toBe('Gas');
     expect(walk(trace, 'DOWNWARD', 'UPWARD')).toEqual(['Solar', 'Gas']);
+  });
+
+  test('a node alone in its column is scaled against the whole chart, not at its floor', () => {
+    // Electricity carries the most and is drawn alone in the middle column.
+    // Scaled within that column alone, its range was empty, and it sounded
+    // the lowest note and showed the lowest cell between Gas and Homes, the
+    // tops of theirs.
+    const trace = drawnAs(DRAWN);
+    walk(trace, 'FORWARD');
+
+    const state = nonEmptyState(trace);
+    expect(state.text.main.value).toBe('Electricity');
+    expect(state.audio.freq).toEqual({ min: 35, max: 135, raw: 135 });
+    if (state.braille.empty) {
+      throw new Error('Expected a populated braille state');
+    }
+    expect(state.braille).toMatchObject({ min: [35, 35, 45], max: [105, 135, 70] });
   });
 
   test('a sink drawn in the last column is heard there', () => {
