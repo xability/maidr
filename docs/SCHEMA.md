@@ -1054,8 +1054,10 @@ the edges are declared on the node they arrive at, as `inputs`, and scopes as a
   description's inputs and outputs. A blank or `null` entry leaves its edge
   unnamed. An edge declared twice with different labels carries both, in
   declared order, apart by semicolons: `B (yes; retry)`. An edge into or out
-  of a collapsed scope is heard without its label, since the scope stands for
-  many edges.
+  of a collapsed scope stands for every edge between the scope's members and
+  the far end, and is heard with their label when they all carry the same
+  one -- a state's `stop` out of a composite state, a flowchart's `yes` into
+  a subgraph -- and without one when they differ or some are unnamed.
 - `attributes` is free-form: each entry is announced as a clause, in declared
   order, and becomes a column of the description's table.
 

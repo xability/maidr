@@ -239,12 +239,24 @@ test.describe('Mermaid adapter', () => {
     const decision = await press(page, 'ArrowRight');
 
     expect(decision).toContain('In stock?');
-    expect(decision).toContain('Back-order (no)');
+    // Its yes branch leads into the Shipping subgraph, which the reader meets
+    // closed: the edge it stands for is still named by its label.
+    expect(decision).toContain('To is Shipping (yes), Back-order (no)');
     expect(decision).toContain('Shape is decision');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('In stock?');
     // The diamond itself, which Mermaid's stylesheet paints, not only its label.
     await expect(page.locator(`${HIGHLIGHT} :is(rect, path, polygon)`).first())
       .toHaveCSS('stroke', HIGHLIGHT_STROKE);
+  });
+
+  test('names a transition into or out of a composite state by its event', async ({ page }) => {
+    await openExample(page, 'state');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowRight')).toContain('To is Running (start)');
+    expect(await press(page, 'ArrowRight')).toContain('To is Idle (stop), end (quit)');
+
+    await openExample(page, 'c4');
+    expect(await press(page, 'ArrowRight')).toContain('To is Bank (enterprise) (Uses)');
   });
 
   test('reads a flowchart in terse mode with no empty field after a step\'s name', async ({ page }) => {

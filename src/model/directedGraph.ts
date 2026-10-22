@@ -735,22 +735,39 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   }
 
   /**
-   * The label of the edge between two items, when both are declared nodes
-   * and the edge carries one.
+   * The label of the edge between two items, when it carries one.
    *
-   * A closed scope stands for many edges at once, so an edge into or out of
-   * one is heard by its far end alone rather than by a label that names only
-   * one of the edges it stands for.
+   * A closed scope stands for every declared edge between its members and
+   * the item at the far end -- see {@link DirectedGraphTrace.connectItems},
+   * which is why the edges between the two items' members are exactly the
+   * ones the adjacency was built from. The label is heard when they all
+   * carry the same one: a flowchart's `yes` into a subgraph, a state
+   * diagram's `stop` out of a composite state, which Mermaid draws once and
+   * the producer expands to an edge per member. It is withheld when they
+   * disagree or some carry none, so it never names only one of the edges the
+   * scope stands for. Between two declared nodes there is one edge, so this
+   * is that edge's label.
    *
    * @param from - The item the edge leaves
    * @param to - The item it arrives at
    * @returns The label, or undefined
    */
   private edgeLabel(from: GraphItem, to: GraphItem): string | undefined {
-    if (from.source === null || to.source === null) {
-      return undefined;
+    const into = new Set(to.members);
+    let shared: string | undefined;
+    for (const source of from.members) {
+      for (const target of this.successors[source]) {
+        if (!into.has(target)) {
+          continue;
+        }
+        const label = this.edgeLabels.get(`${source}>${target}`);
+        if (label === undefined || (shared !== undefined && label !== shared)) {
+          return undefined;
+        }
+        shared = label;
+      }
     }
-    return this.edgeLabels.get(`${from.source}>${to.source}`);
+    return shared;
   }
 
   /**
