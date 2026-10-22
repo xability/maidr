@@ -638,15 +638,6 @@ export class TreemapTrace extends AbstractTrace {
     // emits as their own clauses and never runs through an axis formatter.
     const asides: TextAside[] = [];
 
-    const ancestors = this.ancestorsOf(node);
-    if (ancestors.length > 1) {
-      // The breadcrumb, from the second level down. At the first level the
-      // parent's name is the whole of the path and the share clause below
-      // already carries it.
-      const path = ancestors.join(' > ');
-      asides.push({ label: t('model.asidePath'), value: path, terse: t('model.tersePath', { path }) });
-    }
-
     // The two share clauses need no `valued` guard of their own, and one was
     // written and then removed for being unfalsifiable. In a tree that
     // declares no magnitude every node's value is a sum of zeroes, so both
@@ -657,7 +648,20 @@ export class TreemapTrace extends AbstractTrace {
     const parent = node.parent === null
       ? null
       : this.nodes[node.parent.row]?.[node.parent.col] ?? null;
-    if (parent !== null && parent.value !== 0) {
+    const sharesParent = parent !== null && parent.value !== 0;
+
+    const ancestors = this.ancestorsOf(node);
+    if (ancestors.length > 1 || (ancestors.length === 1 && !sharesParent)) {
+      // The breadcrumb, from the second level down. At the first level the
+      // parent's name is the whole of the path, and the share clause below
+      // names it -- except where there is no share to give: in a tree with
+      // no magnitudes, or under a parent of 0, the breadcrumb is the only
+      // clause that says which parent a first-level node is under.
+      const path = ancestors.join(' > ');
+      asides.push({ label: t('model.asidePath'), value: path, terse: t('model.tersePath', { path }) });
+    }
+
+    if (sharesParent) {
       // The comparison the rectangles are drawn to support, and the one a
       // sighted reader estimates worst. The parent is named with the share in
       // terse mode too, which drops the label that names it in verbose: a

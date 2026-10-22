@@ -690,6 +690,17 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowDown')).toContain('Event is WCAG 1.0');
   });
 
+  test('says which section a timeline period is in, after the Level rotor crosses into the next', async ({ page }) => {
+    await openExample(page, 'timeline');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowDown')).toContain('Period is 1999, Path is Guidelines');
+    await press(page, 'Control+ArrowRight');
+    await page.keyboard.press('Alt+Shift+ArrowDown');
+    await expect(page.locator('#maidr-rotor-area')).toContainText('Level');
+
+    expect(await press(page, 'ArrowRight')).toContain('Path is Standards');
+  });
+
   test('reads the Cynefin framework text, and reaches the Confusion it draws', async ({ page }) => {
     await openExample(page, 'cynefin');
     expect(await press(page, 'ArrowRight')).toContain('Domain is Complex (Probe → Sense → Respond, Emergent Practices)');

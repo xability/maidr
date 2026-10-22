@@ -131,6 +131,45 @@ describe('announcing a tree that declares no magnitude', () => {
     expect(spoken).toContain('Ada > Bo');
   });
 
+  test('a first-level node names its parent, which no share clause carries', () => {
+    // In a valued tree the share clause names the parent ("Share of Ada is
+    // 66.7%"); here there is no share, and a node one level down named no
+    // parent at all -- a reader who crossed into another parent's children
+    // by the Level rotor heard nothing change but the name.
+    const trace = new TreemapTrace(treeLayer(ORG));
+    const text = new TextService(createMockNotificationService());
+
+    expect(announce(text, trace.getStateAt(1, 0))).toBe('Person is Bo, Path is Ada, Children is 2');
+    expect(announce(text, trace.getStateAt(1, 1))).toBe('Person is Cy, Path is Ada, Children is 1');
+    expect(announce(text, trace.getStateAt(0, 0))).toBe('Person is Ada, Children is 2');
+  });
+
+  test('a first-level node under a declared zero still names its parent', () => {
+    const zero: TreemapPoint[] = [
+      { x: 'Ada', y: 0 },
+      { x: 'Bo', y: 4, path: ['Ada'] },
+    ];
+    const trace = new TreemapTrace(treeLayer(zero));
+    const text = new TextService(createMockNotificationService());
+
+    expect(announce(text, trace.getStateAt(1, 0))).toContain('Path is Ada');
+  });
+
+  test('a first-level node names its parent in terse mode too', () => {
+    const trace = new TreemapTrace(treeLayer(ORG));
+    const text = new TextService(createMockNotificationService());
+    text.toggle();
+
+    expect(announce(text, trace.getStateAt(1, 0))).toBe('Bo, in Ada, 2 children');
+  });
+
+  test('a first-level node of a valued tree names its parent once, in its share', () => {
+    const trace = new TreemapTrace(treeLayer(VALUED));
+    const text = new TextService(createMockNotificationService());
+
+    expect(announce(text, trace.getStateAt(1, 0))).toBe('Person is Bo, Headcount is 4, Share of Ada is 66.7%');
+  });
+
   test('says nothing on the axis in terse mode either', () => {
     const trace = new TreemapTrace(treeLayer(ORG));
     const text = new TextService(createMockNotificationService());

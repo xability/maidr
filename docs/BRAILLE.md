@@ -1039,8 +1039,9 @@ as one run of magnitudes, which is exactly the flat reading the trace exists
 to replace.
 
 So the shape is the display's contribution and the structure is the
-announcement's: every move names the node, its share of its parent, and its
-child count, and the arrow keys refuse to cross a parent boundary. The display
+announcement's: every move names the node, its share of its parent (or, in a
+tree with no magnitudes, the parent itself), and its child count, and the
+arrow keys refuse to cross a parent boundary. The display
 shows a level's distribution; it does not show whose children they are.
 
 ```
