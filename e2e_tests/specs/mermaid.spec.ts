@@ -247,6 +247,16 @@ test.describe('Mermaid adapter', () => {
       .toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
 
+  test('reads a flowchart in terse mode with no empty field after a step\'s name', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await page.keyboard.press('t');
+
+    const first = await press(page, 'ArrowRight');
+
+    expect(first).toMatch(/^Order received, 0 inputs, 1 output, /);
+    expect(first).not.toContain(', , ');
+  });
+
   test('outlines every node inside a flowchart\'s subgraph while the reader is on it', async ({ page }) => {
     await openExample(page, 'flowchart');
     await press(page, 'ArrowRight');

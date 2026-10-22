@@ -141,6 +141,9 @@ describe('announcing a tree that declares no magnitude', () => {
 
     expect(spoken).not.toContain('0');
     expect(spoken).toContain('Ada');
+    // No empty field where the value would have been: "Ada, , 2" voiced a
+    // pause between the name and the next clause.
+    expect(spoken).not.toContain(', , ');
   });
 
   test('a tree that does declare magnitudes is untouched', () => {

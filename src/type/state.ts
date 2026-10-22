@@ -377,9 +377,10 @@ export interface TextState {
    * A pure hierarchy is the case that exists: `TreemapTrace` reads a tree
    * whose nodes declare no magnitude at all -- an org chart -- and every
    * value it could put here would be one the chart does not draw (#1153).
-   * `TextService` already tested for the clause before reading it in the
-   * terse and layer-switch paths; the verbose and grid paths now do too, and
-   * omit both the label and the value rather than announcing a bare label.
+   * `TextService` tests for the clause before reading it in every path, and
+   * omits both the label and the value rather than announcing a bare label.
+   * Terse mode joins only the clauses a state carries, so an absent one
+   * leaves no empty field behind it.
    *
    * Absent is not the same as empty. A trace that has a cross axis and no
    * reading at this point sends the axis with a non-finite value, which is
