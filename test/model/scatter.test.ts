@@ -503,6 +503,49 @@ describe('ScatterTrace rotor cursor reporting', () => {
     });
   });
 
+  describe('row navigation', () => {
+    /** Mermaid's quadrant example: four campaigns, no two sharing an x or a y. */
+    function campaigns(): ScatterTrace {
+      const trace = new ScatterTrace(createScatterLayer([
+        { x: 0.3, y: 0.6, label: 'Campaign A' },
+        { x: 0.45, y: 0.23, label: 'Campaign B' },
+        { x: 0.57, y: 0.69, label: 'Campaign C' },
+        { x: 0.78, y: 0.34, label: 'Campaign D' },
+      ]));
+      trace.moveOnce('FORWARD'); // Enters on Campaign A, the first column.
+      trace.moveOnce('UPWARD'); // Turns to its row.
+      return trace;
+    }
+
+    /** Pushes past the top row and returns the boundary state it emitted. */
+    function boundaryAbove(trace: ScatterTrace): { empty: boolean; audio: { x: number; y: number; rows: number; cols: number } } {
+      const update = jest.fn();
+      trace.addObserver({ update });
+      expect(trace.moveOnce('UPWARD')).toBe(false);
+      return update.mock.calls[0][0] as { empty: boolean; audio: { x: number; y: number; rows: number; cols: number } };
+    }
+
+    test('the boundary chime pans at the row the reader reached, not the column the walk began in', () => {
+      const trace = campaigns();
+      expect(trace.moveOnce('UPWARD')).toBe(true); // Campaign C, the top row.
+      const lastInBounds = panningOf(trace);
+
+      const bounds = boundaryAbove(trace);
+
+      expect(bounds.empty).toBe(true);
+      expect(lastInBounds.x).toBe(2); // Campaign C's column, not Campaign A's.
+      expect(bounds.audio).toEqual(lastInBounds);
+    });
+
+    test('so does the boundary after a jump to the top row', () => {
+      const trace = campaigns();
+      expect(trace.moveToExtreme('UPWARD')).toBe(true);
+      const lastInBounds = panningOf(trace);
+
+      expect(boundaryAbove(trace).audio).toEqual(lastInBounds);
+    });
+  });
+
   describe('intersection mode', () => {
     test('COL position advances through the stack instead of freezing at row 1', () => {
       // panning.y is what Announce Position reports; pinning it to 0 said

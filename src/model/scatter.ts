@@ -1748,7 +1748,26 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       };
     }
 
-    // Fall back to parent implementation for non-grid mode
+    // Up and Down walk the rows and leave `col` on the column the walk began
+    // from, so the parent's slot panned the chime there rather than at the
+    // row the reader was hearing. The row's own slot is the one its tone
+    // reports in `audio`: the column of its first point.
+    if (this.mode === NavMode.ROW) {
+      const first = this.yPoints[this.row]?.x[0];
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: {
+          y: this.row,
+          x: first === undefined ? 0 : this.xIndexOf(first),
+          rows: this.yPoints.length,
+          cols: Math.max(1, this.xPoints.length),
+        },
+      };
+    }
+
+    // Fall back to parent implementation for column navigation
     return super.outOfBoundsState;
   }
 
