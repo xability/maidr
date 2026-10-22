@@ -61,6 +61,30 @@ describe('a flowchart', () => {
     const layer = layersOf(convert('flowchart-v2', db, drawn('f', markup.replace(/<g[^>]*C-9[^>]*><\/g>/, ''))))[0];
     expect(layer.selectors).toBeUndefined();
   });
+
+  it('leaves a subgraph that ends in a loop from the loop, not the step it starts on', () => {
+    const figure = convert('flowchart-v2', {
+      getData: () => ({
+        nodes: [
+          { id: 'sub', label: 'Retry', isGroup: true },
+          { id: 's', label: 'Send', parentId: 'sub' },
+          { id: 't', label: 'Wait', parentId: 'sub' },
+          { id: 'w', label: 'Check', parentId: 'sub' },
+          { id: 'done', label: 'Done' },
+        ],
+        edges: [
+          { start: 's', end: 't' },
+          { start: 't', end: 'w' },
+          { start: 'w', end: 't' },
+          { start: 'sub', end: 'done' },
+        ],
+      }),
+    });
+
+    const done = (layersOf(figure)[0].data as DirectedGraphPoint[])[3];
+
+    expect(done.inputs).toEqual(['t', 'w']);
+  });
 });
 
 describe('a class diagram', () => {
@@ -236,5 +260,66 @@ describe('a state diagram', () => {
     expect(data.map(point => point.label ?? point.id)).toEqual(['start', 'start', 'On']);
     expect(data[1]).toMatchObject({ path: ['Active', 'region 1'], inputs: ['root_start'] });
     expect(data[2].inputs).toEqual(['inner_start']);
+  });
+
+  it('leaves a composite state that ends in a loop from its states, not its initial state', () => {
+    const figure = convert('stateDiagram', {
+      getData: () => ({
+        nodes: [
+          { id: 'root_start', shape: 'stateStart' },
+          { id: 'Idle', label: 'Idle' },
+          { id: 'Running', label: 'Running', isGroup: true },
+          { id: 'Running_start', shape: 'stateStart', parentId: 'Running' },
+          { id: 'Loading', label: 'Loading', parentId: 'Running' },
+          { id: 'Playing', label: 'Playing', parentId: 'Running' },
+          { id: 'Paused', label: 'Paused', parentId: 'Running' },
+          { id: 'root_end', shape: 'stateEnd' },
+        ],
+        edges: [
+          { start: 'root_start', end: 'Idle' },
+          { start: 'Idle', end: 'Running', label: 'start' },
+          { start: 'Running_start', end: 'Loading' },
+          { start: 'Loading', end: 'Playing', label: 'loaded' },
+          { start: 'Playing', end: 'Paused', label: 'pause' },
+          { start: 'Paused', end: 'Playing', label: 'resume' },
+          { start: 'Running', end: 'Idle', label: 'stop' },
+          { start: 'Running', end: 'root_end', label: 'quit' },
+        ],
+      }),
+    });
+
+    const data = layersOf(figure)[0].data as DirectedGraphPoint[];
+    const byId = new Map(data.map(point => [point.id, point]));
+
+    expect(byId.get('Idle')).toMatchObject({ inputs: ['root_start', 'Loading', 'Playing', 'Paused'], inputLabels: [null, 'stop', 'stop', 'stop'] });
+    expect(byId.get('root_end')?.inputs).toEqual(['Loading', 'Playing', 'Paused']);
+    expect(byId.get('Running_start')?.inputs).toEqual(['Idle']);
+    expect(data.filter(point => point.inputs?.includes('Running_start')).map(point => point.id)).toEqual(['Loading']);
+  });
+
+  it('enters a composite state that starts in a loop on its states, not its final state', () => {
+    const figure = convert('stateDiagram', {
+      getData: () => ({
+        nodes: [
+          { id: 'Idle', label: 'Idle' },
+          { id: 'Running', label: 'Running', isGroup: true },
+          { id: 'Playing', label: 'Playing', parentId: 'Running' },
+          { id: 'Paused', label: 'Paused', parentId: 'Running' },
+          { id: 'Running_end', shape: 'stateEnd', parentId: 'Running' },
+        ],
+        edges: [
+          { start: 'Idle', end: 'Running' },
+          { start: 'Playing', end: 'Paused' },
+          { start: 'Paused', end: 'Playing' },
+          { start: 'Paused', end: 'Running_end' },
+        ],
+      }),
+    });
+
+    const [, playing, paused, end] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(playing.inputs).toEqual(['Idle', 'Paused']);
+    expect(paused.inputs).toEqual(['Idle', 'Playing']);
+    expect(end.inputs).toEqual(['Paused']);
   });
 });

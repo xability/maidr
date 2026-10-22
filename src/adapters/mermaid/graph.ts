@@ -112,12 +112,19 @@ export function directedGraphLayer(context: DiagramContext, parts: GraphParts): 
   // nothing inside the group feeds) and which it leaves from (those that
   // feed nothing inside it): entering a composite state is entering its
   // initial states, and an edge out of a subgraph leaves from its last step.
+  // A group that ends in a loop has no member feeding nothing: an edge out
+  // of it leaves from every member something inside leads to, never from
+  // the initial state only an edge from outside enters. Likewise an edge
+  // into a group that starts in a loop enters every member leading on
+  // inside, never its final state.
   const inner = parts.edges.filter(edge => nodeIds.has(edge.from) && nodeIds.has(edge.to));
   const boundary = (group: string, side: 'entry' | 'exit'): string[] => {
     const inside = new Set(members.get(group) ?? []);
-    const open = [...inside].filter(id => !inner.some(edge => inside.has(edge.from) && inside.has(edge.to)
-      && edge.from !== edge.to && (side === 'entry' ? edge.to === id : edge.from === id)));
-    return open.length > 0 ? open : [...inside];
+    // Whether an edge between two members arrives at this one, or leaves it.
+    const linked = (id: string, arriving: boolean): boolean => inner.some(edge => inside.has(edge.from)
+      && inside.has(edge.to) && edge.from !== edge.to && (arriving ? edge.to === id : edge.from === id));
+    const open = [...inside].filter(id => !linked(id, side === 'entry'));
+    return open.length > 0 ? open : [...inside].filter(id => linked(id, side === 'exit'));
   };
   const ends = (id: string, side: 'entry' | 'exit'): string[] =>
     nodeIds.has(id) ? [id] : boundary(id, side);
