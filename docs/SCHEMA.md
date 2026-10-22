@@ -1069,7 +1069,8 @@ The reader enters on the first top-level item with every scope **closed**.
 Left and right walk the items of one scope in topological order, input to
 output; down opens a scope onto its first member and up closes it again;
 Ctrl with an arrow goes to the first or last item of the scope, out to the
-top-level item, or down to the deepest first member. The rotor's **Outputs**
+top-level item, or down to the deepest first member, and plays the edge signal
+on an item that is already there. The rotor's **Outputs**
 and **Inputs** units follow the edges downstream and upstream, each press
 taking the next edge of the item the walk started from; an arrow move ends the
 walk, so the next press follows the edges of the item the reader is on. An

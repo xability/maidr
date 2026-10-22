@@ -671,7 +671,9 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * scope onto its first member. Left and right are the scope's other items
    * in topological order, never a neighbour in another scope. Ctrl with them
    * goes to the first or last item of the scope, out to the top-level item
-   * this one is in, or down the first line of members to the deepest.
+   * this one is in, or down the first line of members to the deepest -- and,
+   * as at the end of a step, is refused where the item already is that
+   * extreme, rather than replaying it as if the cursor had moved.
    *
    * @returns The navigation graph, addressed as the items are
    */
@@ -696,8 +698,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
           down: at(item.children[0]),
           left: at(siblings[place - 1]),
           right: at(siblings[place + 1]),
-          start: at(siblings[0]),
-          end: at(siblings[siblings.length - 1]),
+          start: place > 0 ? at(siblings[0]) : null,
+          end: place < siblings.length - 1 ? at(siblings[siblings.length - 1]) : null,
           top: at(top),
           bottom: at(bottom),
         };

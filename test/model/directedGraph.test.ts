@@ -219,6 +219,27 @@ describe('the walk runs input to output, scope by scope', () => {
     expect(trace.moveToExtreme('BACKWARD')).toBe(true);
     expect(at(trace)).toBe('input');
   });
+
+  test('a ctrl move already at its end is refused, as up at the top and down on a leaf are', () => {
+    // Left on the first item and right on the last replayed the item, as if
+    // the cursor had moved.
+    const trace = graph();
+
+    const onInput = [trace.moveToExtreme('BACKWARD'), trace.moveToExtreme('UPWARD'), trace.moveToExtreme('DOWNWARD')];
+    trace.moveToExtreme('FORWARD');
+    const onDense = trace.moveToExtreme('FORWARD');
+
+    expect(onInput).toEqual([false, false, false]);
+    expect(onDense).toBe(false);
+    expect(at(trace)).toBe('dense');
+  });
+
+  test('a ctrl move made on entering the graph lands on the first item and says so', () => {
+    const trace = TraceFactory.create(createLayer()) as DirectedGraphTrace;
+
+    expect(trace.moveToExtreme('BACKWARD')).toBe(true);
+    expect(at(trace)).toBe('input');
+  });
 });
 
 describe('every move says how the node is connected', () => {

@@ -400,10 +400,13 @@ export class TreemapTrace extends AbstractTrace {
           right: at >= 0 && at < siblings.length - 1 ? siblings[at + 1] : null,
           // Out to the top of this branch, and in to the end of its first
           // line of descent -- the extremes of the axis these keys move on.
+          // Each is null where the node already is that extreme, as left and
+          // right are: a jump to the node itself replayed it, and with the
+          // text off a press that went nowhere sounded like a step.
           top: this.rootOf(node),
           bottom: this.deepestOf(node),
-          start: siblings[0] ?? null,
-          end: siblings[siblings.length - 1] ?? null,
+          start: at > 0 ? siblings[0] : null,
+          end: at >= 0 && at < siblings.length - 1 ? siblings[siblings.length - 1] : null,
         };
       }));
   }

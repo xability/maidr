@@ -198,7 +198,11 @@ export class MovableGraph extends AbstractMovable {
   }
 
   public moveToExtreme(direction: MovableDirection): boolean {
-    if (this.isInitialEntry) {
+    // On entering, landing on the first node is the move, whether or not the
+    // jump goes on from there. Refused instead, the edge was heard while the
+    // cursor landed on that node unannounced.
+    const entering = this.isInitialEntry;
+    if (entering) {
       this.handleInitialEntry();
     }
 
@@ -226,7 +230,7 @@ export class MovableGraph extends AbstractMovable {
         break;
     }
     if (!extremeNode) {
-      return false;
+      return entering;
     }
 
     this.row = extremeNode.row;

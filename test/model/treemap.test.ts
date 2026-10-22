@@ -218,6 +218,35 @@ describe('the extremes move along the same two axes', () => {
 
     expect(jump(trace, 'BACKWARD')).toBe('Japan');
   });
+
+  test('a jump that has nowhere to go is refused, in every direction', () => {
+    // Up at the top and down on a leaf were refused, but left on the first
+    // sibling and right on the last landed on the node itself and announced
+    // it again, so a press that went nowhere sounded like a step.
+    const trace = treemap();
+
+    const onEurope = [jump(trace, 'BACKWARD'), jump(trace, 'UPWARD')];
+    walk(trace, 'FORWARD');
+    const onAsia = jump(trace, 'FORWARD');
+    walk(trace, 'DOWNWARD');
+    const onJapan = [jump(trace, 'BACKWARD'), jump(trace, 'DOWNWARD')];
+
+    expect(onEurope).toEqual([null, null]);
+    expect(onAsia).toBeNull();
+    expect(onJapan).toEqual([null, null]);
+    expect(nonEmptyState(trace).text.main.value).toBe('Japan');
+  });
+
+  test('a jump made on entering the tree lands on the first node and says so', () => {
+    // The entry is the move, wherever the jump would have gone from there:
+    // refused, it played the edge while the cursor landed on Europe unheard.
+    const landed = (['UPWARD', 'BACKWARD'] as const).map((direction) => {
+      const trace = TraceFactory.create(createLayer()) as TreemapTrace;
+      return jump(trace, direction);
+    });
+
+    expect(landed).toEqual(['Europe', 'Europe']);
+  });
 });
 
 describe('a node is announced with its place in the tree', () => {
