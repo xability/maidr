@@ -24,7 +24,7 @@
  */
 
 import type { Rgb } from '@type/color';
-import { beforeEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Color } from '@util/color';
 import { Svg } from '@util/svg';
 
@@ -311,5 +311,177 @@ describe('createHighlightElement colour', () => {
     const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
 
     expect(highlight.style.stroke).toBe(highlight.style.fill);
+  });
+});
+
+/**
+ * Gives each element marked `data-box="left,top,width,height"` that box on
+ * screen, which jsdom, laying nothing out, never gives anything.
+ */
+function useMarkedBoxes(): void {
+  jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    const [left, top, width, height] = (this.getAttribute('data-box') ?? '0,0,0,0').split(',').map(Number);
+    return {
+      left,
+      top,
+      width,
+      height,
+      right: left + width,
+      bottom: top + height,
+      x: left,
+      y: top,
+      toJSON: () => ({}),
+    } as DOMRect;
+  });
+}
+
+describe('createLabelHighlights', () => {
+  const BLACK_AND_WHITE = ['#000000', '#ffffff'];
+
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    document.body.innerHTML = '';
+    useMarkedBoxes();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  /**
+   * Draws a mark and the label Mermaid draws over it, as a gantt task or a
+   * packet field is drawn, and highlights the mark.
+   * @param markStyle - The mark's paint
+   * @param labelStyle - The label's paint
+   * @param labelBox - Where the label is on screen
+   * @returns The mark, its label, and the highlight's label copies
+   */
+  function labelledMark(
+    markStyle: string,
+    labelStyle: string,
+    labelBox = '40,4,30,12',
+    colors: readonly string[] = BLACK_AND_WHITE,
+  ): { mark: SVGElement; label: SVGElement; highlight: SVGElement; copies: SVGElement[] } {
+    renderDiagram(`<g><rect id="adapter" class="task crit1" data-box="0,0,100,20" style="${markStyle}"></rect>`
+      + `<text id="adapter-text" class="taskText" data-box="${labelBox}" style="${labelStyle}">Adapter</text></g>`);
+    const mark = document.getElementById('adapter') as unknown as SVGElement;
+    const label = document.getElementById('adapter-text') as unknown as SVGElement;
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+    return { mark, label, highlight, copies: Svg.createLabelHighlights(mark, highlight, colors) };
+  }
+
+  it('copies a white label over a dark task in a colour that reads on the highlight', () => {
+    // A critical gantt task is red, which the highlight colour covers, and
+    // its white label sat on the highlight green at 2.27:1.
+    const { label, highlight, copies } = labelledMark('fill: #ff0000', 'fill: #ffffff');
+
+    expect(copies).toHaveLength(1);
+    const [copy] = copies;
+    expect(copy.textContent).toBe('Adapter');
+    expect(contrast(copy.style.getPropertyValue('fill'), highlight.style.fill)).toBeGreaterThanOrEqual(4.5);
+    expect(copy.style.getPropertyPriority('fill')).toBe('important');
+    // Drawn just above the label it copies, as MAIDR's, with nothing of its
+    // own for a selector or a screen reader to find.
+    expect(label.nextElementSibling).toBe(copy);
+    expect(Svg.isOwned(copy)).toBe(true);
+    expect(copy.hasAttribute('id')).toBe(false);
+    expect(copy.getAttribute('aria-hidden')).toBe('true');
+    // The label itself is left as it is.
+    expect(label.style.getPropertyValue('fill')).toBe('#ffffff');
+  });
+
+  it('chooses from the reader\'s high contrast pair', () => {
+    const { copies } = labelledMark('fill: #000000', 'fill: #ffff00', undefined, ['#ffff00', '#000080']);
+
+    expect(copies).toHaveLength(1);
+    expect(copies[0].style.getPropertyValue('fill')).toBe('#000080');
+  });
+
+  it('colours the spans of a label as well', () => {
+    renderDiagram('<rect id="field" data-box="0,0,100,20" style="fill: #000000"></rect>'
+      + '<text id="field-text" data-box="40,4,30,12" style="fill: #ffffff"><tspan style="fill: #ffffff">Source port</tspan></text>');
+    const mark = document.getElementById('field') as unknown as SVGElement;
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR, { useColorAsIs: true });
+
+    const [copy] = Svg.createLabelHighlights(mark, highlight, BLACK_AND_WHITE);
+
+    expect((copy.querySelector('tspan') as SVGElement).style.getPropertyValue('fill')).toBe('#000000');
+  });
+
+  it('leaves a label that already reads on the highlight', () => {
+    // A light mark's highlight is a darker shade of it, stopping at 3:1 so
+    // the dark label over it still reads.
+    const { copies } = labelledMark('fill: #ECECFF', 'fill: #000000');
+
+    expect(copies).toEqual([]);
+  });
+
+  it('leaves a label beside the mark rather than over it', () => {
+    const { copies } = labelledMark('fill: #ff0000', 'fill: #ffffff', '110,4,30,12');
+
+    expect(copies).toEqual([]);
+  });
+
+  it('leaves a label drawn under the mark', () => {
+    renderDiagram('<text id="under" data-box="40,4,30,12" style="fill: #ffffff">Under</text>'
+      + '<rect id="mark" data-box="0,0,100,20" style="fill: #ff0000"></rect>');
+    const mark = document.getElementById('mark') as unknown as SVGElement;
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(Svg.createLabelHighlights(mark, highlight, BLACK_AND_WHITE)).toEqual([]);
+  });
+
+  it('leaves the labels of an outlined group, which keeps its fill', () => {
+    renderDiagram('<g id="node" data-box="0,0,100,20"><rect data-box="0,0,100,20" style="fill: #ff0000; stroke: #000000"></rect>'
+      + '<text data-box="40,4,30,12" style="fill: #ffffff">Node</text></g>');
+    const node = document.getElementById('node') as unknown as SVGElement;
+    const highlight = Svg.createHighlightElement(node, FALLBACK_COLOR);
+
+    expect(Svg.createLabelHighlights(node, highlight, BLACK_AND_WHITE)).toEqual([]);
+  });
+
+  it('leaves a label inside the box of a line, which fills nothing', () => {
+    renderDiagram('<polyline id="line" data-box="0,0,100,100" style="fill: none; stroke: #1f77b4"></polyline>'
+      + '<text data-box="40,40,30,12" style="fill: #ffffff">Note</text>');
+    const line = document.getElementById('line') as unknown as SVGElement;
+    const highlight = Svg.createHighlightElement(line, FALLBACK_COLOR);
+
+    expect(Svg.createLabelHighlights(line, highlight, BLACK_AND_WHITE)).toEqual([]);
+  });
+
+  it('leaves MAIDR\'s own copies of a label', () => {
+    renderDiagram('<rect id="mark" data-box="0,0,100,20" style="fill: #ff0000"></rect>'
+      + '<text data-maidr-owned="true" visibility="hidden" data-box="40,4,30,12" style="fill: #ffffff">Copy</text>');
+    const mark = document.getElementById('mark') as unknown as SVGElement;
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(Svg.createLabelHighlights(mark, highlight, BLACK_AND_WHITE)).toEqual([]);
+  });
+});
+
+describe('createLabelHighlights under a shape drawn over the mark', () => {
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    document.body.innerHTML = '';
+    useMarkedBoxes();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('leaves a label on a shape drawn over the mark, as a treemap item over its section', () => {
+    renderDiagram('<g><rect id="section" data-box="0,0,200,100" style="fill: #1f77b4"></rect>'
+      + '<clipPath><rect data-box="0,0,200,100"></rect></clipPath>'
+      + '<rect id="item" data-box="10,30,80,60" style="fill: #ff7f0e"></rect>'
+      + '<text id="section-label" data-box="80,5,40,12" style="fill: #ffffff">Products</text>'
+      + '<text id="item-label" data-box="30,50,40,12" style="fill: #ffffff">Phones</text></g>');
+    const section = document.getElementById('section') as unknown as SVGElement;
+    const highlight = Svg.createHighlightElement(section, FALLBACK_COLOR);
+
+    const copies = Svg.createLabelHighlights(section, highlight, ['#000000', '#ffffff']);
+
+    // The section's own label is on the highlight; the item's is on the item.
+    expect(copies.map(copy => copy.textContent)).toEqual(['Products']);
   });
 });

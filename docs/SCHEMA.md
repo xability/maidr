@@ -402,7 +402,11 @@ A named shape -- a `<rect>`, `<path>`, `<circle>` and so on -- is drawn over: a
 dark one in the highlight colour, a light one in a darker shade of its own
 colour, at least 3:1 against it, keeping an edge it draws in a colour of its
 own. In high contrast mode, where the reader's palette paints every mark,
-each is drawn in the highlight colour. A named group, or any element holding such shapes, is
+each is drawn in the highlight colour. A label the chart draws over the shape,
+as `<text>` after it, that would read below 4.5:1 on the highlight is shown in
+black or white while the highlight is -- in high contrast mode, in the reader's
+light or dark colour -- whichever reads better on it; the label itself is left
+as drawn. A named group, or any element holding such shapes, is
 outlined through them instead: each shape inside it that draws anything is
 stroked in the highlight colour, wider than drawn, over whatever paint its own
 attributes or the page's stylesheet give it, and left unfilled, so the group

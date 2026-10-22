@@ -47,9 +47,10 @@ export class HighlightService
 implements Observer<HighlightStateUnion>, Disposable {
   /**
    * Map storing the relationship between original SVG elements and their highlight clones.
-   * Keys are the original elements, values are the highlight overlay elements.
+   * Keys are the original elements, values are the highlight overlay element
+   * first, then the copies of the labels drawn over it, removed together.
    */
-  private readonly highlightedElements: Map<SVGElement, SVGElement>;
+  private readonly highlightedElements: Map<SVGElement, SVGElement[]>;
   private readonly settingsService: SettingsService;
 
   /**
@@ -78,6 +79,13 @@ implements Observer<HighlightStateUnion>, Disposable {
   private highContrastMode: boolean;
 
   /**
+   * The colours a label drawn over a highlight may be given to read on it:
+   * the reader's high contrast pair while high contrast is on, black and
+   * white otherwise. Updated when settings change.
+   */
+  private labelColors: readonly string[];
+
+  /**
    * Disposable for the settings change subscription, released on dispose().
    */
   private settingsDisposable: Disposable | null = null;
@@ -97,6 +105,7 @@ implements Observer<HighlightStateUnion>, Disposable {
     const initialSettings = settings.loadSettings();
     this.currentHighlightColor = initialSettings.general.highlightColor;
     this.highContrastMode = initialSettings.general.highContrastMode;
+    this.labelColors = HighlightService.labelColorsOf(initialSettings);
 
     // Subscribe to settings changes via the emitter (the same pattern used by
     // audio/autoplay/braille/highContrast). This service is not registered on
@@ -128,13 +137,29 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Creates a highlight overlay element for the given SVG element.
+   * The colours a label over a highlight may take under the given settings.
+   *
+   * @param settings - The settings
+   * @returns The reader's high contrast pair while high contrast is on, black
+   *   and white otherwise
+   */
+  private static labelColorsOf(settings: Settings): readonly string[] {
+    const { general } = settings;
+    return general.highContrastMode
+      ? [general.highContrastLightColor, general.highContrastDarkColor]
+      : ['#000000', '#ffffff'];
+  }
+
+  /**
+   * Creates a highlight overlay element for the given SVG element, and copies
+   * of the labels drawn over it in a colour that reads on it (see
+   * `Svg.createLabelHighlights`).
    *
    * @param element - The SVG element to create a highlight for
-   * @returns A new SVG element configured as a highlight overlay
+   * @returns The highlight overlay, then the label copies
    * @throws {TypeError} If the provided element is not an SVGElement
    */
-  private createHighlightElement(element: SVGElement): SVGElement {
+  private createHighlightElement(element: SVGElement): SVGElement[] {
     if (!(element instanceof SVGElement)) {
       throw new TypeError('Invalid element provided for highlight creation');
     }
@@ -148,7 +173,7 @@ implements Observer<HighlightStateUnion>, Disposable {
       { useColorAsIs: this.highContrastMode },
     );
     clone.id = `${Constant.MAIDR_HIGHLIGHT}-${Date.now()}-${Math.random()}`;
-    return clone;
+    return [clone, ...Svg.createLabelHighlights(element, clone, this.labelColors)];
   }
 
   /**
@@ -161,6 +186,7 @@ implements Observer<HighlightStateUnion>, Disposable {
     const colorChanged = settings.general.highlightColor !== this.currentHighlightColor;
     this.currentHighlightColor = settings.general.highlightColor;
     this.highContrastMode = settings.general.highContrastMode;
+    this.labelColors = HighlightService.labelColorsOf(settings);
     if (colorChanged) {
       this.redraw();
     }
@@ -178,11 +204,12 @@ implements Observer<HighlightStateUnion>, Disposable {
    * the change that called this may not have reached this service yet.
    */
   public redraw(): void {
-    const { general } = this.settingsService.loadSettings();
-    this.currentHighlightColor = general.highlightColor;
-    this.highContrastMode = general.highContrastMode;
+    const settings = this.settingsService.loadSettings();
+    this.currentHighlightColor = settings.general.highlightColor;
+    this.highContrastMode = settings.general.highContrastMode;
+    this.labelColors = HighlightService.labelColorsOf(settings);
 
-    for (const [original, clone] of [...this.highlightedElements]) {
+    for (const [original, highlights] of [...this.highlightedElements]) {
       // A live update may have replaced the mark without telling this
       // service, and kept the reader's place: the copy stays, in the palette
       // it was drawn in, until the next move draws the new mark. Dropped,
@@ -191,7 +218,7 @@ implements Observer<HighlightStateUnion>, Disposable {
         continue;
       }
       // Removed first, so the new copy lands where the old one was.
-      clone.remove();
+      highlights.forEach(highlight => highlight.remove());
       this.highlightedElements.delete(original);
       try {
         this.highlightedElements.set(original, this.createHighlightElement(original));
@@ -325,8 +352,8 @@ implements Observer<HighlightStateUnion>, Disposable {
   private highlightTraceElements(elements: SVGElement[]): void {
     for (const element of elements) {
       try {
-        const highlightElement = this.createHighlightElement(element);
-        this.highlightedElements.set(element, highlightElement);
+        const highlights = this.createHighlightElement(element);
+        this.highlightedElements.set(element, highlights);
       } catch (error) {
         console.error('Failed to highlight element:', error);
       }
@@ -400,8 +427,8 @@ implements Observer<HighlightStateUnion>, Disposable {
 
     try {
       this.unhighlight(element);
-      const highlightElement = this.createHighlightElement(element);
-      this.highlightedElements.set(element, highlightElement);
+      const highlights = this.createHighlightElement(element);
+      this.highlightedElements.set(element, highlights);
     } catch (error) {
       console.error('Failed to highlight element:', error);
     }
@@ -418,10 +445,10 @@ implements Observer<HighlightStateUnion>, Disposable {
       return;
     }
 
-    const highlightElement = this.highlightedElements.get(element);
-    if (highlightElement) {
+    const highlights = this.highlightedElements.get(element);
+    if (highlights) {
       try {
-        highlightElement.remove();
+        highlights.forEach(highlight => highlight.remove());
         this.highlightedElements.delete(element);
       } catch (error) {
         console.error('Failed to unhighlight element:', error);
@@ -435,8 +462,8 @@ implements Observer<HighlightStateUnion>, Disposable {
    */
   public clear(): void {
     try {
-      this.highlightedElements.forEach((highlightElement) => {
-        highlightElement.remove();
+      this.highlightedElements.forEach((highlights) => {
+        highlights.forEach(highlight => highlight.remove());
       });
       this.highlightedElements.clear();
       this.unhighlightSubplotElements();
@@ -449,8 +476,8 @@ implements Observer<HighlightStateUnion>, Disposable {
    * Removes all trace-level highlights from the DOM and clears the tracking map.
    */
   private unhighlightTraceElements(): void {
-    this.highlightedElements.forEach((highlightElement) => {
-      highlightElement.remove();
+    this.highlightedElements.forEach((highlights) => {
+      highlights.forEach(highlight => highlight.remove());
     });
     this.highlightedElements.clear();
   }
