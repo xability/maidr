@@ -11,6 +11,7 @@ import type {
 } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { NetworkTrace } from '@model/network';
+import { RadarTrace } from '@model/radar';
 import { ScatterTrace } from '@model/scatter';
 import { BrailleService, normalizeDisplayLines } from '@service/braille';
 import { TraceType } from '@type/grammar';
@@ -1844,6 +1845,87 @@ describe('normalizeDisplayLines boundaries', () => {
 
   test('21 clamps down to max 20', () => {
     expect(normalizeDisplayLines(21)).toBe(20);
+  });
+});
+
+describe('a radar\'s series read last first, so Up moves the caret up a line', () => {
+  // Up is the next series on a radar and a polar area, as it is the next row
+  // on a grid. Written series 0 first, the on-screen field put Alice on the
+  // top line and Bob below her, so Up to Bob moved the caret down a line and
+  // Down from Alice was refused with the caret on the top line; a multiline
+  // display already wrote the series last first.
+
+  /**
+   * A radar over Mermaid's example's first four subjects.
+   * @param type - Radar or polar area
+   * @returns The trace, on Alice's first spoke
+   */
+  function grades(type: TraceType = TraceType.RADAR): RadarTrace {
+    const subjects = ['Math', 'Science', 'English', 'History'];
+    const trace = new RadarTrace({
+      id: 'grades',
+      type,
+      axes: { x: { label: 'Axis' }, y: { label: 'Value' } },
+      data: [
+        subjects.map((x, at) => ({ x, y: [85, 90, 80, 70][at], z: 'Alice' })),
+        subjects.map((x, at) => ({ x, y: [70, 75, 85, 80][at], z: 'Bob' })),
+      ],
+    });
+    trace.moveToIndex(0, 2);
+    return trace;
+  }
+
+  /**
+   * The braille a display of some lines shows for a state, as its lines.
+   * @param state - The trace state to show
+   * @param lines - How many lines the display has
+   * @returns The value's lines, trailing blanks dropped
+   */
+  function linesOf(state: TraceState, lines: number): string[] {
+    const { service } = createMultilineBrailleService(8, lines);
+    let value = '';
+    service.onChange((event) => {
+      value = event.value;
+    });
+    service.toggle(state);
+    service.dispose();
+    return lines === 1
+      ? value.split('\n').filter(line => line !== '').map(line => line.trimEnd())
+      : (value.match(/.{8}/gu) ?? []).map(line => line.trimEnd()).filter(line => line !== '');
+  }
+
+  test('the last series is on the top line, and Up moves the caret up to it', () => {
+    const trace = grades();
+    const { service, contextMoveToIndex } = createBrailleService(32);
+    let last = { value: '', index: -1 };
+    service.onChange((event) => {
+      last = { value: event.value, index: event.index };
+    });
+    service.toggle(trace.state);
+    const lines = last.value.split('\n');
+    const onAlice = last.index;
+
+    trace.moveOnce('UPWARD');
+    service.update(trace.state);
+    const onBob = last.index;
+    service.moveToIndex(0);
+
+    expect(trace.row).toBe(1);
+    expect(lines[0]).toHaveLength(4);
+    expect(onBob).toBeLessThan(lines[0].length);
+    expect(onAlice).toBeGreaterThan(lines[0].length);
+    expect(contextMoveToIndex).toHaveBeenLastCalledWith(1, 0);
+    service.dispose();
+    trace.dispose();
+  });
+
+  test('single-line and multiline displays list the series in the same order', () => {
+    for (const type of [TraceType.RADAR, TraceType.POLAR_AREA]) {
+      const trace = grades(type);
+
+      expect(linesOf(trace.state, 1)).toEqual(linesOf(trace.state, 3));
+      trace.dispose();
+    }
   });
 });
 
