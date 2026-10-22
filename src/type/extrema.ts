@@ -70,7 +70,7 @@ export interface ExtremaTarget {
     x?: string;
     /** The row a grid cell is on, spoken after `x` */
     y?: string;
-    /** Pre-formatted coordinates string (e.g., "x=1.50, y=2.50") */
+    /** Pre-formatted coordinates string (e.g., "x=1.5, y=2.5", or "x between A and B, y=2.5") */
     coords?: string;
     /** Names of other lines involved (for intersections, excludes current line) */
     otherLines?: string;

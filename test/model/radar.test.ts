@@ -133,7 +133,7 @@ describe('radar registration', () => {
 describe('navigation is the multi-line model', () => {
   test('walks spokes across and series up', () => {
     // Series zero is the bottom row, as it is for any multi-line layer, so
-    // UPWARD reaches the next series -- inherited rather than redefined.
+    // UPWARD reaches the next series -- in series order, not by value.
     const trace = radar();
 
     expect(trace.moveOnce('FORWARD')).toBe(true);
@@ -141,6 +141,68 @@ describe('navigation is the multi-line model', () => {
     expect(trace.moveOnce('UPWARD')).toBe(true);
     expect(nonEmptyState(trace).text.main.value).toBe('range');
     expect(nonEmptyState(trace).text.cross?.value).toBe(7);
+  });
+
+  test('up and down follow series order, not value', () => {
+    // Alice is the higher at Math and the lower at History. By value, Up
+    // reached Bob at History and Down did at Math, and the other way said "No
+    // more data to display" with Bob one press away.
+    const grades: LinePoint[][] = [
+      ['Math', 'Science', 'English', 'History'].map((x, index) => (
+        { x, y: [85, 90, 80, 70][index], z: 'Alice' })),
+      ['Math', 'Science', 'English', 'History'].map((x, index) => (
+        { x, y: [70, 75, 85, 80][index], z: 'Bob' })),
+    ];
+    const trace = radar(0, 0, TraceType.RADAR, grades);
+
+    expect(trace.moveOnce('DOWNWARD')).toBe(false);
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(trace.row).toBe(1);
+    expect(nonEmptyState(trace).text.cross?.value).toBe(70);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+    expect(trace.isMovable('UPWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(trace.row).toBe(0);
+    expect(nonEmptyState(trace).text.cross?.value).toBe(70);
+    expect(nonEmptyState(trace).braille).toMatchObject({ row: 0 });
+  });
+
+  test('a series without the spoke is passed over, and a gap at it is landed on', () => {
+    const series = (name: string, values: (number | null)[]): LinePoint[] =>
+      ['Math', 'Science'].map((x, index) => ({ x, y: values[index] as number, z: name }));
+    const trace = radar(0, 0, TraceType.RADAR, [
+      series('A', [5, 6]),
+      [{ x: 'Science', y: 4, z: 'B' }],
+      series('C', [null, 7]),
+      series('D', [3, 2]),
+    ]);
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(trace.row).toBe(2);
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(trace.row).toBe(3);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(trace.row).toBe(2);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(trace.row).toBe(0);
+  });
+
+  test('control and up and down reach the last and first series', () => {
+    // At speed, model A (8) is above model B (5): the line chart's extreme
+    // went to A, from which Up could still move.
+    const trace = radar(0, 0);
+
+    expect(trace.moveToExtreme('UPWARD')).toBe(true);
+    expect(trace.row).toBe(1);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+    expect(trace.moveToExtreme('DOWNWARD')).toBe(true);
+    expect(trace.row).toBe(0);
+    expect(trace.moveToExtreme('FORWARD')).toBe(true);
+    expect(trace.col).toBe(3);
   });
 
   test('stops at the last spoke rather than wrapping', () => {
@@ -371,6 +433,30 @@ describe('an intersection is heard from where the spoke is', () => {
 
     expect(pans.size).toBe(1);
     expect((state.intersections ?? []).map(i => i.group)).toEqual([0, 1]);
+  });
+});
+
+describe('where the Go To dialog says two outlines cross', () => {
+  /** Mermaid's radar example: Alice and Bob across six subjects. */
+  const GRADES: LinePoint[][] = [
+    ['Math', 'Science', 'English', 'History', 'Geography', 'Art'].map((x, index) => (
+      { x, y: [85, 90, 80, 70, 75, 90][index], z: 'Alice' })),
+    ['Math', 'Science', 'English', 'History', 'Geography', 'Art'].map((x, index) => (
+      { x, y: [70, 75, 85, 80, 90, 85][index], z: 'Bob' })),
+  ];
+
+  test('between the spokes it lies between, not on the nearer one', () => {
+    // Alice goes 90 -> 80 and Bob 75 -> 85 from Science to English, so the
+    // outlines cross between those spokes. It was offered "at x=English".
+    const trace = radar(0, 0, TraceType.RADAR, GRADES);
+    const crossings = trace.getExtremaTargets().filter(target => target.type === 'intersection');
+
+    expect(crossings.map(target => target.label)).toEqual([
+      'Slope intersection at x between Science and English, y=82.5',
+      'Slope intersection at x between Geography and Art, y=86.25',
+    ]);
+    // Choosing one still lands on the nearer spoke, the nearest point there is.
+    expect(crossings.map(target => target.pointIndex)).toEqual([2, 5]);
   });
 });
 

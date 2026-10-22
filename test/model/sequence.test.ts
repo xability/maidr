@@ -199,6 +199,53 @@ describe('down walks a lifeline and keeps the moment', () => {
     trace.moveOnce('DOWNWARD');
     expect(trace.isMovable('DOWNWARD')).toBe(false);
   });
+
+  test('control and up from a lifeline returns to the moment, as up does', () => {
+    const trace = sequence();
+    trace.moveToIndex(0, 5);
+    trace.moveOnce('DOWNWARD');
+    expect(state(trace).text.main.value).toBe('200 OK');
+
+    trace.moveToExtreme('UPWARD');
+
+    expect(state(trace).text.main.value).toBe('cache warm');
+    expect(trace.row).toBe(0);
+  });
+
+  test('control and down keeps the moment, and control and up undoes it', () => {
+    const trace = sequence();
+    trace.moveToIndex(0, 5);
+
+    trace.moveToExtreme('DOWNWARD');
+    expect(aside(trace, 'Lifeline')).toBe('Database (database)');
+    expect(state(trace).text.main.value).toBe('user row');
+    trace.moveToExtreme('UPWARD');
+    expect(state(trace).text.main.value).toBe('cache warm');
+
+    // The next Down is relative to the message just announced.
+    trace.moveOnce('DOWNWARD');
+    expect(state(trace).text.main.value).toBe('200 OK');
+  });
+
+  test('control and down lands where a run of downs does', () => {
+    const trace = sequence(RELAY);
+    trace.moveToIndex(0, 5);
+    trace.moveOnce('DOWNWARD');
+    expect(state(trace).text.main.value).toBe('d');
+
+    trace.moveToExtreme('DOWNWARD');
+
+    expect(state(trace).text.main.value).toBe('f');
+  });
+
+  test('control and up on the first row, and down on the last lifeline, are the edges', () => {
+    const trace = sequence();
+    trace.moveToIndex(0, 5);
+    expect(trace.moveToExtreme('UPWARD')).toBe(false);
+
+    trace.moveToExtreme('DOWNWARD');
+    expect(trace.moveToExtreme('DOWNWARD')).toBe(false);
+  });
 });
 
 describe('the rotor jumps between fragments', () => {

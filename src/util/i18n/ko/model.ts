@@ -335,6 +335,7 @@ export const model = {
   'model.intersectionSlope': '기울기 교차',
   'model.extremaIntersectionAt': '{coords}의 {kind}',
   'model.intersectionCoords': 'x는 {x}, y는 {y}',
+  'model.intersectionCoordsBetween': 'x는 {from|과와} {to} 사이, y는 {y}',
   'model.intersectionAtLines': '{lines} 교차 지점',
   'model.nounBand': '띠',
   'model.statNumberOfBands': '띠 개수',
@@ -602,6 +603,10 @@ export const model = {
   'model.wordCloudTermSummary': '{term}, {weight}',
   'model.extremaHeaviestTerm': '가중치가 가장 큰 단어',
   'model.extremaLightestTerm': '가중치가 가장 작은 단어',
+  'model.extremaLargestSlice': '가장 큰 조각',
+  'model.extremaSmallestSlice': '가장 작은 조각',
+  'model.extremaLongestInterval': '가장 긴 구간',
+  'model.extremaShortestInterval': '가장 짧은 구간',
   // Volcano and Manhattan plots: which points clear the threshold.
   'model.rotorUnitSignificant': '유의미',
   'model.rotorNounSignificantPoints': '유의미한 점',

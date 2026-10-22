@@ -322,6 +322,32 @@ describe('maidr_run_command on a real chart', () => {
     expect(ctrl.isCommandBlocked()).toBe(false);
   });
 
+  it('should answer unavailable for Enter on a scatter point, and open a cell in grid navigation', async () => {
+    // A scatter whose axes declare a grid has one in ordinary navigation too,
+    // where the reader stands on a point and Enter said "No points in this
+    // cell" while reporting it had run.
+    const points: MaidrLayer = {
+      id: 'points',
+      type: TraceType.SCATTER,
+      axes: {
+        x: { label: 'X', min: 0, max: 4, tickStep: 2 },
+        y: { label: 'Y', min: 0, max: 4, tickStep: 2 },
+      },
+      data: [{ x: 1, y: 1 }, { x: 3, y: 3 }],
+    };
+    const { tools } = chartWith([[{ layers: [points] }]]);
+    await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'move_right' });
+
+    expect(await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'enter_grid_cell' })).toEqual({
+      ok: false,
+      applied: 'unavailable',
+      error: 'command not available where the reader is',
+    });
+
+    await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'next_navigation_mode' });
+    expect((await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'enter_grid_cell' })).applied).toBe('now');
+  });
+
   it('should return to the overview of a multi-panel figure', async () => {
     const { ctrl, tools } = chartWith([[{ layers: [bars] }, { layers: [{ ...bars, id: 'more' }] }]]);
     ctrl.getContextValue().commandExecutor.executeCommand('MOVE_TO_TRACE_CONTEXT' as Keys);

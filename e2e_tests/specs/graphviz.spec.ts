@@ -127,6 +127,16 @@ test.describe('Graphviz adapter', () => {
     await expect(page.locator(`${OUTLINE} title`)).toHaveText('pick');
   });
 
+  test('should say the graph has no extrema rather than ignore g', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await page.keyboard.press('g');
+
+    await expect.poll(async () => normalizeText(await plot.getInstructionText()))
+      .toContain('No extrema to go to in this layer');
+  });
+
   test('should show the graph on the braille display', async ({ page }) => {
     const plot = new GraphvizPage(page);
     await plot.activateMaidr();
@@ -198,6 +208,20 @@ test.describe('Graphviz adapter, undirected graph', () => {
     expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ben');
     await expect.poll(() => outlinedLinks(page)).toEqual(['ana--ben', 'ben--chloe']);
     await expect(page.locator(`${LINK} path`).first()).toHaveCSS('stroke', HIGHLIGHT_STROKE);
+  });
+
+  test('should return to the person left when coming back to a group', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ana');
+
+    await plot.moveToDataPointAbove();
+    expect(normalizeText(await plot.getInstructionText())).toContain('Person is Eli');
+    await plot.moveToDataPointBelow();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ana');
   });
 });
 

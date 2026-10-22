@@ -1,3 +1,4 @@
+import type { Coordinate } from '@type/movable';
 import type { PointWithX, ValuesArray, XValue } from '@type/navigation';
 import { hasXProperty, isPointWithX, isXValue } from '@type/navigation';
 
@@ -423,5 +424,67 @@ function extractXValue(point: any): XValue | null {
     return point.value;
   }
   // Add more cases as needed
+  return null;
+}
+
+/**
+ * A name without the note a chart may write after it in parentheses:
+ * "Complex" for "Complex (Probe → Sense → Respond, Emergent Practices)".
+ *
+ * @param name - A node's name
+ * @returns The name before its note, or the name itself when it has none
+ */
+function bareName(name: string): string {
+  const note = /^(.+?) \([^()]*\)$/.exec(name);
+  return note === null ? name : note[1];
+}
+
+/**
+ * Finds the node a name belongs to in a hierarchy or a graph, so a layer
+ * switch keeps the reader on the same node when both layers draw it.
+ *
+ * The cursor's own cell first, when it already carries the name -- of two
+ * siblings both called "Other", the reader stays on the one they were on --
+ * then the first match at the cursor's depth, then the first at any depth
+ * from the top. A name matches exactly, or failing that when one of the two
+ * is the other with a note in parentheses after it: one layer of a Cynefin
+ * framework announces "Complex (Probe → Sense → Respond, Emergent
+ * Practices)" where the other draws "Complex". Two names with different
+ * notes are different nodes.
+ *
+ * @param levels - The nodes, by depth and position, with gaps as null
+ * @param name - The name to find
+ * @param row - The cursor's depth
+ * @param col - The cursor's position at that depth
+ * @returns Where the node is, or null when no node carries the name
+ */
+export function findNamedCell(
+  levels: readonly (readonly ({ name: string } | null | undefined)[])[],
+  name: string,
+  row: number,
+  col: number,
+): Coordinate | null {
+  const exact = (other: string): boolean => other === name;
+  const noted = (other: string): boolean =>
+    bareName(other) === name || other === bareName(name);
+  for (const matches of [exact, noted]) {
+    const at = (depth: number, index: number): boolean => {
+      const node = levels[depth]?.[index];
+      return node !== null && node !== undefined && matches(node.name);
+    };
+    if (at(row, col)) {
+      return { row, col };
+    }
+    const sameDepth = levels[row]?.findIndex((_, index) => at(row, index)) ?? -1;
+    if (sameDepth !== -1) {
+      return { row, col: sameDepth };
+    }
+    for (let depth = 0; depth < levels.length; depth++) {
+      const index = levels[depth].findIndex((_, other) => at(depth, other));
+      if (index !== -1) {
+        return { row: depth, col: index };
+      }
+    }
+  }
   return null;
 }

@@ -3,6 +3,7 @@ import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
 import type { HeatmapData, MaidrLayer, ScatterPoint } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { Heatmap } from '@model/heatmap';
 import { LineTrace } from '@model/line';
 import { ScatterTrace } from '@model/scatter';
@@ -512,6 +513,132 @@ describe('RotorNavigationService compare-mode boundary re-announcement', () => {
     cycleTo(service, t('rotor.higherValueMode'));
 
     expect(service.moveRight()).toBe('');
+  });
+});
+
+describe('RotorNavigationService offers compare modes only where the trace can compare', () => {
+  /**
+   * A layer of each type, built through the factory with no selectors, the
+   * smallest data that type reads.
+   */
+  const LAYERS: Record<string, MaidrLayer> = {
+    directedGraph: {
+      id: 'graph',
+      type: TraceType.DIRECTED_GRAPH,
+      data: [{ id: 'a' }, { id: 'b', inputs: ['a'] }],
+    },
+    network: {
+      id: 'network',
+      type: TraceType.NETWORK,
+      data: [{ source: 'Ana', target: 'Ben' }, { source: 'Ben', target: 'Chloe' }],
+    },
+    sequence: {
+      id: 'sequence',
+      type: TraceType.SEQUENCE,
+      data: {
+        participants: [{ id: 'A', label: 'A' }, { id: 'B', label: 'B' }],
+        messages: [{ from: 'A', to: 'B', text: 'hello' }],
+      },
+    },
+    treemap: {
+      id: 'treemap',
+      type: TraceType.TREEMAP,
+      data: [{ x: 'Products', y: 90, path: [] }, { x: 'Services', y: 30, path: [] }],
+    },
+    wordCloud: {
+      id: 'words',
+      type: TraceType.WORD_CLOUD,
+      data: [{ x: 'neural', y: 128 }, { x: 'machine', y: 412 }],
+    },
+  };
+
+  const COMPARING: Record<string, MaidrLayer> = {
+    bar: {
+      id: 'bar',
+      type: TraceType.BAR,
+      data: [{ x: 'a', y: 3 }, { x: 'b', y: 1 }],
+    },
+    dodged: {
+      id: 'dodged',
+      type: TraceType.DODGED,
+      data: [[{ x: 'a', y: 70, z: 's' }, { x: 'b', y: 31, z: 's' }]],
+    },
+    gantt: {
+      id: 'gantt',
+      type: TraceType.GANTT,
+      data: { points: [[{ x: 'Design', start: 0, end: 10 }, { x: 'Design', start: 10, end: 25 }]] },
+    },
+  };
+
+  test.each(Object.keys(LAYERS))('%s skips straight to its own units', (name) => {
+    const trace = TraceFactory.create(LAYERS[name]);
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+
+    const { labels } = service.getModeLabels();
+    expect(labels).not.toContain(t('rotor.lowerValueMode'));
+    expect(labels).not.toContain(t('rotor.higherValueMode'));
+    service.moveToNextRotorUnit();
+    expect(['lower', 'higher']).not.toContain(service.getModeKey());
+  });
+
+  test.each(Object.keys(COMPARING))('%s keeps both modes', (name) => {
+    const trace = TraceFactory.create(COMPARING[name]);
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+
+    const { labels } = service.getModeLabels();
+    expect(labels).toContain(t('rotor.lowerValueMode'));
+    expect(labels).toContain(t('rotor.higherValueMode'));
+  });
+
+  test('the line and the heatmap keep both modes', () => {
+    expect(new LineTrace(createLineLayer([[{ x: 0, y: 1 }]])).supportsCompareMode()).toBe(true);
+    const heatmap: MaidrLayer = {
+      id: 'hm',
+      type: TraceType.HEATMAP,
+      data: { x: ['a'], y: ['p'], points: [[1]] } as HeatmapData,
+    };
+    expect(new Heatmap(heatmap).supportsCompareMode()).toBe(true);
+  });
+
+  test('a trace with no x under the cursor still announces the boundary', () => {
+    // The press used to be gated on an x value it never used: a trace that
+    // reported none logged a console error and said nothing at all.
+    const trace = TraceFactory.create(COMPARING.bar);
+    trace.moveToIndex(0, 1);
+    jest.spyOn(trace, 'getCurrentXValue').mockReturnValue(null);
+    const notification = createMockNotificationService();
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      notification,
+    );
+    cycleTo(service, t('rotor.lowerValueMode'));
+
+    expect(service.moveRight()).not.toBeNull();
+    expect(notification.notify).toHaveBeenCalledWith(expect.stringMatching(/lower value/i));
+  });
+
+  test('a trace with no x under the cursor still moves', () => {
+    const trace = TraceFactory.create(COMPARING.bar);
+    trace.moveToIndex(0, 0);
+    jest.spyOn(trace, 'getCurrentXValue').mockReturnValue(null);
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+    cycleTo(service, t('rotor.lowerValueMode'));
+
+    expect(service.moveRight()).toBeNull();
+    expect(trace.col).toBe(1);
   });
 });
 

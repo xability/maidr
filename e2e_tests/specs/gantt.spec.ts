@@ -122,9 +122,10 @@ test.describe('Gantt', () => {
     const plot = new GanttPlotPage(page);
     await plot.activateMaidr();
     await plot.moveToNextDataPoint();
-    // Lane 0 is the bottom row, so UP walks towards `Launch`, three lanes up.
+    // The example draws its first lane at the top and `Launch` at the bottom,
+    // so Down walks towards it, three lanes down, as the drawing does.
     for (let lane = 0; lane < 3; lane++) {
-      await plot.moveToDataPointAbove();
+      await plot.moveToDataPointBelow();
     }
 
     const announcement = normalizeText(await plot.getInstructionText());

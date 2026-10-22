@@ -291,7 +291,7 @@ describe('LineTrace intersections with categorical x values', () => {
     expect(trace.col).toBe(2);
   });
 
-  test('classifies date-string intersections and labels them with the nearest x value', () => {
+  test('classifies date-string intersections and says they lie between two dates', () => {
     const trace = new LineTrace(createLineLayer([
       [
         { x: '2019-11-01', y: 0 },
@@ -305,11 +305,38 @@ describe('LineTrace intersections with categorical x values', () => {
 
     const intersections = getIntersectionTargets(trace.getExtremaTargets());
 
-    // A segment-only crossing between the two dates: slope intersection whose
-    // label shows the nearest sampled date, not a raw ordinal coordinate.
+    // A segment-only crossing between the two dates: a slope intersection
+    // said to lie between them, rather than on the nearer one or at a raw
+    // ordinal coordinate. Choosing it still lands on the nearer sample.
     expect(intersections).toHaveLength(1);
     expect(intersections[0].intersectionKind).toBe('slope');
-    expect(intersections[0].label).toContain('x=2019-11-01');
+    expect(intersections[0].label).toContain('x between 2019-11-01 and 2019-11-04, y=1');
+    expect(intersections[0].pointIndex).toBe(0);
+  });
+
+  test('names a numeric crossing by its position, rounded as speech rounds it', () => {
+    const trace = new LineTrace(createLineLayer([
+      [{ x: 1, y: 0 }, { x: 2, y: 3 }],
+      [{ x: 1, y: 3 }, { x: 2, y: 0 }],
+    ]));
+
+    const intersections = getIntersectionTargets(trace.getExtremaTargets());
+
+    expect(intersections[0].label).toContain('x=1.5, y=1.5');
+  });
+
+  test('keeps the category for a slope crossing through a sample of this line', () => {
+    // The other line crosses this one exactly at its middle sample, between
+    // two of its own: on this line it is at a category, not between two.
+    const trace = new LineTrace(createLineLayer([
+      [{ x: 'a', y: 0 }, { x: 'b', y: 1 }, { x: 'c', y: 2 }],
+      [{ x: 'a', y: 2 }, { x: 'c', y: 0 }],
+    ]));
+
+    const intersections = getIntersectionTargets(trace.getExtremaTargets());
+
+    expect(intersections).toHaveLength(1);
+    expect(intersections[0].label).toContain('x=b, y=1');
   });
 
   test('classifies a shared date-string sample as a point intersection', () => {

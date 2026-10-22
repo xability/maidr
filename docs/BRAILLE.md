@@ -492,7 +492,10 @@ compared with one sweep rather than by toggling between rows.
 ### Radar and polar area [experimental]
 
 A radar's braille is the multi-line encoding unchanged: **one row per series**,
-one cell per spoke, each row scaled against its own range.
+one cell per spoke, each row scaled against its own range. Up and Down move
+between those rows in the order the series are declared, Up to the next, as on
+a multi-line display; a line chart moves to the next higher or lower value
+instead, but a radar's values do not rise up the screen.
 
 What braille cannot carry here is the circle. A display is a line of cells and
 a spoke's angle has nowhere to go in it, so the row reads as the sequence of
@@ -571,6 +574,14 @@ same half of it.
 
 Gantt charts use one line per lane on a multiline display, so several lanes'
 workloads can be compared with one sweep rather than by toggling between rows.
+
+The lanes run down the display the way the chart draws them, so the caret
+moves the way the arrow keys do. On a schedule drawn with its first lane at
+the top, which is how most charting libraries and Mermaid draw one, that lane
+is on the top line and Down moves the caret to the line below, as it moves to
+the lane drawn below. A schedule drawn with its first lane at the bottom keeps
+it on the bottom line, where Up moves the caret up, as on every other
+multiline display.
 
 ### Parallel coordinates [experimental]
 

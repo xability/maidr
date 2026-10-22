@@ -1,4 +1,5 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
@@ -12,32 +13,46 @@ import { t } from '@util/i18n';
 export class GoToExtremaToggleCommand implements Command {
   private readonly context: Context;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
+  private readonly notificationService: NotificationService;
+  private readonly audioService: AudioService;
 
   /**
    * Creates an instance of GoToExtremaToggleCommand.
    * @param {Context} context - The application context.
    * @param {GoToExtremaViewModel} goToExtremaViewModel - The go-to-extrema view model.
+   * @param {NotificationService} notificationService - For saying why there is no dialog.
+   * @param {AudioService} audioService - For the warning tone that goes with it.
    */
-  public constructor(context: Context, goToExtremaViewModel: GoToExtremaViewModel) {
+  public constructor(
+    context: Context,
+    goToExtremaViewModel: GoToExtremaViewModel,
+    notificationService: NotificationService,
+    audioService: AudioService,
+  ) {
     this.context = context;
     this.goToExtremaViewModel = goToExtremaViewModel;
+    this.notificationService = notificationService;
+    this.audioService = audioService;
   }
 
   /**
-   * Executes the command to show or hide the go-to-extrema interface.
+   * Opens the go-to-extrema dialog, or closes it when it is open.
+   *
+   * `g` is bound on every trace and listed in the help menu, so a layer with
+   * no extrema to list says so, with the warning tone, as `[`, `]` and `o`
+   * do: a silent press would read as a broken shortcut.
    */
   public execute(): void {
-    const state = this.context.state;
-    if (state.type === 'trace') {
-      if (this.goToExtremaViewModel.state.visible) {
-        this.goToExtremaViewModel.hide();
-      } else {
-        const activeTrace = this.context.active;
-        if (activeTrace && this.goToExtremaViewModel.isExtremaNavigable(activeTrace)) {
-          this.goToExtremaViewModel.toggle(state);
-        }
-      }
+    if (this.goToExtremaViewModel.state.visible) {
+      this.goToExtremaViewModel.hide();
+      return;
     }
+    const state = this.context.state;
+    if (state.type === 'trace' && this.goToExtremaViewModel.toggle(state)) {
+      return;
+    }
+    this.notificationService.notify(t('text.noExtrema'));
+    this.audioService.playWarningToneIfEnabled();
   }
 }
 

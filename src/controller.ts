@@ -50,7 +50,7 @@ import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewMo
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
 import { Scope } from '@type/event';
-import { isGridNavigable } from '@type/navigation';
+import { canEnterGridCell } from '@type/navigation';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { t } from '@util/i18n';
 import { createNavigateObserver } from '@util/navigateObserver';
@@ -664,10 +664,8 @@ export class Controller implements Disposable {
    */
   private doesNothingHere(command: string): boolean {
     switch (command) {
-      case 'ENTER_GRID_CELL': {
-        const active = this.context.active;
-        return !isGridNavigable(active) || !active.supportsGridMode();
-      }
+      case 'ENTER_GRID_CELL':
+        return !canEnterGridCell(this.context.active);
       case 'MOVE_TO_SUBPLOT_CONTEXT':
         return !this.context.isMultiPanel;
       default:

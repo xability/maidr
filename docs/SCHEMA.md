@@ -1143,7 +1143,10 @@ sets it is the overlap of:
 
 The first row is the sets, the next every overlap of two, then of three. Left
 and right walk a row; down goes into the first overlap the region is part of,
-and up comes back out onto the first set it is made of. A set announces the
+and up goes back out the way the reader came down: onto the region they went
+down from, while the overlap they are on is made of it, and otherwise onto the
+first set it is made of. Control + Up returns to the set they started down
+from. A set announces the
 sets it overlaps; an overlap announces its name, its size and its share of the
 smallest set it joins.
 

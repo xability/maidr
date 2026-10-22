@@ -145,6 +145,7 @@ export const text = {
   // Jumping straight to a layer's extreme value.
   'text.noMinimumValue': 'No minimum value to go to in this layer',
   'text.noMaximumValue': 'No maximum value to go to in this layer',
+  'text.noExtrema': 'No extrema to go to in this layer',
   'text.pointPosition': '{point}, {position} of {total}',
   'text.noObjectList': 'No object list for this layer. Move through it with the arrow keys.',
 } as const;

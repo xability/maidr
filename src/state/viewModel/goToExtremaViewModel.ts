@@ -103,36 +103,53 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     return this.store.getState().goToExtrema;
   }
 
-  public toggle(state: TraceState): void {
+  /**
+   * Opens the dialog on the active trace's extrema.
+   *
+   * Nothing is dispatched and the scope is left alone when there is nothing
+   * to list: an empty state, a trace without extrema, or one that has none at
+   * the moment. The dialog renders nothing without targets, so opening it then
+   * would play the menu-open cue over an invisible dialog and trap the keys.
+   *
+   * @param state - The current trace state
+   * @returns Whether the dialog opened, so the caller can say why it did not
+   */
+  public toggle(state: TraceState): boolean {
     if (state.empty) {
-      return;
+      return false;
     }
 
     // Get the active trace
     const activeTrace = this.context.active;
 
     // Check if the trace supports extrema navigation using the service
-    if (activeTrace && this.goToExtremaService.isExtremaNavigable(activeTrace)) {
-      // Get extrema targets from the plot class
-      const extremaTargets = activeTrace.getExtremaTargets();
-
-      // Apply formatting to target labels using FormatterService
-      const formattedTargets = this.formatTargetXValues(
-        extremaTargets,
-        state.layerId,
-        state.text.mainAxis ?? 'x',
-      );
-
-      // Generate description based on current trace type
-      const description = this.generateDescription(state.traceType);
-
-      // Store the targets and description in the state
-      this.store.dispatch(show({ targets: formattedTargets, description }));
-
-      // Then change scope to show the modal. The scope change is what plays
-      // the shared "menu open" cue, from DisplayViewModel.
-      this.goToExtremaService.toggle(state);
+    if (!activeTrace || !this.goToExtremaService.isExtremaNavigable(activeTrace)) {
+      return false;
     }
+
+    // Get extrema targets from the plot class
+    const extremaTargets = activeTrace.getExtremaTargets();
+    if (extremaTargets.length === 0) {
+      return false;
+    }
+
+    // Apply formatting to target labels using FormatterService
+    const formattedTargets = this.formatTargetXValues(
+      extremaTargets,
+      state.layerId,
+      state.text.mainAxis ?? 'x',
+    );
+
+    // Generate description based on current trace type
+    const description = this.generateDescription(state.traceType);
+
+    // Store the targets and description in the state
+    this.store.dispatch(show({ targets: formattedTargets, description }));
+
+    // Then change scope to show the modal. The scope change is what plays
+    // the shared "menu open" cue, from DisplayViewModel.
+    this.goToExtremaService.toggle(state);
+    return true;
   }
 
   public hide(): void {

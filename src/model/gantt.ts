@@ -1,5 +1,6 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { FormatFunction, GanttData, GanttPoint, MaidrLayer } from '@type/grammar';
-import type { Movable } from '@type/movable';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
@@ -10,6 +11,7 @@ import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
 import { isMeasured, missingText } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -75,7 +77,7 @@ function lengthOf(point: GanttPoint, inclusive: boolean): number {
  * an axis folded into rows, a packet's bits, it is the start within the row.
  */
 export class GanttTrace extends AbstractTrace {
-  protected readonly supportsExtrema = false;
+  protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
 
   private readonly lanes: GanttPoint[][];
@@ -134,6 +136,12 @@ export class GanttTrace extends AbstractTrace {
   private readonly stopViewportWatch = watchViewport((): void => {
     this.highlightCentersDirty = true;
   });
+
+  /**
+   * Whether the first lane is drawn above the last, or null before the
+   * schedule has been laid out to measure.
+   */
+  private lanesRunDown: boolean | null = null;
 
   /**
    * Creates a new gantt trace.
@@ -356,6 +364,11 @@ export class GanttTrace extends AbstractTrace {
     // three-week one are the same single dot and two tasks a week apart begin
     // in the same cell. The profile is coarser about *when* and exact about
     // *how long*, and how long is the fact a display can carry honestly.
+    //
+    // A multi-line display lays the lanes out as the chart draws them, so the
+    // caret moves the way Up and Down do: on a schedule drawn from the top,
+    // Down moves to the lane below and the caret to the line below. Measured
+    // here too, not only on a vertical key, since b can come first.
     return {
       empty: false,
       id: this.id,
@@ -364,6 +377,7 @@ export class GanttTrace extends AbstractTrace {
       max: this.perLaneMax,
       row: this.row,
       col: this.col,
+      rowsTopFirst: this.drawnTopFirst(),
     };
   }
 
@@ -701,6 +715,193 @@ export class GanttTrace extends AbstractTrace {
     }
 
     return nearest;
+  }
+
+  /**
+   * Up and Down follow the drawing: when the first lane is drawn above the
+   * last, Down moves to the next lane and Up to the one before, as on every
+   * other diagram, where Down goes down the page.
+   *
+   * The grid underneath keeps MAIDR's Cartesian rule, row 0 at the bottom,
+   * which suits a chart drawn bottom-up (matplotlib's `broken_barh` with
+   * ascending lanes). Nearly every producer lists a schedule's lanes from the
+   * top -- Mermaid's sections and packet rows, ApexCharts, Plotly, Highcharts,
+   * Vega-Lite -- and there Up walked down the drawing, and Down from the first
+   * lane said "No more data to display" with two lanes below it. The order is
+   * measured, as a figure measures its rows of panels, rather than
+   * declared, so neither kind of producer has to say which it is.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    return super.moveOnce(this.drawnDirection(direction));
+  }
+
+  /**
+   * Control + Up and Down, by the same rule as {@link moveOnce}.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    return super.moveToExtreme(this.drawnDirection(direction));
+  }
+
+  /**
+   * Movability by the same rule, so check-then-move (autoplay's idiom) agrees
+   * with the move it checks.
+   *
+   * @param target - A direction, or a cell
+   * @returns Whether the move is possible
+   */
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
+    return super.isMovable(Array.isArray(target) ? target : this.drawnDirection(target));
+  }
+
+  /**
+   * A vertical direction as the grid has to take it to follow the drawing.
+   *
+   * @param direction - The key's direction
+   * @returns The direction to move the grid
+   */
+  private drawnDirection(direction: MovableDirection): MovableDirection {
+    if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
+      return direction;
+    }
+    if (!this.drawnTopFirst()) {
+      return direction;
+    }
+    return direction === 'UPWARD' ? 'DOWNWARD' : 'UPWARD';
+  }
+
+  /**
+   * Whether the first lane is drawn above the last.
+   *
+   * Measured when first asked -- a vertical key, or the braille the first
+   * move reports -- rather than at construction, when the chart may not be
+   * laid out yet, from the hidden copies the highlight already holds: they
+   * keep the geometry of the marks they copy. Only a schedule whose bars run
+   * left to right stacks its lanes vertically; one drawn the default way up
+   * lays them side by side, and a chart without a highlight has nothing to
+   * measure. Both keep the grid's own rule.
+   *
+   * @returns True when Up and Down have to be swapped
+   */
+  private drawnTopFirst(): boolean {
+    if (this.lanesRunDown !== null) {
+      return this.lanesRunDown;
+    }
+    const elements = this.highlightValues;
+    if (this.orientation !== Orientation.HORIZONTAL || elements === null) {
+      this.lanesRunDown = false;
+      return false;
+    }
+
+    let first = -1;
+    let last = -1;
+    elements.forEach((lane, row) => {
+      if (lane.length > 0) {
+        first = first === -1 ? row : first;
+        last = row;
+      }
+    });
+    if (first === -1 || last === first) {
+      this.lanesRunDown = false;
+      return false;
+    }
+
+    const top = elements[first][0].getBoundingClientRect();
+    const bottom = elements[last][0].getBoundingClientRect();
+    const unlaid = (box: DOMRect): boolean => box.top === 0 && box.width === 0 && box.height === 0;
+    if (unlaid(top) || unlaid(bottom)) {
+      // Not laid out yet: answer as the grid would, and measure again on the
+      // next key rather than keeping an answer read from nothing.
+      return false;
+    }
+    this.lanesRunDown = top.top + top.height / 2 < bottom.top + bottom.height / 2;
+    return this.lanesRunDown;
+  }
+
+  /**
+   * The longest and shortest tasks, for `[`, `]` and the Go To dialog.
+   *
+   * Over the whole schedule rather than per lane: every lane shares one pitch
+   * scale, and which task is longest is the question a schedule is read for.
+   * Every task holding the extreme is offered, lane by lane, so a tie is
+   * walked down the chart. An empty lane offers nothing, a length that did
+   * not parse is never an extreme, and a milestone's zero is a real length.
+   *
+   * @returns The tasks holding the longest and shortest lengths, or none when
+   *   no length is measured
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const measured = this.lengths.flat().filter(isMeasured);
+    if (measured.length === 0) {
+      return [];
+    }
+
+    const targets: ExtremaTarget[] = [];
+    const collect = (value: number, type: 'max' | 'min', name: string): void => {
+      this.lengths.forEach((lane, row) => lane.forEach((length, col) => {
+        const point = this.lanes[row]?.[col];
+        if (length !== value || point === undefined) {
+          return;
+        }
+        const where = point.label
+          ? t('model.ganttLabelled', { name: point.x, label: point.label })
+          : point.x;
+        targets.push({
+          ...extremumAt(name, where),
+          value,
+          pointIndex: col,
+          segment: 'interval',
+          type,
+          navigationType: 'group',
+          groupIndex: row,
+          categoryIndex: col,
+        });
+      }));
+    };
+    collect(MathUtil.safeMax(measured), 'max', t('model.extremaLongestInterval'));
+    collect(MathUtil.safeMin(measured), 'min', t('model.extremaShortestInterval'));
+    return targets;
+  }
+
+  /**
+   * Moves the cursor to a chosen extrema target.
+   *
+   * @param target - The task to go to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex === undefined || target.categoryIndex === undefined) {
+      return;
+    }
+    this.row = target.groupIndex;
+    this.col = target.categoryIndex;
+    this.finalizeNavigation();
+  }
+
+  /**
+   * The rotor's lower and higher value search, along the current lane.
+   *
+   * Over the lengths, the magnitude the pitch and the braille carry, so
+   * "higher" from a ten-day task finds the next longer one in its lane. Up
+   * and down change lanes, and a lane has no value to compare, so they report
+   * the boundary as the rug does.
+   * @param direction - Which way to search
+   * @param type - Whether a shorter or a longer interval is sought
+   * @returns True when a matching interval was found and moved to
+   */
+  public override moveToNextCompareValue(
+    direction: 'left' | 'right' | 'up' | 'down',
+    type: 'lower' | 'higher',
+  ): boolean {
+    if (direction === 'up' || direction === 'down') {
+      this.notifyRotorBounds();
+      return false;
+    }
+    return this.compareSearchAlongRow(this.lengths[this.row] ?? [], direction, type);
   }
 
   /**

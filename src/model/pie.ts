@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, PiePoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { ChartObject, ChartObjectList, ObjectMeasure, ObjectSortOption } from '@type/objectList';
@@ -20,6 +21,7 @@ import { selectorString } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { isMeasured, toBarValue } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /** The object list's one measure, a slice's share of the circle, by id. */
@@ -234,7 +236,7 @@ export class PieTrace extends AbstractTrace {
   /** Each slice's angular midpoint, radians clockwise from 12 o'clock. */
   private readonly midAngles: number[];
 
-  protected readonly supportsExtrema = false;
+  protected readonly supportsExtrema = true;
 
   /**
    * Constructs a new PieTrace instance.
@@ -395,10 +397,9 @@ export class PieTrace extends AbstractTrace {
     if (hasMeasured) {
       // Which slice is biggest is the question a pie is drawn to answer at a
       // glance, and `Max value: 50` says a slice measures 50 without saying
-      // which one. A pie has no extrema rotor either -- `supportsExtrema` is
-      // false, there being one row to walk -- so this summary was the only
-      // surface that could name them, and it named neither: a reader had to
-      // walk all N slices holding a running maximum in their head.
+      // which one. [ and ] jump to them, but only a reader who asks; the
+      // summary names them to everyone who opens it, rather than leaving a
+      // reader to walk all N slices holding a running maximum in their head.
       const measured = this.sliceValues[0]
         .map((value, col) => ({ col, value }))
         .filter(entry => isMeasured(entry.value));
@@ -626,6 +627,59 @@ export class PieTrace extends AbstractTrace {
     }
 
     return null;
+  }
+
+  /**
+   * The largest and smallest slices, for `[`, `]` and the Go To dialog.
+   *
+   * Every slice holding the extreme, in walk order, so a tie is walked
+   * clockwise. Compared by signed value, the rule the pitch and the
+   * description's Largest and Smallest slice follow; a gap equals neither
+   * extreme and is never offered. The smallest is kept when it is also the
+   * largest -- a one-slice or all-equal pie -- so `[` still lands rather than
+   * saying the pie has no minimum.
+   *
+   * @returns The slices holding the largest and smallest values, or none for
+   *   a pie of nothing but gaps
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const row = this.points[0];
+    const values = this.sliceValues[0];
+    if (row === undefined || !isMeasured(this.min)) {
+      return [];
+    }
+
+    const targets: ExtremaTarget[] = [];
+    const collect = (value: number, type: 'max' | 'min', name: string): void => {
+      values.forEach((sliceValue, col) => {
+        if (sliceValue !== value || row[col] === undefined) {
+          return;
+        }
+        targets.push({
+          ...extremumAt(name, row[col].x),
+          value,
+          pointIndex: col,
+          segment: 'slice',
+          type,
+          navigationType: 'point',
+          xValue: row[col].x,
+        });
+      });
+    };
+    collect(this.max, 'max', t('model.extremaLargestSlice'));
+    collect(this.min, 'min', t('model.extremaSmallestSlice'));
+    return targets;
+  }
+
+  /**
+   * Moves the cursor to a chosen extrema target.
+   *
+   * @param target - The slice to go to
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    this.row = 0;
+    this.col = target.pointIndex;
+    this.finalizeNavigation();
   }
 
   /**

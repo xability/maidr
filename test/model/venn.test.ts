@@ -80,7 +80,9 @@ describe('the regions are read by how many sets they join', () => {
     trace.moveOnce('DOWNWARD');
     expect(state(trace).text.main.value).toBe('Desirable, Feasible and Viable');
     trace.moveOnce('UPWARD');
-    expect(state(trace).text.main.value).toBe('Desirable and Feasible');
+    expect(state(trace).text.main.value).toBe('Desirable and Viable');
+    trace.moveOnce('UPWARD');
+    expect(state(trace).text.main.value).toBe('Viable');
   });
 
   test('a set named only in an overlap still has a region of its own', () => {
@@ -121,5 +123,119 @@ describe('the description', () => {
       'Feasible and Viable',
       'Desirable, Feasible and Viable',
     ]);
+  });
+});
+
+describe('up goes back out the way the reader came down', () => {
+  /** Mermaid's example: three teams, two pairwise overlaps and all three. */
+  const TEAM: VennPoint[] = [
+    { sets: ['Frontend'], size: 20 },
+    { sets: ['Backend'], size: 12 },
+    { sets: ['Data'], size: 9 },
+    { sets: ['Frontend', 'Backend'], size: 5, label: 'Full stack' },
+    { sets: ['Backend', 'Data'], size: 4, label: 'Pipelines' },
+    { sets: ['Frontend', 'Backend', 'Data'], size: 1, label: 'Unicorns' },
+  ];
+
+  /** The team diagram, with the cursor on Data. */
+  function onData(): VennTrace {
+    const trace = venn(TEAM);
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+    return trace;
+  }
+
+  const at = (trace: VennTrace): unknown => state(trace).text.main.value;
+
+  test('from a set into its overlap and back onto that set, not the first one', () => {
+    const trace = onData();
+    trace.moveOnce('DOWNWARD');
+    expect(at(trace)).toBe('Backend and Data');
+
+    trace.moveOnce('UPWARD');
+
+    expect(at(trace)).toBe('Data');
+  });
+
+  test('two levels down and two back, then the boundary', () => {
+    const trace = onData();
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+    expect(at(trace)).toBe('Frontend, Backend and Data');
+
+    trace.moveOnce('UPWARD');
+    expect(at(trace)).toBe('Backend and Data');
+    trace.moveOnce('UPWARD');
+    expect(at(trace)).toBe('Data');
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+  });
+
+  test('a sideways step onto an overlap still made of the set keeps the way back', () => {
+    const trace = venn();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('FORWARD');
+    expect(state(trace).text.main.value).toBe('Feasible and Viable');
+
+    trace.moveOnce('UPWARD');
+
+    expect(state(trace).text.main.value).toBe('Viable');
+  });
+
+  test('a sideways step onto an overlap not made of it falls back to the first set', () => {
+    const trace = venn();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('BACKWARD');
+    expect(state(trace).text.main.value).toBe('Desirable and Feasible');
+
+    trace.moveOnce('UPWARD');
+
+    expect(state(trace).text.main.value).toBe('Desirable');
+  });
+
+  test('control and up returns to the set the reader started down from', () => {
+    const trace = onData();
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+
+    trace.moveToExtreme('UPWARD');
+
+    expect(at(trace)).toBe('Data');
+  });
+
+  test('a jump forgets the way down', () => {
+    const trace = onData();
+    trace.moveOnce('DOWNWARD');
+    trace.moveToIndex(1, 1);
+
+    trace.moveOnce('UPWARD');
+
+    expect(at(trace)).toBe('Backend');
+  });
+
+  test('without a way down, up takes the first set as before', () => {
+    const trace = venn(TEAM);
+    trace.moveToIndex(2, 0);
+    trace.moveOnce('UPWARD');
+    expect(at(trace)).toBe('Frontend and Backend');
+
+    trace.moveToIndex(2, 0);
+    trace.moveToExtreme('UPWARD');
+    expect(at(trace)).toBe('Frontend');
+  });
+
+  test('leaving the chart forgets the way down', () => {
+    const trace = onData();
+    trace.moveOnce('DOWNWARD');
+    trace.resetToInitialEntry();
+    trace.moveOnce('FORWARD');
+    trace.moveToIndex(1, 1);
+
+    trace.moveOnce('UPWARD');
+
+    expect(at(trace)).toBe('Backend');
   });
 });

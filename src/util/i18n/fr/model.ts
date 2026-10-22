@@ -335,6 +335,7 @@ export const model = {
   'model.intersectionSlope': 'Intersection de pentes',
   'model.extremaIntersectionAt': '{kind} à {coords}',
   'model.intersectionCoords': 'x={x}, y={y}',
+  'model.intersectionCoordsBetween': 'x entre {from} et {to}, y={y}',
   'model.intersectionAtLines': 'intersection à ({lines})',
   'model.nounBand': 'Bande',
   'model.statNumberOfBands': 'Nombre de bandes',
@@ -602,6 +603,10 @@ export const model = {
   'model.wordCloudTermSummary': '{term} ({weight})',
   'model.extremaHeaviestTerm': 'Terme de plus grand poids',
   'model.extremaLightestTerm': 'Terme de plus petit poids',
+  'model.extremaLargestSlice': 'Plus grande part',
+  'model.extremaSmallestSlice': 'Plus petite part',
+  'model.extremaLongestInterval': 'Intervalle le plus long',
+  'model.extremaShortestInterval': 'Intervalle le plus court',
   // Volcano and Manhattan plots: which points clear the threshold.
   'model.rotorUnitSignificant': 'Significatifs',
   'model.rotorNounSignificantPoints': 'point significatif',

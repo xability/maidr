@@ -2310,6 +2310,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     return this.gridCells !== null;
   }
 
+  public isGridModeActive(): boolean {
+    return this.isInGridMode;
+  }
+
   public getGridDimensions(): { rows: number; cols: number } | null {
     if (!this.gridCells)
       return null;

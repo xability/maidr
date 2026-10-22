@@ -335,6 +335,7 @@ export const model = {
   'model.intersectionSlope': '傾きの交差',
   'model.extremaIntersectionAt': '{kind}、位置 {coords}',
   'model.intersectionCoords': 'x={x}、y={y}',
+  'model.intersectionCoordsBetween': 'x={from}と{to}の間、y={y}',
   'model.intersectionAtLines': '交差 ({lines})',
   'model.nounBand': 'バンド',
   'model.statNumberOfBands': 'バンドの数',
@@ -602,6 +603,10 @@ export const model = {
   'model.wordCloudTermSummary': '{term} ({weight})',
   'model.extremaHeaviestTerm': '最も重みの大きい語',
   'model.extremaLightestTerm': '最も重みの小さい語',
+  'model.extremaLargestSlice': '最大のスライス',
+  'model.extremaSmallestSlice': '最小のスライス',
+  'model.extremaLongestInterval': '最長の区間',
+  'model.extremaShortestInterval': '最短の区間',
   // Volcano and Manhattan plots: which points clear the threshold.
   'model.rotorUnitSignificant': '有意',
   'model.rotorNounSignificantPoints': '有意なポイント',

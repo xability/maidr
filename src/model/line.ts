@@ -5,7 +5,7 @@ import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
-import { defaultLabelFormat } from '@util/format';
+import { defaultFormat, defaultLabelFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -121,6 +121,7 @@ export class LineTrace extends AbstractTrace {
   // Invalidated when active row changes
   private intersectionCache: Map<number, Array<{
     pointIndex: number;
+    segmentIndex: number;
     x: number;
     y: number;
     intersectingLines: number[];
@@ -1126,12 +1127,14 @@ export class LineTrace extends AbstractTrace {
 
   /**
    * Finds the column index for a given X value in a specific line
-   * Uses strict equality (===) for X value matching
+   * Uses strict equality (===) for X value matching. Protected so a subclass
+   * that chooses the series differently (a radar, by series order) still finds
+   * that series' column the same way.
    * @param row The line index
    * @param xValue The X value to find
    * @returns The column index, or -1 if not found
    */
-  private findColumnByXValue(row: number, xValue: number | string): number {
+  protected findColumnByXValue(row: number, xValue: number | string): number {
     return this.xIndex[row]?.firstColumn.get(xValue) ?? -1;
   }
 
@@ -1960,6 +1963,7 @@ export class LineTrace extends AbstractTrace {
    */
   private findAllIntersectionsForCurrentLine(): Array<{
     pointIndex: number;
+    segmentIndex: number;
     x: number;
     y: number;
     intersectingLines: number[];
@@ -1989,6 +1993,7 @@ export class LineTrace extends AbstractTrace {
     // Collect all raw intersections first
     const rawIntersections: Array<{
       pointIndex: number;
+      segmentIndex: number;
       x: number;
       y: number;
       otherLine: number;
@@ -2052,6 +2057,7 @@ export class LineTrace extends AbstractTrace {
 
       rawIntersections.push({
         pointIndex: nearestPointIndex,
+        segmentIndex: segIndex,
         x: intersection.x,
         y: intersection.y,
         otherLine,
@@ -2097,6 +2103,7 @@ export class LineTrace extends AbstractTrace {
     // Group intersections using tolerance-based deduplication
     const groupedIntersections: Array<{
       pointIndex: number;
+      segmentIndex: number;
       x: number;
       y: number;
       intersectingLines: Set<number>;
@@ -2116,6 +2123,7 @@ export class LineTrace extends AbstractTrace {
         intersectingLines.add(raw.otherLine);
         groupedIntersections.push({
           pointIndex: raw.pointIndex,
+          segmentIndex: raw.segmentIndex,
           x: raw.x,
           y: raw.y,
           intersectingLines,
@@ -2128,6 +2136,7 @@ export class LineTrace extends AbstractTrace {
     const result = groupedIntersections
       .map(entry => ({
         pointIndex: entry.pointIndex,
+        segmentIndex: entry.segmentIndex,
         x: entry.x,
         y: entry.y,
         intersectingLines: Array.from(entry.intersectingLines).sort((a, b) => a - b),
@@ -2285,17 +2294,7 @@ export class LineTrace extends AbstractTrace {
     for (const intersection of intersections) {
       // intersectingLines only contains OTHER lines (not current line)
       const otherLineNames = this.getIntersectionLabel(intersection.intersectingLines);
-      // Format the intersection coordinates for display. On categorical x
-      // axes intersection.x is an ordinal position (see numericX), so show
-      // the x label of the nearest sampled point instead.
-      const nearestX = this.points[this.row]?.[intersection.pointIndex]?.x;
-      const xDisplay = nearestX !== undefined && !Number.isFinite(Number(nearestX))
-        ? String(nearestX)
-        : intersection.x.toFixed(2);
-      const coordsDisplay = t('model.intersectionCoords', {
-        x: xDisplay,
-        y: intersection.y.toFixed(2),
-      });
+      const coordsDisplay = this.intersectionCoords(intersection);
       const intersectionLabel = t(
         intersection.intersectionKind === 'point'
           ? 'model.intersectionPoint'
@@ -2322,6 +2321,47 @@ export class LineTrace extends AbstractTrace {
     }
 
     return targets;
+  }
+
+  /**
+   * Where a crossing is, as the Go To dialog says it.
+   *
+   * On a categorical x axis `x` is an ordinal position (see
+   * {@link numericX}), which means nothing to a reader, so a crossing on a
+   * sampled point is named by that category, and one strictly between two is
+   * said to lie between them. It used to be named by the nearer category
+   * alone, which told a reader the lines crossed on a spoke or category they
+   * cross beside. A numeric x is the position itself. Both numbers are rounded
+   * as the announcement rounds them, not to two fixed decimals.
+   *
+   * @param intersection - The crossing, with the segment of this line it lies on
+   * @param intersection.pointIndex - The sampled point nearest the crossing
+   * @param intersection.segmentIndex - The segment of this line it lies on
+   * @param intersection.x - Its position along x
+   * @param intersection.y - Its value
+   * @returns The coordinates, in the reader's language
+   */
+  private intersectionCoords(intersection: {
+    pointIndex: number;
+    segmentIndex: number;
+    x: number;
+    y: number;
+  }): string {
+    const line = this.points[this.row] ?? [];
+    const y = defaultFormat(intersection.y);
+    const nearestX = line[intersection.pointIndex]?.x;
+    if (nearestX === undefined || Number.isFinite(Number(nearestX))) {
+      return t('model.intersectionCoords', { x: defaultFormat(intersection.x), y });
+    }
+
+    const from = line[intersection.segmentIndex];
+    const to = line[intersection.segmentIndex + 1];
+    const between = from !== undefined && to !== undefined
+      && Math.abs(intersection.x - this.numericX(from.x)) >= LineTrace.INTERSECTION_EPSILON
+      && Math.abs(intersection.x - this.numericX(to.x)) >= LineTrace.INTERSECTION_EPSILON;
+    return between
+      ? t('model.intersectionCoordsBetween', { from: String(from.x), to: String(to.x), y })
+      : t('model.intersectionCoords', { x: String(nearestX), y });
   }
 
   /**

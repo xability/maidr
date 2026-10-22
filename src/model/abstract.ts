@@ -340,8 +340,9 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
-   * Base implementation of navigation in HIGHER and LOWER modes of ROTOR, default is no-op
-   * Needs to be implemented in Line, Bar, Heatmap, Candlestick
+   * The rotor's LOWER and HIGHER VALUE search. The base is a no-op that
+   * reports the boundary: a trace that can compare overrides it, and
+   * {@link supportsCompareMode} offers the two modes exactly where it does.
    */
   public moveToNextCompareValue(
     _direction: 'left' | 'right' | 'up' | 'down',
@@ -448,12 +449,19 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
-   * Returns true if this trace supports compare (lower/higher value) navigation.
-   * Override to false for trace types that don't use compare modes (e.g., scatter, which is all we
-   * currently have).
+   * Whether the rotor offers its lower and higher value modes on this trace.
+   *
+   * Exactly when the trace overrides {@link moveToNextCompareValue}. The base
+   * search is a no-op that reports a boundary, so offering the modes without
+   * one told a reader "No lower value found" with a lower value beside them,
+   * or said nothing at all; tying the offer to the search keeps the two from
+   * drifting apart again. A subclass can still override this to withhold the
+   * modes (scatter, whose arrows walk points rather than values), and a trace
+   * that compares only through the rotor's arrow methods must override it to
+   * offer them.
    */
   public supportsCompareMode(): boolean {
-    return true;
+    return this.moveToNextCompareValue !== AbstractTrace.prototype.moveToNextCompareValue;
   }
 
   /**

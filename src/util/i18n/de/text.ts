@@ -142,6 +142,7 @@ export const text = {
   // Jumping straight to a layer's extreme value.
   'text.noMinimumValue': 'In dieser Ebene gibt es keinen Minimalwert zum Anspringen',
   'text.noMaximumValue': 'In dieser Ebene gibt es keinen Maximalwert zum Anspringen',
+  'text.noExtrema': 'In dieser Ebene gibt es keine Extremwerte zum Anspringen',
   'text.pointPosition': '{point}, {position} von {total}',
   'text.noObjectList': 'Für diese Ebene gibt es keine Objektliste. Bewegen Sie sich mit den Pfeiltasten.',
 } satisfies Partial<Record<MessageKey, string>>;

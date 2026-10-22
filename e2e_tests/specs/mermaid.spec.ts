@@ -295,6 +295,18 @@ test.describe('Mermaid adapter', () => {
     expect(lifeline).toContain('User row');
   });
 
+  test('keeps a sequence diagram\'s moment with control and up and down', async ({ page }) => {
+    await openExample(page, 'sequence');
+    await press(page, 'ArrowRight');
+    const note = await press(page, 'Control+ArrowRight');
+    expect(note).toContain('Session stored');
+
+    expect(await press(page, 'Control+ArrowDown')).toContain('User row');
+    const back = await press(page, 'Control+ArrowUp');
+    expect(back).toContain('Session stored');
+    expect(back).toContain('Order is 6 of 6');
+  });
+
   test('outlines a sequence diagram\'s message and note over Mermaid\'s own paint', async ({ page }) => {
     await openExample(page, 'sequence');
     await press(page, 'ArrowRight');
@@ -315,7 +327,8 @@ test.describe('Mermaid adapter', () => {
     await openExample(page, 'radar');
     await press(page, 'ArrowRight');
     await press(page, 'ArrowRight');
-    expect(await press(page, 'ArrowDown')).toContain('Bob');
+    // Up is the next series, Bob, whichever of the two is further out here.
+    expect(await press(page, 'ArrowUp')).toContain('Bob');
     const point = await page.locator(HIGHLIGHT).evaluate(paintAgainstMark);
     expect(point.ratio).toBeGreaterThanOrEqual(3);
   });
@@ -372,6 +385,19 @@ test.describe('Mermaid adapter', () => {
     expect(overlap).toContain('Name is Full stack');
 
     expect(await press(page, 'ArrowUp')).toContain('Region is Frontend');
+  });
+
+  test('comes back up out of a Venn overlap onto the set the reader went down from', async ({ page }) => {
+    await openExample(page, 'venn');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowRight')).toContain('Region is Data');
+
+    expect(await press(page, 'ArrowDown')).toContain('Region is Backend and Data');
+    expect(await press(page, 'ArrowUp')).toContain('Region is Data');
+    await press(page, 'ArrowDown');
+    expect(await press(page, 'ArrowDown')).toContain('Name is Unicorns');
+    expect(await press(page, 'ArrowUp')).toContain('Name is Pipelines');
   });
 
   test('announces a class\'s members, what it inherits from and what aggregates it', async ({ page }) => {
@@ -500,6 +526,94 @@ test.describe('Mermaid adapter', () => {
 
     expect(research).toContain('Research (done)');
     expect(research).toContain('Length is 10 days');
+  });
+
+  test('moves down a gantt chart\'s sections as Mermaid draws them, and back up', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, 'ArrowDown')).toContain('Section is Build');
+    expect(await press(page, 'ArrowDown')).toContain('Section is Ship');
+    expect(await press(page, 'ArrowDown')).toContain('No more data');
+    expect(await press(page, 'ArrowUp')).toContain('Section is Build');
+  });
+
+  test('moves down a packet diagram\'s rows as Mermaid draws them', async ({ page }) => {
+    await openExample(page, 'packet');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, 'ArrowDown')).toContain('Row is Bits 32 to 63');
+  });
+
+  test('jumps to a gantt chart\'s longest and shortest task', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+
+    const longest = await press(page, ']');
+    expect(longest).toContain('Adapter (critical)');
+    expect(longest).toContain('Length is 20 days');
+    expect(await press(page, '[')).toContain('Release (milestone)');
+  });
+
+  test('jumps to a pie\'s smallest and largest slice', async ({ page }) => {
+    await openExample(page, 'pie');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, '[')).toContain('Birds');
+    expect(await press(page, ']')).toContain('Dogs');
+  });
+
+  test('finds the next longer task in a gantt lane with the rotor', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    await expect(page.locator('#maidr-rotor-area')).toContainText('HIGHER VALUE NAVIGATION');
+
+    expect(await press(page, 'ArrowRight')).toContain('Prototype');
+  });
+
+  test('lists an XY chart\'s extrema as the announcements round them', async ({ page }) => {
+    await openExample(page, 'xychart');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('g');
+
+    await expect(page.locator('#extrema-target-0')).toHaveAttribute('aria-label', 'Max Bar Value: 10,500 at jun');
+  });
+
+  test('moves up and down a radar\'s series in their order, whatever their values', async ({ page }) => {
+    await openExample(page, 'radar');
+    // On Math, Alice (85) is above Bob (70): by value Up said "No more data".
+    expect(await press(page, 'ArrowRight')).toContain('Series is Alice');
+
+    expect(await press(page, 'ArrowUp')).toContain('Series is Bob');
+    expect(await press(page, 'ArrowDown')).toContain('Series is Alice');
+  });
+
+  test('says a radar\'s outlines cross between two spokes, not on one', async ({ page }) => {
+    await openExample(page, 'radar');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('g');
+
+    await expect(page.locator('[id^="extrema-target-"][aria-label*="between Science and English, y=82.5"]'))
+      .toHaveCount(1);
+    await expect(page.locator('[id^="extrema-target-"][aria-label*="x=English"]')).toHaveCount(0);
+  });
+
+  test('says a flowchart has no extrema to go to, rather than ignoring g', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, 'g')).toContain('No extrema to go to in this layer');
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+  });
+
+  test('offers a flowchart\'s outputs first in the rotor, not values its nodes lack', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+
+    await expect(page.locator('#maidr-rotor-area')).toContainText('Outputs');
   });
 
   // Mermaid draws a diagram `width="100%"`, up to the width it laid it out
@@ -716,6 +830,16 @@ test.describe('Mermaid adapter', () => {
     expect(await outlined()).toEqual({ tag: 'rect', group: 'Laptops' });
   });
 
+  test('keeps Enter quiet on a quadrant chart\'s point outside grid navigation', async ({ page }) => {
+    await openExample(page, 'quadrant');
+    const point = await press(page, 'ArrowRight');
+    await page.keyboard.press('Enter');
+    // Nothing to wait for: Enter used to say "No points in this cell" at once.
+    await page.waitForTimeout(500);
+
+    expect(await announcement(page)).toBe(point);
+  });
+
   test('names a kanban column as a column and a card as a card', async ({ page }) => {
     await openExample(page, 'kanban');
     const column = await press(page, 'ArrowRight');
@@ -766,11 +890,11 @@ test.describe('Mermaid adapter', () => {
     await press(page, 'ArrowRight');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('Complex');
 
-    expect(await press(page, 'PageUp')).toContain('Transitions');
-    expect(await press(page, 'ArrowRight')).toContain('Domain is Chaotic');
-    await expect(page.locator(HIGHLIGHT).first()).toContainText('Chaotic');
-    expect(await press(page, 'ArrowRight')).toContain('Domain is Complex');
+    // The switch keeps the domain the reader is on.
+    expect(await press(page, 'PageUp')).toContain('Transitions at Domain is Complex');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('Complex');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Complicated');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Complicated');
     expect(unresolved).toEqual([]);
   });
 
@@ -789,9 +913,12 @@ test.describe('Mermaid adapter', () => {
     const kettle = page.locator('svg[maidr] g.wardley-node:not([data-maidr-owned])', { hasText: 'Kettle' }).locator('circle').first();
     expect(await dot.getAttribute('cx')).toBe(await kettle.getAttribute('cx'));
 
-    expect(await press(page, 'PageUp')).toContain('Value chain');
-    expect(await press(page, 'ArrowRight')).toContain('Component is Business');
+    // A place on the map is no node of the value chain, so the switch enters
+    // the value chain on its first node, outlined.
+    expect(await press(page, 'PageUp')).toContain('Value chain at Component is Business');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('Business');
+    expect(await press(page, 'ArrowRight')).toContain('Component is Cup of Tea');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Cup of Tea');
     expect(unresolved).toEqual([]);
   });
 
@@ -818,6 +945,18 @@ test.describe('Mermaid adapter', () => {
     await page.keyboard.press('l');
     // A tree has no y axis; "Y label is Y" named a placeholder as a label.
     expect(await press(page, 'y')).toContain('Y label is not available');
+  });
+
+  test('keeps the Cynefin domain the reader is on across its two layers', async ({ page }) => {
+    await openExample(page, 'cynefin');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Clear');
+
+    expect(await press(page, 'PageUp')).toContain('Layer 2 of 2: Transitions at Domain is Clear');
+    // The first arrow moves rather than announcing Clear again.
+    expect(await press(page, 'ArrowLeft')).toContain('Domain is Complicated, Connections');
+    expect(await press(page, 'PageDown')).toContain('Layer 1 of 2: Domains at Domain is Complicated');
   });
 
   test('names a timeline by the title it declares', async ({ page }) => {

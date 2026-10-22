@@ -256,10 +256,11 @@ export class SequenceTrace extends AbstractTrace {
   /**
    * Wires the rows into the graph the cursor walks.
    *
-   * Left and right are the row's neighbours in time. Up and down are wired
-   * to the message's own moment here, and {@link moveOnce} replaces that
-   * with the moment the reader left from, so a run of vertical moves does
-   * not drift earlier one row at a time.
+   * Left and right are the row's neighbours in time. Up, down, top and
+   * bottom are wired to the message's own moment here, and {@link moveOnce}
+   * and {@link moveToExtreme} replace that with the moment the reader left
+   * from, so a run of vertical moves does not drift earlier one row at a
+   * time.
    *
    * @returns The navigation graph, addressed as `rows`
    */
@@ -308,7 +309,44 @@ export class SequenceTrace extends AbstractTrace {
       this.markMoment();
       return moved;
     }
-    const row = this.nextRow(this.row, direction === 'DOWNWARD' ? 1 : -1);
+    return this.landNearMoment(this.nextRow(this.row, direction === 'DOWNWARD' ? 1 : -1));
+  }
+
+  /**
+   * Control and an arrow: the first or last message along a row, or the top
+   * row and the last lifeline, landing as a run of Up or Down would.
+   *
+   * Vertically it keeps the moment, as {@link moveOnce} does. Following the
+   * graph's top and bottom, built from the message the cursor is on, sent
+   * Control + Up from a lifeline to a message other than the one plain Up
+   * reaches, and Control + Down drifted earlier, so neither undid the other.
+   *
+   * @param direction - Which way to move
+   * @returns True when the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    const vertical = direction === 'UPWARD' || direction === 'DOWNWARD';
+    if (this.isInitialEntry || !vertical) {
+      const moved = super.moveToExtreme(direction);
+      if (!vertical) {
+        this.markMoment();
+      }
+      return moved;
+    }
+    if (direction === 'UPWARD') {
+      return this.landNearMoment(this.row === 0 ? null : 0);
+    }
+    const lastRow = this.nextRow(this.rows.length, -1);
+    return this.landNearMoment(lastRow === null || lastRow === this.row ? null : lastRow);
+  }
+
+  /**
+   * Lands on the message of a row nearest the moment, or reports the edge.
+   *
+   * @param row - The row to land on, or null when there is none that way
+   * @returns True when the cursor moved
+   */
+  private landNearMoment(row: number | null): boolean {
     const target = row === null ? null : this.nearest(row, this.moment);
     if (target === null) {
       this.notifyOutOfBounds();
@@ -317,14 +355,6 @@ export class SequenceTrace extends AbstractTrace {
     this.movable.moveToIndex(target.row, target.col);
     this.notifyStateUpdate();
     return true;
-  }
-
-  public override moveToExtreme(direction: MovableDirection): boolean {
-    const moved = super.moveToExtreme(direction);
-    if (direction === 'FORWARD' || direction === 'BACKWARD') {
-      this.markMoment();
-    }
-    return moved;
   }
 
   public override moveToIndex(row: number, col: number): boolean {

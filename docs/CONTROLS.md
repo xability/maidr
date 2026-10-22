@@ -48,6 +48,10 @@ Control + Left (Command + Left) moves to the first bar and Control + Right
 (Command + Right) to the last, and MAIDR announces the bar it lands on. Home and
 End are not chart shortcuts.
 
+On a layer with nothing to jump to, such as a flowchart, whose nodes carry no
+values, [ and ] say there is no minimum or maximum value to go to, and G plays
+the warning tone and says there are no extrema to go to.
+
 **Layers.** A chart drawn in more than one layer — a bar chart with a line over
 it, or a violin plot's box and density curve — moves between its
 layers with Page Up and Page Down. Past the first or
@@ -57,9 +61,10 @@ end of the data.
 **Navigation modes (the rotor).** The arrow keys normally move one data point at
 a time. Alt + Shift + Up and Alt + Shift + Down (Option + Shift + Up and Down on
 a Mac) step through the other ways a chart can be read, and each is announced as
-you reach it. Which ones a chart offers depends on its type: *lower value* and
-*higher value* navigation jump to the next point below or above the current
-value, *grid* navigation walks a scatter plot cell by cell (press **Enter** to
+you reach it. Which ones a chart offers depends on its type: where a chart's
+points carry values to compare, *lower value* and *higher value* navigation jump
+to the next point below or above the current value (a diagram such as a
+flowchart, whose nodes carry none, goes straight to its own), *grid* navigation walks a scatter plot cell by cell (press **Enter** to
 step into a cell, the Left and Right arrows to move through its points, and
 **Escape** to leave it), and some chart types add their own, such as the points
 where two lines cross.

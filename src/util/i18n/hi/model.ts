@@ -328,6 +328,7 @@ export const model = {
   'model.intersectionSlope': 'ढलान प्रतिच्छेदन',
   'model.extremaIntersectionAt': '{kind}, {coords} पर',
   'model.intersectionCoords': 'x={x}, y={y}',
+  'model.intersectionCoordsBetween': 'x {from} और {to} के बीच, y={y}',
   'model.intersectionAtLines': '{lines} पर प्रतिच्छेदन',
   'model.nounBand': 'बैंड',
   'model.statNumberOfBands': 'बैंड की संख्या',
@@ -595,6 +596,10 @@ export const model = {
   'model.wordCloudTermSummary': '{term} ({weight})',
   'model.extremaHeaviestTerm': 'सबसे भारी शब्द',
   'model.extremaLightestTerm': 'सबसे हल्का शब्द',
+  'model.extremaLargestSlice': 'सबसे बड़ी स्लाइस',
+  'model.extremaSmallestSlice': 'सबसे छोटी स्लाइस',
+  'model.extremaLongestInterval': 'सबसे लंबा अंतराल',
+  'model.extremaShortestInterval': 'सबसे छोटा अंतराल',
   // Volcano and Manhattan plots: which points clear the threshold.
   'model.rotorUnitSignificant': 'सार्थक',
   'model.rotorNounSignificantPoints': 'सार्थक बिंदु',

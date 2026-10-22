@@ -1,5 +1,5 @@
 import type { MaidrLayer, NetworkPoint } from '@type/grammar';
-import type { Coordinate, Node } from '@type/movable';
+import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
 import type {
   ChartObject,
@@ -181,6 +181,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    * step left the cursor.
    */
   private linkWalk: { from: number; index: number; at: Coordinate } | null = null;
+
+  /**
+   * Where the reader was in each group when they last left it, by group, so
+   * Up and Down return to the node they left rather than to the group's hub.
+   */
+  private readonly leftAt = new Map<number, number>();
 
   /**
    * Betweenness and closeness per node, in the object list's order, once a
@@ -372,7 +378,8 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
           left: index > 0 ? { row: component, col: index - 1 } : null,
           right: index < row.length - 1 ? { row: component, col: index + 1 } : null,
           // Clamped to the neighbouring component's first node rather than to
-          // the same column, which may not exist there.
+          // the same column, which may not exist there. That is the first
+          // arrival; `moveOnce` returns to the node the reader left.
           up: below === undefined ? null : { row: component + 1, col: 0 },
           down: above === undefined ? null : { row: component - 1, col: 0 },
           start: { row: component, col: 0 },
@@ -591,7 +598,38 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    */
   public override moveToIndex(row: number, col: number): boolean {
     this.linkWalk = null;
+    if (!this.isInitialEntry && row !== this.row) {
+      this.leftAt.set(this.row, this.col);
+    }
     return super.moveToIndex(row, col);
+  }
+
+  /**
+   * Up and Down change group, returning to the node the reader left there.
+   *
+   * A group is entered on its most connected node the first time. Every time
+   * after, a reader who looks at another group and comes back lands on the
+   * person they left -- Ana, Up to Eli, Down to Ana -- rather than on the hub,
+   * from which a group of forty is a walk of up to thirty-nine presses back.
+   * Which way is which is the grid's: Up is the next group.
+   *
+   * @param direction - The key's direction
+   * @returns True when the cursor moved
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    const vertical = direction === 'UPWARD' || direction === 'DOWNWARD';
+    if (this.isInitialEntry || !vertical) {
+      return super.moveOnce(direction);
+    }
+    const target = this.row + (direction === 'UPWARD' ? 1 : -1);
+    if (target < 0 || target >= this.grid.length) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.leftAt.set(this.row, this.col);
+    this.movable.moveToIndex(target, this.leftAt.get(target) ?? 0);
+    this.notifyStateUpdate();
+    return true;
   }
 
   /**
