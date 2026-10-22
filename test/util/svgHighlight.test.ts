@@ -186,6 +186,40 @@ describe('createHighlightElement on a group', () => {
     expect(paintOf(highlight.querySelector('#box')).stroke).toBe(FALLBACK_COLOR);
   });
 
+  it('outlines a shape drawn without an edge twice as wide as the increase', () => {
+    // A Mermaid architecture service's tile is filled and drawn with no
+    // stroke. At the bare increment half of its two units fell inside the
+    // tile, and the outline was a third as wide as other diagrams' nodes.
+    const svg = renderDiagram('<g class="architecture-service">'
+      + '<rect id="tile" style="fill: #087ebf; stroke: none; stroke-width: 0px"></rect>'
+      + '<circle id="glyph" style="fill: none; stroke: #ffffff; stroke-width: 2px"></circle></g>');
+
+    const highlight = Svg.createHighlightElement(svg.querySelector('g') as SVGElement, FALLBACK_COLOR);
+
+    expect(paintOf(highlight.querySelector('#tile')).width).toBe('4px');
+    // A shape that draws its own edge is still widened by the increase.
+    expect(paintOf(highlight.querySelector('#glyph')).width).toBe('4px');
+  });
+
+  it('lets the outline of a shape inside a nested svg spill over its edge', () => {
+    // Mermaid draws an architecture service's icon in an `<svg>` of its own,
+    // which clips what it holds to its box: the outer half of the tile's
+    // outline, the half on the page, was cut away.
+    const svg = renderDiagram('<g class="architecture-service"><g>'
+      + '<svg width="80" height="80" viewBox="0 0 80 80">'
+      + '<rect width="80" height="80" style="fill: #087ebf; stroke: none; stroke-width: 0px"></rect>'
+      + '</svg></g></g>');
+    const service = svg.querySelector('g.architecture-service') as SVGElement;
+
+    const highlight = Svg.createHighlightElement(service, FALLBACK_COLOR);
+    const icon = highlight.querySelector('svg') as SVGElement;
+
+    expect(icon.style.getPropertyValue('overflow')).toBe('visible');
+    expect(icon.style.getPropertyPriority('overflow')).toBe('important');
+    // The chart's own icon is left as it was drawn.
+    expect((service.querySelector('svg') as SVGElement).style.getPropertyValue('overflow')).toBe('');
+  });
+
   it('paints a group drawing nothing but text whole, beside it, as before', () => {
     const svg = renderDiagram('<g id="label"><text>x</text></g><g id="after"></g>');
     const label = svg.querySelector('#label') as SVGElement;

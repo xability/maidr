@@ -823,6 +823,14 @@ export abstract class Svg {
    * The colour is not derived from the group, whose fill is only what it
    * inherited.
    *
+   * A shape drawn with no edge of its own, such as a Mermaid architecture
+   * service's tile, is outlined twice as wide as the increase. Half of a
+   * stroke falls inside the shape, so at the increase alone one unit showed
+   * outside the tile, a third of the outline other diagrams' nodes get. And
+   * an `<svg>` nested in the group, such as the tile's icon, is let draw
+   * past its box in the copy: like every nested `<svg>` it clips what it
+   * holds, and cut the outline's outer half, the half on the page, away.
+   *
    * @param element - The element highlighted, in the document, so its shapes'
    *   styles resolve
    * @param clone - Its deep clone, whose shapes are its own in the same order
@@ -845,7 +853,9 @@ export abstract class Svg {
       if (style.display === 'none' || (!stroked && !this.isPainted(style.fill, style.fillOpacity))) {
         return;
       }
-      const width = (Number.parseFloat(style.strokeWidth) || 0) + this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
+      const width = stroked
+        ? (Number.parseFloat(style.strokeWidth) || 0) + this.STROKE_WIDTH_HIGHLIGHT_INCREASE
+        : 2 * this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
       const shape = shapes[at];
       shape.style.setProperty(Constant.STROKE, color, 'important');
       shape.style.setProperty('stroke-opacity', '1', 'important');
@@ -853,6 +863,11 @@ export abstract class Svg {
       shape.style.setProperty(Constant.FILL, 'none', 'important');
       outlined = true;
     });
+    if (outlined) {
+      clone.querySelectorAll<SVGSVGElement>('svg').forEach((nested) => {
+        nested.style.setProperty('overflow', 'visible', 'important');
+      });
+    }
     return outlined;
   }
 
