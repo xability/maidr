@@ -57,9 +57,10 @@ end of the data.
 **Navigation modes (the rotor).** The arrow keys normally move one data point at
 a time. Alt + Shift + Up and Alt + Shift + Down (Option + Shift + Up and Down on
 a Mac) step through the other ways a chart can be read, and each is announced as
-you reach it. Which ones a chart offers depends on its type: *lower value* and
-*higher value* navigation jump to the next point below or above the current
-value, *grid* navigation walks a scatter plot cell by cell (press **Enter** to
+you reach it. Which ones a chart offers depends on its type: where a chart's
+points carry values to compare, *lower value* and *higher value* navigation jump
+to the next point below or above the current value (a diagram such as a
+flowchart, whose nodes carry none, goes straight to its own), *grid* navigation walks a scatter plot cell by cell (press **Enter** to
 step into a cell, the Left and Right arrows to move through its points, and
 **Escape** to leave it), and some chart types add their own, such as the points
 where two lines cross.

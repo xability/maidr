@@ -42,14 +42,14 @@ const FILTER_PREFIX = 'filter:';
  * - Provide modal navigation over a trace by rotating through available modes.
  *
  * Available modes vary by trace type:
- * - Non-scatter traces: DATA_MODE → LOWER_VALUE_MODE → HIGHER_VALUE_MODE
+ * - Traces with a compare search: DATA_MODE → LOWER_VALUE_MODE → HIGHER_VALUE_MODE
  * - Scatter traces (with grid): ROW_COL_MODE → GRID_MODE
  * - Scatter traces (no grid): ROW_COL_MODE only
  *
  * Mode descriptions:
  * - DATA_MODE / ROW_COL_MODE: Default data browsing. The display name is trace-specific.
- * - LOWER_VALUE_MODE: Navigate to data points with lower y-values (non-scatter only).
- * - HIGHER_VALUE_MODE: Navigate to data points with higher y-values (non-scatter only).
+ * - LOWER_VALUE_MODE: Navigate to data points with lower values (where the trace can compare).
+ * - HIGHER_VALUE_MODE: Navigate to data points with higher values (where the trace can compare).
  * - GRID_MODE: Navigate by grid cells in scatter plots (scatter with grid config only).
  *
  * Responsibilities:
@@ -171,18 +171,15 @@ export class RotorNavigationService {
       console.error(`Unexpected compare type: ${compareType}`);
       return null;
     }
-    // Check if activeTrace is an instance of AbstractTrace and supports moveToNextHigherValue
+    // The trace's search guards its own indices and reports its own boundary
+    // tone; a press it cannot move on is announced here, so it is never
+    // silent.
     if (activeTrace instanceof AbstractTrace) {
-      const xValue = activeTrace.getCurrentXValue(); // Get the current X value
-      if (xValue !== null) {
-        const moved = activeTrace.moveToNextCompareValue(direction, compareType);
-        if (!moved) {
-          const msg = this.getMessage(this.getCompareNoun(compareType), direction);
-          console.warn(msg);
-          return this.announceRotorMessage(msg);
-        }
-      } else {
-        console.error('Unable to retrieve the current X value.');
+      const moved = activeTrace.moveToNextCompareValue(direction, compareType);
+      if (!moved) {
+        const msg = this.getMessage(this.getCompareNoun(compareType), direction);
+        console.warn(msg);
+        return this.announceRotorMessage(msg);
       }
     } else {
       console.error('The active trace does not support \'callMoveToNextCompareMethod\'.');

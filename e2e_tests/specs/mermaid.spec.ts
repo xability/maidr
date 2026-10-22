@@ -502,6 +502,24 @@ test.describe('Mermaid adapter', () => {
     expect(research).toContain('Length is 10 days');
   });
 
+  test('finds the next longer task in a gantt lane with the rotor', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    await expect(page.locator('#maidr-rotor-area')).toContainText('HIGHER VALUE NAVIGATION');
+
+    expect(await press(page, 'ArrowRight')).toContain('Prototype');
+  });
+
+  test('offers a flowchart\'s outputs first in the rotor, not values its nodes lack', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+
+    await expect(page.locator('#maidr-rotor-area')).toContainText('Outputs');
+  });
+
   // Mermaid draws a diagram `width="100%"`, up to the width it laid it out
   // at. In MAIDR's plot, which is as wide as what it holds, the browser drew
   // that at its 300px fallback.
