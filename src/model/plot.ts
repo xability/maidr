@@ -654,7 +654,14 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       return null;
     }
 
-    Subplot.carryPosition(currentTrace, newTrace, currentXValue);
+    // Carried silently too, as `selectLayer` carries it: the move positions
+    // the new trace's cursor, and a cursor move announces itself, so every
+    // observer heard the point once as a move and again as the switch -- the
+    // tone twice, a few milliseconds apart. A carry that misses is not a
+    // boundary either: the switch landed.
+    newTrace.runSilently(() => {
+      Subplot.carryPosition(currentTrace, newTrace, currentXValue);
+    });
 
     // Notify after positioning is complete
     this.notifyLayerSwitch(newTrace);
