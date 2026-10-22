@@ -8,7 +8,15 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, HighlightState, TextAside, TextState } from '@type/state';
+import type {
+  AudioState,
+  BrailleState,
+  DescriptionState,
+  HighlightState,
+  TextAside,
+  TextState,
+  TraceEmptyState,
+} from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { centrality, withinCentralityBudget } from '@util/graphCentrality';
 import { t } from '@util/i18n';
@@ -914,13 +922,43 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
         max: this.maxDegree,
         raw: item === null ? 0 : item.inputs.length + item.outputs.length,
       },
-      panning: {
-        x: this.col,
-        y: this.row,
-        rows: this.levels.length,
-        cols: Math.max(2, this.levels[this.row]?.length ?? 1),
-      },
+      panning: this.panning,
     };
+  }
+
+  /**
+   * Where the item sits in the stereo field: its place among the items of
+   * its scope, the row Left and Right walk and "Order is i of n" counts.
+   *
+   * Not its index among every item at its depth, which runs across scopes:
+   * a scope's members were squeezed into their slice of the field -- a git
+   * graph's main branch from hard left to just right of centre, its develop
+   * branch at the far right -- and an item alone in its scope was counted as
+   * one of two and put hard left, where the audio service centres a lone
+   * item.
+   *
+   * @returns The panning state
+   */
+  private get panning(): AudioState['panning'] {
+    const item = this.current;
+    const siblings = item?.parent?.children ?? this.roots;
+    const place = item === null ? 0 : siblings.indexOf(item);
+    return {
+      x: Math.max(0, place),
+      y: this.row,
+      rows: this.levels.length,
+      cols: siblings.length,
+    };
+  }
+
+  /**
+   * The boundary tone sounds where the item the reader stopped at sounds, at
+   * the edge of its scope, rather than at its index across the whole depth.
+   *
+   * @returns The empty trace state, panned to the cursor's item
+   */
+  protected override get outOfBoundsState(): TraceEmptyState {
+    return { empty: true, type: 'trace', traceType: this.type, audio: this.panning };
   }
 
   protected get braille(): BrailleState {

@@ -8,7 +8,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextAside, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextAside, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
@@ -210,6 +210,12 @@ export class TreemapTrace extends AbstractTrace {
   private readonly shapeMin: number[];
   private readonly shapeMax: number[];
 
+  /**
+   * Where each node sits among its siblings, shaped as `nodes` is: what Left
+   * and Right walk, and what a treemap's and a pack's pan follows.
+   */
+  private readonly siblingPlace: number[][];
+
   /** Every top-level node's total, added up. */
   private readonly grandTotal: number;
 
@@ -247,9 +253,6 @@ export class TreemapTrace extends AbstractTrace {
    */
   private readonly midAngles: number[][];
 
-  /** Each node's index among its siblings, shaped as `nodes` is. */
-  private readonly placeAmongSiblings: number[][];
-
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -277,7 +280,7 @@ export class TreemapTrace extends AbstractTrace {
       0,
     );
     this.midAngles = this.layOutAngles();
-    this.placeAmongSiblings = this.placeSiblings();
+    this.siblingPlace = this.placeAmongSiblings();
     this.highlightValues = this.mapToSvgElements(layer.selectors, points.length);
     this.movable = new MovableGraph(this.buildGraph());
   }
@@ -375,7 +378,6 @@ export class TreemapTrace extends AbstractTrace {
    */
   private buildGraph(): (Node | null)[][] {
     const roots: Coordinate[] = (this.nodes[0] ?? []).map((_, col) => ({ row: 0, col }));
-    const placeAmongSiblings = this.placeAmongSiblings;
 
     return this.nodes.map(level =>
       level.map((node) => {
@@ -383,7 +385,7 @@ export class TreemapTrace extends AbstractTrace {
           return null;
         }
         const siblings = this.siblingsOf(node, roots);
-        const at = placeAmongSiblings[node.depth][node.index];
+        const at = this.siblingPlace[node.depth][node.index];
         return {
           up: node.parent,
           down: node.children[0] ?? null,
@@ -400,27 +402,28 @@ export class TreemapTrace extends AbstractTrace {
   }
 
   /**
-   * Where every node sits among its siblings, worked out in one pass over
-   * the tree. Searching a node's sibling list for the node instead reads the
+   * Where every node sits among its siblings, worked out in one pass over the
+   * tree. Searching a node's sibling list for the node instead reads the
    * whole list once per sibling, so a parent with k children costs O(k^2) --
    * and a flat treemap, which is what a disk-usage or a market-cap chart is,
    * hangs every leaf off a single parent.
    *
-   * @returns Each node's index among its siblings, shaped as the nodes are
+   * @returns Each node's index among its parent's children, or among the
+   *   top-level nodes; -1 where no node is
    */
-  private placeSiblings(): number[][] {
-    const place = this.nodes.map(level => level.map(() => -1));
+  private placeAmongSiblings(): number[][] {
+    const places = this.nodes.map(level => level.map(() => -1));
     (this.nodes[0] ?? []).forEach((_, col) => {
-      place[0][col] = col;
+      places[0][col] = col;
     });
     for (const level of this.nodes) {
       for (const node of level) {
         node?.children.forEach((child, at) => {
-          place[child.row][child.col] = at;
+          places[child.row][child.col] = at;
         });
       }
     }
-    return place;
+    return places;
   }
 
   /**
@@ -498,7 +501,7 @@ export class TreemapTrace extends AbstractTrace {
     return {
       ...state,
       treePosition: {
-        index: this.placeAmongSiblings[this.row]?.[this.col] ?? 0,
+        index: this.siblingPlace[this.row]?.[this.col] ?? 0,
         count: parent === null ? (this.nodes[0]?.length ?? 0) : parent.children.length,
         level: this.row,
         levels: this.nodes.length,
@@ -619,7 +622,16 @@ export class TreemapTrace extends AbstractTrace {
    * `interpolate(x, 0, cols - 1, -1, 1)`, so `cols: 2` makes the mapping
    * `2x - 1`, and `x = (sin θ + 1) / 2` lands the pan on `sin θ` exactly.
    *
-   * A treemap and an icicle are rectangular and pan by position, as they did.
+   * A treemap and a pack tile each parent's own area with its children, so a
+   * child pans by its place among its siblings: the zoomed-in view Left and
+   * Right walk. Panned along the whole level instead, a branch's children
+   * were squeezed into a slice of the field set by how many cousins came
+   * before them -- a Graphviz patchwork's Cloud, drawn at the left, sounded
+   * right of centre.
+   *
+   * A tree and an icicle draw each level as one row across every parent, in
+   * order -- a kanban board's columns, a tidy tree's layers -- so they pan
+   * along the level.
    *
    * @returns The panning state
    */
@@ -630,12 +642,33 @@ export class TreemapTrace extends AbstractTrace {
         return { x: (Math.sin(angle) + 1) / 2, y: this.row, rows: this.nodes.length, cols: 2 };
       }
     }
+    const node = this.current;
+    if ((this.type === TraceType.TREEMAP || this.type === TraceType.PACK) && node?.parent) {
+      const parent = this.nodes[node.parent.row]?.[node.parent.col];
+      return {
+        x: Math.max(0, this.siblingPlace[this.row]?.[this.col] ?? 0),
+        y: this.row,
+        rows: this.nodes.length,
+        cols: parent?.children.length ?? 1,
+      };
+    }
     return {
       x: this.col,
       y: this.row,
       rows: this.nodes.length,
       cols: this.nodes[this.row]?.length ?? 1,
     };
+  }
+
+  /**
+   * The boundary tone sounds where the node the reader stopped at sounds: at
+   * the edge of its siblings on a treemap or a pack, at its angle on a
+   * sunburst. The base pans it by the node's index across the whole level.
+   *
+   * @returns The empty trace state, panned to the cursor's node
+   */
+  protected override get outOfBoundsState(): TraceEmptyState {
+    return { empty: true, type: 'trace', traceType: this.type, audio: this.panning };
   }
 
   /**

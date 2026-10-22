@@ -1,7 +1,7 @@
 import type { DirectedGraphPoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { NonEmptyTraceState } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { DirectedGraphTrace } from '@model/directedGraph';
 import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
@@ -393,6 +393,41 @@ describe('the modalities agree with the announcement', () => {
 
     const audio = nonEmptyState(trace).audio;
     expect(audio.freq.raw).toBe(2);
+  });
+
+  test('the pan runs across the item\'s own scope', () => {
+    // Left and Right walk a scope's members and "Order is i of n" counts
+    // them; the pan follows the same row rather than every item at the depth.
+    const trace = graph();
+    walk(trace, 'FORWARD', 'FORWARD', 'DOWNWARD');
+    const conv = nonEmptyState(trace).audio.panning;
+    walk(trace, 'FORWARD');
+    const pool = nonEmptyState(trace).audio.panning;
+    walk(trace, 'UPWARD', 'BACKWARD', 'DOWNWARD');
+    const conv1 = nonEmptyState(trace).audio.panning;
+
+    expect(conv).toMatchObject({ x: 0, cols: 2 });
+    expect(pool).toMatchObject({ x: 1, cols: 2 });
+    expect(conv1).toMatchObject({ x: 0, cols: 3 });
+  });
+
+  test('an item alone in its scope is centred, not hard left', () => {
+    const trace = graph([
+      { id: 'a/x', label: 'x', path: ['a'] },
+      { id: 'a/y', label: 'y', path: ['a'], inputs: ['a/x'] },
+    ]);
+
+    expect(nonEmptyState(trace).audio.panning.cols).toBe(1);
+  });
+
+  test('the boundary tone sounds at the edge of the scope', () => {
+    const trace = graph();
+    walk(trace, 'FORWARD', 'FORWARD', 'DOWNWARD', 'FORWARD');
+    const update = jest.fn();
+    trace.addObserver({ update });
+
+    expect(trace.moveOnce('FORWARD')).toBe(false);
+    expect(update.mock.calls.at(-1)?.[0]).toMatchObject({ empty: true, audio: { x: 1, cols: 2 } });
   });
 
   test('braille has one row per depth of nesting', () => {
