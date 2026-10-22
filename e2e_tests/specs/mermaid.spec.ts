@@ -520,4 +520,12 @@ test.describe('Mermaid adapter', () => {
     expect(drawing).toBeLessThanOrEqual(figure + 0.5);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
+
+  test('names a timeline by the title it declares', async ({ page }) => {
+    await openExample(page, 'timeline');
+
+    await expect(page.locator(FOCUS_TARGET).first()).toHaveAttribute('aria-label', /^Web accessibility milestones, /);
+    await page.keyboard.press('l');
+    expect(await press(page, 't')).toContain('Title is Web accessibility milestones');
+  });
 });
