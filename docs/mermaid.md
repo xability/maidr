@@ -262,7 +262,7 @@ evolve Kettle 0.62
 </pre>
 ```
 
-The first layer places each component by evolution and visibility; Page Down reaches the second, the value chain read along its dependencies.
+The first layer places each component by evolution and visibility; Page Up reaches the second, the value chain read along its dependencies, and Page Down returns to the first.
 
 ### Experimental chart types
 
