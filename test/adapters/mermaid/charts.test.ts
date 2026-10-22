@@ -50,6 +50,8 @@ describe('the charts', () => {
         [{ start: 32, end: 32, label: 'Flag' }],
       ],
     }))[0];
+    expect(layer.type).toBe(TraceType.GANTT);
+    expect(layer.typeLabel).toBe('Packet Diagram');
     const data = layer.data as GanttData;
     expect(data.points).toEqual([
       [

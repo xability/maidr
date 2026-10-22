@@ -165,6 +165,9 @@ export function packet(context: DiagramContext): DiagramConversion {
   const layer: MaidrLayer = {
     id: context.layerId('packet'),
     type: TraceType.GANTT,
+    // Read as a gantt for its lanes of intervals, but not a schedule, and not
+    // to be introduced as one.
+    typeLabel: 'Packet Diagram',
     orientation: Orientation.HORIZONTAL,
     axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
     ...(blocks.length === count && count > 0 ? { selectors: selectorsFor(blocks) } : {}),

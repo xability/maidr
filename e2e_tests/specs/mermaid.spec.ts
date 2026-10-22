@@ -538,6 +538,17 @@ test.describe('Mermaid adapter', () => {
     await expect(page.getByRole('dialog')).toContainText('Spans: 0 to 95');
   });
 
+  test('introduces a packet diagram as a packet diagram, not a gantt chart', async ({ page }) => {
+    await openExample(page, 'packet');
+    await expect(page.locator(FOCUS_TARGET).first()).toHaveAttribute('aria-label', 'UDP packet, Packet Diagram');
+    await press(page, 'ArrowRight');
+
+    await page.keyboard.press('d');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Chart Type: Packet Diagram');
+    await expect(dialog).not.toContainText(/gantt/i);
+  });
+
   test('walks a user journey from one section into the next', async ({ page }) => {
     await openExample(page, 'journey');
     for (let task = 0; task < 3; task++) {
