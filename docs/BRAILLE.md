@@ -546,6 +546,13 @@ per interval, each row scaled against its own range. A cell's height is the
 interval's **length** — the same magnitude the pitch carries and the same one
 the announcement gives.
 
+A lane whose intervals all share one length, most often a lane holding a
+single task, has no range of its own, and is scaled against the whole chart's
+lengths instead — the scale the pitch uses. A lane's only task therefore reads
+as long as it is, rather than as the lowest cell whatever its length: on a
+schedule of one task per lane, or a packet diagram's last row of one wide
+field.
+
 A lane with nothing booked renders as an **empty row** rather than being
 skipped, so the reader's line count keeps matching the chart's lane count. An
 empty lane is a real statement about a schedule, and a display that silently

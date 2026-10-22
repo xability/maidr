@@ -330,6 +330,54 @@ describe('braille is a length profile, one row per lane', () => {
     }
     expect(braille.values).toEqual([[30, 15], [70]]);
   });
+
+  /**
+   * The range each lane is scaled against.
+   * @param points The lanes
+   * @returns Each lane's min and max
+   */
+  function scales(points: GanttPoint[][]): { min: number[]; max: number[] } {
+    const { braille } = nonEmptyState(gantt(0, 0, points));
+    if (braille.empty || !Array.isArray(braille.min) || !Array.isArray(braille.max)) {
+      throw new Error('Expected a populated braille state, scaled per lane');
+    }
+    return { min: braille.min, max: braille.max };
+  }
+
+  test('a lane with no spread is scaled against the whole chart, as the pitch is', () => {
+    // `Build` holds one interval, the chart's longest. Scaled against itself
+    // it had no range, and read as the lowest cell while its tone was the
+    // highest.
+    expect(scales(LANES)).toEqual({ min: [15, 15], max: [30, 70] });
+  });
+
+  test('one task per lane shares the chart\'s range', () => {
+    const oneEach: GanttPoint[][] = [
+      [{ x: 'A', start: 0, end: 11 }],
+      [{ x: 'B', start: 7, end: 32 }],
+      [{ x: 'C', start: 28, end: 67 }],
+    ];
+
+    expect(scales(oneEach)).toEqual({ min: [11, 11, 11], max: [39, 39, 39] });
+  });
+
+  test('a lane of tasks of one length shares the chart\'s range too', () => {
+    const level: GanttPoint[][] = [
+      [{ x: 'A', start: 0, end: 5 }, { x: 'A', start: 5, end: 10 }],
+      [{ x: 'B', start: 0, end: 20 }, { x: 'B', start: 20, end: 30 }],
+    ];
+
+    expect(scales(level)).toEqual({ min: [5, 10], max: [20, 20] });
+  });
+
+  test('a chart whose lengths are all equal stays flat, as its pitch does', () => {
+    const equal: GanttPoint[][] = [
+      [{ x: 'A', start: 0, end: 5 }],
+      [{ x: 'B', start: 5, end: 10 }, { x: 'B', start: 10, end: 15 }],
+    ];
+
+    expect(scales(equal)).toEqual({ min: [5, 5], max: [5, 5] });
+  });
 });
 
 describe('a lane with nothing booked is enterable, not a crash', () => {
