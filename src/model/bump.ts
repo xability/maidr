@@ -370,7 +370,7 @@ export class BumpTrace extends LineTrace {
       return base;
     }
 
-    return { ...base, plotType: t('model.plotTypeBump') };
+    return { ...base, plotType: this.spokenPlotType(t('model.plotTypeBump')) };
   }
 
   /**

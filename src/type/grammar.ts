@@ -1803,6 +1803,21 @@ export interface MaidrLayer {
    */
   name?: string;
   /**
+   * What the chart is called, when it is read as a trace type it is not: a
+   * Mermaid packet diagram read as a `gantt`, its fields intervals of bits.
+   *
+   * Said in place of the trace type's name wherever the chart's type is
+   * named -- its accessible name, the instruction on entering it, the
+   * description's Chart Type and layer tab, a layer switch -- and the
+   * description leaves out its "About this chart type" guide, which explains
+   * the trace type rather than this chart. Written as given, in every
+   * language, as `title` is.
+   *
+   * @example
+   * typeLabel: 'Packet Diagram'
+   */
+  typeLabel?: string;
+  /**
    * Which element of the chart each point of the layer is drawn as.
    *
    * What each shape means depends on the layer type, and is written down per

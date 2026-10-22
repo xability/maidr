@@ -499,6 +499,6 @@ export class DivergingTrace extends SegmentedTrace {
       return base;
     }
 
-    return { ...base, plotType: t('model.plotTypeDivergingBarSpoken') };
+    return { ...base, plotType: this.spokenPlotType(t('model.plotTypeDivergingBarSpoken')) };
   }
 }

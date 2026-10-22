@@ -432,6 +432,6 @@ export class ParallelTrace extends LineTrace {
 
     // `LineTrace` reports itself as a 'single line' or 'multiline' plot, which
     // is what the instruction text and the layer-switch cue announce.
-    return { ...base, plotType: t('model.plotTypeParallelCoordinatesSpoken') };
+    return { ...base, plotType: this.spokenPlotType(t('model.plotTypeParallelCoordinatesSpoken')) };
   }
 }

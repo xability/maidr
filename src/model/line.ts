@@ -1741,7 +1741,7 @@ export class LineTrace extends AbstractTrace {
     // Add the plotType field for non-empty states
     const stateWithPlotType = {
       ...baseState,
-      plotType: t(isMultiline ? 'model.plotTypeMultiline' : 'model.plotTypeSingleLine'),
+      plotType: this.spokenPlotType(t(isMultiline ? 'model.plotTypeMultiline' : 'model.plotTypeSingleLine')),
       ...(isMultiline && { groupCount: this.points.length }),
       ...(group && { group }),
     };

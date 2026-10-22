@@ -429,7 +429,7 @@ export class AreaTrace extends LineTrace {
       return baseState;
     }
 
-    return { ...baseState, plotType: t(PLOT_TYPE_LABEL[this.variant]) };
+    return { ...baseState, plotType: this.spokenPlotType(t(PLOT_TYPE_LABEL[this.variant])) };
   }
 
   /**

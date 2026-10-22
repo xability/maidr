@@ -232,6 +232,6 @@ export class RadarTrace extends LineTrace {
     // `LineTrace` reports itself as a 'single line' or 'multiline' plot, which
     // is what the instruction text and the layer-switch cue announce. A reader
     // told they are on a line plot has been told the wrong chart.
-    return { ...base, plotType: t(PLOT_TYPE_LABEL[this.variant]) };
+    return { ...base, plotType: this.spokenPlotType(t(PLOT_TYPE_LABEL[this.variant])) };
   }
 }

@@ -318,6 +318,6 @@ export class FunnelTrace extends BarTrace {
       return base;
     }
 
-    return { ...base, plotType: t('model.plotTypeFunnel') };
+    return { ...base, plotType: this.spokenPlotType(t('model.plotTypeFunnel')) };
   }
 }
