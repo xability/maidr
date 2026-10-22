@@ -55,7 +55,9 @@ message.
 
 **Layers.** A chart drawn in more than one layer — a bar chart with a line over
 it, or a violin plot's box and density curve — moves between its
-layers with Page Up and Page Down. Past the first or
+layers with Page Up and Page Down. Each switch says which layer of how many you
+are on and the values of the point you landed on, with its name where the
+chart names its points, as a Wardley map's components are named. Past the first or
 last layer, or on a chart with only one, you hear the same edge signal as at the
 end of the data.
 

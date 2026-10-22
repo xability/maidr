@@ -1,7 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable, PointCloudAddressable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
-import type { AudioState, AxisType, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
+import type { AudioState, AxisType, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextAside, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
@@ -1050,14 +1050,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    */
   private nameAside(
     names: readonly (string | undefined)[],
-  ): { label: string; value: string }[] | undefined {
+  ): TextAside[] | undefined {
     if (names.length !== 1) {
       return undefined;
     }
     const only = names[0];
     return only === undefined || only === ''
       ? undefined
-      : [{ label: t('model.asideName'), value: only }];
+      : [{ label: t('model.asideName'), value: only, identifies: true }];
   }
 
   /**
