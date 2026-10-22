@@ -532,7 +532,8 @@ test.describe('Mermaid adapter', () => {
     ['er', '.relationshipLine', 'stroke'],
     ['class', '.relation', 'stroke'],
     ['mindmap', '.section-edge-0', 'stroke'],
-    ['radar', '.radarCurve-1', 'fill'],
+    // Its fill takes the series' pattern; see the radar test below.
+    ['radar', '.radarCurve-1', 'stroke'],
   ];
   for (const name of new Set(SHEET_PAINTED.map(([example]) => example))) {
     test(`repaints what the ${name} example's stylesheet paints in high contrast, and gives it back after`, async ({ page }) => {
@@ -604,6 +605,28 @@ test.describe('Mermaid adapter', () => {
 
     expect(await press(page, 'c')).toContain('High Contrast Mode off');
     expect(await fills('.legend rect')).toEqual(before);
+  });
+
+  test('tells a radar\'s series apart by pattern in high contrast, and gives each legend key its series\' pattern', async ({ page }) => {
+    // Both series went white, fill and outline, and both keys with them, so
+    // nothing said which outline was which series.
+    const fills = async (selector: string): Promise<string[]> => page.locator(`svg[maidr] ${selector}`)
+      .evaluateAll(shapes => shapes
+        .filter(shape => shape.closest('[data-maidr-owned]') === null)
+        .map(shape => getComputedStyle(shape).fill));
+    await openExample(page, 'radar');
+    const before = await fills('[class^="radarLegendBox"]');
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+    const curves = await fills('[class^="radarCurve"]');
+    expect(new Set(curves).size).toBe(2);
+    for (const curve of curves) {
+      expect(curve).toMatch(/^url\("#maidr-pattern-/);
+    }
+    expect(await fills('[class^="radarLegendBox"]')).toEqual(curves);
+
+    expect(await press(page, 'c')).toContain('High Contrast Mode off');
+    expect(await fills('[class^="radarLegendBox"]')).toEqual(before);
   });
 
   test('recolours the HTML labels a rule colours in high contrast, and gives them back after', async ({ page }) => {

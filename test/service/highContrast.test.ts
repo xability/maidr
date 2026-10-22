@@ -99,10 +99,14 @@ function createStorage(): StorageService {
   };
 }
 
-/** A layer as the service reads it: its type and the elements it selects. */
+/**
+ * A layer as the service reads it: its type, the elements it selects, and
+ * the shapes it was read from when its highlight marks stand in for them.
+ */
 interface LayerSpec {
   traceType: string;
   elements: SVGElement[];
+  geometry?: SVGElement[];
 }
 
 /**
@@ -118,6 +122,7 @@ function createFigure(layers: LayerSpec[] = []): Figure {
   const traces = layers.map(layer => ({
     traceType: layer.traceType,
     getAllOriginalElements: (): SVGElement[] => layer.elements,
+    getGeometryElements: (): SVGElement[] => layer.geometry ?? [],
   }));
   const figure = { subplots: [[{ traces: [traces] }]] };
   return figure as unknown as Figure;
@@ -148,6 +153,11 @@ interface HarnessOptions {
   unstyledText?: boolean;
   /** Runs once the page is built, before the service captures it. */
   beforeService?: () => void;
+  /**
+   * The marks are the shapes the layer was read from, not elements it
+   * selects: a line whose path maidr marks with circles of its own.
+   */
+  marksAreGeometry?: boolean;
   /**
    * Mounts the plot as maidr does: a `display: contents` div holding
    * `article#maidr-article-chart > figure#maidr-figure-chart`, the plot and
@@ -270,7 +280,11 @@ function createHarness(
     settings,
     notification as unknown as NotificationService,
     displayService,
-    createFigure(options.traceType === undefined ? [] : [{ traceType: options.traceType, elements: marks }]),
+    createFigure(options.traceType === undefined
+      ? []
+      : [options.marksAreGeometry
+          ? { traceType: options.traceType, elements: [], geometry: marks }
+          : { traceType: options.traceType, elements: marks }]),
     context as unknown as Context,
     () => overlays,
   );
@@ -1004,9 +1018,10 @@ describe('highContrastService', () => {
     // same for every series.
 
     /** Draws `markup` after the marks, as a legend is drawn. */
-    function withLegend(specs: MarkSpec[], markup: string, before = false): void {
+    function withLegend(specs: MarkSpec[], markup: string, before = false, options: HarnessOptions = {}): void {
       rebuild(specs, {
         traceType: 'pie',
+        ...options,
         beforeService: () => {
           const chart = document.querySelector('#chart') as SVGSVGElement;
           const legend = document.createElementNS(SVG_NAMESPACE, 'g');
@@ -1037,6 +1052,38 @@ describe('highContrastService', () => {
       turnHighContrastOff(harness.settings);
 
       expect(keys.map(fillOf)).toEqual(['rgb(236, 236, 255)', '#b5ff20']);
+    });
+
+    it('tells a radar\'s overlapping series apart, and gives each key its series\' pattern', () => {
+      // Mermaid draws a radar's series #8686ff and #ffff78, translucent, one
+      // over the other. Both went white with a white outline, and both keys
+      // white: nothing said which outline was Alice and which Bob. The layer
+      // names the curves, and maidr marks their vertices with circles of its
+      // own, so the curves are the shapes it was read from.
+      withLegend(
+        [
+          { fill: '#8686ff', stroke: '#8686ff', complexPath: true },
+          { fill: '#ffff78', stroke: '#ffff78', complexPath: true },
+        ],
+        '<rect class="key" fill="#8686ff"></rect><rect class="key" fill="#ffff78"></rect>',
+        false,
+        { traceType: 'radar', marksAreGeometry: true },
+      );
+      const keys = Array.from(harness.svg.querySelectorAll('.key'));
+
+      harness.service.initializeHighContrast();
+
+      const curves = harness.marks.map(mark => mark.getAttribute('fill'));
+      expect(curves[0]).toMatch(/^url\(#maidr-pattern-/);
+      expect(curves[1]).toMatch(/^url\(#maidr-pattern-/);
+      expect(curves[0]).not.toBe(curves[1]);
+      expect(keys.map(fillOf)).toEqual(curves);
+      expect(harness.marks.map(mark => mark.getAttribute('stroke'))).toEqual(['#ffffff', '#ffffff']);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(harness.marks.map(mark => mark.getAttribute('fill'))).toEqual(['#8686ff', '#ffff78']);
+      expect(keys.map(fillOf)).toEqual(['#8686ff', '#ffff78']);
     });
 
     it('leaves a shape of a series colour drawn before the marks alone', () => {

@@ -918,15 +918,17 @@ export class HighContrastService implements Disposable {
     // styles on the plot element (e.g. React's `width: fit-content`) are preserved.
     this.displayService.plot.style.setProperty('fill', this.highContrastLightColor);
 
-    // Handle stacked/dodged/normalized bar, mosaic and pie exceptions: apply
-    // patterns.
+    // Handle stacked/dodged/normalized bar, mosaic, pie and radar exceptions:
+    // apply patterns.
     //
-    // These are the chart types whose marks touch each other, so the boundary
-    // between two of them is carried by their fill alone. High contrast then
-    // pushes neighbouring fills toward the same end of the ramp and the marks
-    // merge into one shape — adjacent pie wedges of a similar hue are the worst
-    // case, since a pie is nothing but touching marks. A distinct pattern per
-    // original fill keeps them separable without relying on colour.
+    // These are the chart types whose marks touch or overlap each other, so
+    // the boundary between two of them is carried by their fill alone. High
+    // contrast then pushes neighbouring fills toward the same end of the ramp
+    // and the marks merge into one shape — adjacent pie wedges of a similar
+    // hue are the worst case, since a pie is nothing but touching marks, and a
+    // radar's series are filled areas drawn one over another. A distinct
+    // pattern per original fill keeps them separable without relying on
+    // colour.
     if ('type' in this.context.instructionContext) {
       if (
         this.context.instructionContext.type === 'stacked_bar'
@@ -934,6 +936,7 @@ export class HighContrastService implements Disposable {
         || this.context.instructionContext.type === 'pie'
         || this.context.instructionContext.type === 'stacked_normalized_bar'
         || this.context.instructionContext.type === 'mosaic'
+        || this.context.instructionContext.type === 'radar'
       ) {
         this.applyPatternsToElements(highContrastElInfo, textDescendants);
       }
@@ -1470,6 +1473,27 @@ export class HighContrastService implements Disposable {
 
     this.traceElementsCache = elements;
     return elements;
+  }
+
+  /**
+   * The shapes the traces were read from where their highlight marks stand
+   * in for them: a line's or a radar's path, whose vertices maidr marks with
+   * circles of its own, so that the path is no element the layer selects.
+   */
+  private getTraceShapes(): Set<SVGElement> {
+    const shapes = new Set<SVGElement>();
+    for (const subplotRow of this.figure.subplots) {
+      for (const subplot of subplotRow) {
+        for (const traceRow of subplot.traces) {
+          for (const trace of traceRow) {
+            for (const shape of trace.getGeometryElements?.() ?? []) {
+              shapes.add(shape);
+            }
+          }
+        }
+      }
+    }
+    return shapes;
   }
 
   /**
@@ -2518,9 +2542,16 @@ export class HighContrastService implements Disposable {
       this.patternService.initialize(svg);
     }
 
+    // The marks are the elements the layers select, and the shapes a layer
+    // was read from where its highlight marks stand in for them: a radar's
+    // curves, whose vertices maidr marks with circles of its own.
+    const shapes = this.getTraceShapes();
+    const isMarkFill = (item: ElementColorInfo): boolean =>
+      (item.isInSelectors || shapes.has(item.element)) && item.attr === 'fill' && item.resolvedColor !== null;
+
     const elementToHighContrastColor = new Map<SVGElement, string>();
     for (const item of highContrastElInfo) {
-      if (item.isInSelectors && item.attr === 'fill' && item.resolvedColor !== null) {
+      if (isMarkFill(item)) {
         elementToHighContrastColor.set(item.element, item.color);
       }
     }
@@ -2528,7 +2559,7 @@ export class HighContrastService implements Disposable {
     const colorGroups = new Map<string, ElementColorInfo[]>();
 
     for (const item of this.originalColorInfo) {
-      if (item.isInSelectors && item.attr === 'fill' && item.resolvedColor !== null) {
+      if (isMarkFill(item)) {
         const normalizedColor = this.normalizeColor(item.resolvedColor ?? item.color);
         if (!colorGroups.has(normalizedColor)) {
           colorGroups.set(normalizedColor, []);
@@ -2537,7 +2568,7 @@ export class HighContrastService implements Disposable {
       }
     }
 
-    const keys = this.legendKeys(colorGroups, textDescendants);
+    const keys = this.legendKeys(colorGroups, shapes, textDescendants);
 
     let patternIndex = 0;
     for (const [color, elements] of colorGroups) {
@@ -2574,19 +2605,20 @@ export class HighContrastService implements Disposable {
   }
 
   /**
-   * The legend keys of each group of marks: a shape no layer selects, drawn
-   * after the group's first mark in exactly its colour. Mermaid, matplotlib,
+   * The legend keys of each group of marks: a shape no layer selects or was
+   * read from, drawn after the group's first mark in exactly its colour. Mermaid, matplotlib,
    * ggplot and Plotly all draw the legend after the marks, and a background
    * or panel before them. A key of white, the paper's colour, is not told
    * from the frame around the legend, and keeps its plain colour.
    */
   private legendKeys(
     colorGroups: Map<string, ElementColorInfo[]>,
+    shapes: Set<SVGElement>,
     textDescendants: Map<Element, boolean>,
   ): Map<string, ElementColorInfo[]> {
     const keys = new Map<string, ElementColorInfo[]>();
     for (const item of this.originalColorInfo ?? []) {
-      if (item.isInSelectors || item.attr !== 'fill' || item.resolvedColor === null
+      if (item.isInSelectors || shapes.has(item.element) || item.attr !== 'fill' || item.resolvedColor === null
         || !SWATCH_TAGS.has(item.element.tagName) || this.isTextDescendant(item.element, textDescendants)
         || isInMaidrCopy(item.element)) {
         continue;
