@@ -295,6 +295,18 @@ test.describe('Mermaid adapter', () => {
     expect(lifeline).toContain('User row');
   });
 
+  test('keeps a sequence diagram\'s moment with control and up and down', async ({ page }) => {
+    await openExample(page, 'sequence');
+    await press(page, 'ArrowRight');
+    const note = await press(page, 'Control+ArrowRight');
+    expect(note).toContain('Session stored');
+
+    expect(await press(page, 'Control+ArrowDown')).toContain('User row');
+    const back = await press(page, 'Control+ArrowUp');
+    expect(back).toContain('Session stored');
+    expect(back).toContain('Order is 6 of 6');
+  });
+
   test('outlines a sequence diagram\'s message and note over Mermaid\'s own paint', async ({ page }) => {
     await openExample(page, 'sequence');
     await press(page, 'ArrowRight');
