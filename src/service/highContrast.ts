@@ -2763,10 +2763,14 @@ export class HighContrastService implements Disposable {
 
     // The marks are the elements the layers select, and the shapes a layer
     // was read from where its highlight marks stand in for them: a radar's
-    // curves, whose vertices maidr marks with circles of its own.
+    // curves, whose vertices maidr marks with circles of its own. A radar's
+    // series is its area, so the markers its selectors may name at the
+    // vertices keep their solid colour: a stripe or a dot of a pattern is as
+    // wide as such a marker, and blacked most of it out.
     const shapes = this.getTraceShapes();
     const isMarkFill = (item: ElementColorInfo): boolean =>
-      (item.isInSelectors || shapes.has(item.element)) && item.attr === 'fill' && item.resolvedColor !== null;
+      (shapes.has(item.element) || (item.isInSelectors && item.traceType !== 'radar'))
+      && item.attr === 'fill' && item.resolvedColor !== null;
 
     const elementToHighContrastColor = new Map<SVGElement, string>();
     for (const item of highContrastElInfo) {

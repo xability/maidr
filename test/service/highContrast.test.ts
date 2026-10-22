@@ -160,6 +160,12 @@ interface HarnessOptions {
    */
   marksAreGeometry?: boolean;
   /**
+   * Shapes the layer was read from beside the marks it selects, asked for
+   * once the page is built: a radar's polygons, drawn beside the markers its
+   * selectors name.
+   */
+  geometry?: () => SVGElement[];
+  /**
    * Mounts the plot as maidr does: a `display: contents` div holding
    * `article#maidr-article-chart > figure#maidr-figure-chart`, the plot and
    * the text maidr shows under it.
@@ -285,7 +291,7 @@ function createHarness(
       ? []
       : [options.marksAreGeometry
           ? { traceType: options.traceType, elements: [], geometry: marks }
-          : { traceType: options.traceType, elements: marks }]),
+          : { traceType: options.traceType, elements: marks, geometry: options.geometry?.() }]),
     context as unknown as Context,
     () => overlays,
   );
@@ -1208,6 +1214,49 @@ describe('highContrastService', () => {
 
       expect(harness.marks.map(mark => mark.getAttribute('fill'))).toEqual(['#8686ff', '#ffff78']);
       expect(keys.map(fillOf)).toEqual(['#8686ff', '#ffff78']);
+    });
+
+    it('patterns a radar\'s areas, and keeps the markers its selectors name at the vertices solid', () => {
+      // examples/radar.html draws each series as a translucent polygon with
+      // a 10px dot at each vertex, and its selectors name the dots. The dots
+      // took their series' pattern too, and a stripe or a dot of it as wide
+      // as a marker blacked most of the marker out.
+      const areas: SVGElement[] = [];
+      rebuild(
+        [
+          { fill: '#4c72b0', stroke: 'none' },
+          { fill: '#4c72b0', stroke: 'none' },
+          { fill: '#c44e52', stroke: 'none' },
+          { fill: '#c44e52', stroke: 'none' },
+        ],
+        {
+          traceType: 'radar',
+          beforeService: () => {
+            const markers = Array.from(document.querySelectorAll('#chart rect'));
+            for (const marker of [markers[0], markers[2]]) {
+              const color = marker.getAttribute('fill') ?? '';
+              const area = document.createElementNS(SVG_NAMESPACE, 'polygon');
+              area.setAttribute('style', `fill: ${color}; fill-opacity: 0.25; stroke: ${color}`);
+              marker.before(area);
+              areas.push(area);
+            }
+          },
+          geometry: () => areas,
+        },
+      );
+
+      harness.service.initializeHighContrast();
+
+      const fills = areas.map(fillOf);
+      expect(fills[0]).toMatch(/^url\(#maidr-pattern-/);
+      expect(fills[1]).toMatch(/^url\(#maidr-pattern-/);
+      expect(fills[0]).not.toBe(fills[1]);
+      expect(harness.marks.map(mark => mark.getAttribute('fill'))).toEqual(['#ffffff', '#ffffff', '#ffffff', '#ffffff']);
+
+      turnHighContrastOff(harness.settings);
+
+      expect(areas.map(fillOf)).toEqual(['#4c72b0', '#c44e52']);
+      expect(harness.marks.map(mark => mark.getAttribute('fill'))).toEqual(['#4c72b0', '#4c72b0', '#c44e52', '#c44e52']);
     });
 
     it('leaves a shape of a series colour drawn before the marks alone', () => {
