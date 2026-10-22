@@ -210,3 +210,102 @@ describe('HighlightService in high contrast', () => {
     service.dispose();
   });
 });
+
+describe('HighlightService redraw', () => {
+  /**
+   * A settings service whose settings a test can change, handing each change
+   * to the listener the service subscribed.
+   * @returns The stand-in, the settings it answers with, and a way to save
+   */
+  function liveSettings(): { settings: SettingsService; current: typeof DEFAULT_SETTINGS; save: () => void } {
+    const current = defaults(true);
+    let listener: (event: SettingsChange) => void = () => {};
+    const stub: Pick<SettingsService, 'loadSettings' | 'onChange'> = {
+      loadSettings: () => current,
+      onChange: (subscribed) => {
+        listener = subscribed;
+        return { dispose: () => {} };
+      },
+    };
+    const save = (): void => listener({ newSettings: current } as Pick<SettingsChange, 'newSettings'> as SettingsChange);
+    return { settings: stub as SettingsService, current, save };
+  }
+
+  /**
+   * Puts a node on the page as Graphviz draws one: a group holding its shape
+   * and its label.
+   * @returns The node
+   */
+  function addNode(): SVGElement {
+    document.body.innerHTML = `<div><svg xmlns="${SVG_NAMESPACE}"><g class="node">`
+      + '<polygon style="fill: none; stroke: #000000"/><text style="fill: #000000">Browser</text></g></svg></div>';
+    return document.querySelector('g.node') as SVGElement;
+  }
+
+  /** Every highlight on the page. */
+  const highlights = (): Element[] => Array.from(document.querySelectorAll('[id^="maidr-highlight"]'));
+
+  it('should copy the node again as it is painted now', () => {
+    const node = addNode();
+    const service = new HighlightService(settingsStub(), () => [document.body]);
+    service.highlight(node);
+
+    (node.querySelector('text') as SVGElement).style.fill = '#ffffff';
+    service.redraw();
+
+    expect(highlights()).toHaveLength(1);
+    expect((highlights()[0].querySelector('text') as SVGElement).style.fill).toBe('#ffffff');
+    service.dispose();
+    expect(highlights()).toHaveLength(0);
+  });
+
+  it('should keep the highlight of a mark a live update replaced until the next move', () => {
+    // A live update replaces the marks without telling the service and keeps
+    // the reader's place; dropping the copy on a repaint left that place
+    // unmarked until they moved.
+    const node = addNode();
+    const service = new HighlightService(settingsStub(), () => [document.body]);
+    service.highlight(node);
+    node.remove();
+
+    expect(() => service.redraw()).not.toThrow();
+
+    expect(highlights()).toHaveLength(1);
+    service.dispose();
+    expect(highlights()).toHaveLength(0);
+  });
+
+  it('should outline a panel again against the figure background as it is now', () => {
+    const plot = addChart('a', 2, 'rgb(255, 255, 255)');
+    const service = new HighlightService(settingsStub(), () => [plot]);
+    const panel = plot.querySelector('g[id^="axes_"]') as SVGElement;
+    service.update(onPanel(panel));
+    const outline = panel.querySelector('path') as SVGElement;
+    const onWhite = outline.getAttribute('stroke');
+
+    (plot.querySelector('g[id^="maidr-"] > path') as SVGElement).style.fill = 'rgb(0, 0, 0)';
+    service.redraw();
+
+    expect(outline.getAttribute('stroke')).not.toBe(onWhite);
+    expect(outline.getAttribute('stroke')).toBe(DEFAULT_SETTINGS.general.highlightColor);
+    expect(outline.getAttribute('data-maidr-orig-stroke')).toBe('');
+    service.dispose();
+  });
+
+  it('should draw the highlight again in a highlight colour the reader saves', () => {
+    const label = document.createElementNS(SVG_NAMESPACE, 'text');
+    label.setAttribute('style', 'fill: #ffffff');
+    document.body.innerHTML = `<div><svg xmlns="${SVG_NAMESPACE}"></svg></div>`;
+    document.querySelector('svg')?.appendChild(label);
+    const { settings, current, save } = liveSettings();
+    const service = new HighlightService(settings, () => [document.body]);
+    service.highlight(label);
+
+    current.general.highlightColor = '#ff00ff';
+    save();
+
+    expect(highlights()).toHaveLength(1);
+    expect(highlights()[0].getAttribute('fill')).toBe('#ff00ff');
+    service.dispose();
+  });
+});

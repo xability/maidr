@@ -5,7 +5,9 @@ import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
 import type { Rgb } from '@type/color';
 import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
 import { PatternService } from '@service/pattern';
+import { Emitter } from '@type/event';
 import { Color } from '@util/color';
 import { Constant } from '@util/constant';
 import { t } from '@util/i18n';
@@ -424,6 +426,8 @@ export class HighContrastService implements Disposable {
   // Disposable for settings change subscription
   private settingsDisposable: Disposable | null = null;
 
+  private readonly onDidRepaintEmitter = new Emitter<void>();
+
   // Cached original colors - captured once on first application
   private originalColorInfo: ElementColorInfo[] | null = null;
 
@@ -543,6 +547,7 @@ export class HighContrastService implements Disposable {
         // originals, as a live update does, so the change shows straight away.
         this.restoreOriginalColors();
         this.applyHighContrast();
+        this.onDidRepaintEmitter.fire();
       }
     });
 
@@ -734,12 +739,22 @@ export class HighContrastService implements Disposable {
     }
   }
 
+  /**
+   * Fires once the reader has turned high contrast on or off, or changed its
+   * colours or levels, and the chart has been repainted to match. A copy
+   * taken of the chart's paint before -- the highlight -- is stale from then.
+   */
+  public get onDidRepaint(): Event<void> {
+    return this.onDidRepaintEmitter.event;
+  }
+
   public dispose(): void {
     // Unsubscribe from settings changes
     if (this.settingsDisposable) {
       this.settingsDisposable.dispose();
       this.settingsDisposable = null;
     }
+    this.onDidRepaintEmitter.dispose();
 
     // Clean up pattern service if exists
     if (this.patternService) {
@@ -770,6 +785,7 @@ export class HighContrastService implements Disposable {
       } else {
         this.restoreOriginalColors();
       }
+      this.onDidRepaintEmitter.fire();
     }
   }
 

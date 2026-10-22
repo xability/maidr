@@ -342,6 +342,23 @@ test.describe('Graphviz adapter, patchwork treemap', () => {
     expect(normalizeText(await plot.getInstructionText())).toBe('Salaries, 50, 76.9% of people');
   });
 
+  test('should leave the leaf it is on readable when high contrast is turned off on it', async ({ page }) => {
+    // The outline kept the white label high contrast had given its copy, on
+    // the light tile the chart went back to.
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.pressKey('c', 'turn high contrast on');
+    await plot.moveToDataPointBelow();
+    await plot.moveToDataPointBelow();
+    expect(normalizeText(await plot.getInstructionText())).toContain('Item is Salaries');
+
+    await plot.pressKey('c', 'turn high contrast off');
+
+    await expect(page.locator(CELL)).toHaveCount(1);
+    await expect(page.locator(`${CELL} text`)).toHaveCSS('fill', 'rgb(0, 0, 0)');
+    await expect(page.locator(`${CELL} polygon`)).toHaveCSS('stroke', HIGHLIGHT_STROKE);
+  });
+
   test('should draw every leaf with its label inside its own rectangle', async ({ page }) => {
     // Graphviz centres a leaf's label on its rectangle however narrow the
     // rectangle is. At 60 and 5, Training was 24pt wide for a 48pt label,

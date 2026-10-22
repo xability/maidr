@@ -888,6 +888,50 @@ describe('highContrastService', () => {
     expect(harness.display.plot.querySelector(':scope > defs')).toBeNull();
   });
 
+  describe('telling the highlight the chart was repainted', () => {
+    // The highlight copies a mark as it is painted, so it is drawn again each
+    // time the reader repaints the chart -- and only then.
+    function countRepaints(): () => number {
+      let repaints = 0;
+      harness.service.onDidRepaint(() => {
+        repaints++;
+      });
+      return () => repaints;
+    }
+
+    it('tells it once each time high contrast is turned on or off', () => {
+      const repaints = countRepaints();
+      turnHighContrastOff(harness.settings);
+      const afterOff = repaints();
+
+      turnHighContrastOn(harness.settings);
+
+      expect(afterOff).toBe(1);
+      expect(repaints()).toBe(2);
+    });
+
+    it('tells it once when new levels are saved while painted', () => {
+      harness.service.initializeHighContrast();
+      const repaints = countRepaints();
+
+      harness.settings.saveSettings({
+        ...harness.settings.loadSettings(),
+        general: { ...harness.settings.loadSettings().general, highContrastLevels: 4 },
+      });
+
+      expect(repaints()).toBe(1);
+    });
+
+    it('does not tell it when the chart is painted on focus or put back on blur', () => {
+      const repaints = countRepaints();
+
+      harness.service.initializeHighContrast();
+      harness.service.suspendHighContrast();
+
+      expect(repaints()).toBe(0);
+    });
+  });
+
   describe('the legend of a patterned chart', () => {
     // A pie's wedges are told apart by pattern in high contrast, and its
     // legend keys were left a plain colour: black on black, or white, the

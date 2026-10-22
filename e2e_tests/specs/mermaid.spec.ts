@@ -563,6 +563,27 @@ test.describe('Mermaid adapter', () => {
     });
   }
 
+  test('draws the highlight again in the new palette when high contrast is toggled on it', async ({ page }) => {
+    // The highlight is a copy of the node, taken as it was painted: toggled
+    // on it, the copy kept the node's dark label over the node repainted
+    // light-on-dark until the reader moved.
+    const labels = async (): Promise<string[]> => page.locator(HIGHLIGHT).evaluate((outline) => {
+      const holder = (group: Element): Element => [...group.querySelectorAll('foreignObject *')]
+        .find(element => [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE)) as Element;
+      const text = holder(outline).textContent;
+      const node = [...document.querySelectorAll('svg[maidr] g.node:not([data-maidr-owned])')]
+        .find(candidate => holder(candidate)?.textContent === text) as Element;
+      return [holder(outline), holder(node)].map(element => getComputedStyle(element).color);
+    });
+    await openExample(page, 'flowchart');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+    await expect(page.locator(HIGHLIGHT)).toHaveCount(1);
+    expect(await labels()).toEqual(['rgb(255, 255, 255)', 'rgb(255, 255, 255)']);
+  });
+
   test('gives each pie legend key its slice\'s pattern in high contrast, and its colour back after', async ({ page }) => {
     // The slices took patterns and the keys a plain colour, black on black
     // for Dogs and Cats and white for the rest, so the legend named nothing.
