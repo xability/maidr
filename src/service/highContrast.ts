@@ -41,6 +41,13 @@ const HighContrastConstants = {
   // and one this solid hides whatever is drawn beneath it.
   MIN_SURFACE_ALPHA: 0.05,
   OPAQUE_SURFACE_ALPHA: 0.99,
+  // Where a label's surface is read, across the line through its middle:
+  // its centre first, then near each end.
+  LABEL_SAMPLE_FRACTIONS: [0.5, 0.05, 0.95],
+  // The halo given a label drawn across the edge of a shape: an SVG text's
+  // stroke, and the reach of an HTML label's shadow.
+  LABEL_HALO_WIDTH: '3px',
+  LABEL_HALO_BLUR: '2px',
   // A light grey that is not part of the data -- a gridline, an axis, a frame
   // -- is drawn faint on purpose, and is kept faint: the light colour at
   // reduced opacity, so it stays visible without competing with the data.
@@ -153,11 +160,15 @@ interface SurfaceLayer {
   alpha: number;
 }
 
-/** A label, the end of the reader's pair it reads in, and the paint it takes. */
+/**
+ * A label, the end of the reader's pair it reads in, the paint it takes, and
+ * the other end as a halo when no one colour reads on all of it.
+ */
 interface LabelChoice {
   label: HTMLElement | SVGElement;
   property: 'fill' | 'color';
   color: string;
+  halo: string | null;
 }
 
 /** The element maidr builds around a chart and everything it shows for it. */
@@ -1117,7 +1128,10 @@ export class HighContrastService implements Disposable {
    * off the background, or a box a stylesheet paints and nothing captures --
    * white on white. Each label with a shape under it now takes whichever of
    * the two colours stands out more from that shape, as it is painted now;
-   * a label on nothing keeps the colour it was given. Text that draws its own
+   * a label on nothing keeps the colour it was given. A label drawn across
+   * the edge of a shape, part on it and part off, can take no one colour that
+   * reads on both: it takes the one that reads on more of it, with a halo of
+   * the other round its glyphs. Text that draws its own
    * halo is already kept apart from what lies beneath, and the labels of a
    * tiled chart keep their glow instead. The labels of MAIDR's hidden copies
    * are paired too, with the original drawn beneath them, since the reader's
@@ -1224,8 +1238,9 @@ export class HighContrastService implements Disposable {
 
     // What a reader sees at a point under the element at `index`: the layers
     // drawn there down to the first opaque one, over the dark backdrop when
-    // none is. `null` when nothing is drawn there, or it cannot be read.
-    const surfaceUnder = (index: number, x: number, y: number, above: SurfaceLayer[]): Rgb | null => {
+    // none is. `undefined` when nothing is drawn there, `null` when what is
+    // cannot be read.
+    const surfaceUnder = (index: number, x: number, y: number, above: SurfaceLayer[]): Rgb | null | undefined => {
       const layers = [...above];
       const isOpaque = (layer: SurfaceLayer): boolean =>
         layer.alpha >= HighContrastConstants.OPAQUE_SURFACE_ALPHA;
@@ -1239,7 +1254,7 @@ export class HighContrastService implements Disposable {
         }
       }
       if (layers.length === 0) {
-        return null;
+        return undefined;
       }
       const opaqueAt = layers.findIndex(isOpaque);
       const stack = opaqueAt === -1 ? layers : layers.slice(0, opaqueAt + 1);
@@ -1259,11 +1274,30 @@ export class HighContrastService implements Disposable {
       Color.getContrastRatio(surface, light) >= Color.getContrastRatio(surface, dark)
         ? this.highContrastLightColor
         : this.highContrastDarkColor;
-    const centreOf = (element: Element): { x: number; y: number } | null => {
+    // The paint a label takes, read from its centre and its two ends, and a
+    // halo when they disagree. `null` keeps the colour it was given: its
+    // centre cannot be read, or nothing is drawn under any of it. Where
+    // something is drawn under part of it, the rest is on the dark backdrop.
+    const pick = (element: Element, index: number, above: SurfaceLayer[]): Omit<LabelChoice, 'label' | 'property'> | null => {
       const rect = rectOf(element);
-      return rect.width <= 0 || rect.height <= 0
-        ? null
-        : { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+      const y = rect.top + rect.height / 2;
+      const seen = HighContrastConstants.LABEL_SAMPLE_FRACTIONS
+        .map(fraction => surfaceUnder(index, rect.left + rect.width * fraction, y, above));
+      if (seen[0] === null || seen.every(surface => surface == null)) {
+        return null;
+      }
+      const choices = seen
+        .filter((surface): surface is Rgb | undefined => surface !== null)
+        .map(surface => choose(surface ?? dark));
+      const lightShare = choices.filter(choice => choice === this.highContrastLightColor).length / choices.length;
+      const color = lightShare === 0.5
+        ? choices[0]
+        : lightShare > 0.5 ? this.highContrastLightColor : this.highContrastDarkColor;
+      const other = color === this.highContrastLightColor ? this.highContrastDarkColor : this.highContrastLightColor;
+      return { color, halo: choices.every(choice => choice === color) ? null : other };
     };
     const hasOwnText = (element: Element): boolean => Array.from(element.childNodes).some(node =>
       node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '');
@@ -1278,21 +1312,19 @@ export class HighContrastService implements Disposable {
         // spans with a stroke of their own, or none where the label has one.
         const glyphs = [element, ...Array.from(element.querySelectorAll('tspan, textPath'))]
           .filter(hasOwnText);
-        const centre = centreOf(element);
-        if (centre === null || glyphs.length === 0 || !isLabelShown(element)
+        if (glyphs.length === 0 || !isLabelShown(element)
           || glyphs.every(glyph => this.hasHalo(styleOf(glyph)))) {
           return;
         }
-        const surface = surfaceUnder(index, centre.x, centre.y, []);
-        if (surface !== null) {
-          choices.push({ label: element as SVGElement, property: 'fill', color: choose(surface) });
+        const choice = pick(element, index, []);
+        if (choice !== null) {
+          choices.push({ label: element as SVGElement, property: 'fill', ...choice });
         }
       } else if (element.localName === 'foreignObject') {
         // HTML drawn inside the SVG, as Mermaid draws its labels: coloured by
         // CSS `color`, and maybe on a box of its own.
         for (const leaf of Array.from(element.querySelectorAll<HTMLElement>('*'))) {
-          const centre = leaf.namespaceURI === HTML_NAMESPACE && hasOwnText(leaf) ? centreOf(leaf) : null;
-          if (centre === null || !isLabelShown(leaf)) {
+          if (leaf.namespaceURI !== HTML_NAMESPACE || !hasOwnText(leaf) || !isLabelShown(leaf)) {
             continue;
           }
           const boxes: SurfaceLayer[] = [];
@@ -1304,9 +1336,9 @@ export class HighContrastService implements Disposable {
               boxes.push({ rgb, alpha: parts.alpha * opacityOf(node) });
             }
           }
-          const surface = surfaceUnder(order.get(element) ?? index, centre.x, centre.y, boxes);
-          if (surface !== null) {
-            choices.push({ label: leaf, property: 'color', color: choose(surface) });
+          const choice = pick(leaf, order.get(element) ?? index, boxes);
+          if (choice !== null) {
+            choices.push({ label: leaf, property: 'color', ...choice });
           }
         }
       }
@@ -1323,6 +1355,11 @@ export class HighContrastService implements Disposable {
     for (const choice of choices.filter(choice => differs(choice.label, choice.property, choice.color))) {
       this.overrideInlineStyle(choice.label, choice.property, choice.color, 'important');
     }
+    for (const { label, property, halo } of choices) {
+      if (halo !== null) {
+        this.drawHalo(label, property, halo);
+      }
+    }
     // A span a rule colours itself, such as Mermaid's `.loopText > tspan`,
     // does not follow its label; it is given the label's colour.
     const spans = choices
@@ -1333,6 +1370,24 @@ export class HighContrastService implements Disposable {
     for (const span of spans) {
       this.overrideInlineStyle(span.label, 'fill', span.color, 'important');
     }
+  }
+
+  /**
+   * Draws a halo of `color` round a label's glyphs: a stroke painted beneath
+   * an SVG text's fill, or a shadow round HTML text, which every browser
+   * draws beneath it.
+   */
+  private drawHalo(label: HTMLElement | SVGElement, property: 'fill' | 'color', color: string): void {
+    const { LABEL_HALO_WIDTH, LABEL_HALO_BLUR } = HighContrastConstants;
+    if (property === 'color') {
+      const shadow = `0 0 ${LABEL_HALO_BLUR} ${color}`;
+      this.overrideInlineStyle(label, 'text-shadow', [shadow, shadow, shadow].join(', '), 'important');
+      return;
+    }
+    this.overrideInlineStyle(label, 'stroke', color, 'important');
+    this.overrideInlineStyle(label, 'stroke-width', LABEL_HALO_WIDTH, 'important');
+    this.overrideInlineStyle(label, 'stroke-linejoin', 'round', 'important');
+    this.overrideInlineStyle(label, 'paint-order', 'stroke', 'important');
   }
 
   /**

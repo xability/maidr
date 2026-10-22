@@ -1412,6 +1412,57 @@ describe('highContrastService', () => {
       expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
     });
 
+    it('gives a label drawn across a box\'s edge the colour that reads on more of it, haloed in the other, and takes both back after', () => {
+      // A C4 relationship's label is drawn at the middle of its arrow, here
+      // with its right end over a cylinder that goes white. Read at its
+      // centre alone it was on nothing, and was left white on the cylinder.
+      const label = labelOn(LIFTED_BOX);
+      placeAt(label, 80, 10, 80, 16);
+
+      harness.service.initializeHighContrast();
+
+      expect(harness.bar.getAttribute('fill')).toBe('#ffffff');
+      expect(label.style.getPropertyValue('fill')).toBe(LIGHT_FILL);
+      expect(label.style.getPropertyValue('stroke')).toBe(DARK_FILL);
+      expect(label.style.getPropertyValue('stroke-width')).toBe('3px');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(label.hasAttribute('style')).toBe(false);
+    });
+
+    it('draws no halo round a label wholly on one box', () => {
+      const label = labelOn(LIFTED_BOX);
+
+      harness.service.initializeHighContrast();
+
+      expect(label.style.getPropertyValue('stroke')).toBe('');
+    });
+
+    it('halos an HTML label drawn across a box\'s edge', () => {
+      rebuild([LIFTED_BOX], {
+        beforeService: () => {
+          const object = document.createElementNS(SVG_NAMESPACE, 'foreignObject');
+          const div = document.createElement('div');
+          div.textContent = 'Reads accounts';
+          object.appendChild(div);
+          document.querySelector('#chart')?.appendChild(object);
+        },
+      });
+      const div = harness.svg.querySelector('foreignObject div') as HTMLElement;
+      placeAt(harness.bar, 0, 0, 100, 40);
+      placeAt(div, 30, 10, 80, 16);
+
+      harness.service.initializeHighContrast();
+
+      expect(div.style.getPropertyValue('color')).toBe(DARK);
+      expect(div.style.getPropertyValue('text-shadow')).toContain('#ffffff');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(div.style.getPropertyValue('text-shadow')).toBe('');
+    });
+
     it('sees a translucent box as it shows over the dark backdrop', () => {
       // White at 0.3 over black is a dark grey, which light text reads on;
       // at 0.6 it is a light grey, which dark text reads on.
