@@ -86,6 +86,9 @@ const ARROW_WORDS: Record<string, string> = {
 /** The arrowheads that only end a line, saying nothing about it. */
 const PLAIN_ARROWS = new Set(['none', '', 'arrow_point', 'arrow_open', 'arrow_barb', 'arrow_circle', 'arrow_cross', 'normal', 'requirement_arrow', 'requirement_contains']);
 
+/** The heads drawn at the whole of a class relation, the end it runs from. */
+const DIAMONDS = new Set(['composition', 'aggregation']);
+
 /** A node of `getData()`. */
 interface DataNode {
   row: Row;
@@ -200,23 +203,6 @@ function readData(context: DiagramContext): {
 }
 
 /**
- * Points an edge the way its arrowhead does: a class edge drawn
- * `Animal <|-- Duck` has its head at `Animal`, so Duck is the one that
- * inherits and the edge runs from Duck to Animal.
- *
- * @param edge - The edge, as `getData()` stores it
- * @returns The edge, its ends in the direction the arrow points
- */
-function byArrowhead(edge: GraphEdge & { row: Row }): GraphEdge & { row: Row } {
-  const start = str(edge.row.arrowTypeStart) ?? 'none';
-  const end = str(edge.row.arrowTypeEnd) ?? 'none';
-  if (start !== 'none' && start !== '' && (end === 'none' || end === '')) {
-    return { ...edge, from: edge.to, to: edge.from };
-  }
-  return edge;
-}
-
-/**
  * The words for what an arrowhead says, when it says something.
  *
  * @param arrow - The arrowhead's name
@@ -228,6 +214,27 @@ function arrowWords(arrow: unknown): string | undefined {
     return undefined;
   }
   return ARROW_WORDS[name] ?? name.replace(/_/g, ' ');
+}
+
+/**
+ * The words for what a class relation's head says, read with the line it
+ * ends: a dashed inheritance is a realization, and an open arrow on a solid
+ * line an association rather than a dependency -- Mermaid names the head of
+ * `-->` and of `..>` alike.
+ *
+ * @param arrow - The arrowhead's name
+ * @param dashed - Whether the line is dashed
+ * @returns The words, or undefined for a plain head
+ */
+function relationWords(arrow: unknown, dashed: boolean): string | undefined {
+  const words = arrowWords(arrow);
+  if (words === ARROW_WORDS.extension && dashed) {
+    return 'realizes';
+  }
+  if (words === ARROW_WORDS.dependency && !dashed) {
+    return 'associated with';
+  }
+  return words;
 }
 
 /**
@@ -255,14 +262,59 @@ function plainGraph(context: DiagramContext, nodeLabel: string): DiagramConversi
 }
 
 /**
- * Flowcharts, swimlanes and agent flows: steps joined by labelled arrows,
- * nested in subgraphs, lanes or flows.
+ * Flowcharts and swimlanes: steps joined by labelled arrows, nested in
+ * subgraphs or lanes.
  *
  * @param context - The diagram
  * @returns The conversion
  */
 export function flowchart(context: DiagramContext): DiagramConversion {
   return plainGraph(context, 'Step');
+}
+
+/** Agent flow kinds whose name is not a word a reader knows. */
+const AGENT_FLOW_KINDS: Record<string, string> = {
+  refdoc: 'reference document',
+};
+
+/**
+ * Agent flows: an agent's steps inside its flows, each by the kind its author
+ * gave it -- task, tool, input, decision, action, reference document or
+ * connector -- rather than its shape. Mermaid draws each kind as a flowchart
+ * shape, a tool as a subroutine and an action as a hexagon, and those shapes'
+ * flowchart names, subprocess and preparation, are not what the author wrote.
+ * The kinds come from `getSemanticModel()`; without it, the shapes are read
+ * as a flowchart's.
+ *
+ * @param context - The diagram
+ * @returns The conversion
+ */
+export function agentflow(context: DiagramContext): DiagramConversion {
+  const { nodes, groups, edges } = readData(context);
+  const model = call(context.db, 'getSemanticModel') as Row | undefined;
+  const kinds = new Map<string, string>();
+  for (const vertex of rows(model?.vertices)) {
+    const id = str(vertex.id);
+    const kind = str(vertex.vertexKind);
+    if (id !== undefined && kind) {
+      kinds.set(id, kind);
+    }
+  }
+  for (const connector of rows(model?.connectors)) {
+    const id = str(connector.id);
+    if (id !== undefined) {
+      kinds.set(id, 'connector');
+    }
+  }
+  for (const node of nodes) {
+    const kind = kinds.get(node.id);
+    if (kind) {
+      const { Shape: _shape, ...rest } = node.attributes ?? {};
+      node.attributes = { Kind: AGENT_FLOW_KINDS[kind] ?? kind, ...rest };
+    }
+  }
+  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Step' });
+  return { layers: layer ? [layer] : [] };
 }
 
 /**
@@ -321,7 +373,18 @@ function memberText(member: Row): string {
 /**
  * Class diagrams: classes with their attributes and methods, joined by
  * relations named for what they are -- inheritance, composition,
- * aggregation -- with their cardinalities, nested in namespaces.
+ * aggregation, association -- with their cardinalities, nested in
+ * namespaces.
+ *
+ * Each head of a relation says which way it runs. An arrow or a lollipop
+ * marks the end it runs to: a class edge drawn `Animal <|-- Duck` has its
+ * head at `Animal`, so Duck is the one that inherits and the edge runs from
+ * Duck to Animal. A diamond marks the whole, the end it runs from:
+ * `Car *-- Wheel` and `Wheel --* Car` are both Car composed of Wheel. A
+ * relation whose heads run opposite ways runs both ways, each in the words
+ * of its own head, and one with no head runs as it was written. Each
+ * cardinality is read with its class, in the order the edge runs:
+ * `cardinality many Circle to 1 Shape`.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -349,7 +412,7 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
   }
   const relations = rows(call(context.db, 'getRelations'));
   const taken = new Set<Row>();
-  const labelled = edges.map((edge) => {
+  const labelled = edges.flatMap((edge) => {
     // Paired by their ends, the first not yet taken, since two classes can
     // be related twice.
     const relation = relations.find(one => !taken.has(one)
@@ -357,20 +420,37 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
     if (relation) {
       taken.add(relation);
     }
-    const cardinality = relation === undefined
-      ? undefined
-      : joinLabel(
-          str(relation.relationTitle1) !== 'none' ? plain(relation.relationTitle1) : undefined,
-          str(relation.relationTitle2) !== 'none' ? plain(relation.relationTitle2) : undefined,
-        );
-    const turned = byArrowhead(edge);
-    const kind = arrowWords(edge.row.arrowTypeStart) ?? arrowWords(edge.row.arrowTypeEnd);
+    // Each cardinality with the class it sits at: relationTitle1 at the
+    // start, relationTitle2 at the end.
+    const cardinalities = relation === undefined
+      ? []
+      : ([[relation.relationTitle1, edge.from], [relation.relationTitle2, edge.to]] as const).map(([title, id]) => {
+          const value = str(title) !== 'none' ? plain(title).trim() : '';
+          return value ? `${value} ${byId.get(id)?.label || id}` : undefined;
+        });
     const dashed = str(edge.row.pattern) === 'dashed' || str(edge.row.pattern) === 'dotted';
-    const words = kind === 'inherits from' && dashed ? 'realizes' : kind;
-    return {
-      ...turned,
-      label: joinLabel(edge.label, words, cardinality ? `cardinality ${cardinality}` : undefined),
+    const heads = [
+      { arrow: edge.row.arrowTypeStart, at: edge.from, other: edge.to },
+      { arrow: edge.row.arrowTypeEnd, at: edge.to, other: edge.from },
+    ].flatMap(({ arrow, at, other }) => {
+      const words = relationWords(arrow, dashed);
+      if (words === undefined) {
+        return [];
+      }
+      return [DIAMONDS.has(str(arrow) ?? '') ? { from: at, to: other, words } : { from: other, to: at, words }];
+    });
+    const label = (from: string, words?: string): string | undefined => {
+      const ends = (from === edge.from ? cardinalities : [...cardinalities].reverse()).filter(Boolean);
+      return joinLabel(edge.label, words, ends.length > 0 ? `cardinality ${ends.join(' to ')}` : undefined);
     };
+    if (heads.length === 0) {
+      return [{ ...edge, label: label(edge.from) }];
+    }
+    // Two heads that run the same way -- `Car *--> Wheel` -- are one edge.
+    const runs = heads.length === 2 && heads[0].from === heads[1].from
+      ? [{ ...heads[0], words: joinLabel(heads[0].words, heads[1].words) }]
+      : heads;
+    return runs.map(head => ({ ...edge, from: head.from, to: head.to, label: label(head.from, head.words) }));
   });
   const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: 'Class' });
   return { layers: layer ? [layer] : [] };
@@ -420,19 +500,30 @@ export function entityRelationship(context: DiagramContext): DiagramConversion {
  * verification method, elements with their type and document, joined by
  * relationships named for what they assert.
  *
+ * Each box is named by its kind, as Mermaid draws it: a requirement by its
+ * requirement type, `Functional Requirement`, and an element as `Element`.
+ * A diagram holding an element calls its boxes nodes rather than
+ * requirements.
+ *
  * @param context - The diagram
  * @returns The conversion
  */
 export function requirement(context: DiagramContext): DiagramConversion {
   const { nodes, groups, edges, raw } = readData(context);
+  const elements = new Set(rows(call(context.db, 'getElements')).map(row => str(row.name)));
+  let anyElement = false;
   for (const node of nodes) {
     const row = raw.get(node.id);
     if (row === undefined) {
       continue;
     }
+    const element = elements.has(node.id);
+    anyElement ||= element;
     node.label = plain(row.name) || node.label;
+    // A requirement's type is its kind; an element's is a type of its own.
     const fields: [string, unknown][] = [
-      ['Type', row.type],
+      ['Kind', element ? 'Element' : row.type],
+      ['Type', element ? row.type : undefined],
       ['ID', row.requirementId],
       ['Text', row.text],
       ['Risk', row.risk],
@@ -445,7 +536,7 @@ export function requirement(context: DiagramContext): DiagramConversion {
     };
   }
   const labelled = edges.map(edge => ({ ...edge, label: edge.label?.replace(/^<<(.*)>>$/, '$1') }));
-  const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: 'Requirement' });
+  const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: anyElement ? undefined : 'Requirement' });
   return { layers: layer ? [layer] : [] };
 }
 

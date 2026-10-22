@@ -141,8 +141,10 @@ export function block(context: DiagramContext): DiagramConversion {
 
 /**
  * Architecture diagrams: services and junctions inside groups, joined by
- * connections. A connection drawn with an arrow runs the way it points; one
- * without runs from the side it was written on.
+ * connections. A connection drawn with one arrow runs the way it points;
+ * one drawn as a plain line, or with an arrow at each end, joins its ends
+ * both ways, as a C4 two-way relationship does. Services, junctions and
+ * groups are all called elements, and each node's kind says which it is.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -169,17 +171,18 @@ export function architecture(context: DiagramContext): DiagramConversion {
     ...rows(call(context.db, 'getServices')).map(one => service(one, 'service')),
     ...rows(call(context.db, 'getJunctions')).map(one => service(one, 'junction')),
   ];
-  const edges: GraphEdge[] = rows(call(context.db, 'getEdges')).map((edge) => {
+  const edges: GraphEdge[] = rows(call(context.db, 'getEdges')).flatMap((edge) => {
     const lhs = str(edge.lhsId) ?? '';
     const rhs = str(edge.rhsId) ?? '';
-    const reversed = edge.lhsInto === true && edge.rhsInto !== true;
-    return {
-      from: reversed ? rhs : lhs,
-      to: reversed ? lhs : rhs,
-      label: plain(edge.title),
-    };
+    const label = plain(edge.title);
+    const intoLhs = edge.lhsInto === true;
+    if (intoLhs === (edge.rhsInto === true)) {
+      // No arrow, or one at each end: neither side leads to the other.
+      return [{ from: lhs, to: rhs, label }, { from: rhs, to: lhs, label }];
+    }
+    return [intoLhs ? { from: rhs, to: lhs, label } : { from: lhs, to: rhs, label }];
   });
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Service' }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element' }));
 }
 
 /** Mermaid's commit types, in its own numbering. */
@@ -262,6 +265,9 @@ const EVENT_MODEL_TYPES: Record<string, string> = {
  * Event modeling diagrams: time frames in their swimlanes -- UI, commands and
  * read models, events -- joined by the flow from one frame to the next.
  *
+ * A box is announced as the frame's entity, `Entity is CartUI`, and the
+ * frame it is in as `Frame is 01`.
+ *
  * @param context - The diagram
  * @returns The conversion
  */
@@ -290,5 +296,5 @@ export function eventModeling(context: DiagramContext): DiagramConversion {
     from: String((relation.sourceBox as Row | undefined)?.index ?? ''),
     to: String((relation.targetBox as Row | undefined)?.index ?? ''),
   }));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Frame' }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Entity' }));
 }

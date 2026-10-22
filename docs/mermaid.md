@@ -139,18 +139,18 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Flowchart [experimental] | `flowchart`, `graph` | a `directed_graph`: steps, subgraphs as scopes, each arrow by its label, a node's shape when it means something (decision, database) |
 | Sequence diagram [experimental] | `sequenceDiagram` | a `sequence`: messages in time, lifelines, fragments, notes and sequence numbers |
 | ZenUML sequence diagram [experimental] | `zenuml` (with the `@mermaid-js/mermaid-zenuml` plugin) | a `sequence`: sync, async, creation and reply messages, nested calls and their fragments |
-| Class diagram [experimental] | `classDiagram` | a `directed_graph`: classes with their attributes and methods; inheritance, composition and aggregation with cardinalities; namespaces as scopes |
+| Class diagram [experimental] | `classDiagram` | a `directed_graph`: classes with their attributes and methods; inheritance, realization, composition, aggregation, association and dependency with cardinalities; namespaces as scopes |
 | State diagram [experimental] | `stateDiagram-v2` | a `directed_graph`: states joined by their events, composite states and concurrent regions as scopes, start and end named |
 | Entity relationship diagram [experimental] | `erDiagram` | a `directed_graph`: entities with their attributes and keys, each relationship by its verb and both cardinalities |
-| Requirement diagram [experimental] | `requirementDiagram` | a `directed_graph`: requirements with id, text, risk and verification; elements; relationships by what they assert |
+| Requirement diagram [experimental] | `requirementDiagram` | a `directed_graph`: each box by its kind -- a requirement by its requirement type, with id, text, risk and verification, and an element as an element, with its type and document; relationships by what they assert |
 | Use case diagram [experimental] | `usecase-beta` | a `directed_graph`: actors and use cases inside their system boundaries |
 | C4 diagram [experimental] | `C4Context` and the other C4 levels | a `directed_graph`: people, systems and containers in their boundaries, relationships with their technology |
 | Block diagram [experimental] | `block` | a `directed_graph`: blocks inside composite blocks, block arrows by their direction |
-| Architecture diagram [experimental] | `architecture-beta` | a `directed_graph`: services and junctions in their groups |
+| Architecture diagram [experimental] | `architecture-beta` | a `directed_graph`: services and junctions in their groups, each announced as an element with its kind |
 | Git graph [experimental] | `gitGraph` | a `directed_graph`: commits on their branches, each fed by its parents, with tags and merge and cherry-pick commits named |
-| Event model [experimental] | `eventmodeling` | a `directed_graph`: time frames in their swimlanes, along the flow between them |
+| Event model [experimental] | `eventmodeling` | a `directed_graph`: each time frame's entity (UI, command, read model, event, processor) in its swimlane, with its frame, along the flow between them |
 | Swimlane diagram [experimental] | `swimlane-beta` | a `directed_graph`: steps lane by lane |
-| Agent flow [experimental] | `agentflow-beta` | a `directed_graph`: an agent's steps, tools and decisions inside its flows |
+| Agent flow [experimental] | `agentflow-beta` | a `directed_graph`: an agent's steps inside its flows, each by the kind its author gave it (task, tool, input, decision, action, reference document, connector) |
 | Mindmap [experimental] | `mindmap` | a `tree` from the central topic |
 | Kanban board [experimental] | `kanban` | a `tree` of columns and their cards, each card with its ticket, assignee and priority |
 | Tree view [experimental] | `treeView-beta` | a `tree` of folders and files |
@@ -180,8 +180,8 @@ ZenUML (`zenuml`) is drawn by a separate Mermaid plugin that keeps no diagram da
 
 ### What the adapter reads, not the drawing
 
-- **Arrows are read in the direction they point.** A class edge written `Animal <|-- Duck` is read as Duck inheriting from Animal, and an architecture connection drawn with an arrow runs the way the arrow points.
-- **An edge to a group is read as entering or leaving it.** `subgraph --> step` in a flowchart leaves from the subgraph's last steps; a transition into a composite state enters on its initial states.
+- **Arrows are read in the direction they point.** A class edge written `Animal <|-- Duck` is read as Duck inheriting from Animal, and an architecture connection drawn with an arrow runs the way the arrow points. An architecture connection drawn as a plain line, or with an arrow at each end, is read both ways, as a C4 two-way relationship is. A composition or aggregation runs from the whole, where its diamond is drawn: `Car *-- Wheel` and `Wheel --* Car` are both read as Car composed of Wheel. Each cardinality is read with its class, in the order the edge runs: `Shape "1" <|-- "many" Circle` is `cardinality many Circle to 1 Shape`. A class relation with a head at each end, `Teacher <--> Student`, is read both ways, each in the words of its own head. A solid `-->` is an association and a dashed `..>` a dependency, though Mermaid draws them with the same head.
+- **An edge to a group is read as entering or leaving it.** `subgraph --> step` in a flowchart leaves from the subgraph's last steps; a transition into a composite state enters on its initial states. A group that ends in a loop is left from the states or steps in the loop and those leading to it, never from its initial state, and one that starts in a loop is entered on them, never on its final state.
 - **Notes are folded into what they annotate.** A note attached to a class or state is announced with it as `Note`, rather than read as a step of its own.
 - **Sizes Mermaid made up are not announced.** A Venn diagram without sizes is laid out with sizes Mermaid chooses; those are the layout's, so such a diagram is read without sizes.
 - **An empty diagram is still a diagram.** A gantt with no tasks or a quadrant chart with no points becomes a figure with nothing in it, and a reader who reaches it is told it has nothing to describe yet rather than hearing nothing.

@@ -7,7 +7,7 @@ import { describe, expect, it } from '@jest/globals';
 import { convert, layersOf } from './helpers';
 
 /**
- * The other graphs (`diagrams/graphs.ts`): git graphs, C4 and architecture diagrams.
+ * The other graphs (`diagrams/graphs.ts`): git graphs, C4, architecture and event modeling diagrams.
  *
  * Stand-in databases shaped as Mermaid 12's; see `./helpers`.
  */
@@ -47,5 +47,59 @@ describe('the other graphs', () => {
       getEdges: () => [{ lhsId: 'db', rhsId: 'web', lhsInto: true, rhsInto: false }],
     }))[0].data as DirectedGraphPoint[];
     expect(data[0]).toMatchObject({ label: 'Database', path: ['API'], inputs: ['web'] });
+  });
+
+  it('reads an architecture connection with no arrow, or an arrow at each end, both ways', () => {
+    const data = layersOf(convert('architecture', {
+      getGroups: () => [],
+      getServices: () => ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id })),
+      getJunctions: () => [],
+      getEdges: () => [
+        { lhsId: 'a', rhsId: 'b', lhsInto: false, rhsInto: false },
+        { lhsId: 'c', rhsId: 'd', lhsInto: true, rhsInto: true, title: 'sync' },
+        { lhsId: 'e', rhsId: 'f', lhsInto: false, rhsInto: true },
+      ],
+    }))[0].data as DirectedGraphPoint[];
+
+    const [a, b, c, d, e, f] = data;
+
+    expect(a.inputs).toEqual(['b']);
+    expect(b.inputs).toEqual(['a']);
+    expect(c).toMatchObject({ inputs: ['d'], inputLabels: ['sync'] });
+    expect(d).toMatchObject({ inputs: ['c'], inputLabels: ['sync'] });
+    expect(e.inputs).toBeUndefined();
+    expect(f.inputs).toEqual(['e']);
+  });
+
+  it('names architecture items neutrally, so a group or a junction is not called a service', () => {
+    const layer = layersOf(convert('architecture', {
+      getGroups: () => [{ id: 'api', title: 'API' }],
+      getServices: () => [{ id: 'web', title: 'Web' }, { id: 'db', title: 'Database', in: 'api' }],
+      getJunctions: () => [{ id: 'hub', in: 'api' }],
+      getEdges: () => [{ lhsId: 'web', rhsId: 'hub', lhsInto: false, rhsInto: true }],
+    }))[0];
+
+    const hub = (layer.data as DirectedGraphPoint[])[2];
+
+    expect(layer.axes).toEqual({ x: { label: 'Element' } });
+    expect(hub).toMatchObject({ id: 'hub', label: 'junction hub', path: ['API'], attributes: { Kind: 'junction' } });
+  });
+
+  it('reads an event model\'s boxes as entities, each with its frame', () => {
+    const layer = layersOf(convert('eventmodeling', {
+      getState: () => ({
+        boxes: [
+          { index: 0, text: 'CartUI', frame: { name: '01', modelEntityType: 'ui', entityIdentifier: 'CartUI' }, swimlane: { label: 'UI/Automation' } },
+          { index: 1, text: 'AddItem', frame: { name: '02', modelEntityType: 'cmd', entityIdentifier: 'AddItem' }, swimlane: { label: 'Command/Read Model' } },
+        ],
+        relations: [{ sourceBox: { index: 0 }, targetBox: { index: 1 } }],
+      }),
+    }))[0];
+
+    const [cart, add] = layer.data as DirectedGraphPoint[];
+
+    expect(layer.axes).toEqual({ x: { label: 'Entity' } });
+    expect(cart).toMatchObject({ label: 'CartUI', path: ['UI/Automation'], attributes: { Frame: '01', Type: 'UI' } });
+    expect(add).toMatchObject({ inputs: ['0'], attributes: { Frame: '02', Type: 'command' } });
   });
 });

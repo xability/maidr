@@ -260,6 +260,23 @@ describe('the description', () => {
   test('tabulates every message in order', () => {
     const table = sequence().description.dataTable;
     expect(table.headers).toEqual(['Number', 'From', 'To', 'Kind', 'Message', 'Fragment']);
-    expect(table.rows[1]).toEqual([2, 'Server', 'Database', 'call', 'find user', 'loop retry']);
+    expect(table.rows[0]).toEqual([1, 'Browser', 'Server', 'call', 'POST /login', '']);
+    expect(table.rows[1]).toEqual(['', 'Server', 'Database', 'call', 'find user', 'loop retry']);
+  });
+
+  test('numbers only what the diagram numbers, a note never', () => {
+    const table = sequence().description.dataTable;
+
+    expect(table.rows.map(row => row[0])).toEqual([1, '', '', '', '', '']);
+  });
+
+  test('has no Number column when the diagram numbers nothing', () => {
+    const table = sequence({ ...LOGIN, messages: LOGIN.messages.map(message => ({ ...message, number: undefined })) })
+      .description
+      .dataTable;
+
+    expect(table.headers).toEqual(['From', 'To', 'Kind', 'Message', 'Fragment']);
+    expect(table.columnAxes).toHaveLength(5);
+    expect(table.rows[0][0]).toBe('Browser');
   });
 });

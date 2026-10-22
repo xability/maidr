@@ -8,7 +8,7 @@ import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
 /**
- * The diagrams Mermaid lays out as one graph (`diagrams/unified.ts`): flowcharts, class, entity-relationship and state diagrams.
+ * The diagrams Mermaid lays out as one graph (`diagrams/unified.ts`): flowcharts, agent flows, class, entity-relationship, state and requirement diagrams.
  *
  * Stand-in databases shaped as Mermaid 12's; see `./helpers`.
  */
@@ -61,6 +61,83 @@ describe('a flowchart', () => {
     const layer = layersOf(convert('flowchart-v2', db, drawn('f', markup.replace(/<g[^>]*C-9[^>]*><\/g>/, ''))))[0];
     expect(layer.selectors).toBeUndefined();
   });
+
+  it('leaves a subgraph that ends in a loop from the loop, not the step it starts on', () => {
+    const figure = convert('flowchart-v2', {
+      getData: () => ({
+        nodes: [
+          { id: 'sub', label: 'Retry', isGroup: true },
+          { id: 's', label: 'Send', parentId: 'sub' },
+          { id: 't', label: 'Wait', parentId: 'sub' },
+          { id: 'w', label: 'Check', parentId: 'sub' },
+          { id: 'done', label: 'Done' },
+        ],
+        edges: [
+          { start: 's', end: 't' },
+          { start: 't', end: 'w' },
+          { start: 'w', end: 't' },
+          { start: 'sub', end: 'done' },
+        ],
+      }),
+    });
+
+    const done = (layersOf(figure)[0].data as DirectedGraphPoint[])[3];
+
+    expect(done.inputs).toEqual(['t', 'w']);
+  });
+});
+
+describe('an agent flow', () => {
+  /** A flow holding a step of each kind, and a connector outside it. */
+  const data = {
+    nodes: [
+      { id: 'reviewer', label: 'Review Agent', isGroup: true },
+      { id: 'gh', label: 'GitHub', shape: 'roundedRect' },
+      { id: 'analyse', label: 'Analyse diff', shape: 'roundedRect', parentId: 'reviewer' },
+      { id: 'lint', label: 'run_linter', shape: 'subroutine', parentId: 'reviewer' },
+      { id: 'approve', label: 'Approve', shape: 'hexagon', parentId: 'reviewer' },
+      { id: 'spec', label: 'Style guide', shape: 'lin-doc', parentId: 'reviewer' },
+    ],
+    edges: [
+      { start: 'analyse', end: 'lint' },
+      { start: 'lint', end: 'approve' },
+    ],
+  };
+  const model = {
+    vertices: [
+      { id: 'analyse', shape: 'roundedRect', vertexKind: 'task' },
+      { id: 'lint', shape: 'subroutine', vertexKind: 'tool' },
+      { id: 'approve', shape: 'hexagon', vertexKind: 'action' },
+      { id: 'spec', shape: 'lin-doc', vertexKind: 'refdoc' },
+    ],
+    connectors: [{ id: 'gh', title: 'GitHub' }],
+  };
+
+  it('reads each step by the kind its author gave it, not the shape drawn for it', () => {
+    const figure = convert('agentflow', { getData: () => data, getSemanticModel: () => model });
+
+    const points = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(points.map(point => point.attributes)).toEqual([
+      { Kind: 'connector' },
+      { Kind: 'task' },
+      { Kind: 'tool' },
+      { Kind: 'action' },
+      { Kind: 'reference document' },
+    ]);
+  });
+
+  it('reads the shapes as a flowchart\'s when Mermaid gives no kinds', () => {
+    const points = layersOf(convert('agentflow', { getData: () => data }))[0].data as DirectedGraphPoint[];
+
+    expect(points[2].attributes).toEqual({ Shape: 'subprocess' });
+  });
+
+  it('leaves a swimlane\'s shapes as they are', () => {
+    const points = layersOf(convert('swimlane', { getData: () => data, getSemanticModel: () => model }))[0].data as DirectedGraphPoint[];
+
+    expect(points[2].attributes).toEqual({ Shape: 'subprocess' });
+  });
 });
 
 describe('a class diagram', () => {
@@ -90,8 +167,111 @@ describe('a class diagram', () => {
       Attributes: 'public int age',
       Methods: 'private mate(), static',
     });
-    expect(data[0]).toMatchObject({ inputs: ['Duck'], inputLabels: ['inherits from, cardinality 1..*'] });
+    expect(data[0]).toMatchObject({ inputs: ['Duck'], inputLabels: ['inherits from, cardinality 1..* Duck'] });
     expect(data[1].attributes).toEqual({ Note: 'can fly' });
+  });
+
+  it('runs a composition or aggregation from the whole its diamond marks, cardinalities in the order read', () => {
+    // `Car "1" *-- "4" Wheel : has`, `Duck "*" --o "1" Pond`, `Animal "1" <|-- "many" Duck` and `Car *--> Engine`.
+    const figure = convert('classDiagram', {
+      getData: () => ({
+        nodes: [{ id: 'Car' }, { id: 'Wheel' }, { id: 'Duck' }, { id: 'Pond' }, { id: 'Animal' }, { id: 'Engine' }],
+        edges: [
+          { start: 'Car', end: 'Wheel', label: 'has', arrowTypeStart: 'composition', arrowTypeEnd: 'none', pattern: 'solid' },
+          { start: 'Duck', end: 'Pond', arrowTypeStart: 'none', arrowTypeEnd: 'aggregation', pattern: 'solid' },
+          { start: 'Animal', end: 'Duck', arrowTypeStart: 'extension', arrowTypeEnd: 'none', pattern: 'solid' },
+          { start: 'Car', end: 'Engine', arrowTypeStart: 'composition', arrowTypeEnd: 'dependency', pattern: 'solid' },
+        ],
+      }),
+      getClasses: () => new Map(),
+      getRelations: () => [
+        { id1: 'Car', id2: 'Wheel', relationTitle1: '1', relationTitle2: '4' },
+        { id1: 'Duck', id2: 'Pond', relationTitle1: '*', relationTitle2: '1' },
+        { id1: 'Animal', id2: 'Duck', relationTitle1: '1', relationTitle2: 'many' },
+        { id1: 'Car', id2: 'Engine', relationTitle1: 'none', relationTitle2: 'none' },
+      ],
+    });
+
+    const [car, wheel, duck, pond, animal, engine] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(wheel).toMatchObject({ inputs: ['Car'], inputLabels: ['has, composed of, cardinality 1 Car to 4 Wheel'] });
+    expect(duck).toMatchObject({ inputs: ['Pond'], inputLabels: ['aggregates, cardinality 1 Pond to * Duck'] });
+    expect(car.inputs).toBeUndefined();
+    expect(pond.inputs).toBeUndefined();
+    expect(animal).toMatchObject({ inputs: ['Duck'], inputLabels: ['inherits from, cardinality many Duck to 1 Animal'] });
+    expect(engine).toMatchObject({ inputs: ['Car'], inputLabels: ['composed of, associated with'] });
+  });
+
+  it('names each cardinality with its class, however the relation was written', () => {
+    // `Shape "1" <|-- "many" Circle`, `Circle2 "many" --|> "1" Shape2` and `Box~T~ "0..1" <|-- Item`.
+    const figure = convert('classDiagram', {
+      getData: () => ({
+        nodes: [{ id: 'Shape' }, { id: 'Circle' }, { id: 'Circle2' }, { id: 'Shape2' }, { id: 'Box', label: 'Box' }, { id: 'Item' }],
+        edges: [
+          { start: 'Shape', end: 'Circle', arrowTypeStart: 'extension', arrowTypeEnd: 'none', pattern: 'solid' },
+          { start: 'Circle2', end: 'Shape2', arrowTypeStart: 'none', arrowTypeEnd: 'extension', pattern: 'solid' },
+          { start: 'Box', end: 'Item', arrowTypeStart: 'extension', arrowTypeEnd: 'none', pattern: 'solid' },
+        ],
+      }),
+      getClasses: () => new Map([['Box', { id: 'Box', type: 'T', members: [], methods: [] }]]),
+      getRelations: () => [
+        { id1: 'Shape', id2: 'Circle', relationTitle1: '1', relationTitle2: 'many' },
+        { id1: 'Circle2', id2: 'Shape2', relationTitle1: 'many', relationTitle2: '1' },
+        { id1: 'Box', id2: 'Item', relationTitle1: '0..1', relationTitle2: 'none' },
+      ],
+    });
+
+    const [shape, , , shape2, box] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(shape.inputLabels).toEqual(['inherits from, cardinality many Circle to 1 Shape']);
+    expect(shape2.inputLabels).toEqual(['inherits from, cardinality many Circle2 to 1 Shape2']);
+    expect(box.inputLabels).toEqual(['inherits from, cardinality 0..1 Box<T>']);
+  });
+
+  it('tells an association from a dependency by its line', () => {
+    const figure = convert('classDiagram', {
+      getData: () => ({
+        nodes: [{ id: 'Teacher' }, { id: 'Student' }, { id: 'Book' }],
+        edges: [
+          { start: 'Teacher', end: 'Student', label: 'teaches', arrowTypeStart: 'none', arrowTypeEnd: 'dependency', pattern: 'solid' },
+          { start: 'Student', end: 'Book', arrowTypeStart: 'none', arrowTypeEnd: 'dependency', pattern: 'dashed' },
+        ],
+      }),
+      getClasses: () => new Map(),
+      getRelations: () => [
+        { id1: 'Teacher', id2: 'Student', relationTitle1: 'none', relationTitle2: 'none' },
+        { id1: 'Student', id2: 'Book', relationTitle1: 'none', relationTitle2: 'none' },
+      ],
+    });
+
+    const [, student, book] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(student).toMatchObject({ inputs: ['Teacher'], inputLabels: ['teaches, associated with'] });
+    expect(book).toMatchObject({ inputs: ['Student'], inputLabels: ['depends on'] });
+  });
+
+  it('reads a relation with a head at each end both ways, each in its own head\'s words', () => {
+    const figure = convert('classDiagram', {
+      getData: () => ({
+        nodes: [{ id: 'A' }, { id: 'B' }, { id: 'C' }, { id: 'D' }],
+        edges: [
+          { start: 'A', end: 'B', label: 'talks', arrowTypeStart: 'dependency', arrowTypeEnd: 'dependency', pattern: 'solid' },
+          { start: 'C', end: 'D', arrowTypeStart: 'extension', arrowTypeEnd: 'dependency', pattern: 'dashed' },
+        ],
+      }),
+      getClasses: () => new Map(),
+      getRelations: () => [
+        { id1: 'A', id2: 'B', relationTitle1: 'none', relationTitle2: 'none' },
+        { id1: 'C', id2: 'D', relationTitle1: 'none', relationTitle2: 'none' },
+      ],
+    });
+
+    const [a, b, c, d] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(a).toMatchObject({ inputs: ['B'], inputLabels: ['talks, associated with'] });
+    expect(b).toMatchObject({ inputs: ['A'], inputLabels: ['talks, associated with'] });
+    expect(c).toMatchObject({ inputs: ['D'], inputLabels: ['realizes'] });
+    expect(d).toMatchObject({ inputs: ['C'], inputLabels: ['depends on'] });
   });
 });
 
@@ -133,5 +313,113 @@ describe('a state diagram', () => {
     expect(data.map(point => point.label ?? point.id)).toEqual(['start', 'start', 'On']);
     expect(data[1]).toMatchObject({ path: ['Active', 'region 1'], inputs: ['root_start'] });
     expect(data[2].inputs).toEqual(['inner_start']);
+  });
+
+  it('leaves a composite state that ends in a loop from its states, not its initial state', () => {
+    const figure = convert('stateDiagram', {
+      getData: () => ({
+        nodes: [
+          { id: 'root_start', shape: 'stateStart' },
+          { id: 'Idle', label: 'Idle' },
+          { id: 'Running', label: 'Running', isGroup: true },
+          { id: 'Running_start', shape: 'stateStart', parentId: 'Running' },
+          { id: 'Loading', label: 'Loading', parentId: 'Running' },
+          { id: 'Playing', label: 'Playing', parentId: 'Running' },
+          { id: 'Paused', label: 'Paused', parentId: 'Running' },
+          { id: 'root_end', shape: 'stateEnd' },
+        ],
+        edges: [
+          { start: 'root_start', end: 'Idle' },
+          { start: 'Idle', end: 'Running', label: 'start' },
+          { start: 'Running_start', end: 'Loading' },
+          { start: 'Loading', end: 'Playing', label: 'loaded' },
+          { start: 'Playing', end: 'Paused', label: 'pause' },
+          { start: 'Paused', end: 'Playing', label: 'resume' },
+          { start: 'Running', end: 'Idle', label: 'stop' },
+          { start: 'Running', end: 'root_end', label: 'quit' },
+        ],
+      }),
+    });
+
+    const data = layersOf(figure)[0].data as DirectedGraphPoint[];
+    const byId = new Map(data.map(point => [point.id, point]));
+
+    expect(byId.get('Idle')).toMatchObject({ inputs: ['root_start', 'Loading', 'Playing', 'Paused'], inputLabels: [null, 'stop', 'stop', 'stop'] });
+    expect(byId.get('root_end')?.inputs).toEqual(['Loading', 'Playing', 'Paused']);
+    expect(byId.get('Running_start')?.inputs).toEqual(['Idle']);
+    expect(data.filter(point => point.inputs?.includes('Running_start')).map(point => point.id)).toEqual(['Loading']);
+  });
+
+  it('enters a composite state that starts in a loop on its states, not its final state', () => {
+    const figure = convert('stateDiagram', {
+      getData: () => ({
+        nodes: [
+          { id: 'Idle', label: 'Idle' },
+          { id: 'Running', label: 'Running', isGroup: true },
+          { id: 'Playing', label: 'Playing', parentId: 'Running' },
+          { id: 'Paused', label: 'Paused', parentId: 'Running' },
+          { id: 'Running_end', shape: 'stateEnd', parentId: 'Running' },
+        ],
+        edges: [
+          { start: 'Idle', end: 'Running' },
+          { start: 'Playing', end: 'Paused' },
+          { start: 'Paused', end: 'Playing' },
+          { start: 'Paused', end: 'Running_end' },
+        ],
+      }),
+    });
+
+    const [, playing, paused, end] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(playing.inputs).toEqual(['Idle', 'Paused']);
+    expect(paused.inputs).toEqual(['Idle', 'Playing']);
+    expect(end.inputs).toEqual(['Paused']);
+  });
+});
+
+describe('a requirement diagram', () => {
+  /** Rows as Mermaid 12's requirementDb holds them. */
+  const checkout = { name: 'checkout_req', type: 'Requirement', requirementId: '1', text: 'Orders must be payable online.', risk: 'High', verifyMethod: 'Test' };
+  const payment = { name: 'payment_req', type: 'Functional Requirement', requirementId: '1.1', text: 'Card payments must be authorised.', risk: 'Medium', verifyMethod: 'Inspection' };
+  const service = { name: 'payment_service', type: 'service', docRef: 'docs/payments.md' };
+
+  /**
+   * A stand-in requirementDb.
+   *
+   * @param requirements - Its requirements
+   * @param elements - Its elements
+   * @returns The database
+   */
+  function requirementDb(requirements: object[], elements: object[]): object {
+    const boxes = [...requirements, ...elements].map(row => ({ ...row, id: (row as { name: string }).name, shape: 'requirementBox' }));
+    return {
+      getRequirements: () => new Map(requirements.map(row => [(row as { name: string }).name, row])),
+      getElements: () => new Map(elements.map(row => [(row as { name: string }).name, row])),
+      getData: () => ({
+        nodes: boxes,
+        edges: [
+          { start: 'checkout_req', end: 'payment_req', label: '&lt;&lt;contains&gt;&gt;' },
+          ...(elements.length > 0 ? [{ start: 'payment_service', end: 'payment_req', label: '&lt;&lt;satisfies&gt;&gt;' }] : []),
+        ],
+      }),
+    };
+  }
+
+  it('names each box for what it is, an element as an element', () => {
+    const layer = layersOf(convert('requirement', requirementDb([checkout, payment], [service])))[0];
+
+    const [checkoutReq, paymentReq, paymentService] = layer.data as DirectedGraphPoint[];
+
+    expect(layer.axes?.x?.label).toBeUndefined();
+    expect(checkoutReq.attributes).toMatchObject({ Kind: 'Requirement', ID: '1' });
+    expect(paymentReq).toMatchObject({ inputs: ['checkout_req', 'payment_service'], inputLabels: ['contains', 'satisfies'] });
+    expect(paymentReq.attributes).toEqual({ Kind: 'Functional Requirement', ID: '1.1', Text: 'Card payments must be authorised.', Risk: 'Medium', Verification: 'Inspection' });
+    expect(paymentService.attributes).toEqual({ Kind: 'Element', Type: 'service', Document: 'docs/payments.md' });
+  });
+
+  it('calls the boxes requirements when every box is one', () => {
+    const layer = layersOf(convert('requirement', requirementDb([checkout, payment], [])))[0];
+
+    expect(layer.axes?.x?.label).toBe('Requirement');
   });
 });

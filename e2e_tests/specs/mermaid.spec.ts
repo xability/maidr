@@ -307,6 +307,17 @@ test.describe('Mermaid adapter', () => {
     await expect(page.locator(HIGHLIGHT)).toHaveCSS('fill', HIGHLIGHT_STROKE);
   });
 
+  test('numbers only what a sequence diagram numbers, in its description', async ({ page }) => {
+    await openExample(page, 'sequence');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('d');
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('tr', { hasText: 'Log in' }).locator('th, td').first()).toHaveText('1');
+    // `autonumber` numbers the messages; the note it leaves unnumbered.
+    await expect(dialog.locator('tr', { hasText: 'Session stored' }).locator('th, td').first()).toHaveText('');
+  });
+
   test('goes into a Venn diagram\'s overlaps and back out', async ({ page }) => {
     await openExample(page, 'venn');
     const set = await press(page, 'ArrowRight');
@@ -320,14 +331,87 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowUp')).toContain('Region is Frontend');
   });
 
-  test('announces a class\'s members and what it inherits from', async ({ page }) => {
+  test('announces a class\'s members, what it inherits from and what aggregates it', async ({ page }) => {
     await openExample(page, 'class');
-    const duck = await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    // `Pond "1" o-- "*" Duck`: the diamond marks Pond, the whole, which the
+    // aggregation runs from.
+    const pond = await press(page, 'ArrowRight');
+    expect(pond).toContain('Class is Pond');
+    expect(pond).toContain('To is Duck (lives in, aggregates');
 
+    const duck = await press(page, 'ArrowRight');
     expect(duck).toContain('Class is Duck');
-    expect(duck).toContain('Animal (inherits from)');
+    expect(duck).toContain('From is Pond (lives in, aggregates, cardinality 1 Pond to * Duck)');
+    expect(duck).toContain('To is Animal (inherits from)');
     expect(duck).toContain('Methods is public swim(); public quack()');
     expect(duck).toContain('Note is can fly and swim');
+  });
+
+  test('names a requirement diagram\'s element as an element', async ({ page }) => {
+    await openExample(page, 'requirement');
+    const requirement = await press(page, 'ArrowRight');
+    expect(requirement).toContain('Node is checkout_req');
+    expect(requirement).toContain('Kind is Requirement');
+
+    const element = await press(page, 'ArrowRight');
+    expect(element).toContain('Node is payment_service');
+    expect(element).toContain('Kind is Element, Type is service');
+    expect(element).not.toContain('Requirement is');
+  });
+
+  test('announces an event model\'s entity and its frame under different names', async ({ page }) => {
+    await openExample(page, 'eventmodeling');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    const box = await press(page, 'ArrowDown');
+
+    expect(box).toContain('Entity is CartUI');
+    expect(box).toContain('Frame is 01');
+    expect(box).not.toContain('Frame is CartUI');
+  });
+
+  test('calls an architecture diagram\'s group an element, not a service', async ({ page }) => {
+    await openExample(page, 'architecture');
+    await press(page, 'ArrowRight');
+    const group = await press(page, 'ArrowRight');
+
+    expect(group).toContain('Element is API');
+    expect(group).toContain('Scope is 3 nodes inside');
+    expect(group).not.toContain('Service is');
+  });
+
+  test('reads an architecture connection drawn without an arrow both ways', async ({ page }) => {
+    await openExample(page, 'architecture');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowDown');
+    // `disk:T -- B:db` is a plain line: neither end leads to the other.
+    const database = await press(page, 'ArrowRight');
+    expect(database).toContain('Element is Database');
+    expect(database).toContain('To is Storage');
+
+    const storage = await press(page, 'ArrowRight');
+    expect(storage).toContain('Element is Storage');
+    expect(storage).toContain('From is Database');
+    expect(storage).not.toContain('graph input');
+  });
+
+  test('reads an agent flow by the kind of each step', async ({ page }) => {
+    await openExample(page, 'agentflow');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowDown');
+    await press(page, 'ArrowRight');
+    const tool = await press(page, 'ArrowRight');
+    expect(tool).toContain('Step is run_linter');
+    expect(tool).toContain('Kind is tool');
+    expect(tool).not.toContain('subprocess');
+
+    await press(page, 'ArrowRight');
+    const action = await press(page, 'ArrowRight');
+    expect(action).toContain('Step is Approve');
+    expect(action).toContain('Kind is action');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Approve');
   });
 
   test('reads a ZenUML diagram from its text, nested calls and replies included', async ({ page }) => {
@@ -340,6 +424,11 @@ test.describe('Mermaid adapter', () => {
     const reply = await press(page, 'ArrowRight');
     expect(reply).toContain('Route is Store to API');
     expect(reply).toContain('Kind is reply');
+
+    // ZenUML's own numbers are not read yet; the description invents none.
+    await page.keyboard.press('d');
+    await expect(page.getByRole('dialog').locator('th', { hasText: 'Message' })).toBeVisible();
+    await expect(page.getByRole('dialog').locator('th', { hasText: 'Number' })).toHaveCount(0);
   });
 
   test('reads a gantt chart\'s tasks as dates with their status', async ({ page }) => {

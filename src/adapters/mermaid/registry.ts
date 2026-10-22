@@ -18,7 +18,7 @@ export const DIAGRAM_CONVERTERS: Record<string, DiagramConverter> = {
   'flowchart-elk': unified.flowchart,
   'graph': unified.flowchart,
   'swimlane': unified.flowchart,
-  'agentflow': unified.flowchart,
+  'agentflow': unified.agentflow,
   'stateDiagram': unified.state,
   'state': unified.state,
   'classDiagram': unified.classDiagram,
