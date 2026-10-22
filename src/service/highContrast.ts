@@ -49,6 +49,10 @@ const HighContrastConstants = {
   // Paper is white, or a tint of it: Mermaid's #ececff, #ffffde. A pale
   // yellow as light, such as Mermaid's #ffff78 series and sections, is ink.
   PAPER_MAX_CHANNEL_SPREAD: 64,
+  // An outline this much darker than its fill, on the 0-1 luminance scale,
+  // shows as the edge of a box drawn in tints of the paper: Mermaid's #eeeebc
+  // round #ffffde is 0.07 darker.
+  PAPER_OUTLINE_MIN_STEP: 0.03,
   FAINT_INK_ALPHA: 0.5,
   MIN_COMPLEX_PATH_LENGTH: 120,
   MIN_COLOR_INTERPOLATION_COUNT: 2,
@@ -1610,6 +1614,8 @@ export class HighContrastService implements Disposable {
    * -- visible. A shape with no light paint left, though, vanishes into the
    * page. That shape gets its fill lifted to the light colour; when the fill
    * was the paper showing through (a hollow marker), its outline instead.
+   * A box drawn wholly in tints of the paper keeps an outline drawn darker
+   * than its fill, which is its edge rather than the page.
    * A tiled chart is exempt, since a dark cell reads against its neighbours.
    */
   private keepShapesVisible(
@@ -1648,8 +1654,7 @@ export class HighContrastService implements Disposable {
     };
 
     for (const [element, paints] of byElement) {
-      const ink = paints.filter(item => !this.isPaperPaint(item));
-      if (ink.length === 0 || paints.some(item => !isBackground(item) && isVisible(item))) {
+      if (paints.some(item => !isBackground(item) && isVisible(item))) {
         continue;
       }
       if (element.getAttribute('visibility') === 'hidden') {
@@ -1658,6 +1663,23 @@ export class HighContrastService implements Disposable {
 
       const fill = paints.find(item => item.attr === 'fill');
       const stroke = paints.find(item => item.attr === 'stroke');
+      if (paints.every(item => this.isPaperPaint(item))) {
+        // A page or a panel, unless it is a box drawn in tints of the paper:
+        // an outline drawn darker than its own fill is the box's edge, not
+        // the paper showing through -- Mermaid's railroad terminals, #ffffde
+        // outlined #eeeebc. It keeps its edge light, as a box outlined in ink
+        // does; a grey one is a frame, and stays faint as frames do.
+        if (fill !== undefined && stroke !== undefined && isVisible(stroke) && this.outlinesFill(stroke, fill)) {
+          const parts = this.splitAlpha(stroke.resolvedColor ?? '');
+          const alpha = parts?.alpha ?? 1;
+          const frame = parts !== null && !stroke.isInSelectors && this.isLightGrey(parts.hex);
+          stroke.color = this.applyAlpha(
+            this.highContrastLightColor,
+            frame ? alpha * HighContrastConstants.FAINT_INK_ALPHA : alpha,
+          );
+        }
+        continue;
+      }
       const lift = fill !== undefined && !this.isPaperPaint(fill)
         ? fill
         : stroke ?? fill;
@@ -1667,6 +1689,18 @@ export class HighContrastService implements Disposable {
       const alpha = this.splitAlpha(lift.resolvedColor ?? '')?.alpha ?? 1;
       lift.color = this.applyAlpha(this.highContrastLightColor, alpha);
     }
+  }
+
+  /**
+   * Whether an outline is drawn visibly darker than the fill it goes round,
+   * so that on the page it shows as the shape's edge.
+   */
+  private outlinesFill(stroke: ElementColorInfo, fill: ElementColorInfo): boolean {
+    const strokeParts = this.splitAlpha(stroke.resolvedColor ?? '');
+    const fillParts = this.splitAlpha(fill.resolvedColor ?? '');
+    return strokeParts !== null && fillParts !== null
+      && this.getRelativeLuminance(fillParts.hex) - this.getRelativeLuminance(strokeParts.hex)
+      >= HighContrastConstants.PAPER_OUTLINE_MIN_STEP;
   }
 
   /**

@@ -620,6 +620,45 @@ describe('highContrastService', () => {
     expect(harness.bar.getAttribute('stroke')).toBe('#000000');
   });
 
+  describe('a box drawn in tints of the page', () => {
+    // Mermaid fills a railroad diagram's terminals #ffffde and outlines them
+    // #eeeebc, both as light as paper. Both went to the background colour,
+    // and every terminal box vanished from the black backdrop.
+    function paintsOf(spec: MarkSpec): [string | null, string | null] {
+      rebuild([spec]);
+      harness.service.initializeHighContrast();
+      return [harness.bar.getAttribute('fill'), harness.bar.getAttribute('stroke')];
+    }
+
+    it('keeps an outline drawn darker than its fill, in the light colour, and its own paints after', () => {
+      expect(paintsOf({ fill: '#ffffde', stroke: '#eeeebc' })).toEqual(['#000000', '#ffffff']);
+
+      turnHighContrastOff(harness.settings);
+
+      expect([harness.bar.getAttribute('fill'), harness.bar.getAttribute('stroke')]).toEqual(['#ffffde', '#eeeebc']);
+    });
+
+    it('keeps a grey frame drawn on a white panel faint, as other frames are', () => {
+      expect(paintsOf({ fill: '#ffffff', stroke: '#eeeeee' })).toEqual(['#000000', 'rgba(255, 255, 255, 0.5)']);
+    });
+
+    it('leaves a panel outlined in its own colour, or lighter, or not at all, in the background colour', () => {
+      const panels = [
+        paintsOf({ fill: '#ffffde', stroke: '#ffffde' }),
+        paintsOf({ fill: '#eeeebc', stroke: '#ffffff' }),
+        paintsOf({ fill: '#ffffde', stroke: 'none' }),
+        paintsOf({ fill: '#ffffde', stroke: '#eeeebc', strokeWidth: '0' }),
+      ];
+
+      expect(panels).toEqual([
+        ['#000000', '#000000'],
+        ['#000000', '#000000'],
+        ['#000000', null],
+        ['#000000', '#000000'],
+      ]);
+    });
+  });
+
   it('draws text light, whatever colour it was', () => {
     // Mid-grey labels are common and used to be matched to the background.
     rebuild([{ fill: '#999999', stroke: '#ffffff', text: true }]);
