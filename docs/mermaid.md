@@ -262,7 +262,7 @@ evolve Kettle 0.62
 </pre>
 ```
 
-The first layer places each component by evolution and visibility, each named with its notes in parentheses ("Kettle (evolving to 0.62)", "Business (anchor)"); Page Up reaches the second, the value chain read along its dependencies, and Page Down returns to the first. Both layers draw the same components, so a switch either way keeps the reader on the component they were on.
+The first layer places each component by evolution and visibility, each named with its notes in parentheses ("Kettle (evolving to 0.62)", "Business (anchor)"); Page Up reaches the second, the value chain read along its dependencies, and Page Down returns to the first. Both layers draw the same components, so a switch either way keeps the reader on the component they were on. Two components at one evolution share a column of the map, which reads both and names neither: a switch from that column lands on the upper one in the value chain, and a switch back from either lands on its own visibility, a row that names it, unless a third component shares that too.
 
 ### Experimental chart types
 

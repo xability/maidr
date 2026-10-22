@@ -174,33 +174,61 @@ describe('a Wardley map\'s components and value chain', () => {
 
     expect(named(subplot.selectLayer(1))).toBe('Kettle');
   });
+});
 
-  test('two components at one evolution: the switch lands on their column', () => {
-    // The column holds both and names neither, so the map offers no name;
-    // from the chain the column is found by either one.
-    const shared: ScatterPoint[] = [
-      { x: 0.35, y: 0.43, label: 'Kettle' },
-      { x: 0.8, y: 0.52, label: 'Hot Water' },
-      { x: 0.8, y: 0.63, label: 'Tea' },
-    ];
+/**
+ * Two components at one evolution share the map's column, which reads them
+ * together and names neither. Each has a visibility of its own, so its row
+ * names it.
+ */
+describe('a Wardley map with two components at one evolution', () => {
+  const shared: ScatterPoint[] = [
+    { x: 0.35, y: 0.43, label: 'Kettle' },
+    { x: 0.8, y: 0.52, label: 'Hot Water' },
+    { x: 0.8, y: 0.63, label: 'Tea' },
+  ];
+
+  test('from their column, a switch lands on the upper one, where point navigation starts', () => {
     const subplot = figure(components(shared), graph(VALUE_CHAIN)).activeSubplot;
     const map = subplot.activeTrace;
-    map?.moveOnce('FORWARD');
-    map?.moveOnce('FORWARD');
+    map?.moveOnce('FORWARD'); // Kettle.
+    map?.moveOnce('FORWARD'); // The 0.8 column: Hot Water and Tea.
     expect(pointName(map)).toBeUndefined();
-    expect(named(subplot.switchLayer('UPWARD'))).toBe('Business');
-    subplot.activeTrace?.moveOnce('FORWARD'); // Cup of Tea, on no map point.
-    subplot.activeTrace?.moveOnce('FORWARD'); // Tea.
-    subplot.activeTrace?.moveOnce('FORWARD'); // Hot Water.
+
+    expect(named(subplot.switchLayer('UPWARD'))).toBe('Tea');
+  });
+
+  test('a switch back from either lands on it, named, on its row', () => {
+    const subplot = figure(components(shared), graph(VALUE_CHAIN)).activeSubplot;
     subplot.activeTrace?.moveOnce('FORWARD'); // Kettle.
-    expect(pointName(subplot.switchLayer('DOWNWARD'))).toBe('Kettle');
+    const chain = subplot.switchLayer('UPWARD');
+    chain?.moveOnce('BACKWARD'); // Hot Water.
+    expect(named(chain)).toBe('Hot Water');
+
+    expect(pointName(subplot.switchLayer('DOWNWARD'))).toBe('Hot Water');
+
+    const again = subplot.switchLayer('UPWARD');
+    expect(named(again)).toBe('Hot Water');
+    again?.moveOnce('BACKWARD'); // Tea.
+    expect(named(again)).toBe('Tea');
+
+    const back = subplot.switchLayer('DOWNWARD');
+    expect(pointName(back)).toBe('Tea');
+    expect(back?.getCurrentXValue()).toBe(0.8);
+  });
+
+  test('one that shares its visibility too is found on its column, which holds it', () => {
+    // Kettle at Tea's visibility: Tea's row holds Kettle too.
+    const crowded: ScatterPoint[] = [{ x: 0.35, y: 0.63, label: 'Kettle' }, ...shared.slice(1)];
+    const subplot = figure(components(crowded), graph(VALUE_CHAIN)).activeSubplot;
+    subplot.activeTrace?.moveOnce('FORWARD'); // Kettle.
     const chain = subplot.switchLayer('UPWARD');
     chain?.moveOnce('BACKWARD'); // Hot Water.
     chain?.moveOnce('BACKWARD'); // Tea.
-    expect(named(chain)).toBe('Tea');
 
     const back = subplot.switchLayer('DOWNWARD');
 
+    expect(pointName(back)).toBeUndefined();
     expect(back?.getCurrentXValue()).toBe(0.8);
   });
 });

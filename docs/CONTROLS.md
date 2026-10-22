@@ -57,7 +57,10 @@ message.
 it, or a violin plot's box and density curve — moves between its
 layers with Page Up and Page Down. A switch keeps your place where the other
 layer has it: the point at the same x or, where both layers name what they
-draw, the same thing by its name. Each switch says which layer of how many you
+draw, the same thing by its name. From a column of several named points, a
+switch takes the top one, where point navigation would start; onto a named
+point that shares its column, it lands on the point's row, which names it,
+where no other point shares that row. Each switch says which layer of how many you
 are on and the values of the point you landed on, with its name where the
 chart names its points, as a Wardley map's components are named. Past the first or
 last layer, or on a chart with only one, you hear the same edge signal as at the

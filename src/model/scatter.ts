@@ -2186,6 +2186,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * land on the same component where the evolution, a number, matched no
    * node and put the reader on the first.
    *
+   * A column or a row of several points names none of them, and is offered
+   * by the name of the one point navigation would start on, the first in
+   * reading order: two components at one evolution are both the reader's,
+   * and the layer entered draws each of them, where the evolution matched
+   * neither and put the reader on its first node.
+   *
    * @returns The point's name, or null
    */
   public getAlternateXValue(): XValue | null {
@@ -2193,7 +2199,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     if (this.xPoints.length === 0) {
       return null;
     }
-    return this.text.asides?.find(aside => aside.identifies === true)?.value ?? null;
+    const named = this.text.asides?.find(aside => aside.identifies === true)?.value;
+    if (named !== undefined || this.isInPointMode || this.isInGridMode || this.isInIntersectionMode) {
+      return named ?? null;
+    }
+    return this.flatPoints[this.computeEntryPointIndex()]?.label ?? null;
   }
 
   /**
@@ -2216,7 +2226,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * An exact x wins; a numeric x with no exact column falls back to the
    * nearest one, as the shared helper does for other traces, and a
    * categorical x is matched against the column labels, then against the
-   * names of the points.
+   * names of the points. A point found by its name in a column it shares is
+   * landed on by its row instead, where that names it (see
+   * {@link rowNaming}).
    *
    * @param xValue - The x to move to
    * @returns True when a column was found and the cursor moved
@@ -2226,8 +2238,42 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     if (index === -1) {
       return false;
     }
+    const row = this.rowNaming(xValue, index);
+    if (row !== -1) {
+      this.mode = NavMode.ROW;
+      return this.moveToIndex(row, 0);
+    }
     this.mode = NavMode.COL;
     return this.moveToIndex(0, index);
+  }
+
+  /**
+   * The row to land on for a point found by its name, where its column does
+   * not name it: the column holds other points too, which column navigation
+   * reads together and names none of, and the point has its row to itself,
+   * which names it. A Wardley map's Tea and Hot Water at one evolution are
+   * each found on their own visibility, where the column read both and named
+   * neither.
+   *
+   * @param xValue - The x a layer switch carries
+   * @param col - The column {@link xIndexNearest} found it in
+   * @returns The row index, or -1 where the column is the place to land: for
+   *   an x or a column's label, a point alone in its column, and a point
+   *   that shares its row too
+   */
+  private rowNaming(xValue: XValue, col: number): number {
+    const column = this.xPoints[col];
+    if (typeof xValue !== 'string' || column.label === xValue || column.names.length < 2) {
+      return -1;
+    }
+    for (const matches of NAME_MATCHES) {
+      const slot = column.names.findIndex(other => other !== undefined && matches(xValue, other));
+      if (slot !== -1) {
+        const row = this.yIndexOf(column.y[slot]);
+        return this.yPoints[row]?.x.length === 1 ? row : -1;
+      }
+    }
+    return -1;
   }
 
   /**
