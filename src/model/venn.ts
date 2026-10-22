@@ -1,5 +1,5 @@
 import type { MaidrLayer, VennPoint } from '@type/grammar';
-import type { Coordinate, Node } from '@type/movable';
+import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type {
   ChartObject,
   ChartObjectList,
@@ -81,8 +81,10 @@ interface Region {
  * **The regions are read by how many sets they join.** The first row is the
  * sets themselves; the second, every overlap of two; the third, of three, and
  * so on. Left and right walk one row; **down** goes deeper, onto the first
- * overlap the current region is part of, and **up** comes back out, onto the
- * first set the current overlap is made of. That is the question a Venn
+ * overlap the current region is part of, and **up** comes back out the way
+ * the reader came down -- onto the region they went down from, while the
+ * overlap they are on is made of it, and otherwise onto the first set it is
+ * made of. That is the question a Venn
  * diagram answers -- what A shares with B, and what all three share -- asked
  * one arrow at a time.
  *
@@ -107,6 +109,17 @@ export class VennTrace extends AbstractTrace {
   private readonly sized: boolean;
 
   protected readonly highlightValues: SVGElement[][] | null;
+
+  /**
+   * The regions the reader came down from, the most recent last, so up
+   * retraces the way down instead of taking the first set an overlap is made
+   * of. An overlap has a parent per set it joins, so no fixed link up can undo
+   * every way down: from Data into Pipelines, Backend and Data, up used to
+   * land on Backend. Each entry is checked against the region the cursor is
+   * on before it is used, so a move that does not clear it cannot send up
+   * somewhere the overlap is not made of.
+   */
+  private readonly descent: Coordinate[] = [];
 
   /**
    * Creates a new Venn trace.
@@ -222,7 +235,8 @@ export class VennTrace extends AbstractTrace {
   /**
    * Wires the regions into the graph the cursor walks: left and right along
    * a row, down into the first overlap holding every set of this region, up
-   * out to the first region whose sets this one contains.
+   * out to the first region whose sets this one contains. Up is the fallback:
+   * {@link moveOnce} first retraces the way the reader came down.
    *
    * @returns The navigation graph, addressed by row and position
    */
@@ -255,6 +269,92 @@ export class VennTrace extends AbstractTrace {
           bottom: null,
         };
       }));
+  }
+
+  /**
+   * Whether up from the cursor may land on a region: one in a shallower row
+   * whose sets the current region contains.
+   *
+   * @param at - The region
+   * @returns True when it is a way back out of the current region
+   */
+  private isWayOut(at: Coordinate): boolean {
+    const here = this.current;
+    const there = this.levels[at.row]?.[at.col];
+    return here !== null && there !== undefined && at.row < this.row
+      && there.sets.every(set => here.sets.includes(set));
+  }
+
+  /**
+   * Moves along the graph, remembering each step down so up can retrace it.
+   *
+   * Left and right keep the memory: from Desirable and Viable to Feasible and
+   * Viable, up still returns to Viable, which both are made of; a sideways
+   * step onto an overlap the remembered region is not part of falls back to
+   * the first set, once {@link isWayOut} rejects it.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    if (this.isInitialEntry) {
+      this.descent.length = 0;
+      return super.moveOnce(direction);
+    }
+    if (direction === 'UPWARD') {
+      const back = this.descent.pop();
+      if (back !== undefined && this.isWayOut(back)) {
+        this.movable.moveToIndex(back.row, back.col);
+        this.notifyStateUpdate();
+        return true;
+      }
+      this.descent.length = 0;
+      return super.moveOnce(direction);
+    }
+    const from = { row: this.row, col: this.col };
+    const moved = super.moveOnce(direction);
+    if (moved && direction === 'DOWNWARD') {
+      this.descent.push(from);
+    }
+    return moved;
+  }
+
+  /**
+   * Control + Up returns to the set the reader started down from, while the
+   * overlap they are on is made of it, and otherwise to the first set it is
+   * made of.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (direction === 'UPWARD' && !this.isInitialEntry) {
+      const first = this.descent[0];
+      this.descent.length = 0;
+      if (first !== undefined && first.row === 0 && this.isWayOut(first)) {
+        this.movable.moveToIndex(first.row, first.col);
+        this.notifyStateUpdate();
+        return true;
+      }
+    }
+    return super.moveToExtreme(direction);
+  }
+
+  /**
+   * A jump -- the object list, a pointer, Go To -- forgets the way down.
+   *
+   * @param row - The row to go to
+   * @param col - The region in it
+   * @returns Whether the cursor moved
+   */
+  public override moveToIndex(row: number, col: number): boolean {
+    this.descent.length = 0;
+    return super.moveToIndex(row, col);
+  }
+
+  public override resetToInitialEntry(): void {
+    this.descent.length = 0;
+    super.resetToInitialEntry();
   }
 
   /** The region the cursor is on, when it is on one. */

@@ -375,6 +375,19 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowUp')).toContain('Region is Frontend');
   });
 
+  test('comes back up out of a Venn overlap onto the set the reader went down from', async ({ page }) => {
+    await openExample(page, 'venn');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowRight')).toContain('Region is Data');
+
+    expect(await press(page, 'ArrowDown')).toContain('Region is Backend and Data');
+    expect(await press(page, 'ArrowUp')).toContain('Region is Data');
+    await press(page, 'ArrowDown');
+    expect(await press(page, 'ArrowDown')).toContain('Name is Unicorns');
+    expect(await press(page, 'ArrowUp')).toContain('Name is Pipelines');
+  });
+
   test('announces a class\'s members, what it inherits from and what aggregates it', async ({ page }) => {
     await openExample(page, 'class');
     await press(page, 'ArrowRight');
