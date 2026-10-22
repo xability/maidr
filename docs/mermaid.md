@@ -126,7 +126,7 @@ Every diagram type in Mermaid 12 is read, and ZenUML through its plugin. Several
 |---------|-----------------|-------------------|
 | Pie | `pie` | one `pie` slice per section; a slice Mermaid leaves undrawn (under 1%) is still read |
 | XY chart (bar and line) | `xychart` | one `bar` or `line` layer per plot; Page Up / Page Down switch between them |
-| User journey | `journey` | a `line` per section, a task's score with the mood it is drawn with and who takes part |
+| User journey | `journey` | one `line` of the tasks in the order Mermaid draws them, across the sections: a task's score with the mood it is drawn with, who takes part and its section |
 | Quadrant chart | `quadrantChart` | a `point` layer of the named points on two axes from 0 to 1, gridded by quadrant; the quadrants are named in the figure subtitle (<kbd>L</kbd>, then <kbd>S</kbd>) |
 | Wardley map | `wardley-beta` | a `point` layer of the components by evolution and visibility, gridded in quarters, and a `directed_graph` of the value chain |
 
@@ -231,7 +231,7 @@ journey
 </pre>
 ```
 
-Each task is announced with its score, the mood Mermaid draws it with, and who takes part: `Task is Do work (Me, Cat), Score is 1, unhappy`.
+Each task is announced with its score, the mood Mermaid draws it with, who takes part and its section: `Task is Do work (Me, Cat), Score is 1, unhappy, Section is Go to work`. The tasks are one line, so right arrow runs on from the last task of a section to the first of the next, and every score is sounded on the same scale.
 
 #### Quadrant chart
 

@@ -3,8 +3,10 @@
  */
 
 import type { GanttData, LinePoint, PiePoint, ScatterPoint, TreemapPoint } from '@type/grammar';
+import type { NonEmptyTraceState } from '@type/state';
 import { convertMermaidDiagram } from '@adapters/mermaid/converter';
 import { describe, expect, it } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
@@ -103,11 +105,48 @@ describe('the charts', () => {
     expect((layers[1].data as LinePoint[][])[0]).toEqual([{ x: 'jan', y: 5 }, { x: 'feb', y: 6 }]);
   });
 
-  it('reads a journey as scores per section, with who takes part', () => {
+  it('reads a journey as one line of scores across its sections, with who takes part', () => {
     const layer = layersOf(convert('journey', {
-      getTasks: () => [{ section: 'Go to work', task: 'Make tea', score: 5, people: ['Me'] }],
+      getTasks: () => [
+        { section: 'Go to work', task: 'Make tea', score: 5, people: ['Me'] },
+        { section: 'Go to work', task: 'Do work', score: 1, people: ['Me', 'Cat'] },
+        { section: 'Go home', task: 'Go downstairs', score: 5, people: ['Me'] },
+      ],
     }))[0];
-    expect((layer.data as LinePoint[][])[0][0]).toEqual({ x: 'Make tea (Me)', y: 5, z: 'Go to work', label: '5, happy' });
+    // One line, so a reader walks from one section into the next and every
+    // score is pitched on the same range.
+    expect(layer.data as LinePoint[][]).toEqual([[
+      { x: 'Make tea (Me)', y: 5, z: 'Go to work', label: '5, happy' },
+      { x: 'Do work (Me, Cat)', y: 1, z: 'Go to work', label: '1, unhappy' },
+      { x: 'Go downstairs (Me)', y: 5, z: 'Go home', label: '5, happy' },
+    ]]);
+    expect(layer.axes?.z).toEqual({ label: 'Section' });
+
+    // The last 5 sounds as high as the first and pans at the timeline's end;
+    // in a section of its own it was the bottom of a range of one.
+    const trace = TraceFactory.create(layer);
+    trace.moveToIndex(0, 2);
+    const { audio } = trace.state as NonEmptyTraceState;
+    expect(audio.freq).toMatchObject({ min: 1, max: 5, raw: 5 });
+    expect(audio.panning).toMatchObject({ x: 2, cols: 3 });
+    trace.dispose();
+  });
+
+  it('keeps a journey\'s tasks in the order Mermaid draws them, whatever their sections', () => {
+    const layer = layersOf(convert('journey', {
+      getTasks: () => [
+        { section: 'A', task: 'One', score: 3 },
+        { section: 'B', task: 'Two', score: 4 },
+        { section: 'A', task: 'Three', score: 2 },
+      ],
+    }))[0];
+    expect((layer.data as LinePoint[][])[0].map(point => [point.x, point.z])).toEqual([['One', 'A'], ['Two', 'B'], ['Three', 'A']]);
+  });
+
+  it('names no section for a journey that declares none', () => {
+    const layer = layersOf(convert('journey', { getTasks: () => [{ section: '', task: 'Make tea', score: 5 }] }))[0];
+    expect((layer.data as LinePoint[][])[0]).toEqual([{ x: 'Make tea', y: 5, label: '5, happy' }]);
+    expect(layer.axes?.z).toBeUndefined();
   });
 
   it('reads a treemap\'s sections and sized items', () => {

@@ -379,39 +379,40 @@ function mood(score: number): string {
 }
 
 /**
- * User journeys: the tasks of each section as a line of satisfaction scores,
- * each task naming who takes part and the mood the score is drawn with.
+ * User journeys: the tasks as one line of satisfaction scores, in the order
+ * Mermaid draws them across the journey, each task naming who takes part,
+ * the mood the score is drawn with and the section it is in.
+ *
+ * One line rather than one per section: Mermaid draws a journey as a single
+ * timeline, and sections that share no task would be lines a reader could
+ * not move between, each pitched on its own range of scores.
  *
  * @param context - The diagram
  * @returns The conversion
  */
 export function journey(context: DiagramContext): DiagramConversion {
   const tasks = rows(call(context.db, 'getTasks'));
-  const sections: string[] = [];
-  const lines: LinePoint[][] = [];
-  for (const task of tasks) {
-    const section = plain(task.section) || 'Tasks';
-    let at = sections.indexOf(section);
-    if (at < 0) {
-      sections.push(section);
-      lines.push([]);
-      at = sections.length - 1;
-    }
+  const line: LinePoint[] = tasks.map((task) => {
+    const section = plain(task.section);
     const people = Array.isArray(task.people) ? task.people.map(plain).filter(Boolean) : [];
     const score = num(task.score) ?? null;
     const name = plain(task.task);
-    lines[at].push({
+    return {
       x: people.length > 0 ? `${name} (${people.join(', ')})` : name,
       y: score,
-      z: section,
+      ...(section ? { z: section } : {}),
       ...(score === null ? {} : { label: `${score}, ${mood(score)}` }),
-    });
-  }
+    };
+  });
   const layer: MaidrLayer = {
     id: context.layerId('journey'),
     type: TraceType.LINE,
-    axes: { x: { label: 'Task' }, y: { label: 'Score', min: 1, max: 5 } },
-    data: lines,
+    axes: {
+      x: { label: 'Task' },
+      y: { label: 'Score', min: 1, max: 5 },
+      ...(line.some(point => point.z !== undefined) ? { z: { label: 'Section' } } : {}),
+    },
+    data: [line],
   };
-  return { layers: lines.length > 0 ? [layer] : [] };
+  return { layers: line.length > 0 ? [layer] : [] };
 }

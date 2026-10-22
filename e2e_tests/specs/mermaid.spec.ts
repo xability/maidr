@@ -521,6 +521,25 @@ test.describe('Mermaid adapter', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   });
 
+  test('walks a user journey from one section into the next', async ({ page }) => {
+    await openExample(page, 'journey');
+    for (let task = 0; task < 3; task++) {
+      await press(page, 'ArrowRight');
+    }
+    const next = await press(page, 'ArrowRight');
+    expect(next).toContain('Go downstairs (Me)');
+    expect(next).toContain('Section is Go home');
+    expect(await press(page, 'ArrowRight')).toContain('Sit down (Me)');
+
+    // One row of five cells, the 5s at either end as high as each other.
+    await page.keyboard.press('b');
+    const braille = page.locator(BRAILLE).first();
+    await expect.poll(async () => (await braille.inputValue()).trim()).toMatch(BRAILLE_CELLS);
+    const cells = [...(await braille.inputValue()).trim()];
+    expect(cells).toHaveLength(5);
+    expect(cells[4]).toBe(cells[0]);
+  });
+
   test('names a quadrant chart by its title, and its quadrants in the subtitle', async ({ page }) => {
     await openExample(page, 'quadrant');
     await press(page, 'ArrowRight');
