@@ -827,6 +827,63 @@ describe('highContrastService', () => {
       expect(line.getAttribute('stroke')).toBe('#ffffff');
     });
 
+    it('cases a line drawn beside bars in the background colour, and takes the casing away after', () => {
+      // Mermaid's XY chart draws its line over its bars, and both are light:
+      // every segment that crossed a bar was lost in it.
+      rebuild([
+        { fill: '#ececff', stroke: 'none' },
+        { fill: 'none', stroke: '#8493a6', complexPath: true, strokeWidth: '2' },
+      ]);
+      const [bar, line] = harness.marks;
+      // A flat line has a box of no height, which a filter sized by that box
+      // would leave undrawn.
+      (line as unknown as SVGGraphicsElement).getBBox = (): DOMRect => ({ x: 10, y: 50, width: 300, height: 0 }) as DOMRect;
+      serviceFor(createFigure([
+        { traceType: 'bar', elements: [bar] },
+        { traceType: 'line', elements: [], geometry: [line] },
+      ]));
+
+      harness.service.initializeHighContrast();
+
+      const id = line.getAttribute('filter')?.match(/^url\(#(.+)\)$/)?.[1] ?? '';
+      const casing = harness.svg.querySelector(`filter[id="${id}"]`);
+      expect(bar.getAttribute('fill')).toBe('#ffffff');
+      expect(line.getAttribute('stroke')).toBe('#ffffff');
+      expect(casing?.getAttribute('filterUnits')).toBe('userSpaceOnUse');
+      expect(Number(casing?.getAttribute('height'))).toBeGreaterThan(0);
+      expect(casing?.querySelector('feFlood')?.getAttribute('flood-color')).toBe('#000000');
+
+      turnHighContrastOff(harness.settings);
+
+      expect(line.hasAttribute('filter')).toBe(false);
+      expect(harness.svg.querySelector('filter')).toBeNull();
+    });
+
+    it('cases no line on a chart without bars, nor one the page filters itself', () => {
+      rebuild([
+        { fill: '#ececff', stroke: 'none' },
+        { fill: 'none', stroke: '#8493a6', complexPath: true },
+        { fill: 'none', stroke: '#1f77b4', complexPath: true },
+      ]);
+      const [bar, line, filtered] = harness.marks;
+      filtered.setAttribute('filter', 'url(#page-glow)');
+      for (const mark of [line, filtered]) {
+        (mark as unknown as SVGGraphicsElement).getBBox = (): DOMRect => ({ x: 0, y: 0, width: 300, height: 100 }) as DOMRect;
+      }
+      serviceFor(createFigure([{ traceType: 'line', elements: [], geometry: [line] }]));
+      harness.service.initializeHighContrast();
+      const alone = line.getAttribute('filter');
+      serviceFor(createFigure([
+        { traceType: 'bar', elements: [bar] },
+        { traceType: 'line', elements: [], geometry: [filtered] },
+      ]));
+
+      harness.service.initializeHighContrast();
+
+      expect(alone).toBeNull();
+      expect(filtered.getAttribute('filter')).toBe('url(#page-glow)');
+    });
+
     it('keeps a near-white bar a bar in each of several panels', () => {
       rebuild([{ fill: '#ececff', stroke: 'none' }, { fill: '#f4f4ff', stroke: 'none' }]);
       const panels = harness.marks.map(mark => ({

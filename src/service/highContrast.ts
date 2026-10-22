@@ -61,6 +61,9 @@ const HighContrastConstants = {
   // round #ffffde is 0.07 darker.
   PAPER_OUTLINE_MIN_STEP: 0.03,
   FAINT_INK_ALPHA: 0.5,
+  // How far a line's casing reaches past its stroke on each side, in the
+  // line's own units.
+  LINE_CASING_RADIUS: 2,
   MIN_COMPLEX_PATH_LENGTH: 120,
   MIN_COLOR_INTERPOLATION_COUNT: 2,
   LIGHTNESS_MIDPOINT: 0.5,
@@ -117,6 +120,9 @@ const TILED_TRACE_TYPES: ReadonlySet<string> = new Set([
  * bar, where any other near-white paint is the paper showing through.
  */
 const BAR_LIKE_TRACE_TYPES: ReadonlySet<string> = new Set(['bar', 'hist']);
+
+/** Trace types drawn as a line through their points. */
+const LINE_TRACE_TYPES: ReadonlySet<string> = new Set(['line', 'step']);
 
 /** Elements that draw text rather than a shape. */
 const TEXT_TAGS: ReadonlySet<string> = new Set(['text', 'tspan', 'textPath']);
@@ -474,6 +480,10 @@ export class HighContrastService implements Disposable {
 
   // Pattern service for high contrast mode patterns
   private patternService: PatternService | null = null;
+
+  // The lines cased in the background colour while high contrast is painted,
+  // each with the filter that draws its casing.
+  private lineCasings: { line: SVGElement; filter: SVGFilterElement }[] = [];
 
   // Track previous high contrast mode state to detect changes
   private previousHighContrastMode: boolean = false;
@@ -903,6 +913,8 @@ export class HighContrastService implements Disposable {
       }
     }
 
+    this.caseLinesOverBars();
+
     // Handle line chart exception. Step charts render as the same kind of
     // stroked polyline, so they need the same treatment.
     if ('type' in this.context.instructionContext) {
@@ -994,6 +1006,14 @@ export class HighContrastService implements Disposable {
 
     // The glow filter was added for the text; nothing refers to it any more.
     this.getPlotSvg()?.querySelector('#glow-shadow')?.remove();
+
+    for (const { line, filter } of this.lineCasings) {
+      if (line.getAttribute('filter') === `url(#${filter.id})`) {
+        line.removeAttribute('filter');
+      }
+      filter.remove();
+    }
+    this.lineCasings = [];
 
     // Clean up pattern service
     if (this.patternService) {
@@ -1865,6 +1885,77 @@ export class HighContrastService implements Disposable {
     }
 
     return false;
+  }
+
+  /**
+   * Cases each line of a chart that also draws bars in the background
+   * colour, so the line reads where it crosses a bar. A bar beside a line is
+   * kept light, as the line is (see getAllTraceElements), and a light line
+   * drawn over a light bar is lost in it -- Mermaid's XY chart draws its line
+   * over its bars. Over the backdrop the casing is lost instead, and the line
+   * shows as it did. A line the page filters itself keeps its own filter.
+   *
+   * Each casing is a filter sized to its line in the line's own units: one
+   * sized by the line's box draws nothing for a flat line, whose box has no
+   * height.
+   */
+  private caseLinesOverBars(): void {
+    const traces = this.figure.subplots.flat().flatMap(subplot => subplot.traces.flat());
+    const svg = this.getPlotSvg();
+    if (svg === null || !traces.some(trace => BAR_LIKE_TRACE_TYPES.has(String(trace.traceType)))) {
+      return;
+    }
+    const lines = traces
+      .filter(trace => LINE_TRACE_TYPES.has(String(trace.traceType)))
+      .flatMap((trace) => {
+        const shapes = trace.getGeometryElements?.() ?? [];
+        return shapes.length > 0 ? shapes : trace.getAllOriginalElements();
+      })
+      .filter(line => !line.hasAttribute('filter') && typeof (line as SVGGraphicsElement).getBBox === 'function');
+
+    const radius = HighContrastConstants.LINE_CASING_RADIUS;
+    const make = <K extends keyof SVGElementTagNameMap>(tag: K, attributes: Record<string, string | number>): SVGElementTagNameMap[K] => {
+      const element = document.createElementNS(SVG_NAMESPACE, tag);
+      for (const [name, value] of Object.entries(attributes)) {
+        element.setAttribute(name, String(value));
+      }
+      return element;
+    };
+    for (const line of lines) {
+      let box: DOMRect;
+      try {
+        box = (line as SVGGraphicsElement).getBBox();
+      } catch {
+        // Not rendered, so there is nothing to case.
+        continue;
+      }
+      const width = Number.parseFloat(window.getComputedStyle(line).strokeWidth);
+      const margin = (Number.isNaN(width) ? 1 : width) / 2 + radius + 1;
+      const filter = make('filter', {
+        id: `${this.context.id}-line-casing-${this.lineCasings.length}`,
+        filterUnits: 'userSpaceOnUse',
+        x: box.x - margin,
+        y: box.y - margin,
+        width: box.width + 2 * margin,
+        height: box.height + 2 * margin,
+      });
+      const merge = make('feMerge', {});
+      merge.append(make('feMergeNode', {}), make('feMergeNode', { in: 'SourceGraphic' }));
+      filter.append(
+        make('feMorphology', { in: 'SourceAlpha', operator: 'dilate', radius, result: 'casing' }),
+        make('feFlood', { 'flood-color': this.highContrastDarkColor }),
+        make('feComposite', { in2: 'casing', operator: 'in' }),
+        merge,
+      );
+      let defs = svg.querySelector('defs');
+      if (defs === null) {
+        defs = document.createElementNS(SVG_NAMESPACE, 'defs');
+        svg.insertBefore(defs, svg.firstChild);
+      }
+      defs.appendChild(filter);
+      line.setAttribute('filter', `url(#${filter.id})`);
+      this.lineCasings.push({ line, filter });
+    }
   }
 
   /**
