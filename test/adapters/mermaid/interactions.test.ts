@@ -3,7 +3,8 @@
  */
 
 import type { ScatterPoint, SequenceData, VennPoint } from '@type/grammar';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
@@ -129,5 +130,70 @@ describe('a Wardley map', () => {
       { x: 0.5, y: 0.95, label: 'User, anchor' },
       { x: 0.8, y: 0.6, label: 'Tea, evolving to 0.9' },
     ]);
+  });
+
+  /**
+   * A map's nodes as Mermaid 12 draws them, placed at 100 + 4 x evolution
+   * across and 400 - 4 x visibility down: an anchor as its label, 3px above
+   * its place, a component as a dot and a label.
+   */
+  const anchor = (x: number, y: number, label: string): string =>
+    `<g class="wardley-node wardley-node--anchor"><text class="wardley-node-label" x="${x}" y="${y - 3}">${label}</text></g>`;
+  const component = (x: number, y: number, label: string): string =>
+    `<g class="wardley-node wardley-node--component"><circle cx="${x}" cy="${y}" r="6"></circle>`
+    + `<text class="wardley-node-label" x="${x + 8}" y="${y - 8}">${label}</text></g>`;
+  const node = (id: string, x: number, y: number, className?: string): object =>
+    ({ id, label: id, x, y, ...(className ? { className } : {}) });
+  const map = (nodes: object[], markup: string): ReturnType<typeof layersOf> => layersOf(convert('wardley', {
+    getWardleyData: () => ({ nodes, links: [{ source: 'User', target: 'Tea' }], trends: [] }),
+  }, drawn('w', `<g class="wardley-nodes">${markup}</g>`)));
+
+  it('outlines each component by the shape drawn at its place, and its value chain by the whole node', () => {
+    const layers = map([node('User', 50, 95, 'anchor'), node('Tea', 80, 60)], anchor(300, 20, 'User') + component(420, 160, 'Tea'));
+    const selectors = layers[0].selectors;
+    expect(typeof selectors).toBe('string');
+    expect([...document.querySelectorAll(selectors as string)].map(mark => mark.tagName)).toEqual(['text', 'circle']);
+
+    // Built as MAIDR builds them, the map first: the copies it hides beside
+    // its marks leave the value chain one node each.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const points = TraceFactory.create(layers[0]);
+    const graph = TraceFactory.create(layers[1]);
+    expect(points.getAllHighlightElements().length).toBeGreaterThan(0);
+    expect(graph.getAllHighlightElements()).toHaveLength(2);
+    expect(warn.mock.calls.flat().join(' ')).not.toContain('resolved to no element');
+    graph.dispose();
+    points.dispose();
+    warn.mockRestore();
+  });
+
+  it('outlines a market by the ring Mermaid draws round its dots', () => {
+    const market = '<g class="wardley-node wardley-node--component">'
+      + '<circle class="wardley-market-overlay" cx="180" cy="200" r="12"></circle>'
+      + '<circle class="wardley-market-dot" cx="180" cy="193" r="4"></circle>'
+      + '<text class="wardley-node-label" x="198" y="182">Shop</text></g>';
+    const layers = map([node('Shop', 20, 50), node('Tea', 80, 60)], market + component(420, 160, 'Tea'));
+    expect(document.querySelector(layers[0].selectors as string)?.getAttribute('class')).toBe('wardley-market-overlay');
+  });
+
+  it('leaves the map unoutlined where a mark is not drawn where its node is', () => {
+    // An anchor sharing its visibility with a component: its label is drawn
+    // above the dot, so the row of the two would light the dot alone.
+    const shared = map(
+      [node('User', 50, 95, 'anchor'), node('Rival', 70, 95), node('Tea', 80, 60)],
+      anchor(300, 20, 'User') + component(380, 20, 'Rival') + component(420, 160, 'Tea'),
+    );
+    expect(shared[0].selectors).toBeUndefined();
+    expect(matched(shared[1])).toBe(3);
+
+    // A pipeline's square, read at its corner, beside a component of the
+    // pipeline at the same visibility.
+    const square = '<g class="wardley-node"><rect x="255.2" y="275.2" width="9.6" height="9.6"></rect>'
+      + '<text class="wardley-node-label" x="268" y="272">Kettle</text></g>';
+    const pipeline = map(
+      [node('Kettle', 40, 30), node('Electric', 60, 30), node('Tea', 80, 60)],
+      square + component(340, 280, 'Electric') + component(420, 160, 'Tea'),
+    );
+    expect(pipeline[0].selectors).toBeUndefined();
   });
 });

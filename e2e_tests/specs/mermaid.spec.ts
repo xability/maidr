@@ -666,6 +666,27 @@ test.describe('Mermaid adapter', () => {
     expect(unresolved).toEqual([]);
   });
 
+  test('outlines a Wardley map\'s component in both its layers', async ({ page }) => {
+    const unresolved: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('resolved to no element')) {
+        unresolved.push(message.text());
+      }
+    });
+    await openExample(page, 'wardley');
+    // Columns run by evolution, so the first is Kettle's, drawn as a dot.
+    expect(await press(page, 'ArrowRight')).toContain('Name is Kettle');
+    const dot = page.locator(`circle${HIGHLIGHT}`);
+    await expect(dot).toHaveCount(1);
+    const kettle = page.locator('svg[maidr] g.wardley-node:not([data-maidr-owned])', { hasText: 'Kettle' }).locator('circle').first();
+    expect(await dot.getAttribute('cx')).toBe(await kettle.getAttribute('cx'));
+
+    expect(await press(page, 'PageUp')).toContain('Value chain');
+    expect(await press(page, 'ArrowRight')).toContain('Component is Business');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Business');
+    expect(unresolved).toEqual([]);
+  });
+
   test('names a timeline by the title it declares', async ({ page }) => {
     await openExample(page, 'timeline');
 

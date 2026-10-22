@@ -305,12 +305,60 @@ export function venn(context: DiagramContext): DiagramConversion {
 }
 
 /**
+ * The one shape Mermaid draws at a Wardley node's position: a component's
+ * dot, the ring round a market or a sourced pipeline, a pipeline's square, or
+ * an anchor's label, which is all an anchor draws.
+ *
+ * @param group - The group Mermaid drew for the node
+ * @returns The shape, or null when it drew none of them
+ */
+function wardleyMark(group: Element): Element | null {
+  const children = Array.from(group.children);
+  const circle = (overlay: boolean): Element | undefined => children.find(child => child.localName === 'circle'
+    && (overlay ? (child.getAttribute('class') ?? '').endsWith('-overlay') : !child.hasAttribute('class')));
+  return circle(false)
+    ?? circle(true)
+    ?? children.find(child => child.localName === 'rect')
+    ?? children.find(child => child.localName === 'text' && child.classList.contains('wardley-node-label'))
+    ?? null;
+}
+
+/**
+ * Whether marks stand where their points do, relative to one another.
+ *
+ * A point layer outlines a column of points by the marks drawn at one x, and
+ * a row by those at one y, so marks at one evolution must share their x, and
+ * a later evolution be drawn further right; visibility likewise, upwards. A
+ * pipeline's square is read at its corner and an anchor's label just above
+ * its place, so where either shares a value with another node, its marks
+ * would light the wrong row or column.
+ *
+ * @param points - The points, in the marks' order
+ * @param marks - One mark per point
+ * @returns Whether every pair of marks is ordered as its points are, which no
+ *   missing mark is
+ */
+function drawnInOrder(points: ScatterPoint[], marks: (Element | null)[]): boolean {
+  // Where the point layer reads a mark: `x` and `y`, or else a circle's centre.
+  const placed = marks.map((mark) => {
+    const read = (name: string): number => Number.parseFloat(mark?.getAttribute(name) ?? '');
+    const [x, y] = [read('x'), read('y')];
+    return Number.isNaN(x) || Number.isNaN(y) ? { x: read('cx'), y: read('cy') } : { x, y };
+  });
+  return points.every((point, i) => points.every((other, j) =>
+    Math.sign(point.x - other.x) === Math.sign(placed[i].x - placed[j].x)
+    // Down the page is less visible.
+    && Math.sign(point.y - other.y) === Math.sign(placed[j].y - placed[i].y)));
+}
+
+/**
  * Wardley maps: each component placed by its evolution and its visibility to
  * the user, and what it depends on.
  *
  * The first layer is the map itself, a labelled point per component on two
- * axes running from 0 to 1; the second is the value chain, read along its
- * dependencies.
+ * axes running from 0 to 1, outlined by the shape drawn at each; the second
+ * is the value chain, read along its dependencies and outlined by each node's
+ * whole drawing.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -319,8 +367,8 @@ export function wardley(context: DiagramContext): DiagramConversion {
   const map = call(context.db, 'getWardleyData') as Row | undefined;
   const nodes = rows(map?.nodes);
   const trends = new Map(rows(map?.trends).map(trend => [str(trend.nodeId) ?? '', num(trend.targetX)]));
-  const marks = all(context.svg, 'g.wardley-node');
-  const elements = marks.length === nodes.length ? marks : [];
+  const groups = all(context.svg, 'g.wardley-node');
+  const elements = groups.length === nodes.length ? groups : [];
 
   const points: ScatterPoint[] = nodes.map((node) => {
     const evolution = (num(node.x) ?? 0) / 100;
@@ -335,6 +383,8 @@ export function wardley(context: DiagramContext): DiagramConversion {
     ].filter(Boolean).join(', ');
     return { x: evolution, y: visibility, label };
   });
+  const marks = elements.map(wardleyMark);
+  const refs = selectorsFor(marks);
   const layers: MaidrLayer[] = [];
   if (points.length > 0) {
     // A step of a quarter cuts evolution into Mermaid's four default stages,
@@ -348,7 +398,9 @@ export function wardley(context: DiagramContext): DiagramConversion {
         x: { label: 'Evolution', min: 0, max: 1, tickStep: 0.25 },
         y: { label: 'Visibility', min: 0, max: 1, tickStep: 0.25 },
       },
-      ...(elements.length > 0 ? { selectors: `#${cssEscape(context.svg.id)} g.wardley-node` } : {}),
+      // One string, as a point layer reads: in document order, which is the
+      // nodes' order, since Mermaid draws a group per node in turn.
+      ...(refs && drawnInOrder(points, marks) ? { selectors: refs.join(', ') } : {}),
       data: points,
     });
   }
