@@ -209,6 +209,20 @@ test.describe('Graphviz adapter, undirected graph', () => {
     await expect.poll(() => outlinedLinks(page)).toEqual(['ana--ben', 'ben--chloe']);
     await expect(page.locator(`${LINK} path`).first()).toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
+
+  test('should return to the person left when coming back to a group', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ana');
+
+    await plot.moveToDataPointAbove();
+    expect(normalizeText(await plot.getInstructionText())).toContain('Person is Eli');
+    await plot.moveToDataPointBelow();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ana');
+  });
 });
 
 test.describe('Graphviz adapter, clusters', () => {

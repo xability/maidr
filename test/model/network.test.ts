@@ -173,6 +173,29 @@ describe('the arrows reach every node, which following links cannot', () => {
 
     expect(walk(trace, 'UPWARD', 'UPWARD')).toEqual(['Tim', 'Ida']);
   });
+
+  test('going back to a group returns to the node the reader left', () => {
+    // It used to land on the hub again: Grace, Up to Tim, Down to Ada.
+    const trace = network();
+    walk(trace, 'FORWARD');
+
+    expect(walk(trace, 'UPWARD', 'DOWNWARD')).toEqual(['Tim', 'Grace']);
+  });
+
+  test('each group keeps its own place', () => {
+    const trace = network();
+    walk(trace, 'FORWARD', 'FORWARD');
+
+    expect(walk(trace, 'UPWARD', 'FORWARD', 'DOWNWARD', 'UPWARD')).toEqual(['Tim', 'Vint', 'Alan', 'Vint']);
+  });
+
+  test('a jump out of a group is remembered too', () => {
+    const trace = network();
+    walk(trace, 'FORWARD');
+    trace.moveToIndex(1, 1);
+
+    expect(walk(trace, 'DOWNWARD')).toEqual(['Grace']);
+  });
 });
 
 describe('degree is the announcement, and position is never mentioned', () => {
