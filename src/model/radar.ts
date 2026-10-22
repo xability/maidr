@@ -1,4 +1,5 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
 import type { AudioState, DescriptionState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import { TraceType } from '@type/grammar';
@@ -49,8 +50,10 @@ function variantOf(type: TraceType): RadarVariant {
  * arranged around a circle rather than along an axis.
  *
  * The data is a multi-line layer's: each spoke is a column and each series a
- * row, and navigation, braille and pitch all transfer unchanged. What a circle
- * adds is **where a spoke sits**, and that is carried in the panning.
+ * row, and braille and pitch transfer unchanged. Navigation does too, except
+ * that Up and Down step through the series in the order they are declared
+ * ({@link findVerticalTarget}). What a circle adds is **where a spoke sits**,
+ * and that is carried in the panning.
  *
  * Panning by column index is what a line does — hard left to hard right, a
  * straight sweep — and it makes a radar sound like a row of bars, which is the
@@ -110,6 +113,71 @@ export class RadarTrace extends LineTrace {
     }
 
     return Array.from({ length: spokes }, (_, index) => (index * 2 * Math.PI) / spokes);
+  }
+
+  /**
+   * The next series up or down at the cursor's spoke, in declared order.
+   *
+   * A line chart moves to the series with the next higher or lower value,
+   * because there the higher line is drawn higher. On a radar a larger value
+   * is further out along a spoke, not higher on the screen -- at 6 o'clock it
+   * is lower -- and the series cross from spoke to spoke, so value order made
+   * Up and Down swap meaning between spokes and answered "No more data to
+   * display" with the other series one press away the other way. Series
+   * order is the order the braille rows, the legend and "Series k of n" use,
+   * Up being the next series as it is on every grid. The percentile band
+   * steps by row for the same reason.
+   *
+   * A series with no point at this spoke is passed over; a gap at it is
+   * landed on and announced as missing, as Left and Right land on gaps.
+   *
+   * @param direction - UPWARD for the next series, DOWNWARD for the one before
+   * @returns The row and column to move to, or null past the last series
+   */
+  protected override findVerticalTarget(
+    direction: 'UPWARD' | 'DOWNWARD',
+  ): { row: number; col: number } | null {
+    const current = this.points[this.row]?.[this.col];
+    if (current === undefined) {
+      return null;
+    }
+    const step = direction === 'UPWARD' ? 1 : -1;
+    for (let row = this.row + step; row >= 0 && row < this.points.length; row += step) {
+      const col = this.findColumnByXValue(row, current.x);
+      if (col !== -1) {
+        return { row, col };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Control + Up and Down go to the last and first series at this spoke.
+   *
+   * The line chart's extremes are the highest and lowest valued series, which
+   * on a radar would contradict Up and Down: from the "top" one, Up could
+   * still move. Left and right are the line chart's.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
+      return super.moveToExtreme(direction);
+    }
+    if (this.isInitialEntry) {
+      this.enterTrace();
+    }
+    if (this.points[this.row]?.[this.col] === undefined) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    for (let target = this.findVerticalTarget(direction); target !== null; target = this.findVerticalTarget(direction)) {
+      this.row = target.row;
+      this.col = target.col;
+    }
+    this.notifyStateUpdate();
+    return true;
   }
 
   protected override panningFor(row: number, col: number): AudioState['panning'] {

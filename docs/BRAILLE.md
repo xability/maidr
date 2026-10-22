@@ -492,7 +492,10 @@ compared with one sweep rather than by toggling between rows.
 ### Radar and polar area [experimental]
 
 A radar's braille is the multi-line encoding unchanged: **one row per series**,
-one cell per spoke, each row scaled against its own range.
+one cell per spoke, each row scaled against its own range. Up and Down move
+between those rows in the order the series are declared, Up to the next, as on
+a multi-line display; a line chart moves to the next higher or lower value
+instead, but a radar's values do not rise up the screen.
 
 What braille cannot carry here is the circle. A display is a line of cells and
 a spoke's angle has nowhere to go in it, so the row reads as the sequence of

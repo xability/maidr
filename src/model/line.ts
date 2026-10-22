@@ -1127,12 +1127,14 @@ export class LineTrace extends AbstractTrace {
 
   /**
    * Finds the column index for a given X value in a specific line
-   * Uses strict equality (===) for X value matching
+   * Uses strict equality (===) for X value matching. Protected so a subclass
+   * that chooses the series differently (a radar, by series order) still finds
+   * that series' column the same way.
    * @param row The line index
    * @param xValue The X value to find
    * @returns The column index, or -1 if not found
    */
-  private findColumnByXValue(row: number, xValue: number | string): number {
+  protected findColumnByXValue(row: number, xValue: number | string): number {
     return this.xIndex[row]?.firstColumn.get(xValue) ?? -1;
   }
 

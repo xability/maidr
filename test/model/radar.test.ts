@@ -133,7 +133,7 @@ describe('radar registration', () => {
 describe('navigation is the multi-line model', () => {
   test('walks spokes across and series up', () => {
     // Series zero is the bottom row, as it is for any multi-line layer, so
-    // UPWARD reaches the next series -- inherited rather than redefined.
+    // UPWARD reaches the next series -- in series order, not by value.
     const trace = radar();
 
     expect(trace.moveOnce('FORWARD')).toBe(true);
@@ -141,6 +141,68 @@ describe('navigation is the multi-line model', () => {
     expect(trace.moveOnce('UPWARD')).toBe(true);
     expect(nonEmptyState(trace).text.main.value).toBe('range');
     expect(nonEmptyState(trace).text.cross?.value).toBe(7);
+  });
+
+  test('up and down follow series order, not value', () => {
+    // Alice is the higher at Math and the lower at History. By value, Up
+    // reached Bob at History and Down did at Math, and the other way said "No
+    // more data to display" with Bob one press away.
+    const grades: LinePoint[][] = [
+      ['Math', 'Science', 'English', 'History'].map((x, index) => (
+        { x, y: [85, 90, 80, 70][index], z: 'Alice' })),
+      ['Math', 'Science', 'English', 'History'].map((x, index) => (
+        { x, y: [70, 75, 85, 80][index], z: 'Bob' })),
+    ];
+    const trace = radar(0, 0, TraceType.RADAR, grades);
+
+    expect(trace.moveOnce('DOWNWARD')).toBe(false);
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(trace.row).toBe(1);
+    expect(nonEmptyState(trace).text.cross?.value).toBe(70);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+    expect(trace.isMovable('UPWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(trace.row).toBe(0);
+    expect(nonEmptyState(trace).text.cross?.value).toBe(70);
+    expect(nonEmptyState(trace).braille).toMatchObject({ row: 0 });
+  });
+
+  test('a series without the spoke is passed over, and a gap at it is landed on', () => {
+    const series = (name: string, values: (number | null)[]): LinePoint[] =>
+      ['Math', 'Science'].map((x, index) => ({ x, y: values[index] as number, z: name }));
+    const trace = radar(0, 0, TraceType.RADAR, [
+      series('A', [5, 6]),
+      [{ x: 'Science', y: 4, z: 'B' }],
+      series('C', [null, 7]),
+      series('D', [3, 2]),
+    ]);
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(trace.row).toBe(2);
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(trace.row).toBe(3);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(trace.row).toBe(2);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(trace.row).toBe(0);
+  });
+
+  test('control and up and down reach the last and first series', () => {
+    // At speed, model A (8) is above model B (5): the line chart's extreme
+    // went to A, from which Up could still move.
+    const trace = radar(0, 0);
+
+    expect(trace.moveToExtreme('UPWARD')).toBe(true);
+    expect(trace.row).toBe(1);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+    expect(trace.moveToExtreme('DOWNWARD')).toBe(true);
+    expect(trace.row).toBe(0);
+    expect(trace.moveToExtreme('FORWARD')).toBe(true);
+    expect(trace.col).toBe(3);
   });
 
   test('stops at the last spoke rather than wrapping', () => {

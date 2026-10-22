@@ -315,7 +315,8 @@ test.describe('Mermaid adapter', () => {
     await openExample(page, 'radar');
     await press(page, 'ArrowRight');
     await press(page, 'ArrowRight');
-    expect(await press(page, 'ArrowDown')).toContain('Bob');
+    // Up is the next series, Bob, whichever of the two is further out here.
+    expect(await press(page, 'ArrowUp')).toContain('Bob');
     const point = await page.locator(HIGHLIGHT).evaluate(paintAgainstMark);
     expect(point.ratio).toBeGreaterThanOrEqual(3);
   });
@@ -553,6 +554,15 @@ test.describe('Mermaid adapter', () => {
     await page.keyboard.press('g');
 
     await expect(page.locator('#extrema-target-0')).toHaveAttribute('aria-label', 'Max Bar Value: 10,500 at jun');
+  });
+
+  test('moves up and down a radar\'s series in their order, whatever their values', async ({ page }) => {
+    await openExample(page, 'radar');
+    // On Math, Alice (85) is above Bob (70): by value Up said "No more data".
+    expect(await press(page, 'ArrowRight')).toContain('Series is Alice');
+
+    expect(await press(page, 'ArrowUp')).toContain('Series is Bob');
+    expect(await press(page, 'ArrowDown')).toContain('Series is Alice');
   });
 
   test('says a radar\'s outlines cross between two spokes, not on one', async ({ page }) => {
