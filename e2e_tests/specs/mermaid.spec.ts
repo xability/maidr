@@ -386,6 +386,23 @@ test.describe('Mermaid adapter', () => {
     expect(storage).not.toContain('graph input');
   });
 
+  test('reads an agent flow by the kind of each step', async ({ page }) => {
+    await openExample(page, 'agentflow');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowDown');
+    await press(page, 'ArrowRight');
+    const tool = await press(page, 'ArrowRight');
+    expect(tool).toContain('Step is run_linter');
+    expect(tool).toContain('Kind is tool');
+    expect(tool).not.toContain('subprocess');
+
+    await press(page, 'ArrowRight');
+    const action = await press(page, 'ArrowRight');
+    expect(action).toContain('Step is Approve');
+    expect(action).toContain('Kind is action');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Approve');
+  });
+
   test('reads a ZenUML diagram from its text, nested calls and replies included', async ({ page }) => {
     await openExample(page, 'zenuml');
     await press(page, 'ArrowRight');

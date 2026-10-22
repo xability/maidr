@@ -262,14 +262,59 @@ function plainGraph(context: DiagramContext, nodeLabel: string): DiagramConversi
 }
 
 /**
- * Flowcharts, swimlanes and agent flows: steps joined by labelled arrows,
- * nested in subgraphs, lanes or flows.
+ * Flowcharts and swimlanes: steps joined by labelled arrows, nested in
+ * subgraphs or lanes.
  *
  * @param context - The diagram
  * @returns The conversion
  */
 export function flowchart(context: DiagramContext): DiagramConversion {
   return plainGraph(context, 'Step');
+}
+
+/** Agent flow kinds whose name is not a word a reader knows. */
+const AGENT_FLOW_KINDS: Record<string, string> = {
+  refdoc: 'reference document',
+};
+
+/**
+ * Agent flows: an agent's steps inside its flows, each by the kind its author
+ * gave it -- task, tool, input, decision, action, reference document or
+ * connector -- rather than its shape. Mermaid draws each kind as a flowchart
+ * shape, a tool as a subroutine and an action as a hexagon, and those shapes'
+ * flowchart names, subprocess and preparation, are not what the author wrote.
+ * The kinds come from `getSemanticModel()`; without it, the shapes are read
+ * as a flowchart's.
+ *
+ * @param context - The diagram
+ * @returns The conversion
+ */
+export function agentflow(context: DiagramContext): DiagramConversion {
+  const { nodes, groups, edges } = readData(context);
+  const model = call(context.db, 'getSemanticModel') as Row | undefined;
+  const kinds = new Map<string, string>();
+  for (const vertex of rows(model?.vertices)) {
+    const id = str(vertex.id);
+    const kind = str(vertex.vertexKind);
+    if (id !== undefined && kind) {
+      kinds.set(id, kind);
+    }
+  }
+  for (const connector of rows(model?.connectors)) {
+    const id = str(connector.id);
+    if (id !== undefined) {
+      kinds.set(id, 'connector');
+    }
+  }
+  for (const node of nodes) {
+    const kind = kinds.get(node.id);
+    if (kind) {
+      const { Shape: _shape, ...rest } = node.attributes ?? {};
+      node.attributes = { Kind: AGENT_FLOW_KINDS[kind] ?? kind, ...rest };
+    }
+  }
+  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Step' });
+  return { layers: layer ? [layer] : [] };
 }
 
 /**

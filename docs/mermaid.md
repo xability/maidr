@@ -150,7 +150,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Git graph [experimental] | `gitGraph` | a `directed_graph`: commits on their branches, each fed by its parents, with tags and merge and cherry-pick commits named |
 | Event model [experimental] | `eventmodeling` | a `directed_graph`: each time frame's entity (UI, command, read model, event, processor) in its swimlane, with its frame, along the flow between them |
 | Swimlane diagram [experimental] | `swimlane-beta` | a `directed_graph`: steps lane by lane |
-| Agent flow [experimental] | `agentflow-beta` | a `directed_graph`: an agent's steps, tools and decisions inside its flows |
+| Agent flow [experimental] | `agentflow-beta` | a `directed_graph`: an agent's steps inside its flows, each by the kind its author gave it (task, tool, input, decision, action, reference document, connector) |
 | Mindmap [experimental] | `mindmap` | a `tree` from the central topic |
 | Kanban board [experimental] | `kanban` | a `tree` of columns and their cards, each card with its ticket, assignee and priority |
 | Tree view [experimental] | `treeView-beta` | a `tree` of folders and files |

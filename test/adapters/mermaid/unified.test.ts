@@ -8,7 +8,7 @@ import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
 /**
- * The diagrams Mermaid lays out as one graph (`diagrams/unified.ts`): flowcharts, class, entity-relationship, state and requirement diagrams.
+ * The diagrams Mermaid lays out as one graph (`diagrams/unified.ts`): flowcharts, agent flows, class, entity-relationship, state and requirement diagrams.
  *
  * Stand-in databases shaped as Mermaid 12's; see `./helpers`.
  */
@@ -84,6 +84,59 @@ describe('a flowchart', () => {
     const done = (layersOf(figure)[0].data as DirectedGraphPoint[])[3];
 
     expect(done.inputs).toEqual(['t', 'w']);
+  });
+});
+
+describe('an agent flow', () => {
+  /** A flow holding a step of each kind, and a connector outside it. */
+  const data = {
+    nodes: [
+      { id: 'reviewer', label: 'Review Agent', isGroup: true },
+      { id: 'gh', label: 'GitHub', shape: 'roundedRect' },
+      { id: 'analyse', label: 'Analyse diff', shape: 'roundedRect', parentId: 'reviewer' },
+      { id: 'lint', label: 'run_linter', shape: 'subroutine', parentId: 'reviewer' },
+      { id: 'approve', label: 'Approve', shape: 'hexagon', parentId: 'reviewer' },
+      { id: 'spec', label: 'Style guide', shape: 'lin-doc', parentId: 'reviewer' },
+    ],
+    edges: [
+      { start: 'analyse', end: 'lint' },
+      { start: 'lint', end: 'approve' },
+    ],
+  };
+  const model = {
+    vertices: [
+      { id: 'analyse', shape: 'roundedRect', vertexKind: 'task' },
+      { id: 'lint', shape: 'subroutine', vertexKind: 'tool' },
+      { id: 'approve', shape: 'hexagon', vertexKind: 'action' },
+      { id: 'spec', shape: 'lin-doc', vertexKind: 'refdoc' },
+    ],
+    connectors: [{ id: 'gh', title: 'GitHub' }],
+  };
+
+  it('reads each step by the kind its author gave it, not the shape drawn for it', () => {
+    const figure = convert('agentflow', { getData: () => data, getSemanticModel: () => model });
+
+    const points = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(points.map(point => point.attributes)).toEqual([
+      { Kind: 'connector' },
+      { Kind: 'task' },
+      { Kind: 'tool' },
+      { Kind: 'action' },
+      { Kind: 'reference document' },
+    ]);
+  });
+
+  it('reads the shapes as a flowchart\'s when Mermaid gives no kinds', () => {
+    const points = layersOf(convert('agentflow', { getData: () => data }))[0].data as DirectedGraphPoint[];
+
+    expect(points[2].attributes).toEqual({ Shape: 'subprocess' });
+  });
+
+  it('leaves a swimlane\'s shapes as they are', () => {
+    const points = layersOf(convert('swimlane', { getData: () => data, getSemanticModel: () => model }))[0].data as DirectedGraphPoint[];
+
+    expect(points[2].attributes).toEqual({ Shape: 'subprocess' });
   });
 });
 
