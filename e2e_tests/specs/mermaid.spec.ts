@@ -576,6 +576,18 @@ test.describe('Mermaid adapter', () => {
     expect(cells[4]).toBe(cells[0]);
   });
 
+  test('outlines a journey task by the face drawn at its score', async ({ page }) => {
+    await openExample(page, 'journey');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowRight')).toContain('Task is Go upstairs (Me)');
+
+    const highlight = page.locator(HIGHLIGHT).first();
+    await expect(highlight).toHaveClass(/face/);
+    const face = page.locator('svg[maidr] circle.face:not([data-maidr-owned])').nth(1);
+    expect(await highlight.getAttribute('cx')).toBe(await face.getAttribute('cx'));
+    expect(await highlight.getAttribute('cy')).toBe(await face.getAttribute('cy'));
+  });
+
   test('names a quadrant chart by its title, and its quadrants in the subtitle', async ({ page }) => {
     await openExample(page, 'quadrant');
     await press(page, 'ArrowRight');

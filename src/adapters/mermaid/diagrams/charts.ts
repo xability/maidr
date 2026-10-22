@@ -486,6 +486,10 @@ function mood(score: number): string {
  * timeline, and sections that share no task would be lines a reader could
  * not move between, each pitched on its own range of scores.
  *
+ * Each task is outlined by the face Mermaid draws at its score, one per task
+ * in this same order; when the faces and the tasks do not number the same,
+ * the journey is read without the outline.
+ *
  * @param context - The diagram
  * @returns The conversion
  */
@@ -503,6 +507,8 @@ export function journey(context: DiagramContext): DiagramConversion {
       ...(score === null ? {} : { label: `${score}, ${mood(score)}` }),
     };
   });
+  const faces = all(context.svg, 'circle.face');
+  const refs = faces.length === line.length ? selectorsFor(faces) : undefined;
   const layer: MaidrLayer = {
     id: context.layerId('journey'),
     type: TraceType.LINE,
@@ -511,6 +517,8 @@ export function journey(context: DiagramContext): DiagramConversion {
       y: { label: 'Score', min: 1, max: 5 },
       ...(line.some(point => point.z !== undefined) ? { z: { label: 'Section' } } : {}),
     },
+    // One selector for the one line, matching its faces in document order.
+    ...(refs ? { selectors: [refs.join(', ')] } : {}),
     data: [line],
   };
   return { layers: line.length > 0 ? [layer] : [] };

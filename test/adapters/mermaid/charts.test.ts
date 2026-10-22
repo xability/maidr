@@ -181,6 +181,25 @@ describe('the charts', () => {
     expect((layer.data as LinePoint[][])[0].map(point => [point.x, point.z])).toEqual([['One', 'A'], ['Two', 'B'], ['Three', 'A']]);
   });
 
+  it('outlines each journey task by the face Mermaid draws at its score', () => {
+    // A group per task, in the order of the tasks, sections A, B and A again.
+    const task = (score: number): string => `<g><line class="task-line"></line><circle class="face" data-score="${score}"></circle>`
+      + '<g><circle></circle><circle></circle></g><rect class="task"></rect></g>';
+    const tasks = [
+      { section: 'A', task: 'One', score: 3 },
+      { section: 'B', task: 'Two', score: 4 },
+      { section: 'A', task: 'Three', score: 2 },
+    ];
+    const layer = layersOf(convert('journey', { getTasks: () => tasks }, drawn('j', tasks.map(one => task(one.score)).join(''))))[0];
+    const selectors = layer.selectors as string[];
+    expect(selectors).toHaveLength(1);
+    expect([...document.querySelectorAll(selectors[0])].map(face => face.getAttribute('data-score'))).toEqual(['3', '4', '2']);
+
+    // A face short, and the pairing would slip from there on.
+    const short = layersOf(convert('journey', { getTasks: () => tasks }, drawn('j', task(3) + task(4))))[0];
+    expect(short.selectors).toBeUndefined();
+  });
+
   it('names no section for a journey that declares none', () => {
     const layer = layersOf(convert('journey', { getTasks: () => [{ section: '', task: 'Make tea', score: 5 }] }))[0];
     expect((layer.data as LinePoint[][])[0]).toEqual([{ x: 'Make tea', y: 5, label: '5, happy' }]);
