@@ -21,6 +21,15 @@ export function allowsDeviceFeature(feature: DeviceFeature): boolean {
     return false;
   }
 
+  // Absence is a reliable no, and it is asked first: a browser that leaves an
+  // API out leaves its policy name out with it, and Chromium answers a policy
+  // question about a name it does not know with a console warning --
+  // "Unrecognized feature: 'bluetooth'." on every Linux build without Web
+  // Bluetooth, each time braille was turned on.
+  if (!(feature in navigator)) {
+    return false;
+  }
+
   // Presence is not permission. A frame denied the feature by Permissions
   // Policy can still expose the API -- measured in Chromium, a cross-origin
   // frame without `allow` keeps `navigator.serial` and only loses
@@ -38,10 +47,10 @@ export function allowsDeviceFeature(feature: DeviceFeature): boolean {
         return false;
       }
     } catch {
-      // A browser that does not know the feature name throws rather than
-      // answering; fall through to the presence check.
+      // A browser that throws on a feature name it does not know has not
+      // denied it; the API is there, so it is used.
     }
   }
 
-  return feature in navigator;
+  return true;
 }

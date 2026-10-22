@@ -584,6 +584,23 @@ describe('dotPadSession', () => {
       expect(session.supports('bluetooth')).toBe(false);
     });
 
+    it('should not ask the policy about an API the browser does not have', async () => {
+      // Chromium without Web Bluetooth does not know the policy name either,
+      // and answers a question about it with a console warning rather than a
+      // throw: "Unrecognized feature: 'bluetooth'." each time braille was
+      // turned on. A missing API is already the answer.
+      setNavigator({ serial: {} });
+      const allowsFeature = jest.fn((_name: string) => true);
+      setPolicy(allowsFeature);
+
+      const session = await loadSession();
+
+      expect(session.supports('bluetooth')).toBe(false);
+      expect(session.supports('serial')).toBe(true);
+      expect(allowsFeature).not.toHaveBeenCalledWith('bluetooth');
+      expect(allowsFeature).toHaveBeenCalledWith('serial');
+    });
+
     it('should fall back to the presence check when the policy does not know the feature', async () => {
       // Browsers that predate a feature name throw on it rather than answering
       // false, and a throw is not a denial.
