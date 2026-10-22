@@ -1,4 +1,5 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { NotificationService } from '@service/notification';
 import type { MaidrLayer } from '@type/grammar';
 import { EnterGridCellCommand } from '@command/gridCell';
@@ -30,7 +31,11 @@ function setUp(): { trace: ScatterTrace; command: EnterGridCellCommand; notify: 
     enterGridCell: () => trace.enterGridCell(),
   } as unknown as Context;
   const notify = jest.fn();
-  const command = new EnterGridCellCommand(context, { notify } as unknown as NotificationService);
+  const command = new EnterGridCellCommand(
+    context,
+    { notify } as unknown as NotificationService,
+    { playWarningToneIfEnabled: jest.fn() } as unknown as AudioService,
+  );
   return { trace, command, notify };
 }
 

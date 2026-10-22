@@ -1,5 +1,5 @@
 import type { Trace } from '@model/plot';
-import type { DirectedGraphPoint, MaidrLayer, TreemapPoint } from '@type/grammar';
+import type { DirectedGraphPoint, MaidrLayer, ScatterPoint, TreemapPoint } from '@type/grammar';
 import { describe, expect, test } from '@jest/globals';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
@@ -94,6 +94,142 @@ describe('a Cynefin framework\'s domains and transitions', () => {
     const announced = named(transitions);
     transitions?.moveOnce('FORWARD');
     expect(named(transitions)).not.toBe(announced);
+  });
+});
+
+/**
+ * Mermaid's Wardley map: the components placed by evolution and visibility,
+ * each a point named for it, and their value chain, a graph of the same
+ * components. A component with a note carries it in parentheses.
+ */
+const COMPONENTS: ScatterPoint[] = [
+  { x: 0.63, y: 0.95, label: 'Business (anchor)' },
+  { x: 0.61, y: 0.79, label: 'Cup of Tea' },
+  { x: 0.81, y: 0.63, label: 'Tea' },
+  { x: 0.8, y: 0.52, label: 'Hot Water' },
+  { x: 0.35, y: 0.43, label: 'Kettle (evolving to 0.62)' },
+  { x: 0.7, y: 0.1, label: 'Power' },
+];
+
+const VALUE_CHAIN: DirectedGraphPoint[] = [
+  { id: 'business', label: 'Business' },
+  { id: 'cup', label: 'Cup of Tea', inputs: ['business'] },
+  { id: 'tea', label: 'Tea', inputs: ['cup'] },
+  { id: 'water', label: 'Hot Water', inputs: ['cup'] },
+  { id: 'kettle', label: 'Kettle', inputs: ['water'] },
+  { id: 'power', label: 'Power', inputs: ['kettle'] },
+];
+
+function components(data: ScatterPoint[] = COMPONENTS): MaidrLayer {
+  return { id: 'map', type: TraceType.SCATTER, data };
+}
+
+/** The name the scatter announces for the point it is on, if any. */
+function pointName(trace: Trace | null): string | undefined {
+  const state = trace?.state;
+  if (state === undefined || state.empty) {
+    throw new Error('expected a populated trace state');
+  }
+  return state.text.asides?.find(aside => aside.label === 'Name')?.value;
+}
+
+describe('a Wardley map\'s components and value chain', () => {
+  test('a switch keeps the reader on the component they were on, both ways', () => {
+    const subplot = figure(components(), graph(VALUE_CHAIN)).activeSubplot;
+    const map = subplot.activeTrace;
+    map?.moveOnce('FORWARD'); // Kettle, the least evolved.
+    map?.moveOnce('FORWARD'); // Cup of Tea.
+    expect(pointName(map)).toBe('Cup of Tea');
+
+    const chain = subplot.switchLayer('UPWARD');
+    expect(named(chain)).toBe('Cup of Tea');
+
+    chain?.moveOnce('FORWARD'); // Tea.
+    chain?.moveOnce('FORWARD'); // Hot Water.
+    expect(named(chain)).toBe('Hot Water');
+
+    expect(pointName(subplot.switchLayer('DOWNWARD'))).toBe('Hot Water');
+  });
+
+  test('a component with a note is found by its name alone, both ways', () => {
+    const subplot = figure(components(), graph(VALUE_CHAIN)).activeSubplot;
+    subplot.activeTrace?.moveOnce('FORWARD');
+    expect(pointName(subplot.activeTrace)).toBe('Kettle (evolving to 0.62)');
+
+    const chain = subplot.switchLayer('UPWARD');
+    expect(named(chain)).toBe('Kettle');
+
+    chain?.moveOnce('BACKWARD'); // Hot Water.
+    chain?.moveOnce('BACKWARD'); // Tea.
+    chain?.moveOnce('BACKWARD'); // Cup of Tea.
+    chain?.moveOnce('BACKWARD'); // Business.
+    expect(named(chain)).toBe('Business');
+
+    expect(pointName(subplot.switchLayer('DOWNWARD'))).toBe('Business (anchor)');
+  });
+
+  test('the description\'s layer tabs carry the component too', () => {
+    const subplot = figure(components(), graph(VALUE_CHAIN)).activeSubplot;
+    subplot.activeTrace?.moveOnce('FORWARD');
+
+    expect(named(subplot.selectLayer(1))).toBe('Kettle');
+  });
+});
+
+/**
+ * Two components at one evolution share the map's column, which reads them
+ * together and names neither. Each has a visibility of its own, so its row
+ * names it.
+ */
+describe('a Wardley map with two components at one evolution', () => {
+  const shared: ScatterPoint[] = [
+    { x: 0.35, y: 0.43, label: 'Kettle' },
+    { x: 0.8, y: 0.52, label: 'Hot Water' },
+    { x: 0.8, y: 0.63, label: 'Tea' },
+  ];
+
+  test('from their column, a switch lands on the upper one, where point navigation starts', () => {
+    const subplot = figure(components(shared), graph(VALUE_CHAIN)).activeSubplot;
+    const map = subplot.activeTrace;
+    map?.moveOnce('FORWARD'); // Kettle.
+    map?.moveOnce('FORWARD'); // The 0.8 column: Hot Water and Tea.
+    expect(pointName(map)).toBeUndefined();
+
+    expect(named(subplot.switchLayer('UPWARD'))).toBe('Tea');
+  });
+
+  test('a switch back from either lands on it, named, on its row', () => {
+    const subplot = figure(components(shared), graph(VALUE_CHAIN)).activeSubplot;
+    subplot.activeTrace?.moveOnce('FORWARD'); // Kettle.
+    const chain = subplot.switchLayer('UPWARD');
+    chain?.moveOnce('BACKWARD'); // Hot Water.
+    expect(named(chain)).toBe('Hot Water');
+
+    expect(pointName(subplot.switchLayer('DOWNWARD'))).toBe('Hot Water');
+
+    const again = subplot.switchLayer('UPWARD');
+    expect(named(again)).toBe('Hot Water');
+    again?.moveOnce('BACKWARD'); // Tea.
+    expect(named(again)).toBe('Tea');
+
+    const back = subplot.switchLayer('DOWNWARD');
+    expect(pointName(back)).toBe('Tea');
+    expect(back?.getCurrentXValue()).toBe(0.8);
+  });
+
+  test('one that shares its visibility too is found on its column, which holds it', () => {
+    // Kettle at Tea's visibility: Tea's row holds Kettle too.
+    const crowded: ScatterPoint[] = [{ x: 0.35, y: 0.63, label: 'Kettle' }, ...shared.slice(1)];
+    const subplot = figure(components(crowded), graph(VALUE_CHAIN)).activeSubplot;
+    subplot.activeTrace?.moveOnce('FORWARD'); // Kettle.
+    const chain = subplot.switchLayer('UPWARD');
+    chain?.moveOnce('BACKWARD'); // Hot Water.
+    chain?.moveOnce('BACKWARD'); // Tea.
+
+    const back = subplot.switchLayer('DOWNWARD');
+
+    expect(pointName(back)).toBeUndefined();
+    expect(back?.getCurrentXValue()).toBe(0.8);
   });
 });
 

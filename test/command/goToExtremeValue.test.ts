@@ -1,5 +1,6 @@
 import type { CommandContext } from '@command/command';
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
@@ -197,6 +198,7 @@ describe('bracket key commands', () => {
     service: GoToExtremaService;
     notification: NotificationService;
     textService: TextService;
+    audio: AudioService;
   } {
     return {
       context: { state: { type: 'trace', empty: false } } as unknown as Context,
@@ -206,22 +208,23 @@ describe('bracket key commands', () => {
         isOff: (): boolean => false,
         format: (): string => 'Fri, 19',
       } as unknown as TextService,
+      audio: { playWarningToneIfEnabled: jest.fn() } as unknown as AudioService,
     };
   }
 
   test('[ asks for the minimum and stays silent when it lands', () => {
-    const { context, service, notification, textService } = commandFixture({ position: 1, total: 1 });
+    const { context, service, notification, textService, audio } = commandFixture({ position: 1, total: 1 });
 
-    new GoToMinValueCommand(context, service, notification, textService).execute();
+    new GoToMinValueCommand(context, service, notification, textService, audio).execute();
 
     expect(service.goToExtremeValue).toHaveBeenCalledWith('min');
     expect(notification.notify).not.toHaveBeenCalled();
   });
 
   test('] asks for the maximum and stays silent when it lands', () => {
-    const { context, service, notification, textService } = commandFixture({ position: 1, total: 1 });
+    const { context, service, notification, textService, audio } = commandFixture({ position: 1, total: 1 });
 
-    new GoToMaxValueCommand(context, service, notification, textService).execute();
+    new GoToMaxValueCommand(context, service, notification, textService, audio).execute();
 
     expect(service.goToExtremeValue).toHaveBeenCalledWith('max');
     expect(notification.notify).not.toHaveBeenCalled();
@@ -230,18 +233,18 @@ describe('bracket key commands', () => {
   test('appends the position when the value is tied across points', () => {
     // The live region holds one message, so the position rides along with the
     // point text — announcing it alone would cost the reader the point.
-    const { context, service, notification, textService } = commandFixture({ position: 2, total: 3 });
+    const { context, service, notification, textService, audio } = commandFixture({ position: 2, total: 3 });
 
-    new GoToMaxValueCommand(context, service, notification, textService).execute();
+    new GoToMaxValueCommand(context, service, notification, textService, audio).execute();
 
     expect(notification.notify).toHaveBeenCalledWith('Fri, 19, 2 of 3');
   });
 
   test('stays quiet about a position when only one point holds the value', () => {
     // "1 of 1" is noise, and the move already announced itself.
-    const { context, service, notification, textService } = commandFixture({ position: 1, total: 1 });
+    const { context, service, notification, textService, audio } = commandFixture({ position: 1, total: 1 });
 
-    new GoToMinValueCommand(context, service, notification, textService).execute();
+    new GoToMinValueCommand(context, service, notification, textService, audio).execute();
 
     expect(notification.notify).not.toHaveBeenCalled();
   });
@@ -250,7 +253,7 @@ describe('bracket key commands', () => {
     const fixture = commandFixture({ position: 2, total: 3 });
     const textService = { isOff: (): boolean => true, format: (): string => 'Fri, 19' } as unknown as TextService;
 
-    new GoToMaxValueCommand(fixture.context, fixture.service, fixture.notification, textService).execute();
+    new GoToMaxValueCommand(fixture.context, fixture.service, fixture.notification, textService, fixture.audio).execute();
 
     expect(fixture.notification.notify).not.toHaveBeenCalled();
   });
@@ -258,13 +261,37 @@ describe('bracket key commands', () => {
   test('announces rather than doing nothing when there is nowhere to jump', () => {
     // A silent press reads as a broken shortcut to a screen reader user.
     const min = commandFixture(null);
-    new GoToMinValueCommand(min.context, min.service, min.notification, min.textService).execute();
+    new GoToMinValueCommand(min.context, min.service, min.notification, min.textService, min.audio).execute();
 
     const max = commandFixture(null);
-    new GoToMaxValueCommand(max.context, max.service, max.notification, max.textService).execute();
+    new GoToMaxValueCommand(max.context, max.service, max.notification, max.textService, max.audio).execute();
 
     expect(min.notification.notify).toHaveBeenCalledWith('No minimum value to go to in this layer');
     expect(max.notification.notify).toHaveBeenCalledWith('No maximum value to go to in this layer');
+  });
+
+  test('plays the warning tone with the refusal, as g and o do', () => {
+    // A reader listening for the cue hears every other refused key -- g, o,
+    // l y -- answer with it; without it [ and ] would sound like a landing.
+    const min = commandFixture(null);
+    new GoToMinValueCommand(min.context, min.service, min.notification, min.textService, min.audio).execute();
+
+    const max = commandFixture(null);
+    new GoToMaxValueCommand(max.context, max.service, max.notification, max.textService, max.audio).execute();
+
+    expect(min.audio.playWarningToneIfEnabled).toHaveBeenCalledTimes(1);
+    expect(max.audio.playWarningToneIfEnabled).toHaveBeenCalledTimes(1);
+  });
+
+  test('plays no warning tone when the jump lands', () => {
+    const single = commandFixture({ position: 1, total: 1 });
+    new GoToMinValueCommand(single.context, single.service, single.notification, single.textService, single.audio).execute();
+
+    const tied = commandFixture({ position: 2, total: 3 });
+    new GoToMaxValueCommand(tied.context, tied.service, tied.notification, tied.textService, tied.audio).execute();
+
+    expect(single.audio.playWarningToneIfEnabled).not.toHaveBeenCalled();
+    expect(tied.audio.playWarningToneIfEnabled).not.toHaveBeenCalled();
   });
 });
 

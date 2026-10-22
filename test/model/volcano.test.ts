@@ -356,7 +356,7 @@ describe('the announcement names the point', () => {
     // by sitting under it, and the word for one of those charts is the
     // inverse of the reading on the other.
     expect(nonEmptyState(trace).text.asides).toEqual([
-      { label: 'Name', value: 'UP1' },
+      { label: 'Name', value: 'UP1', identifies: true },
       { label: 'Threshold', value: 'cleared' },
     ]);
   });
@@ -370,7 +370,7 @@ describe('the announcement names the point', () => {
     trace.moveToRotorFilter('significant', 'right');
 
     expect(nonEmptyState(trace).text.asides).toEqual([
-      { label: 'Name', value: 'rs2' },
+      { label: 'Name', value: 'rs2', identifies: true },
       { label: 'Region', value: 'chr7' },
       { label: 'Threshold', value: 'cleared' },
     ]);
@@ -382,7 +382,7 @@ describe('the announcement names the point', () => {
     // rule about stacks that this fixture never forms -- the name now comes
     // from the scatter, which owns `label` since #1106.
     expect(nonEmptyState(volcano()).text.asides).toEqual([
-      { label: 'Name', value: 'DOWN1' },
+      { label: 'Name', value: 'DOWN1', identifies: true },
     ]);
   });
 

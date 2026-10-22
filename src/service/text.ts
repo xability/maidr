@@ -308,6 +308,13 @@ export class TextService implements Observer<PlotState>, Disposable {
           : this.formatSingleValue(state.text.z.value as number | string, 'z');
         parts.push(t('text.labelIsValue', { label: state.text.z.label, value: zValue }));
       }
+      // Which point this is, where an aside says so (a scatter's point name
+      // is no value on an axis). The other asides wait for the next step.
+      for (const aside of state.text.asides ?? []) {
+        if (aside.identifies === true) {
+          parts.push(t('text.labelIsValue', { label: aside.label, value: aside.value }));
+        }
+      }
       if (parts.length > 0) {
         announcement = t('text.layerSwitchAt', {
           layer: announcement,

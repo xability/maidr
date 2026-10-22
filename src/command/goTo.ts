@@ -65,6 +65,7 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly notification: NotificationService;
   private readonly textService: TextService;
+  private readonly audioService: AudioService;
 
   /**
    * Creates an instance of AbstractGoToExtremeValueCommand.
@@ -72,17 +73,20 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
    * @param {GoToExtremaService} goToExtremaService - The go-to-extrema service.
    * @param {NotificationService} notification - The notification service.
    * @param {TextService} textService - The mode-aware text service.
+   * @param {AudioService} audioService - For the warning tone of a refusal.
    */
   protected constructor(
     context: Context,
     goToExtremaService: GoToExtremaService,
     notification: NotificationService,
     textService: TextService,
+    audioService: AudioService,
   ) {
     this.context = context;
     this.goToExtremaService = goToExtremaService;
     this.notification = notification;
     this.textService = textService;
+    this.audioService = audioService;
   }
 
   /** Which extreme this command jumps to. */
@@ -92,10 +96,12 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
   protected abstract get unavailableMessage(): string;
 
   /**
-   * Executes the jump, announcing a message when the current layer offers no
-   * such extreme — the key is bound across the whole scope, so it fires on
-   * trace types that do not support extrema navigation as well, and a silent
-   * press would read as a broken shortcut.
+   * Executes the jump, announcing a message with the warning tone when the
+   * current layer offers no such extreme — the key is bound across the whole
+   * scope, so it fires on trace types that do not support extrema navigation
+   * as well, and a silent press would read as a broken shortcut. The tone is
+   * the one `g`, `o` and every other refused key play, so a reader listening
+   * rather than reading hears the refusal too.
    *
    * When the value is tied across several points, the landing is re-announced
    * with its position among them, so a reader walking the ties knows how many
@@ -107,6 +113,7 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
     const landed = this.goToExtremaService.goToExtremeValue(this.type);
     if (!landed) {
       this.notification.notify(this.unavailableMessage);
+      this.audioService.playWarningToneIfEnabled();
       return;
     }
 
@@ -142,14 +149,16 @@ export class GoToMinValueCommand extends AbstractGoToExtremeValueCommand {
    * @param {GoToExtremaService} goToExtremaService - The go-to-extrema service.
    * @param {NotificationService} notification - The notification service.
    * @param {TextService} textService - The mode-aware text service.
+   * @param {AudioService} audioService - For the warning tone of a refusal.
    */
   public constructor(
     context: Context,
     goToExtremaService: GoToExtremaService,
     notification: NotificationService,
     textService: TextService,
+    audioService: AudioService,
   ) {
-    super(context, goToExtremaService, notification, textService);
+    super(context, goToExtremaService, notification, textService, audioService);
   }
 
   protected get type(): 'min' | 'max' {
@@ -171,14 +180,16 @@ export class GoToMaxValueCommand extends AbstractGoToExtremeValueCommand {
    * @param {GoToExtremaService} goToExtremaService - The go-to-extrema service.
    * @param {NotificationService} notification - The notification service.
    * @param {TextService} textService - The mode-aware text service.
+   * @param {AudioService} audioService - For the warning tone of a refusal.
    */
   public constructor(
     context: Context,
     goToExtremaService: GoToExtremaService,
     notification: NotificationService,
     textService: TextService,
+    audioService: AudioService,
   ) {
-    super(context, goToExtremaService, notification, textService);
+    super(context, goToExtremaService, notification, textService, audioService);
   }
 
   protected get type(): 'min' | 'max' {

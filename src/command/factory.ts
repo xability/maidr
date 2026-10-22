@@ -315,9 +315,21 @@ export class CommandFactory {
           this.audioService,
         );
       case 'GO_TO_MIN_VALUE':
-        return new GoToMinValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
+        return new GoToMinValueCommand(
+          this.context,
+          this.goToExtremaService,
+          this.notificationService,
+          this.textService,
+          this.audioService,
+        );
       case 'GO_TO_MAX_VALUE':
-        return new GoToMaxValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
+        return new GoToMaxValueCommand(
+          this.context,
+          this.goToExtremaService,
+          this.notificationService,
+          this.textService,
+          this.audioService,
+        );
       case 'OBJECT_LIST_TOGGLE':
         return new ObjectListToggleCommand(
           this.objectListViewModel,
@@ -426,7 +438,7 @@ export class CommandFactory {
 
       // Grid cell navigation
       case 'ENTER_GRID_CELL':
-        return new EnterGridCellCommand(this.context, this.notificationService);
+        return new EnterGridCellCommand(this.context, this.notificationService, this.audioService);
       case 'EXIT_GRID_CELL':
         return new ExitGridCellCommand(this.context);
       case 'GRID_CELL_MOVE_LEFT':

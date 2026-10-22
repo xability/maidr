@@ -382,12 +382,17 @@ export function wardley(context: DiagramContext): DiagramConversion {
     const visibility = (num(node.y) ?? 0) / 100;
     const target = trends.get(str(node.id) ?? '');
     const kind = plain(node.className);
-    const label = [
-      plain(node.label) || plain(node.id),
+    const name = plain(node.label) || plain(node.id);
+    const notes = [
       kind && kind !== 'component' ? kind : '',
       node.inertia === true ? 'inertia' : '',
       target !== undefined ? `evolving to ${target / 100}` : '',
     ].filter(Boolean).join(', ');
+    // The notes in parentheses, which a layer switch reads as notes on the
+    // name, so the value chain's "Kettle" finds "Kettle (evolving to 0.62)".
+    // After a comma they read as part of the name, and the switch lost the
+    // component.
+    const label = notes === '' ? name : `${name} (${notes})`;
     return { x: evolution, y: visibility, label };
   });
   const marks = elements.map(wardleyMark);

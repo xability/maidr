@@ -1,8 +1,11 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { NotificationService } from '@service/notification';
 import type { Command } from './command';
+import { Scope } from '@type/event';
 import { canEnterGridCell } from '@type/navigation';
 import { t } from '@util/i18n';
+import { InvalidKeyCommand } from './invalidKey';
 
 /**
  * Command to enter grid cell mode for navigating points within a cell.
@@ -10,19 +13,28 @@ import { t } from '@util/i18n';
 export class EnterGridCellCommand implements Command {
   private readonly context: Context;
   private readonly notification: NotificationService;
+  private readonly invalidKey: InvalidKeyCommand;
 
-  public constructor(context: Context, notification: NotificationService) {
+  public constructor(context: Context, notification: NotificationService, audio: AudioService) {
     this.context = context;
     this.notification = notification;
+    this.invalidKey = new InvalidKeyCommand(notification, audio);
   }
 
-  public execute(): void {
+  public execute(event?: Event): void {
     // Enter is bound across the whole TRACE scope, so this fires on every trace
     // type. Traces that don't support grid navigation have no cells to enter;
     // stay silent rather than announcing a grid mode the chart does not have.
     // Nor does a trace with a grid the reader is not navigating by cells: they
     // stand on a point, and "No points in this cell" would be false.
+    //
+    // Braille mode binds Enter only for a grid's cells. Anywhere else it
+    // answers there as it did unbound, as any key braille mode does not use:
+    // with the unassigned-key warning, so a guess is never met with silence.
     if (!canEnterGridCell(this.context.active)) {
+      if (this.context.scope === Scope.BRAILLE) {
+        this.invalidKey.execute(event);
+      }
       return;
     }
 

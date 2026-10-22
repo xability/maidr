@@ -87,6 +87,8 @@ export class Context implements Disposable {
   private figure: Figure;
   private _instructionContext: Plot;
   private isRotorActive: boolean;
+  /** The scope the open grid cell was entered from, for leaving it again. */
+  private gridCellReturnScope: Scope = Scope.TRACE;
 
   public constructor(figure: Figure) {
     this.figure = figure;
@@ -970,12 +972,18 @@ export class Context implements Disposable {
   /**
    * Enters grid cell mode to navigate points within the current cell.
    * Only works when the active trace supports grid navigation and is in grid mode.
+   *
+   * The scope it is entered from -- the chart's, or braille's when the reader
+   * reads the grid from the braille field -- is kept for
+   * {@link exitGridCell} to return to.
    * @returns true if successfully entered cell mode, false if no points in cell
    */
   public enterGridCell(): boolean {
     const activeTrace = this.active;
     if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
+      const from = this.scope;
       if (activeTrace.enterGridCell()) {
+        this.gridCellReturnScope = from;
         this.toggleScope(Scope.GRID_CELL);
         return true;
       }
@@ -984,13 +992,15 @@ export class Context implements Disposable {
   }
 
   /**
-   * Exits grid cell mode and returns to grid navigation.
+   * Exits grid cell mode and returns to grid navigation, in the scope the cell
+   * was entered from: back in braille mode for a reader who opened it there,
+   * whose braille field is still showing and still has the focus.
    */
   public exitGridCell(): void {
     const activeTrace = this.active;
     if (isGridNavigable(activeTrace) && activeTrace.isInCellMode()) {
       activeTrace.exitGridCell();
-      this.toggleScope(Scope.TRACE);
+      this.toggleScope(this.gridCellReturnScope);
     }
   }
 

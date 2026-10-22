@@ -20,7 +20,7 @@
 
 import type { SettingsService } from '@service/settings';
 import type { SubplotState, TraceState } from '@type/state';
-import { afterEach, describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { HighlightService } from '@service/highlight';
 import { DEFAULT_SETTINGS } from '@type/settings';
 
@@ -307,5 +307,75 @@ describe('HighlightService redraw', () => {
     expect(highlights()).toHaveLength(1);
     expect(highlights()[0].getAttribute('fill')).toBe('#ff00ff');
     service.dispose();
+  });
+});
+
+describe('HighlightService and the labels drawn over a mark', () => {
+  /**
+   * Puts a gantt task on the page as Mermaid draws one, a red rectangle with
+   * its white label after it, and gives both a box on screen, which jsdom
+   * lays out for nothing.
+   * @returns The task and its label
+   */
+  function addCriticalTask(): { task: SVGElement; label: SVGElement } {
+    document.body.innerHTML = `<div><svg xmlns="${SVG_NAMESPACE}"><g>`
+      + '<rect id="task" style="fill: #ff0000"/><text id="label" style="fill: #ffffff">Adapter</text></g></svg></div>';
+    const boxes: Record<string, [number, number, number, number]> = { task: [0, 0, 100, 20], label: [40, 4, 30, 12] };
+    jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const [left, top, width, height] = boxes[this.id] ?? [0, 0, 0, 0];
+      return { left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) } as DOMRect;
+    });
+    return {
+      task: document.getElementById('task') as unknown as SVGElement,
+      label: document.getElementById('label') as unknown as SVGElement,
+    };
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should copy a label the highlight would leave unreadable, and take it away with the highlight', () => {
+    const { task, label } = addCriticalTask();
+    const service = new HighlightService(settingsStub(), () => [document.body]);
+
+    service.highlight(task);
+
+    const copy = label.nextElementSibling as SVGElement;
+    expect(copy.textContent).toBe('Adapter');
+    expect(copy.style.getPropertyValue('fill')).toBe('#000000');
+
+    service.unhighlight(task);
+
+    expect(document.querySelectorAll('text')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-maidr-owned]')).toHaveLength(0);
+    service.dispose();
+  });
+
+  it('should colour the copy from the reader\'s high contrast pair', () => {
+    const { task, label } = addCriticalTask();
+    const settings = settingsStub(true);
+    const { general } = settings.loadSettings();
+    const service = new HighlightService(settings, () => [document.body]);
+
+    service.highlight(task);
+
+    // Black on the highlight green, of the default pair's white and black.
+    expect((label.nextElementSibling as SVGElement).style.getPropertyValue('fill'))
+      .toBe(general.highContrastDarkColor);
+    service.dispose();
+    expect(document.querySelectorAll('text')).toHaveLength(1);
+  });
+
+  it('should draw the copy again with the highlight', () => {
+    const { task } = addCriticalTask();
+    const service = new HighlightService(settingsStub(), () => [document.body]);
+    service.highlight(task);
+
+    service.redraw();
+
+    expect(document.querySelectorAll('text')).toHaveLength(2);
+    service.dispose();
+    expect(document.querySelectorAll('text')).toHaveLength(1);
   });
 });

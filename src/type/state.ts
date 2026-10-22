@@ -400,6 +400,17 @@ export interface TextAside {
    * children", "from In stock?" -- and terse mode speaks that instead.
    */
   terse?: string;
+  /**
+   * Whether this aside says which point the cursor is on: a scatter point's
+   * name, which is no value on either axis and so travels here, yet is what
+   * tells one point from another.
+   *
+   * A layer switch announces where the reader landed in few words, the axis
+   * values and none of the asides, and keeps an aside marked so with them.
+   * Without it, Page Down onto a Wardley map's components said "Evolution is
+   * 0.8, Visibility is 0.52" and not which component that was.
+   */
+  identifies?: boolean;
 }
 
 /**

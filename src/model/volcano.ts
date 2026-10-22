@@ -1,5 +1,5 @@
 import type { MaidrLayer, VolcanoPoint } from '@type/grammar';
-import type { DescriptionState, TextState } from '@type/state';
+import type { DescriptionState, TextAside, TextState } from '@type/state';
 import type { RotorFilterUnit } from './abstract';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
@@ -174,9 +174,9 @@ export class VolcanoTrace extends ScatterTrace {
 
     // Asides rather than `z`: `z` is the scatter's density and is formatted
     // on an axis, and a gene name is not a value on one.
-    const asides: { label: string; value: string }[] = [];
+    const asides: TextAside[] = [];
     if (typeof point.label === 'string' && point.label !== '') {
-      asides.push({ label: t('model.asideName'), value: point.label });
+      asides.push({ label: t('model.asideName'), value: point.label, identifies: true });
     }
     if (typeof point.group === 'string' && point.group !== '') {
       asides.push({ label: t('model.asideRegion'), value: point.group });

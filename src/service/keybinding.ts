@@ -164,6 +164,11 @@ const BRAILLE_KEYMAP = {
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'keybinding.nextNavigationMode', { helpKey: `${Platform.alt} + shift + up` }),
   ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'keybinding.previousNavigationMode', { helpKey: `${Platform.alt} + shift + down` }),
+
+  // The grid the rotor offers is read in braille too, so Enter opens the cell
+  // under the reader here as it does in TRACE. Escape leaves the cell for the
+  // scope it was opened from (see `Context.enterGridCell`), which is braille.
+  ENTER_GRID_CELL: key(`${Platform.enter}`, 'keybinding.enterGridCell', { showInHelp: false }),
 } as const;
 
 /**

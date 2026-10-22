@@ -143,12 +143,14 @@ describe('EnterGridCellCommand', () => {
     return { notify: jest.fn() } as unknown as NotificationService;
   }
 
+  const audio = { playWarningToneIfEnabled: jest.fn() } as unknown as AudioService;
+
   test('stays silent on traces without grid navigation support', () => {
     // Plain trace: no supportsGridMode method, so isGridNavigable is false.
     const context = createMockContext({ active: {} });
     const notification = createNotification();
 
-    new EnterGridCellCommand(context, notification).execute();
+    new EnterGridCellCommand(context, notification, audio).execute();
 
     expect(context.enterGridCell).not.toHaveBeenCalled();
     expect(notification.notify).not.toHaveBeenCalled();
@@ -160,7 +162,7 @@ describe('EnterGridCellCommand', () => {
     });
     const notification = createNotification();
 
-    new EnterGridCellCommand(context, notification).execute();
+    new EnterGridCellCommand(context, notification, audio).execute();
 
     expect(context.enterGridCell).not.toHaveBeenCalled();
     expect(notification.notify).not.toHaveBeenCalled();
@@ -174,7 +176,7 @@ describe('EnterGridCellCommand', () => {
     });
     const notification = createNotification();
 
-    new EnterGridCellCommand(context, notification).execute();
+    new EnterGridCellCommand(context, notification, audio).execute();
 
     expect(context.enterGridCell).not.toHaveBeenCalled();
     expect(notification.notify).not.toHaveBeenCalled();
@@ -187,7 +189,7 @@ describe('EnterGridCellCommand', () => {
     });
     const notification = createNotification();
 
-    new EnterGridCellCommand(context, notification).execute();
+    new EnterGridCellCommand(context, notification, audio).execute();
 
     expect(notification.notify).toHaveBeenCalledWith('No points in this cell');
   });
@@ -199,7 +201,7 @@ describe('EnterGridCellCommand', () => {
     });
     const notification = createNotification();
 
-    new EnterGridCellCommand(context, notification).execute();
+    new EnterGridCellCommand(context, notification, audio).execute();
 
     expect(notification.notify).not.toHaveBeenCalled();
   });

@@ -1,12 +1,13 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable, PointCloudAddressable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
-import type { AudioState, AxisType, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
+import type { AudioState, AxisType, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextAside, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { NAME_MATCHES } from '@util/navigation';
 import { selectorString } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -342,6 +343,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   private readonly columnPos: number[];
   protected isInPointMode: boolean;
   protected pointModeIndex: number;
+  /**
+   * The point the reader was on when they left point navigation, until they
+   * hear another, or null. Leaving point navigation leaves the row and
+   * column cursor where it was, so this is the one record of where they are
+   * when the rotor's next mode is entered: the rotor leaves every mode before
+   * it enters the new one.
+   */
+  private pointModeExitIndex: number | null;
 
   // Intersection navigation state (INTERSECTION_MODE)
   // - xPointsSvg / yPointsSvg: parallel to xPoints / yPoints. Indexed the
@@ -580,6 +589,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     this.isInPointMode = false;
     this.pointModeIndex = 0;
+    this.pointModeExitIndex = null;
 
     // Intersection mode setup. xPointsSvg / yPointsSvg parallel xPoints /
     // yPoints respectively and are built only when the binder supplied one
@@ -934,9 +944,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           max: this.maxY,
         },
         panning: {
-          y: this.row,
+          // The row Up or Down turns into, counted among the rows they walk,
+          // which is what the position announcement reads. `this.row` is 0
+          // throughout column navigation, and with the column's own height
+          // it said "row 1 of 1" of a point Up then placed in row 3 of 4.
+          // Only `x` and `cols` reach the stereo panner.
+          y: this.rowEnteredFrom(current),
           x: this.col,
-          rows: current.y.length,
+          rows: this.yPoints.length,
           cols: this.xPoints.length,
         },
         zIntensity: this.zIntensityFor(current.z),
@@ -1045,14 +1060,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    */
   private nameAside(
     names: readonly (string | undefined)[],
-  ): { label: string; value: string }[] | undefined {
+  ): TextAside[] | undefined {
     if (names.length !== 1) {
       return undefined;
     }
     const only = names[0];
     return only === undefined || only === ''
       ? undefined
-      : [{ label: t('model.asideName'), value: only }];
+      : [{ label: t('model.asideName'), value: only, identifies: true }];
   }
 
   /**
@@ -1748,7 +1763,26 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       };
     }
 
-    // Fall back to parent implementation for non-grid mode
+    // Up and Down walk the rows and leave `col` on the column the walk began
+    // from, so the parent's slot panned the chime there rather than at the
+    // row the reader was hearing. The row's own slot is the one its tone
+    // reports in `audio`: the column of its first point.
+    if (this.mode === NavMode.ROW) {
+      const first = this.yPoints[this.row]?.x[0];
+      return {
+        empty: true,
+        type: 'trace',
+        traceType: this.type,
+        audio: {
+          y: this.row,
+          x: first === undefined ? 0 : this.xIndexOf(first),
+          rows: this.yPoints.length,
+          cols: Math.max(1, this.xPoints.length),
+        },
+      };
+    }
+
+    // Fall back to parent implementation for column navigation
     return super.outOfBoundsState;
   }
 
@@ -1764,23 +1798,24 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
+   * The row Up or Down turns into from a column: the row of the column's
+   * middle point, or the first row when that y is on no row (a NaN y).
+   *
+   * @param column - The column the reader is on
+   * @returns The row index
+   */
+  private rowEnteredFrom(column: ScatterXPoint): number {
+    const row = this.yIndexOf(column.y[Math.floor(column.y.length / 2)]);
+    return row === -1 ? 0 : row;
+  }
+
+  /**
    * Toggles between COL and ROW navigation modes while maintaining logical position mapping.
    */
   private toggleNavigation(): void {
     if (this.mode === NavMode.COL) {
       // Switch from COL to ROW mode
-      const currentXPoint = this.xPoints[this.col];
-      const middleYValue
-        = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
-      const targetRow = this.yIndexOf(middleYValue);
-
-      // Safety check: ensure the calculated row is valid
-      if (targetRow === -1 || targetRow >= this.yPoints.length) {
-        this.row = 0; // Use 0 as fallback
-      } else {
-        this.row = targetRow; // Use the calculated row to maintain logical connection
-      }
-
+      this.row = this.rowEnteredFrom(this.xPoints[this.col]);
       this.mode = NavMode.ROW;
     } else {
       // Switch from ROW to COL mode
@@ -2142,11 +2177,58 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
+   * The name of the point the reader is on, as its announcement gives it,
+   * or null where the cursor is on no one named point.
+   *
+   * Another layer of the chart may draw the same things by name rather than
+   * by place: the value chain of a Wardley map is a graph of the very
+   * components the map places. Offered as a second X, it lets a layer switch
+   * land on the same component where the evolution, a number, matched no
+   * node and put the reader on the first.
+   *
+   * A column or a row of several points names none of them, and is offered
+   * by the name of the one point navigation would start on, the first in
+   * reading order: two components at one evolution are both the reader's,
+   * and the layer entered draws each of them, where the evolution matched
+   * neither and put the reader on its first node.
+   *
+   * @returns The point's name, or null
+   */
+  public getAlternateXValue(): XValue | null {
+    // A layer with no points has no cursor for `text` to read.
+    if (this.xPoints.length === 0) {
+      return null;
+    }
+    const named = this.text.asides?.find(aside => aside.identifies === true)?.value;
+    if (named !== undefined || this.isInPointMode || this.isInGridMode || this.isInIntersectionMode) {
+      return named ?? null;
+    }
+    return this.flatPoints[this.computeEntryPointIndex()]?.label ?? null;
+  }
+
+  /**
+   * Whether a column carries this name, or a point is called it.
+   *
+   * A layer switch asks this of a name another layer offers (see
+   * {@link getAlternateXValue}). A number is not answered, as before: a
+   * numeric x is matched to the nearest column whatever it is.
+   *
+   * @param xValue - The x a layer switch would carry
+   * @returns True when {@link moveToXValue} would find it by name
+   */
+  public override hasXValue(xValue: XValue): boolean {
+    return typeof xValue === 'string' && this.xIndexNearest(xValue) !== -1;
+  }
+
+  /**
    * Moves to the column at an x value, entering COL mode to do so.
    *
    * An exact x wins; a numeric x with no exact column falls back to the
    * nearest one, as the shared helper does for other traces, and a
-   * categorical x is matched against the column labels.
+   * categorical x is matched against the column labels, then against the
+   * names of the points. A point found by its name in a column it shares is
+   * landed on by its row instead, where that names it (see
+   * {@link rowNaming}).
    *
    * @param xValue - The x to move to
    * @returns True when a column was found and the cursor moved
@@ -2156,20 +2238,71 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     if (index === -1) {
       return false;
     }
+    const row = this.rowNaming(xValue, index);
+    if (row !== -1) {
+      this.mode = NavMode.ROW;
+      return this.moveToIndex(row, 0);
+    }
     this.mode = NavMode.COL;
     return this.moveToIndex(0, index);
   }
 
   /**
+   * The row to land on for a point found by its name, where its column does
+   * not name it: the column holds other points too, which column navigation
+   * reads together and names none of, and the point has its row to itself,
+   * which names it. A Wardley map's Tea and Hot Water at one evolution are
+   * each found on their own visibility, where the column read both and named
+   * neither.
+   *
+   * @param xValue - The x a layer switch carries
+   * @param col - The column {@link xIndexNearest} found it in
+   * @returns The row index, or -1 where the column is the place to land: for
+   *   an x or a column's label, a point alone in its column, and a point
+   *   that shares its row too
+   */
+  private rowNaming(xValue: XValue, col: number): number {
+    const column = this.xPoints[col];
+    if (typeof xValue !== 'string' || column.label === xValue || column.names.length < 2) {
+      return -1;
+    }
+    for (const matches of NAME_MATCHES) {
+      const slot = column.names.findIndex(other => other !== undefined && matches(xValue, other));
+      if (slot !== -1) {
+        const row = this.yIndexOf(column.y[slot]);
+        return this.yPoints[row]?.x.length === 1 ? row : -1;
+      }
+    }
+    return -1;
+  }
+
+  /**
    * The column index for an x value: exact, else nearest numeric, else by
-   * column label.
+   * column label, else the column of the point of that name.
+   *
+   * A point is found by its name exactly, or failing that with a note in
+   * parentheses on either side ({@link NAME_MATCHES}), as a graph or a tree
+   * finds a node: a Wardley component is "Kettle (evolving to 0.62)" on the
+   * map and "Kettle" in the value chain.
    *
    * @param xValue - The x to look up
    * @returns The column index, or -1 when nothing matches
    */
   private xIndexNearest(xValue: XValue): number {
     if (typeof xValue !== 'number') {
-      return this.xPoints.findIndex(point => point.label === xValue);
+      const name = String(xValue);
+      const labelled = this.xPoints.findIndex(point => point.label === name);
+      if (labelled !== -1) {
+        return labelled;
+      }
+      for (const matches of NAME_MATCHES) {
+        const index = this.xPoints.findIndex(point =>
+          point.names.some(other => other !== undefined && matches(name, other)));
+        if (index !== -1) {
+          return index;
+        }
+      }
+      return -1;
     }
     const exact = this.xIndexByValue.get(xValue);
     if (exact !== undefined) {
@@ -2286,6 +2419,20 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   // ── Grid navigation methods ───────────────────────────────────────────
 
+  /**
+   * Enters or leaves grid navigation.
+   *
+   * Entry starts in the cell holding the point the reader is on -- the one
+   * they reached in point navigation when they come straight from it, else
+   * the one {@link setPointMode} would start on -- so the first arrow moves
+   * from where they are, and the point still outlined lies in the cell the
+   * cursor is on. Before the reader has entered the data, or when that point
+   * lies outside the grid, it starts in the bottom-left cell. Always starting
+   * there put the cursor in a cell the reader was not in, unannounced, with
+   * their own point still outlined elsewhere.
+   *
+   * @param enabled - Whether grid navigation is on
+   */
   public setGridMode(enabled: boolean): void {
     if (!this.gridCells) {
       this.isInGridMode = false;
@@ -2293,9 +2440,50 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     this.isInGridMode = enabled;
     if (enabled) {
-      this.gridRow = 0;
-      this.gridCol = 0;
+      const point = this.pointModeExitIndex ?? this.computeEntryPointIndex();
+      const cell = this.isInitialEntry ? null : this.gridCellOf(point);
+      this.gridRow = cell?.row ?? 0;
+      this.gridCol = cell?.col ?? 0;
+      this.pointModeExitIndex = null;
     }
+  }
+
+  /**
+   * Notifies the observers of the reader's new place. Whatever they hear
+   * now, they are no longer on the point they left point navigation on.
+   */
+  public override notifyStateUpdate(): void {
+    this.pointModeExitIndex = null;
+    super.notifyStateUpdate();
+  }
+
+  /**
+   * Notifies the observers of a state built for them, as a layer switch
+   * announces the layer it lands on. As {@link notifyStateUpdate}, the
+   * reader is then on the point announced.
+   *
+   * @param state - The state to announce
+   */
+  public override notifyObserversWithState(state: TraceState): void {
+    this.pointModeExitIndex = null;
+    super.notifyObserversWithState(state);
+  }
+
+  /**
+   * The grid cell a point was binned into.
+   *
+   * @param index - The point's index in the layer's `data`
+   * @returns The cell's row and column, or null when the point is in none
+   */
+  private gridCellOf(index: number): { row: number; col: number } | null {
+    const grid = this.gridCells ?? [];
+    for (let row = 0; row < grid.length; row++) {
+      const col = grid[row].findIndex(cell => cell.indices.includes(index));
+      if (col !== -1) {
+        return { row, col };
+      }
+    }
+    return null;
   }
 
   public override supportsCompareMode(): boolean {
@@ -2677,7 +2865,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    *
    * On exit, no state needs to be unwound; the existing row/col indices are
    * untouched while in point mode, so ROW_COL navigation resumes where it
-   * left off.
+   * left off. The point the reader was on is kept until they hear another,
+   * so grid navigation entered next starts in its cell (see
+   * {@link setGridMode}).
    */
   public setPointMode(enabled: boolean): void {
     if (enabled === this.isInPointMode) {
@@ -2691,6 +2881,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // autoplay's first tick — it takes the initial-entry branch, notifies
       // without moving, and replays the point the user is already standing on.
       this.isInitialEntry = false;
+    } else {
+      this.pointModeExitIndex = this.pointModeIndex;
     }
   }
 

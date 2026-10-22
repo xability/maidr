@@ -49,12 +49,20 @@ Control + Left (Command + Left) moves to the first bar and Control + Right
 End are not chart shortcuts.
 
 On a layer with nothing to jump to, such as a flowchart, whose nodes carry no
-values, [ and ] say there is no minimum or maximum value to go to, and G plays
-the warning tone and says there are no extrema to go to.
+values, [ and ] say there is no minimum or maximum value to go to, and G says
+there are no extrema to go to. All three play the warning tone with their
+message.
 
 **Layers.** A chart drawn in more than one layer — a bar chart with a line over
 it, or a violin plot's box and density curve — moves between its
-layers with Page Up and Page Down. Past the first or
+layers with Page Up and Page Down. A switch keeps your place where the other
+layer has it: the point at the same x or, where both layers name what they
+draw, the same thing by its name. From a column of several named points, a
+switch takes the top one, where point navigation would start; onto a named
+point that shares its column, it lands on the point's row, which names it,
+where no other point shares that row. Each switch says which layer of how many you
+are on and the values of the point you landed on, with its name where the
+chart names its points, as a Wardley map's components are named. Past the first or
 last layer, or on a chart with only one, you hear the same edge signal as at the
 end of the data.
 
@@ -64,10 +72,11 @@ a Mac) step through the other ways a chart can be read, and each is announced as
 you reach it. Which ones a chart offers depends on its type: where a chart's
 points carry values to compare, *lower value* and *higher value* navigation jump
 to the next point below or above the current value (a diagram such as a
-flowchart, whose nodes carry none, goes straight to its own), *grid* navigation walks a scatter plot cell by cell (press **Enter** to
+flowchart, whose nodes carry none, goes straight to its own), *grid* navigation walks a scatter plot cell by cell, starting in the cell of the point you are on (press **Enter** to
 step into a cell, the Left and Right arrows to move through its points, and
-**Escape** to leave it), and some chart types add their own, such as the points
-where two lines cross.
+**Escape** to leave it; in braille mode Enter steps in the same way, and Escape
+brings you back to the braille field), and some chart types add their own, such
+as the points where two lines cross.
 
 ### Hearing and Reading
 
@@ -96,7 +105,9 @@ Label mode is described under [Label Mode](#label-mode-announce-axis-labels).
 
 Escape leaves braille mode. In review mode the arrow keys, Home, End, Page Up and
 Page Down move through the review text the way they do in any text field, and R
-(**Exit Review Mode** in the help menu) leaves it.
+(**Exit Review Mode** in the help menu) leaves it. The review text can be
+selected and copied but not changed: a typed character, Delete, Backspace or a
+paste leaves it reading what MAIDR announced.
 
 The braille and review fields are kept readable whatever the page around them
 does to form fields:

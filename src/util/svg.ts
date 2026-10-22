@@ -674,6 +674,11 @@ export abstract class Svg {
    * The shapes a highlighted group is outlined through.
    */
   private static readonly HIGHLIGHT_SHAPES = 'rect, path, circle, ellipse, polygon, line, polyline';
+  /**
+   * The contrast a label must reach on a highlight under it: WCAG AA's for
+   * text.
+   */
+  private static readonly LABEL_CONTRAST_RATIO = 4.5;
 
   /**
    * Adjusts opacity values to ensure visibility, returning '1' if below threshold.
@@ -823,6 +828,14 @@ export abstract class Svg {
    * The colour is not derived from the group, whose fill is only what it
    * inherited.
    *
+   * A shape drawn with no edge of its own, such as a Mermaid architecture
+   * service's tile, is outlined twice as wide as the increase. Half of a
+   * stroke falls inside the shape, so at the increase alone one unit showed
+   * outside the tile, a third of the outline other diagrams' nodes get. And
+   * an `<svg>` nested in the group, such as the tile's icon, is let draw
+   * past its box in the copy: like every nested `<svg>` it clips what it
+   * holds, and cut the outline's outer half, the half on the page, away.
+   *
    * @param element - The element highlighted, in the document, so its shapes'
    *   styles resolve
    * @param clone - Its deep clone, whose shapes are its own in the same order
@@ -845,7 +858,9 @@ export abstract class Svg {
       if (style.display === 'none' || (!stroked && !this.isPainted(style.fill, style.fillOpacity))) {
         return;
       }
-      const width = (Number.parseFloat(style.strokeWidth) || 0) + this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
+      const width = stroked
+        ? (Number.parseFloat(style.strokeWidth) || 0) + this.STROKE_WIDTH_HIGHLIGHT_INCREASE
+        : 2 * this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
       const shape = shapes[at];
       shape.style.setProperty(Constant.STROKE, color, 'important');
       shape.style.setProperty('stroke-opacity', '1', 'important');
@@ -853,7 +868,169 @@ export abstract class Svg {
       shape.style.setProperty(Constant.FILL, 'none', 'important');
       outlined = true;
     });
+    if (outlined) {
+      clone.querySelectorAll<SVGSVGElement>('svg').forEach((nested) => {
+        nested.style.setProperty('overflow', 'visible', 'important');
+      });
+    }
     return outlined;
+  }
+
+  /**
+   * Copies the labels drawn over a mark its highlight fills, in the colour that
+   * reads on the highlight, each just above the label it copies.
+   *
+   * A label drawn after its mark stays above the highlight, which is inserted
+   * just after the mark, but keeps the colour it was given for the mark: a
+   * white label on a red gantt task, or on a packet field high contrast
+   * painted black, sat on the highlight colour at 2.27:1. Each such label is
+   * copied over itself in whichever of `colors` contrasts more with the
+   * highlight, where the label itself falls below 4.5:1 on it; the label is
+   * left as the chart and high contrast painted it, and the copies go with
+   * the highlight. A label already readable on the highlight is left alone --
+   * the dark label on a light mark's darker shade, which stops at 3:1 for it
+   * -- and so is everything that is not text over the filled shape: a label
+   * beside it or drawn under it, one on a shape drawn over the mark, as a
+   * treemap draws its items over their section, the labels of a group, which
+   * is outlined and keeps its fill, and text within a line's box.
+   *
+   * @param element - The mark highlighted, in the document
+   * @param highlight - Its highlight, from {@link createHighlightElement}
+   * @param colors - The colours a label may take: black and white, or the
+   *   reader's high contrast pair
+   * @returns The copies, owned by MAIDR, for removing with the highlight
+   */
+  public static createLabelHighlights(
+    element: SVGElement,
+    highlight: SVGElement,
+    colors: readonly string[],
+  ): SVGElement[] {
+    const tag = element.tagName.toLowerCase();
+    if (tag === Constant.LINE || tag === Constant.POLYLINE || !element.matches(this.HIGHLIGHT_SHAPES)) {
+      return [];
+    }
+    const fill = Color.parse(highlight.style.fill);
+    const style = window.getComputedStyle(element);
+    const root = this.outermostSvg(element);
+    const box = element.getBoundingClientRect();
+    if (fill === null || root === null || !this.isPainted(style.fill, style.fillOpacity)
+      || box.width <= 0 || box.height <= 0) {
+      return [];
+    }
+    const contrastOn = (color: string): number => {
+      const rgb = Color.parse(color);
+      return rgb === null ? 0 : Color.getContrastRatio(rgb, fill);
+    };
+    const best = colors.reduce<string | null>(
+      (chosen, color) => (chosen === null || contrastOn(color) > contrastOn(chosen) ? color : chosen),
+      null,
+    );
+    if (best === null) {
+      return [];
+    }
+
+    // The shapes drawn between the mark and a label, any of which may cover
+    // the highlight where the label is. Read only once a label is over the
+    // mark, which on most moves none is.
+    let shapes: SVGElement[] | null = null;
+    const isCovered = (label: SVGElement, x: number, y: number): boolean => {
+      shapes ??= Array.from(root.querySelectorAll<SVGElement>(this.HIGHLIGHT_SHAPES));
+      return shapes.some(shape =>
+        (element.compareDocumentPosition(shape) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+        && (shape.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+        && this.fillsOver(shape, x, y));
+    };
+
+    const labels = Array.from(root.querySelectorAll<SVGElement>('text')).filter((label) => {
+      if ((element.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
+        return false;
+      }
+      const rect = label.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      if (rect.width <= 0 || rect.height <= 0
+        || x < box.left || x > box.right || y < box.top || y > box.bottom
+        || label.closest(`[${this.OWNED_ATTRIBUTE}]`) !== null
+        || !this.fillsPoint(element, x, y)) {
+        return false;
+      }
+      const ink = window.getComputedStyle(label);
+      const shown = contrastOn(ink.fill);
+      return ink.display !== 'none' && ink.visibility !== Constant.HIDDEN
+        && shown < this.LABEL_CONTRAST_RATIO && contrastOn(best) > shown
+        && !isCovered(label, x, y);
+    });
+
+    return labels.map((label) => {
+      const copy = this.markOwned(label.cloneNode(true) as SVGElement);
+      for (const node of [copy, ...Array.from(copy.querySelectorAll('[id]'))]) {
+        node.removeAttribute('id');
+      }
+      copy.setAttribute('aria-hidden', 'true');
+      copy.style.pointerEvents = 'none';
+      for (const glyphs of [copy, ...Array.from(copy.querySelectorAll<SVGElement>('tspan, textPath'))]) {
+        glyphs.style.setProperty(Constant.FILL, best, 'important');
+      }
+      label.insertAdjacentElement(Constant.AFTER_END, copy);
+      return copy;
+    });
+  }
+
+  /**
+   * Whether a shape of the chart's own is drawn filled at a point on screen,
+   * covering what lies under it there. A shape in definitions -- a clip path,
+   * a marker -- draws nothing where it is, and MAIDR's copies are not the
+   * chart's.
+   * @param shape - The shape
+   * @param x - The point's distance from the viewport's left
+   * @param y - The point's distance from the viewport's top
+   * @returns True when the shape's fill is drawn at the point
+   */
+  private static fillsOver(shape: SVGElement, x: number, y: number): boolean {
+    if (shape.closest(`[${this.OWNED_ATTRIBUTE}], defs, clipPath, mask, marker, pattern, symbol`) !== null) {
+      return false;
+    }
+    const rect = shape.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0
+      || x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      return false;
+    }
+    const style = window.getComputedStyle(shape);
+    return style.display !== 'none' && style.visibility !== Constant.HIDDEN
+      && this.isPainted(style.fill, style.fillOpacity) && this.fillsPoint(shape, x, y);
+  }
+
+  /**
+   * The `<svg>` an element is drawn in, past any nested inside it.
+   * @param element - The element
+   * @returns The outermost `<svg>`, or null for an element outside one
+   */
+  private static outermostSvg(element: SVGElement): SVGSVGElement | null {
+    let root = (element as SVGGraphicsElement).ownerSVGElement ?? null;
+    while (root?.ownerSVGElement) {
+      root = root.ownerSVGElement;
+    }
+    return root;
+  }
+
+  /**
+   * Whether a shape fills a point on screen, rather than only its box. Where
+   * the browser cannot say, the box is taken for the shape.
+   * @param element - The shape
+   * @param x - The point's distance from the viewport's left
+   * @param y - The point's distance from the viewport's top
+   * @returns False only for a point the shape's fill misses
+   */
+  private static fillsPoint(element: SVGElement, x: number, y: number): boolean {
+    const shape = element as SVGGeometryElement;
+    if (typeof shape.isPointInFill !== 'function' || typeof shape.getScreenCTM !== 'function') {
+      return true;
+    }
+    const matrix = shape.getScreenCTM();
+    if (matrix === null) {
+      return true;
+    }
+    return shape.isPointInFill(new DOMPoint(x, y).matrixTransform(matrix.inverse()));
   }
 
   /**
