@@ -251,6 +251,7 @@ test.describe('Graphviz adapter, patchwork treemap', () => {
 
     expect(announcement).toContain('Item is people');
     expect(announcement).toContain('Area is 65');
+    expect(announcement).toContain('Share of total is 65.0%');
     expect(announcement).toContain('Children is 2');
     await expect(page.locator(`${CELL} title`)).toHaveText('cluster_people');
     await expect(page.locator(`${CELL} polygon`)).toHaveCSS('stroke', HIGHLIGHT_STROKE);
@@ -269,7 +270,28 @@ test.describe('Graphviz adapter, patchwork treemap', () => {
     const announcement = normalizeText(await plot.getInstructionText());
 
     expect(announcement).toContain('Item is Salaries');
-    expect(announcement).toContain('Area is 60');
+    expect(announcement).toContain('Area is 50');
+    // Its share of the branch, as docs/graphviz.md says; its share of the
+    // whole is in the chart description.
+    expect(announcement).toContain('Share of people is 76.9%');
+    expect(announcement).not.toContain('Share of total');
     await expect(page.locator(`${CELL} title`)).toHaveText('salaries');
+  });
+
+  test('should draw every leaf with its label inside its own rectangle', async ({ page }) => {
+    // Graphviz centres a leaf's label on its rectangle however narrow the
+    // rectangle is. At 60 and 5, Training was 24pt wide for a 48pt label,
+    // which ran over Salaries and off the drawing's edge.
+    const spilled = await page.evaluate(() =>
+      [...document.querySelectorAll('svg g.node:not([data-maidr-owned])')]
+        .filter((node) => {
+          const label = (node.querySelector('text') as SVGGraphicsElement).getBBox();
+          const cell = (node.querySelector('polygon') as SVGGraphicsElement).getBBox();
+          return label.x < cell.x || label.x + label.width > cell.x + cell.width
+            || label.y < cell.y || label.y + label.height > cell.y + cell.height;
+        })
+        .map(node => node.querySelector('text')?.textContent));
+
+    expect(spilled).toEqual([]);
   });
 });

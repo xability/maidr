@@ -58,7 +58,7 @@ None yet. Every graph type below is experimental.
 | Directed Graph [experimental] | `directed_graph` | A `digraph`: nodes in the order the edges run, each announcing the nodes feeding it and fed by it, with the edges' labels. |
 | Directed Graph with Clusters [experimental] | `directed_graph` | A `digraph` with `subgraph cluster_*` blocks: each cluster is a scope the reader opens with Down and leaves with Up, nested as the clusters are. |
 | Network [experimental] | `network` | A `graph`: nodes by connected group, one group per row, most connected first, each announcing its degree and the nodes it is linked to. |
-| Treemap (patchwork) [experimental] | `treemap` | A graph drawn with `layout=patchwork`: clusters are branches and nodes are leaves, each leaf announced with its `area` and its share of its branch and of the whole. |
+| Treemap (patchwork) [experimental] | `treemap` | A graph drawn with `layout=patchwork`: clusters are branches and nodes are leaves, each announced with its `area` and its share of the branch it is in, or of the whole when it is in none. The chart description gives every item's share of the whole. |
 
 Which one a drawing is follows from its edges: `->` in a `digraph`, `--` in a `graph`. A drawing with no edges at all cannot say, and is read as a directed graph of nodes with nothing between them.
 
@@ -158,8 +158,8 @@ graph Budget {
   label="Team budget";
   layout=patchwork;
   subgraph cluster_people {
-    salaries [label="Salaries", area=60];
-    training [label="Training", area=5];
+    salaries [label="Salaries", area=50];
+    training [label="Training", area=15];
   }
   subgraph cluster_infrastructure {
     cloud [label="Cloud", area=20];
@@ -173,7 +173,7 @@ graph Budget {
 maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { layout: 'patchwork', nodeLabel: 'Item' });
 ```
 
-Each leaf's value is its `area`, read back from its rectangle -- patchwork draws one unit of `area` as 1000 square points, whatever `size` the graph is drawn at -- rounded to the precision Graphviz's coordinates allow, so `area=60.25` and `area=12345` come back as written, and MAIDR adds each branch up from its leaves and tells the reader every item's share of its branch and of the whole. Patchwork draws no cluster labels, so a branch is called by its name without the `cluster` prefix: `people`, `infrastructure`. Every branch and leaf is outlined when the reader is on it.
+Each leaf's value is its `area`, read back from its rectangle -- patchwork draws one unit of `area` as 1000 square points, whatever `size` the graph is drawn at -- rounded to the precision Graphviz's coordinates allow, so `area=60.25` and `area=12345` come back as written, and MAIDR adds each branch up from its leaves. An item inside a branch is announced with its share of that branch, `Item is Salaries, Area is 50, Share of people is 76.9%`, and an item at the top, branch or leaf, with its share of the whole, `Item is people, Area is 65, Share of total is 65.0%, Children is 2`. The chart description, opened with `D`, lists every item's share of the whole. Patchwork draws no cluster labels, so a branch is called by its name without the `cluster` prefix: `people`, `infrastructure`. Every branch and leaf is outlined when the reader is on it.
 
 ## Quarto
 
@@ -254,13 +254,23 @@ import { bindGraphviz, createMaidrFromGraphviz, renderGraphviz } from 'maidr/gra
 
 ## Keyboard Controls
 
-| Key | Action |
-|-----|--------|
-| Arrow keys | Move between nodes |
-| `T` | Toggle text descriptions |
-| `B` | Toggle braille output |
-| `S` | Toggle sonification |
-| `H` | Open the help menu, which lists every command |
+Once a drawing is focused, use the standard MAIDR keyboard shortcuts:
+
+| Function | Key (Windows) | Key (Mac) |
+|----------|--------------|-----------|
+| Move between nodes, or between the items of one treemap branch | Left / Right Arrow | Left / Right Arrow |
+| Open a cluster or a treemap branch / leave it | Down / Up Arrow | Down / Up Arrow |
+| Move to the next / previous connected group (network) | Up / Down Arrow | Up / Down Arrow |
+| Follow the edges (Outputs, Inputs; a network's Links) or walk one treemap level (Level) | Rotor (Alt + Shift + Up / Down), then Left / Right | Rotor (Option + Shift + Up / Down), then Left / Right |
+| Open the object list | O | O |
+| Toggle Sonification | S | S |
+| Toggle Braille Mode | B | B |
+| Toggle Text Mode | T | T |
+| Toggle Review Mode | R | R |
+| Open Chart Description | D | D |
+| Open/Close Help, which lists every shortcut | Control + / | Command + / |
+
+For the full list, see the [Keyboard Controls](CONTROLS.md) reference.
 
 ## API Documentation
 
