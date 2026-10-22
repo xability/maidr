@@ -125,6 +125,20 @@ describe('watchQuartoMermaid', () => {
     expect(document.querySelectorAll(layer.selectors)).toHaveLength(2);
   });
 
+  it('leaves room for MAIDR\'s focus ring inside the drawing Quarto drew', async () => {
+    quartoPage([{ text: PIE }]);
+    pageMermaid();
+
+    stop = watchQuartoMermaid();
+    await quartoDraws({});
+    await settle();
+
+    const svg = document.querySelector('svg.mermaid-js') as SVGSVGElement;
+    expect(svg.hasAttribute('maidr')).toBe(true);
+    expect(svg.style.padding).toBe('5px');
+    expect(svg.style.boxSizing).toBe('border-box');
+  });
+
   it('parses nothing while Quarto is still drawing, since parses share state', async () => {
     quartoPage([{ text: PIE }, { text: PIE }]);
     const parsed = pageMermaid();

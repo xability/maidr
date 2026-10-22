@@ -136,6 +136,29 @@ async function widths(page: Page): Promise<{ drawing: number; drawn: number; fig
 }
 
 /**
+ * What MAIDR's focus ring covers of the focused diagram: each label, and
+ * each box short of the whole drawing, that reaches into the 5px the ring is
+ * drawn over on the left, top or right.
+ *
+ * @param page - The page
+ * @returns The labels' text, or the boxes' tag
+ */
+async function underFocusRing(page: Page): Promise<string[]> {
+  return page.locator(FOCUS_TARGET).first().evaluate((plot) => {
+    const ring = 5;
+    const edge = plot.getBoundingClientRect();
+    const svg = plot.querySelector('svg') as SVGSVGElement;
+    const whole = svg.getBoundingClientRect();
+    return [...svg.querySelectorAll('text, rect')].filter((element) => {
+      const box = element.getBoundingClientRect();
+      return box.width > 0 && box.width < whole.width * 0.95 && element.closest('defs') === null
+        && (box.left < edge.left + ring - 0.5 || box.top < edge.top + ring - 0.5
+          || box.right > edge.right - ring + 0.5);
+    }).map(element => element.textContent?.trim() || element.tagName);
+  });
+}
+
+/**
  * The layer types MAIDR was handed.
  *
  * @param page - The page
@@ -259,6 +282,18 @@ test.describe('Mermaid adapter', () => {
     const box = await page.locator(HIGHLIGHT).first().boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(15);
   });
+
+  // The ring is drawn inside the chart, over what is there, and these draw
+  // at the drawing's edge: a railroad's rule names, a packet's bit numbers,
+  // a sankey's node bars.
+  for (const name of ['railroad', 'packet', 'sankey']) {
+    test(`keeps the focus ring off the ${name} example's drawing`, async ({ page }) => {
+      await openExample(page, name);
+      await press(page, 'ArrowRight');
+
+      expect(await underFocusRing(page)).toEqual([]);
+    });
+  }
 
   test('shrinks a diagram to a page narrower than it, without scrolling sideways', async ({ page }) => {
     await openExample(page, 'flowchart');

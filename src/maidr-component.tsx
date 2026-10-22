@@ -216,6 +216,8 @@ const EMBEDDED = `:where([${Constant.MAIDR_EMBED}]) > article[id^="maidr-article
  * band inside it, the outline of the chart's own `<svg>`, keeps it visible on
  * a dark plot; the `<svg>` sits directly in the plot, or inside the
  * `display: contents` element a chart bound from the page is adopted into.
+ * Together they cover the drawing's outer 5px, so a drawing that reaches its
+ * own edge needs that much room, as the Mermaid adapter pads its diagrams.
  * Both colours can be set by a page, through `--maidr-focus-ring-color` and
  * `--maidr-focus-ring-inner`. Under forced colours the ring takes the
  * system's highlight colour and the band goes.

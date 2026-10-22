@@ -93,6 +93,29 @@ function fitToFigure(svg: SVGSVGElement): void {
 }
 
 /**
+ * Leaves room inside a drawing for MAIDR's focus ring.
+ *
+ * The ring is drawn 5px into the chart -- a 3px ring and a 2px band inside
+ * it (`FOCUS_RING_RULES` in `maidr-component.tsx`) -- over what is there.
+ * Mermaid crops a drawing to what it drew, and some diagrams draw at its very
+ * edge or past it: a railroad's rule names, a packet's bit numbers, a
+ * sankey's node bars, a radar's title. The ring covered them for as long as
+ * the reader was in the chart. As much padding, inside the size the drawing
+ * already has (`border-box`), puts the ring over the padding instead.
+ *
+ * A padding of the drawing's own is left as it is.
+ *
+ * @param svg - The drawing
+ */
+function leaveRoomForFocusRing(svg: SVGSVGElement): void {
+  if (svg.style.padding !== '') {
+    return;
+  }
+  svg.style.padding = '5px';
+  svg.style.boxSizing = 'border-box';
+}
+
+/**
  * Converts a parsed diagram against its rendered SVG.
  *
  * Separate from {@link createMaidrFromMermaid} so a caller that already holds
@@ -100,7 +123,8 @@ function fitToFigure(svg: SVGSVGElement): void {
  * again.
  *
  * A drawing Mermaid sized to its container is given the width it was drawn
- * at, so MAIDR's figure draws it at Mermaid's size.
+ * at, so MAIDR's figure draws it at Mermaid's size, and every drawing is
+ * padded inside that size so MAIDR's focus ring covers none of it.
  *
  * @param diagram - The parsed diagram: its type and database
  * @param diagram.type - The diagram type Mermaid detected
@@ -149,6 +173,7 @@ export function convertMermaidDiagram(
     ?? (plain(call(diagram.db, 'getDiagramTitle')) || plain(call(diagram.db, 'getTitle')) || undefined);
   const caption = options.caption ?? (plain(call(diagram.db, 'getAccDescription')) || undefined);
   fitToFigure(svg);
+  leaveRoomForFocusRing(svg);
   return {
     id,
     ...(title ? { title } : {}),
