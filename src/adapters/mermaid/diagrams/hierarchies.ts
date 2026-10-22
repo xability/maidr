@@ -109,14 +109,21 @@ export function treeView(context: DiagramContext): DiagramConversion {
 
 /**
  * Ishikawa (fishbone) diagrams: an effect, its categories of cause, and the
- * causes under each.
+ * causes under each. Each is announced as the one it is; together they are
+ * the diagram's items.
+ *
+ * Each is paired with the group Mermaid draws it as -- the effect's head, a
+ * category's box, a cause's branch line, each with its label -- rather than
+ * with the label alone, so the highlight outlines the shape and leaves the
+ * label as drawn. A group's text is its label, so it is found by it all the
+ * same.
  *
  * @param context - The diagram
  * @returns The conversion
  */
 export function ishikawa(context: DiagramContext): DiagramConversion {
   const root = call(context.db, 'getRoot') as Row | undefined;
-  const match = textMatcher(all(context.svg, 'text.ishikawa-head-label, text.ishikawa-label'));
+  const match = textMatcher(all(context.svg, 'g.ishikawa-head-group, g.ishikawa-label-group, g.ishikawa-sub-group'));
   // A cause may have causes of its own, so every level below the categories
   // is a cause.
   const kinds = ['Effect', 'Category'];
@@ -129,12 +136,13 @@ export function ishikawa(context: DiagramContext): DiagramConversion {
       children: rows(node.children).map(child => visit(child, depth + 1)),
     };
   };
-  return single(root ? treeLayer(context, { roots: [visit(root, 0)], nodeLabel: 'Cause' }) : null);
+  return single(root ? treeLayer(context, { roots: [visit(root, 0)], nodeLabel: 'Item' }) : null);
 }
 
 /**
  * Timelines: periods in order, each with its events, grouped in sections
- * when the timeline has them.
+ * when the timeline has them. Each is announced as the one it is; together
+ * they are the timeline's items.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -170,7 +178,7 @@ export function timeline(context: DiagramContext): DiagramConversion {
       roots.push(period(task));
     }
   }
-  return single(treeLayer(context, { roots, nodeLabel: 'Period' }));
+  return single(treeLayer(context, { roots, nodeLabel: 'Item' }));
 }
 
 /**
@@ -222,7 +230,8 @@ function grammarPart(node: Row): TreeNode {
 
 /**
  * Railroad (syntax) diagrams: each grammar rule and the expression it is
- * made of -- sequences, choices, optional and repeated parts.
+ * made of -- sequences, choices, optional and repeated parts. Each is
+ * announced as the one it is; together they are the grammar's items.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -236,7 +245,7 @@ export function railroad(context: DiagramContext): DiagramConversion {
     return { name: comment ? `${plain(rule.name)} (${comment})` : plain(rule.name), kind: 'Rule', children };
   });
   return {
-    layers: [treeLayer(context, { roots: rules, nodeLabel: 'Rule' })].filter(layer => layer !== null),
+    layers: [treeLayer(context, { roots: rules, nodeLabel: 'Item' })].filter(layer => layer !== null),
     title: plain(call(context.db, 'getTitle')) || undefined,
   };
 }
@@ -324,7 +333,9 @@ export function cynefin(context: DiagramContext): DiagramConversion {
       roots.push({ name: described(name), kind: 'Domain', element: label });
     }
   }
-  const layers = [treeLayer(context, { roots, nodeLabel: 'Domain', name: 'Domains' })];
+  // Named by neither of its kinds, as a kanban board's layer is; "Item" is
+  // already what the things placed in a domain are called.
+  const layers = [treeLayer(context, { roots, nodeLabel: 'Node', name: 'Domains' })];
 
   const transitions = rows(call(context.db, 'getTransitions'));
   if (transitions.length > 0) {

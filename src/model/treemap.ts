@@ -1,5 +1,5 @@
 import type { MaidrLayer, TreemapPoint } from '@type/grammar';
-import type { Coordinate, Node } from '@type/movable';
+import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type {
   ChartObject,
@@ -202,9 +202,16 @@ export class TreemapTrace extends AbstractTrace {
   private readonly depthMax: number[];
 
   /**
-   * Each node's child count plus one, shaped as `nodes` is, with its per-depth
-   * extremes: what braille and the pitch carry for a tree that declares no
-   * magnitude (see {@link TreemapTrace.valued}). A null node counts as a leaf.
+   * Each node's child count plus one, shaped as `nodes` is, with the range
+   * each depth is scaled over: what braille and the pitch carry for a tree
+   * that declares no magnitude (see {@link TreemapTrace.valued}). A null node
+   * counts as a leaf.
+   *
+   * The range runs from a leaf's 1 up to the depth's bushiest node, rather
+   * than from the depth's own smallest count. A depth with no leaves on it --
+   * a lone root, or a timeline's periods of one event each -- otherwise put
+   * its least-branched node on the floor of the range, where it sounded and
+   * read exactly as a leaf does.
    */
   private readonly shape: number[][];
   private readonly shapeMin: number[];
@@ -215,6 +222,12 @@ export class TreemapTrace extends AbstractTrace {
    * and Right walk, and what a treemap's and a pack's pan follows.
    */
   private readonly siblingPlace: number[][];
+
+  /**
+   * Whether the rotor is on the Level unit, where Left and Right walk the
+   * whole level across parents (see {@link moveToExtreme}).
+   */
+  private walkingLevel = false;
 
   /** Every top-level node's total, added up. */
   private readonly grandTotal: number;
@@ -273,7 +286,7 @@ export class TreemapTrace extends AbstractTrace {
     this.depthMin = this.nodeValues.map(level => MathUtil.safeMin(level));
     this.depthMax = this.nodeValues.map(level => MathUtil.safeMax(level));
     this.shape = this.nodes.map(level => level.map(node => (node?.children.length ?? 0) + 1));
-    this.shapeMin = this.shape.map(level => MathUtil.safeMin(level));
+    this.shapeMin = this.shape.map(() => 1);
     this.shapeMax = this.shape.map(level => MathUtil.safeMax(level));
     this.grandTotal = (this.nodes[0] ?? []).reduce(
       (total, node) => total + (node?.value ?? 0),
@@ -393,10 +406,13 @@ export class TreemapTrace extends AbstractTrace {
           right: at >= 0 && at < siblings.length - 1 ? siblings[at + 1] : null,
           // Out to the top of this branch, and in to the end of its first
           // line of descent -- the extremes of the axis these keys move on.
+          // Each is null where the node already is that extreme, as left and
+          // right are: a jump to the node itself replayed it, and with the
+          // text off a press that went nowhere sounded like a step.
           top: this.rootOf(node),
           bottom: this.deepestOf(node),
-          start: siblings[0] ?? null,
-          end: siblings[siblings.length - 1] ?? null,
+          start: at > 0 ? siblings[0] : null,
+          end: at >= 0 && at < siblings.length - 1 ? siblings[siblings.length - 1] : null,
         };
       }));
   }
@@ -581,8 +597,8 @@ export class TreemapTrace extends AbstractTrace {
   protected get audio(): AudioState {
     if (!this.valued) {
       // A pure hierarchy is pitched by its shape, the child count braille
-      // shows (each node's count plus one, scaled per level): a leaf the
-      // lowest, the bushiest node of its level the highest. Sounded as a
+      // shows (each node's count plus one, scaled per level from a leaf up):
+      // a leaf the lowest, the bushiest node of its level the highest. Sounded as a
       // node with no value, every node played the empty tone -- the tone a
       // refused move plays, at the same pan -- so with text off a reader
       // could not tell a step onto a node from hitting the edge, and a flat
@@ -729,8 +745,8 @@ export class TreemapTrace extends AbstractTrace {
       // to zero everywhere, and a zero is a blank cell: the display stayed
       // empty however the reader moved. Its shape is what it has, so each
       // cell is the node's child count plus one, a leaf the lowest dot and a
-      // node with many children the tallest, scaled per level as the
-      // magnitudes are -- and as the pitch is.
+      // node with many children the tallest, scaled per level from a leaf up
+      // -- as the pitch is.
       return {
         empty: false,
         id: this.id,
@@ -906,6 +922,55 @@ export class TreemapTrace extends AbstractTrace {
 
     if (target < 0 || target >= level.length) {
       this.notifyRotorBounds();
+      return false;
+    }
+
+    this.movable.moveToIndex(this.row, target);
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * Hears whether the rotor is on the Level unit, which changes where
+   * Control with Left and Right goes (see {@link moveToExtreme}).
+   *
+   * @param key - The active unit's key, or null
+   */
+  public override setRotorFilterUnit(key: string | null): void {
+    this.walkingLevel = key === LEVEL_ROTOR_KEY;
+  }
+
+  /**
+   * Jumps to an extreme of what the arrow keys walk.
+   *
+   * On the Level unit, Left and Right walk the whole level across parents,
+   * so Control with them goes to the first or last node of the level, and is
+   * refused only there. It went to the ends of the node's siblings instead:
+   * on a timeline's last period of a section, Control+Right said there was
+   * no more data while Right went on to the next section's first period. Up
+   * and down, and every jump off the Level unit, keep the tree's own
+   * extremes.
+   *
+   * @param direction - Which extreme
+   * @returns True when the cursor moved, or entered the tree
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (!this.walkingLevel || (direction !== 'FORWARD' && direction !== 'BACKWARD')) {
+      return super.moveToExtreme(direction);
+    }
+
+    // On entering, landing on the first node is the move, as it is for the
+    // tree's own extremes.
+    const entering = this.isInitialEntry;
+    if (entering) {
+      this.movable.handleInitialEntry();
+    }
+
+    const level = this.nodes[this.row] ?? [];
+    const drawn = level.flatMap((node, col) => (node === null ? [] : [col]));
+    const target = direction === 'FORWARD' ? drawn[drawn.length - 1] : drawn[0];
+    if (target === undefined || (target === this.col && !entering)) {
+      this.notifyOutOfBounds();
       return false;
     }
 

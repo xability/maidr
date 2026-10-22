@@ -131,7 +131,7 @@ digraph Services {
 The node the reader is on is outlined. On a cluster every node inside it is outlined, not the cluster's own border, since MAIDR derives a scope from its nodes rather than from a drawn element. A cluster announces the label Graphviz drew on it. In DOT a subgraph inherits its parent's `label` unless it sets its own, so a cluster inside a labelled graph draws -- and is announced by -- the graph's label; give it `label=""` to draw none and have it called by its name instead. Where two clusters side by side draw the same label, each is announced with its name beside it (`Shop (web)`, `Shop (store)`), so they stay two scopes. A cluster drawn with no outline, such as `style=invis`, is not a scope: nothing on the page shows the group.
 #### Network [experimental]
 
-An undirected `graph` becomes a `network`: one link per edge, and every link of the node the reader is on is outlined, so the person is where the outlined links meet; in a group of two, both people outline the one link between them. A link between two people is a fact about the pair, not a way to go, so the reader moves through each connected group by degree rather than along the edges. Up and Down move to the next and previous group, entering a group on its most connected person the first time and, after that, on the person the reader left there. Below, Ana, Ben, Chloe and Dev form one group, with Chloe the most connected, and Eli and Fay another.
+An undirected `graph` becomes a `network`: one link per edge, and every link of the node the reader is on is outlined, so the person is where the outlined links meet; in a group of two, both people outline the one link between them. A link between two people is a fact about the pair, not a way to go, so the reader moves through each connected group by degree rather than along the edges. Up and Down move to the next and previous group, entering a group on its most connected person the first time and, after that, on the person the reader left there. The rotor's **Links** unit follows the links: each Left or Right press goes to the next person linked to the one the walk started from, and an arrow move ends the walk, so the next press follows the links of the person the reader is on. Below, Ana, Ben, Chloe and Dev form one group, with Chloe the most connected, and Eli and Fay another.
 
 ```dot
 graph Team {
@@ -148,6 +148,8 @@ maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { nodeLabel: 'Per
 ```
 
 A network names its nodes by the text drawn on them. Where two nodes are drawn with the same text, every node is named by its DOT name instead, so the two stay two. A node no edge touches has no link to be named in, and is not read -- the adapter names such nodes in a console warning; a loop (`a -- a`) is reported apart from the node's links.
+
+A move announces the person, their number of links, whom they are linked to and their group: `Person is Ana, Links is 2, Linked to is Chloe, Ben, Group is 1 of 2, 4 nodes`. Terse mode drops the labels but keeps a word of the last two, so the names and the group stay apart: `Ana, 2, linked to Chloe, Ben, group 1 of 2, 4 nodes`.
 
 #### Treemap (patchwork) [experimental]
 

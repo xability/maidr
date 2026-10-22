@@ -48,6 +48,17 @@ Control + Left (Command + Left) moves to the first bar and Control + Right
 (Command + Right) to the last, and MAIDR announces the bar it lands on. Home and
 End are not chart shortcuts.
 
+On a tree -- a treemap, sunburst, icicle, circle packing or tree diagram -- and
+on a directed graph such as a flowchart, the extremes follow the arrow keys:
+Control + Left and Right go to the first and last of the items Left and Right
+walk, which are a node's siblings or the items of one scope, Control + Up goes
+out to the top-level item the one you are on is in, and Control + Down goes
+down the first line of children to the deepest. With the rotor on a tree's
+**Level**, where Left and Right walk every node at that depth whatever its
+parent, Control + Left and Right go to the first and last node of the level.
+Already at that extreme, you hear the same edge signal as at the end of the
+data, in each of the four directions, rather than the item again.
+
 On a layer with nothing to jump to, such as a flowchart, whose nodes carry no
 values, [ and ] say there is no minimum or maximum value to go to, and G says
 there are no extrema to go to. All three play the warning tone with their

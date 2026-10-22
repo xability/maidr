@@ -431,6 +431,33 @@ describe('the neighbour rotor pages through every border', () => {
     expect(['Washington', 'Idaho', 'Nevada', 'California'])
       .toContain(String(nonEmptyState(trace).text.main.value));
   });
+
+  test('walking away and back ends the walk, so it follows where you are', () => {
+    // Nevada's walk steps to California. Right and Left put the cursor back
+    // on California, and the next step carried on round Nevada's borders, to
+    // Utah, which does not touch California, rather than round its own.
+    const trace = choropleth();
+    walk(trace, 'FORWARD');
+    trace.moveToRotorFilter('neighbours', 'right');
+    walk(trace, 'FORWARD', 'BACKWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('California');
+    expect(trace.moveToRotorFilter('neighbours', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Nevada');
+  });
+
+  test('a move to either end of the band ends the walk as well', () => {
+    // Ctrl+Right and Ctrl+Left go to Utah and back to California.
+    const trace = choropleth();
+    walk(trace, 'FORWARD');
+    trace.moveToRotorFilter('neighbours', 'right');
+    trace.moveToExtreme('FORWARD');
+    trace.moveToExtreme('BACKWARD');
+
+    expect(nonEmptyState(trace).text.main.value).toBe('California');
+    expect(trace.moveToRotorFilter('neighbours', 'right')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Nevada');
+  });
 });
 
 describe('what a half-declared map is told', () => {

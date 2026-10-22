@@ -8,7 +8,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextAside, TextState } from '@type/state';
 import type { Centrality } from '@util/graphCentrality';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { centrality, withinCentralityBudget } from '@util/graphCentrality';
@@ -178,7 +178,8 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
 
   /**
    * The link walk in progress: whose links, how far along, and where the last
-   * step left the cursor.
+   * step left the cursor. Every move the walk did not make itself ends it --
+   * see {@link NetworkTrace.moveOnce}.
    */
   private linkWalk: { from: number; index: number; at: Coordinate } | null = null;
 
@@ -471,7 +472,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       };
     }
 
-    const asides: { label: string; value: string }[] = [];
+    // Terse mode drops each aside's label, so both keep a word of it there,
+    // as a directed graph's From and To do: bare, the neighbours ran on from
+    // the node's own name and the group's "1 of 2" from the last neighbour,
+    // where it sounded like the node's position -- "Ana, 2, Chloe, Ben, 1 of
+    // 2, 4 nodes".
+    const asides: TextAside[] = [];
 
     // The degree is the cross value, so the aside names the neighbours and
     // leaves the count to it: repeating it read "Links is 3, Links is 3, to
@@ -479,10 +485,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     // and has nobody to name.
     const links = node.links.length;
     if (links > 0) {
+      const names = node.links.slice(0, 3).map(one => this.nodes[one].name).join(', ')
+        + (links > 3 ? t('model.networkAndMore', { count: links - 3 }) : '');
       asides.push({
         label: t('model.tableLinkedTo'),
-        value: node.links.slice(0, 3).map(one => this.nodes[one].name).join(', ')
-          + (links > 3 ? t('model.networkAndMore', { count: links - 3 }) : ''),
+        value: names,
+        terse: t('model.terseLinkedTo', { names }),
       });
     }
 
@@ -490,13 +498,15 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       // Which piece of the chart the reader is in, and how big it is. Without
       // it a reader walking one component has no way to tell whether the
       // chart is that component or one of several.
+      const position = t('model.networkGroupPosition', {
+        index: this.row + 1,
+        total: this.components.length,
+        size: this.grid[this.row].length,
+      });
       asides.push({
         label: t('model.nounGroup'),
-        value: t('model.networkGroupPosition', {
-          index: this.row + 1,
-          total: this.components.length,
-          size: this.grid[this.row].length,
-        }),
+        value: position,
+        terse: t('model.terseGroup', { position }),
       });
     }
 
@@ -613,10 +623,16 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    * from which a group of forty is a walk of up to thirty-nine presses back.
    * Which way is which is the grid's: Up is the next group.
    *
+   * Any arrow move ends a link walk. The walk knew the reader had moved off
+   * only by the cursor no longer being where its last step left it, which a
+   * move away and back cannot show, so the next Links step carried on
+   * through the neighbours of the node the walk started from.
+   *
    * @param direction - The key's direction
    * @returns True when the cursor moved
    */
   public override moveOnce(direction: MovableDirection): boolean {
+    this.linkWalk = null;
     const vertical = direction === 'UPWARD' || direction === 'DOWNWARD';
     if (this.isInitialEntry || !vertical) {
       return super.moveOnce(direction);
@@ -630,6 +646,18 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     this.movable.moveToIndex(target, this.leftAt.get(target) ?? 0);
     this.notifyStateUpdate();
     return true;
+  }
+
+  /**
+   * Ends any link walk before a move to the end of a group, for the reason
+   * {@link NetworkTrace.moveOnce} gives.
+   *
+   * @param direction - The key's direction
+   * @returns True when the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    this.linkWalk = null;
+    return super.moveToExtreme(direction);
   }
 
   /**

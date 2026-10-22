@@ -1069,14 +1069,25 @@ The reader enters on the first top-level item with every scope **closed**.
 Left and right walk the items of one scope in topological order, input to
 output; down opens a scope onto its first member and up closes it again;
 Ctrl with an arrow goes to the first or last item of the scope, out to the
-top-level item, or down to the deepest first member. The rotor's **Outputs**
-and **Inputs** units follow the edges downstream and upstream. An edge to a
-node inside a closed scope arrives at the scope. Each move announces the node,
+top-level item, or down to the deepest first member, and plays the edge signal
+on an item that is already there. The rotor's **Outputs**
+and **Inputs** units follow the edges downstream and upstream, each press
+taking the next edge of the item the walk started from; an arrow move ends the
+walk, so the next press follows the edges of the item the reader is on. An
+edge to a node inside a closed scope arrives at the scope. Each move announces the node,
 its connections as `2 inputs, 1 output`, whether it is a graph input or output
 or a branch or merge point, the names on either side, its attributes, and its
 place in the scope's order. A scope is announced as a scope rather than by the
 x axis's noun for a node -- `Scope is block1, Size is 3 nodes inside` -- and is
 called not connected only when nothing inside it has an edge.
+
+The description speaks of the whole graph at once. Its table lists every
+node's own inputs and outputs, as declared. Its branch and merge points are
+the items a move announces as one and the object list's filters gather, each
+seen from its scope, and are named so each can be found: the skip
+connection's `input_1` above has two edges of its own, as the table lists,
+but both enter the closed `block1`, so a move there hears one output and it
+is no branch point -- `Branch points: 0`, `Merge points: 1: block1 > add`.
 
 ### Sequence diagram (`sequence`) [experimental]
 

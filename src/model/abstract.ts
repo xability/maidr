@@ -1082,6 +1082,20 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * Notifies the trace which of its {@link getRotorFilterUnits} the rotor is
+   * on, or null when it is on none of them. Default is a no-op: a unit
+   * usually changes only where Left and Right go, which
+   * {@link moveToRotorFilter} answers. A trace whose unit also changes what
+   * Control with them should reach -- a tree's Level, where Left and Right
+   * walk the whole level -- overrides this, because the jump is not routed
+   * through the rotor.
+   * @param _key - The {@link RotorFilterUnit.key} of the active unit, or null
+   */
+  public setRotorFilterUnit(_key: string | null): void {
+    // Default no-op
+  }
+
+  /**
    * Moves within an active rotor filter unit along the filtered axis.
    *
    * Called by {@link RotorNavigationService} when the current rotor mode is

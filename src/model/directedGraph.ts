@@ -1,5 +1,5 @@
 import type { DirectedGraphPoint, MaidrLayer } from '@type/grammar';
-import type { Coordinate, Node } from '@type/movable';
+import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { PointCloudHighlightable, XValue } from '@type/navigation';
 import type {
   ChartObject,
@@ -274,8 +274,9 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
 
   /**
    * The edge walk in progress: whose edges, which way, how far along, and
-   * where the last step left the cursor -- which is how the walk notices the
-   * reader has moved off with the arrows.
+   * where the last step left the cursor. Every move the walk did not make
+   * itself ends it -- see {@link DirectedGraphTrace.moveOnce} -- and the
+   * cursor's place is checked as well, for a cursor set from outside.
    */
   private edgeWalk: {
     from: GraphItem;
@@ -670,7 +671,9 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * scope onto its first member. Left and right are the scope's other items
    * in topological order, never a neighbour in another scope. Ctrl with them
    * goes to the first or last item of the scope, out to the top-level item
-   * this one is in, or down the first line of members to the deepest.
+   * this one is in, or down the first line of members to the deepest -- and,
+   * as at the end of a step, is refused where the item already is that
+   * extreme, rather than replaying it as if the cursor had moved.
    *
    * @returns The navigation graph, addressed as the items are
    */
@@ -695,8 +698,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
           down: at(item.children[0]),
           left: at(siblings[place - 1]),
           right: at(siblings[place + 1]),
-          start: at(siblings[0]),
-          end: at(siblings[siblings.length - 1]),
+          start: place > 0 ? at(siblings[0]) : null,
+          end: place < siblings.length - 1 ? at(siblings[siblings.length - 1]) : null,
           top: at(top),
           bottom: at(bottom),
         };
@@ -1136,6 +1139,37 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   }
 
   /**
+   * Ends any edge walk before an arrow move.
+   *
+   * The walk knew the reader had moved off only by the cursor no longer
+   * being where its last step left it, which an arrow move that comes back
+   * cannot show: on In stock?, reached by an Outputs step from Order
+   * received, Left then Right put the cursor back where the step had, and
+   * the next Outputs step carried on through Order received's one output
+   * and said In stock? had none. A reader who moves with the arrows has left
+   * the walk, so the next step starts one from where they are.
+   *
+   * @param direction - The key's direction
+   * @returns True when the cursor moved
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    this.edgeWalk = null;
+    return super.moveOnce(direction);
+  }
+
+  /**
+   * Ends any edge walk before a move to the end of a scope, for the reason
+   * {@link DirectedGraphTrace.moveOnce} gives.
+   *
+   * @param direction - The key's direction
+   * @returns True when the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    this.edgeWalk = null;
+    return super.moveToExtreme(direction);
+  }
+
+  /**
    * Every item, for the `o` list: the declared nodes and the scopes holding
    * them, in outline order -- each scope followed by what it holds, siblings
    * in the order the arrows walk them, which is the tree a graph viewer shows.
@@ -1523,7 +1557,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
 
   public get description(): DescriptionState {
     const nodes = this.nodeItems;
-    const scopes = this.allItems(this.roots).filter(item => item.kind === 'scope');
+    const items = this.allItems(this.roots);
+    const scopes = items.filter(item => item.kind === 'scope');
     const listed = (items: GraphItem[]): string => {
       const shown = items.slice(0, NAMED_NODES)
         .map(item => DirectedGraphTrace.nameFrom(item, null))
@@ -1541,8 +1576,14 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     const outputs = this.order
       .filter(node => this.successors[node].length === 0 && this.predecessors[node].length > 0)
       .map(node => nodes[node]);
-    const branches = this.successors.filter(list => list.length > 1).length;
-    const merges = this.predecessors.filter(list => list.length > 1).length;
+    // The items a move and the object list call branch or merge points, each
+    // as seen from its scope, named so each can be found. Counted by the
+    // declared nodes' own edges, the summary named points nothing else calls
+    // one: a node whose two edges both enter one closed scope, which a move
+    // hears as one output, and an end three states inside a composite feed,
+    // which a move reaches from the composite alone.
+    const branches = items.filter(item => item.outputs.length > 1);
+    const merges = items.filter(item => item.inputs.length > 1);
 
     const stats: DescriptionState['stats'] = [
       { label: t('model.statNumberOfNodes'), value: nodes.length },
@@ -1569,8 +1610,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     if (outputs.length > 0) {
       stats.push({ label: t('model.statGraphOutputs'), value: listed(outputs) });
     }
-    stats.push({ label: t('model.statBranchPoints'), value: branches });
-    stats.push({ label: t('model.statMergePoints'), value: merges });
+    stats.push({ label: t('model.statBranchPoints'), value: branches.length > 0 ? listed(branches) : 0 });
+    stats.push({ label: t('model.statMergePoints'), value: merges.length > 0 ? listed(merges) : 0 });
     if (this.cyclic) {
       stats.push({ label: t('model.statCycle'), value: t('model.dagCycle') });
     }

@@ -754,6 +754,8 @@ export const model = {
   'model.networkLinkAxis': 'リンク',
   'model.networkAndMore': ' ほか{count}件',
   'model.networkGroupPosition': '{total}中{index}、ノード数 {size}',
+  'model.terseLinkedTo': '接続先 {names}',
+  'model.terseGroup': 'グループ {position}',
   'model.statNumberOfLinks': 'リンクの数',
   'model.statSelfLinks': '自己リンク',
   'model.statSeparateGroups': '独立したグループ',

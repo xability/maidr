@@ -77,10 +77,13 @@ describe('the hierarchies', () => {
   });
 
   it('reads a timeline as sections, periods and events', () => {
-    const data = layersOf(convert('timeline', {
+    const layer = layersOf(convert('timeline', {
       getSections: () => ['Early'],
       getTasks: () => [{ section: 'Early', task: '2002 ', events: ['LinkedIn'] }],
-    }))[0].data as TreemapPoint[];
+    }))[0];
+    const data = layer.data as TreemapPoint[];
+    // Not "Period", which the sections and the events are not.
+    expect(layer.axes?.x?.label).toBe('Item');
     expect(data).toEqual([
       { x: 'Early', kind: 'Section' },
       { x: '2002', path: ['Early'], kind: 'Period' },
@@ -115,15 +118,48 @@ describe('the hierarchies', () => {
     }))[0];
     expect((layer.data as TreemapPoint[]).map(point => point.kind)).toEqual(['Effect', 'Category', 'Cause', 'Cause']);
     expect(nouns(layer, 'DOWNWARD', 'DOWNWARD', 'DOWNWARD')).toEqual(['Effect', 'Category', 'Cause', 'Cause']);
+    // Not "Cause", which the effect and the categories are not.
+    expect(layer.axes?.x?.label).toBe('Item');
+  });
+
+  it('outlines an Ishikawa node by the group Mermaid draws it as, not by its label', () => {
+    // The effect is a head and its label, a category a box and its label, a
+    // cause a branch line and its label. Paired with the label alone, the
+    // highlight recoloured the text and left the head and the box as drawn.
+    const drawing = drawn('i', [
+      '<g class="ishikawa-head-group"><path class="ishikawa-head" d="M0 0"></path>',
+      '<text class="ishikawa-head-label"><tspan>Blurry</tspan><tspan>photo</tspan></text></g>',
+      '<g class="ishikawa-pair"><line class="ishikawa-branch"></line>',
+      '<g class="ishikawa-label-group"><rect class="ishikawa-label-box"></rect>',
+      '<text class="ishikawa-label cause">Equipment</text></g>',
+      '<g class="ishikawa-sub-group"><line class="ishikawa-sub-branch"></line>',
+      '<text class="ishikawa-label align">Lens</text></g>',
+      '<g class="ishikawa-sub-group"><line class="ishikawa-sub-branch"></line>',
+      '<text class="ishikawa-label down">Dirty lens</text></g></g>',
+    ].join(''));
+
+    const layer = layersOf(convert('ishikawa', {
+      getRoot: () => ({
+        text: 'Blurry photo',
+        children: [{ text: 'Equipment', children: [{ text: 'Lens', children: [{ text: 'Dirty lens' }] }] }],
+      }),
+    }, drawing))[0];
+
+    const paired = (layer.selectors as string[]).map(selector => document.querySelector(selector)?.getAttribute('class'));
+    expect(paired).toEqual(['ishikawa-head-group', 'ishikawa-label-group', 'ishikawa-sub-group', 'ishikawa-sub-group']);
+    expect(matched(layer)).toBe(4);
   });
 
   it('reads a railroad rule as the expression it is made of', () => {
-    const data = layersOf(convert('railroadEbnf', {
+    const layer = layersOf(convert('railroadEbnf', {
       getRules: () => [{
         name: 'sign',
         definition: { type: 'choice', alternatives: [{ type: 'terminal', value: '+' }, { type: 'nonterminal', name: 'minus' }] },
       }],
-    }))[0].data as TreemapPoint[];
+    }))[0];
+    const data = layer.data as TreemapPoint[];
+    // Not "Rule", which the expressions, terminals and references are not.
+    expect(layer.axes?.x?.label).toBe('Item');
     expect(data.map(point => [point.x, point.kind])).toEqual([
       ['sign', 'Rule'],
       ['one of', 'Expression'],
@@ -139,6 +175,10 @@ describe('the hierarchies', () => {
     }));
     expect(layers.map(layer => layer.type)).toEqual([TraceType.TREE, TraceType.DIRECTED_GRAPH]);
     expect(nouns(layers[0], 'DOWNWARD')).toEqual(['Domain', 'Item']);
+    // The domains layer holds domains and the items in them, so it is named
+    // by neither; its leaves are already called "Item". The transitions
+    // join domains alone.
+    expect(layers.map(layer => layer.axes?.x?.label)).toEqual(['Node', 'Domain']);
     expect((layers[1].data as DirectedGraphPoint[])[1]).toMatchObject({ label: 'Clear', inputs: ['complex'], inputLabels: ['codified'] });
   });
   it('outlines a Cynefin transition\'s domain by the label the domains layer outlines', () => {

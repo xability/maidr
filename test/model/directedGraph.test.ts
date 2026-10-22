@@ -219,6 +219,27 @@ describe('the walk runs input to output, scope by scope', () => {
     expect(trace.moveToExtreme('BACKWARD')).toBe(true);
     expect(at(trace)).toBe('input');
   });
+
+  test('a ctrl move already at its end is refused, as up at the top and down on a leaf are', () => {
+    // Left on the first item and right on the last replayed the item, as if
+    // the cursor had moved.
+    const trace = graph();
+
+    const onInput = [trace.moveToExtreme('BACKWARD'), trace.moveToExtreme('UPWARD'), trace.moveToExtreme('DOWNWARD')];
+    trace.moveToExtreme('FORWARD');
+    const onDense = trace.moveToExtreme('FORWARD');
+
+    expect(onInput).toEqual([false, false, false]);
+    expect(onDense).toBe(false);
+    expect(at(trace)).toBe('dense');
+  });
+
+  test('a ctrl move made on entering the graph lands on the first item and says so', () => {
+    const trace = TraceFactory.create(createLayer()) as DirectedGraphTrace;
+
+    expect(trace.moveToExtreme('BACKWARD')).toBe(true);
+    expect(at(trace)).toBe('input');
+  });
 });
 
 describe('every move says how the node is connected', () => {
@@ -349,6 +370,38 @@ describe('the rotor follows the edges in their direction', () => {
     expect(trace.moveToRotorFilter('inputs', 'right')).toBe(false);
     expect(at(trace)).toBe('input');
   });
+
+  test('an arrow move ends the walk, so coming back follows the item\'s own edges', () => {
+    // The walk from conv1 stepped to conv2. Left and Right put the cursor back
+    // on the cell that step left it on, and the next step carried on through
+    // conv1's outputs -- it has no second one -- and said conv2 had none.
+    const trace = graph();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+    trace.moveToRotorFilter('outputs', 'right');
+    trace.moveOnce('BACKWARD');
+    trace.moveOnce('FORWARD');
+
+    expect(at(trace)).toBe('conv2');
+    expect(trace.moveToRotorFilter('outputs', 'right')).toBe(true);
+    expect(at(trace)).toBe('add');
+  });
+
+  test('a move to either end of the scope ends the walk as well', () => {
+    // a feeds b and b feeds a. The walk from a steps to b; Ctrl+Left and
+    // Ctrl+Right come back to b, whose own output is a.
+    const trace = graph([
+      { id: 'a', inputs: ['b'] },
+      { id: 'b', inputs: ['a'] },
+    ]);
+    trace.moveToRotorFilter('outputs', 'right');
+    trace.moveToExtreme('BACKWARD');
+    trace.moveToExtreme('FORWARD');
+
+    expect(at(trace)).toBe('b');
+    expect(trace.moveToRotorFilter('outputs', 'right')).toBe(true);
+    expect(at(trace)).toBe('a');
+  });
 });
 
 describe('the edges are read as declared, and no further', () => {
@@ -449,14 +502,104 @@ describe('the modalities agree with the announcement', () => {
 });
 
 describe('the description', () => {
+  /** A block diagram: Server's two edges both enter the storage block. */
+  const BLOCKS: DirectedGraphPoint[] = [
+    { id: 'client', label: 'Client' },
+    { id: 'server', label: 'Server', inputs: ['client'] },
+    { id: 'cache', label: 'Cache', path: ['storage'], inputs: ['server'] },
+    { id: 'db', label: 'Database', path: ['storage'], inputs: ['server'] },
+  ];
+
+  /** A use case diagram: two actors, each linked to use cases inside one system. */
+  const USE_CASES: DirectedGraphPoint[] = [
+    { id: 'Customer' },
+    { id: 'Clerk', label: 'Payment clerk' },
+    { id: 'Browse', label: 'Browse catalogue', path: ['Shop'], inputs: ['Customer'] },
+    { id: 'Checkout', label: 'Place order', path: ['Shop'], inputs: ['Customer'] },
+    { id: 'Refund', label: 'Issue refund', path: ['Shop'], inputs: ['Clerk'] },
+  ];
+
+  /**
+   * A state machine whose stop and quit leave the composite Running, as the
+   * Mermaid adapter declares them: once from each state inside it.
+   */
+  const STATES: DirectedGraphPoint[] = [
+    { id: 'root_start', label: 'start' },
+    { id: 'Idle', inputs: ['root_start', 'Loading', 'Playing', 'Paused'] },
+    { id: 'Running_start', label: 'start', path: ['Running'], inputs: ['Idle'] },
+    { id: 'Loading', path: ['Running'], inputs: ['Running_start'] },
+    { id: 'Playing', path: ['Running'], inputs: ['Loading', 'Paused'] },
+    { id: 'Paused', path: ['Running'], inputs: ['Playing'] },
+    { id: 'root_end', label: 'end', inputs: ['Loading', 'Playing', 'Paused'] },
+  ];
+
+  /**
+   * How many items a stat counts: a bare 0, or the count before its names.
+   * @param value The stat's value
+   * @returns The count
+   */
+  function counted(value: unknown): number {
+    return typeof value === 'number' ? value : Number(String(value).split(':')[0]);
+  }
+
   test('counts the graph and names its ends', () => {
     expect(stat('Number of nodes')).toBe(7);
     expect(stat('Number of edges')).toBe(7);
     expect(stat('Scopes')).toBe(2);
     expect(stat('Graph inputs')).toBe('1: input');
     expect(stat('Graph outputs')).toBe('1: dense');
-    expect(stat('Branch points')).toBe(1);
-    expect(stat('Merge points')).toBe(1);
+    expect(stat('Branch points')).toBe(0);
+    expect(stat('Merge points')).toBe('1: block1 > add');
+  });
+
+  test('counts exactly what the list filters as branch and merge points', () => {
+    // A move and the list's filters read each item as seen from its scope;
+    // the summary counted the declared nodes by their own edges, and so
+    // named points neither calls one.
+    for (const data of [RESNET, BLOCKS, USE_CASES, STATES]) {
+      const objects = graph(data).getObjectList()?.objects ?? [];
+      const filtered = (group: string): number => objects.filter(one => one.groups?.includes(group)).length;
+
+      expect(counted(stat('Branch points', data))).toBe(filtered('branch-points'));
+      expect(counted(stat('Merge points', data))).toBe(filtered('merge-points'));
+    }
+  });
+
+  test('counts no branch point where both edges enter one closed scope', () => {
+    // Server's two edges both enter storage, so a move on it hears one
+    // output and no role. The summary said "Branch points: 1: Server".
+    const trace = graph(BLOCKS);
+    trace.moveOnce('FORWARD');
+
+    expect(at(trace)).toBe('Server');
+    expect(aside(trace, 'Role')).toBeUndefined();
+    expect(stat('Branch points', BLOCKS)).toBe(0);
+    expect(stat('Merge points', BLOCKS)).toBe(0);
+  });
+
+  test('names a scope a move calls a merge point, and no actor it does not', () => {
+    // Shop is announced as a merge point. Customer's two links both enter
+    // Shop, so it is announced with one output, and is no branch point.
+    const trace = graph(USE_CASES);
+    trace.moveToExtreme('FORWARD');
+
+    expect(at(trace)).toBe('Shop');
+    expect(aside(trace, 'Role')).toBe('graph output, merge point');
+    expect(stat('Merge points', USE_CASES)).toBe('1: Shop');
+    expect(stat('Branch points', USE_CASES)).toBe(0);
+  });
+
+  test('names the states a move calls a branch or merge point, and not end', () => {
+    // quit leaves Running from each state inside it, and every move reaches
+    // end from Running alone, so end is no merge point. The summary named
+    // it as one.
+    const trace = graph(STATES);
+    trace.moveToExtreme('FORWARD');
+
+    expect(at(trace)).toBe('end');
+    expect(aside(trace, 'Role')).toBe('graph output');
+    expect(stat('Branch points', STATES)).toBe('4: Running, Running > Loading, Running > Playing, Running > Paused');
+    expect(stat('Merge points', STATES)).toBe('2: Idle, Running > Playing');
   });
 
   test('gives the top level in reading order', () => {

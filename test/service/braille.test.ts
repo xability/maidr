@@ -10,6 +10,7 @@ import type {
   TraceState,
 } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
+import { NetworkTrace } from '@model/network';
 import { ScatterTrace } from '@model/scatter';
 import { BrailleService, normalizeDisplayLines } from '@service/braille';
 import { TraceType } from '@type/grammar';
@@ -1933,6 +1934,104 @@ describe('a bottom-up grid reads top row first, as the chart draws it', () => {
     // Not a grid: a line chart's rows are its series, not bands drawn top to
     // bottom, so its single-line order is unchanged.
     const { service, last } = shown(createLineTraceState([[1, 2, 3], [3]], 0, 0));
+
+    const lines = last().value.split('\n');
+
+    expect([...lines[0]]).toHaveLength(3);
+    expect([...lines[1]]).toHaveLength(1);
+    expect(last().index).toBe(0);
+    service.dispose();
+  });
+});
+
+describe('a network\'s groups read last first, so Up moves the caret up a line', () => {
+  // Up is the next connected group on a network, as it is the next row on
+  // every grid MAIDR reads. Written group 1 first, the on-screen field put it
+  // on the top line, and Up to group 2 moved the caret down a line; a
+  // multiline display already wrote the groups last first.
+
+  /**
+   * Ana, Ben, Chloe and Dev in one group, with Chloe the most connected, and
+   * Eli and Fay in another: the Graphviz network example.
+   * @returns The trace, entered on Chloe
+   */
+  function team(): NetworkTrace {
+    const trace = new NetworkTrace({
+      id: 'team',
+      type: TraceType.NETWORK,
+      axes: { x: { label: 'Person' }, y: { label: 'Links' } },
+      data: [
+        { source: 'Ana', target: 'Chloe' },
+        { source: 'Ben', target: 'Chloe' },
+        { source: 'Chloe', target: 'Dev' },
+        { source: 'Ana', target: 'Ben' },
+        { source: 'Eli', target: 'Fay' },
+      ],
+    });
+    trace.moveOnce('FORWARD');
+    return trace;
+  }
+
+  /**
+   * What braille shows for a state on a display of some lines.
+   * @param state - The trace state to show
+   * @param lines - How many lines the display has
+   * @returns The service, its last value and index, and the cursor moves it asked for
+   */
+  function shown(state: TraceState, lines: number = 1): {
+    service: BrailleService;
+    contextMoveToIndex: ReturnType<typeof jest.fn>;
+    last: () => { value: string; index: number };
+  } {
+    const { service, contextMoveToIndex } = createMultilineBrailleService(8, lines);
+    let last = { value: '', index: -1 };
+    service.onChange((event) => {
+      last = { value: event.value, index: event.index };
+    });
+    service.toggle(state);
+    return { service, contextMoveToIndex, last: () => last };
+  }
+
+  test('the second group is the first line, and Up moves the caret up to it', () => {
+    const trace = team();
+    const { service, contextMoveToIndex, last } = shown(trace.state);
+
+    const value = last().value;
+    const first = last().index;
+    trace.moveOnce('UPWARD');
+    service.update(trace.state);
+    const up = last().index;
+    service.moveToIndex(0);
+
+    // Chloe 3, Ana 2, Ben 2, Dev 1; Eli 1, Fay 1.
+    expect(value).toBe('⣀⣀\n⠉⠤⠤⣀\n');
+    expect(value[first]).toBe('⠉');
+    expect(up).toBeLessThan(first);
+    expect(value[up]).toBe('⣀');
+    expect(contextMoveToIndex).toHaveBeenLastCalledWith(1, 0);
+    service.dispose();
+    trace.dispose();
+  });
+
+  test('single-line and multiline modes put the groups in the same order', () => {
+    const read = (lines: number): string[] => {
+      const trace = team();
+      const { service, last } = shown(trace.state, lines);
+      const value = last().value;
+      service.dispose();
+      trace.dispose();
+      return lines === 1
+        ? value.split('\n').filter(line => line !== '')
+        : (value.match(/.{8}/gu) ?? []).map(line => line.trimEnd());
+    };
+
+    expect(read(1)).toEqual(read(2));
+  });
+
+  test('a bar chart, whose rows are series, keeps row 0 first on one line', () => {
+    // The network shares the bar encoder, and only the network's rows are
+    // turned over.
+    const { service, last } = shown(createBarTraceState([[1, 2, 3], [3]], 0, 0));
 
     const lines = last().value.split('\n');
 

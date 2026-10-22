@@ -968,9 +968,13 @@ data, so there is nothing there to put in a cell.
 
 ```
 Group   Cells
-1       ⣿⡶⡶⠆⠆
 2       ⡶⡶⡶
+1       ⣿⡶⡶⠆⠆
 ```
+
+The groups are listed last first, the first group on the bottom line, because
+Up moves to the next group: the up arrow moves the cursor up a line, in the
+on-screen braille field and on a multiline display alike.
 
 #### Multiline Displays
 
@@ -1078,9 +1082,11 @@ Level   Cells
 
 A tree that declares **no magnitude** -- an org chart, a mindmap, a file
 listing -- has none to show, and every node of it would be a blank cell. Each
-cell is instead the node's child count plus one, scaled per level the same
-way: a leaf is the lowest dot and the node with the most children the
-tallest, so the display shows where the tree branches. The sonification
+cell is instead the node's child count plus one, scaled per level from a leaf
+up: a leaf is always the lowest dot and the node with the most children on its
+level the tallest, so the display shows where the tree branches. A level with
+no leaves on it -- a lone root, or a timeline's periods of one event each --
+therefore reads as branching rather than as leaves. The sonification
 follows the same cells, so a node's pitch and its dot height agree, and a
 refused move still sounds the boundary tone, which no node plays.
 

@@ -204,7 +204,8 @@ interface EncodedBraille {
  * @param lastRowFirst - Write the last row first, so row 0 sits at the bottom
  *   and UP (row++) moves the caret up a line. Multiline mode always does. An
  *   encoder whose rows are a bottom-up spatial grid asks for it in single-line
- *   mode too, so the on-screen field reads top row first, as the chart draws it.
+ *   mode too, so the on-screen field reads top row first, as the chart draws it,
+ *   and so does a network's, whose groups are stacked the same way.
  * @returns Encoded braille with cell mappings
  */
 function encodeWithWrapping(
@@ -382,7 +383,8 @@ interface TimeSeries {
  *      state with `rowsTopFirst` is drawn the other way up and increments
  *      `row` on DOWN, so its rows are encoded first to last instead. An
  *      encoder whose rows are a bottom-up spatial grid -- the heatmap
- *      encoder's -- writes them last row first in single-line mode too.
+ *      encoder's -- writes them last row first in single-line mode too, as
+ *      the network's encoder does with its groups.
  *
  * `colOffset` enables horizontal page-windowing for plots wider than the
  * display; it is meaningful only when `multiline=true` and the state has
@@ -406,6 +408,27 @@ interface BrailleEncoder<BrailleState> {
  * Encoder for converting bar chart data into braille patterns.
  */
 class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
+  /**
+   * Whether single-line mode writes the last row first, as multiline mode
+   * always does.
+   */
+  private readonly lastRowFirst: boolean;
+
+  /**
+   * Creates a bar encoder.
+   *
+   * @param lastRowFirst - Write the last row first in single-line mode too,
+   *   for a trace whose rows are stacked bottom up -- UP is row + 1 -- with
+   *   no drawn order of their own to keep: a network's connected groups.
+   *   Written row 0 first, the on-screen field put the first group on its top
+   *   line and UP moved the caret down a line. Off, single-line mode keeps
+   *   row 0 first, as a bar chart's series, a sankey's stages, a directed
+   *   graph's depths, a sequence's rows and a Venn diagram's depths are read.
+   */
+  public constructor(lastRowFirst: boolean = false) {
+    this.lastRowFirst = lastRowFirst;
+  }
+
   /**
    * Encodes bar chart state into braille representation.
    * @param state - Bar chart braille state
@@ -453,6 +476,7 @@ class BarBrailleEncoder implements BrailleEncoder<BarBrailleState> {
       multiline,
       colOffset,
       state.rowsTopFirst === true,
+      multiline || this.lastRowFirst,
     );
   }
 }
@@ -1208,7 +1232,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.BAR, asGeneric(new BarBrailleEncoder())],
       [TraceType.CHORD, asGeneric(new BarBrailleEncoder())],
       [TraceType.SANKEY, asGeneric(new BarBrailleEncoder())],
-      [TraceType.NETWORK, asGeneric(new BarBrailleEncoder())],
+      // One row per connected group, UP the next one, so the groups are
+      // written last first on a single line as well as on several.
+      [TraceType.NETWORK, asGeneric(new BarBrailleEncoder(true))],
       // One row per scope depth, one cell per node's connection count: the
       // treemap's rows with the network's magnitude.
       [TraceType.DIRECTED_GRAPH, asGeneric(new BarBrailleEncoder())],
@@ -1470,8 +1496,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
     //     bottom of the display and UP-arrow moves the cursor upward, except
     //     on a trace that draws row 0 at the top (`rowsTopFirst`), where it
     //     stays on the top line and DOWN-arrow moves the cursor downward. A
-    //     bottom-up grid (the heatmap encoder's) is reversed in single-line
-    //     mode as well.
+    //     bottom-up grid (the heatmap encoder's) and a network's groups are
+    //     reversed in single-line mode as well.
     const isMultilineMode = this.displayLines > 1;
 
     // For plots whose rows can overflow a single display line, compute the

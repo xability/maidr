@@ -168,6 +168,26 @@ describe('createHighlightElement on a group', () => {
     }
   });
 
+  it('leaves a shape\'s arrowhead off its outline, where it would grow over it', () => {
+    // An Ishikawa cause is its branch line, an arrowhead and its label. A
+    // marker is scaled by the width of the line it is on, so the outline's
+    // copy drew the arrowhead three times its size, in its own dark paint,
+    // over most of a 30px branch. The arrowhead drawn under the outline stays.
+    const svg = renderDiagram('<defs><marker id="arrow"><path d="M 10 0 L 0 5 L 10 10 Z"></path></marker></defs>'
+      + '<g class="ishikawa-sub-group"><line marker-start="url(#arrow)" style="stroke: #333333; stroke-width: 1px"></line>'
+      + '<text>Lens</text></g>');
+    const cause = svg.querySelector('g.ishikawa-sub-group') as SVGElement;
+
+    const highlight = Svg.createHighlightElement(cause, FALLBACK_COLOR);
+
+    const line = (highlight.querySelector('line') as SVGElement).style;
+    expect(paintOf(highlight.querySelector('line')).stroke).toBe(FALLBACK_COLOR);
+    for (const marker of ['marker-start', 'marker-mid', 'marker-end']) {
+      expect([line.getPropertyValue(marker), line.getPropertyPriority(marker)]).toEqual(['none', 'important']);
+    }
+    expect(cause.querySelector('line')?.getAttribute('marker-start')).toBe('url(#arrow)');
+  });
+
   it('replaces a C4 shape\'s inline !important paint', () => {
     const svg = renderDiagram('<g><rect style="fill: #999999 !important; stroke: #8a8a8a !important"></rect></g>');
 

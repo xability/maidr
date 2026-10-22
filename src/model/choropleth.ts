@@ -1,4 +1,5 @@
 import type { ChoroplethPoint, MaidrLayer } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
 import type {
   ChartObject,
   ChartObjectList,
@@ -144,8 +145,10 @@ export class ChoroplethTrace extends AbstractTrace {
    * borders and never the others.
    *
    * `at` is how the walk notices it has been abandoned: if the cursor is no
-   * longer where the last step left it, the reader has moved with the arrows
-   * and the walk re-anchors on wherever they now are.
+   * longer where the last step left it, the reader has moved some other way
+   * and the walk re-anchors on wherever they now are. An arrow, a jump to the
+   * end of a band and a jump to a region end it outright -- see
+   * {@link ChoroplethTrace.moveOnce}.
    */
   private borderWalk: { from: string; index: number; at: { row: number; col: number } } | null = null;
 
@@ -406,6 +409,37 @@ export class ChoroplethTrace extends AbstractTrace {
   public override moveToIndex(row: number, col: number): boolean {
     this.borderWalk = null;
     return super.moveToIndex(row, col);
+  }
+
+  /**
+   * Ends any border walk before an arrow move.
+   *
+   * The walk knew the reader had moved off only by the cursor no longer
+   * sitting where its last step put it, which a move away and back cannot
+   * show: on California, reached by a step round Nevada's borders, Right
+   * then Left put the cursor back where the step had, and the next step
+   * carried on round Nevada's, to Utah, which does not touch California. A
+   * reader who moves with the arrows has left the walk, so the next step
+   * starts one from where they are.
+   *
+   * @param direction - The key's direction
+   * @returns True when the cursor moved
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    this.borderWalk = null;
+    return super.moveOnce(direction);
+  }
+
+  /**
+   * Ends any border walk before a move to the end of a band, for the reason
+   * {@link ChoroplethTrace.moveOnce} gives.
+   *
+   * @param direction - The key's direction
+   * @returns True when the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    this.borderWalk = null;
+    return super.moveToExtreme(direction);
   }
 
   /**

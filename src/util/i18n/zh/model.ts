@@ -750,6 +750,8 @@ export const model = {
   'model.networkLinkAxis': '连接',
   'model.networkAndMore': '，还有 {count} 个',
   'model.networkGroupPosition': '第 {index} 个，共 {total} 个，{size} 个节点',
+  'model.terseLinkedTo': '连接到 {names}',
+  'model.terseGroup': '组 {position}',
   'model.statNumberOfLinks': '连接数量',
   'model.statSelfLinks': '自连接',
   'model.statSeparateGroups': '独立的组',
