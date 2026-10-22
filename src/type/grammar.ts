@@ -753,6 +753,17 @@ export interface GanttData {
    * draws. Omitted, `end` is the boundary, as a schedule's is.
    */
   inclusive?: boolean;
+  /**
+   * How many units of the axis one lane is drawn across, when the lanes are
+   * one axis folded into rows rather than lanes sharing an axis: a packet
+   * diagram's 32 bits a row.
+   *
+   * Stereo position then follows where an interval starts within its row,
+   * which is where it is drawn, rather than along the whole axis, so two
+   * intervals drawn one above the other sound in the same place. Omitted,
+   * the lanes share one axis, as a schedule's do.
+   */
+  wrap?: number;
 }
 
 /**

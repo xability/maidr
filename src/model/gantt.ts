@@ -71,7 +71,8 @@ function lengthOf(point: GanttPoint, inclusive: boolean): number {
  * the magnitude the chart is drawn to compare. Stereo position carries the
  * start, mapped along the whole axis rather than by column index, so a lane
  * whose work happens late sounds late -- and two lanes whose intervals line up
- * sound like they line up, which is the overlap question answered by ear.
+ * sound like they line up, which is the overlap question answered by ear. On
+ * an axis folded into rows, a packet's bits, it is the start within the row.
  */
 export class GanttTrace extends AbstractTrace {
   protected readonly supportsExtrema = false;
@@ -88,6 +89,8 @@ export class GanttTrace extends AbstractTrace {
   /** The axis extent, taken from the intervals rather than from the layer. */
   private readonly axisMin: number;
   private readonly axisSpan: number;
+  /** How long a drawn row is, for an axis folded into rows. */
+  private readonly wrap?: number;
 
   private readonly min: number;
   private readonly max: number;
@@ -157,6 +160,9 @@ export class GanttTrace extends AbstractTrace {
     // so the division that follows is guarded at its one source instead of at
     // every use.
     this.axisSpan = extent.max > extent.min ? extent.max - extent.min : 0;
+    this.wrap = typeof data.wrap === 'number' && Number.isFinite(data.wrap) && data.wrap > 0
+      ? data.wrap
+      : undefined;
 
     const bounds = MathUtil.minMax(this.lengths.flat());
     this.min = bounds.min;
@@ -291,15 +297,32 @@ export class GanttTrace extends AbstractTrace {
       // simultaneous tasks at different ones -- erasing the overlap the chart
       // exists to show.
       panning: {
-        x: this.axisSpan === 0
-          ? 0.5
-          : (Number(point?.start ?? this.axisMin) - this.axisMin) / this.axisSpan,
+        x: this.panAt(Number(point?.start ?? this.axisMin)),
         y: this.row,
         rows: this.lanes.length,
         cols: 2,
       },
       group: this.row,
     };
+  }
+
+  /**
+   * Where a start sits across the stereo field, from 0 at the left to 1.
+   *
+   * Along the whole axis, so lanes sharing it sound aligned where they are
+   * aligned -- or, on an axis folded into rows ({@link GanttData.wrap}),
+   * within the row, which is where the interval is drawn. Measured along the
+   * whole axis there, the rows would split the field between them, and two
+   * fields drawn one above the other would sound a row's width apart.
+   *
+   * @param start - Where an interval starts
+   * @returns Its fraction of the axis, or of its row
+   */
+  private panAt(start: number): number {
+    if (this.wrap !== undefined) {
+      return (((start % this.wrap) + this.wrap) % this.wrap) / this.wrap;
+    }
+    return this.axisSpan === 0 ? 0.5 : (start - this.axisMin) / this.axisSpan;
   }
 
   /**

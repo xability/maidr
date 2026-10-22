@@ -609,3 +609,47 @@ describe('an inclusive end is the last unit an interval covers', () => {
     expect(text.z?.value).toBe('15 bits');
   });
 });
+
+describe('an axis folded into rows pans within its row', () => {
+  // A packet of 32 bits a row, its ends given as boundaries.
+  const UDP: GanttPoint[][] = [
+    [{ x: 'Row 1', start: 0, end: 16 }, { x: 'Row 1', start: 16, end: 32 }],
+    [{ x: 'Row 2', start: 32, end: 48 }, { x: 'Row 2', start: 48, end: 64 }],
+    [{ x: 'Row 3', start: 64, end: 96 }],
+  ];
+
+  /**
+   * The pan of one interval, with the layer folded as given.
+   * @param row Which row
+   * @param col Which interval
+   * @param wrap The row length the layer declares, or undefined for none
+   * @returns The pan, from -1 to 1
+   */
+  function panOf(row: number, col: number, wrap?: number): number {
+    const trace = TraceFactory.create({
+      id: 'test-folded-layer',
+      type: TraceType.GANTT,
+      orientation: Orientation.HORIZONTAL,
+      axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
+      data: wrap === undefined ? { points: UDP, unit: 'bits' } : { points: UDP, unit: 'bits', wrap },
+    }) as GanttTrace;
+    trace.moveToIndex(row, col);
+    return pan(nonEmptyState(trace).audio);
+  }
+
+  test('places an interval where its row draws it', () => {
+    expect(panOf(0, 0, 32)).toBeCloseTo(-1);
+    expect(panOf(0, 1, 32)).toBeCloseTo(0);
+    expect(panOf(2, 0, 32)).toBeCloseTo(-1);
+  });
+
+  test('sounds two intervals drawn one above the other in the same place', () => {
+    expect(panOf(1, 1, 32)).toBeCloseTo(panOf(0, 1, 32));
+  });
+
+  test('pans along the whole axis when the layer folds nothing, or names no usable row', () => {
+    for (const wrap of [undefined, 0, Number.NaN]) {
+      expect(panOf(0, 1, wrap)).toBeCloseTo(-2 / 3);
+    }
+  });
+});
