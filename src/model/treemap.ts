@@ -201,6 +201,15 @@ export class TreemapTrace extends AbstractTrace {
   private readonly depthMin: number[];
   private readonly depthMax: number[];
 
+  /**
+   * Each node's child count plus one, shaped as `nodes` is, with its per-depth
+   * extremes: what braille and the pitch carry for a tree that declares no
+   * magnitude (see {@link TreemapTrace.valued}). A null node counts as a leaf.
+   */
+  private readonly shape: number[][];
+  private readonly shapeMin: number[];
+  private readonly shapeMax: number[];
+
   /** Every top-level node's total, added up. */
   private readonly grandTotal: number;
 
@@ -260,6 +269,9 @@ export class TreemapTrace extends AbstractTrace {
       level.map(node => node?.value ?? Number.NaN));
     this.depthMin = this.nodeValues.map(level => MathUtil.safeMin(level));
     this.depthMax = this.nodeValues.map(level => MathUtil.safeMax(level));
+    this.shape = this.nodes.map(level => level.map(node => (node?.children.length ?? 0) + 1));
+    this.shapeMin = this.shape.map(level => MathUtil.safeMin(level));
+    this.shapeMax = this.shape.map(level => MathUtil.safeMax(level));
     this.grandTotal = (this.nodes[0] ?? []).reduce(
       (total, node) => total + (node?.value ?? 0),
       0,
@@ -564,6 +576,23 @@ export class TreemapTrace extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
+    if (!this.valued) {
+      // A pure hierarchy is pitched by its shape, the child count braille
+      // shows (each node's count plus one, scaled per level): a leaf the
+      // lowest, the bushiest node of its level the highest. Sounded as a
+      // node with no value, every node played the empty tone -- the tone a
+      // refused move plays, at the same pan -- so with text off a reader
+      // could not tell a step onto a node from hitting the edge, and a flat
+      // 0 would have claimed every node equal and small.
+      return {
+        freq: {
+          min: this.shapeMin[this.row] ?? 0,
+          max: this.shapeMax[this.row] ?? 0,
+          raw: this.shape[this.row]?.[this.col] ?? Number.NaN,
+        },
+        panning: this.panning,
+      };
+    }
     const node = this.current;
     // Scaled within the depth rather than across the whole tree, the way a
     // line's rows each carry their own range. A tree's magnitudes fall by an
@@ -574,15 +603,7 @@ export class TreemapTrace extends AbstractTrace {
       freq: {
         min: this.depthMin[this.row] ?? 0,
         max: this.depthMax[this.row] ?? 0,
-        // A pure hierarchy has nothing to pitch, and this is the contract
-        // that already says so: a non-finite magnitude means "the point
-        // exists to navigate to, it just has no value", and `AudioService`
-        // sounds it with the empty tone rather than interpolating it -- #925,
-        // and deliberately not scoped there to the trace that first needed
-        // it. Leaving the 0 would have been a flat tone at the bottom of the
-        // range, which is a positive claim that every node is equal and
-        // small rather than an absence of one.
-        raw: this.valued ? (node?.value ?? 0) : Number.NaN,
+        raw: node?.value ?? 0,
       },
       panning: this.panning,
     };
@@ -676,14 +697,13 @@ export class TreemapTrace extends AbstractTrace {
       // empty however the reader moved. Its shape is what it has, so each
       // cell is the node's child count plus one, a leaf the lowest dot and a
       // node with many children the tallest, scaled per level as the
-      // magnitudes are.
-      const shape = this.nodes.map(level => level.map(node => (node?.children.length ?? 0) + 1));
+      // magnitudes are -- and as the pitch is.
       return {
         empty: false,
         id: this.id,
-        values: shape,
-        min: shape.map(level => MathUtil.safeMin(level)),
-        max: shape.map(level => MathUtil.safeMax(level)),
+        values: this.shape,
+        min: this.shapeMin,
+        max: this.shapeMax,
         row: this.row,
         col: this.col,
       };

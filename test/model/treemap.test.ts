@@ -539,15 +539,50 @@ const ORG: TreemapPoint[] = [
 ];
 
 describe('a tree that declares no magnitude', () => {
-  test('sounds as a point with no value rather than as a flat zero', () => {
-    // The contract #925 established and deliberately did not scope to the
-    // trace that first needed it: a non-finite magnitude means the point
-    // exists to navigate to and has no value, and `AudioService` answers it
-    // with the empty tone. A 0 would have been a real tone at the bottom of
-    // the range -- a claim that every node is equal and small.
-    const { freq } = nonEmptyState(treemap(ORG)).audio;
+  test('is pitched by its shape, the child count braille shows', () => {
+    // Sounded as a node with no value, every node played the empty tone --
+    // the tone a refused move plays -- so a step and a wall sounded alike.
+    // Each node's count plus one, scaled per level: Ada has two reports, Bo
+    // two and Cy one, and the third level is all leaves.
+    const trace = treemap(ORG);
+    const at = (): unknown => nonEmptyState(trace).audio.freq;
 
-    expect(Number.isFinite(freq.raw as number)).toBe(false);
+    const ada = at();
+    walk(trace, 'DOWNWARD');
+    const bo = at();
+    walk(trace, 'FORWARD');
+    const cy = at();
+    walk(trace, 'BACKWARD', 'DOWNWARD');
+    const engineering = at();
+
+    expect(ada).toEqual({ min: 3, max: 3, raw: 3 });
+    expect(bo).toEqual({ min: 2, max: 3, raw: 3 });
+    expect(cy).toEqual({ min: 2, max: 3, raw: 2 });
+    expect(engineering).toEqual({ min: 1, max: 1, raw: 1 });
+  });
+
+  test('the pitch and the braille cell are one reading at every node', () => {
+    const trace = treemap(ORG);
+    const moves: MovableDirection[] = ['DOWNWARD', 'FORWARD', 'DOWNWARD', 'UPWARD', 'BACKWARD', 'DOWNWARD', 'FORWARD'];
+
+    for (const move of [null, ...moves]) {
+      if (move !== null) {
+        expect(trace.moveOnce(move)).toBe(true);
+      }
+      const { audio, braille } = nonEmptyState(trace);
+      if (braille.empty || !Array.isArray(braille.min) || !Array.isArray(braille.max)) {
+        throw new Error('Expected a populated braille state, scaled per level');
+      }
+      const { row, col } = braille;
+      const values = braille.values as number[][];
+
+      expect(Number.isFinite(audio.freq.raw as number)).toBe(true);
+      expect(audio.freq).toEqual({
+        min: braille.min[row],
+        max: braille.max[row],
+        raw: values[row][col],
+      });
+    }
   });
 
   test('a tree that does declare magnitudes still pitches by them', () => {
@@ -599,8 +634,8 @@ describe('a tree that declares no magnitude', () => {
     ];
 
     expect(treemap(mixed).description.stats.map(e => e.label)).toContain('Total');
-    expect(Number.isFinite(nonEmptyState(treemap(mixed)).audio.freq.raw as number))
-      .toBe(true);
+    // Ada's derived total, not her shape.
+    expect(nonEmptyState(treemap(mixed)).audio.freq.raw).toBe(4);
   });
 });
 
