@@ -10,6 +10,7 @@ import type {
   TraceState,
 } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
+import { ScatterTrace } from '@model/scatter';
 import { BrailleService, normalizeDisplayLines } from '@service/braille';
 import { TraceType } from '@type/grammar';
 
@@ -1842,5 +1843,102 @@ describe('normalizeDisplayLines boundaries', () => {
 
   test('21 clamps down to max 20', () => {
     expect(normalizeDisplayLines(21)).toBe(20);
+  });
+});
+
+describe('a bottom-up grid reads top row first, as the chart draws it', () => {
+  // A heatmap's, hexbin's or scatter grid's row 0 is the lowest band, and UP
+  // is row + 1. Written row 0 first in single-line mode, the on-screen field
+  // read the chart upside down and UP moved the caret down a line; multiline
+  // mode already wrote the top row first.
+
+  /**
+   * What braille shows for a state, and where its caret is.
+   * @param state - The trace state to show
+   * @returns The service, its last value and index, and the cursor moves it asked for
+   */
+  function shown(state: TraceState): {
+    service: BrailleService;
+    contextMoveToIndex: ReturnType<typeof jest.fn>;
+    last: () => { value: string; index: number };
+  } {
+    const { service, contextMoveToIndex } = createBrailleService(32);
+    let last = { value: '', index: -1 };
+    service.onChange((event) => {
+      last = { value: event.value, index: event.index };
+    });
+    service.toggle(state);
+    return { service, contextMoveToIndex, last: () => last };
+  }
+
+  test('the first line is the top row, and UP moves the caret up a line', () => {
+    // Row 0 low, row 2 high.
+    const values = [[1, 1], [5, 5], [9, 9]];
+    const { service, contextMoveToIndex, last } = shown(createHeatmapTraceState(values, 0, 0));
+
+    const lines = last().value.split('\n');
+    const bottom = last().index;
+    service.update(createHeatmapTraceState(values, 1, 0));
+    const above = last().index;
+    service.moveToIndex(0);
+
+    expect(lines[0]).toBe('⠉⠉');
+    expect(lines[2]).toBe('⠤⠤');
+    expect(above).toBeLessThan(bottom);
+    expect(contextMoveToIndex).toHaveBeenLastCalledWith(2, 0);
+    service.dispose();
+  });
+
+  test('single-line and multiline modes put a grid\'s rows in the same order', () => {
+    const values = [[1, 0], [0, 9], [5, 5]];
+    const read = (lines: number): string[] => {
+      const { service } = createMultilineBrailleService(4, lines);
+      let value = '';
+      service.onChange((event) => {
+        value = event.value;
+      });
+      service.toggle(createHeatmapTraceState(values, 0, 0));
+      service.dispose();
+      return lines === 1
+        ? value.split('\n').filter(line => line !== '').map(line => line.trimEnd())
+        : (value.match(/.{4}/gu) ?? []).map(line => line.trimEnd());
+    };
+
+    expect(read(1)).toEqual(read(3));
+  });
+
+  test('a scatter plot\'s grid shows its highest band first', () => {
+    // Points at (1, 1) and (1.5, 1.5) in the low left cell, (3, 3) in the
+    // high right one, on a 0..4 grid in steps of 2.
+    const trace = new ScatterTrace({
+      id: 'grid',
+      type: TraceType.SCATTER,
+      axes: {
+        x: { label: 'X', min: 0, max: 4, tickStep: 2 },
+        y: { label: 'Y', min: 0, max: 4, tickStep: 2 },
+      },
+      data: [{ x: 1, y: 1 }, { x: 1.5, y: 1.5 }, { x: 3, y: 3 }],
+    });
+    trace.setGridMode(true);
+    trace.moveOnce('FORWARD');
+
+    const { service, last } = shown(trace.state);
+
+    expect(last().value).toBe(' ⠒\n⠉ \n');
+    service.dispose();
+    trace.dispose();
+  });
+
+  test('a line chart, whose rows are series rather than bands, keeps row 0 first', () => {
+    // Not a grid: a line chart's rows are its series, not bands drawn top to
+    // bottom, so its single-line order is unchanged.
+    const { service, last } = shown(createLineTraceState([[1, 2, 3], [3]], 0, 0));
+
+    const lines = last().value.split('\n');
+
+    expect([...lines[0]]).toHaveLength(3);
+    expect([...lines[1]]).toHaveLength(1);
+    expect(last().index).toBe(0);
+    service.dispose();
   });
 });

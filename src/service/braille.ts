@@ -201,6 +201,10 @@ interface EncodedBraille {
  * @param topFirst - When true, a multiline display keeps row 0 on its top
  *   line, for a trace that draws row 0 at the top (see
  *   `BaseBrailleState.rowsTopFirst`)
+ * @param lastRowFirst - Write the last row first, so row 0 sits at the bottom
+ *   and UP (row++) moves the caret up a line. Multiline mode always does. An
+ *   encoder whose rows are a bottom-up spatial grid asks for it in single-line
+ *   mode too, so the on-screen field reads top row first, as the chart draws it.
  * @returns Encoded braille with cell mappings
  */
 function encodeWithWrapping(
@@ -211,6 +215,7 @@ function encodeWithWrapping(
   multiline: boolean = false,
   colOffset: number = 0,
   topFirst: boolean = false,
+  lastRowFirst: boolean = multiline,
 ): EncodedBraille {
   const values = new Array<string>();
   const cellToIndex = new Array<Array<number>>();
@@ -235,12 +240,13 @@ function encodeWithWrapping(
     }
   }
 
-  // When multiline, encode from the last row to the first so that
-  // row 0 (the initially focused / lowest element) appears at the
-  // bottom of the physical braille display and UP (row++) moves the
-  // cursor upward. A trace that draws row 0 at the top moves to row++ with
-  // DOWN, so it keeps row 0 on the top line and the cursor moves down.
-  const bottomUp = multiline && !topFirst;
+  // Encode from the last row to the first when asked -- always in multiline
+  // mode, and for a bottom-up spatial grid in single-line mode too -- so that
+  // row 0 (the initially focused / lowest element) appears at the bottom of
+  // the display and UP (row++) moves the cursor upward. A trace that draws
+  // row 0 at the top moves to row++ with DOWN, so it keeps row 0 on the top
+  // line and the cursor moves down.
+  const bottomUp = lastRowFirst && !topFirst;
   const start = bottomUp ? rowCount - 1 : 0;
   const end = bottomUp ? -1 : rowCount;
   const step = bottomUp ? -1 : 1;
@@ -374,7 +380,9 @@ interface TimeSeries {
  *      of the physical braille display. This makes UP-arrow navigation
  *      (which increments `row`) move the cursor upward on the display. A
  *      state with `rowsTopFirst` is drawn the other way up and increments
- *      `row` on DOWN, so its rows are encoded first to last instead.
+ *      `row` on DOWN, so its rows are encoded first to last instead. An
+ *      encoder whose rows are a bottom-up spatial grid -- the heatmap
+ *      encoder's -- writes them last row first in single-line mode too.
  *
  * `colOffset` enables horizontal page-windowing for plots wider than the
  * display; it is meaningful only when `multiline=true` and the state has
@@ -774,6 +782,12 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
 
 /**
  * Encoder for converting heatmap data into braille patterns.
+ *
+ * Its rows are a bottom-up spatial grid -- a heatmap, a hexbin, a scatter
+ * plot's grid, a volcano or Manhattan plot: row 0 is the lowest band and UP is
+ * row + 1 -- so it writes them top row first in single-line mode as well as
+ * multiline. Written row 0 first, the on-screen field read the chart upside
+ * down and UP moved the caret down a line.
  */
 class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
   /**
@@ -818,6 +832,7 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
       multiline,
       colOffset,
       state.rowsTopFirst === true,
+      true,
     );
   }
 }
@@ -1454,7 +1469,9 @@ implements Observer<SubplotState | TraceState>, Disposable {
     //   - row order is reversed so row 0 (initially focused) appears at the
     //     bottom of the display and UP-arrow moves the cursor upward, except
     //     on a trace that draws row 0 at the top (`rowsTopFirst`), where it
-    //     stays on the top line and DOWN-arrow moves the cursor downward.
+    //     stays on the top line and DOWN-arrow moves the cursor downward. A
+    //     bottom-up grid (the heatmap encoder's) is reversed in single-line
+    //     mode as well.
     const isMultilineMode = this.displayLines > 1;
 
     // For plots whose rows can overflow a single display line, compute the

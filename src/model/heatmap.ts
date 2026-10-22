@@ -258,9 +258,9 @@ export class Heatmap extends AbstractTrace {
     // Reversed, so the table reads top row first as the chart draws it and as
     // `HeatmapData.y` authored it. The constructor turns the payload over so
     // that model row 0 is the *bottom* of the grid, which is what makes
-    // ArrowUp move visually up; the braille service reverses that back for a
-    // physical display, and the table is the other surface a reader compares
-    // with the drawing rather than walks.
+    // ArrowUp move visually up; the braille service writes it top row first,
+    // and the table is the other surface a reader compares with the drawing
+    // rather than walks.
     const rows: (string | number)[][] = this.heatmapValues
       .map((row, r) => [
         this.y[r] ?? '',

@@ -61,6 +61,8 @@ In multiline braille displays, all rows of the heatmap are represented simultane
 
 In single-line braille displays, use the up and down arrow keys to move between rows. The braille representation updates to show the current row.
 
+In both, the rows are listed top row first, as the chart draws them, so the on-screen braille field reads like the chart and the up arrow moves the cursor up a line.
+
 ### Box plot
 
 The Braille representation of a boxplot uses Braille characters
@@ -133,6 +135,8 @@ When the grid navigation rotor is activated, the braille representation of the s
 In multiline braille displays, all cells are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the number of data points in the corresponding grid cell. Vertically, each line of the braille display corresponds to a different row of the grid, allowing users to perceive the distribution of points across the entire grid at once.
 
 In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between rows of the grid, and the braille representation updates to show the number of points in each cell of the current row.
+
+In both, the grid's rows are listed highest band first, as the chart draws them, so the on-screen braille field reads like the chart and the up arrow moves the cursor up a line.
 
 ### Segmented Bar Plots
 
@@ -280,7 +284,9 @@ once and never has to make that choice.
 #### Multiline Displays
 
 Hexbin plots use one line per lattice row on a multiline display, so the shape
-of the cloud can be felt at once rather than row by row.
+of the cloud can be felt at once rather than row by row. The rows are listed
+top row first, as the chart draws them, on a multiline display and in the
+on-screen braille field alike.
 
 ### Letter-value plot (boxen) [experimental]
 
