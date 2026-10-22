@@ -753,6 +753,15 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     if (!positioned) {
       to.moveToXValue(fromXValue);
     }
+
+    // A layer the position could not be carried into, and never visited, is
+    // entered where the switch announces it. Left in initial entry it showed
+    // no highlight, and the first arrow re-announced the same point instead of
+    // moving. Not where (0, 0) holds nothing to enter, as on a graph whose
+    // first depth is empty.
+    if (to.isInitialEntry && to.isMovable([to.row, to.col])) {
+      to.isInitialEntry = false;
+    }
   }
 
   /**

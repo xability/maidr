@@ -1,5 +1,6 @@
 import type { MaidrLayer, TreemapPoint } from '@type/grammar';
 import type { Coordinate, Node } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type {
   ChartObject,
   ChartObjectList,
@@ -13,6 +14,7 @@ import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { findNamedCell } from '@util/navigation';
 import {
   chartOrderSort,
   counter,
@@ -491,6 +493,39 @@ export class TreemapTrace extends AbstractTrace {
         ...(parent === null ? {} : { parent: parent.name }),
       },
     };
+  }
+
+  /**
+   * The node's name, which is what another layer of the same chart can find
+   * it by. The default read a magnitude or nothing, so a layer switch landed a
+   * reader on whatever came first rather than on the same node.
+   *
+   * @returns The name of the node under the cursor, or null off the chart
+   */
+  public override getCurrentXValue(): XValue | null {
+    return this.current?.name ?? null;
+  }
+
+  /**
+   * Moves to the node carrying a name, keeping the cursor where it is when
+   * it already does (see {@link findNamedCell}).
+   *
+   * @param xValue - The name another layer was on
+   * @returns True when a node carries it and the cursor moved there
+   */
+  public override moveToXValue(xValue: XValue): boolean {
+    // Null when the layer left has no X: `String(null)` would find a node
+    // named "null".
+    if (xValue === null || xValue === undefined) {
+      return false;
+    }
+    const at = findNamedCell(this.nodes, String(xValue), this.row, this.col);
+    return at !== null && this.moveToIndex(at.row, at.col);
+  }
+
+  public override hasXValue(xValue: XValue): boolean {
+    return xValue !== null && xValue !== undefined
+      && findNamedCell(this.nodes, String(xValue), this.row, this.col) !== null;
   }
 
   /**

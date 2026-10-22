@@ -1,6 +1,6 @@
 import type { DirectedGraphPoint, MaidrLayer } from '@type/grammar';
 import type { Coordinate, Node } from '@type/movable';
-import type { PointCloudHighlightable } from '@type/navigation';
+import type { PointCloudHighlightable, XValue } from '@type/navigation';
 import type {
   ChartObject,
   ChartObjectList,
@@ -13,6 +13,7 @@ import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { centrality, withinCentralityBudget } from '@util/graphCentrality';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { findNamedCell } from '@util/navigation';
 import {
   chartOrderSort,
   counter,
@@ -697,6 +698,39 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   /** The item the cursor is on, when it is on one. */
   private get current(): GraphItem | null {
     return this.levels[this.row]?.[this.col] ?? null;
+  }
+
+  /**
+   * The item's name, which is what another layer of the same chart can find
+   * it by. The default read a magnitude or nothing, so a layer switch landed a
+   * reader on whatever came first rather than on the same item.
+   *
+   * @returns The name of the item under the cursor, or null off the chart
+   */
+  public override getCurrentXValue(): XValue | null {
+    return this.current?.name ?? null;
+  }
+
+  /**
+   * Moves to the item carrying a name, keeping the cursor where it is when
+   * it already does (see {@link findNamedCell}).
+   *
+   * @param xValue - The name another layer was on
+   * @returns True when a item carries it and the cursor moved there
+   */
+  public override moveToXValue(xValue: XValue): boolean {
+    // Null when the layer left has no X: `String(null)` would find a item
+    // named "null".
+    if (xValue === null || xValue === undefined) {
+      return false;
+    }
+    const at = findNamedCell(this.levels, String(xValue), this.row, this.col);
+    return at !== null && this.moveToIndex(at.row, at.col);
+  }
+
+  public override hasXValue(xValue: XValue): boolean {
+    return xValue !== null && xValue !== undefined
+      && findNamedCell(this.levels, String(xValue), this.row, this.col) !== null;
   }
 
   /** What this chart calls a node, from the x axis when the layer names one. */

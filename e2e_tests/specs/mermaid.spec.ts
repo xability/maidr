@@ -890,11 +890,11 @@ test.describe('Mermaid adapter', () => {
     await press(page, 'ArrowRight');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('Complex');
 
-    expect(await press(page, 'PageUp')).toContain('Transitions');
-    expect(await press(page, 'ArrowRight')).toContain('Domain is Chaotic');
-    await expect(page.locator(HIGHLIGHT).first()).toContainText('Chaotic');
-    expect(await press(page, 'ArrowRight')).toContain('Domain is Complex');
+    // The switch keeps the domain the reader is on.
+    expect(await press(page, 'PageUp')).toContain('Transitions at Domain is Complex');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('Complex');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Complicated');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Complicated');
     expect(unresolved).toEqual([]);
   });
 
@@ -913,9 +913,12 @@ test.describe('Mermaid adapter', () => {
     const kettle = page.locator('svg[maidr] g.wardley-node:not([data-maidr-owned])', { hasText: 'Kettle' }).locator('circle').first();
     expect(await dot.getAttribute('cx')).toBe(await kettle.getAttribute('cx'));
 
-    expect(await press(page, 'PageUp')).toContain('Value chain');
-    expect(await press(page, 'ArrowRight')).toContain('Component is Business');
+    // A place on the map is no node of the value chain, so the switch enters
+    // the value chain on its first node, outlined.
+    expect(await press(page, 'PageUp')).toContain('Value chain at Component is Business');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('Business');
+    expect(await press(page, 'ArrowRight')).toContain('Component is Cup of Tea');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Cup of Tea');
     expect(unresolved).toEqual([]);
   });
 
@@ -942,6 +945,18 @@ test.describe('Mermaid adapter', () => {
     await page.keyboard.press('l');
     // A tree has no y axis; "Y label is Y" named a placeholder as a label.
     expect(await press(page, 'y')).toContain('Y label is not available');
+  });
+
+  test('keeps the Cynefin domain the reader is on across its two layers', async ({ page }) => {
+    await openExample(page, 'cynefin');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Clear');
+
+    expect(await press(page, 'PageUp')).toContain('Layer 2 of 2: Transitions at Domain is Clear');
+    // The first arrow moves rather than announcing Clear again.
+    expect(await press(page, 'ArrowLeft')).toContain('Domain is Complicated, Connections');
+    expect(await press(page, 'PageDown')).toContain('Layer 1 of 2: Domains at Domain is Complicated');
   });
 
   test('names a timeline by the title it declares', async ({ page }) => {
