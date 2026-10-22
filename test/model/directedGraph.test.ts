@@ -435,6 +435,16 @@ describe('the description', () => {
     expect(table.rows.map(row => row[1])).toEqual(['input', 'conv1', 'conv2', 'add', 'conv', 'pool', 'dense']);
     expect(table.rows[3]).toEqual(['block1', 'add', 'block1 > conv2, input', 'block2 > conv', '', '', '']);
   });
+
+  test('a graph with no scopes leaves out the Path column', () => {
+    // Blank in every row, and the first column heads each row: a reader
+    // moving down the Outputs column heard an empty header on every one.
+    const table = graph([{ id: 'a' }, { id: 'b', inputs: ['a'] }]).description.dataTable;
+
+    expect(table.headers).toEqual(['Layer', 'Inputs', 'Outputs']);
+    expect(table.columnAxes).toEqual(['x', undefined, undefined]);
+    expect(table.rows[0]).toEqual(['a', '', 'b']);
+  });
 });
 
 describe('an edge label is heard wherever its edge is', () => {
@@ -598,8 +608,10 @@ describe('an edge label is heard wherever its edge is', () => {
 
   test('the description tabulates the labels', () => {
     const table = graph(DECISION).description.dataTable;
-    const check = table.rows.find(row => row[1] === 'check');
+    const name = table.headers.indexOf('Layer');
+    const outputs = table.headers.indexOf('Outputs');
+    const check = table.rows.find(row => row[name] === 'check');
 
-    expect(check?.[3]).toBe('ship (yes), fix (no)');
+    expect(check?.[outputs]).toBe('ship (yes), fix (no)');
   });
 });

@@ -1513,6 +1513,12 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       }
     }
 
+    // A graph with no scopes has no paths, so a Path column would be blank
+    // in every row -- and the first column is each row's header, so every
+    // row would be headed by nothing. A scope exists only where a path names
+    // one, so this is exactly "some node declared a path".
+    const scoped = scopes.length > 0;
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
@@ -1520,22 +1526,23 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       stats,
       dataTable: {
         headers: [
-          t('model.asidePath'),
+          ...(scoped ? [t('model.asidePath')] : []),
           this.nodeLabel,
           t('model.tableInputs'),
           t('model.tableOutputs'),
           ...keys,
         ],
         // The name sits on x, as the announcement says it; the rest are
-        // joined names and the producer's own strings, on no axis.
-        columnAxes: [undefined, 'x', undefined, undefined, ...keys.map(() => undefined)],
+        // joined names and the producer's own strings, on no axis. Shaped
+        // as the headers are, since the formatters are applied by column.
+        columnAxes: [...(scoped ? [undefined] : []), 'x', undefined, undefined, ...keys.map(() => undefined)],
         // In topological order, input to output, which is the order the
         // graph is read in.
         rows: this.order.map((node) => {
           const item = nodes[node];
           const attributes = new Map(item.attributes);
           return [
-            DirectedGraphTrace.pathOf(item).join(PATH_JOIN),
+            ...(scoped ? [DirectedGraphTrace.pathOf(item).join(PATH_JOIN)] : []),
             item.name,
             this.predecessors[node].map(one => DirectedGraphTrace.labelled(
               DirectedGraphTrace.nameFrom(nodes[one], null),

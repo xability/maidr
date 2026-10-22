@@ -135,6 +135,19 @@ test.describe('Graphviz adapter', () => {
 
     expect(await plot.getBrailleContent()).toMatch(BRAILLE_CELL);
   });
+
+  test('should head each row of the description\'s table with its step, the graph having no clusters', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await page.keyboard.press('d');
+    const dialog = page.getByRole('dialog');
+
+    // No Path column, blank in every row of a graph with no clusters, and
+    // heading each row with nothing.
+    await expect(dialog.getByRole('columnheader')).toHaveText(['Step', 'Inputs', 'Outputs']);
+    await expect(dialog.getByRole('rowheader').first()).toHaveText('Order received');
+  });
 });
 
 test.describe('Graphviz adapter, undirected graph', () => {
@@ -209,6 +222,15 @@ test.describe('Graphviz adapter, clusters', () => {
     // every node inside it is outlined.
     await expect.poll(async () => (await page.locator(`${OUTLINE} title`).allTextContents()).sort())
       .toEqual(['api', 'cache', 'db', 'payments']);
+  });
+
+  test('should keep the description\'s Path column, where the graph has clusters', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await page.keyboard.press('d');
+
+    await expect(page.getByRole('dialog').getByRole('columnheader').first()).toHaveText('Path');
   });
 
   test('should open nested clusters with down and leave them with up', async ({ page }) => {
