@@ -742,6 +742,22 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 
   /**
+   * The rotor's lower and higher value search, along the current row.
+   *
+   * On the base class rather than on each bar type, so stacked, dodged,
+   * normalized, diverging and mosaic bars search their own rows the way a
+   * plain bar and a histogram do. Left to the base trace's no-op, they were
+   * offered the two modes and answered "No lower value found" with a lower
+   * bar beside the reader.
+   * @param direction - The direction to search (left or right)
+   * @param type - The comparison type (lower or higher)
+   * @returns True if a matching bar was found, false otherwise
+   */
+  public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    return this.compareSearchInRow(direction, type);
+  }
+
+  /**
    * Get extrema targets for the current bar or histogram trace
    * Returns min and max values within the current group
    * @returns Array of extrema targets for navigation
@@ -900,15 +916,5 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
    */
   public constructor(layer: MaidrLayer) {
     super(layer, [layer.data as BarPoint[]]);
-  }
-
-  /**
-   * Moves to the next bar that matches the comparison criteria in rotor mode.
-   * @param direction - The direction to move (left or right)
-   * @param type - The comparison type (lower or higher)
-   * @returns True if a target was found, false otherwise
-   */
-  public override moveToNextCompareValue(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
-    return this.compareSearchInRow(direction, type);
   }
 }
