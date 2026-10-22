@@ -154,7 +154,7 @@ describe('the navigate callback reaches a flow or network trace', () => {
     expect(seen.at(-1)?.pointIndices).toEqual([3]);
   });
 
-  it('names the line a network node highlighted', () => {
+  it('names the lines a network node highlighted', () => {
     enterNetworkPanel();
     seen.length = 0;
 
@@ -166,7 +166,7 @@ describe('the navigate callback reaches a flow or network trace', () => {
       layerId: 'network',
       row: -1,
       col: -1,
-      pointIndices: [1],
+      pointIndices: [1, 2, 0],
     });
   });
 

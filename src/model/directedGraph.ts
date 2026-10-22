@@ -8,7 +8,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { centrality, withinCentralityBudget } from '@util/graphCentrality';
 import { t } from '@util/i18n';
@@ -1504,8 +1504,9 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    *
    * One element per declared node, in declared order. A scope was not
    * declared and has nothing of its own to outline, so it gets a hidden
-   * placeholder; withdrawn entirely on a count mismatch, since a list that has
-   * slipped by one outlines the wrong layer for the rest of the chart.
+   * placeholder, and {@link highlight} outlines its members instead;
+   * withdrawn entirely on a count mismatch, since a list that has slipped by
+   * one outlines the wrong layer for the rest of the chart.
    *
    * @param selectors - Whatever the layer declared
    * @param declared - How many nodes the layer declared
@@ -1542,13 +1543,48 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * The declared nodes the cursor covers, as indices into `layer.data`: the
    * node itself, or every node inside a closed scope.
    *
+   * **This is the single expression both highlight channels read**:
+   * {@link highlight} outlines these nodes and {@link highlightedPointIndices}
+   * names them, so a canvas chart and an SVG chart light the same nodes.
+   *
    * @returns The indices, or nothing before the cursor has entered
    */
-  public get highlightedPointIndices(): readonly number[] {
-    if (this.isInitialEntry) {
-      return [];
+  private get coveredMembers(): readonly number[] {
+    return this.isInitialEntry ? [] : this.current?.members ?? [];
+  }
+
+  /**
+   * On a scope, every declared node inside it.
+   *
+   * The chart was given no element for a scope, which is derived from its
+   * nodes' paths rather than declared, so its own cell is a hidden
+   * placeholder. Outlining that took the previous outline away and drew
+   * nothing in its place -- on as many as one stop in three of a diagram of
+   * subgraphs, and on the stop every nested scope is entered through --
+   * while a canvas chart lit the scope's members. Its members are what the
+   * scope is drawn round, so they are outlined instead.
+   *
+   * @returns The highlight at the cursor
+   */
+  protected override get highlight(): HighlightState {
+    const values = this.highlightValues;
+    if (values === null || this.current?.kind !== 'scope') {
+      return super.highlight;
     }
-    return this.current?.members ?? [];
+    const elements = this.coveredMembers
+      .map(member => this.nodeItems[member])
+      .map(node => values[node.depth]?.[node.index])
+      .filter((element): element is SVGElement => element !== undefined);
+    return elements.length > 0 ? { empty: false, elements } : super.highlight;
+  }
+
+  /**
+   * The declared nodes the cursor covers, as indices into `layer.data`.
+   *
+   * @returns The nodes {@link coveredMembers} names
+   */
+  public get highlightedPointIndices(): readonly number[] {
+    return this.coveredMembers;
   }
 
   protected findNearestPoint(): NearestPoint | null {

@@ -37,20 +37,23 @@ function createLayer(): MaidrLayer {
 }
 
 /**
- * The element the trace would highlight at the cursor's position.
+ * The lines the trace would highlight at the cursor's position.
  * @param trace The trace to read
- * @returns The highlighted element, or null when there is none
+ * @returns Each highlighted line's link, in the order highlighted; none for a
+ *   placeholder
  */
-function highlighted(trace: NetworkTrace): SVGElement | null {
+function highlighted(trace: NetworkTrace): string[] {
   const state = trace.state;
   if (state.empty || state.highlight.empty) {
-    return null;
+    return [];
   }
   const { elements } = state.highlight;
-  return (Array.isArray(elements) ? elements[0] : elements) ?? null;
+  return (Array.isArray(elements) ? elements : [elements])
+    .map(element => element.getAttribute('data-link'))
+    .filter((link): link is string => link !== null);
 }
 
-describe('a node highlights a line that was actually drawn for it', () => {
+describe('a node highlights the lines that were actually drawn for it', () => {
   beforeEach(() => {
     document.body.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
@@ -62,10 +65,10 @@ describe('a node highlights a line that was actually drawn for it', () => {
       </svg>`;
   });
 
-  test('the hub highlights the line to its most connected neighbour', () => {
+  test('the hub highlights every line it touches, its most connected neighbour\'s first', () => {
     // Ada's neighbours sorted by degree are Grace and Alan (2 each) then
     // Edsger (1), so the first is Grace -- drawn by `link-1`, not `link-0`.
-    // A placeholder, or a pairing by rank, would give a different element.
+    // A pairing by rank would give different elements.
     const trace = new NetworkTrace(createLayer());
     trace.moveOnce('FORWARD');
 
@@ -75,7 +78,7 @@ describe('a node highlights a line that was actually drawn for it', () => {
     }
 
     expect(state.text.main.value).toBe('Ada');
-    expect(highlighted(trace)?.getAttribute('data-link')).toBe('Ada-Grace');
+    expect(highlighted(trace)).toEqual(['Ada-Grace', 'Ada-Alan', 'Ada-Edsger']);
   });
 
   test('the highlight agrees with where the rotor would step next', () => {
@@ -104,6 +107,56 @@ describe('a node highlights a line that was actually drawn for it', () => {
     }
 
     expect(state.text.main.value).toBe('Ida');
-    expect(highlighted(trace)?.hasAttribute('data-link')).toBe(false);
+    expect(highlighted(trace)).toEqual([]);
+  });
+
+  test('every line is listed once for the tactile view, the loop included', () => {
+    const trace = new NetworkTrace(createLayer());
+
+    expect(trace.getAllHighlightElements().map(line => line.getAttribute('data-link')))
+      .toEqual(['Ada-Edsger', 'Ada-Grace', 'Ada-Alan', 'Grace-Alan', 'Ida-Ida']);
+  });
+});
+
+describe('two people never show the same highlight', () => {
+  /** The Graphviz example's team: Ana, Ben, Chloe and Dev, then Eli and Fay. */
+  const TEAM: NetworkPoint[] = [
+    { source: 'ana', target: 'ben' },
+    { source: 'ana', target: 'chloe' },
+    { source: 'ben', target: 'chloe' },
+    { source: 'chloe', target: 'dev' },
+    { source: 'eli', target: 'fay' },
+  ];
+
+  beforeEach(() => {
+    document.body.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">${
+      TEAM.map((link, index) => `<line id="link-${index}" data-link="${link.source}--${link.target}" />`).join('')
+    }</svg>`;
+  });
+
+  test('each person outlines their own lines, unless two are a group by themselves', () => {
+    const trace = new NetworkTrace({
+      ...createLayer(),
+      selectors: TEAM.map((_, index) => `#link-${index}`),
+      data: TEAM,
+    });
+
+    const seen = new Map<string, string>();
+    for (const [row, size] of [[0, 4], [1, 2]]) {
+      for (let col = 0; col < size; col++) {
+        trace.moveToIndex(row, col);
+        const state = trace.state;
+        if (state.empty) {
+          throw new Error('Expected a non-empty trace state');
+        }
+        seen.set(String(state.text.main.value), highlighted(trace).sort().join(' '));
+      }
+    }
+
+    // Chloe's line to Ana was the whole highlight on both of them.
+    expect(seen.get('chloe')).toBe('ana--chloe ben--chloe chloe--dev');
+    expect(seen.get('ana')).toBe('ana--ben ana--chloe');
+    expect(new Set(['ana', 'ben', 'chloe', 'dev'].map(name => seen.get(name))).size).toBe(4);
+    expect(seen.get('eli')).toBe(seen.get('fay'));
   });
 });

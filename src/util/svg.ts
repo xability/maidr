@@ -1,3 +1,4 @@
+import type { Rgb } from '@type/color';
 import { Color } from './color';
 import { Constant } from './constant';
 import { SELECTOR_CONTRACT_URL } from './selectors';
@@ -665,9 +666,14 @@ export abstract class Svg {
    */
   private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.01;
   /**
-   * Amount to increase stroke width for highlighting line elements.
+   * Amount to increase stroke width for highlighting line elements, and the
+   * shapes a highlighted group is outlined through.
    */
   private static readonly STROKE_WIDTH_HIGHLIGHT_INCREASE = 2;
+  /**
+   * The shapes a highlighted group is outlined through.
+   */
+  private static readonly HIGHLIGHT_SHAPES = 'rect, path, circle, ellipse, polygon, line, polyline';
 
   /**
    * Adjusts opacity values to ensure visibility, returning '1' if below threshold.
@@ -690,11 +696,25 @@ export abstract class Svg {
    * ``<path d="M x y">`` used for median markers in violin plots), a
    * visible ``<circle>`` is created at that position instead.
    *
+   * A group that holds shapes, as a Mermaid or Graphviz node, edge or cluster
+   * does, is outlined through those shapes instead of painted whole (see
+   * {@link outlineShapes}).
+   *
    * @param element - The SVG element to highlight
    * @param fallbackColor - Color to use if original color cannot be determined
+   * @param options - How the colour is chosen
+   * @param options.useColorAsIs - Draw a light mark in `fallbackColor` too,
+   *   rather than in a darker shade of its own colour. In high contrast every
+   *   mark is painted from the reader's palette, often its light colour on a
+   *   dark page, where a darker shade of it is only a dimmer copy of the
+   *   labels around it.
    * @returns The highlighted clone element
    */
-  public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
+  public static createHighlightElement(
+    element: SVGElement,
+    fallbackColor: string,
+    options: { useColorAsIs?: boolean } = {},
+  ): SVGElement {
     // Handle zero-size elements (e.g. single-point <path> for median markers
     // in violin plots). Create a circle marker instead of cloning.
     try {
@@ -720,25 +740,43 @@ export abstract class Svg {
     }
 
     const clone = this.markOwned(element.cloneNode(true) as SVGElement);
-    const tag = element.tagName.toLowerCase();
-    const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
-
     const computed = window.getComputedStyle(element);
-    const originalColor = isLineElement
-      ? computed.getPropertyValue(Constant.STROKE)
-      : computed.getPropertyValue(Constant.FILL);
-    const color = this.getHighlightColor(originalColor, fallbackColor);
-
     const fillOpacity = computed.getPropertyValue('fill-opacity');
     const strokeOpacity = computed.getPropertyValue('stroke-opacity');
     clone.style.fillOpacity = this.getAdjustedOpacity(fillOpacity, this.MIN_VISIBLE_FILL_OPACITY);
     clone.style.strokeOpacity = this.getAdjustedOpacity(strokeOpacity, this.MIN_VISIBLE_STROKE_OPACITY);
-
     clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
-    clone.setAttribute(Constant.STROKE, color);
+
+    if (this.outlineShapes(element, clone, fallbackColor)) {
+      // Last in its parent, so the marks drawn after the group -- the leaves
+      // a Graphviz patchwork tiles over its branch -- cannot cover the
+      // outline. Its shapes are unfilled, so the group shows through it, and
+      // it takes no pointer events from what lies beneath.
+      clone.style.pointerEvents = 'none';
+      element.parentNode?.appendChild(clone);
+      return clone;
+    }
+
+    const tag = element.tagName.toLowerCase();
+    const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
+    const originalColor = isLineElement
+      ? computed.getPropertyValue(Constant.STROKE)
+      : computed.getPropertyValue(Constant.FILL);
+    const color = options.useColorAsIs
+      ? fallbackColor
+      : this.getHighlightColor(originalColor, fallbackColor);
+    // A filled mark keeps the edge it draws in a colour of its own, a pie
+    // slice's black or a gantt task's border, so a pale fill keeps its
+    // boundary. Set outright: the clone takes a new id, and a rule naming the
+    // mark's id would no longer reach it.
+    const stroke = !isLineElement && this.hasOwnEdge(computed)
+      ? computed.getPropertyValue(Constant.STROKE)
+      : color;
+
+    clone.setAttribute(Constant.STROKE, stroke);
     clone.setAttribute(Constant.FILL, color);
     clone.style.fill = color;
-    clone.style.stroke = color;
+    clone.style.stroke = stroke;
 
     if (isLineElement) {
       // Read the width from the original, which is in the document. The clone
@@ -746,17 +784,23 @@ export abstract class Svg {
       // style, so reading it there would always fall through to the increment.
       const strokeWidth = computed.getPropertyValue(Constant.STROKE_WIDTH);
       const match = strokeWidth.match(/^([0-9.]+)([a-z%]*)$/i);
+      let width: string;
       if (match) {
         const value = Number.parseFloat(match[1]);
         const unit = match[2] || '';
-        clone.setAttribute(Constant.STROKE_WIDTH, `${value + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}${unit}`);
+        width = `${value + this.STROKE_WIDTH_HIGHLIGHT_INCREASE}${unit}`;
       } else {
         const parsed = Number.parseFloat(strokeWidth);
         const value = Number.isNaN(parsed)
           ? this.STROKE_WIDTH_HIGHLIGHT_INCREASE
           : parsed + this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
-        clone.setAttribute(Constant.STROKE_WIDTH, `${value}`);
+        width = `${value}`;
       }
+      // Inline as well: a stylesheet rule, such as Mermaid's
+      // `.messageLine0 { stroke-width: 1.5px }`, beats the attribute, and
+      // kept the line as thin as it was drawn.
+      clone.setAttribute(Constant.STROKE_WIDTH, width);
+      clone.style.strokeWidth = width;
     }
 
     element.insertAdjacentElement(Constant.AFTER_END, clone);
@@ -764,7 +808,94 @@ export abstract class Svg {
   }
 
   /**
+   * Outlines the shapes inside a highlighted group in the highlight colour.
+   *
+   * A group's own fill and stroke reach a child only by inheritance, and lose
+   * to any paint the child declares: Graphviz writes `stroke="black"` on every
+   * polygon and path, Mermaid styles `.node rect` from its stylesheet, and C4
+   * inline with `!important`. Painting the group left its shapes as drawn, so
+   * a node, an edge or a cluster showed its label in the highlight colour at
+   * best, and nothing at all at worst. Each shape is stroked here instead,
+   * wider than drawn, as `!important` inline style, the one declaration a
+   * stylesheet's `!important` rule cannot beat; and left unfilled, so the
+   * group shows through. Text keeps its own colour.
+   *
+   * The colour is not derived from the group, whose fill is only what it
+   * inherited.
+   *
+   * @param element - The element highlighted, in the document, so its shapes'
+   *   styles resolve
+   * @param clone - Its deep clone, whose shapes are its own in the same order
+   * @param color - The highlight colour
+   * @returns Whether any shape was outlined: never for a shape itself, nor for
+   *   a group drawing nothing but text, which is painted whole instead
+   */
+  private static outlineShapes(element: SVGElement, clone: SVGElement, color: string): boolean {
+    if (element.matches(this.HIGHLIGHT_SHAPES)) {
+      return false;
+    }
+    const shapes = clone.querySelectorAll<SVGElement>(this.HIGHLIGHT_SHAPES);
+    let outlined = false;
+    element.querySelectorAll<SVGElement>(this.HIGHLIGHT_SHAPES).forEach((source, at) => {
+      const style = window.getComputedStyle(source);
+      const stroked = this.isPainted(style.stroke, style.strokeOpacity)
+        && Number.parseFloat(style.strokeWidth) !== 0;
+      // A shape the chart draws with no paint, such as a hit area, stays
+      // invisible rather than growing an outline nobody saw before.
+      if (style.display === 'none' || (!stroked && !this.isPainted(style.fill, style.fillOpacity))) {
+        return;
+      }
+      const width = (Number.parseFloat(style.strokeWidth) || 0) + this.STROKE_WIDTH_HIGHLIGHT_INCREASE;
+      const shape = shapes[at];
+      shape.style.setProperty(Constant.STROKE, color, 'important');
+      shape.style.setProperty('stroke-opacity', '1', 'important');
+      shape.style.setProperty(Constant.STROKE_WIDTH, `${width}px`, 'important');
+      shape.style.setProperty(Constant.FILL, 'none', 'important');
+      outlined = true;
+    });
+    return outlined;
+  }
+
+  /**
+   * Whether a filled mark draws a visible edge in a colour other than its fill.
+   * @param style - The mark's computed style
+   * @returns False for an unfilled mark, an edge drawn in the fill's own
+   *   colour, and an edge that draws nothing
+   */
+  private static hasOwnEdge(style: CSSStyleDeclaration): boolean {
+    const fill = style.getPropertyValue(Constant.FILL);
+    const stroke = style.getPropertyValue(Constant.STROKE);
+    return Color.parse(fill) !== null
+      && Color.parse(stroke) !== null
+      && this.isPainted(stroke, style.getPropertyValue('stroke-opacity'))
+      && Number.parseFloat(style.getPropertyValue(Constant.STROKE_WIDTH)) !== 0
+      && !Color.isEqual(stroke, fill);
+  }
+
+  /**
+   * Whether a computed fill or stroke draws anything.
+   * @param paint - The computed paint
+   * @param opacity - Its computed opacity
+   * @returns False for `none`, a fully transparent colour, or zero opacity
+   */
+  private static isPainted(paint: string, opacity: string): boolean {
+    return paint !== 'none'
+      && paint !== Constant.TRANSPARENT
+      && Color.parseRgba(paint)?.a !== 0
+      && Number.parseFloat(opacity) !== 0;
+  }
+
+  /**
    * Determines an appropriate highlight color based on the original color's luminance.
+   *
+   * A dark mark is drawn in the fallback colour. A light one is drawn in a
+   * darker shade of its own colour, at least `HIGHLIGHT_CONTRAST_RATIO`
+   * against the mark and so against a white page as well: scaling only the
+   * dominant channel, as this did, moved a lavender pie slice by 1.06:1 and
+   * a yellow radar point by 1.17:1, since blue and red carry little of a
+   * colour's luminance. It stops at that contrast rather than going to
+   * black, so a dark label drawn over the mark stays readable on it.
+   *
    * @param originalColor - The original color to base the highlight on
    * @param fallbackColor - Color to use if original cannot be parsed or is dark
    * @returns The computed highlight color string
@@ -783,26 +914,38 @@ export abstract class Svg {
       return fallbackColor;
     }
 
-    const modifiedRgb = { ...originalRgb };
+    return Color.rgbToString(this.darkenToContrast(originalRgb, Constant.HIGHLIGHT_CONTRAST_RATIO));
+  }
 
-    // Check if the color is grayscale (R=G=B)
-    if (originalRgb.r === originalRgb.g && originalRgb.g === originalRgb.b) {
-      // For grayscale, modify all channels uniformly
-      modifiedRgb.r = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.r * Constant.HIGHLIGHT_COLOR_RATIO));
-      modifiedRgb.g = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.g * Constant.HIGHLIGHT_COLOR_RATIO));
-      modifiedRgb.b = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.b * Constant.HIGHLIGHT_COLOR_RATIO));
-    } else {
-      // For non-grayscale colors, modify only the dominant channel
-      if (originalRgb.r >= originalRgb.g && originalRgb.r >= originalRgb.b) {
-        modifiedRgb.r = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.r * Constant.HIGHLIGHT_COLOR_RATIO));
-      } else if (originalRgb.g >= originalRgb.r && originalRgb.g >= originalRgb.b) {
-        modifiedRgb.g = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.g * Constant.HIGHLIGHT_COLOR_RATIO));
+  /**
+   * The lightest shade of a colour that reaches a contrast against it.
+   *
+   * Every channel is scaled by the same factor, so the hue is kept; the
+   * factor is found by halving, since the contrast only grows as it falls.
+   * Black always reaches the contrast asked of a light colour, so the search
+   * always ends on a shade that does.
+   *
+   * @param rgb - The colour
+   * @param ratio - The contrast the shade must reach against it
+   * @returns The shade
+   */
+  private static darkenToContrast(rgb: Rgb, ratio: number): Rgb {
+    const scale = (factor: number): Rgb => ({
+      r: Math.floor(rgb.r * factor),
+      g: Math.floor(rgb.g * factor),
+      b: Math.floor(rgb.b * factor),
+    });
+    let low = 0;
+    let high = 1;
+    for (let step = 0; step < 16; step++) {
+      const middle = (low + high) / 2;
+      if (Color.getContrastRatio(scale(middle), rgb) >= ratio) {
+        low = middle;
       } else {
-        modifiedRgb.b = Math.min(Constant.HIGHLIGHT_MAX_COLOR, Math.floor(originalRgb.b * Constant.HIGHLIGHT_COLOR_RATIO));
+        high = middle;
       }
     }
-
-    return Color.rgbToString(modifiedRgb);
+    return scale(low);
   }
 
   /**

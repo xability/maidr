@@ -123,11 +123,13 @@ export class ContourTrace extends LineTrace {
    * islands at some levels and not others, and a reader on a single-curve
    * level keeps the per-point highlight that walks with them.
    *
-   * Naming the `g.contourlevel` itself instead does not work, and is why the
-   * selector resolves to the paths: `Svg.createHighlightElement` sets `stroke`
-   * on the *clone*, and `stroke` is inherited only by a child that declares
-   * none -- plotly stamps one on every contour path, so the clone comes out
-   * colourless.
+   * The selector resolves to the paths rather than naming the `g.contourlevel`
+   * itself because, when this was written, `Svg.createHighlightElement` set
+   * `stroke` on the group's *clone* alone, and `stroke` is inherited only by a
+   * child that declares none -- plotly stamps one on every contour path, so
+   * the clone came out colourless. A group is outlined through its shapes
+   * now, but producers emit the paths, and this reading is what they emit
+   * against.
    *
    * @param selectors - One selector per level, as the layer declared them
    * @returns The elements to outline, point by point

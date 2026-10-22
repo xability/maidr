@@ -397,6 +397,17 @@ page which drew a chart's marks elsewhere keeps its highlight.
 - **`BoxSelector[]`** and **`CandlestickSelector`** name the parts of a box or
   a candle; their fields are described under those plot types below.
 
+A named shape -- a `<rect>`, `<path>`, `<circle>` and so on -- is drawn over: a
+dark one in the highlight colour, a light one in a darker shade of its own
+colour, at least 3:1 against it, keeping an edge it draws in a colour of its
+own. In high contrast mode, where the reader's palette paints every mark,
+each is drawn in the highlight colour. A named group, or any element holding such shapes, is
+outlined through them instead: each shape inside it that draws anything is
+stroked in the highlight colour, wider than drawn, over whatever paint its own
+attributes or the page's stylesheet give it, and left unfilled, so the group
+shows through; its text keeps its colour. The outline is drawn last in the
+group's parent, above the marks drawn after it.
+
 ### By layer type
 
 | Layer types | Shapes read | How the matches pair with the data |
@@ -413,7 +424,7 @@ page which drew a chart's marks elsewhere keeps its highlight.
 | `candlestick` | string; `CandlestickSelector` | A string pairs one element per candle in document order. |
 | `rug` | string; list with one entry per tick | Ticks are walked by position. |
 | `boxen`, `ridgeline`, `dumbbell`, `error_bar`, `forest`, `gantt`, `hexbin`, `waterfall`, `word_cloud`, `gauge`, `alluvial`, `chord`, `sankey`, `network`, `choropleth`, `treemap`, `sunburst`, `icicle`, `tree`, `pack` | string; list of strings | A list's entries are each resolved and the results concatenated. The total must be one element per item the layer declares -- distribution, group, pair, sample, interval, bin, step, term, flow, link, region or node -- in declared order; `gauge` uses the first match. |
-| `directed_graph` | string; list of strings | As the row above: one element per declared node, in declared order. A scope is derived from the nodes' paths rather than declared, so it has no element and is not outlined; edges are not highlighted. A count that does not match drops the highlight for the layer. |
+| `directed_graph` | string; list of strings | As the row above: one element per declared node, in declared order. A scope is derived from the nodes' paths rather than declared, so it has no element of its own; while the reader is on a closed scope, every declared node inside it is outlined. Edges are not highlighted. A count that does not match drops the highlight for the layer. |
 | `sequence` | string; list of strings | One element per message, notes included, in declared order -- the arrow or the note. A count that does not match drops the highlight for the layer. |
 | `venn` | string; list of strings | One element per declared region, in declared order. A set named only in an overlap has nothing drawn of its own and is not outlined. A count that does not match drops the highlight for the layer. |
 

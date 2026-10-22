@@ -456,7 +456,13 @@ export function syncHighlightCopies(container: HTMLElement): void {
     let mark = copy.previousElementSibling;
     while (mark && mark.hasAttribute('data-maidr-owned'))
       mark = mark.previousElementSibling;
-    if (mark && isCopyOf(mark, copy))
+    // The outline of a group, a heat map cell, is drawn last in its parent
+    // rather than after the cell, so it is found by name among its siblings.
+    if (!mark || !isCopyOf(mark, copy)) {
+      mark = Array.from(copy.parentElement?.children ?? [])
+        .find(one => !one.hasAttribute('data-maidr-owned') && isCopyOf(one, copy)) ?? null;
+    }
+    if (mark)
       copyGeometry(mark, copy);
   }
 }

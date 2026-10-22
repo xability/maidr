@@ -72,6 +72,12 @@ implements Observer<HighlightStateUnion>, Disposable {
   private currentHighlightColor: string;
 
   /**
+   * Whether high contrast is on, in which case the highlight colour is drawn
+   * as it is rather than derived from the mark. Updated when settings change.
+   */
+  private highContrastMode: boolean;
+
+  /**
    * Disposable for the settings change subscription, released on dispose().
    */
   private settingsDisposable: Disposable | null = null;
@@ -90,6 +96,7 @@ implements Observer<HighlightStateUnion>, Disposable {
     this.highlightedSubplots = new Set();
     const initialSettings = settings.loadSettings();
     this.currentHighlightColor = initialSettings.general.highlightColor;
+    this.highContrastMode = initialSettings.general.highContrastMode;
 
     // Subscribe to settings changes via the emitter (the same pattern used by
     // audio/autoplay/braille/highContrast). This service is not registered on
@@ -132,21 +139,27 @@ implements Observer<HighlightStateUnion>, Disposable {
       throw new TypeError('Invalid element provided for highlight creation');
     }
 
+    // In high contrast a mark is painted from the reader's palette, so a
+    // colour derived from it is a darker copy of their light colour: on the
+    // dark page, the dimmest label there rather than the one they are on.
     const clone = Svg.createHighlightElement(
       element,
       this.currentHighlightColor,
+      { useColorAsIs: this.highContrastMode },
     );
     clone.id = `${Constant.MAIDR_HIGHLIGHT}-${Date.now()}-${Math.random()}`;
     return clone;
   }
 
   /**
-   * Handles updates to application settings by updating the highlight color.
+   * Handles updates to application settings by updating the highlight color
+   * and whether high contrast is on.
    *
    * @param settings - The updated settings object containing the new highlight color
    */
   private handleSettingsUpdate(settings: Settings): void {
     this.currentHighlightColor = settings.general.highlightColor;
+    this.highContrastMode = settings.general.highContrastMode;
   }
 
   /**
