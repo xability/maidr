@@ -94,6 +94,37 @@ describe('a class diagram', () => {
     expect(data[1].attributes).toEqual({ Note: 'can fly' });
   });
 
+  it('runs a composition or aggregation from the whole its diamond marks, cardinalities in the order read', () => {
+    // `Car "1" *-- "4" Wheel : has`, `Duck "*" --o "1" Pond`, `Animal "1" <|-- "many" Duck` and `Car *--> Engine`.
+    const figure = convert('classDiagram', {
+      getData: () => ({
+        nodes: [{ id: 'Car' }, { id: 'Wheel' }, { id: 'Duck' }, { id: 'Pond' }, { id: 'Animal' }, { id: 'Engine' }],
+        edges: [
+          { start: 'Car', end: 'Wheel', label: 'has', arrowTypeStart: 'composition', arrowTypeEnd: 'none', pattern: 'solid' },
+          { start: 'Duck', end: 'Pond', arrowTypeStart: 'none', arrowTypeEnd: 'aggregation', pattern: 'solid' },
+          { start: 'Animal', end: 'Duck', arrowTypeStart: 'extension', arrowTypeEnd: 'none', pattern: 'solid' },
+          { start: 'Car', end: 'Engine', arrowTypeStart: 'composition', arrowTypeEnd: 'dependency', pattern: 'solid' },
+        ],
+      }),
+      getClasses: () => new Map(),
+      getRelations: () => [
+        { id1: 'Car', id2: 'Wheel', relationTitle1: '1', relationTitle2: '4' },
+        { id1: 'Duck', id2: 'Pond', relationTitle1: '*', relationTitle2: '1' },
+        { id1: 'Animal', id2: 'Duck', relationTitle1: '1', relationTitle2: 'many' },
+        { id1: 'Car', id2: 'Engine', relationTitle1: 'none', relationTitle2: 'none' },
+      ],
+    });
+
+    const [car, wheel, duck, pond, animal, engine] = layersOf(figure)[0].data as DirectedGraphPoint[];
+
+    expect(wheel).toMatchObject({ inputs: ['Car'], inputLabels: ['has, composed of, cardinality 1, 4'] });
+    expect(duck).toMatchObject({ inputs: ['Pond'], inputLabels: ['aggregates, cardinality 1, *'] });
+    expect(car.inputs).toBeUndefined();
+    expect(pond.inputs).toBeUndefined();
+    expect(animal).toMatchObject({ inputs: ['Duck'], inputLabels: ['inherits from, cardinality many, 1'] });
+    expect(engine).toMatchObject({ inputs: ['Car'], inputLabels: ['composed of, associated with'] });
+  });
+
   it('tells an association from a dependency by its line', () => {
     const figure = convert('classDiagram', {
       getData: () => ({

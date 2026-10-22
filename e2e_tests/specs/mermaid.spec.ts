@@ -320,12 +320,19 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowUp')).toContain('Region is Frontend');
   });
 
-  test('announces a class\'s members and what it inherits from', async ({ page }) => {
+  test('announces a class\'s members, what it inherits from and what aggregates it', async ({ page }) => {
     await openExample(page, 'class');
-    const duck = await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    // `Pond "1" o-- "*" Duck`: the diamond marks Pond, the whole, which the
+    // aggregation runs from.
+    const pond = await press(page, 'ArrowRight');
+    expect(pond).toContain('Class is Pond');
+    expect(pond).toContain('To is Duck (lives in, aggregates');
 
+    const duck = await press(page, 'ArrowRight');
     expect(duck).toContain('Class is Duck');
-    expect(duck).toContain('Animal (inherits from)');
+    expect(duck).toContain('From is Pond (lives in, aggregates');
+    expect(duck).toContain('To is Animal (inherits from)');
     expect(duck).toContain('Methods is public swim(); public quack()');
     expect(duck).toContain('Note is can fly and swim');
   });

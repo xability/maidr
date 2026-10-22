@@ -86,6 +86,9 @@ const ARROW_WORDS: Record<string, string> = {
 /** The arrowheads that only end a line, saying nothing about it. */
 const PLAIN_ARROWS = new Set(['none', '', 'arrow_point', 'arrow_open', 'arrow_barb', 'arrow_circle', 'arrow_cross', 'normal', 'requirement_arrow', 'requirement_contains']);
 
+/** The heads drawn at the whole of a class relation, the end it runs from. */
+const DIAMONDS = new Set(['composition', 'aggregation']);
+
 /** A node of `getData()`. */
 interface DataNode {
   row: Row;
@@ -328,11 +331,14 @@ function memberText(member: Row): string {
  * aggregation, association -- with their cardinalities, nested in
  * namespaces.
  *
- * Each head of a relation is read as the relation running to its end: a
- * class edge drawn `Animal <|-- Duck` has its head at `Animal`, so Duck is
- * the one that inherits and the edge runs from Duck to Animal. A relation
- * with a head at both ends runs both ways, each in the words of its own head,
- * and one with no head runs as it was written.
+ * Each head of a relation says which way it runs. An arrow or a lollipop
+ * marks the end it runs to: a class edge drawn `Animal <|-- Duck` has its
+ * head at `Animal`, so Duck is the one that inherits and the edge runs from
+ * Duck to Animal. A diamond marks the whole, the end it runs from:
+ * `Car *-- Wheel` and `Wheel --* Car` are both Car composed of Wheel. A
+ * relation whose heads run opposite ways runs both ways, each in the words
+ * of its own head, and one with no head runs as it was written. The
+ * cardinalities are read in the order the edge runs.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -368,26 +374,33 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
     if (relation) {
       taken.add(relation);
     }
-    const cardinality = relation === undefined
-      ? undefined
-      : joinLabel(
-          str(relation.relationTitle1) !== 'none' ? plain(relation.relationTitle1) : undefined,
-          str(relation.relationTitle2) !== 'none' ? plain(relation.relationTitle2) : undefined,
-        );
+    // relationTitle1 sits at the start, relationTitle2 at the end.
+    const titles = relation === undefined
+      ? []
+      : [relation.relationTitle1, relation.relationTitle2].map(title => (str(title) !== 'none' ? plain(title) : undefined));
     const dashed = str(edge.row.pattern) === 'dashed' || str(edge.row.pattern) === 'dotted';
     const heads = [
       { arrow: edge.row.arrowTypeStart, at: edge.from, other: edge.to },
       { arrow: edge.row.arrowTypeEnd, at: edge.to, other: edge.from },
     ].flatMap(({ arrow, at, other }) => {
       const words = relationWords(arrow, dashed);
-      return words === undefined ? [] : [{ from: other, to: at, words }];
+      if (words === undefined) {
+        return [];
+      }
+      return [DIAMONDS.has(str(arrow) ?? '') ? { from: at, to: other, words } : { from: other, to: at, words }];
     });
-    const label = (words?: string): string | undefined =>
-      joinLabel(edge.label, words, cardinality ? `cardinality ${cardinality}` : undefined);
+    const label = (from: string, words?: string): string | undefined => {
+      const cardinality = joinLabel(...(from === edge.from ? titles : [...titles].reverse()));
+      return joinLabel(edge.label, words, cardinality ? `cardinality ${cardinality}` : undefined);
+    };
     if (heads.length === 0) {
-      return [{ ...edge, label: label() }];
+      return [{ ...edge, label: label(edge.from) }];
     }
-    return heads.map(head => ({ ...edge, from: head.from, to: head.to, label: label(head.words) }));
+    // Two heads that run the same way -- `Car *--> Wheel` -- are one edge.
+    const runs = heads.length === 2 && heads[0].from === heads[1].from
+      ? [{ ...heads[0], words: joinLabel(heads[0].words, heads[1].words) }]
+      : heads;
+    return runs.map(head => ({ ...edge, from: head.from, to: head.to, label: label(head.from, head.words) }));
   });
   const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: 'Class' });
   return { layers: layer ? [layer] : [] };
