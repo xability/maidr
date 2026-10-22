@@ -98,7 +98,7 @@ Series are classified by their amCharts class name and field configuration:
 
 amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes for MAIDR's usual highlighting. `bindAmCharts` instead draws an absolutely-positioned outline box over the canvas at the active data point's pixel geometry (computed via am5's `sprite.toGlobal()`) — the same overlay approach the Chart.js adapter uses. The overlay re-anchors on resize. Call the returned `dispose()` to unmount MAIDR, remove the overlay, and restore the chart. Highlighting is unavailable on the `fromAmCharts` JSON/attribute path.
 
-A sankey, alluvial, chord or network layer is outlined one **ribbon** at a time — the band or line the cursor's node is read through — rather than by a box around the node itself; see [Flow and network highlighting](#flow-and-network-highlighting).
+A sankey, alluvial or chord layer is outlined one **ribbon** at a time — the band the cursor's node is read through — and a network layer by every line of the cursor's node, rather than by a box around the node itself; see [Flow and network highlighting](#flow-and-network-highlighting).
 
 ## Supported Chart Types
 
@@ -661,13 +661,13 @@ The container root is dropped, as it is for a treemap. A `linkWith` entry naming
 
 ##### Flow and network highlighting
 
-A sankey, alluvial, chord or network layer **is** outlined, and what it outlines is one ribbon: the band amCharts drew for a flow link, or the line it drew between two nodes. Not a box around the node the cursor is on — amCharts paints its nodes into the same canvas as everything else, and a node's own extent is not what the reading is about.
+A sankey, alluvial, chord or network layer **is** outlined, and what it outlines is ribbons: the band amCharts drew for a flow link, or every line it drew to a network's node. Not a box around the node the cursor is on — amCharts paints its nodes into the same canvas as everything else, and a node's own extent is not what the reading is about.
 
 The route is worth stating, because the obvious one is wrong. MAIDR hands a canvas adapter either an explicit list of point indices, for traces that publish which marks they mean, or the **braille** position for everything else. A flow trace's braille position is `(stage, index within that stage)` and a network trace's is `(component, index within that component)`, and turning either back into a node would mean reimplementing, inside this adapter, the model's own first-appearance node ordering *together with* its stage layering — or, for a network, its connected-component discovery, member sort and component sort. Those are **derived graph structures**, not orderings over data the adapter emitted, and a copy of one drifts from the model silently and then outlines a confidently wrong node while the announcement says something else. Both types shipped with no highlight at all rather than that.
 
 They are in the first group now: `FlowTrace` and `NetworkTrace` publish the mark they highlighted as an index into the `data` this adapter supplied, and the adapter inverts that index against its own extraction walk. The n-th flow point was read from the n-th readable link, so a flow index reaches its ribbon directly; a network's links are not data items at all, so the index names two nodes and the drawn line joining that pair is found by name, in either direction. The binning, the layering and the component walk all stay in the model.
 
-The published set is exactly **one** mark, the same one an SVG renderer outlines for the same trace at the same cursor position, so a chart read on amCharts and a chart read on Vega-Lite light up the same ribbon. A node in a sankey touches every flow on either side of it, and outlining all of them would have been the wider, wrong-looking-right answer.
+The published set is the same an SVG renderer outlines for the same trace at the same cursor position, so a chart read on amCharts and a chart read on Vega-Lite light up the same ribbons. For a flow it is exactly **one** band: a node in a sankey touches every flow on either side of it, and outlining all of them would have been the wider, wrong-looking-right answer. For a network it is every line to the node, so the node is where they meet: a line has two ends, and one line alone was the same outline on both of them.
 
 The outline is the ribbon's axis-aligned box — coarse for a long curved band, but it hugs the mark and says which way navigation moved. A link drawn perfectly straight reports a box with no thickness and is padded to a hairline rather than dropped. A build that hands back no geometry at all, or a pair no drawn line joins, clears the overlay instead of outlining something nearby.
 

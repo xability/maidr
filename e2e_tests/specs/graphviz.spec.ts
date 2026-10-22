@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import type { Maidr } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { BasePage } from '../page-objects/base-page';
@@ -137,8 +138,18 @@ test.describe('Graphviz adapter', () => {
 });
 
 test.describe('Graphviz adapter, undirected graph', () => {
-  /** The outline MAIDR draws over the link to the node the reader is on. */
+  /** The outlines MAIDR draws over the links of the node the reader is on. */
   const LINK = '[data-maidr-graphviz-edge][data-maidr-owned]:not([visibility="hidden"])';
+
+  /**
+   * The links outlined, sorted: their order in the drawing is the order they
+   * were outlined in, not the order the graph declares them.
+   * @param page - The page
+   * @returns The links' titles
+   */
+  async function outlinedLinks(page: Page): Promise<string[]> {
+    return (await page.locator(`${LINK} title`).allTextContents()).sort();
+  }
 
   test.beforeEach(async ({ page }) => {
     await new GraphvizPage(page).navigateToPlot('network');
@@ -154,19 +165,26 @@ test.describe('Graphviz adapter, undirected graph', () => {
     expect(announcement).toContain('Person is Chloe');
     expect(announcement).toContain('Links is 3, Linked to is Ana, Ben, Dev');
     expect(announcement).toContain('Group is 1 of 2');
-    await expect(page.locator(LINK)).toHaveCount(1);
+    await expect(page.locator(LINK)).toHaveCount(3);
   });
 
-  test('should outline the link each step crosses', async ({ page }) => {
+  test('should outline every link of the person each step lands on', async ({ page }) => {
     const plot = new GraphvizPage(page);
     await plot.activateMaidr();
     await plot.moveToNextDataPoint();
+    const chloe = await outlinedLinks(page);
     await plot.moveToNextDataPoint();
+
+    expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ana');
+    // The one line between Ana and Chloe was the whole highlight on both.
+    await expect.poll(() => outlinedLinks(page)).toEqual(['ana--ben', 'ana--chloe']);
+    expect(chloe).toEqual(['ana--chloe', 'ben--chloe', 'chloe--dev']);
+
     await plot.moveToNextDataPoint();
 
     expect(normalizeText(await plot.getInstructionText())).toContain('Person is Ben');
-    await expect(page.locator(`${LINK} title`)).toHaveText('ben--chloe');
-    await expect(page.locator(`${LINK} path`)).toHaveCSS('stroke', HIGHLIGHT_STROKE);
+    await expect.poll(() => outlinedLinks(page)).toEqual(['ana--ben', 'ben--chloe']);
+    await expect(page.locator(`${LINK} path`).first()).toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
 });
 

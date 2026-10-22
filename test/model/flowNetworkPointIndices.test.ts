@@ -277,10 +277,10 @@ describe('a network trace publishes the line it highlighted', () => {
     expect(visited.filter(cell => cell.marks.length === 0).length).toBe(1);
   });
 
-  test('a hub publishes one line, not every line it touches', () => {
-    // Ada is linked to Edsger, Grace and Alan. Publishing all three would
-    // light the hub's whole neighbourhood while an SVG renderer lit the single
-    // line `mapToSvgElements` chose — the same disagreement as the sankey's.
+  test('a hub publishes every line it touches, as the SVG outlines them', () => {
+    // Ada is linked to Edsger, Grace and Alan, and is where the three lines
+    // meet. Publishing one of them while an SVG renderer lit all three would
+    // be the same disagreement as the sankey's.
     const trace = new NetworkTrace(networkLayer());
     trace.moveOnce('FORWARD');
 
@@ -292,7 +292,7 @@ describe('a network trace publishes the line it highlighted', () => {
 
     // Sorted by degree, Ada's first neighbour is Grace, drawn by link 1 — not
     // link 0, which a pairing by rank would have taken.
-    expect(canvasMarks(trace, LINKS)).toEqual(['Ada-Grace']);
+    expect(canvasMarks(trace, LINKS)).toEqual(['Ada-Grace', 'Ada-Alan', 'Ada-Edsger']);
     expect(canvasMarks(trace, LINKS)).toEqual(svgMarks(trace));
   });
 

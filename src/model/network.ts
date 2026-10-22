@@ -192,12 +192,13 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    */
   private centralityByObject: Centrality | null = null;
 
-  protected readonly highlightValues: SVGElement[][] | null;
+  protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
 
   /**
-   * Every line clone the selectors resolved to, in declared link order. The
-   * highlight covers one line per node, so this is what `dispose()` walks to
-   * remove the rest.
+   * Every line clone the selectors resolved to, in declared link order, each
+   * once. The highlight lists a line under both of its ends and never a
+   * loop, so this is what `dispose()` walks to remove them and what the
+   * tactile view draws.
    */
   private lines: SVGElement[] = [];
 
@@ -872,7 +873,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    *
    * A selector list is one entry per **link**, in declared order, because a
    * line is what the chart draws between two nodes. The cursor sits on a
-   * node, so a node highlights a line it touches.
+   * node, so a node highlights every line it touches.
    *
    * @param selectors - Whatever the layer declared
    * @param declared - How many links the layer declared
@@ -881,7 +882,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
   private mapToSvgElements(
     selectors: MaidrLayer['selectors'],
     declared: number,
-  ): SVGElement[][] | null {
+  ): (SVGElement[] | SVGElement)[][] | null {
     // Resolved live first and cloned only once the count fits. A clone is
     // inserted beside its original the moment it is made, so declining after
     // cloning left every copy in the chart for `dispose()` never to reach --
@@ -901,26 +902,38 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     const flat = live.map(element => Svg.cloneHidden(element));
     this.lines = flat;
 
-    // The line drawn for the node's most connected neighbour, which is also
-    // the rotor's first step from here -- so the highlight agrees with where
-    // the next keystroke goes. An isolated node has no line to point at and
-    // gets a hidden placeholder, which is the honest answer rather than a
-    // line belonging to somebody else.
+    // Every line drawn to the node, so the node is where the outlined lines
+    // meet. A line has two ends, and one line alone was the same highlight
+    // on both of them. An isolated node has no line to point at and gets a
+    // hidden placeholder, which is the honest answer rather than a line
+    // belonging to somebody else.
     return this.grid.map(row =>
       row.map((node) => {
-        const at = NetworkTrace.lineOf(node);
-        const element = at === undefined ? undefined : flat[at];
-        return element ?? Svg.createEmptyElement();
+        const lines = NetworkTrace.linesOf(node)
+          .map(at => flat[at])
+          .filter((line): line is SVGElement => line !== undefined);
+        return lines.length > 0 ? lines : Svg.createEmptyElement();
       }));
+  }
+
+  /**
+   * Every line the selectors resolved to, each once.
+   *
+   * The inherited walk over `highlightValues` would list each line twice,
+   * once under each of its ends, and the tactile view would draw it twice.
+   *
+   * @returns The line clones, in declared link order
+   */
+  public override getAllHighlightElements(): SVGElement[] {
+    return [...this.lines];
   }
 
   /**
    * Removes every line clone, not only the ones the highlight covers.
    *
-   * `AbstractTrace.dispose()` walks `highlightValues`, which holds one line
-   * per node; a line that is nobody's first step is referenced only from
-   * {@link lines}, and left in the chart it accumulated on every focus cycle
-   * and live-data rebuild.
+   * `AbstractTrace.dispose()` walks `highlightValues`, which holds no loop; a
+   * loop is referenced only from {@link lines}, and left in the chart it
+   * accumulated on every focus cycle and live-data rebuild.
    */
   public override dispose(): void {
     for (const line of this.lines) {
@@ -933,35 +946,36 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
   }
 
   /**
-   * The one line a node's highlight covers, as its position in the declared
+   * The lines a node's highlight covers, as their positions in the declared
    * link array.
    *
-   * **This is the single expression both highlight channels read.** A node
-   * touches every link on it, but the chart is not asked to outline all of
-   * them: `mapToSvgElements` takes one element per cell, and
-   * {@link highlightedPointIndices} names one index. Writing the rule twice is
-   * how the two would come to disagree -- an adapter publishing every link
-   * while the SVG path outlined `linkAt[0]` puts a canvas highlight and an SVG
-   * highlight on different lines for the same trace at the same cursor
-   * position, which reads as correct and is not.
+   * **This is the single expression both highlight channels read.**
+   * `mapToSvgElements` outlines these lines and {@link highlightedPointIndices}
+   * names them. Writing the rule twice is how the two would come to disagree
+   * -- an adapter publishing one link while the SVG path outlined another
+   * puts a canvas highlight and an SVG highlight on different lines for the
+   * same trace at the same cursor position, which reads as correct and is not.
    *
-   * `linkAt` runs parallel to `links`, which is sorted most-connected first, so
-   * this is the line to the node's biggest neighbour -- and the line the
-   * rotor's first step from here travels. A `-1` marks a neighbour no declared
-   * link was found for, and an isolated node has no entry at all; both mean
-   * "no line", which is honest rather than pointing at somebody else's.
+   * Every line the node touches, so the node is where they meet: one line
+   * alone, the one to its most connected neighbour, was the same highlight
+   * on Ana and on Chloe when each was the other's. Two nodes still share one
+   * when they are a group of two by themselves, which a line between them
+   * cannot tell apart. `linkAt` runs parallel to `links`, which is sorted
+   * most-connected first, so the line the rotor's first step from here
+   * travels comes first. A `-1` marks a neighbour no declared link was found
+   * for, and an isolated node has no entry at all; both mean "no line",
+   * which is honest rather than pointing at somebody else's.
    *
    * @param node - The node under the cursor, or null where the grid is empty
-   * @returns Its line's index into the declared links, or undefined when the
-   *   node has no line drawn for it
+   * @returns Its lines' indices into the declared links, none when the node
+   *   has no line drawn for it
    */
-  private static lineOf(node: NetworkNode | null): number | undefined {
-    const at = node?.linkAt[0];
-    return at === undefined || at < 0 ? undefined : at;
+  private static linesOf(node: NetworkNode | null): number[] {
+    return node === null ? [] : node.linkAt.filter(at => at >= 0);
   }
 
   /**
-   * The line the highlight currently covers, as an index into this layer's
+   * The lines the highlight currently covers, as indices into this layer's
    * `data` array.
    *
    * This is `highlight` answered in a renderer-neutral currency. A network
@@ -971,14 +985,14 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    * position it occupies in the link array the adapter supplied, and the
    * adapter inverts that against its own extraction walk.
    *
-   * Derived from {@link lineOf}, the same expression `mapToSvgElements` indexes
+   * Derived from {@link linesOf}, the same expression `mapToSvgElements` indexes
    * its elements with, so the canvas highlight and the SVG highlight cannot
    * name different lines.
    *
    * Deliberately not gated on SVG availability: a canvas chart has no elements
    * by definition, and that is the case this exists to serve.
    *
-   * @returns One index into `layer.data`, or nothing when the cursor is on no
+   * @returns Indices into `layer.data`, or nothing when the cursor is on no
    *   node or on an isolated one.
    */
   public get highlightedPointIndices(): readonly number[] {
@@ -988,8 +1002,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       // thing, so the two agree at every position including this one.
       return [];
     }
-    const at = NetworkTrace.lineOf(this.current);
-    return at === undefined ? [] : [at];
+    return NetworkTrace.linesOf(this.current);
   }
 
   protected findNearestPoint(): NearestPoint | null {

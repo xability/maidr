@@ -734,7 +734,7 @@ describe('buildNavigationMap (flow and network)', () => {
     expect(navMap.resolve('stale', -1, -1, [0])).toEqual([]);
   });
 
-  it('outlines the line a network trace says it highlighted', () => {
+  it('outlines the lines a network trace says it highlighted', () => {
     // The same inversion with the model's component walk in the place of the
     // stage layering — and one difference of amCharts': a force-directed
     // graph's links are not data items, so the payload's two node names are
@@ -765,10 +765,9 @@ describe('buildNavigationMap (flow and network)', () => {
 
     const targets = outlined(navMap, layer, trace);
 
-    // Ada is linked to three people; sorted by degree her first neighbour is
-    // Grace, so one line is outlined and it is the Ada-Grace one.
-    expect(targets).toHaveLength(1);
-    expect(spriteOf(targets[0])).toBe(drawn[2]);
+    // Ada is linked to three people, and every line to her is outlined, so
+    // she is where they meet: Grace's first, then Alan's, then Edsger's.
+    expect(targets.map(spriteOf)).toEqual([drawn[2], drawn[1], drawn[3]]);
   });
 
   it('clears when the graph has changed under a network layer', () => {
