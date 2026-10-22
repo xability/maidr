@@ -603,3 +603,64 @@ describe('a tree that declares no magnitude', () => {
       .toBe(true);
   });
 });
+
+describe('a node may say what sort of node it is', () => {
+  // A board of columns and cards: the x label names neither level alone.
+  const BOARD: TreemapPoint[] = [
+    { x: 'To do', kind: 'Column' },
+    { x: 'Docs', path: ['To do'], kind: 'Card' },
+    { x: 'Tests', path: ['To do'], kind: '  ' },
+    { x: 'Done' },
+  ];
+
+  /**
+   * The noun the current node is announced with.
+   * @param trace The trace to read
+   * @returns The main label
+   */
+  function noun(trace: TreemapTrace): string {
+    return nonEmptyState(trace).text.main.label;
+  }
+
+  test('is announced as that, in place of the layer\'s x label', () => {
+    const trace = treemap(BOARD);
+    expect(noun(trace)).toBe('Column');
+
+    walk(trace, 'DOWNWARD');
+    expect(noun(trace)).toBe('Card');
+    expect(nonEmptyState(trace).text.main.value).toBe('Docs');
+  });
+
+  test('falls back to the x label for a node that says nothing, or nothing but blanks', () => {
+    const trace = treemap(BOARD);
+    walk(trace, 'DOWNWARD', 'FORWARD');
+    expect(noun(trace)).toBe('Region');
+
+    walk(trace, 'UPWARD', 'FORWARD');
+    expect(noun(trace)).toBe('Region');
+  });
+
+  test('says nothing for an ancestor only a path names', () => {
+    const trace = treemap([{ x: 'Docs', path: ['To do'], kind: 'Card' }]);
+
+    expect(noun(trace)).toBe('Region');
+  });
+
+  test('is tabulated beside each name, under the x label as before', () => {
+    const { headers, columnAxes, rows } = treemap(BOARD).description.dataTable;
+
+    expect(headers).toEqual(['Path', 'Kind', 'Region']);
+    expect(columnAxes).toEqual([undefined, undefined, 'x']);
+    expect(rows).toEqual([
+      ['', 'Column', 'To do'],
+      ['', 'Region', 'Done'],
+      ['To do', 'Card', 'Docs'],
+      ['To do', 'Region', 'Tests'],
+    ]);
+  });
+
+  test('adds no column to a tree whose nodes say nothing', () => {
+    expect(treemap().description.dataTable.headers)
+      .toEqual(['Path', 'Region', 'Population', 'Share of total']);
+  });
+});

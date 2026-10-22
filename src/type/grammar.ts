@@ -1013,6 +1013,15 @@ export interface TreemapPoint {
    * A top-level node omits it or declares `[]`.
    */
   path?: (string | number)[];
+  /**
+   * What sort of node this is, as the diagram calls it, when the layer's x
+   * label is not true of every node: a kanban board's `Column`s and `Card`s,
+   * an Ishikawa diagram's `Effect` above its `Category`s of `Cause`.
+   * Announced in place of the x label for this node, and tabulated beside
+   * its name. A node that declares none, or a blank one, and an ancestor no
+   * point declares, are announced with the x label.
+   */
+  kind?: string;
 }
 
 /**
