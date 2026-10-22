@@ -122,6 +122,34 @@ describe('the hierarchies', () => {
     expect(layer.axes?.x?.label).toBe('Item');
   });
 
+  it('outlines an Ishikawa node by the group Mermaid draws it as, not by its label', () => {
+    // The effect is a head and its label, a category a box and its label, a
+    // cause a branch line and its label. Paired with the label alone, the
+    // highlight recoloured the text and left the head and the box as drawn.
+    const drawing = drawn('i', [
+      '<g class="ishikawa-head-group"><path class="ishikawa-head" d="M0 0"></path>',
+      '<text class="ishikawa-head-label"><tspan>Blurry</tspan><tspan>photo</tspan></text></g>',
+      '<g class="ishikawa-pair"><line class="ishikawa-branch"></line>',
+      '<g class="ishikawa-label-group"><rect class="ishikawa-label-box"></rect>',
+      '<text class="ishikawa-label cause">Equipment</text></g>',
+      '<g class="ishikawa-sub-group"><line class="ishikawa-sub-branch"></line>',
+      '<text class="ishikawa-label align">Lens</text></g>',
+      '<g class="ishikawa-sub-group"><line class="ishikawa-sub-branch"></line>',
+      '<text class="ishikawa-label down">Dirty lens</text></g></g>',
+    ].join(''));
+
+    const layer = layersOf(convert('ishikawa', {
+      getRoot: () => ({
+        text: 'Blurry photo',
+        children: [{ text: 'Equipment', children: [{ text: 'Lens', children: [{ text: 'Dirty lens' }] }] }],
+      }),
+    }, drawing))[0];
+
+    const paired = (layer.selectors as string[]).map(selector => document.querySelector(selector)?.getAttribute('class'));
+    expect(paired).toEqual(['ishikawa-head-group', 'ishikawa-label-group', 'ishikawa-sub-group', 'ishikawa-sub-group']);
+    expect(matched(layer)).toBe(4);
+  });
+
   it('reads a railroad rule as the expression it is made of', () => {
     const layer = layersOf(convert('railroadEbnf', {
       getRules: () => [{

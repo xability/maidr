@@ -112,12 +112,18 @@ export function treeView(context: DiagramContext): DiagramConversion {
  * causes under each. Each is announced as the one it is; together they are
  * the diagram's items.
  *
+ * Each is paired with the group Mermaid draws it as -- the effect's head, a
+ * category's box, a cause's branch line, each with its label -- rather than
+ * with the label alone, so the highlight outlines the shape and leaves the
+ * label as drawn. A group's text is its label, so it is found by it all the
+ * same.
+ *
  * @param context - The diagram
  * @returns The conversion
  */
 export function ishikawa(context: DiagramContext): DiagramConversion {
   const root = call(context.db, 'getRoot') as Row | undefined;
-  const match = textMatcher(all(context.svg, 'text.ishikawa-head-label, text.ishikawa-label'));
+  const match = textMatcher(all(context.svg, 'g.ishikawa-head-group, g.ishikawa-label-group, g.ishikawa-sub-group'));
   // A cause may have causes of its own, so every level below the categories
   // is a cause.
   const kinds = ['Effect', 'Category'];
