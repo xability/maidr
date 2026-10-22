@@ -619,6 +619,22 @@ test.describe('Mermaid adapter', () => {
     }
   });
 
+  test('outlines a treemap\'s section or item by its rectangle, not its label', async ({ page }) => {
+    await openExample(page, 'treemap');
+    const highlight = page.locator(HIGHLIGHT).first();
+    const outlined = (): Promise<{ tag: string; group: string }> => highlight.evaluate(element => ({
+      tag: element.tagName.toLowerCase(),
+      group: element.parentElement?.querySelector('text')?.textContent ?? '',
+    }));
+
+    expect(await press(page, 'ArrowRight')).toContain('Item is Products');
+    await expect(highlight).toHaveClass(/treemapSection\b/);
+    expect(await outlined()).toEqual({ tag: 'rect', group: 'Products' });
+    expect(await press(page, 'ArrowDown')).toContain('Item is Laptops');
+    await expect(highlight).toHaveClass(/treemapLeaf/);
+    expect(await outlined()).toEqual({ tag: 'rect', group: 'Laptops' });
+  });
+
   test('names a kanban column as a column and a card as a card', async ({ page }) => {
     await openExample(page, 'kanban');
     const column = await press(page, 'ArrowRight');

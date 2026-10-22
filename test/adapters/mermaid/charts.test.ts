@@ -194,4 +194,52 @@ describe('the charts', () => {
     expect(layer.type).toBe(TraceType.TREEMAP);
     expect(layer.data as TreemapPoint[]).toEqual([{ x: 'A' }, { x: 'A1', path: ['A'], y: 10 }]);
   });
+
+  describe('a treemap\'s highlight', () => {
+    /** Two sections, declared smaller first, each holding an item named Other. */
+    const db = {
+      getRoot: () => ({
+        name: '',
+        children: [
+          { name: 'Small', children: [{ name: 'Other', value: 5 }, { name: 'Alpha', value: 4 }] },
+          { name: 'Big', children: [{ name: 'Other', value: 50 }, { name: 'Beta', value: 20 }] },
+        ],
+      }),
+    };
+    const section = (test: string, label: string): string => `<g class="treemapSection" data-test="${test}">`
+      + '<rect class="treemapSectionHeader"></rect><rect class="treemapSection"></rect>'
+      + `<text class="treemapSectionLabel">${label}</text></g>`;
+    const item = (test: string, label: string): string => `<g class="treemapNode treemapLeafGroup" data-test="${test}">`
+      + `<rect class="treemapLeaf"></rect><text class="treemapLabel">${label}</text></g>`;
+    /**
+     * Drawn as Mermaid draws it, largest first: the hidden root and the
+     * sections breadth first, then the items depth first.
+     */
+    const drawing = (bigLabel = 'Big', items = [item('big-other', 'Other'), item('big-beta', 'Beta'), item('small-other', 'Other'), item('small-alpha', 'Alpha')]): SVGSVGElement =>
+      drawn('t', section('root', '') + section('big', bigLabel) + section('small', 'Small') + items.join(''));
+    /** The group each selector's element sits in. */
+    const groups = (selectors: unknown): (string | null | undefined)[] =>
+      (selectors as string[]).map(one => document.querySelector(one)?.closest('g')?.getAttribute('data-test'));
+
+    it('pairs each section and item with its rectangle, in the order Mermaid sorts them', () => {
+      const layer = layersOf(convert('treemap', db, drawing()))[0];
+      // Read in declared order: Small and its items, then Big and its items.
+      expect((layer.data as TreemapPoint[]).map(point => point.x)).toEqual(['Small', 'Other', 'Alpha', 'Big', 'Other', 'Beta']);
+      expect((layer.selectors as string[]).map(one => document.querySelector(one)?.getAttribute('class')))
+        .toEqual(['treemapSection', 'treemapLeaf', 'treemapLeaf', 'treemapSection', 'treemapLeaf', 'treemapLeaf']);
+      expect(groups(layer.selectors)).toEqual(['small', 'small-other', 'small-alpha', 'big', 'big-other', 'big-beta']);
+    });
+
+    it('pairs a section whose name Mermaid cut to fit its header', () => {
+      const layer = layersOf(convert('treemap', db, drawing('Bi...')))[0];
+      expect(groups(layer.selectors)[3]).toBe('big');
+    });
+
+    it('is withdrawn when the drawing disagrees with the order it is read in', () => {
+      const swapped = [item('big-beta', 'Beta'), item('big-other', 'Other'), item('small-other', 'Other'), item('small-alpha', 'Alpha')];
+      expect(layersOf(convert('treemap', db, drawing('Big', swapped)))[0].selectors).toBeUndefined();
+      const missing = [item('big-other', 'Other'), item('big-beta', 'Beta'), item('small-other', 'Other')];
+      expect(layersOf(convert('treemap', db, drawing('Big', missing)))[0].selectors).toBeUndefined();
+    });
+  });
 });

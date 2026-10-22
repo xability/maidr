@@ -19,7 +19,7 @@ import type { DiagramContext, DiagramConversion } from '../types';
 import { Orientation, TraceType } from '@type/grammar';
 import { cssEscape } from '../../shared/selectorUtil';
 import { all, call, findById, num, plain, rows, selectorsFor, str } from '../read';
-import { textMatcher, treeLayer } from '../tree';
+import { treeLayer } from '../tree';
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
@@ -357,25 +357,109 @@ export function sankey(context: DiagramContext): DiagramConversion {
 }
 
 /**
- * Treemaps: sections and the sized items in them.
+ * Whether a treemap label Mermaid drew is the name of the node it is paired
+ * with: the name itself, the name cut to fit with `...`, or nothing, which is
+ * the hidden root's label and a header too narrow for any of the name.
+ *
+ * @param label - The text drawn
+ * @param name - The node's name
+ * @returns Whether they agree
+ */
+function treemapLabelAgrees(label: string, name: string): boolean {
+  const squash = (text: string): string => text.replace(/\s+/g, '').toLowerCase();
+  const drawn = squash(plain(label));
+  const named = squash(name);
+  return drawn === '' || drawn === named || (drawn.endsWith('...') && named.startsWith(drawn.slice(0, -3)));
+}
+
+/**
+ * Pairs a treemap's nodes with the rectangles Mermaid drew for them.
+ *
+ * Mermaid lays a treemap out with d3: each node's value is summed with its
+ * children's, every node's children are sorted largest first, and a group is
+ * drawn for each section -- the root, hidden, first -- breadth first, then
+ * one for each item, depth first. The groups are paired in that order, and
+ * each pairing is checked against the group's label, so a Mermaid drawing in
+ * some other order leaves the treemap unoutlined rather than outlining the
+ * wrong rectangle. A label is not paired by its text alone: Mermaid cuts a
+ * long section name to fit, and two sections may each hold an item of one
+ * name.
+ *
+ * @param svg - The drawing
+ * @param root - The whole tree, root included; its nodes are given their elements
+ */
+function pairTreemap(svg: Element, root: TreeNode): void {
+  const totals = new Map<TreeNode, number>();
+  const total = (node: TreeNode): number => {
+    let sum = totals.get(node);
+    if (sum === undefined) {
+      sum = (node.value !== undefined && Number.isFinite(node.value) ? node.value : 0)
+        + (node.children ?? []).reduce((running, child) => running + total(child), 0);
+      totals.set(node, sum);
+    }
+    return sum;
+  };
+  const sorted = (node: TreeNode): TreeNode[] => [...(node.children ?? [])].sort((a, b) => total(b) - total(a));
+
+  const sections: TreeNode[] = [];
+  const queue = [root];
+  for (let at = 0; at < queue.length; at++) {
+    const children = sorted(queue[at]);
+    if (children.length > 0) {
+      sections.push(queue[at]);
+    }
+    queue.push(...children);
+  }
+  const leaves: TreeNode[] = [];
+  const walk = (node: TreeNode): void => {
+    const children = sorted(node);
+    if (children.length === 0) {
+      leaves.push(node);
+    }
+    children.forEach(walk);
+  };
+  walk(root);
+
+  const sectionGroups = all(svg, 'g.treemapSection');
+  const leafGroups = all(svg, 'g.treemapLeafGroup');
+  if (sectionGroups.length !== sections.length || leafGroups.length !== leaves.length) {
+    return;
+  }
+  const child = (group: Element, name: string, className: string): Element | null =>
+    Array.from(group.children).find(one => one.localName === name && one.classList.contains(className)) ?? null;
+  const pairs = [
+    ...sections.map((node, at) => ({ node, group: sectionGroups[at], label: 'treemapSectionLabel', shape: 'treemapSection' })),
+    ...leaves.map((node, at) => ({ node, group: leafGroups[at], label: 'treemapLabel', shape: 'treemapLeaf' })),
+  ];
+  if (!pairs.every(pair => treemapLabelAgrees(child(pair.group, 'text', pair.label)?.textContent ?? '', pair.node.name))) {
+    return;
+  }
+  for (const pair of pairs) {
+    pair.node.element = child(pair.group, 'rect', pair.shape);
+  }
+}
+
+/**
+ * Treemaps: sections and the sized items in them, each outlined by the
+ * rectangle Mermaid drew for it.
  *
  * @param context - The diagram
  * @returns The conversion
  */
 export function treemap(context: DiagramContext): DiagramConversion {
   const root = call(context.db, 'getRoot') as Row | undefined;
-  const match = textMatcher(all(context.svg, 'text.treemapSectionLabel, text.treemapLabel'));
-  const visit = (node: Row): TreeNode => {
-    const name = plain(node.name);
-    return {
-      name,
-      value: num(node.value),
-      element: match(name),
-      children: rows(node.children).map(visit),
-    };
-  };
+  if (root === undefined) {
+    return { layers: [] };
+  }
+  const visit = (node: Row): TreeNode => ({
+    name: plain(node.name),
+    value: num(node.value),
+    children: rows(node.children).map(visit),
+  });
+  const whole = visit(root);
+  pairTreemap(context.svg, whole);
   // The root is the page itself, unnamed, unless the diagram named it.
-  const top = root === undefined ? [] : plain(root.name) ? [visit(root)] : rows(root.children).map(visit);
+  const top = whole.name ? [whole] : whole.children ?? [];
   const layer = treeLayer(context, { roots: top, nodeLabel: 'Item', valueLabel: 'Value', type: TraceType.TREEMAP });
   return { layers: layer ? [layer] : [] };
 }
