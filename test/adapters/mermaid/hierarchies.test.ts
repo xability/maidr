@@ -37,6 +37,31 @@ function nouns(layer: MaidrLayer, ...moves: MovableDirection[]): string[] {
  * Stand-in databases shaped as Mermaid 12's; see `./helpers`.
  */
 
+/**
+ * A Cynefin drawing as Mermaid lays it out: three of its domain labels, the
+ * framework text under them when it draws any, and one item.
+ *
+ * @param descriptions - Whether Mermaid drew the framework text
+ * @returns The drawing
+ */
+function cynefinDrawing(descriptions: boolean): SVGSVGElement {
+  const label = (x: number, y: number, text: string): string =>
+    `<text class="cynefinDomainLabel" x="${x}" y="${y}">${text}</text>`;
+  const line = (x: number, y: number, text: string): string =>
+    descriptions ? `<text class="cynefinSubtitle" x="${x}" y="${y}">${text}</text>` : '';
+  return drawn('c', [
+    label(200, 120, 'Complex'),
+    label(200, 420, 'Chaotic'),
+    label(400, 290, 'Confusion'),
+    line(200, 140, 'Probe → Sense → Respond'),
+    line(200, 155, 'Emergent Practices'),
+    line(200, 440, 'Act → Sense → Respond'),
+    line(200, 455, 'Novel Practices'),
+    line(400, 308, 'Disorder'),
+    '<text class="cynefinItemText">Research</text>',
+  ].join(''));
+}
+
 describe('the hierarchies', () => {
   it('reads a mindmap from its root, numbering siblings that share a name', () => {
     const layer = layersOf(convert('mindmap', {
@@ -115,5 +140,28 @@ describe('the hierarchies', () => {
     expect(layers.map(layer => layer.type)).toEqual([TraceType.TREE, TraceType.DIRECTED_GRAPH]);
     expect(nouns(layers[0], 'DOWNWARD')).toEqual(['Domain', 'Item']);
     expect((layers[1].data as DirectedGraphPoint[])[1]).toMatchObject({ label: 'Clear', inputs: ['complex'], inputLabels: ['codified'] });
+  });
+  it('reads the framework text drawn under each domain, and the domains drawn but left empty', () => {
+    const layer = layersOf(convert('cynefin', {
+      getDomains: () => new Map([['complex', { name: 'complex', items: [{ label: 'Research' }] }]]),
+      getTransitions: () => [],
+    }, cynefinDrawing(true)))[0];
+    const complex = 'Complex (Probe → Sense → Respond, Emergent Practices)';
+    expect(layer.data as TreemapPoint[]).toEqual([
+      { x: complex, kind: 'Domain' },
+      { x: 'Research', path: [complex], kind: 'Item' },
+      { x: 'Chaotic (Act → Sense → Respond, Novel Practices)', kind: 'Domain' },
+      { x: 'Confusion (Disorder)', kind: 'Domain' },
+    ]);
+    // Each still on its own drawn label.
+    expect(matched(layer)).toBe(4);
+  });
+
+  it('leaves a domain\'s name bare when Mermaid draws no framework text', () => {
+    const layer = layersOf(convert('cynefin', {
+      getDomains: () => new Map([['complex', { name: 'complex', items: [] }]]),
+      getTransitions: () => [],
+    }, cynefinDrawing(false)))[0];
+    expect((layer.data as TreemapPoint[]).map(point => point.x)).toEqual(['Complex', 'Chaotic', 'Confusion']);
   });
 });

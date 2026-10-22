@@ -157,7 +157,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Ishikawa diagram [experimental] | `ishikawa-beta` | a `tree` from the effect to its categories of cause and their causes |
 | Timeline [experimental] | `timeline` | a `tree` of sections, periods and their events |
 | Railroad diagram [experimental] | `railroad-beta`, `railroad-ebnf-beta`, `railroad-abnf-beta`, `railroad-peg-beta` | a `tree` of grammar rules and the expressions they are made of |
-| Cynefin framework [experimental] | `cynefin-beta` | a `tree` of domains and what sits in each, and a `directed_graph` of the transitions between domains |
+| Cynefin framework [experimental] | `cynefin-beta` | a `tree` of the five domains Mermaid draws, each with the decision model and practice drawn under it, and what sits in each, and a `directed_graph` of the transitions between domains |
 | Gantt chart [experimental] | `gantt` | a `gantt` lane per section, each task an interval announced as dates, with its status (done, active, critical, milestone) |
 | Packet diagram [experimental] | `packet` | a `gantt` lane per row of bits, each field an interval of bits |
 | Radar chart [experimental] | `radar-beta` | a `radar` curve per series |

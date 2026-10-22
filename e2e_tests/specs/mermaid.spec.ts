@@ -569,6 +569,15 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowDown')).toContain('Event is WCAG 1.0');
   });
 
+  test('reads the Cynefin framework text, and reaches the Confusion it draws', async ({ page }) => {
+    await openExample(page, 'cynefin');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Complex (Probe → Sense → Respond, Emergent Practices)');
+    for (let domain = 0; domain < 3; domain++) {
+      await press(page, 'ArrowRight');
+    }
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Confusion (Disorder)');
+  });
+
   test('names a timeline by the title it declares', async ({ page }) => {
     await openExample(page, 'timeline');
 

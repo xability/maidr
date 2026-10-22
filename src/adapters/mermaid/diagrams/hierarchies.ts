@@ -242,9 +242,51 @@ export function railroad(context: DiagramContext): DiagramConversion {
 }
 
 /**
- * The Cynefin framework: its domains and what is placed in each, and -- when
- * the diagram draws them -- the transitions between domains as a second
- * layer.
+ * The framework text Mermaid draws under each Cynefin domain's name: its
+ * decision model and its practice, and "Disorder" under Confusion.
+ *
+ * Mermaid keeps that text in its renderer rather than in the database, and
+ * draws it only while `showDomainDescriptions` is on, so it is read from the
+ * drawing. A line belongs to the label above it in the same column; a
+ * drawing laid out some other way leaves the domains with their bare names.
+ *
+ * @param svg - The drawing
+ * @returns Each domain's lines, top to bottom, by the domain's drawn name
+ */
+function cynefinDescriptions(svg: Element): Map<string, string[]> {
+  const labels = all(svg, 'text.cynefinDomainLabel');
+  const lines = new Map<string, string[]>();
+  for (const line of all(svg, 'text.cynefinSubtitle')) {
+    const text = plain(line.textContent);
+    const y = num(line.getAttribute('y'));
+    if (text === '' || y === undefined) {
+      continue;
+    }
+    let owner: Element | undefined;
+    let ownerY = Number.NEGATIVE_INFINITY;
+    for (const label of labels) {
+      const labelY = num(label.getAttribute('y'));
+      if (label.getAttribute('x') === line.getAttribute('x') && labelY !== undefined && labelY <= y && labelY > ownerY) {
+        owner = label;
+        ownerY = labelY;
+      }
+    }
+    const name = plain(owner?.textContent);
+    if (name !== '') {
+      lines.set(name, [...(lines.get(name) ?? []), text]);
+    }
+  }
+  return lines;
+}
+
+/**
+ * The Cynefin framework: its domains, each with the framework text drawn
+ * under it, and what is placed in each, and -- when the diagram draws them
+ * -- the transitions between domains as a second layer.
+ *
+ * Mermaid draws all five domains, Confusion included, whichever the diagram
+ * places anything in. A domain it draws that the diagram leaves empty is
+ * still a domain a reader can reach, after the ones the diagram declares.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -252,12 +294,21 @@ export function railroad(context: DiagramContext): DiagramConversion {
 export function cynefin(context: DiagramContext): DiagramConversion {
   const domainLabels = textMatcher(all(context.svg, 'text.cynefinDomainLabel'));
   const itemLabels = textMatcher(all(context.svg, 'text.cynefinItemText'));
+  const descriptions = cynefinDescriptions(context.svg);
+  // Announced with the framework text Mermaid draws under it, the way a
+  // railroad rule is with its comment.
+  const described = (name: string): string => {
+    const lines = descriptions.get(name) ?? [];
+    return lines.length > 0 ? `${name} (${lines.join(', ')})` : name;
+  };
   const domainName = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1);
   const domains = rows(call(context.db, 'getDomains'));
+  const declared = new Set<string>();
   const roots: TreeNode[] = domains.map((domain) => {
     const name = domainName(plain(domain.name));
+    declared.add(name);
     return {
-      name,
+      name: described(name),
       kind: 'Domain',
       element: domainLabels(name),
       children: rows(domain.items).map((item) => {
@@ -266,6 +317,13 @@ export function cynefin(context: DiagramContext): DiagramConversion {
       }),
     };
   });
+  for (const label of all(context.svg, 'text.cynefinDomainLabel')) {
+    const name = plain(label.textContent);
+    if (name !== '' && !declared.has(name)) {
+      declared.add(name);
+      roots.push({ name: described(name), kind: 'Domain', element: label });
+    }
+  }
   const layers = [treeLayer(context, { roots, nodeLabel: 'Domain', name: 'Domains' })];
 
   const transitions = rows(call(context.db, 'getTransitions'));
