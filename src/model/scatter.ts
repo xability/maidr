@@ -7,6 +7,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { NAME_MATCHES } from '@util/navigation';
 import { selectorString } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -2167,11 +2168,46 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
+   * The name of the point the reader is on, as its announcement gives it,
+   * or null where the cursor is on no one named point.
+   *
+   * Another layer of the chart may draw the same things by name rather than
+   * by place: the value chain of a Wardley map is a graph of the very
+   * components the map places. Offered as a second X, it lets a layer switch
+   * land on the same component where the evolution, a number, matched no
+   * node and put the reader on the first.
+   *
+   * @returns The point's name, or null
+   */
+  public getAlternateXValue(): XValue | null {
+    // A layer with no points has no cursor for `text` to read.
+    if (this.xPoints.length === 0) {
+      return null;
+    }
+    return this.text.asides?.find(aside => aside.identifies === true)?.value ?? null;
+  }
+
+  /**
+   * Whether a column carries this name, or a point is called it.
+   *
+   * A layer switch asks this of a name another layer offers (see
+   * {@link getAlternateXValue}). A number is not answered, as before: a
+   * numeric x is matched to the nearest column whatever it is.
+   *
+   * @param xValue - The x a layer switch would carry
+   * @returns True when {@link moveToXValue} would find it by name
+   */
+  public override hasXValue(xValue: XValue): boolean {
+    return typeof xValue === 'string' && this.xIndexNearest(xValue) !== -1;
+  }
+
+  /**
    * Moves to the column at an x value, entering COL mode to do so.
    *
    * An exact x wins; a numeric x with no exact column falls back to the
    * nearest one, as the shared helper does for other traces, and a
-   * categorical x is matched against the column labels.
+   * categorical x is matched against the column labels, then against the
+   * names of the points.
    *
    * @param xValue - The x to move to
    * @returns True when a column was found and the cursor moved
@@ -2187,14 +2223,31 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   /**
    * The column index for an x value: exact, else nearest numeric, else by
-   * column label.
+   * column label, else the column of the point of that name.
+   *
+   * A point is found by its name exactly, or failing that with a note in
+   * parentheses on either side ({@link NAME_MATCHES}), as a graph or a tree
+   * finds a node: a Wardley component is "Kettle (evolving to 0.62)" on the
+   * map and "Kettle" in the value chain.
    *
    * @param xValue - The x to look up
    * @returns The column index, or -1 when nothing matches
    */
   private xIndexNearest(xValue: XValue): number {
     if (typeof xValue !== 'number') {
-      return this.xPoints.findIndex(point => point.label === xValue);
+      const name = String(xValue);
+      const labelled = this.xPoints.findIndex(point => point.label === name);
+      if (labelled !== -1) {
+        return labelled;
+      }
+      for (const matches of NAME_MATCHES) {
+        const index = this.xPoints.findIndex(point =>
+          point.names.some(other => other !== undefined && matches(name, other)));
+        if (index !== -1) {
+          return index;
+        }
+      }
+      return -1;
     }
     const exact = this.xIndexByValue.get(xValue);
     if (exact !== undefined) {

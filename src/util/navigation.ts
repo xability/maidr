@@ -440,6 +440,19 @@ function bareName(name: string): string {
 }
 
 /**
+ * The ways one name can be another thing's, strictest first: exactly, then
+ * when one of the two is the other with a note in parentheses after it (see
+ * {@link bareName}). Two names with different notes are different things.
+ *
+ * A search tries every candidate with the first before any with the second,
+ * so an exact match anywhere wins over a noted one nearer the cursor.
+ */
+export const NAME_MATCHES: readonly ((name: string, other: string) => boolean)[] = [
+  (name, other) => other === name,
+  (name, other) => bareName(other) === name || other === bareName(name),
+];
+
+/**
  * Finds the node a name belongs to in a hierarchy or a graph, so a layer
  * switch keeps the reader on the same node when both layers draw it.
  *
@@ -464,13 +477,10 @@ export function findNamedCell(
   row: number,
   col: number,
 ): Coordinate | null {
-  const exact = (other: string): boolean => other === name;
-  const noted = (other: string): boolean =>
-    bareName(other) === name || other === bareName(name);
-  for (const matches of [exact, noted]) {
+  for (const matches of NAME_MATCHES) {
     const at = (depth: number, index: number): boolean => {
       const node = levels[depth]?.[index];
-      return node !== null && node !== undefined && matches(node.name);
+      return node !== null && node !== undefined && matches(name, node.name);
     };
     if (at(row, col)) {
       return { row, col };
