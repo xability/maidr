@@ -9,7 +9,7 @@ import type { Row } from '../read';
 import type { TreeNode } from '../tree';
 import type { DiagramContext, DiagramConversion } from '../types';
 import { directedGraphLayer } from '../graph';
-import { all, call, findById, num, plain, rows, str } from '../read';
+import { all, call, drawnText, findById, num, plain, rows, str } from '../read';
 import { textMatcher, treeLayer } from '../tree';
 
 /**
@@ -257,7 +257,7 @@ function cynefinDescriptions(svg: Element): Map<string, string[]> {
   const labels = all(svg, 'text.cynefinDomainLabel');
   const lines = new Map<string, string[]>();
   for (const line of all(svg, 'text.cynefinSubtitle')) {
-    const text = plain(line.textContent);
+    const text = drawnText(line);
     const y = num(line.getAttribute('y'));
     if (text === '' || y === undefined) {
       continue;
@@ -271,7 +271,7 @@ function cynefinDescriptions(svg: Element): Map<string, string[]> {
         ownerY = labelY;
       }
     }
-    const name = plain(owner?.textContent);
+    const name = drawnText(owner);
     if (name !== '') {
       lines.set(name, [...(lines.get(name) ?? []), text]);
     }
@@ -318,7 +318,7 @@ export function cynefin(context: DiagramContext): DiagramConversion {
     };
   });
   for (const label of all(context.svg, 'text.cynefinDomainLabel')) {
-    const name = plain(label.textContent);
+    const name = drawnText(label);
     if (name !== '' && !declared.has(name)) {
       declared.add(name);
       roots.push({ name: described(name), kind: 'Domain', element: label });

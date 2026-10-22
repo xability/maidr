@@ -148,6 +148,20 @@ export function plain(value: unknown): string {
     .trim();
 }
 
+/**
+ * The text an element of the drawing shows, as a reader should hear it.
+ *
+ * Text already drawn is the label as the reader sees it, so it is only
+ * collapsed, never put through {@link plain}: a label drawn as `<b>` is that
+ * text, not markup to strip, and an `&amp;` in it was already decoded once.
+ *
+ * @param element - An element of the drawing, when there is one
+ * @returns Its text with whitespace collapsed, or an empty string
+ */
+export function drawnText(element: Element | null | undefined): string {
+  return (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
+
 let refCounter = 0;
 
 /**

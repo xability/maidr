@@ -157,6 +157,21 @@ describe('the hierarchies', () => {
     expect(matched(layer)).toBe(4);
   });
 
+  it('reads the framework text as the drawing shows it, not as markup', () => {
+    const drawing = drawn('c', [
+      '<text class="cynefinDomainLabel" x="200" y="120">Clear</text>',
+      '<text class="cynefinSubtitle" x="200" y="140">Sense &lt;Categorize&gt; &amp;amp; Respond</text>',
+    ].join(''));
+
+    const layer = layersOf(convert('cynefin', {
+      getDomains: () => new Map([['clear', { name: 'clear', items: [] }]]),
+      getTransitions: () => [],
+    }, drawing))[0];
+
+    expect((layer.data as TreemapPoint[]).map(point => point.x))
+      .toEqual(['Clear (Sense <Categorize> &amp; Respond)']);
+  });
+
   it('leaves a domain\'s name bare when Mermaid draws no framework text', () => {
     const layer = layersOf(convert('cynefin', {
       getDomains: () => new Map([['complex', { name: 'complex', items: [] }]]),
