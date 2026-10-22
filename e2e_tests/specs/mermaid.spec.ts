@@ -647,6 +647,25 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowRight')).toContain('Domain is Confusion (Disorder)');
   });
 
+  test('outlines the domain a Cynefin transition is on, as the domains layer does', async ({ page }) => {
+    const unresolved: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('resolved to no element')) {
+        unresolved.push(message.text());
+      }
+    });
+    await openExample(page, 'cynefin');
+    await press(page, 'ArrowRight');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Complex');
+
+    expect(await press(page, 'PageUp')).toContain('Transitions');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Chaotic');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Chaotic');
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Complex');
+    await expect(page.locator(HIGHLIGHT).first()).toContainText('Complex');
+    expect(unresolved).toEqual([]);
+  });
+
   test('names a timeline by the title it declares', async ({ page }) => {
     await openExample(page, 'timeline');
 

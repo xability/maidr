@@ -165,11 +165,22 @@ export function drawnText(element: Element | null | undefined): string {
 let refCounter = 0;
 
 /**
+ * Leaves out the hidden copies MAIDR inserts beside an element it highlights.
+ * Mirrors the private `Svg.OWNED_ATTRIBUTE` in `src/util/svg.ts`.
+ */
+const NOT_OWNED = ':not([data-maidr-owned])';
+
+/**
  * Names an element with a selector that reaches it alone.
  *
  * Mermaid's element ids are not stable across parses -- a node's id carries
  * a counter the next parse moves on -- so the adapter marks each element it
  * pairs with a reading and names it by that mark instead.
+ *
+ * One element can be paired by more than one layer: a Cynefin domain's label
+ * is both a domain and a stop on its transitions. The copy the first layer
+ * hides beside it keeps the mark, so the selector leaves MAIDR's copies out,
+ * or the second layer would find two elements for the one it declared.
  *
  * @param element - The element to name
  * @returns A selector matching that element and no other
@@ -181,7 +192,7 @@ export function refer(element: Element): string {
     ref = `mm${refCounter}`;
     element.setAttribute('data-maidr-ref', ref);
   }
-  return `[data-maidr-ref="${cssEscape(ref)}"]`;
+  return `[data-maidr-ref="${cssEscape(ref)}"]${NOT_OWNED}`;
 }
 
 /**

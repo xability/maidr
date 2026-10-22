@@ -5,7 +5,7 @@
 import type { DirectedGraphPoint, MaidrLayer, TreemapPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { NonEmptyTraceState } from '@type/state';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
@@ -141,6 +141,27 @@ describe('the hierarchies', () => {
     expect(nouns(layers[0], 'DOWNWARD')).toEqual(['Domain', 'Item']);
     expect((layers[1].data as DirectedGraphPoint[])[1]).toMatchObject({ label: 'Clear', inputs: ['complex'], inputLabels: ['codified'] });
   });
+  it('outlines a Cynefin transition\'s domain by the label the domains layer outlines', () => {
+    const layers = layersOf(convert('cynefin', {
+      getDomains: () => new Map([['complex', { name: 'complex', items: [{ label: 'Research' }] }], ['chaotic', { name: 'chaotic', items: [] }]]),
+      getTransitions: () => [{ from: 'chaotic', to: 'complex', label: 'stabilised' }],
+    }, cynefinDrawing(false)));
+    const label = (selector: string): Element | null => document.querySelector(selector);
+    const graph = layers[1].selectors as string[];
+    expect(graph.map(label)).toEqual([label('text.cynefinDomainLabel:nth-of-type(1)'), label('text.cynefinDomainLabel:nth-of-type(2)')]);
+
+    // Built as MAIDR builds them, the domains first: the copies the first
+    // layer hides beside its labels are not counted by the second.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const domains = TraceFactory.create(layers[0]);
+    const transitions = TraceFactory.create(layers[1]);
+    expect(transitions.getAllHighlightElements()).toHaveLength(2);
+    expect(warn.mock.calls.flat().join(' ')).not.toContain('resolved to no element');
+    transitions.dispose();
+    domains.dispose();
+    warn.mockRestore();
+  });
+
   it('reads the framework text drawn under each domain, and the domains drawn but left empty', () => {
     const layer = layersOf(convert('cynefin', {
       getDomains: () => new Map([['complex', { name: 'complex', items: [{ label: 'Research' }] }]]),
