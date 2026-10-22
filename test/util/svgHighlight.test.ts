@@ -242,6 +242,14 @@ describe('createHighlightElement colour', () => {
     },
   );
 
+  it('draws a light mark in the highlight colour as it is when asked to', () => {
+    const mark = renderMark('rect', 'fill: #FFFFFF');
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR, { useColorAsIs: true });
+
+    expect(highlight.getAttribute('fill')).toBe(FALLBACK_COLOR);
+  });
+
   it('draws a dark mark in the highlight colour', () => {
     const mark = renderMark('rect', 'fill: #1F77B4');
 

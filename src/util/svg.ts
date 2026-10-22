@@ -702,9 +702,19 @@ export abstract class Svg {
    *
    * @param element - The SVG element to highlight
    * @param fallbackColor - Color to use if original color cannot be determined
+   * @param options - How the colour is chosen
+   * @param options.useColorAsIs - Draw a light mark in `fallbackColor` too,
+   *   rather than in a darker shade of its own colour. In high contrast every
+   *   mark is painted from the reader's palette, often its light colour on a
+   *   dark page, where a darker shade of it is only a dimmer copy of the
+   *   labels around it.
    * @returns The highlighted clone element
    */
-  public static createHighlightElement(element: SVGElement, fallbackColor: string): SVGElement {
+  public static createHighlightElement(
+    element: SVGElement,
+    fallbackColor: string,
+    options: { useColorAsIs?: boolean } = {},
+  ): SVGElement {
     // Handle zero-size elements (e.g. single-point <path> for median markers
     // in violin plots). Create a circle marker instead of cloning.
     try {
@@ -752,7 +762,9 @@ export abstract class Svg {
     const originalColor = isLineElement
       ? computed.getPropertyValue(Constant.STROKE)
       : computed.getPropertyValue(Constant.FILL);
-    const color = this.getHighlightColor(originalColor, fallbackColor);
+    const color = options.useColorAsIs
+      ? fallbackColor
+      : this.getHighlightColor(originalColor, fallbackColor);
     // A filled mark keeps the edge it draws in a colour of its own, a pie
     // slice's black or a gantt task's border, so a pale fill keeps its
     // boundary. Set outright: the clone takes a new id, and a rule naming the

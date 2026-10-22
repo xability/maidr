@@ -298,6 +298,15 @@ test.describe('Mermaid adapter', () => {
     expect(point.ratio).toBeGreaterThanOrEqual(3);
   });
 
+  test('draws the highlight in the reader\'s colour in high contrast, not a grey of its white', async ({ page }) => {
+    await openExample(page, 'cynefin');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'c')).toContain('High Contrast Mode on');
+
+    expect(await press(page, 'ArrowRight')).toContain('Domain is Complicated');
+    await expect(page.locator(HIGHLIGHT)).toHaveCSS('fill', HIGHLIGHT_STROKE);
+  });
+
   test('goes into a Venn diagram\'s overlaps and back out', async ({ page }) => {
     await openExample(page, 'venn');
     const set = await press(page, 'ArrowRight');

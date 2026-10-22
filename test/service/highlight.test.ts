@@ -11,6 +11,11 @@
  * its neighbours' panels, and a figure measured its outline against the first
  * chart's background. Each chart is read inside the elements it is drawn in
  * now, the same ones its layout counts panels in.
+ *
+ * In high contrast every mark is painted from the reader's palette, so the
+ * highlight is drawn in the reader's highlight colour as it is: a colour
+ * derived from a mark painted the palette's white was a grey, the dimmest
+ * label on the dark page rather than the one the reader was on.
  */
 
 import type { SettingsService } from '@service/settings';
@@ -21,14 +26,36 @@ import { DEFAULT_SETTINGS } from '@type/settings';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
+/** What a settings change hands its listeners. */
+type SettingsChange = Parameters<Parameters<SettingsService['onChange']>[0]>[0];
+
+/**
+ * The default settings, copied so a test can change them.
+ * @param highContrastMode - Whether high contrast is on
+ * @returns The settings
+ */
+function defaults(highContrastMode = false): typeof DEFAULT_SETTINGS {
+  const settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as typeof DEFAULT_SETTINGS;
+  settings.general.highContrastMode = highContrastMode;
+  return settings;
+}
+
 /**
  * A settings service that answers with the defaults and never changes.
+ * @param highContrastMode - Whether high contrast is on
+ * @param listen - Handed each listener the service subscribes
  * @returns The stand-in
  */
-function settingsStub(): SettingsService {
+function settingsStub(
+  highContrastMode = false,
+  listen: (listener: (event: SettingsChange) => void) => void = () => {},
+): SettingsService {
   const stub: Pick<SettingsService, 'loadSettings' | 'onChange'> = {
-    loadSettings: () => JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as typeof DEFAULT_SETTINGS,
-    onChange: () => ({ dispose: () => {} }),
+    loadSettings: () => defaults(highContrastMode),
+    onChange: (listener) => {
+      listen(listener);
+      return { dispose: () => {} };
+    },
   };
   return stub as SettingsService;
 }
@@ -129,5 +156,57 @@ describe('HighlightService beside another chart', () => {
     const stroke = outlineOfFirstPanel(plot, [overlay]);
 
     expect(stroke).not.toBeNull();
+  });
+});
+
+describe('HighlightService in high contrast', () => {
+  /**
+   * Puts a label high contrast has painted white on the page.
+   * @returns The label
+   */
+  function addWhiteLabel(): SVGElement {
+    document.body.innerHTML = `<div><svg xmlns="${SVG_NAMESPACE}"><text style="fill: #ffffff">Ship</text></svg></div>`;
+    return document.querySelector('text') as SVGElement;
+  }
+
+  it('should draw a mark the palette painted light in the reader\'s highlight colour', () => {
+    const label = addWhiteLabel();
+    const service = new HighlightService(settingsStub(true), () => [document.body]);
+
+    service.highlight(label);
+
+    const highlight = label.nextElementSibling as SVGElement;
+    expect(highlight.getAttribute('fill')).toBe(DEFAULT_SETTINGS.general.highlightColor);
+    expect(highlight.style.fill).toBe(DEFAULT_SETTINGS.general.highlightColor);
+    service.dispose();
+  });
+
+  it('should derive the colour from a light mark outside high contrast', () => {
+    const label = addWhiteLabel();
+    const service = new HighlightService(settingsStub(false), () => [document.body]);
+
+    service.highlight(label);
+
+    const highlight = label.nextElementSibling as SVGElement;
+    expect(highlight.getAttribute('fill')).not.toBe(DEFAULT_SETTINGS.general.highlightColor);
+    service.dispose();
+  });
+
+  it('should follow high contrast as it is turned on', () => {
+    const label = addWhiteLabel();
+    let changed: (event: SettingsChange) => void = () => {};
+    const service = new HighlightService(
+      settingsStub(false, (listener) => {
+        changed = listener;
+      }),
+      () => [document.body],
+    );
+
+    changed({ newSettings: defaults(true) } as Pick<SettingsChange, 'newSettings'> as SettingsChange);
+    service.highlight(label);
+
+    const highlight = label.nextElementSibling as SVGElement;
+    expect(highlight.getAttribute('fill')).toBe(DEFAULT_SETTINGS.general.highlightColor);
+    service.dispose();
   });
 });
