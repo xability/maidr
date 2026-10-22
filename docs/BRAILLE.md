@@ -937,7 +937,9 @@ stage, or a row would be "the third node of every column", which is not a
 thing, so the state is transposed on its way out. The position key reads it
 back the same way: P names the stage as the column and the node's place in
 that stage as the row, so the last node of a two-node column is "column 3 of
-3, row 2 of 2" however tall another column is.
+3, row 2 of 2" however tall another column is, and a node alone in its column
+is "row 1 of 1". Only a chain, one node to every column, is named by its place
+along the chain alone, "Position is 2 of 3".
 
 **The ribbons have no representation at all**, and that is the whole of what
 this chart draws. A cell is a node's throughput; nothing in the dots says where

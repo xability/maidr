@@ -838,7 +838,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     } else if (traceType === TraceType.SCATTER) {
       // Scatter plot: use x/y for column/row position, but don't include 'Position' as it sounds weird
       this.announceScatter(x, y, rows, cols);
-    } else if (this.is2DPlot(rows, cols)) {
+    } else if (this.is2DPlot(rows, cols) || this.hasStageOfMany(state)) {
       // Default position announcement
       this.announce2DPosition(x, y, rows, cols);
     } else if (rows > 1 && cols === 0) {
@@ -945,6 +945,25 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    */
   private is2DPlot(rows: number, cols: number): boolean {
     return rows > 1 && cols > 0;
+  }
+
+  /**
+   * Whether a flow trace has a column holding more than one node.
+   *
+   * Its rows are counted within the reader's own column, so a node alone in
+   * one has a single row. On a chart whose other columns hold several, that
+   * is still a column and a row: announced as "Position is 2 of 3", a single
+   * source, or Electricity alone in the middle of Mermaid's sankey, read as a
+   * place along a line beside nodes read by column and row. A chain, one
+   * node to every column, has no rows anywhere and keeps the place along it.
+   *
+   * @param state - The active trace state
+   * @returns True when some column of a flow trace holds two nodes or more
+   */
+  private hasStageOfMany(state: NonEmptyTraceState): boolean {
+    return STAGE_FRAME_TRACES.has(state.traceType)
+      && isGridBrailleState(state.braille)
+      && state.braille.values.some(stage => stage.length > 1);
   }
 
   /**
