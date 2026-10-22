@@ -331,6 +331,7 @@ export const model = {
   'model.intersectionSlope': '斜率交叉',
   'model.extremaIntersectionAt': '{kind}，位于 {coords}',
   'model.intersectionCoords': 'x={x}，y={y}',
+  'model.intersectionCoordsBetween': 'x 在 {from} 与 {to} 之间，y={y}',
   'model.intersectionAtLines': '与 {lines} 的交点',
   'model.nounBand': '带',
   'model.statNumberOfBands': '带数量',

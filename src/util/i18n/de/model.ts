@@ -338,6 +338,7 @@ export const model = {
   'model.intersectionSlope': 'Schnittpunkt zwischen Datenpunkten',
   'model.extremaIntersectionAt': '{kind} bei {coords}',
   'model.intersectionCoords': 'x={x}, y={y}',
+  'model.intersectionCoordsBetween': 'x zwischen {from} und {to}, y={y}',
   'model.intersectionAtLines': 'Schnittpunkt von {lines}',
   'model.nounBand': 'Band',
   'model.statNumberOfBands': 'Anzahl der Bänder',

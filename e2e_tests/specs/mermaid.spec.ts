@@ -530,6 +530,24 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowRight')).toContain('Prototype');
   });
 
+  test('lists an XY chart\'s extrema as the announcements round them', async ({ page }) => {
+    await openExample(page, 'xychart');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('g');
+
+    await expect(page.locator('#extrema-target-0')).toHaveAttribute('aria-label', 'Max Bar Value: 10,500 at jun');
+  });
+
+  test('says a radar\'s outlines cross between two spokes, not on one', async ({ page }) => {
+    await openExample(page, 'radar');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('g');
+
+    await expect(page.locator('[id^="extrema-target-"][aria-label*="between Science and English, y=82.5"]'))
+      .toHaveCount(1);
+    await expect(page.locator('[id^="extrema-target-"][aria-label*="x=English"]')).toHaveCount(0);
+  });
+
   test('says a flowchart has no extrema to go to, rather than ignoring g', async ({ page }) => {
     await openExample(page, 'flowchart');
     await press(page, 'ArrowRight');

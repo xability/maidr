@@ -374,6 +374,30 @@ describe('an intersection is heard from where the spoke is', () => {
   });
 });
 
+describe('where the Go To dialog says two outlines cross', () => {
+  /** Mermaid's radar example: Alice and Bob across six subjects. */
+  const GRADES: LinePoint[][] = [
+    ['Math', 'Science', 'English', 'History', 'Geography', 'Art'].map((x, index) => (
+      { x, y: [85, 90, 80, 70, 75, 90][index], z: 'Alice' })),
+    ['Math', 'Science', 'English', 'History', 'Geography', 'Art'].map((x, index) => (
+      { x, y: [70, 75, 85, 80, 90, 85][index], z: 'Bob' })),
+  ];
+
+  test('between the spokes it lies between, not on the nearer one', () => {
+    // Alice goes 90 -> 80 and Bob 75 -> 85 from Science to English, so the
+    // outlines cross between those spokes. It was offered "at x=English".
+    const trace = radar(0, 0, TraceType.RADAR, GRADES);
+    const crossings = trace.getExtremaTargets().filter(target => target.type === 'intersection');
+
+    expect(crossings.map(target => target.label)).toEqual([
+      'Slope intersection at x between Science and English, y=82.5',
+      'Slope intersection at x between Geography and Art, y=86.25',
+    ]);
+    // Choosing one still lands on the nearer spoke, the nearest point there is.
+    expect(crossings.map(target => target.pointIndex)).toEqual([2, 5]);
+  });
+});
+
 describe('the rest of the reading is unchanged', () => {
   test('pitch still tracks the value', () => {
     const { audio } = nonEmptyState(radar(0, 0));

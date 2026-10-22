@@ -335,6 +335,7 @@ export const model = {
   'model.intersectionSlope': '傾きの交差',
   'model.extremaIntersectionAt': '{kind}、位置 {coords}',
   'model.intersectionCoords': 'x={x}、y={y}',
+  'model.intersectionCoordsBetween': 'x={from}と{to}の間、y={y}',
   'model.intersectionAtLines': '交差 ({lines})',
   'model.nounBand': 'バンド',
   'model.statNumberOfBands': 'バンドの数',

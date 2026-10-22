@@ -335,6 +335,7 @@ export const model = {
   'model.intersectionSlope': 'Intersezione di pendenze',
   'model.extremaIntersectionAt': '{kind} in {coords}',
   'model.intersectionCoords': 'x={x}, y={y}',
+  'model.intersectionCoordsBetween': 'x tra {from} e {to}, y={y}',
   'model.intersectionAtLines': 'intersezione in ({lines})',
   'model.nounBand': 'Banda',
   'model.statNumberOfBands': 'Numero di bande',

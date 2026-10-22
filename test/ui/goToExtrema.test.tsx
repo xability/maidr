@@ -135,7 +135,7 @@ describe('go to dialog: selecting a target', () => {
   it('should send a clicked target to the view model rather than navigating itself', () => {
     const { viewModel } = renderDialog();
 
-    fireEvent.click(screen.getByLabelText('Max Bar Value: 8.00 at Q1'));
+    fireEvent.click(screen.getByLabelText('Max Bar Value: 8 at Q1'));
 
     expect(viewModel.selectTarget).toHaveBeenCalledWith(TARGETS[0]);
   });
@@ -154,7 +154,7 @@ describe('go to dialog: selecting a target', () => {
     // its own account would sound it a second time.
     const { viewModel } = renderDialog();
 
-    fireEvent.click(screen.getByLabelText('Max Bar Value: 8.00 at Q1'));
+    fireEvent.click(screen.getByLabelText('Max Bar Value: 8 at Q1'));
 
     expect(viewModel.hide).not.toHaveBeenCalled();
   });
@@ -212,7 +212,7 @@ describe('go to dialog: what the listbox announces', () => {
     expect(written).not.toContain('Moved to search. Type to filter X values.');
     expect(liveRegion()).toHaveTextContent('At last extrema option');
     expect(viewModel.moveDown).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(screen.getByLabelText('Min Bar Value: 2.00 at Q3'));
+    expect(document.activeElement).toBe(screen.getByLabelText('Min Bar Value: 2 at Q3'));
   });
 
   it('should still move to the search from the last target when the trace offers it', () => {
@@ -234,7 +234,7 @@ describe('go to dialog: what the listbox announces', () => {
       store.dispatch({ type: 'goToExtrema/updateSelectedIndex', payload: 1 });
     });
 
-    expect(document.activeElement).toBe(screen.getByLabelText('Min Bar Value: 2.00 at Q3'));
+    expect(document.activeElement).toBe(screen.getByLabelText('Min Bar Value: 2 at Q3'));
   });
 
   it('should not also write the moved-to label into the live region', () => {
@@ -283,8 +283,8 @@ describe('go to dialog: keyboard reach', () => {
       store.dispatch({ type: 'goToExtrema/updateSelectedIndex', payload: 1 });
     });
 
-    expect(screen.getByLabelText('Max Bar Value: 8.00 at Q1')).toHaveAttribute('tabindex', '-1');
-    expect(screen.getByLabelText('Min Bar Value: 2.00 at Q3')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByLabelText('Max Bar Value: 8 at Q1')).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByLabelText('Min Bar Value: 2 at Q3')).toHaveAttribute('tabindex', '0');
   });
 
   it('should make only the highlighted search result a tab stop', () => {
@@ -309,13 +309,27 @@ describe('go to dialog: the line each target is listed under', () => {
       }],
     });
 
-    expect(screen.getByLabelText('최대 막대 Value: 8.00 at Q1')).toBeInTheDocument();
+    expect(screen.getByLabelText('최대 막대 Value: 8 at Q1')).toBeInTheDocument();
   });
 
   it('should place a grid cell by both its coordinates', () => {
     renderDialog({ targets: [createTarget('Global Maximum', '9', 0.95, '2')] });
 
     expect(screen.getByLabelText('Global Maximum Value: 0.95 at 9, 2')).toBeInTheDocument();
+  });
+
+  it('should round the value as the announcement does, not to two decimals', () => {
+    // "10500.00" where speech says "10,500", and "0.00" for a value speech
+    // keeps as 0.00012.
+    renderDialog({
+      targets: [
+        createTarget('Max Bar', 'jun', 10500),
+        createTarget('Min Bar', 'jan', 0.00012),
+      ],
+    });
+
+    expect(screen.getByLabelText('Max Bar Value: 10,500 at jun')).toBeInTheDocument();
+    expect(screen.getByLabelText('Min Bar Value: 0.00012 at jan')).toBeInTheDocument();
   });
 
   it('should list a target without parts under its sentence as it is', () => {

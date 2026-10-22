@@ -328,6 +328,7 @@ export const model = {
   'model.intersectionSlope': 'ढलान प्रतिच्छेदन',
   'model.extremaIntersectionAt': '{kind}, {coords} पर',
   'model.intersectionCoords': 'x={x}, y={y}',
+  'model.intersectionCoordsBetween': 'x {from} और {to} के बीच, y={y}',
   'model.intersectionAtLines': '{lines} पर प्रतिच्छेदन',
   'model.nounBand': 'बैंड',
   'model.statNumberOfBands': 'बैंड की संख्या',

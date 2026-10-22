@@ -6,12 +6,13 @@ import { Close, KeyboardArrowDown } from '@mui/icons-material';
 import { Box, IconButton, List, ListItem, ListItemText, TextField, Typography } from '@mui/material';
 import { useLocale } from '@state/hook/useLocale';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
+import { defaultFormat } from '@util/format';
 import { computeListWindow } from '@util/listWindow';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 // Builds the user-facing label for an extrema target. Used for the visible
 // text, the option's aria-label, AND the keyboard-navigation announcements so
-// all three stay in sync (e.g. "Max point Value: 8.00 at Nov 3" — including the
+// all three stay in sync (e.g. "Max point Value: 8 at Nov 3" — including the
 // numeric value, which target.label alone omits). The translator is passed in
 // because this is called from two components and from a keyboard handler, none
 // of which can share one `useLocale` call.
@@ -34,14 +35,16 @@ function buildTargetDisplayLabel(target: ExtremaTarget, t: LocaleApi['t']): stri
     // Fallback for intersection without display fields
     return target.label;
   }
-  // For min/max, show: "Max point Value: 8.00 at X", composed from the parts
+  // For min/max, show: "Max point Value: 8 at X", composed from the parts
   // the trace supplied. The sentence in `label` is never taken apart: where
   // the position sits in it is the language's business, not this dialog's.
   const { name, x, y } = target.display ?? {};
   if (name === undefined) {
     return target.label;
   }
-  const value = target.value.toFixed(2);
+  // Rounded as the announcement rounds a number the chart does not format:
+  // two fixed decimals read 10,500 as "10500.00" and 0.00012 as "0.00".
+  const value = defaultFormat(target.value);
   if (x === undefined) {
     return t('dialogs.extremaValue', { label: name, value });
   }
