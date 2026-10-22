@@ -917,10 +917,13 @@ export class Context implements Disposable {
         this.plotContext.push(previousTrace);
       }
     } else {
+      // The trace's boundary tone and the subplot's "no additional layer",
+      // as `Subplot.switchLayer` reports a layer edge: the audio service
+      // sounds the trace's state only, the subplot's is words.
       const onlySubplot = this.figure.subplots[0][0];
       const activeTrace = this.active as Trace;
       activeTrace.notifyOutOfBounds();
-      onlySubplot.notifyOutOfBounds(); // For UI feedback
+      onlySubplot.notifyOutOfBounds();
     }
   }
 

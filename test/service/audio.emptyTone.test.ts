@@ -123,8 +123,9 @@ function createNotification(): NotificationService {
 }
 
 const INITIAL_STATE: PlotState = { empty: true, type: 'figure' };
-// An empty subplot state routes update() to the default-panning empty tone.
-const EMPTY_SUBPLOT_STATE = { empty: true, type: 'subplot' } as unknown as PlotState;
+// An empty figure state -- the edge of a multi-panel lobby -- routes update()
+// to the default-panning empty tone.
+const EMPTY_FIGURE_STATE: PlotState = { empty: true, type: 'figure' };
 
 /**
  * A populated single-bar trace state carrying the given magnitude, so the
@@ -151,9 +152,25 @@ describe('AudioService empty-state tone', () => {
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
 
     const before = ctx.oscillators.length;
-    service.update(EMPTY_SUBPLOT_STATE);
+    service.update(EMPTY_FIGURE_STATE);
 
     expect(ctx.oscillators.length).toBe(before + EMPTY_TONE_OSCILLATORS);
+    service.dispose();
+  });
+
+  it('plays no tone for an empty subplot state, the words of a layer edge', async () => {
+    // Page Up or Page Down past the last layer notifies the trace's empty
+    // state, which carries the cursor's pan and sounds the boundary, and the
+    // subplot's, which says "No additional layer". A tone for both was a
+    // second chord, centred, on top of the first.
+    const ctx = installAudioContextMock();
+    const { AudioService } = await import('@service/audio');
+    const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
+
+    const before = ctx.oscillators.length;
+    service.update({ empty: true, type: 'subplot' });
+
+    expect(ctx.oscillators.length).toBe(before);
     service.dispose();
   });
 
@@ -163,7 +180,7 @@ describe('AudioService empty-state tone', () => {
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
 
     const before = ctx.oscillators.length;
-    service.update(EMPTY_SUBPLOT_STATE);
+    service.update(EMPTY_FIGURE_STATE);
 
     // Nothing synchronously: scheduling start(0)/stop() against a still-suspended
     // context (currentTime === 0) would fire at an arbitrary instant on resume.
@@ -189,7 +206,7 @@ describe('AudioService empty-state tone', () => {
     const service = new AudioService(createNotification(), createSettings(0), INITIAL_STATE);
 
     const before = ctx.oscillators.length;
-    service.update(EMPTY_SUBPLOT_STATE);
+    service.update(EMPTY_FIGURE_STATE);
 
     await Promise.resolve();
     expect(resumeCalls).toBe(0);
@@ -203,7 +220,7 @@ describe('AudioService empty-state tone', () => {
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
 
     const before = ctx.oscillators.length;
-    service.update(EMPTY_SUBPLOT_STATE);
+    service.update(EMPTY_FIGURE_STATE);
     service.toggle(); // SEPARATE -> OFF during the async resume() gap
 
     await Promise.resolve();
@@ -217,7 +234,7 @@ describe('AudioService empty-state tone', () => {
     const service = new AudioService(createNotification(), createSettings(), INITIAL_STATE);
 
     const before = ctx.oscillators.length;
-    service.update(EMPTY_SUBPLOT_STATE);
+    service.update(EMPTY_FIGURE_STATE);
     service.dispose();
 
     // The mock's close() does not flip the state, so only the dispose-time
@@ -238,7 +255,7 @@ describe('AudioService empty-state tone', () => {
 
     const before = ctx.oscillators.length;
     service.playMenuOpenTone();
-    service.update(EMPTY_SUBPLOT_STATE);
+    service.update(EMPTY_FIGURE_STATE);
     expect(ctx.oscillators.length).toBe(before);
 
     // The deferred slot is deliberately shared across cue types (last one
