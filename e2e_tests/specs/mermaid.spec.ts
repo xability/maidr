@@ -795,6 +795,21 @@ test.describe('Mermaid adapter', () => {
     expect(unresolved).toEqual([]);
   });
 
+  test('says where the reader is among what the arrows walk, not where the sound is panned', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    // The pan follows the time axis: "column 1.1818181818181819 of 2".
+    expect(await press(page, 'p')).toBe('Position is column 2 of 2, row 1 of 3');
+
+    await openExample(page, 'kanban');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowDown');
+    // The only card in its column, which the whole depth made "column 3 of 4".
+    expect(await press(page, 'p')).toBe('Level 2 of 2, Position is 1 of 1 in In progress');
+  });
+
   test('says an axis label a diagram does not have is not available', async ({ page }) => {
     await openExample(page, 'mindmap');
     await press(page, 'ArrowRight');

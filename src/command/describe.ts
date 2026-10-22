@@ -664,6 +664,21 @@ const GRID_FRAME_TRACES: ReadonlySet<TraceType> = new Set([
   // Braille grid is `densityValues[violin][sample]`, which is the frame the
   // reader navigates; the vertical pan is by violin instead.
   TraceType.VIOLIN_KDE,
+  // Pan by angle round the dial, so a spoke read its sine as its place:
+  // "Position is 1.9330127018922194 of 2". The braille grid is
+  // `values[series][spoke]`, the line's.
+  TraceType.RADAR,
+  TraceType.POLAR_AREA,
+  // Pans by where the interval is drawn along the time axis; the braille
+  // grid is one row of lengths per lane, the intervals the arrows walk.
+  TraceType.GANTT,
+  // Pans by the lane the message arrives at, which contradicted its own
+  // "Order is 4 of 6"; the braille grid is the cursor's rows of messages.
+  TraceType.SEQUENCE,
+  // Pan by the fraction of the way along the x axis; the braille grid is
+  // `values[curve][point]`, the line's.
+  TraceType.ROC,
+  TraceType.PR_CURVE,
 ]);
 
 /**
@@ -730,6 +745,12 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     // Grid mode: announce axis ranges without points
     if (state.text.gridPoints !== undefined && state.text.range && state.text.crossRange) {
       this.announceGridPosition(state);
+      return;
+    }
+
+    // A tree: the place among the siblings the arrows walk, and the level.
+    if (state.treePosition !== undefined) {
+      this.announceTreePosition(state.treePosition);
       return;
     }
 
@@ -803,9 +824,38 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     } else if (this.is2DPlot(rows, cols)) {
       // Default position announcement
       this.announce2DPosition(x, y, rows, cols);
+    } else if (rows > 1 && cols === 0) {
+      // A row with nothing in it -- a gantt lane declared without an
+      // interval -- has no column to name, but it is still a row of rows.
+      this.announce1DPosition(y, rows);
     } else {
       this.announce1DPosition(x, cols);
     }
+  }
+
+  /**
+   * Announces where a tree's node sits: its level, then its place among its
+   * siblings, in its parent when it has one -- "Level 2 of 3, Position is 1
+   * of 4 in Text". A tree of one level has no level to name. Terse gives the
+   * two places as percentages, the way the 2-D announcement does.
+   * @param position - The node's place, from the trace state
+   */
+  private announceTreePosition(position: NonNullable<NonEmptyTraceState['treePosition']>): void {
+    const { index, count, level, levels, parent } = position;
+    const percent = (at: number, of: number): string => `${of > 1 ? Math.round((at / (of - 1)) * 100) : 0}%`;
+
+    if (this.textService.isTerse() || this.textService.isOff()) {
+      this.textViewModel.update(levels > 1
+        ? `${percent(index, count)}, ${percent(level, levels)}`
+        : percent(index, count));
+      return;
+    }
+    const place = parent === undefined
+      ? t('text.positionIs', { position: index + 1, total: count })
+      : t('text.positionInSection', { position: index + 1, total: count, section: parent });
+    this.textViewModel.update(levels > 1
+      ? [t('text.seriesOfTotal', { noun: t('text.level'), index: level + 1, total: levels }), place].join(', ')
+      : place);
   }
 
   /**
@@ -836,7 +886,10 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    * horizontal bar as "1 of 1" and a horizontal stacked bar's level as its
    * category. The braille state keeps `values[row][col]` normalised to the bar
    * axis whichever way the chart is drawn, so the bar family reads its position
-   * from there -- the same route {@link announceBoxplotPosition} takes.
+   * from there -- the same route {@link announceBoxplotPosition} takes -- and
+   * so do the traces that pan by where a point is drawn rather than by its
+   * index: a radar by angle, a gantt by time, a sequence diagram by the lane
+   * a message arrives at, a ROC curve by its x.
    *
    * @param state - The active trace state
    * @returns The zero-based column and row, with their counts
@@ -857,9 +910,13 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
   /**
    * Determines if the chart is a 2D plot based on rows and columns.
+   *
+   * A row of one column in a grid of several rows is still a place in two
+   * dimensions -- a gantt lane with one task, a one-message lifeline -- and
+   * announcing it as "1 of 1" dropped the row the reader was on.
    */
   private is2DPlot(rows: number, cols: number): boolean {
-    return rows > 1 && cols > 1;
+    return rows > 1 && cols > 0;
   }
 
   /**

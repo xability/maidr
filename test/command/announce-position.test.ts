@@ -425,10 +425,23 @@ describe('AnnouncePositionCommand on a pie', () => {
  * @returns A non-empty multi-series radar trace state
  */
 function multiRadarState(options: MultilineOptions = {}): PlotState {
+  const { row = 0, col = 2 } = options;
   return {
     ...(multilineState(options) as object),
     traceType: TraceType.RADAR,
     plotType: 'radar',
+    // A radar pans by a spoke's angle, so its position is read from the
+    // braille grid -- one row per series, one cell per spoke -- as
+    // `LineTrace` builds it.
+    braille: {
+      empty: false,
+      id: 'radar',
+      values: Array.from({ length: 3 }, () => Array.from({ length: 10 }, () => 5)),
+      min: [0, 0, 0],
+      max: [10, 10, 10],
+      row,
+      col,
+    },
   } as unknown as PlotState;
 }
 

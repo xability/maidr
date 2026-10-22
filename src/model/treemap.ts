@@ -7,7 +7,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextAside, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextAside, TextState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
@@ -236,6 +236,9 @@ export class TreemapTrace extends AbstractTrace {
    */
   private readonly midAngles: number[][];
 
+  /** Each node's index among its siblings, shaped as `nodes` is. */
+  private readonly placeAmongSiblings: number[][];
+
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -260,6 +263,7 @@ export class TreemapTrace extends AbstractTrace {
       0,
     );
     this.midAngles = this.layOutAngles();
+    this.placeAmongSiblings = this.placeSiblings();
     this.highlightValues = this.mapToSvgElements(layer.selectors, points.length);
     this.movable = new MovableGraph(this.buildGraph());
   }
@@ -356,23 +360,8 @@ export class TreemapTrace extends AbstractTrace {
    * @returns The navigation graph, addressed as the nodes are
    */
   private buildGraph(): (Node | null)[][] {
-    // Where every node sits among its siblings, worked out in one pass over
-    // the tree. Searching a node's sibling list for the node instead reads
-    // the whole list once per sibling, so a parent with k children costs
-    // O(k^2) -- and a flat treemap, which is what a disk-usage or a
-    // market-cap chart is, hangs every leaf off a single parent.
     const roots: Coordinate[] = (this.nodes[0] ?? []).map((_, col) => ({ row: 0, col }));
-    const placeAmongSiblings = this.nodes.map(level => level.map(() => -1));
-    for (let col = 0; col < roots.length; col++) {
-      placeAmongSiblings[0][col] = col;
-    }
-    for (const level of this.nodes) {
-      for (const node of level) {
-        node?.children.forEach((child, at) => {
-          placeAmongSiblings[child.row][child.col] = at;
-        });
-      }
-    }
+    const placeAmongSiblings = this.placeAmongSiblings;
 
     return this.nodes.map(level =>
       level.map((node) => {
@@ -394,6 +383,30 @@ export class TreemapTrace extends AbstractTrace {
           end: siblings[siblings.length - 1] ?? null,
         };
       }));
+  }
+
+  /**
+   * Where every node sits among its siblings, worked out in one pass over
+   * the tree. Searching a node's sibling list for the node instead reads the
+   * whole list once per sibling, so a parent with k children costs O(k^2) --
+   * and a flat treemap, which is what a disk-usage or a market-cap chart is,
+   * hangs every leaf off a single parent.
+   *
+   * @returns Each node's index among its siblings, shaped as the nodes are
+   */
+  private placeSiblings(): number[][] {
+    const place = this.nodes.map(level => level.map(() => -1));
+    (this.nodes[0] ?? []).forEach((_, col) => {
+      place[0][col] = col;
+    });
+    for (const level of this.nodes) {
+      for (const node of level) {
+        node?.children.forEach((child, at) => {
+          place[child.row][child.col] = at;
+        });
+      }
+    }
+    return place;
   }
 
   /**
@@ -449,6 +462,35 @@ export class TreemapTrace extends AbstractTrace {
   /** The node the cursor is on, when it is on one. */
   private get current(): TreeNode | null {
     return this.nodes[this.row]?.[this.col] ?? null;
+  }
+
+  /**
+   * The state, with where the node sits among the siblings the arrows walk.
+   *
+   * The pan and the braille grid both run across a whole depth -- every node
+   * at it, whoever its parent -- so a position read from either said a lone
+   * card in a kanban's second column was "column 3 of 4", where left and
+   * right said there was nothing beside it.
+   *
+   * @returns The trace state
+   */
+  public override get state(): TraceState {
+    const state = super.state;
+    const node = this.current;
+    if (state.empty || node === null) {
+      return state;
+    }
+    const parent = node.parent === null ? null : this.nodes[node.parent.row]?.[node.parent.col] ?? null;
+    return {
+      ...state,
+      treePosition: {
+        index: this.placeAmongSiblings[this.row]?.[this.col] ?? 0,
+        count: parent === null ? (this.nodes[0]?.length ?? 0) : parent.children.length,
+        level: this.row,
+        levels: this.nodes.length,
+        ...(parent === null ? {} : { parent: parent.name }),
+      },
+    };
   }
 
   /**

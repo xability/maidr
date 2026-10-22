@@ -132,6 +132,15 @@ export type TraceState
        * slice on the dial from here.
        */
       startAngle?: number;
+      /**
+       * Where a tree's node sits among the siblings the arrow keys walk, and
+       * at which level. Present only for a tree, whose braille grid and pan
+       * run across the whole depth -- every node at it, whoever its parent
+       * -- while left and right stop at the parent's last child, so neither
+       * says where the reader is. `index` and `level` are zero-based;
+       * `parent` is the parent's name, absent at the top level.
+       */
+      treePosition?: { index: number; count: number; level: number; levels: number; parent?: string };
     };
 
 /**
