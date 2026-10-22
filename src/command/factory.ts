@@ -315,9 +315,21 @@ export class CommandFactory {
           this.audioService,
         );
       case 'GO_TO_MIN_VALUE':
-        return new GoToMinValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
+        return new GoToMinValueCommand(
+          this.context,
+          this.goToExtremaService,
+          this.notificationService,
+          this.textService,
+          this.audioService,
+        );
       case 'GO_TO_MAX_VALUE':
-        return new GoToMaxValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
+        return new GoToMaxValueCommand(
+          this.context,
+          this.goToExtremaService,
+          this.notificationService,
+          this.textService,
+          this.audioService,
+        );
       case 'OBJECT_LIST_TOGGLE':
         return new ObjectListToggleCommand(
           this.objectListViewModel,
