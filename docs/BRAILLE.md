@@ -138,6 +138,8 @@ In single-line braille displays, the user can navigate vertically with the up an
 
 In both, the grid's rows are listed highest band first, as the chart draws them, so the on-screen braille field reads like the chart and the up arrow moves the cursor up a line.
 
+With braille on, **Enter** steps into the cell under the cursor as it does with braille off: the Left and Right arrows move through its points, and **Escape** leaves the cell and returns you to the braille field, on the same cell.
+
 ### Segmented Bar Plots
 
 Stacked bar, dodged bar, and normalized stacked bar all share the same system:

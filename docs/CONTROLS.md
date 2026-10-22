@@ -67,8 +67,9 @@ points carry values to compare, *lower value* and *higher value* navigation jump
 to the next point below or above the current value (a diagram such as a
 flowchart, whose nodes carry none, goes straight to its own), *grid* navigation walks a scatter plot cell by cell (press **Enter** to
 step into a cell, the Left and Right arrows to move through its points, and
-**Escape** to leave it), and some chart types add their own, such as the points
-where two lines cross.
+**Escape** to leave it; in braille mode Enter steps in the same way, and Escape
+brings you back to the braille field), and some chart types add their own, such
+as the points where two lines cross.
 
 ### Hearing and Reading
 
