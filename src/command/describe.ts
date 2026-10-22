@@ -682,6 +682,23 @@ const GRID_FRAME_TRACES: ReadonlySet<TraceType> = new Set([
 ]);
 
 /**
+ * The flow traces, whose braille grid is the navigation frame transposed.
+ *
+ * A sankey, alluvial or chord diagram addresses its cursor as
+ * `[index within the stage][stage]`, so Left and Right cross the columns of
+ * the drawing and Up and Down walk one of them. Its braille line is a stage,
+ * `values[stage][node]`, which is that frame turned on its side. Its pan is
+ * neither: it spreads the stages over at least two columns, so a cycle's one
+ * stage is not dead centre, and counts its rows against the tallest stage, so
+ * a node of a two-node column was "row 2 of 3".
+ */
+const STAGE_FRAME_TRACES: ReadonlySet<TraceType> = new Set([
+  TraceType.SANKEY,
+  TraceType.ALLUVIAL,
+  TraceType.CHORD,
+]);
+
+/**
  * Turns a fraction of the way round the dial into a clock hour.
  *
  * Twelve o'clock is both the origin and the full turn, so a fraction of 0 and
@@ -889,7 +906,8 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    * from there -- the same route {@link announceBoxplotPosition} takes -- and
    * so do the traces that pan by where a point is drawn rather than by its
    * index: a radar by angle, a gantt by time, a sequence diagram by the lane
-   * a message arrives at, a ROC curve by its x.
+   * a message arrives at, a ROC curve by its x. A flow trace reads its
+   * transposed braille grid, whose rows are its stages.
    *
    * @param state - The active trace state
    * @returns The zero-based column and row, with their counts
@@ -903,6 +921,16 @@ export class AnnouncePositionCommand extends AnnounceCommand {
         y: state.braille.row,
         rows: state.braille.values.length,
         cols: state.braille.values[state.braille.row]?.length ?? 0,
+      };
+    }
+    if (STAGE_FRAME_TRACES.has(state.traceType) && isGridBrailleState(state.braille)) {
+      // Read the other way round: the braille row is the stage, the column
+      // the reader is in, and the braille column the node within it.
+      return {
+        x: state.braille.row,
+        y: state.braille.col,
+        rows: state.braille.values[state.braille.row]?.length ?? 0,
+        cols: state.braille.values.length,
       };
     }
     return state.audio.panning;
