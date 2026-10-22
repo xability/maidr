@@ -104,3 +104,123 @@ describe('a highlighted ribbon is the ribbon that was announced', () => {
     expect(trace.getGeometryElements()).toEqual([]);
   });
 });
+
+/**
+ * The Mermaid example's energy sankey: three sources into Electricity, which
+ * splits in two, and Gas also feeding Heating.
+ */
+const ENERGY: FlowPoint[] = [
+  { source: 'Solar', target: 'Electricity', value: 40 },
+  { source: 'Wind', target: 'Electricity', value: 35 },
+  { source: 'Gas', target: 'Electricity', value: 60 },
+  { source: 'Gas', target: 'Heating', value: 45 },
+  { source: 'Electricity', target: 'Homes', value: 70 },
+  { source: 'Electricity', target: 'Industry', value: 65 },
+];
+
+describe('a step along a ribbon highlights the ribbon it announced', () => {
+  beforeEach(() => {
+    const ribbons = ENERGY
+      .map((flow, index) => `<path id="energy-${index}" data-flow="${flow.source}-${flow.target}" />`)
+      .join('');
+    document.body.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">${ribbons}</svg>`;
+  });
+
+  /**
+   * Builds the trace.
+   * @returns The energy sankey's trace
+   */
+  function energy(): FlowTrace {
+    return new FlowTrace({
+      id: 'test-flow-along',
+      type: TraceType.SANKEY,
+      axes: { x: { label: 'Node' }, y: { label: 'Value' } },
+      selectors: ENERGY.map((_, index) => `#energy-${index}`),
+      data: ENERGY,
+    });
+  }
+
+  /**
+   * What the reader is told and shown at the cursor.
+   * @param trace - The trace
+   * @returns The node, the step's "Along" aside, the ribbon the SVG highlight
+   *   covers and the one the canvas channel names
+   */
+  function shown(trace: FlowTrace): { node: string; along?: string; svg?: string | null; canvas: string[] } {
+    const state = trace.state;
+    if (state.empty || state.highlight.empty) {
+      throw new Error('Expected a populated state');
+    }
+    const elements = state.highlight.elements;
+    const first = Array.isArray(elements) ? elements.flat()[0] : elements;
+    return {
+      node: String(state.text.main.value),
+      along: state.text.asides?.find(aside => aside.label === 'Along')?.value,
+      svg: first?.getAttribute('data-flow'),
+      canvas: trace.highlightedPointIndices.map(at => `${ENERGY[at].source}-${ENERGY[at].target}`),
+    };
+  }
+
+  test('arriving forward lights the ribbon taken in, not the node\'s widest out', () => {
+    const trace = energy();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('FORWARD');
+
+    const at = shown(trace);
+    expect(at.node).toBe('Electricity');
+    expect(at.along).toContain('Wind to Electricity');
+    expect(at.svg).toBe('Wind-Electricity');
+    expect(at.canvas).toEqual(['Wind-Electricity']);
+  });
+
+  test('arriving backward lights the ribbon taken, not the node\'s widest out', () => {
+    const trace = energy();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+    expect(shown(trace).node).toBe('Heating');
+    trace.moveOnce('BACKWARD');
+
+    const at = shown(trace);
+    expect(at.node).toBe('Gas');
+    expect(at.along).toContain('Gas to Heating');
+    expect(at.svg).toBe('Gas-Heating');
+    expect(at.canvas).toEqual(['Gas-Heating']);
+  });
+
+  test('a rotor step lights the flow it walked', () => {
+    const trace = energy();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+    expect(shown(trace).node).toBe('Gas');
+    trace.moveToRotorFilter('outgoing', 'right');
+
+    const at = shown(trace);
+    expect(at.node).toBe('Electricity');
+    expect(at.along).toContain('Gas to Electricity');
+    expect(at.svg).toBe('Gas-Electricity');
+    expect(at.canvas).toEqual(['Gas-Electricity']);
+  });
+
+  test('a move that follows no ribbon lights the node\'s own', () => {
+    const trace = energy();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+
+    const down = shown(trace);
+    expect(down.node).toBe('Heating');
+    expect(down.along).toBeUndefined();
+    // A sink's own ribbon is the widest arriving.
+    expect(down.svg).toBe('Gas-Heating');
+    expect(down.canvas).toEqual(['Gas-Heating']);
+
+    trace.moveOnce('UPWARD');
+    const up = shown(trace);
+    expect(up.node).toBe('Electricity');
+    expect(up.svg).toBe('Electricity-Homes');
+    expect(up.canvas).toEqual(['Electricity-Homes']);
+  });
+});

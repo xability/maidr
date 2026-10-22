@@ -576,6 +576,20 @@ test.describe('Mermaid adapter', () => {
     expect(cells[4]).toBe(cells[0]);
   });
 
+  test('outlines the sankey flow a step announces as the one it went along', async ({ page }) => {
+    await openExample(page, 'sankey');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowDown')).toContain('Node is Wind');
+    const arrived = await press(page, 'ArrowRight');
+    expect(arrived).toContain('Node is Electricity');
+    expect(arrived).toContain('Along is Wind to Electricity');
+
+    // Mermaid draws a link per flow, in the order the flows are written.
+    const wind = page.locator('svg[maidr] g.link:not([data-maidr-owned]) path').nth(1);
+    const lit = page.locator(`${HIGHLIGHT} path`).first();
+    expect(await lit.getAttribute('d')).toBe(await wind.getAttribute('d'));
+  });
+
   test('outlines a journey task by the face drawn at its score', async ({ page }) => {
     await openExample(page, 'journey');
     await press(page, 'ArrowRight');

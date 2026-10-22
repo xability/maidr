@@ -224,6 +224,18 @@ describe('a flow trace publishes the ribbon it highlighted', () => {
     }
     expect(state.text.main.value).toBe('Electricity');
 
+    // Arrived along Coal-Electricity, which the step announced.
+    expect(canvasMarks(trace, FLOWS)).toEqual(['Coal-Electricity']);
+    expect(canvasMarks(trace, FLOWS)).toEqual(svgMarks(trace));
+
+    // Jumped to, it arrived along nothing: its own widest ribbon, outgoing.
+    for (let row = 0; row < 3; row++) {
+      trace.moveToIndex(row, 1);
+      const jumped = trace.state;
+      if (!jumped.empty && jumped.text.main.value === 'Electricity') {
+        break;
+      }
+    }
     expect(canvasMarks(trace, FLOWS)).toEqual(['Electricity-Homes']);
     expect(canvasMarks(trace, FLOWS)).toEqual(svgMarks(trace));
   });

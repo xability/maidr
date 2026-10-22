@@ -639,10 +639,21 @@ describe('buildNavigationMap (flow and network)', () => {
     const targets = outlined(navMap, layer, trace);
 
     // Electricity touches three ribbons. One is outlined — the one the SVG path
-    // would outline — and it is neither the first declared nor the widest.
+    // would outline, the one the step arrived along and announced.
     expect(targets).toHaveLength(1);
     expect(targets[0].kind).toBe('ribbon');
-    expect(spriteOf(targets[0])).toBe(RIBBONS[3]);
+    expect(spriteOf(targets[0])).toBe(RIBBONS[1]);
+
+    // Jumped to, Electricity outlines its own widest outflow, which is neither
+    // the first declared nor the widest on the chart.
+    for (let row = 0; row < 3; row++) {
+      trace.moveToIndex(row, 1);
+      const jumped = trace.state;
+      if (!jumped.empty && jumped.text.main.value === 'Electricity') {
+        break;
+      }
+    }
+    expect(spriteOf(outlined(navMap, layer, trace)[0])).toBe(RIBBONS[3]);
   });
 
   it('measures the outlined ribbon as the box it reports', () => {
@@ -667,7 +678,7 @@ describe('buildNavigationMap (flow and network)', () => {
     trace.moveOnce('FORWARD');
     trace.moveOnce('FORWARD');
 
-    expect(spriteOf(outlined(navMap, layer, trace)[0])).toBe(RIBBONS[3]);
+    expect(spriteOf(outlined(navMap, layer, trace)[0])).toBe(RIBBONS[1]);
   });
 
   it('outlines a declared alluvial, which reaches the resolver another way', () => {
@@ -684,7 +695,7 @@ describe('buildNavigationMap (flow and network)', () => {
     trace.moveOnce('FORWARD');
     trace.moveOnce('FORWARD');
 
-    expect(spriteOf(outlined(navMap, layer, trace)[0])).toBe(RIBBONS[3]);
+    expect(spriteOf(outlined(navMap, layer, trace)[0])).toBe(RIBBONS[1]);
   });
 
   it('outlines the links it can reach and clears on the ones it cannot', () => {
