@@ -139,7 +139,50 @@ describe('the walk runs input to output, scope by scope', () => {
     trace.moveOnce('FORWARD');
 
     expect(at(trace)).toBe('block1');
-    expect(aside(trace, 'Scope')).toBe('3 nodes inside');
+    expect(aside(trace, 'Size')).toBe('3 nodes inside');
+  });
+
+  test('a scope is announced as a scope, not by the noun for a node', () => {
+    // The x axis names what a node is -- here a layer, on a Mermaid git
+    // graph a commit -- so a scope announced by it was "Layer is block1",
+    // "Commit is main": the wrong kind, before the size could correct it.
+    const trace = graph();
+    trace.moveOnce('FORWARD');
+
+    expect(nonEmptyState(trace).text.main.label).toBe('Scope');
+    expect(at(trace)).toBe('block1');
+    expect(aside(trace, 'Scope')).toBeUndefined();
+  });
+
+  test('a node keeps the noun its producer gave it, inside a scope too', () => {
+    const trace = graph();
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('DOWNWARD');
+
+    expect(at(trace)).toBe('conv1');
+    expect(nonEmptyState(trace).text.main.label).toBe('Layer');
+  });
+
+  test('a scope whose nodes connect only to each other is not called not connected', () => {
+    // An agent flow drawn as one scope holds the whole graph: no edge
+    // crosses its boundary, and every step inside it is connected.
+    const trace = graph([
+      { id: 'a', path: ['flow'] },
+      { id: 'b', path: ['flow'], inputs: ['a'] },
+    ]);
+
+    expect(at(trace)).toBe('flow');
+    expect(aside(trace, 'Connections')).toBe('0 inputs, 0 outputs');
+    expect(aside(trace, 'Role')).toBeUndefined();
+  });
+
+  test('a scope whose nodes have no edges at all is not connected', () => {
+    const trace = graph([
+      { id: 'a', path: ['g'] },
+      { id: 'b', path: ['g'] },
+    ]);
+
+    expect(aside(trace, 'Role')).toBe('not connected');
   });
 
   test('down opens a scope onto its first member, and up closes it again', () => {
@@ -392,6 +435,16 @@ describe('the description', () => {
     expect(table.rows.map(row => row[1])).toEqual(['input', 'conv1', 'conv2', 'add', 'conv', 'pool', 'dense']);
     expect(table.rows[3]).toEqual(['block1', 'add', 'block1 > conv2, input', 'block2 > conv', '', '', '']);
   });
+
+  test('a graph with no scopes leaves out the Path column', () => {
+    // Blank in every row, and the first column heads each row: a reader
+    // moving down the Outputs column heard an empty header on every one.
+    const table = graph([{ id: 'a' }, { id: 'b', inputs: ['a'] }]).description.dataTable;
+
+    expect(table.headers).toEqual(['Layer', 'Inputs', 'Outputs']);
+    expect(table.columnAxes).toEqual(['x', undefined, undefined]);
+    expect(table.rows[0]).toEqual(['a', '', 'b']);
+  });
 });
 
 describe('an edge label is heard wherever its edge is', () => {
@@ -451,20 +504,93 @@ describe('an edge label is heard wherever its edge is', () => {
     expect(aside(trace, 'To')).toBe('b (yes; retry), c (yes, maybe; maybe)');
   });
 
-  test('an edge into a closed scope is heard without its label, and with it once the scope is open', () => {
+  test('an edge into a closed scope is heard with its label, and so is the edge inside once it is open', () => {
+    // The scope stands for one edge here, so its label names that edge and
+    // nothing else -- a flowchart's `yes` into a subgraph, which was heard
+    // as a bare "Shipping" beside its labelled `no`.
     const trace = graph([
       { id: 'a' },
       { id: 'g/b', label: 'b', path: ['g'], inputs: ['a'], inputLabels: ['go'] },
     ]);
 
     expect(at(trace)).toBe('a');
-    expect(aside(trace, 'To')).toBe('g');
+    expect(aside(trace, 'To')).toBe('g (go)');
 
     trace.moveOnce('FORWARD');
     trace.moveOnce('DOWNWARD');
 
     expect(at(trace)).toBe('b');
     expect(aside(trace, 'From')).toBe('a (go)');
+  });
+
+  test('edges into a closed scope that share one label are heard with it', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'g/b', label: 'b', path: ['g'], inputs: ['a'], inputLabels: ['stop'] },
+      { id: 'g/c', label: 'c', path: ['g'], inputs: ['a'], inputLabels: ['stop'] },
+    ]);
+
+    expect(aside(trace, 'To')).toBe('g (stop)');
+  });
+
+  test('edges out of a closed scope that share one label are heard with it, from either end', () => {
+    // A state diagram's `Running --> [*] : quit`, which the producer expands
+    // to an edge from every state inside Running.
+    const trace = graph([
+      { id: 'g/b', label: 'b', path: ['g'] },
+      { id: 'g/c', label: 'c', path: ['g'] },
+      { id: 'z', inputs: ['g/b', 'g/c'], inputLabels: ['quit', 'quit'] },
+    ]);
+
+    expect(at(trace)).toBe('g');
+    expect(aside(trace, 'To')).toBe('z (quit)');
+
+    trace.moveOnce('FORWARD');
+
+    expect(at(trace)).toBe('z');
+    expect(aside(trace, 'From')).toBe('g (quit)');
+  });
+
+  test('edges into a closed scope with different labels, or some unnamed, are heard without one', () => {
+    // A label names every edge the scope stands for, or none of them: never
+    // one of several as though it were all.
+    const differ = graph([
+      { id: 'a' },
+      { id: 'g/b', label: 'b', path: ['g'], inputs: ['a'], inputLabels: ['write'] },
+      { id: 'g/c', label: 'c', path: ['g'], inputs: ['a'], inputLabels: ['read'] },
+    ]);
+    const partly = graph([
+      { id: 'a' },
+      { id: 'g/b', label: 'b', path: ['g'], inputs: ['a'], inputLabels: ['go'] },
+      { id: 'g/c', label: 'c', path: ['g'], inputs: ['a'] },
+    ]);
+
+    expect(aside(differ, 'To')).toBe('g');
+    expect(aside(partly, 'To')).toBe('g');
+  });
+
+  test('an edge from inside an open scope into another closed one is heard with its label', () => {
+    const trace = graph([
+      { id: 's/a', label: 'a', path: ['s'] },
+      { id: 't/b', label: 'b', path: ['t'], inputs: ['s/a'], inputLabels: ['go'] },
+    ]);
+
+    expect(at(trace)).toBe('s');
+    expect(aside(trace, 'To')).toBe('t (go)');
+
+    trace.moveOnce('DOWNWARD');
+
+    expect(at(trace)).toBe('a');
+    expect(aside(trace, 'To')).toBe('t (go)');
+  });
+
+  test('an edge into a closed scope declared twice keeps both its labels', () => {
+    const trace = graph([
+      { id: 'a' },
+      { id: 'g/b', label: 'b', path: ['g'], inputs: ['a', 'a'], inputLabels: ['yes', 'retry'] },
+    ]);
+
+    expect(aside(trace, 'To')).toBe('g (yes; retry)');
   });
 
   test('fewer labels than inputs leaves the rest unnamed', () => {
@@ -482,8 +608,10 @@ describe('an edge label is heard wherever its edge is', () => {
 
   test('the description tabulates the labels', () => {
     const table = graph(DECISION).description.dataTable;
-    const check = table.rows.find(row => row[1] === 'check');
+    const name = table.headers.indexOf('Layer');
+    const outputs = table.headers.indexOf('Outputs');
+    const check = table.rows.find(row => row[name] === 'check');
 
-    expect(check?.[3]).toBe('ship (yes), fix (no)');
+    expect(check?.[outputs]).toBe('ship (yes), fix (no)');
   });
 });

@@ -41,7 +41,7 @@ const SECTION_WORDS = ['else if', 'else', 'catch', 'finally'];
 /** One frame of the block stack: a call whose body is open, or a fragment. */
 type Frame
   = | { kind: 'call'; caller: string; callee: string; reply?: string }
-    | { kind: 'fragment'; label: string; base: string }
+    | { kind: 'fragment'; label: string; opener: string }
     | { kind: 'group' };
 
 /**
@@ -271,7 +271,7 @@ export function parseZenUml(source: string): {
   let title: string | undefined;
   let replyNext = false;
   let starter = STARTER;
-  let lastClosed: { label: string; base: string } | null = null;
+  let lastClosed: { label: string; opener: string } | null = null;
 
   const declare = (id: string, extra: Partial<SequenceParticipant> = {}): string => {
     const key = unquote(id);
@@ -304,7 +304,7 @@ export function parseZenUml(source: string): {
     const token = tokens[at];
     if (token === '}') {
       const frame = stack.pop();
-      lastClosed = frame?.kind === 'fragment' ? { label: frame.label, base: frame.base } : null;
+      lastClosed = frame?.kind === 'fragment' ? { label: frame.label, opener: frame.opener } : null;
       if (frame?.kind === 'call' && frame.reply) {
         push({ from: frame.callee, to: frame.caller, text: frame.reply, kind: 'reply' });
       }
@@ -324,15 +324,18 @@ export function parseZenUml(source: string): {
 
     const keyword = opens ? keywordOf(token) : null;
     if (keyword && SECTION_WORDS.includes(keyword.keyword)) {
-      const base = closed?.base ?? 'alt';
+      // Named with the fragment's opening label, condition and all -- `alt
+      // available, else` -- so an else says what it is the alternative of,
+      // and every section of an else-if chain names the same fragment.
+      const opener = closed?.opener ?? 'alt';
       const condition = keyword.condition ? ` ${keyword.condition}` : '';
-      stack.push({ kind: 'fragment', label: `${base}, ${keyword.keyword}${condition}`, base });
+      stack.push({ kind: 'fragment', label: `${opener}, ${keyword.keyword}${condition}`, opener });
       continue;
     }
     if (keyword) {
-      const base = FRAGMENTS[keyword.keyword];
       const condition = keyword.condition ? ` ${keyword.condition}` : '';
-      stack.push({ kind: 'fragment', label: `${base}${condition}`, base });
+      const label = `${FRAGMENTS[keyword.keyword]}${condition}`;
+      stack.push({ kind: 'fragment', label, opener: label });
       continue;
     }
     const lower = token.toLowerCase();

@@ -239,7 +239,9 @@ test.describe('Mermaid adapter', () => {
     const decision = await press(page, 'ArrowRight');
 
     expect(decision).toContain('In stock?');
-    expect(decision).toContain('Back-order (no)');
+    // Its yes branch leads into the Shipping subgraph, which the reader meets
+    // closed: the edge it stands for is still named by its label.
+    expect(decision).toContain('To is Shipping (yes), Back-order (no)');
     expect(decision).toContain('Shape is decision');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('In stock?');
     // The diamond itself, which Mermaid's stylesheet paints, not only its label.
@@ -247,12 +249,32 @@ test.describe('Mermaid adapter', () => {
       .toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
 
+  test('names a transition into or out of a composite state by its event', async ({ page }) => {
+    await openExample(page, 'state');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowRight')).toContain('To is Running (start)');
+    expect(await press(page, 'ArrowRight')).toContain('To is Idle (stop), end (quit)');
+
+    await openExample(page, 'c4');
+    expect(await press(page, 'ArrowRight')).toContain('To is Bank (enterprise) (Uses)');
+  });
+
+  test('reads a flowchart in terse mode with no empty field after a step\'s name', async ({ page }) => {
+    await openExample(page, 'flowchart');
+    await page.keyboard.press('t');
+
+    const first = await press(page, 'ArrowRight');
+
+    expect(first).toMatch(/^Order received, 0 inputs, 1 output, /);
+    expect(first).not.toContain(', , ');
+  });
+
   test('outlines every node inside a flowchart\'s subgraph while the reader is on it', async ({ page }) => {
     await openExample(page, 'flowchart');
     await press(page, 'ArrowRight');
     await press(page, 'ArrowRight');
 
-    expect(await press(page, 'ArrowRight')).toContain('Step is Shipping');
+    expect(await press(page, 'ArrowRight')).toContain('Scope is Shipping');
     await expect.poll(async () => (await page.locator(HIGHLIGHT).allTextContents()).map(text => text.trim()).sort())
       .toEqual(['Pack items', 'Print label', 'Ship']);
   });
@@ -318,6 +340,27 @@ test.describe('Mermaid adapter', () => {
     await expect(dialog.locator('tr', { hasText: 'Session stored' }).locator('th, td').first()).toHaveText('');
   });
 
+  test('counts a sequence diagram\'s fragments as it draws them, and names an else by its alt', async ({ page }) => {
+    await openExample(page, 'sequence');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('d');
+
+    // One loop and one alt with an else: two boxes, not three.
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Fragments: 2');
+    await expect(dialog.locator('tr', { hasText: 'Welcome' })).toContainText('alt Two-factor enabled, else');
+  });
+
+  test('sets a participant\'s kind off from its name, in a lifeline and the description', async ({ page }) => {
+    await openExample(page, 'zenuml');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowDown')).toContain('Lifeline is Customer (actor)');
+
+    await page.keyboard.press('d');
+    await expect(page.getByRole('dialog'))
+      .toContainText('Customer (actor), API (boundary), Store (database)');
+  });
+
   test('goes into a Venn diagram\'s overlaps and back out', async ({ page }) => {
     await openExample(page, 'venn');
     const set = await press(page, 'ArrowRight');
@@ -371,14 +414,26 @@ test.describe('Mermaid adapter', () => {
     expect(box).not.toContain('Frame is CartUI');
   });
 
-  test('calls an architecture diagram\'s group an element, not a service', async ({ page }) => {
+  test('calls an architecture diagram\'s group a scope, not a service', async ({ page }) => {
     await openExample(page, 'architecture');
     await press(page, 'ArrowRight');
     const group = await press(page, 'ArrowRight');
 
-    expect(group).toContain('Element is API');
-    expect(group).toContain('Scope is 3 nodes inside');
+    expect(group).toContain('Scope is API');
+    expect(group).toContain('Size is 3 nodes inside');
     expect(group).not.toContain('Service is');
+  });
+
+  test('calls a git branch and an agent\'s flow scopes, and a flow of connected steps connected', async ({ page }) => {
+    await openExample(page, 'gitgraph');
+    const branch = await press(page, 'ArrowRight');
+    expect(branch).toContain('Scope is main');
+    expect(branch).not.toContain('Commit is main');
+
+    await openExample(page, 'agentflow');
+    const flow = await press(page, 'ArrowRight');
+    expect(flow).toContain('Scope is Review Agent');
+    expect(flow).not.toContain('not connected');
   });
 
   test('reads an architecture connection drawn without an arrow both ways', async ({ page }) => {
@@ -680,6 +735,17 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowDown')).toContain('Event is WCAG 1.0');
   });
 
+  test('says which section a timeline period is in, after the Level rotor crosses into the next', async ({ page }) => {
+    await openExample(page, 'timeline');
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowDown')).toContain('Period is 1999, Path is Guidelines');
+    await press(page, 'Control+ArrowRight');
+    await page.keyboard.press('Alt+Shift+ArrowDown');
+    await expect(page.locator('#maidr-rotor-area')).toContainText('Level');
+
+    expect(await press(page, 'ArrowRight')).toContain('Path is Standards');
+  });
+
   test('reads the Cynefin framework text, and reaches the Confusion it draws', async ({ page }) => {
     await openExample(page, 'cynefin');
     expect(await press(page, 'ArrowRight')).toContain('Domain is Complex (Probe → Sense → Respond, Emergent Practices)');
@@ -727,6 +793,31 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowRight')).toContain('Component is Business');
     await expect(page.locator(HIGHLIGHT).first()).toContainText('Business');
     expect(unresolved).toEqual([]);
+  });
+
+  test('says where the reader is among what the arrows walk, not where the sound is panned', async ({ page }) => {
+    await openExample(page, 'gantt');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    // The pan follows the time axis: "column 1.1818181818181819 of 2".
+    expect(await press(page, 'p')).toBe('Position is column 2 of 2, row 1 of 3');
+
+    await openExample(page, 'kanban');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowRight');
+    await press(page, 'ArrowDown');
+    // The only card in its column, which the whole depth made "column 3 of 4".
+    expect(await press(page, 'p')).toBe('Level 2 of 2, Position is 1 of 1 in In progress');
+  });
+
+  test('says an axis label a diagram does not have is not available', async ({ page }) => {
+    await openExample(page, 'mindmap');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('l');
+    expect(await press(page, 'x')).toContain('X label is Topic');
+    await page.keyboard.press('l');
+    // A tree has no y axis; "Y label is Y" named a placeholder as a label.
+    expect(await press(page, 'y')).toContain('Y label is not available');
   });
 
   test('names a timeline by the title it declares', async ({ page }) => {

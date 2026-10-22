@@ -600,6 +600,28 @@ export class Context implements Disposable {
   }
 
   /**
+   * Enters the active element where the first arrow key would, when the
+   * reader has not entered it yet, announcing it through the observers --
+   * text, audio, braille and highlight together.
+   *
+   * Every element's first `moveOnce` enters rather than steps, whatever the
+   * direction, and each trace keeps its own entry rules there (a scatter's
+   * mode, a line's first populated series, a graph's parked cursor), so this
+   * reuses it rather than restating them. A subplot is never entered on its
+   * own: its first move would step a layer.
+   *
+   * @returns True when the element had not been entered (it has been now, or
+   *   its emptiness announced); false when there is a current point already
+   */
+  public enterIfInitialEntry(): boolean {
+    if (!this.active.isInitialEntry || this.active.level === 'subplot') {
+      return false;
+    }
+    this.active.moveOnce('FORWARD');
+    return true;
+  }
+
+  /**
    * Whether {@link navigateTo} would move to a target, without moving.
    *
    * Answers only for the target itself -- the layer exists and the cell or

@@ -622,8 +622,12 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       plotType: this.spokenPlotType(plotTypeLabel(this.type)),
       title: this.title,
       name: this.name,
-      xAxis: this.xAxis,
-      yAxis: this.yAxis,
+      // Only what the layer authored, as the figure's own labels are. The
+      // label commands read these, and the generic 'X' and 'Y' the point
+      // text falls back to are not labels: "Y label is Y" on a chart with no
+      // y axis sounded like one, where "not available" is the truth.
+      xAxis: this.layer.axes?.x?.label?.trim() ? this.xAxis : '',
+      yAxis: this.layer.axes?.y?.label?.trim() ? this.yAxis : '',
       z: this.z,
       hasMultiPoints: this.hasMultiPoints,
       audio: this.audio,

@@ -113,7 +113,7 @@ describe('createMaidrFromGoogleChart with an OrgChart', () => {
       return state.text?.asides ?? [];
     };
 
-    expect(asidesOf()).toContainEqual({ label: 'Children', value: '2' });
+    expect(asidesOf()).toContainEqual({ label: 'Children', value: '2', terse: '2 children' });
     expect(asidesOf().map(a => a.label)).not.toContain('Links');
   });
 

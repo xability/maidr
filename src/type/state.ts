@@ -87,7 +87,13 @@ export type TraceState
        * trace type, which cannot tell two layers of one kind apart.
        */
       name?: string;
+      /**
+       * The x axis label the layer authored; empty when it authored none, or
+       * a blank one -- as {@link FigureState} does. Point announcements use
+       * the trace's own generic fallback, not this.
+       */
       xAxis: string;
+      /** The y axis label the layer authored, or empty. See `xAxis`. */
       yAxis: string;
       z: string;
       hasMultiPoints: boolean;
@@ -126,6 +132,15 @@ export type TraceState
        * slice on the dial from here.
        */
       startAngle?: number;
+      /**
+       * Where a tree's node sits among the siblings the arrow keys walk, and
+       * at which level. Present only for a tree, whose braille grid and pan
+       * run across the whole depth -- every node at it, whoever its parent
+       * -- while left and right stop at the parent's last child, so neither
+       * says where the reader is. `index` and `level` are zero-based;
+       * `parent` is the parent's name, absent at the top level.
+       */
+      treePosition?: { index: number; count: number; level: number; levels: number; parent?: string };
     };
 
 /**
@@ -358,6 +373,28 @@ export interface HeatmapBrailleState extends BaseBrailleState {
 export type AxisType = 'x' | 'y' | 'z';
 
 /**
+ * One fact a point carries that sits on neither axis -- see
+ * {@link TextState.asides}.
+ */
+export interface TextAside {
+  label: string;
+  value: string;
+  /**
+   * What terse mode says in place of `value`, when `value` alone does not
+   * say what it is.
+   *
+   * Terse mode drops every label, so it speaks `value` alone. That is enough
+   * for a value that names itself -- "2 inputs, 1 output", "15.0%" on a
+   * chart with one whole -- and not for one whose meaning is in the label: a
+   * share whose whole is named only there, a count of children, a list of
+   * names that would run into the next list. Such an aside carries the
+   * shortest clause that still does -- "71.4% of infrastructure", "2
+   * children", "from In stock?" -- and terse mode speaks that instead.
+   */
+  terse?: string;
+}
+
+/**
  * Text description state containing labels and values for screen reader output.
  */
 export interface TextState {
@@ -377,9 +414,10 @@ export interface TextState {
    * A pure hierarchy is the case that exists: `TreemapTrace` reads a tree
    * whose nodes declare no magnitude at all -- an org chart -- and every
    * value it could put here would be one the chart does not draw (#1153).
-   * `TextService` already tested for the clause before reading it in the
-   * terse and layer-switch paths; the verbose and grid paths now do too, and
-   * omit both the label and the value rather than announcing a bare label.
+   * `TextService` tests for the clause before reading it in every path, and
+   * omits both the label and the value rather than announcing a bare label.
+   * Terse mode joins only the clauses a state carries, so an absent one
+   * leaves no empty field behind it.
    *
    * Absent is not the same as empty. A trace that has a cross axis and no
    * reading at this point sends the axis with a non-finite value, which is
@@ -449,8 +487,11 @@ export interface TextState {
    * The values arrive already formatted, because only the trace knows what
    * they are: a share is a percentage and a tally is an integer, and there is
    * no axis to ask.
+   *
+   * Terse mode speaks each one's `value`, or its {@link TextAside.terse}
+   * where the value needs a word of its label to be understood.
    */
-  asides?: { label: string; value: string }[];
+  asides?: TextAside[];
   section?: string;
   /**
    * Original axis identity for main value.

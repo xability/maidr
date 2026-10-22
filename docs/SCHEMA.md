@@ -1054,8 +1054,10 @@ the edges are declared on the node they arrive at, as `inputs`, and scopes as a
   description's inputs and outputs. A blank or `null` entry leaves its edge
   unnamed. An edge declared twice with different labels carries both, in
   declared order, apart by semicolons: `B (yes; retry)`. An edge into or out
-  of a collapsed scope is heard without its label, since the scope stands for
-  many edges.
+  of a collapsed scope stands for every edge between the scope's members and
+  the far end, and is heard with their label when they all carry the same
+  one -- a state's `stop` out of a composite state, a flowchart's `yes` into
+  a subgraph -- and without one when they differ or some are unnamed.
 - `attributes` is free-form: each entry is announced as a clause, in declared
   order, and becomes a column of the description's table.
 
@@ -1068,7 +1070,9 @@ and **Inputs** units follow the edges downstream and upstream. An edge to a
 node inside a closed scope arrives at the scope. Each move announces the node,
 its connections as `2 inputs, 1 output`, whether it is a graph input or output
 or a branch or merge point, the names on either side, its attributes, and its
-place in the scope's order.
+place in the scope's order. A scope is announced as a scope rather than by the
+x axis's noun for a node -- `Scope is block1, Size is 3 nodes inside` -- and is
+called not connected only when nothing inside it has an edge.
 
 ### Sequence diagram (`sequence`) [experimental]
 
@@ -1094,12 +1098,14 @@ is an object, because a participant no message reaches is still a lifeline:
 
 - `participants` lists the lifelines left to right. `label` is what is
   announced, defaulting to `id`; `kind` (`actor`, `database`, ...) is announced
-  with the name; `group` names the box the diagram draws around it. A
+  in parentheses after the name, `Browser (actor)`; `group` names the box the diagram draws around it. A
   participant a message names without declaring is added after them.
 - `messages` run in time order. `kind` is one of `sync` (the default),
   `async`, `reply`, `create`, `destroy` or `note`; `fragments` lists the
   enclosing loops and alternatives, outermost first, as the diagram labels
-  them; `number` is the sequence number the diagram prints, omitted for a
+  them, a later section written as its fragment's label, a comma and the
+  section (`alt cached, else`), so it is heard with what it is the
+  alternative of and counted with its fragment; `number` is the sequence number the diagram prints, omitted for a
   message it does not number and for a note. The description's table shows
   only those numbers, a blank where there is none, and has no Number column
   when nothing is numbered.

@@ -783,14 +783,15 @@ export class TextService implements Observer<PlotState>, Disposable {
       return this.formatTerseGridText(state);
     }
 
-    const terse = new Array<string>();
+    // Each clause is pushed whole and the list joined once, so a clause the
+    // state does not carry -- the cross value of a chart with no cross axis
+    // (#1153): a directed graph, a sequence diagram, a tree without
+    // magnitudes -- leaves no empty field and no trailing comma behind.
+    const clauses = new Array<string>();
 
     // Grid cell point navigation: add "Cell [row,col]" prefix
     if (state.gridPosition && state.gridPoints === undefined) {
-      terse.push(
-        t('text.gridCell', { row: state.gridPosition.row, col: state.gridPosition.col }),
-        Constant.COMMA_SPACE,
-      );
+      clauses.push(t('text.gridCell', { row: state.gridPosition.row, col: state.gridPosition.col }));
     }
 
     // Use axis identity from state (supports orientation-aware formatting)
@@ -799,9 +800,9 @@ export class TextService implements Observer<PlotState>, Disposable {
     const cross = state.cross;
 
     if (Array.isArray(state.main.value)) {
-      terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.main.value as (number | string)[], mainAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+      clauses.push(this.bracketed(state.main.value as (number | string)[], mainAxisType));
     } else {
-      terse.push(this.formatSingleValue(state.main.value as number | string, mainAxisType), Constant.COMMA_SPACE);
+      clauses.push(this.formatSingleValue(state.main.value as number | string, mainAxisType));
     }
 
     // Special handling for boxplot outlier sections
@@ -813,8 +814,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       && Array.isArray(cross.value)
     ) {
       const outliers = cross.value as (number | string)[];
-      const formattedOutliers = this.formatArrayValue(outliers, crossAxisType);
-      const outlierStr = `${Constant.OPEN_BRACKET}${formattedOutliers.join(Constant.COMMA_SPACE)}${Constant.CLOSE_BRACKET}`;
+      const outlierStr = this.bracketed(outliers, crossAxisType);
       const formattedMainValue = this.formatSingleValue(state.main.value as number | string, mainAxisType);
       if (outliers.length === 0) {
         return t('text.terseNoOutliers', { value: formattedMainValue, section: state.section });
@@ -828,48 +828,58 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
 
     // Format for cross axis values.
-    // For candlestick and box plots, show section (type) first, then cross.value
-    // (price/value); other plots show cross.value normally.
-    if (state.section !== undefined) {
-      terse.push(state.section, Constant.SPACE);
-    }
+    let crossText: string | undefined;
     if (state.crossRange !== undefined) {
       // A span on the cross axis replaces the single value here for the same
       // reason it does in verbose mode: naming one end of an interval names
       // an edge of the bar as though it were the bar. Terse joins the two
       // with a dash rather than with "through", matching how terse drops
       // every other connective word.
-      terse.push(
-        this.formatSingleValue(state.crossRange.min, crossAxisType),
-        Constant.TO_DASH,
-        this.formatSingleValue(state.crossRange.max, crossAxisType),
-      );
+      crossText = `${this.formatSingleValue(state.crossRange.min, crossAxisType)}${Constant.TO_DASH}${this.formatSingleValue(state.crossRange.max, crossAxisType)}`;
     } else if (cross !== undefined) {
       // Skipped entirely when the chart has no cross axis (#1153).
-      if (!Array.isArray(cross.value)) {
-        terse.push(this.formatSingleValue(cross.value as number | string, crossAxisType));
-      } else {
-        terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
-      }
+      crossText = Array.isArray(cross.value)
+        ? this.bracketed(cross.value as (number | string)[], crossAxisType)
+        : this.formatSingleValue(cross.value as number | string, crossAxisType);
+    }
+    // For candlestick and box plots, show section (type) first, then
+    // cross.value (price/value), as one clause; other plots show cross.value
+    // normally.
+    if (state.section !== undefined) {
+      clauses.push(crossText === undefined ? state.section : `${state.section}${Constant.SPACE}${crossText}`);
+    } else if (crossText !== undefined) {
+      clauses.push(crossText);
     }
 
     // Format for heatmap, segmented and pie plots. Terse drops the label, so a
     // pie slice reads "Apples, 30, 33.3%".
     if (state.z !== undefined) {
       // For candlestick plots this reads e.g. "open 100, bear"
-      terse.push(Constant.COMMA_SPACE, this.formatZValue(state.z.value));
+      clauses.push(this.formatZValue(state.z.value));
     }
 
     // Terse drops the labels, as it does everywhere else, but keeps each
     // aside its own comma-separated clause: fusing one onto a neighbouring
-    // value is exactly what made `section` unusable for them.
+    // value is exactly what made `section` unusable for them. An aside whose
+    // value means nothing without its label brings its own terse clause.
     if (state.asides !== undefined) {
       for (const aside of state.asides) {
-        terse.push(Constant.COMMA_SPACE, aside.value);
+        clauses.push(aside.terse ?? aside.value);
       }
     }
 
-    return terse.join(Constant.EMPTY);
+    return clauses.join(Constant.COMMA_SPACE);
+  }
+
+  /**
+   * An array of values as terse mode brackets it: `[1, 2]`.
+   *
+   * @param values - The values to format
+   * @param axis - The axis whose formatter applies
+   * @returns The bracketed list
+   */
+  private bracketed(values: (number | string)[], axis: AxisType): string {
+    return `${Constant.OPEN_BRACKET}${this.formatArrayValue(values, axis).join(Constant.COMMA_SPACE)}${Constant.CLOSE_BRACKET}`;
   }
 
   /**

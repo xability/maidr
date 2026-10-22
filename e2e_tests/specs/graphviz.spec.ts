@@ -135,6 +135,19 @@ test.describe('Graphviz adapter', () => {
 
     expect(await plot.getBrailleContent()).toMatch(BRAILLE_CELL);
   });
+
+  test('should head each row of the description\'s table with its step, the graph having no clusters', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await page.keyboard.press('d');
+    const dialog = page.getByRole('dialog');
+
+    // No Path column, blank in every row of a graph with no clusters, and
+    // heading each row with nothing.
+    await expect(dialog.getByRole('columnheader')).toHaveText(['Step', 'Inputs', 'Outputs']);
+    await expect(dialog.getByRole('rowheader').first()).toHaveText('Order received');
+  });
 });
 
 test.describe('Graphviz adapter, undirected graph', () => {
@@ -201,13 +214,23 @@ test.describe('Graphviz adapter, clusters', () => {
 
     const announcement = normalizeText(await plot.getInstructionText());
 
-    expect(announcement).toContain('Component is Backend');
-    expect(announcement).toContain('4 nodes inside');
+    // A cluster is a scope, not a component.
+    expect(announcement).toContain('Scope is Backend');
+    expect(announcement).toContain('Size is 4 nodes inside');
     expect(announcement).toContain('To is Email worker');
     // Graphviz drew the cluster, but MAIDR derives the scope from its nodes:
     // every node inside it is outlined.
     await expect.poll(async () => (await page.locator(`${OUTLINE} title`).allTextContents()).sort())
       .toEqual(['api', 'cache', 'db', 'payments']);
+  });
+
+  test('should keep the description\'s Path column, where the graph has clusters', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await page.keyboard.press('d');
+
+    await expect(page.getByRole('dialog').getByRole('columnheader').first()).toHaveText('Path');
   });
 
   test('should open nested clusters with down and leave them with up', async ({ page }) => {
@@ -230,7 +253,7 @@ test.describe('Graphviz adapter, clusters', () => {
     await plot.moveToDataPointAbove();
     await plot.moveToDataPointAbove();
 
-    expect(normalizeText(await plot.getInstructionText())).toContain('Component is Backend');
+    expect(normalizeText(await plot.getInstructionText())).toContain('Scope is Backend');
   });
 });
 
@@ -276,6 +299,23 @@ test.describe('Graphviz adapter, patchwork treemap', () => {
     expect(announcement).toContain('Share of people is 76.9%');
     expect(announcement).not.toContain('Share of total');
     await expect(page.locator(`${CELL} title`)).toHaveText('salaries');
+  });
+
+  test('should name a leaf\'s branch with its share in terse mode', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.toggleTextMode();
+    await plot.moveToDataPointBelow();
+
+    // A branch's share is of the whole, and its children are counted as
+    // children rather than as a bare number.
+    expect(normalizeText(await plot.getInstructionText())).toBe('people, 65, 65.0%, 2 children');
+
+    await plot.moveToDataPointBelow();
+
+    // A leaf's share is of its branch, which terse mode names: a bare 76.9%
+    // sounded like the share of the whole the branch was just announced with.
+    expect(normalizeText(await plot.getInstructionText())).toBe('Salaries, 50, 76.9% of people');
   });
 
   test('should draw every leaf with its label inside its own rectangle', async ({ page }) => {

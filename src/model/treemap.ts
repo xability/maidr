@@ -7,7 +7,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextAside, TextState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
@@ -236,6 +236,9 @@ export class TreemapTrace extends AbstractTrace {
    */
   private readonly midAngles: number[][];
 
+  /** Each node's index among its siblings, shaped as `nodes` is. */
+  private readonly placeAmongSiblings: number[][];
+
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -260,6 +263,7 @@ export class TreemapTrace extends AbstractTrace {
       0,
     );
     this.midAngles = this.layOutAngles();
+    this.placeAmongSiblings = this.placeSiblings();
     this.highlightValues = this.mapToSvgElements(layer.selectors, points.length);
     this.movable = new MovableGraph(this.buildGraph());
   }
@@ -356,23 +360,8 @@ export class TreemapTrace extends AbstractTrace {
    * @returns The navigation graph, addressed as the nodes are
    */
   private buildGraph(): (Node | null)[][] {
-    // Where every node sits among its siblings, worked out in one pass over
-    // the tree. Searching a node's sibling list for the node instead reads
-    // the whole list once per sibling, so a parent with k children costs
-    // O(k^2) -- and a flat treemap, which is what a disk-usage or a
-    // market-cap chart is, hangs every leaf off a single parent.
     const roots: Coordinate[] = (this.nodes[0] ?? []).map((_, col) => ({ row: 0, col }));
-    const placeAmongSiblings = this.nodes.map(level => level.map(() => -1));
-    for (let col = 0; col < roots.length; col++) {
-      placeAmongSiblings[0][col] = col;
-    }
-    for (const level of this.nodes) {
-      for (const node of level) {
-        node?.children.forEach((child, at) => {
-          placeAmongSiblings[child.row][child.col] = at;
-        });
-      }
-    }
+    const placeAmongSiblings = this.placeAmongSiblings;
 
     return this.nodes.map(level =>
       level.map((node) => {
@@ -394,6 +383,30 @@ export class TreemapTrace extends AbstractTrace {
           end: siblings[siblings.length - 1] ?? null,
         };
       }));
+  }
+
+  /**
+   * Where every node sits among its siblings, worked out in one pass over
+   * the tree. Searching a node's sibling list for the node instead reads the
+   * whole list once per sibling, so a parent with k children costs O(k^2) --
+   * and a flat treemap, which is what a disk-usage or a market-cap chart is,
+   * hangs every leaf off a single parent.
+   *
+   * @returns Each node's index among its siblings, shaped as the nodes are
+   */
+  private placeSiblings(): number[][] {
+    const place = this.nodes.map(level => level.map(() => -1));
+    (this.nodes[0] ?? []).forEach((_, col) => {
+      place[0][col] = col;
+    });
+    for (const level of this.nodes) {
+      for (const node of level) {
+        node?.children.forEach((child, at) => {
+          place[child.row][child.col] = at;
+        });
+      }
+    }
+    return place;
   }
 
   /**
@@ -449,6 +462,35 @@ export class TreemapTrace extends AbstractTrace {
   /** The node the cursor is on, when it is on one. */
   private get current(): TreeNode | null {
     return this.nodes[this.row]?.[this.col] ?? null;
+  }
+
+  /**
+   * The state, with where the node sits among the siblings the arrows walk.
+   *
+   * The pan and the braille grid both run across a whole depth -- every node
+   * at it, whoever its parent -- so a position read from either said a lone
+   * card in a kanban's second column was "column 3 of 4", where left and
+   * right said there was nothing beside it.
+   *
+   * @returns The trace state
+   */
+  public override get state(): TraceState {
+    const state = super.state;
+    const node = this.current;
+    if (state.empty || node === null) {
+      return state;
+    }
+    const parent = node.parent === null ? null : this.nodes[node.parent.row]?.[node.parent.col] ?? null;
+    return {
+      ...state,
+      treePosition: {
+        index: this.placeAmongSiblings[this.row]?.[this.col] ?? 0,
+        count: parent === null ? (this.nodes[0]?.length ?? 0) : parent.children.length,
+        level: this.row,
+        levels: this.nodes.length,
+        ...(parent === null ? {} : { parent: parent.name }),
+      },
+    };
   }
 
   /**
@@ -636,15 +678,7 @@ export class TreemapTrace extends AbstractTrace {
     // Off both axes -- a share, a count and an ancestry are none of them
     // positions on one -- so they travel as asides, which the text service
     // emits as their own clauses and never runs through an axis formatter.
-    const asides: { label: string; value: string }[] = [];
-
-    const ancestors = this.ancestorsOf(node);
-    if (ancestors.length > 1) {
-      // The breadcrumb, from the second level down. At the first level the
-      // parent's name is the whole of the path and the share clause below
-      // already carries it.
-      asides.push({ label: t('model.asidePath'), value: ancestors.join(' > ') });
-    }
+    const asides: TextAside[] = [];
 
     // The two share clauses need no `valued` guard of their own, and one was
     // written and then removed for being unfalsifiable. In a tree that
@@ -656,14 +690,30 @@ export class TreemapTrace extends AbstractTrace {
     const parent = node.parent === null
       ? null
       : this.nodes[node.parent.row]?.[node.parent.col] ?? null;
-    if (parent !== null && parent.value !== 0) {
+    const sharesParent = parent !== null && parent.value !== 0;
+
+    const ancestors = this.ancestorsOf(node);
+    if (ancestors.length > 1 || (ancestors.length === 1 && !sharesParent)) {
+      // The breadcrumb, from the second level down. At the first level the
+      // parent's name is the whole of the path, and the share clause below
+      // names it -- except where there is no share to give: in a tree with
+      // no magnitudes, or under a parent of 0, the breadcrumb is the only
+      // clause that says which parent a first-level node is under.
+      const path = ancestors.join(' > ');
+      asides.push({ label: t('model.asidePath'), value: path, terse: t('model.tersePath', { path }) });
+    }
+
+    if (sharesParent) {
       // The comparison the rectangles are drawn to support, and the one a
-      // sighted reader estimates worst. The parent is named in the label so
-      // terse mode -- which drops aside labels -- still has one clause
-      // carrying both, rather than a bare percentage of nothing stated.
+      // sighted reader estimates worst. The parent is named with the share in
+      // terse mode too, which drops the label that names it in verbose: a
+      // bare percentage of nothing stated would sound like the share of the
+      // whole a top-level node is announced with.
+      const share = asPercent(node.value / parent.value);
       asides.push({
         label: t('model.asideShareOfParent', { parent: parent.name }),
-        value: asPercent(node.value / parent.value),
+        value: share,
+        terse: t('model.terseShareOfParent', { share, parent: parent.name }),
       });
     } else if (parent === null && this.grandTotal !== 0) {
       asides.push({
@@ -675,7 +725,12 @@ export class TreemapTrace extends AbstractTrace {
     if (node.children.length > 0) {
       // Whether there is anything below, which is the one thing the reader
       // cannot discover without pressing down and being told there is not.
-      asides.push({ label: t('model.asideChildren'), value: String(node.children.length) });
+      const count = node.children.length;
+      asides.push({
+        label: t('model.asideChildren'),
+        value: String(count),
+        terse: t(count === 1 ? 'model.terseChildrenOne' : 'model.terseChildrenMany', { count }),
+      });
     }
 
     return {

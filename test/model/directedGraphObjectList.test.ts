@@ -204,11 +204,36 @@ afterEach(() => {
 });
 
 describe('the graph lists every node and every scope', () => {
-  test('it is a list of nodes, counted as nodes', () => {
+  test('it is a list of nodes and scopes, each counted as what it is', () => {
+    // Nine items, two of them scopes: "9 nodes" contradicted the
+    // description's seven.
     const list = listOf(graph());
 
     expect(list.title).toBe('Nodes');
-    expect(list.count(9)).toBe('9 nodes');
+    expect(list.count(9)).toBe('7 nodes and 2 scopes');
+    expect(listOf(graph([{ id: 'a', path: ['g'] }])).count(2)).toBe('1 node and 1 scope');
+  });
+
+  test('a graph with no scopes is counted in nodes alone', () => {
+    const list = listOf(graph(DIAMOND));
+
+    expect(list.count(7)).toBe('7 nodes');
+    expect(list.count(1)).toBe('1 node');
+  });
+
+  test('a scope whose nodes connect only to each other is not listed as not connected', () => {
+    const flow = listOf(graph([
+      { id: 'a', path: ['flow'] },
+      { id: 'b', path: ['flow'], inputs: ['a'] },
+    ]));
+    const apart = listOf(graph([
+      { id: 'a', path: ['g'] },
+      { id: 'b', path: ['g'] },
+    ]));
+
+    expect(flow.objects[0].detail).toBe('2 nodes inside, 0 inputs, 0 outputs');
+    expect(filterLabels(flow)).not.toContain('Not connected');
+    expect(arranged(apart, 'chart', 'not-connected')).toContain('g');
   });
 
   test('the items run in outline order: each scope, then what it holds', () => {

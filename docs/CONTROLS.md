@@ -73,6 +73,9 @@ where two lines cross.
 | Access Labels (label mode)                | L, then a letter            | L, then a letter            |
 | Open Chart Description                    | D                           | D                           |
 
+Before your first move, Space enters the chart at its first point, as an
+arrow key does, so the next arrow moves on from there.
+
 Label mode is described under [Label Mode](#label-mode-announce-axis-labels).
 
 ### Modes
@@ -328,6 +331,10 @@ Press **L** to enter label mode, then press one of the following keys to announc
 | Announce Caption      | L, then C    | Speaks the figure caption                                     |
 
 Escape leaves label mode without announcing anything.
+
+A label the chart does not have -- a sequence diagram's or a tree's Y label,
+an axis its producer left unnamed -- is announced as not available, with the
+warning tone, rather than by a generic name such as "Y label is Y".
 
 ## Violin Plot Controls
 

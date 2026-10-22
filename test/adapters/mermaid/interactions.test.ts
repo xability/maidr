@@ -53,9 +53,35 @@ describe('a sequence diagram', () => {
     expect(data.messages).toEqual([
       { from: 'B', to: 'S', text: 'GET /', kind: 'sync', number: 1 },
       { from: 'S', to: 'B', text: '304', kind: 'reply', fragments: ['alt cached'], number: 2 },
-      { from: 'S', to: 'B', text: '200', kind: 'reply', fragments: ['alt, else fresh'], number: 3 },
+      { from: 'S', to: 'B', text: '200', kind: 'reply', fragments: ['alt cached, else fresh'], number: 3 },
       { from: 'S', to: 'S', text: 'log it', kind: 'note' },
       { from: 'B', to: 'S', text: 'ping', kind: 'async', number: 4 },
+    ]);
+  });
+
+  it('names each else with the fragment it is the alternative of, nested ones too', () => {
+    // `alt, else` said nothing about which alternative a reader had reached,
+    // and two alts' else branches read the same.
+    const nested = {
+      ...db,
+      getMessages: () => [
+        { id: '0', type: 12, message: 'signed in' },
+        { id: '1', type: 0, from: 'B', to: 'S', message: 'load' },
+        { id: '2', type: 13, message: '' },
+        { id: '3', type: 12, message: 'has a cookie' },
+        { id: '4', type: 0, from: 'B', to: 'S', message: 'refresh' },
+        { id: '5', type: 13, message: '' },
+        { id: '6', type: 0, from: 'B', to: 'S', message: 'log in' },
+        { id: '7', type: 14, message: '' },
+        { id: '8', type: 14, message: '' },
+      ],
+    };
+    const data = layersOf(convert('sequence', nested, drawn('s')))[0].data as SequenceData;
+
+    expect(data.messages.map(message => message.fragments)).toEqual([
+      ['alt signed in'],
+      ['alt signed in, else', 'alt has a cookie'],
+      ['alt signed in, else', 'alt has a cookie, else'],
     ]);
   });
 

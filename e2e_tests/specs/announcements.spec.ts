@@ -185,3 +185,28 @@ test.describe('Announcement recorder', () => {
     expect((await recordedAnnouncements(page)).length).toBe(before);
   });
 });
+
+test.describe('Space before the first move', () => {
+  test('enters the chart and announces its first point, so the next arrow moves on', async ({ page }) => {
+    const histogramPage = new HistogramPage(page);
+    await histogramPage.navigateToHistogram();
+    await installAnnouncementRecorder(page);
+    await histogramPage.activateMaidr();
+    const before = (await recordedAnnouncements(page)).length;
+
+    // Space read the parked point off the state: shown, but never added to
+    // the live region, never highlighted, and the next arrow entered at the
+    // same point and announced it again.
+    await page.keyboard.press('Space');
+
+    await expect.poll(async () => (await recordedAnnouncements(page)).slice(before)).toHaveLength(1);
+    const first = (await recordedAnnouncements(page))[before];
+    await expect(page.locator('[id^="maidr-highlight"]').first()).toBeAttached();
+
+    await histogramPage.moveToNextDataPoint();
+
+    const recorded = (await recordedAnnouncements(page)).slice(before);
+    expect(recorded).toHaveLength(2);
+    expect(recorded[1]).not.toBe(first);
+  });
+});
