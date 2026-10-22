@@ -204,7 +204,7 @@ describe('degree is the announcement, and position is never mentioned', () => {
 
     expect(text.cross).toEqual({ label: 'Links', value: 4 });
     expect(text.asides?.[0])
-      .toEqual({ label: 'Linked to', value: 'Grace, Alan, Edsger and 1 more' });
+      .toMatchObject({ label: 'Linked to', value: 'Grace, Alan, Edsger and 1 more' });
   });
 
   test('the degree is announced once, not again among the asides', () => {
@@ -254,7 +254,7 @@ describe('degree is the announcement, and position is never mentioned', () => {
     // Without it a reader walking one group has no way to tell whether the
     // chart is that group or one of several.
     expect(nonEmptyState(network()).text.asides)
-      .toContainEqual({ label: 'Group', value: '1 of 3, 5 nodes' });
+      .toContainEqual(expect.objectContaining({ label: 'Group', value: '1 of 3, 5 nodes' }));
   });
 
   test('a single-group chart says nothing about groups', () => {

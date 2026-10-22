@@ -149,6 +149,8 @@ maidrGraphviz.bindGraphviz(document.getElementById('diagram'), { nodeLabel: 'Per
 
 A network names its nodes by the text drawn on them. Where two nodes are drawn with the same text, every node is named by its DOT name instead, so the two stay two. A node no edge touches has no link to be named in, and is not read -- the adapter names such nodes in a console warning; a loop (`a -- a`) is reported apart from the node's links.
 
+A move announces the person, their number of links, whom they are linked to and their group: `Person is Ana, Links is 2, Linked to is Chloe, Ben, Group is 1 of 2, 4 nodes`. Terse mode drops the labels but keeps a word of the last two, so the names and the group stay apart: `Ana, 2, linked to Chloe, Ben, group 1 of 2, 4 nodes`.
+
 #### Treemap (patchwork) [experimental]
 
 The `patchwork` layout draws each node as a rectangle whose area is its `area` attribute, packed inside the rectangles of its clusters: the drawing is a treemap. Pass `layout: 'patchwork'` -- the SVG does not say which layout drew it -- and the adapter reads it as one, the clusters as branches and the nodes as leaves. The reader moves between siblings with Left and Right, opens a branch with Down and leaves it with Up, and hears each item's share.

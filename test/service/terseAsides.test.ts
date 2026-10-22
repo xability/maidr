@@ -16,7 +16,8 @@ import { TraceType } from '@type/grammar';
  * top-level node is announced with. A count of children read as a bare
  * number, and a directed graph's From and To lists, joined with the same
  * comma terse puts between clauses, ran into each other and into whatever
- * followed them.
+ * followed them. A network's neighbours ran on from the node's name the same
+ * way, and its group's position after them sounded like the node's own.
  */
 
 /**
@@ -54,6 +55,24 @@ const TREE: MaidrLayer = {
   title: 'Population by region',
   axes: { x: { label: 'Region' }, y: { label: 'Population' } },
   data: NATIONS,
+};
+
+/**
+ * Ana, Ben, Chloe and Dev in one group, Chloe the most connected, and Eli and
+ * Fay in another: the Graphviz network example.
+ */
+const TEAM: MaidrLayer = {
+  id: 'team',
+  type: TraceType.NETWORK,
+  title: 'Who reviews whose code',
+  axes: { x: { label: 'Person' }, y: { label: 'Links' } },
+  data: [
+    { source: 'Ana', target: 'Chloe' },
+    { source: 'Ben', target: 'Chloe' },
+    { source: 'Chloe', target: 'Dev' },
+    { source: 'Ana', target: 'Ben' },
+    { source: 'Eli', target: 'Fay' },
+  ],
 };
 
 /** received -> stock -> (supplier -> pack), (pack) -> ship */
@@ -119,5 +138,19 @@ describe('a directed graph in terse mode', () => {
     } as MaidrLayer;
 
     expect(heard(scoped, 'terse', ['FORWARD', 'DOWNWARD'])).toMatch(/^API, in Backend, 1 input, /);
+  });
+});
+
+describe('a network in terse mode', () => {
+  test('keeps the neighbours apart from the name, and the group from the neighbours', () => {
+    // "Ana, 2, Chloe, Ben, 1 of 2, 4 nodes" before: the neighbours ran on
+    // from Ana's own name, and the group's position from the last of them,
+    // where it sounded like Ana's.
+    expect(heard(TEAM, 'terse', ['FORWARD'])).toBe('Ana, 2, linked to Chloe, Ben, group 1 of 2, 4 nodes');
+  });
+
+  test('verbose mode reads as it did', () => {
+    expect(heard(TEAM, 'verbose', ['FORWARD']))
+      .toBe('Person is Ana, Links is 2, Linked to is Chloe, Ben, Group is 1 of 2, 4 nodes');
   });
 });

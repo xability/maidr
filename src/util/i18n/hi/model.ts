@@ -747,6 +747,8 @@ export const model = {
   'model.networkLinkAxis': 'लिंक',
   'model.networkAndMore': ' और {count} अन्य',
   'model.networkGroupPosition': '{total} में से {index}, {size} नोड',
+  'model.terseLinkedTo': '{names} से जुड़ा',
+  'model.terseGroup': 'समूह {position}',
   'model.statNumberOfLinks': 'लिंक की संख्या',
   'model.statSelfLinks': 'स्व-लिंक',
   'model.statSeparateGroups': 'अलग समूह',

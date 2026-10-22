@@ -754,6 +754,8 @@ export const model = {
   'model.networkLinkAxis': '연결 수',
   'model.networkAndMore': ' 외 {count}개',
   'model.networkGroupPosition': '{total}개 중 {index}번째, 노드 {size}개',
+  'model.terseLinkedTo': '연결 대상 {names}',
+  'model.terseGroup': '그룹 {position}',
   'model.statNumberOfLinks': '연결 개수',
   'model.statSelfLinks': '자기 연결 수',
   'model.statSeparateGroups': '분리된 그룹 수',

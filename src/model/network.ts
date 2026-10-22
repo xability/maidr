@@ -8,7 +8,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextAside, TextState } from '@type/state';
 import type { Centrality } from '@util/graphCentrality';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { centrality, withinCentralityBudget } from '@util/graphCentrality';
@@ -471,7 +471,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       };
     }
 
-    const asides: { label: string; value: string }[] = [];
+    // Terse mode drops each aside's label, so both keep a word of it there,
+    // as a directed graph's From and To do: bare, the neighbours ran on from
+    // the node's own name and the group's "1 of 2" from the last neighbour,
+    // where it sounded like the node's position -- "Ana, 2, Chloe, Ben, 1 of
+    // 2, 4 nodes".
+    const asides: TextAside[] = [];
 
     // The degree is the cross value, so the aside names the neighbours and
     // leaves the count to it: repeating it read "Links is 3, Links is 3, to
@@ -479,10 +484,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     // and has nobody to name.
     const links = node.links.length;
     if (links > 0) {
+      const names = node.links.slice(0, 3).map(one => this.nodes[one].name).join(', ')
+        + (links > 3 ? t('model.networkAndMore', { count: links - 3 }) : '');
       asides.push({
         label: t('model.tableLinkedTo'),
-        value: node.links.slice(0, 3).map(one => this.nodes[one].name).join(', ')
-          + (links > 3 ? t('model.networkAndMore', { count: links - 3 }) : ''),
+        value: names,
+        terse: t('model.terseLinkedTo', { names }),
       });
     }
 
@@ -490,13 +497,15 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       // Which piece of the chart the reader is in, and how big it is. Without
       // it a reader walking one component has no way to tell whether the
       // chart is that component or one of several.
+      const position = t('model.networkGroupPosition', {
+        index: this.row + 1,
+        total: this.components.length,
+        size: this.grid[this.row].length,
+      });
       asides.push({
         label: t('model.nounGroup'),
-        value: t('model.networkGroupPosition', {
-          index: this.row + 1,
-          total: this.components.length,
-          size: this.grid[this.row].length,
-        }),
+        value: position,
+        terse: t('model.terseGroup', { position }),
       });
     }
 

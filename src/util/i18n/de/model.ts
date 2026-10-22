@@ -758,6 +758,8 @@ export const model = {
   'model.networkLinkAxis': 'Verbindungen',
   'model.networkAndMore': ' und {count} weitere',
   'model.networkGroupPosition': '{index} von {total}, {size} Knoten',
+  'model.terseLinkedTo': 'verbunden mit {names}',
+  'model.terseGroup': 'Gruppe {position}',
   'model.statNumberOfLinks': 'Anzahl der Verbindungen',
   'model.statSelfLinks': 'Eigenverbindungen',
   'model.statSeparateGroups': 'Getrennte Gruppen',
