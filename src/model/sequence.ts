@@ -6,7 +6,7 @@ import type {
   SequenceParticipant,
 } from '@type/grammar';
 import type { Coordinate, MovableDirection, Node } from '@type/movable';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceEmptyState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { t } from '@util/i18n';
 import { Svg } from '@util/svg';
@@ -437,16 +437,40 @@ export class SequenceTrace extends AbstractTrace {
         max: lanes,
         raw: step === null ? Number.NaN : step.to + 1,
       },
-      // The arriving participant's place across the diagram, so the sound
-      // sits where the arrow ends.
-      panning: {
-        x: step === null ? 0 : step.to,
-        y: this.row,
-        rows: this.rows.length,
-        cols: Math.max(2, lanes),
-      },
+      panning: this.panning,
       ...(glide === undefined ? {} : { glide }),
     };
+  }
+
+  /**
+   * Where the message sits in the stereo field: the arriving participant's
+   * place across the diagram, so the sound sits where the arrow ends.
+   *
+   * Across the lanes there are, so a lone lifeline is centred, as the audio
+   * service centres a row of one, rather than counted as one of two and put
+   * hard left.
+   *
+   * @returns The panning state
+   */
+  private get panning(): AudioState['panning'] {
+    const step = this.current;
+    return {
+      x: step === null ? 0 : step.to,
+      y: this.row,
+      rows: this.rows.length,
+      cols: this.lanes.length,
+    };
+  }
+
+  /**
+   * A refused move sounds its boundary where the message under the cursor
+   * sounds, at the lane it arrives at, not at its place along the row, which
+   * the tone never follows.
+   *
+   * @returns The empty trace state, panned as the current message
+   */
+  protected override get outOfBoundsState(): TraceEmptyState {
+    return { empty: true, type: 'trace', traceType: this.type, audio: this.panning };
   }
 
   protected get braille(): BrailleState {

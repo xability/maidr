@@ -307,6 +307,35 @@ describe('the modalities agree with the announcement', () => {
     expect(state(trace).audio.freq).toEqual({ min: 1, max: 1, raw: 1 });
   });
 
+  test('a one-participant diagram sounds in the centre', () => {
+    // The pan counted every diagram as at least two lanes wide, so a lone
+    // lifeline's messages sat hard left, where the audio service centres a
+    // row of one.
+    const trace = sequence({ participants: [], messages: [{ from: 'a', to: 'a', text: 'think' }] });
+
+    expect(state(trace).audio.panning).toMatchObject({ x: 0, cols: 1 });
+  });
+
+  test('the boundary tone sounds where the message under the cursor sounds', () => {
+    // The tone pans by the lane a message arrives at, but a refused move
+    // panned by the message's place along the row: past the last message, a
+    // note on the server just left of centre, the boundary chimed at the far
+    // right.
+    const trace = sequence();
+    for (let i = 1; i < LOGIN.messages.length; i++) {
+      trace.moveOnce('FORWARD');
+    }
+    const heard = state(trace).audio.panning;
+    const seen: unknown[] = [];
+    trace.addObserver({ update: update => seen.push(update) });
+
+    trace.moveOnce('FORWARD');
+
+    expect(state(trace).text.main.value).toBe('cache warm');
+    expect(heard).toMatchObject({ x: 1, cols: 4 });
+    expect(seen.at(-1)).toMatchObject({ empty: true, audio: heard });
+  });
+
   test('every lane but the leftmost keeps the pitch it had', () => {
     // The shift moves the scale with the value, so the fraction of the range
     // each lane sits at is its place across the diagram, as before.
