@@ -268,11 +268,84 @@ describe('the modalities agree with the announcement', () => {
   test('the pitch is the arriving participant, gliding with the arrow', () => {
     const trace = sequence();
     const audio = state(trace).audio;
-    expect(audio.freq.raw).toBe(1);
+    expect(audio.freq).toEqual({ min: 1, max: 4, raw: 2 });
     expect(audio.glide).toBe('up');
     trace.moveOnce('FORWARD');
     trace.moveOnce('FORWARD');
     expect(state(trace).audio.glide).toBe('down');
+  });
+
+  test('a message arriving at the leftmost participant is the lowest pitch, not the zero marker', () => {
+    // An exact 0 is the audio service's marker for a value of zero, which
+    // plays before any glide: a reply to the browser sounded like a zero,
+    // with no pitch for who receives it and no fall for the arrow.
+    const trace = sequence();
+    for (let i = 0; i < 4; i++) {
+      trace.moveOnce('FORWARD');
+    }
+
+    const audio = state(trace).audio;
+
+    expect(state(trace).text.main.value).toBe('200 OK');
+    expect(audio.freq).toEqual({ min: 1, max: 4, raw: 1 });
+    expect(audio.glide).toBe('down');
+  });
+
+  test('a self-message on the leftmost participant is a pitch', () => {
+    const trace = sequence({ participants: [], messages: [{ from: 'a', to: 'a', text: 'think' }, { from: 'a', to: 'b' }] });
+
+    const audio = state(trace).audio;
+
+    expect(audio.freq.raw).toBe(1);
+    expect(audio.freq.min).toBe(1);
+    expect(audio.glide).toBeUndefined();
+  });
+
+  test('a one-participant diagram sounds rather than reading as zero', () => {
+    const trace = sequence({ participants: [], messages: [{ from: 'a', to: 'a', text: 'think' }] });
+
+    expect(state(trace).audio.freq).toEqual({ min: 1, max: 1, raw: 1 });
+  });
+
+  test('a one-participant diagram sounds in the centre', () => {
+    // The pan counted every diagram as at least two lanes wide, so a lone
+    // lifeline's messages sat hard left, where the audio service centres a
+    // row of one.
+    const trace = sequence({ participants: [], messages: [{ from: 'a', to: 'a', text: 'think' }] });
+
+    expect(state(trace).audio.panning).toMatchObject({ x: 0, cols: 1 });
+  });
+
+  test('the boundary tone sounds where the message under the cursor sounds', () => {
+    // The tone pans by the lane a message arrives at, but a refused move
+    // panned by the message's place along the row: past the last message, a
+    // note on the server just left of centre, the boundary chimed at the far
+    // right.
+    const trace = sequence();
+    for (let i = 1; i < LOGIN.messages.length; i++) {
+      trace.moveOnce('FORWARD');
+    }
+    const heard = state(trace).audio.panning;
+    const seen: unknown[] = [];
+    trace.addObserver({ update: update => seen.push(update) });
+
+    trace.moveOnce('FORWARD');
+
+    expect(state(trace).text.main.value).toBe('cache warm');
+    expect(heard).toMatchObject({ x: 1, cols: 4 });
+    expect(seen.at(-1)).toMatchObject({ empty: true, audio: heard });
+  });
+
+  test('every lane but the leftmost keeps the pitch it had', () => {
+    // The shift moves the scale with the value, so the fraction of the range
+    // each lane sits at is its place across the diagram, as before.
+    const trace = sequence();
+    const lanes = 4;
+    for (let col = 0; col < LOGIN.messages.length; col++) {
+      const { freq, panning } = state(trace).audio;
+      expect((Number(freq.raw) - freq.min) / (freq.max - freq.min)).toBeCloseTo(panning.x / (lanes - 1));
+      trace.moveOnce('FORWARD');
+    }
   });
 
   test('a participant named only by a message becomes a lane', () => {

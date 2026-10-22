@@ -329,6 +329,17 @@ export class AudioService implements Observer<PlotState>, Disposable {
   public update(state: PlotState): void {
     this.updateMode(state);
 
+    // A subplot's empty state is a layer edge's words, "No additional layer".
+    // `Subplot.switchLayer` and `Context.stepTrace` always send it right after
+    // the active trace's empty state, which carries the cursor's pan and
+    // sounds the boundary: a tone here too was a second, centred chord on top
+    // of it. Nothing to sound, so it must not claim the shared deferred-cue
+    // slot either -- on a suspended context it would take the trace's chord's
+    // place there, and the edge would be silent.
+    if (state.empty && state.type === 'subplot' && !state.warning) {
+      return;
+    }
+
     // Cancel any echoes queued from the previous navigation so they don't
     // bleed into the new point's playback, and the chord chain with them: it
     // outlives update() and would otherwise keep queueing tones and echoes for
@@ -391,8 +402,10 @@ export class AudioService implements Observer<PlotState>, Disposable {
           rows: state.audio.rows,
           cols: state.audio.cols,
         });
+      } else if (state.type === 'subplot') {
+        // Words only; update() already returns before reaching here.
       } else {
-        // Subplot/Figure empty state - no spatial audio info available
+        // Figure empty state - no spatial audio info available
         this.playEmptyTone({ x: 0, y: 0, rows: 1, cols: 1 });
       }
       return;

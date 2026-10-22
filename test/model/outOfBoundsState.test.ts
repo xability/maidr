@@ -19,8 +19,9 @@ import { TraceType } from '@type/grammar';
  *
  * The narrowed type already makes that a build error, so these tests are the
  * runtime half: they pin the invariant so it survives even if the declaration
- * is ever widened back. `ScatterTrace` is covered specifically because it is
- * the one class that overrides the accessor.
+ * is ever widened back. `ScatterTrace` is covered specifically because it
+ * overrides the accessor; the other traces that do pin the pan of their
+ * boundary tone in their own suites.
  */
 
 /** A bar layer with no selectors, so the trace resolves no highlight elements. */

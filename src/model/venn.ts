@@ -434,18 +434,17 @@ export class VennTrace extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
+    // The row's own width, as the boundary tone and the position read it: a
+    // row holding one region -- the overlap of every set, or a diagram of one
+    // set -- has no left or right, and the audio service centres it.
+    const { rows, cols } = this.dimension;
     return {
       freq: {
         min: this.min,
         max: this.max,
         raw: this.magnitudes[this.row]?.[this.col] ?? Number.NaN,
       },
-      panning: {
-        x: this.col,
-        y: this.row,
-        rows: this.levels.length,
-        cols: Math.max(2, this.levels[this.row]?.length ?? 1),
-      },
+      panning: { x: this.col, y: this.row, rows, cols },
     };
   }
 

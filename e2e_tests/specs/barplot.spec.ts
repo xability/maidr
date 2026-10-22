@@ -150,6 +150,27 @@ test.describe('Bar Plot', () => {
       expect(isBrailleModeOff).toBe(true);
     });
 
+    test('should turn braille on without a console warning from device detection', async ({ page }) => {
+      // Turning braille on asks which tactile displays the page could reach.
+      // Chromium without Web Bluetooth -- Linux builds, this suite's among
+      // them -- answered the policy question about it with "Unrecognized
+      // feature: 'bluetooth'." twice per press, a warning that reads as a
+      // MAIDR fault in every host's console.
+      const warnings: string[] = [];
+      page.on('console', (message) => {
+        if (message.text().includes('Unrecognized feature')) {
+          warnings.push(message.text());
+        }
+      });
+      const barPlotPage = await setupBarPlotPage(page);
+
+      await barPlotPage.toggleBrailleMode();
+      const isBrailleModeOn = await barPlotPage.isBrailleModeActive(TestConstants.BRAILLE_ON);
+
+      expect(isBrailleModeOn).toBe(true);
+      expect(warnings).toEqual([]);
+    });
+
     test('should toggle sound mode on and off', async ({ page }) => {
       const barPlotPage = await setupBarPlotPage(page);
 

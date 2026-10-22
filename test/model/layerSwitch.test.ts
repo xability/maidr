@@ -66,6 +66,29 @@ describe('stepping between layers', () => {
     expect(log.filter(entry => entry.startsWith('subplot'))).toEqual([]);
   });
 
+  test('a successful switch notifies the entered trace exactly once, as the layer switch', () => {
+    // Carrying the reader's position moves the entered trace's cursor, and a
+    // move announces itself: every observer heard the point as a move and
+    // then again as the switch, and the audio service played its tone twice.
+    const figure = twoLayerFigure();
+    const subplot = figure.activeSubplot;
+    const bars = subplot.traces[0][0];
+    bars.moveOnce('FORWARD');
+    bars.moveOnce('FORWARD');
+    const log: string[] = [];
+    subplot.traces.flat().forEach((trace, index) => {
+      trace.addObserver({
+        update: (state: TraceState | PlotState) => log.push(
+          `trace${index}:${state.empty ? 'empty' : 'isLayerSwitch' in state ? 'switch' : 'ok'}`,
+        ),
+      });
+    });
+
+    subplot.switchLayer('UPWARD');
+
+    expect(log).toEqual(['trace1:switch']);
+  });
+
   test('a single-layer subplot cannot switch and reports the boundary once each', () => {
     const figure = new Figure({
       id: 'single',

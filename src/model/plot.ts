@@ -633,9 +633,10 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     }
 
     // At the edge of the layers there is one boundary to report: the trace's
-    // tone and the subplot's "no additional layer", once each. Checked before
-    // moving, because `moveOnce` would notify the subplot's boundary itself and
-    // the pair below would then repeat it.
+    // tone and the subplot's "no additional layer", once each -- the audio
+    // service sounds the trace's state only, the subplot's is words. Checked
+    // before moving, because `moveOnce` would notify the subplot's boundary
+    // itself and the pair below would then repeat it.
     if (!this.isMovable(direction)) {
       currentTrace.notifyOutOfBounds();
       this.notifyOutOfBounds();
@@ -654,7 +655,14 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       return null;
     }
 
-    Subplot.carryPosition(currentTrace, newTrace, currentXValue);
+    // Carried silently too, as `selectLayer` carries it: the move positions
+    // the new trace's cursor, and a cursor move announces itself, so every
+    // observer heard the point once as a move and again as the switch -- the
+    // tone twice, a few milliseconds apart. A carry that misses is not a
+    // boundary either: the switch landed.
+    newTrace.runSilently(() => {
+      Subplot.carryPosition(currentTrace, newTrace, currentXValue);
+    });
 
     // Notify after positioning is complete
     this.notifyLayerSwitch(newTrace);

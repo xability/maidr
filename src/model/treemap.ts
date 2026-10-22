@@ -8,7 +8,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextAside, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextAside, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
@@ -201,6 +201,21 @@ export class TreemapTrace extends AbstractTrace {
   private readonly depthMin: number[];
   private readonly depthMax: number[];
 
+  /**
+   * Each node's child count plus one, shaped as `nodes` is, with its per-depth
+   * extremes: what braille and the pitch carry for a tree that declares no
+   * magnitude (see {@link TreemapTrace.valued}). A null node counts as a leaf.
+   */
+  private readonly shape: number[][];
+  private readonly shapeMin: number[];
+  private readonly shapeMax: number[];
+
+  /**
+   * Where each node sits among its siblings, shaped as `nodes` is: what Left
+   * and Right walk, and what a treemap's and a pack's pan follows.
+   */
+  private readonly siblingPlace: number[][];
+
   /** Every top-level node's total, added up. */
   private readonly grandTotal: number;
 
@@ -238,9 +253,6 @@ export class TreemapTrace extends AbstractTrace {
    */
   private readonly midAngles: number[][];
 
-  /** Each node's index among its siblings, shaped as `nodes` is. */
-  private readonly placeAmongSiblings: number[][];
-
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -260,12 +272,15 @@ export class TreemapTrace extends AbstractTrace {
       level.map(node => node?.value ?? Number.NaN));
     this.depthMin = this.nodeValues.map(level => MathUtil.safeMin(level));
     this.depthMax = this.nodeValues.map(level => MathUtil.safeMax(level));
+    this.shape = this.nodes.map(level => level.map(node => (node?.children.length ?? 0) + 1));
+    this.shapeMin = this.shape.map(level => MathUtil.safeMin(level));
+    this.shapeMax = this.shape.map(level => MathUtil.safeMax(level));
     this.grandTotal = (this.nodes[0] ?? []).reduce(
       (total, node) => total + (node?.value ?? 0),
       0,
     );
     this.midAngles = this.layOutAngles();
-    this.placeAmongSiblings = this.placeSiblings();
+    this.siblingPlace = this.placeAmongSiblings();
     this.highlightValues = this.mapToSvgElements(layer.selectors, points.length);
     this.movable = new MovableGraph(this.buildGraph());
   }
@@ -363,7 +378,6 @@ export class TreemapTrace extends AbstractTrace {
    */
   private buildGraph(): (Node | null)[][] {
     const roots: Coordinate[] = (this.nodes[0] ?? []).map((_, col) => ({ row: 0, col }));
-    const placeAmongSiblings = this.placeAmongSiblings;
 
     return this.nodes.map(level =>
       level.map((node) => {
@@ -371,7 +385,7 @@ export class TreemapTrace extends AbstractTrace {
           return null;
         }
         const siblings = this.siblingsOf(node, roots);
-        const at = placeAmongSiblings[node.depth][node.index];
+        const at = this.siblingPlace[node.depth][node.index];
         return {
           up: node.parent,
           down: node.children[0] ?? null,
@@ -388,27 +402,28 @@ export class TreemapTrace extends AbstractTrace {
   }
 
   /**
-   * Where every node sits among its siblings, worked out in one pass over
-   * the tree. Searching a node's sibling list for the node instead reads the
+   * Where every node sits among its siblings, worked out in one pass over the
+   * tree. Searching a node's sibling list for the node instead reads the
    * whole list once per sibling, so a parent with k children costs O(k^2) --
    * and a flat treemap, which is what a disk-usage or a market-cap chart is,
    * hangs every leaf off a single parent.
    *
-   * @returns Each node's index among its siblings, shaped as the nodes are
+   * @returns Each node's index among its parent's children, or among the
+   *   top-level nodes; -1 where no node is
    */
-  private placeSiblings(): number[][] {
-    const place = this.nodes.map(level => level.map(() => -1));
+  private placeAmongSiblings(): number[][] {
+    const places = this.nodes.map(level => level.map(() => -1));
     (this.nodes[0] ?? []).forEach((_, col) => {
-      place[0][col] = col;
+      places[0][col] = col;
     });
     for (const level of this.nodes) {
       for (const node of level) {
         node?.children.forEach((child, at) => {
-          place[child.row][child.col] = at;
+          places[child.row][child.col] = at;
         });
       }
     }
-    return place;
+    return places;
   }
 
   /**
@@ -486,7 +501,7 @@ export class TreemapTrace extends AbstractTrace {
     return {
       ...state,
       treePosition: {
-        index: this.placeAmongSiblings[this.row]?.[this.col] ?? 0,
+        index: this.siblingPlace[this.row]?.[this.col] ?? 0,
         count: parent === null ? (this.nodes[0]?.length ?? 0) : parent.children.length,
         level: this.row,
         levels: this.nodes.length,
@@ -564,6 +579,23 @@ export class TreemapTrace extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
+    if (!this.valued) {
+      // A pure hierarchy is pitched by its shape, the child count braille
+      // shows (each node's count plus one, scaled per level): a leaf the
+      // lowest, the bushiest node of its level the highest. Sounded as a
+      // node with no value, every node played the empty tone -- the tone a
+      // refused move plays, at the same pan -- so with text off a reader
+      // could not tell a step onto a node from hitting the edge, and a flat
+      // 0 would have claimed every node equal and small.
+      return {
+        freq: {
+          min: this.shapeMin[this.row] ?? 0,
+          max: this.shapeMax[this.row] ?? 0,
+          raw: this.shape[this.row]?.[this.col] ?? Number.NaN,
+        },
+        panning: this.panning,
+      };
+    }
     const node = this.current;
     // Scaled within the depth rather than across the whole tree, the way a
     // line's rows each carry their own range. A tree's magnitudes fall by an
@@ -574,15 +606,7 @@ export class TreemapTrace extends AbstractTrace {
       freq: {
         min: this.depthMin[this.row] ?? 0,
         max: this.depthMax[this.row] ?? 0,
-        // A pure hierarchy has nothing to pitch, and this is the contract
-        // that already says so: a non-finite magnitude means "the point
-        // exists to navigate to, it just has no value", and `AudioService`
-        // sounds it with the empty tone rather than interpolating it -- #925,
-        // and deliberately not scoped there to the trace that first needed
-        // it. Leaving the 0 would have been a flat tone at the bottom of the
-        // range, which is a positive claim that every node is equal and
-        // small rather than an absence of one.
-        raw: this.valued ? (node?.value ?? 0) : Number.NaN,
+        raw: node?.value ?? 0,
       },
       panning: this.panning,
     };
@@ -598,7 +622,16 @@ export class TreemapTrace extends AbstractTrace {
    * `interpolate(x, 0, cols - 1, -1, 1)`, so `cols: 2` makes the mapping
    * `2x - 1`, and `x = (sin θ + 1) / 2` lands the pan on `sin θ` exactly.
    *
-   * A treemap and an icicle are rectangular and pan by position, as they did.
+   * A treemap and a pack tile each parent's own area with its children, so a
+   * child pans by its place among its siblings: the zoomed-in view Left and
+   * Right walk. Panned along the whole level instead, a branch's children
+   * were squeezed into a slice of the field set by how many cousins came
+   * before them -- a Graphviz patchwork's Cloud, drawn at the left, sounded
+   * right of centre.
+   *
+   * A tree and an icicle draw each level as one row across every parent, in
+   * order -- a kanban board's columns, a tidy tree's layers -- so they pan
+   * along the level.
    *
    * @returns The panning state
    */
@@ -609,12 +642,33 @@ export class TreemapTrace extends AbstractTrace {
         return { x: (Math.sin(angle) + 1) / 2, y: this.row, rows: this.nodes.length, cols: 2 };
       }
     }
+    const node = this.current;
+    if ((this.type === TraceType.TREEMAP || this.type === TraceType.PACK) && node?.parent) {
+      const parent = this.nodes[node.parent.row]?.[node.parent.col];
+      return {
+        x: Math.max(0, this.siblingPlace[this.row]?.[this.col] ?? 0),
+        y: this.row,
+        rows: this.nodes.length,
+        cols: parent?.children.length ?? 1,
+      };
+    }
     return {
       x: this.col,
       y: this.row,
       rows: this.nodes.length,
       cols: this.nodes[this.row]?.length ?? 1,
     };
+  }
+
+  /**
+   * The boundary tone sounds where the node the reader stopped at sounds: at
+   * the edge of its siblings on a treemap or a pack, at its angle on a
+   * sunburst. The base pans it by the node's index across the whole level.
+   *
+   * @returns The empty trace state, panned to the cursor's node
+   */
+  protected override get outOfBoundsState(): TraceEmptyState {
+    return { empty: true, type: 'trace', traceType: this.type, audio: this.panning };
   }
 
   /**
@@ -676,14 +730,13 @@ export class TreemapTrace extends AbstractTrace {
       // empty however the reader moved. Its shape is what it has, so each
       // cell is the node's child count plus one, a leaf the lowest dot and a
       // node with many children the tallest, scaled per level as the
-      // magnitudes are.
-      const shape = this.nodes.map(level => level.map(node => (node?.children.length ?? 0) + 1));
+      // magnitudes are -- and as the pitch is.
       return {
         empty: false,
         id: this.id,
-        values: shape,
-        min: shape.map(level => MathUtil.safeMin(level)),
-        max: shape.map(level => MathUtil.safeMax(level)),
+        values: this.shape,
+        min: this.shapeMin,
+        max: this.shapeMax,
         row: this.row,
         col: this.col,
       };

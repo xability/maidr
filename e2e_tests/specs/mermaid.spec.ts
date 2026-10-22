@@ -726,6 +726,41 @@ test.describe('Mermaid adapter', () => {
     await expect(dialog).not.toContainText(/gantt/i);
   });
 
+  test('reads the Wardley grid in braille top band first, Up moving up a line', async ({ page }) => {
+    // The grid's row 0 is its lowest band of visibility. Written first, the
+    // braille field read the map upside down and Up moved the caret down.
+    await openExample(page, 'wardley');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    await expect(page.locator('#maidr-rotor-area')).toContainText('GRID NAVIGATION');
+    await page.keyboard.press('b');
+    const braille = page.locator(BRAILLE).first();
+    await expect.poll(async () => (await braille.inputValue()).trim()).toMatch(BRAILLE_CELLS);
+
+    const lines = (await braille.inputValue()).split('\n');
+    expect(lines[0]).toBe('  ⠉ ');
+    expect(lines[3]).toBe('  ⠒ ');
+
+    await press(page, 'ArrowRight');
+    expect(await press(page, 'ArrowRight')).toContain('Visibility is 0 through 0.25');
+    const before = await braille.evaluate((field: HTMLTextAreaElement) => field.selectionStart);
+    expect(await press(page, 'ArrowUp')).toContain('Visibility is 0.25 through 0.5');
+    expect(await braille.evaluate((field: HTMLTextAreaElement) => field.selectionStart)).toBe(before - 5);
+  });
+
+  test('reads a packet row of one wide field as wide in braille, as its pitch is', async ({ page }) => {
+    // The Data row holds one 32-bit field beside rows of two 16-bit ones. A
+    // row of one field has no range of its own, and read as the lowest cell.
+    await openExample(page, 'packet');
+    await press(page, 'ArrowRight');
+
+    await page.keyboard.press('b');
+
+    const braille = page.locator(BRAILLE).first();
+    await expect.poll(async () => (await braille.inputValue()).trim()).toMatch(BRAILLE_CELLS);
+    expect((await braille.inputValue()).split('\n').slice(0, 3)).toEqual(['⣀⣀', '⣀⣀', '⠉']);
+  });
+
   test('walks a user journey from one section into the next', async ({ page }) => {
     await openExample(page, 'journey');
     for (let task = 0; task < 3; task++) {

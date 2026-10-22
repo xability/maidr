@@ -1,7 +1,7 @@
 import type { MaidrLayer, TreemapPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { NonEmptyTraceState } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { TreemapTrace } from '@model/treemap';
 import { TraceType } from '@type/grammar';
@@ -450,8 +450,8 @@ describe('the same tree, drawn three ways', () => {
   test('a sunburst pans around the dial rather than along a row', () => {
     // Europe is 150 of 1727, so its arc runs from 0 and the reader hears it
     // just right of centre; Asia takes the rest of the circle and comes back
-    // round to the left. A rectangular layout pans by index instead, and the
-    // first node of a row is hard left.
+    // round to the left. A treemap pans by place instead, and its first
+    // top-level node is hard left.
     const sunburst = nonEmptyState(asType(TraceType.SUNBURST)).audio.panning;
     const treemap = nonEmptyState(asType(TraceType.TREEMAP)).audio.panning;
 
@@ -459,6 +459,53 @@ describe('the same tree, drawn three ways', () => {
     expect(sunburst.x).toBeCloseTo((Math.sin(Math.PI * (150 / 1727)) + 1) / 2, 6);
     expect(treemap.x).toBe(0);
     expect(treemap.cols).toBe(2);
+  });
+
+  /**
+   * The pan of each node a walk lands on.
+   * @param trace The trace to drive
+   * @param directions The moves to make
+   * @returns Each landing's place and how many share its frame
+   */
+  function pans(trace: TreemapTrace, ...directions: MovableDirection[]): { x: number; cols: number }[] {
+    return directions.map((direction) => {
+      expect(trace.moveOnce(direction)).toBe(true);
+      const { x, cols } = nonEmptyState(trace).audio.panning;
+      return { x, cols };
+    });
+  }
+
+  test.each([TraceType.TREEMAP, TraceType.PACK])('a %s pans a child within the parent the arrows walk', (type) => {
+    // Japan is Asia's first child and the third country of the level. Panned
+    // along the level, a branch's children sat in a slice of the field set
+    // by how many cousins came before them.
+    const landed = pans(asType(type), 'DOWNWARD', 'FORWARD', 'UPWARD', 'FORWARD', 'DOWNWARD');
+
+    expect(landed[0]).toEqual({ x: 0, cols: 2 });
+    expect(landed[1]).toEqual({ x: 1, cols: 2 });
+    expect(landed[4]).toEqual({ x: 0, cols: 3 });
+  });
+
+  test.each([TraceType.TREE, TraceType.ICICLE])('a %s, drawn a level to a row, pans along the level', (type) => {
+    const landed = pans(asType(type), 'FORWARD', 'DOWNWARD');
+
+    expect(landed[1]).toEqual({ x: 2, cols: 5 });
+  });
+
+  test('an only child is centred', () => {
+    const landed = pans(asType(TraceType.TREEMAP, [{ x: 'Only', y: 1, path: ['Root'] }]), 'DOWNWARD');
+
+    expect(landed[0].cols).toBe(1);
+  });
+
+  test('the boundary tone sounds at the edge of the siblings', () => {
+    const trace = asType(TraceType.TREEMAP);
+    pans(trace, 'DOWNWARD', 'FORWARD');
+    const update = jest.fn();
+    trace.addObserver({ update });
+
+    expect(trace.moveOnce('FORWARD')).toBe(false);
+    expect(update.mock.calls.at(-1)?.[0]).toMatchObject({ empty: true, audio: { x: 1, cols: 2 } });
   });
 
   test('a child arc sits inside its parent arc', () => {
@@ -539,15 +586,50 @@ const ORG: TreemapPoint[] = [
 ];
 
 describe('a tree that declares no magnitude', () => {
-  test('sounds as a point with no value rather than as a flat zero', () => {
-    // The contract #925 established and deliberately did not scope to the
-    // trace that first needed it: a non-finite magnitude means the point
-    // exists to navigate to and has no value, and `AudioService` answers it
-    // with the empty tone. A 0 would have been a real tone at the bottom of
-    // the range -- a claim that every node is equal and small.
-    const { freq } = nonEmptyState(treemap(ORG)).audio;
+  test('is pitched by its shape, the child count braille shows', () => {
+    // Sounded as a node with no value, every node played the empty tone --
+    // the tone a refused move plays -- so a step and a wall sounded alike.
+    // Each node's count plus one, scaled per level: Ada has two reports, Bo
+    // two and Cy one, and the third level is all leaves.
+    const trace = treemap(ORG);
+    const at = (): unknown => nonEmptyState(trace).audio.freq;
 
-    expect(Number.isFinite(freq.raw as number)).toBe(false);
+    const ada = at();
+    walk(trace, 'DOWNWARD');
+    const bo = at();
+    walk(trace, 'FORWARD');
+    const cy = at();
+    walk(trace, 'BACKWARD', 'DOWNWARD');
+    const engineering = at();
+
+    expect(ada).toEqual({ min: 3, max: 3, raw: 3 });
+    expect(bo).toEqual({ min: 2, max: 3, raw: 3 });
+    expect(cy).toEqual({ min: 2, max: 3, raw: 2 });
+    expect(engineering).toEqual({ min: 1, max: 1, raw: 1 });
+  });
+
+  test('the pitch and the braille cell are one reading at every node', () => {
+    const trace = treemap(ORG);
+    const moves: MovableDirection[] = ['DOWNWARD', 'FORWARD', 'DOWNWARD', 'UPWARD', 'BACKWARD', 'DOWNWARD', 'FORWARD'];
+
+    for (const move of [null, ...moves]) {
+      if (move !== null) {
+        expect(trace.moveOnce(move)).toBe(true);
+      }
+      const { audio, braille } = nonEmptyState(trace);
+      if (braille.empty || !Array.isArray(braille.min) || !Array.isArray(braille.max)) {
+        throw new Error('Expected a populated braille state, scaled per level');
+      }
+      const { row, col } = braille;
+      const values = braille.values as number[][];
+
+      expect(Number.isFinite(audio.freq.raw as number)).toBe(true);
+      expect(audio.freq).toEqual({
+        min: braille.min[row],
+        max: braille.max[row],
+        raw: values[row][col],
+      });
+    }
   });
 
   test('a tree that does declare magnitudes still pitches by them', () => {
@@ -599,8 +681,8 @@ describe('a tree that declares no magnitude', () => {
     ];
 
     expect(treemap(mixed).description.stats.map(e => e.label)).toContain('Total');
-    expect(Number.isFinite(nonEmptyState(treemap(mixed)).audio.freq.raw as number))
-      .toBe(true);
+    // Ada's derived total, not her shape.
+    expect(nonEmptyState(treemap(mixed)).audio.freq.raw).toBe(4);
   });
 });
 

@@ -61,6 +61,8 @@ In multiline braille displays, all rows of the heatmap are represented simultane
 
 In single-line braille displays, use the up and down arrow keys to move between rows. The braille representation updates to show the current row.
 
+In both, the rows are listed top row first, as the chart draws them, so the on-screen braille field reads like the chart and the up arrow moves the cursor up a line.
+
 ### Box plot
 
 The Braille representation of a boxplot uses Braille characters
@@ -133,6 +135,8 @@ When the grid navigation rotor is activated, the braille representation of the s
 In multiline braille displays, all cells are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the number of data points in the corresponding grid cell. Vertically, each line of the braille display corresponds to a different row of the grid, allowing users to perceive the distribution of points across the entire grid at once.
 
 In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between rows of the grid, and the braille representation updates to show the number of points in each cell of the current row.
+
+In both, the grid's rows are listed highest band first, as the chart draws them, so the on-screen braille field reads like the chart and the up arrow moves the cursor up a line.
 
 ### Segmented Bar Plots
 
@@ -280,7 +284,9 @@ once and never has to make that choice.
 #### Multiline Displays
 
 Hexbin plots use one line per lattice row on a multiline display, so the shape
-of the cloud can be felt at once rather than row by row.
+of the cloud can be felt at once rather than row by row. The rows are listed
+top row first, as the chart draws them, on a multiline display and in the
+on-screen braille field alike.
 
 ### Letter-value plot (boxen) [experimental]
 
@@ -545,6 +551,13 @@ A gantt's braille is the multi-line encoding: **one row per lane**, one cell
 per interval, each row scaled against its own range. A cell's height is the
 interval's **length** — the same magnitude the pitch carries and the same one
 the announcement gives.
+
+A lane whose intervals all share one length, most often a lane holding a
+single task, has no range of its own, and is scaled against the whole chart's
+lengths instead — the scale the pitch uses. A lane's only task therefore reads
+as long as it is, rather than as the lowest cell whatever its length: on a
+schedule of one task per lane, or a packet diagram's last row of one wide
+field.
 
 A lane with nothing booked renders as an **empty row** rather than being
 skipped, so the reader's line count keeps matching the chart's lane count. An
@@ -1065,7 +1078,9 @@ A tree that declares **no magnitude** -- an org chart, a mindmap, a file
 listing -- has none to show, and every node of it would be a blank cell. Each
 cell is instead the node's child count plus one, scaled per level the same
 way: a leaf is the lowest dot and the node with the most children the
-tallest, so the display shows where the tree branches.
+tallest, so the display shows where the tree branches. The sonification
+follows the same cells, so a node's pitch and its dot height agree, and a
+refused move still sounds the boundary tone, which no node plays.
 
 #### Sunburst and icicle [experimental]
 

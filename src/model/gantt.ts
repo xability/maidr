@@ -1,7 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { FormatFunction, GanttData, GanttPoint, MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceEmptyState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { defaultFormat, FormatUtil } from '@util/format';
@@ -175,8 +175,18 @@ export class GanttTrace extends AbstractTrace {
     const bounds = MathUtil.minMax(this.lengths.flat());
     this.min = bounds.min;
     this.max = bounds.max;
-    this.perLaneMin = this.lengths.map(lane => MathUtil.safeMin(lane));
-    this.perLaneMax = this.lengths.map(lane => MathUtil.safeMax(lane));
+    // A lane with no spread of its own -- one task, how Chart.js, ApexCharts
+    // and AnyChart draw a schedule and how a packet's last row often is, or
+    // tasks of one length -- falls back to the whole chart's range, the scale
+    // the pitch uses. Scaled to itself it has no range, the braille encoder's
+    // bands collapse, and every cell reads as the lowest: the chart's longest
+    // task included, while its tone is the highest.
+    const laneBounds = this.lengths.map(lane => ({
+      min: MathUtil.safeMin(lane),
+      max: MathUtil.safeMax(lane),
+    }));
+    this.perLaneMin = laneBounds.map(lane => (lane.max > lane.min ? lane.min : this.min));
+    this.perLaneMax = laneBounds.map(lane => (lane.max > lane.min ? lane.max : this.max));
 
     // The axis the intervals are measured along -- x for a schedule drawn the
     // ordinary way round, y for one drawn the default way up -- resolved once
@@ -276,8 +286,6 @@ export class GanttTrace extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
-    const point = this.lanes[this.row]?.[this.col];
-
     return {
       freq: {
         // One scale across every lane, not per lane: the comparison a reader
@@ -304,13 +312,45 @@ export class GanttTrace extends AbstractTrace {
       // tasks months apart at the same point in the stereo field and two
       // simultaneous tasks at different ones -- erasing the overlap the chart
       // exists to show.
-      panning: {
-        x: this.panAt(Number(point?.start ?? this.axisMin)),
-        y: this.row,
-        rows: this.lanes.length,
-        cols: 2,
-      },
+      panning: this.panning,
       group: this.row,
+    };
+  }
+
+  /**
+   * Where the interval under the cursor sounds: its start, as a fraction of
+   * the axis (see {@link GanttTrace.panAt}). A lane with nothing booked has no
+   * start, and sounds in the centre rather than claiming the far left.
+   *
+   * @returns The stereo position of the cursor
+   */
+  private get panning(): AudioState['panning'] {
+    const point = this.lanes[this.row]?.[this.col];
+    return {
+      x: point === undefined ? 0.5 : this.panAt(Number(point.start)),
+      y: this.row,
+      rows: this.lanes.length,
+      cols: 2,
+    };
+  }
+
+  /**
+   * The boundary tone sounds where the interval the reader stopped at sounds,
+   * as a scatter plot's does.
+   *
+   * The base pans it by column index across the widest lane, the mapping the
+   * tones above reject: on a lane shorter than the widest, its last interval
+   * is a low index, so the edge of a lane that ends the schedule -- sounding
+   * hard right -- chimed hard left, at the start of the timeline.
+   *
+   * @returns The empty trace state, panned to the cursor's interval
+   */
+  protected override get outOfBoundsState(): TraceEmptyState {
+    return {
+      empty: true,
+      type: 'trace',
+      traceType: this.type,
+      audio: this.panning,
     };
   }
 
