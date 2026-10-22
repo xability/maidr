@@ -455,19 +455,30 @@ export function entityRelationship(context: DiagramContext): DiagramConversion {
  * verification method, elements with their type and document, joined by
  * relationships named for what they assert.
  *
+ * Each box is named by its kind, as Mermaid draws it: a requirement by its
+ * requirement type, `Functional Requirement`, and an element as `Element`.
+ * A diagram holding an element calls its boxes nodes rather than
+ * requirements.
+ *
  * @param context - The diagram
  * @returns The conversion
  */
 export function requirement(context: DiagramContext): DiagramConversion {
   const { nodes, groups, edges, raw } = readData(context);
+  const elements = new Set(rows(call(context.db, 'getElements')).map(row => str(row.name)));
+  let anyElement = false;
   for (const node of nodes) {
     const row = raw.get(node.id);
     if (row === undefined) {
       continue;
     }
+    const element = elements.has(node.id);
+    anyElement ||= element;
     node.label = plain(row.name) || node.label;
+    // A requirement's type is its kind; an element's is a type of its own.
     const fields: [string, unknown][] = [
-      ['Type', row.type],
+      ['Kind', element ? 'Element' : row.type],
+      ['Type', element ? row.type : undefined],
       ['ID', row.requirementId],
       ['Text', row.text],
       ['Risk', row.risk],
@@ -480,7 +491,7 @@ export function requirement(context: DiagramContext): DiagramConversion {
     };
   }
   const labelled = edges.map(edge => ({ ...edge, label: edge.label?.replace(/^<<(.*)>>$/, '$1') }));
-  const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: 'Requirement' });
+  const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: anyElement ? undefined : 'Requirement' });
   return { layers: layer ? [layer] : [] };
 }
 

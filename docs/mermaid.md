@@ -142,7 +142,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Class diagram [experimental] | `classDiagram` | a `directed_graph`: classes with their attributes and methods; inheritance, realization, composition, aggregation, association and dependency with cardinalities; namespaces as scopes |
 | State diagram [experimental] | `stateDiagram-v2` | a `directed_graph`: states joined by their events, composite states and concurrent regions as scopes, start and end named |
 | Entity relationship diagram [experimental] | `erDiagram` | a `directed_graph`: entities with their attributes and keys, each relationship by its verb and both cardinalities |
-| Requirement diagram [experimental] | `requirementDiagram` | a `directed_graph`: requirements with id, text, risk and verification; elements; relationships by what they assert |
+| Requirement diagram [experimental] | `requirementDiagram` | a `directed_graph`: each box by its kind -- a requirement by its requirement type, with id, text, risk and verification, and an element as an element, with its type and document; relationships by what they assert |
 | Use case diagram [experimental] | `usecase-beta` | a `directed_graph`: actors and use cases inside their system boundaries |
 | C4 diagram [experimental] | `C4Context` and the other C4 levels | a `directed_graph`: people, systems and containers in their boundaries, relationships with their technology |
 | Block diagram [experimental] | `block` | a `directed_graph`: blocks inside composite blocks, block arrows by their direction |

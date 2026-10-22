@@ -337,6 +337,18 @@ test.describe('Mermaid adapter', () => {
     expect(duck).toContain('Note is can fly and swim');
   });
 
+  test('names a requirement diagram\'s element as an element', async ({ page }) => {
+    await openExample(page, 'requirement');
+    const requirement = await press(page, 'ArrowRight');
+    expect(requirement).toContain('Node is checkout_req');
+    expect(requirement).toContain('Kind is Requirement');
+
+    const element = await press(page, 'ArrowRight');
+    expect(element).toContain('Node is payment_service');
+    expect(element).toContain('Kind is Element, Type is service');
+    expect(element).not.toContain('Requirement is');
+  });
+
   test('reads a ZenUML diagram from its text, nested calls and replies included', async ({ page }) => {
     await openExample(page, 'zenuml');
     await press(page, 'ArrowRight');

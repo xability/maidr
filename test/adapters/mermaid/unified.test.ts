@@ -8,7 +8,7 @@ import { TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
 /**
- * The diagrams Mermaid lays out as one graph (`diagrams/unified.ts`): flowcharts, class, entity-relationship and state diagrams.
+ * The diagrams Mermaid lays out as one graph (`diagrams/unified.ts`): flowcharts, class, entity-relationship, state and requirement diagrams.
  *
  * Stand-in databases shaped as Mermaid 12's; see `./helpers`.
  */
@@ -321,5 +321,52 @@ describe('a state diagram', () => {
     expect(playing.inputs).toEqual(['Idle', 'Paused']);
     expect(paused.inputs).toEqual(['Idle', 'Playing']);
     expect(end.inputs).toEqual(['Paused']);
+  });
+});
+
+describe('a requirement diagram', () => {
+  /** Rows as Mermaid 12's requirementDb holds them. */
+  const checkout = { name: 'checkout_req', type: 'Requirement', requirementId: '1', text: 'Orders must be payable online.', risk: 'High', verifyMethod: 'Test' };
+  const payment = { name: 'payment_req', type: 'Functional Requirement', requirementId: '1.1', text: 'Card payments must be authorised.', risk: 'Medium', verifyMethod: 'Inspection' };
+  const service = { name: 'payment_service', type: 'service', docRef: 'docs/payments.md' };
+
+  /**
+   * A stand-in requirementDb.
+   *
+   * @param requirements - Its requirements
+   * @param elements - Its elements
+   * @returns The database
+   */
+  function requirementDb(requirements: object[], elements: object[]): object {
+    const boxes = [...requirements, ...elements].map(row => ({ ...row, id: (row as { name: string }).name, shape: 'requirementBox' }));
+    return {
+      getRequirements: () => new Map(requirements.map(row => [(row as { name: string }).name, row])),
+      getElements: () => new Map(elements.map(row => [(row as { name: string }).name, row])),
+      getData: () => ({
+        nodes: boxes,
+        edges: [
+          { start: 'checkout_req', end: 'payment_req', label: '&lt;&lt;contains&gt;&gt;' },
+          ...(elements.length > 0 ? [{ start: 'payment_service', end: 'payment_req', label: '&lt;&lt;satisfies&gt;&gt;' }] : []),
+        ],
+      }),
+    };
+  }
+
+  it('names each box for what it is, an element as an element', () => {
+    const layer = layersOf(convert('requirement', requirementDb([checkout, payment], [service])))[0];
+
+    const [checkoutReq, paymentReq, paymentService] = layer.data as DirectedGraphPoint[];
+
+    expect(layer.axes?.x?.label).toBeUndefined();
+    expect(checkoutReq.attributes).toMatchObject({ Kind: 'Requirement', ID: '1' });
+    expect(paymentReq).toMatchObject({ inputs: ['checkout_req', 'payment_service'], inputLabels: ['contains', 'satisfies'] });
+    expect(paymentReq.attributes).toEqual({ Kind: 'Functional Requirement', ID: '1.1', Text: 'Card payments must be authorised.', Risk: 'Medium', Verification: 'Inspection' });
+    expect(paymentService.attributes).toEqual({ Kind: 'Element', Type: 'service', Document: 'docs/payments.md' });
+  });
+
+  it('calls the boxes requirements when every box is one', () => {
+    const layer = layersOf(convert('requirement', requirementDb([checkout, payment], [])))[0];
+
+    expect(layer.axes?.x?.label).toBe('Requirement');
   });
 });
