@@ -1064,10 +1064,11 @@ test.describe('Mermaid adapter', () => {
     expect(lines[0]).toBe('  ⠉ ');
     expect(lines[3]).toBe('  ⠒ ');
 
+    // Grid navigation starts in Kettle's cell, the second band of visibility.
     await press(page, 'ArrowRight');
-    expect(await press(page, 'ArrowRight')).toContain('Visibility is 0 through 0.25');
+    expect(await press(page, 'ArrowRight')).toContain('Visibility is 0.25 through 0.5');
     const before = await braille.evaluate((field: HTMLTextAreaElement) => field.selectionStart);
-    expect(await press(page, 'ArrowUp')).toContain('Visibility is 0.25 through 0.5');
+    expect(await press(page, 'ArrowUp')).toContain('Visibility is 0.5 through 0.75');
     expect(await braille.evaluate((field: HTMLTextAreaElement) => field.selectionStart)).toBe(before - 5);
   });
 
@@ -1153,9 +1154,12 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 'ArrowRight')).toContain('Name is Campaign A');
     await expect.poll(outlined).toBe('Campaign A');
 
-    // Grid navigation, the quadrants: D alone in the bottom right, C in the top right.
+    // Grid navigation, the quadrants, from Campaign A's in the top left: C
+    // in the top right, D alone in the bottom right.
     await page.keyboard.press('Alt+Shift+ArrowUp');
-    expect(await press(page, 'ArrowRight')).toContain('point is: (0.78, 0.34)');
+    expect(await press(page, 'ArrowRight')).toContain('Cell [2,2]');
+    await expect.poll(outlined).toBe('Campaign C');
+    expect(await press(page, 'ArrowDown')).toContain('point is: (0.78, 0.34)');
     await expect.poll(outlined).toBe('Campaign D');
     expect(await press(page, 'ArrowUp')).toContain('point is: (0.57, 0.69)');
     await expect.poll(outlined).toBe('Campaign C');

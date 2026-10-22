@@ -2311,6 +2311,19 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   // ── Grid navigation methods ───────────────────────────────────────────
 
+  /**
+   * Enters or leaves grid navigation.
+   *
+   * Entry starts in the cell holding the point the reader is on -- the one
+   * {@link setPointMode} would start on -- so the first arrow moves from
+   * where they are, and the point still outlined lies in the cell the cursor
+   * is on. Before the reader has entered the data, or when that point lies
+   * outside the grid, it starts in the bottom-left cell. Always starting
+   * there put the cursor in a cell the reader was not in, unannounced, with
+   * their own point still outlined elsewhere.
+   *
+   * @param enabled - Whether grid navigation is on
+   */
   public setGridMode(enabled: boolean): void {
     if (!this.gridCells) {
       this.isInGridMode = false;
@@ -2318,9 +2331,27 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     this.isInGridMode = enabled;
     if (enabled) {
-      this.gridRow = 0;
-      this.gridCol = 0;
+      const cell = this.isInitialEntry ? null : this.gridCellOf(this.computeEntryPointIndex());
+      this.gridRow = cell?.row ?? 0;
+      this.gridCol = cell?.col ?? 0;
     }
+  }
+
+  /**
+   * The grid cell a point was binned into.
+   *
+   * @param index - The point's index in the layer's `data`
+   * @returns The cell's row and column, or null when the point is in none
+   */
+  private gridCellOf(index: number): { row: number; col: number } | null {
+    const grid = this.gridCells ?? [];
+    for (let row = 0; row < grid.length; row++) {
+      const col = grid[row].findIndex(cell => cell.indices.includes(index));
+      if (col !== -1) {
+        return { row, col };
+      }
+    }
+    return null;
   }
 
   public override supportsCompareMode(): boolean {
