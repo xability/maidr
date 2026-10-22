@@ -29,13 +29,26 @@ function withoutFloatNoise(value: number): number {
 }
 
 /**
+ * Where an interval stops: its end, or the boundary one unit past it when the
+ * end is the last unit it covers (see {@link GanttData.inclusive}).
+ *
+ * @param point - The interval
+ * @param inclusive - Whether its end is the last unit it covers
+ * @returns The boundary it stops at
+ */
+function closeOf(point: GanttPoint, inclusive: boolean): number {
+  return Number(point.end) + (inclusive ? 1 : 0);
+}
+
+/**
  * The length one interval covers.
  *
  * @param point - The interval to measure
+ * @param inclusive - Whether its end is the last unit it covers
  * @returns Its length along the axis
  */
-function lengthOf(point: GanttPoint): number {
-  return withoutFloatNoise(Number(point.end) - Number(point.start));
+function lengthOf(point: GanttPoint, inclusive: boolean): number {
+  return withoutFloatNoise(closeOf(point, inclusive) - Number(point.start));
 }
 
 /**
@@ -67,6 +80,8 @@ export class GanttTrace extends AbstractTrace {
   private readonly lanes: GanttPoint[][];
   private readonly lengths: number[][];
   private readonly unit?: string;
+  /** Whether an end is the last unit an interval covers. */
+  private readonly inclusive: boolean;
   private readonly laneNames: (string | number)[];
   private readonly orientation: Orientation;
 
@@ -128,13 +143,14 @@ export class GanttTrace extends AbstractTrace {
     const data = layer.data as GanttData;
     this.lanes = data.points;
     this.unit = data.unit?.trim() || undefined;
+    this.inclusive = data.inclusive === true;
     this.laneNames = data.lanes ?? [];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.lengths = this.lanes.map(lane => lane.map(lengthOf));
+    this.lengths = this.lanes.map(lane => lane.map(point => lengthOf(point, this.inclusive)));
 
     const starts = this.lanes.flat().map(point => Number(point.start));
-    const ends = this.lanes.flat().map(point => Number(point.end));
+    const ends = this.lanes.flat().map(point => closeOf(point, this.inclusive));
     const extent = MathUtil.minMax([...starts, ...ends]);
     this.axisMin = extent.min;
     // Zero rather than the difference when a chart occupies a single instant,
@@ -368,7 +384,11 @@ export class GanttTrace extends AbstractTrace {
       // Carried for the traces and modes that read a single cross value; the
       // span below replaces it wherever both are present.
       cross: { label: crossLabel, value: Number(point.start) },
-      crossRange: { min: Number(point.start), max: Number(point.end) },
+      // An interval of one unit, given inclusively, is that unit: "Bit is
+      // 32" rather than "32 through 32".
+      ...(this.inclusive && Number(point.start) === Number(point.end)
+        ? {}
+        : { crossRange: { min: Number(point.start), max: Number(point.end) } }),
       // The length, with the unit the chart named. A bare number cannot say
       // whether a task runs for 40 days or 40 weeks, and the axis format that
       // renders the ends as dates says nothing about the difference between
@@ -552,7 +572,10 @@ export class GanttTrace extends AbstractTrace {
       .flat()
       .flatMap((point) => {
         const start = Number(point.start);
-        const end = Number(point.end);
+        // Where it stops rather than its last unit, so two intervals that
+        // merely adjoin -- bits 0-15 and 16-31 -- are not counted as running
+        // together, and two that share a unit are.
+        const end = closeOf(point, this.inclusive);
         // Both ends or neither: dropping only the unparseable half would
         // leave an interval that opens and never closes, and every moment
         // after it would be counted as overlapping something that ended.

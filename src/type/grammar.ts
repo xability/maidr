@@ -743,6 +743,16 @@ export interface GanttData {
    * a unit rather than guessing one.
    */
   unit?: string;
+  /**
+   * Whether an interval's `end` is the last unit it covers rather than the
+   * point where it stops: a packet field written `0-15` covers 16 bits and
+   * ends on bit 15.
+   *
+   * Set, an interval is measured as `end - start + 1` and announced with the
+   * `end` it was given, so the length and the ends both say what the chart
+   * draws. Omitted, `end` is the boundary, as a schedule's is.
+   */
+  inclusive?: boolean;
 }
 
 /**

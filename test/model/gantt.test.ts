@@ -530,3 +530,82 @@ describe('the announcement and the description read one length one way', () => {
     expect(stats.find(stat => stat.label === 'Shortest')?.value).toBe('1.23 days');
   });
 });
+
+describe('an inclusive end is the last unit an interval covers', () => {
+  // A packet's fields, as Mermaid declares them: `0-15` is sixteen bits.
+  const FIELDS: GanttPoint[][] = [
+    [
+      { x: 'Bits 0 to 31', start: 0, end: 15, label: 'Source port' },
+      { x: 'Bits 0 to 31', start: 16, end: 31, label: 'Destination port' },
+    ],
+    [
+      { x: 'Bits 32 to 63', start: 32, end: 32, label: 'Flag' },
+      { x: 'Bits 32 to 63', start: 33, end: 63, label: 'Rest' },
+    ],
+  ];
+
+  /**
+   * Build a packet trace positioned on one field.
+   * @param row Which row
+   * @param col Which field
+   * @param points The rows the layer carries
+   * @param inclusive Whether the ends are inclusive
+   * @returns The positioned trace
+   */
+  function packet(row = 0, col = 0, points: GanttPoint[][] = FIELDS, inclusive = true): GanttTrace {
+    const trace = TraceFactory.create({
+      id: 'test-packet-layer',
+      type: TraceType.GANTT,
+      orientation: Orientation.HORIZONTAL,
+      axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
+      data: inclusive ? { points, unit: 'bits', inclusive } : { points, unit: 'bits' },
+    }) as GanttTrace;
+    trace.moveToIndex(row, col);
+    return trace;
+  }
+
+  test('is announced as given, and the interval measured to include it', () => {
+    const { text, audio } = nonEmptyState(packet());
+
+    expect(text.crossRange).toEqual({ min: 0, max: 15 });
+    expect(text.z?.value).toBe('16 bits');
+    expect(audio.freq.raw).toBe(16);
+  });
+
+  test('names a one-unit interval by its unit alone', () => {
+    const { text } = nonEmptyState(packet(1, 0));
+
+    expect(text.crossRange).toBeUndefined();
+    expect(text.cross?.value).toBe(32);
+  });
+
+  test('tabulates the ends given, and spans from the first to the last', () => {
+    const { stats, dataTable } = packet().description;
+
+    expect(stats.find(entry => entry.label === 'Spans')?.value).toBe('0 to 63');
+    expect(dataTable.rows[0]).toEqual(['Bits 0 to 31', 'Source port', 0, 15, 16]);
+  });
+
+  test('counts intervals that share a unit as overlapping, and adjoining ones as not', () => {
+    expect(packet().description.stats.map(entry => entry.label))
+      .not
+      .toContain('Most intervals at once');
+    const shared = packet(0, 0, [[{ x: 'a', start: 0, end: 15 }], [{ x: 'b', start: 15, end: 20 }]]);
+    expect(shared.description.stats.find(entry => entry.label === 'Most intervals at once')?.value)
+      .toBe('2 from 15');
+  });
+
+  test('pans as the same intervals given as boundaries do', () => {
+    const bounded = FIELDS.map(lane => lane.map(point => ({ ...point, end: point.end + 1 })));
+
+    expect(nonEmptyState(packet(0, 1)).audio.panning)
+      .toEqual(nonEmptyState(packet(0, 1, bounded, false)).audio.panning);
+  });
+
+  test('is a boundary when the layer does not say otherwise', () => {
+    const { text } = nonEmptyState(packet(0, 0, FIELDS, false));
+
+    expect(text.crossRange).toEqual({ min: 0, max: 15 });
+    expect(text.z?.value).toBe('15 bits');
+  });
+});
