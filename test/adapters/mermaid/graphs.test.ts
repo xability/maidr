@@ -74,11 +74,10 @@ describe('the other graphs', () => {
   });
 
   // A plain line is declared as an edge each way, since a directed graph has
-  // no edge without a direction, so the example's three connections are
-  // counted as four, its plain line as a cycle, and Database as a merge point.
-  // docs/mermaid.md says so. This turns red when the schema can declare an
-  // undirected link: delete the pin and that paragraph then.
-  it.failing('counts a connection drawn as a plain line once, as it is drawn', () => {
+  // no edge without a direction, and the two say they are the one line drawn.
+  // The example's three connections were counted as four, and its plain line
+  // as a cycle.
+  it('counts a connection drawn as a plain line once, as it is drawn, and not as a cycle', () => {
     const layer = layersOf(convert('architecture', {
       getGroups: () => [{ id: 'api', title: 'API' }],
       getServices: () => [
@@ -94,10 +93,27 @@ describe('the other graphs', () => {
         { lhsId: 'disk', rhsId: 'db', lhsInto: false, rhsInto: false },
       ],
     }))[0];
-    const trace = TraceFactory.create(layer) as DirectedGraphTrace;
-    const edges = trace.description.stats.find(entry => entry.label === 'Number of edges')?.value;
+    const stats = (TraceFactory.create(layer) as DirectedGraphTrace).description.stats;
+    const stat = (label: string): unknown => stats.find(entry => entry.label === label)?.value;
 
-    expect(edges).toBe(3);
+    expect(stat('Number of edges')).toBe(3);
+    expect(stat('Cycle')).toBeUndefined();
+  });
+
+  it('declares the two directions of a plain line, and of a two-way C4 relationship, as one drawn edge', () => {
+    const [a, b] = layersOf(convert('architecture', {
+      getServices: () => [{ id: 'a' }, { id: 'b' }],
+      getEdges: () => [{ lhsId: 'a', rhsId: 'b', lhsInto: false, rhsInto: false }],
+    }))[0].data as DirectedGraphPoint[];
+    const [user, app] = layersOf(convert('c4', {
+      getC4ShapeArray: () => [{ alias: 'user', label: 'User' }, { alias: 'app', label: 'App' }],
+      getRels: () => [{ from: 'user', to: 'app', label: 'Syncs', type: 'BiRel' }],
+    }))[0].data as DirectedGraphPoint[];
+
+    expect(a.inputEdges).toHaveLength(1);
+    expect(a.inputEdges).toEqual(b.inputEdges);
+    expect(user.inputEdges).toHaveLength(1);
+    expect(user.inputEdges).toEqual(app.inputEdges);
   });
 
   it('names architecture items neutrally, so a group or a junction is not called a service', () => {

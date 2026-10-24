@@ -425,7 +425,7 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
   }
   const relations = rows(call(context.db, 'getRelations'));
   const taken = new Set<Row>();
-  const labelled = edges.flatMap((edge) => {
+  const labelled = edges.flatMap((edge, at) => {
     // Paired by their ends, the first not yet taken, since two classes can
     // be related twice.
     const relation = relations.find(one => !taken.has(one)
@@ -463,7 +463,15 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
     const runs = heads.length === 2 && heads[0].from === heads[1].from
       ? [{ ...heads[0], words: joinLabel(heads[0].words, heads[1].words) }]
       : heads;
-    return runs.map(head => ({ ...edge, from: head.from, to: head.to, label: label(head.from, head.words) }));
+    // Two that run opposite ways are one line read both ways.
+    const drawn = runs.length > 1 ? `relation-${at}` : undefined;
+    return runs.map(head => ({
+      ...edge,
+      from: head.from,
+      to: head.to,
+      label: label(head.from, head.words),
+      ...(drawn === undefined ? {} : { drawn }),
+    }));
   });
   const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: 'Class', diagram: DIAGRAM_TYPES.class });
   return { layers: layer ? [layer] : [] };

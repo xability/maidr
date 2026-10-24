@@ -42,6 +42,12 @@ export interface GraphEdge {
   from: string;
   to: string;
   label?: string;
+  /**
+   * The drawn edge this is, when the diagram draws one edge that is read as
+   * several: the two directions of a line drawn with no arrow, or with one at
+   * each end, share one. Unique within the diagram's edges.
+   */
+  drawn?: string;
 }
 
 /** What {@link directedGraphLayer} reads. */
@@ -84,7 +90,8 @@ function pathOf(group: string | undefined, groups: Map<string, GraphGroup>): str
  * An edge that starts or ends on a group -- `subgraph --> node` in a
  * flowchart, a transition into a composite state -- is drawn from the group
  * as a whole, so it is read as an edge from the nodes the group ends on, or
- * to the nodes it starts on. A group no node sits
+ * to the nodes it starts on, each declared as part of the one edge drawn.
+ * A group no node sits
  * in has nothing to open and is left out, as a directed graph derives its
  * scopes from its nodes.
  *
@@ -132,17 +139,22 @@ export function directedGraphLayer(context: DiagramContext, parts: GraphParts): 
   const ends = (id: string, side: 'entry' | 'exit'): string[] =>
     nodeIds.has(id) ? [id] : boundary(id, side);
 
-  const inputs = new Map<string, { ids: string[]; labels: (string | null)[] }>();
-  for (const edge of parts.edges) {
-    for (const from of ends(edge.from, 'exit')) {
-      for (const to of ends(edge.to, 'entry')) {
-        const entry = inputs.get(to) ?? { ids: [], labels: [] };
-        entry.ids.push(from);
-        entry.labels.push(edge.label?.trim() || null);
-        inputs.set(to, entry);
-      }
+  // Each edge declared once per pair of nodes it joins. An edge declared
+  // more than once -- to or from a group, which it enters or leaves at
+  // several nodes -- and one the converter says is part of another, is
+  // tagged with the edge it is drawn as, so the description counts it once.
+  const inputs = new Map<string, { ids: string[]; labels: (string | null)[]; edges: (string | null)[] }>();
+  parts.edges.forEach((edge, at) => {
+    const pairs = ends(edge.from, 'exit').flatMap(from => ends(edge.to, 'entry').map(to => [from, to] as const));
+    const drawn = edge.drawn !== undefined ? `drawn-${edge.drawn}` : pairs.length > 1 ? `edge-${at}` : null;
+    for (const [from, to] of pairs) {
+      const entry = inputs.get(to) ?? { ids: [], labels: [], edges: [] };
+      entry.ids.push(from);
+      entry.labels.push(edge.label?.trim() || null);
+      entry.edges.push(drawn);
+      inputs.set(to, entry);
     }
-  }
+  });
 
   const data: DirectedGraphPoint[] = nodes.map((node) => {
     const point: DirectedGraphPoint = { id: node.id };
@@ -158,6 +170,9 @@ export function directedGraphLayer(context: DiagramContext, parts: GraphParts): 
       point.inputs = entry.ids;
       if (entry.labels.some(label => label !== null)) {
         point.inputLabels = entry.labels;
+      }
+      if (entry.edges.some(edge => edge !== null)) {
+        point.inputEdges = entry.edges;
       }
     }
     const attributes = Object.entries(node.attributes ?? {})
