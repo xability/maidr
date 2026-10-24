@@ -138,3 +138,33 @@ export function ownTypeGuide(layer?: Pick<MaidrLayer, 'typeLabel' | 'typeGuide'>
     ? { definition, purpose, appearance }
     : undefined;
 }
+
+/** The layers already warned about, so a figure built twice warns once. */
+const warnedTypeGuides = new Set<string>();
+
+/**
+ * Says so, once per layer, when a layer gives a guide to its chart type that
+ * the description will not show: one beside no `typeLabel` to head it, or
+ * one with a part missing or blank.
+ *
+ * The dialog then shows the trace type's guide, or none, without a word, and
+ * the console is where a producer's author will look for why.
+ *
+ * @param layer - The layer
+ */
+export function warnUnreadTypeGuide(layer: Pick<MaidrLayer, 'id' | 'type' | 'typeLabel' | 'typeGuide'>): void {
+  if (layer.typeGuide === undefined || layer.typeGuide === null || ownTypeGuide(layer) !== undefined) {
+    return;
+  }
+  const unnamed = '`typeGuide` is set without a `typeLabel` to name the chart it explains, so the '
+    + 'description shows the guide to the layer type instead.';
+  const incomplete = '`typeGuide` needs a non-blank `definition`, `purpose` and `appearance`, and one '
+    + 'is missing or blank, so the description shows no guide.';
+  const problem = ownTypeLabel(layer) === undefined ? unnamed : incomplete;
+  const key = `${layer.type}\u0000${layer.id}\u0000${problem}`;
+  if (warnedTypeGuides.has(key)) {
+    return;
+  }
+  warnedTypeGuides.add(key);
+  console.warn(`[MAIDR] Layer "${layer.id}" (${layer.type}): ${problem}`);
+}
