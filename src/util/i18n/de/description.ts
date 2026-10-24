@@ -159,9 +159,9 @@ export const description = {
   'guide.network.definition': 'Ein Netzwerkdiagramm zeigt Dinge als Punkte und die Verbindungen zwischen ihnen als Linien.',
   'guide.network.purpose': 'Damit zeigt man Beziehungen, zum Beispiel Freundschaften zwischen Menschen oder Links zwischen Webseiten. Man findet damit auch die am stärksten vernetzten Dinge.',
   'guide.network.appearance': 'Kleine Kreise, die Knoten heißen, sind über die Seite verteilt. Linien, die Kanten heißen, verbinden je zwei Knoten. Dinge mit vielen Verbindungen sitzen oft in der Mitte, und von ihnen gehen viele Linien strahlenförmig aus.',
-  'guide.directed_graph.definition': 'Ein gerichteter Graph zeigt Schritte als Kästen und Pfeile von jedem Schritt zu den Schritten, die sein Ergebnis verwenden.',
-  'guide.directed_graph.purpose': 'Er zeigt, wie etwas berechnet wird, etwa die Schichten eines neuronalen Netzes, damit man den Daten von der Eingabe bis zur Ausgabe folgen und sehen kann, wo sie sich verzweigen und zusammenlaufen.',
-  'guide.directed_graph.appearance': 'Kästen, die Knoten heißen, sind von der Eingabe an einem Ende bis zur Ausgabe am anderen angeordnet und durch Pfeile verbunden. Zusammengehörige Knoten stehen oft in einem größeren Kasten, der sich öffnen und schließen lässt.',
+  'guide.directed_graph.definition': 'Ein gerichteter Graph zeigt Elemente, die Knoten heißen, verbunden durch Pfeile, die jeweils in eine Richtung von einem Knoten zu einem anderen zeigen.',
+  'guide.directed_graph.purpose': 'Er zeigt, wie Dinge zueinander führen oder voneinander abhängen, etwa die Schritte eines Ablaufs, die Teile eines Systems, die einander aufrufen, oder die Schichten eines neuronalen Netzes, damit man den Pfeilen folgen und sehen kann, wo sich Wege verzweigen, zusammenlaufen oder zurückführen.',
+  'guide.directed_graph.appearance': 'Knoten sind Kästen oder andere Formen, die durch Pfeile verbunden sind, meist so angeordnet, dass die meisten Pfeile in dieselbe Richtung laufen, von oben nach unten oder von links nach rechts. Zusammengehörige Knoten stehen oft in einem größeren Kasten.',
 
   'guide.stacked_normalized_bar.definition': 'Ein normalisiertes gestapeltes Balkendiagramm zeigt jede Kategorie als Balken mit derselben Gesamtlänge, geteilt in Prozentanteile.',
   'guide.stacked_normalized_bar.purpose': 'Damit vergleicht man Anteile zwischen Kategorien, zum Beispiel den Anteil jeder Altersgruppe in mehreren Ländern.',

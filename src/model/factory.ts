@@ -1,6 +1,7 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { Trace } from './plot';
 import { TraceType } from '@type/grammar';
+import { warnUnreadTypeGuide } from '@util/chartTypeLabel';
 import { declaresSelectors, warnSelectors } from '@util/selectors';
 import { AreaTrace } from './area';
 import { BarTrace } from './bar';
@@ -59,6 +60,7 @@ export abstract class TraceFactory {
   public static create(layer: MaidrLayer): Trace {
     const trace = TraceFactory.build(layer);
     TraceFactory.reportUnresolvedSelectors(layer, trace);
+    warnUnreadTypeGuide(layer);
     return trace;
   }
 

@@ -7,6 +7,7 @@
 import type { GraphEdge, GraphGroup, GraphNode } from '../graph';
 import type { Row } from '../read';
 import type { DiagramContext, DiagramConversion } from '../types';
+import { c4DiagramType, DIAGRAM_TYPES } from '../diagramTypes';
 import { directedGraphLayer } from '../graph';
 import { all, call, findById, plain, rows, str } from '../read';
 
@@ -33,7 +34,8 @@ function present(entries: [string, string][]): Record<string, string> {
 /**
  * C4 diagrams: people, systems, containers and components inside their
  * boundaries, joined by relationships labelled with what they do and the
- * technology they use.
+ * technology they use. Each is named for the level it was written at, a C4
+ * Context Diagram or a C4 Container Diagram.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -86,7 +88,8 @@ export function c4(context: DiagramContext): DiagramConversion {
       edges.push({ from: to, to: from, label });
     }
   }
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element' }));
+  const level = str(call(context.db, 'getC4Type'))?.trim();
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: c4DiagramType(level) }));
 }
 
 /**
@@ -136,7 +139,7 @@ export function block(context: DiagramContext): DiagramConversion {
     to: str(edge.end) ?? '',
     label: plain(edge.label),
   }));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Block' }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Block', diagram: DIAGRAM_TYPES.block }));
 }
 
 /**
@@ -182,7 +185,7 @@ export function architecture(context: DiagramContext): DiagramConversion {
     }
     return [intoLhs ? { from: rhs, to: lhs, label } : { from: lhs, to: rhs, label }];
   });
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element' }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: DIAGRAM_TYPES.architecture }));
 }
 
 /** Mermaid's commit types, in its own numbering. */
@@ -245,7 +248,7 @@ export function gitGraph(context: DiagramContext): DiagramConversion {
       from: String(parent),
       to: nodes[at].id,
     })));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Commit' }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Commit', diagram: DIAGRAM_TYPES.gitGraph }));
 }
 
 /** What an event model's entity types are called. */
@@ -296,5 +299,5 @@ export function eventModeling(context: DiagramContext): DiagramConversion {
     from: String((relation.sourceBox as Row | undefined)?.index ?? ''),
     to: String((relation.targetBox as Row | undefined)?.index ?? ''),
   }));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Entity' }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Entity', diagram: DIAGRAM_TYPES.eventModel }));
 }

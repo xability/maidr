@@ -19,7 +19,7 @@ import type {
 } from '@type/state';
 import type { Trace } from './plot';
 import { Orientation, TraceType } from '@type/grammar';
-import { chartTypeLabel, ownTypeLabel } from '@util/chartTypeLabel';
+import { chartTypeLabel, ownTypeGuide, ownTypeLabel } from '@util/chartTypeLabel';
 import { t } from '@util/i18n';
 import {
   extractXValueFromPoints,
@@ -889,12 +889,14 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * A plain-language introduction to this layer's chart type, for the
    * description dialog. See {@link chartGuide}.
    *
-   * None for a layer that names its own chart type: the guide explains the
-   * trace type it is read as, which is not what the chart is, and a gantt's
-   * tasks, dates and project plans said of a packet's bit fields are false.
+   * A layer that names its own chart type never gets the trace type's: that
+   * guide explains the type the chart is read as, which is not what the chart
+   * is, and a gantt's tasks, dates and project plans said of a packet's bit
+   * fields are false. It gets the guide it gives to its own chart instead
+   * ({@link MaidrLayer.typeGuide}), or none.
    */
   public get guide(): ChartGuide | undefined {
-    return ownTypeLabel(this.layer) === undefined ? chartGuide(this.type) : undefined;
+    return ownTypeLabel(this.layer) === undefined ? chartGuide(this.type) : ownTypeGuide(this.layer);
   }
 
   /**

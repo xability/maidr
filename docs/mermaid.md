@@ -120,6 +120,8 @@ The title comes from the diagram's `title` (or its front matter), and the captio
 
 Every diagram type in Mermaid 12 is read, and ZenUML through its plugin. Several become a type MAIDR already had; two -- sequence and Venn diagrams -- were given trace types of their own, because nothing else reads order in time or set membership.
 
+A diagram read as a type that is not what it is keeps its own name. Wherever MAIDR names a chart's type -- its accessible name, the instruction on entering it, the description's Chart Type and layer tabs -- a class diagram is a `Class Diagram` and a kanban board a `Kanban Board`, not a directed graph or a tree, and the description's "About this chart type" explains that diagram, what it is for and how Mermaid draws it, rather than the type it is read as. Each is named as the first column below names it, so a flowchart is a `Flowchart` and a user journey a `User Journey`; a C4 diagram is named for its level, a `C4 Context Diagram` or a `C4 Container Diagram`. The names and their guides are written in English whichever language MAIDR speaks, as the rest of what the adapter reads is. A pie, gantt, XY, radar, sankey, treemap, sequence or Venn diagram is the chart its type names, and keeps that type's name and its guide in the reader's language.
+
 ### Stable chart types
 
 | Diagram | Mermaid keyword | MAIDR reads it as |

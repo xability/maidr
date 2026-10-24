@@ -8,6 +8,7 @@ import type { GraphEdge, GraphNode } from '../graph';
 import type { Row } from '../read';
 import type { TreeNode } from '../tree';
 import type { DiagramContext, DiagramConversion } from '../types';
+import { DIAGRAM_TYPES } from '../diagramTypes';
 import { directedGraphLayer } from '../graph';
 import { all, call, drawnText, findById, num, plain, rows, str } from '../read';
 import { textMatcher, treeLayer } from '../tree';
@@ -37,7 +38,7 @@ export function mindmap(context: DiagramContext): DiagramConversion {
     element: findById(candidates, context.svgId, [`node_${str(node.id) ?? ''}`], used),
     children: rows(node.children).map(visit),
   });
-  return single(root ? treeLayer(context, { roots: [visit(root)], nodeLabel: 'Topic' }) : null);
+  return single(root ? treeLayer(context, { roots: [visit(root)], nodeLabel: 'Topic', diagram: DIAGRAM_TYPES.mindmap }) : null);
 }
 
 /**
@@ -84,7 +85,7 @@ export function kanban(context: DiagramContext): DiagramConversion {
       columns.push(card);
     }
   }
-  return single(treeLayer(context, { roots: columns, nodeLabel: 'Item' }));
+  return single(treeLayer(context, { roots: columns, nodeLabel: 'Item', diagram: DIAGRAM_TYPES.kanban }));
 }
 
 /**
@@ -104,7 +105,7 @@ export function treeView(context: DiagramContext): DiagramConversion {
       children: rows(node.children).map(visit),
     };
   };
-  return single(root ? treeLayer(context, { roots: [visit(root)], nodeLabel: 'Entry' }) : null);
+  return single(root ? treeLayer(context, { roots: [visit(root)], nodeLabel: 'Entry', diagram: DIAGRAM_TYPES.treeView }) : null);
 }
 
 /**
@@ -136,7 +137,7 @@ export function ishikawa(context: DiagramContext): DiagramConversion {
       children: rows(node.children).map(child => visit(child, depth + 1)),
     };
   };
-  return single(root ? treeLayer(context, { roots: [visit(root, 0)], nodeLabel: 'Item' }) : null);
+  return single(root ? treeLayer(context, { roots: [visit(root, 0)], nodeLabel: 'Item', diagram: DIAGRAM_TYPES.ishikawa }) : null);
 }
 
 /**
@@ -178,7 +179,7 @@ export function timeline(context: DiagramContext): DiagramConversion {
       roots.push(period(task));
     }
   }
-  return single(treeLayer(context, { roots, nodeLabel: 'Item' }));
+  return single(treeLayer(context, { roots, nodeLabel: 'Item', diagram: DIAGRAM_TYPES.timeline }));
 }
 
 /**
@@ -245,7 +246,7 @@ export function railroad(context: DiagramContext): DiagramConversion {
     return { name: comment ? `${plain(rule.name)} (${comment})` : plain(rule.name), kind: 'Rule', children };
   });
   return {
-    layers: [treeLayer(context, { roots: rules, nodeLabel: 'Item' })].filter(layer => layer !== null),
+    layers: [treeLayer(context, { roots: rules, nodeLabel: 'Item', diagram: DIAGRAM_TYPES.railroad })].filter(layer => layer !== null),
     title: plain(call(context.db, 'getTitle')) || undefined,
   };
 }
@@ -335,7 +336,7 @@ export function cynefin(context: DiagramContext): DiagramConversion {
   }
   // Named by neither of its kinds, as a kanban board's layer is; "Item" is
   // already what the things placed in a domain are called.
-  const layers = [treeLayer(context, { roots, nodeLabel: 'Node', name: 'Domains' })];
+  const layers = [treeLayer(context, { roots, nodeLabel: 'Node', name: 'Domains', diagram: DIAGRAM_TYPES.cynefin })];
 
   const transitions = rows(call(context.db, 'getTransitions'));
   if (transitions.length > 0) {
@@ -351,7 +352,7 @@ export function cynefin(context: DiagramContext): DiagramConversion {
       to: plain(one.to),
       label: plain(one.label),
     }));
-    layers.push(directedGraphLayer(context, { nodes, edges, nodeLabel: 'Domain', name: 'Transitions' }));
+    layers.push(directedGraphLayer(context, { nodes, edges, nodeLabel: 'Domain', name: 'Transitions', diagram: DIAGRAM_TYPES.cynefin }));
   }
   return { layers: layers.filter(layer => layer !== null) };
 }

@@ -169,9 +169,9 @@ export const description = {
   'guide.network.definition': 'Un diagrama de red muestra elementos como puntos y las conexiones entre ellos como líneas.',
   'guide.network.purpose': 'Sirve para mostrar relaciones, como amistades entre personas o enlaces entre páginas web. También ayuda a encontrar los elementos más conectados.',
   'guide.network.appearance': 'Por la página hay pequeños círculos llamados nodos. Unas líneas llamadas enlaces unen parejas de nodos. Los elementos con muchas conexiones suelen quedar en el centro, con líneas que salen de ellos en todas direcciones.',
-  'guide.directed_graph.definition': 'Un grafo dirigido muestra pasos como cajas y flechas desde cada paso hasta los pasos que usan su resultado.',
-  'guide.directed_graph.purpose': 'Se usa para mostrar cómo se calcula algo, como las capas de una red neuronal, para seguir los datos desde la entrada hasta la salida y ver dónde se bifurcan y se unen.',
-  'guide.directed_graph.appearance': 'Cajas llamadas nodos se colocan desde la entrada en un extremo hasta la salida en el otro, unidas por flechas. Los nodos relacionados suelen dibujarse dentro de una caja mayor que se puede abrir o cerrar.',
+  'guide.directed_graph.definition': 'Un grafo dirigido muestra elementos, llamados nodos, unidos por flechas que apuntan en un solo sentido, de un nodo a otro.',
+  'guide.directed_graph.purpose': 'Se usa para mostrar cómo unas cosas llevan a otras o dependen de ellas, como los pasos de un proceso, las partes de un sistema que se llaman entre sí o las capas de una red neuronal, para seguir las flechas y ver dónde los caminos se bifurcan, se unen o vuelven atrás.',
+  'guide.directed_graph.appearance': 'Los nodos son cajas u otras formas unidas por flechas, normalmente dispuestas para que la mayoría de las flechas vayan en el mismo sentido, de arriba abajo o de izquierda a derecha. Los nodos relacionados suelen dibujarse dentro de una caja mayor.',
 
   'guide.stacked_normalized_bar.definition': 'Un gráfico de barras apiladas normalizadas muestra cada categoría como una barra de la misma longitud total, dividida en porcentajes.',
   'guide.stacked_normalized_bar.purpose': 'Sirve para comparar proporciones entre categorías. Por ejemplo, el peso de cada grupo de edad en varios países.',

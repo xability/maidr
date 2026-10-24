@@ -3,6 +3,7 @@
  */
 
 import type { MaidrLayer, TreemapPoint } from '@type/grammar';
+import type { DiagramType } from './diagramTypes';
 import type { DiagramContext } from './types';
 import { TraceType } from '@type/grammar';
 import { selectorsFor } from './read';
@@ -35,6 +36,8 @@ export interface TreeParts {
   name?: string;
   /** `tree` unless the diagram is drawn as nested areas. */
   type?: TraceType.TREE | TraceType.TREEMAP;
+  /** What the diagram is called and what it is, when it is not drawn as its layer type. */
+  diagram?: DiagramType;
 }
 
 /**
@@ -91,6 +94,7 @@ export function treeLayer(context: DiagramContext, parts: TreeParts): MaidrLayer
     id: context.layerId(parts.name ? `tree-${parts.name}` : 'tree'),
     type: parts.type ?? TraceType.TREE,
     ...(parts.name ? { name: parts.name } : {}),
+    ...(parts.diagram ? { typeLabel: parts.diagram.typeLabel, typeGuide: parts.diagram.typeGuide } : {}),
     ...axes,
     ...(selectors ? { selectors } : {}),
     data,

@@ -1,7 +1,7 @@
 import type { GanttTrace } from '@model/gantt';
 import type { MaidrLayer } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import { afterAll, describe, expect, jest, test } from '@jest/globals';
 import { Context } from '@model/context';
 import { TraceFactory } from '@model/factory';
 import { Figure } from '@model/plot';
@@ -81,5 +81,63 @@ describe('a layer that names its chart type', () => {
     expect(trace.description.chartType).toBe('Gantt Chart');
     expect(trace.guide?.definition).toContain('Gantt');
     expect(instructionFor(packetLayer('  '))).toContain('type: horizontal gantt.');
+  });
+});
+
+describe('a layer that explains the chart type it names', () => {
+  // The guide a description will not show is said in the console, on purpose.
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  afterAll(() => {
+    warn.mockRestore();
+  });
+
+  const GUIDE = {
+    definition: '  A packet diagram shows the layout of a block of data as fields of bits.  ',
+    purpose: 'It is used to document a protocol.',
+    appearance: 'Each field is a box as wide as its bits.',
+  };
+
+  test('is described with its own guide in place of the trace type\'s', () => {
+    const trace = TraceFactory.create({ ...packetLayer('Packet Diagram'), typeGuide: GUIDE }) as GanttTrace;
+
+    expect(trace.guide).toEqual({
+      definition: 'A packet diagram shows the layout of a block of data as fields of bits.',
+      purpose: 'It is used to document a protocol.',
+      appearance: 'Each field is a box as wide as its bits.',
+    });
+  });
+
+  test('is described with no guide when its guide leaves a part out or blank', () => {
+    const missing = { definition: GUIDE.definition, purpose: GUIDE.purpose } as typeof GUIDE;
+    const blank = { ...GUIDE, appearance: '   ' };
+
+    expect((TraceFactory.create({ ...packetLayer('Packet Diagram'), typeGuide: missing }) as GanttTrace).guide)
+      .toBeUndefined();
+    expect((TraceFactory.create({ ...packetLayer('Packet Diagram'), typeGuide: blank }) as GanttTrace).guide)
+      .toBeUndefined();
+  });
+
+  test('keeps the trace type\'s guide when it names no chart type of its own', () => {
+    const trace = TraceFactory.create({ ...packetLayer(), typeGuide: GUIDE }) as GanttTrace;
+
+    expect(trace.description.chartType).toBe('Gantt Chart');
+    expect(trace.guide?.definition).toContain('Gantt');
+  });
+
+  test('says in the console, once, why a guide it gives is not shown', () => {
+    warn.mockClear();
+    const unnamed = { ...packetLayer(), id: 'unnamed-guide', typeGuide: GUIDE };
+    const incomplete = { ...packetLayer('Packet Diagram'), id: 'incomplete-guide', typeGuide: { ...GUIDE, purpose: '' } };
+
+    TraceFactory.create(unnamed);
+    TraceFactory.create(unnamed);
+    TraceFactory.create(incomplete);
+    TraceFactory.create({ ...packetLayer('Packet Diagram'), id: 'whole-guide', typeGuide: GUIDE });
+    TraceFactory.create({ ...packetLayer('Packet Diagram'), id: 'no-guide' });
+
+    expect(warn.mock.calls.map(call => String(call[0]))).toEqual([
+      expect.stringContaining('Layer "unnamed-guide" (gantt): `typeGuide` is set without a `typeLabel`'),
+      expect.stringContaining('Layer "incomplete-guide" (gantt): `typeGuide` needs a non-blank'),
+    ]);
   });
 });
