@@ -18,6 +18,7 @@ import type { TreeNode } from '../tree';
 import type { DiagramContext, DiagramConversion } from '../types';
 import { Orientation, TraceType } from '@type/grammar';
 import { cssEscape } from '../../shared/selectorUtil';
+import { DIAGRAM_TYPES } from '../diagramTypes';
 import { all, call, findById, num, plain, rows, selectorsFor, str } from '../read';
 import { treeLayer } from '../tree';
 
@@ -166,8 +167,8 @@ export function packet(context: DiagramContext): DiagramConversion {
     id: context.layerId('packet'),
     type: TraceType.GANTT,
     // Read as a gantt for its lanes of intervals, but not a schedule, and not
-    // to be introduced as one.
-    typeLabel: 'Packet Diagram',
+    // to be introduced or explained as one.
+    ...DIAGRAM_TYPES.packet,
     orientation: Orientation.HORIZONTAL,
     axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
     ...(blocks.length === count && count > 0 ? { selectors: selectorsFor(blocks) } : {}),
@@ -222,6 +223,9 @@ export function quadrant(context: DiagramContext): DiagramConversion {
   const layer: MaidrLayer = {
     id: context.layerId('quadrant'),
     type: TraceType.SCATTER,
+    // Read as a scatter for its points, but a quadrant chart is read by the
+    // quarter each point falls in.
+    ...DIAGRAM_TYPES.quadrant,
     axes: {
       x: { label: xLabel, min: 0, max: 1, tickStep: 0.5 },
       y: { label: yLabel, min: 0, max: 1, tickStep: 0.5 },
@@ -566,6 +570,9 @@ export function journey(context: DiagramContext): DiagramConversion {
   const layer: MaidrLayer = {
     id: context.layerId('journey'),
     type: TraceType.LINE,
+    // Read as a line for its run of scores, though Mermaid draws no line: a
+    // face at each task's height.
+    ...DIAGRAM_TYPES.journey,
     axes: {
       x: { label: 'Task' },
       y: { label: 'Score', min: 1, max: 5 },

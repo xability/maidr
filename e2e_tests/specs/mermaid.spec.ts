@@ -70,6 +70,49 @@ const PAGES: Record<string, string[]> = {
   wardley: ['point', 'directed_graph'],
 };
 
+/**
+ * What the description calls every example page's chart, layer by layer.
+ *
+ * A diagram read as a layer type it is not is named for the diagram it is,
+ * as its page heading names it, and explained as that diagram; the rest are
+ * the chart their layer type names, and keep its name and guide.
+ */
+const DESCRIBED_AS: Record<string, string[]> = {
+  flowchart: ['Flowchart'],
+  sequence: ['Sequence Diagram'],
+  zenuml: ['Sequence Diagram'],
+  class: ['Class Diagram'],
+  state: ['State Diagram'],
+  er: ['Entity Relationship Diagram'],
+  requirement: ['Requirement Diagram'],
+  usecase: ['Use Case Diagram'],
+  c4: ['C4 Context Diagram'],
+  block: ['Block Diagram'],
+  architecture: ['Architecture Diagram'],
+  gitgraph: ['Git Graph'],
+  eventmodeling: ['Event Model'],
+  swimlane: ['Swimlane Diagram'],
+  agentflow: ['Agent Flow'],
+  mindmap: ['Mindmap'],
+  kanban: ['Kanban Board'],
+  treeview: ['Tree View'],
+  ishikawa: ['Ishikawa Diagram'],
+  timeline: ['Timeline'],
+  railroad: ['Railroad Diagram'],
+  cynefin: ['Cynefin Framework', 'Cynefin Framework'],
+  pie: ['Pie Chart'],
+  gantt: ['Gantt Chart'],
+  packet: ['Packet Diagram'],
+  quadrant: ['Quadrant Chart'],
+  xychart: ['Bar Chart', 'Line Chart'],
+  radar: ['Radar Chart'],
+  sankey: ['Sankey Diagram'],
+  treemap: ['Treemap'],
+  journey: ['User Journey'],
+  venn: ['Venn Diagram'],
+  wardley: ['Wardley Map', 'Wardley Map'],
+};
+
 test.use({ timezoneId: 'UTC', locale: 'en-US' });
 
 /**
@@ -345,6 +388,28 @@ test.describe('Mermaid adapter', () => {
       await page.keyboard.press('b');
       const braille = page.locator(BRAILLE).first();
       await expect.poll(async () => (await braille.inputValue()).trim()).toMatch(BRAILLE_CELLS);
+    });
+  }
+
+  for (const [name, chartTypes] of Object.entries(DESCRIBED_AS)) {
+    test(`describes the ${name} example as ${chartTypes.join(' and ')}, with a guide to it`, async ({ page }) => {
+      await openExample(page, name);
+      await page.keyboard.press('d');
+      const dialog = page.getByRole('dialog', { name: 'Chart Description', exact: true });
+
+      for (const [at, chartType] of chartTypes.entries()) {
+        if (at > 0) {
+          await dialog.getByRole('tab').nth(at).click();
+          await expect(dialog.getByText(`Showing layer ${at + 1} of ${chartTypes.length}`)).toBeVisible();
+        }
+        await expect(dialog.getByText(`Chart Type: ${chartType}`, { exact: true })).toBeVisible();
+        const guide = dialog.getByRole('button', { name: `About this chart type (${chartType})`, exact: true });
+        if (await guide.getAttribute('aria-expanded') === 'false') {
+          await guide.click();
+        }
+        await expect(guide).toHaveAttribute('aria-expanded', 'true');
+        await expect(dialog.getByRole('definition')).toHaveCount(3);
+      }
     });
   }
 
