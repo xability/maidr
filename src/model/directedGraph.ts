@@ -261,10 +261,12 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   private readonly edgeLabels: Map<string, string>;
 
   /**
-   * The drawn edges each edge is one of, keyed `from>to` by declared index,
-   * for an edge the layer said is part of one (`inputEdges`).
+   * Each edge's declarations, keyed `from>to` by declared index, by the drawn
+   * edge they are part of: its id (`inputEdges`), or `''` for those declared
+   * without one, which are one edge between them. Each holds the distinct
+   * labels those declarations gave, in declared order.
    */
-  private readonly drawnEdges: Map<string, string[]>;
+  private readonly drawnEdges: Map<string, Map<string, string[]>>;
 
   /** Each declared node's successors, as indices, in declared order. */
   private readonly successors: number[][];
@@ -354,19 +356,20 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * Edges are counted as the diagram draws them. The edges a layer says are
    * one drawn edge (`inputEdges`) -- a line declared once from each end, an
    * edge out of a scope declared from each node it leaves -- count once
-   * between them, and every other edge counts by itself.
+   * between them, and every other edge counts by itself, beside any drawn
+   * edge that joins the same two nodes.
    *
    * @param points - The declared nodes
    * @returns Successors and predecessors per node, the edge count, each
-   *   labelled edge's labels keyed by `from>to`, and each edge's drawn
-   *   edges, keyed the same way
+   *   labelled edge's labels keyed by `from>to`, and each edge's
+   *   declarations by the drawn edge they are part of, keyed the same way
    */
   private static resolveEdges(points: DirectedGraphPoint[]): {
     successors: number[][];
     predecessors: number[][];
     edges: number;
     labels: Map<string, string>;
-    drawn: Map<string, string[]>;
+    drawn: Map<string, Map<string, string[]>>;
   } {
     const byId = new Map<string, number>();
     points.forEach((point, at) => {
@@ -380,9 +383,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
 
     const successors: number[][] = points.map(() => []);
     const predecessors: number[][] = points.map(() => []);
-    const seen = new Set<string>();
     const named = new Map<string, string[]>();
-    const drawn = new Map<string, string[]>();
+    const drawn = new Map<string, Map<string, string[]>>();
     points.forEach((point, to) => {
       (point.inputs ?? []).forEach((input, slot) => {
         const from = byId.get(String(input));
@@ -390,30 +392,40 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
           return;
         }
         const key = `${from}>${to}`;
+        let parts = drawn.get(key);
+        if (parts === undefined) {
+          parts = new Map<string, string[]>();
+          drawn.set(key, parts);
+          successors[from].push(to);
+          predecessors[to].push(from);
+        }
         const label = String(point.inputLabels?.[slot] ?? '').trim();
+        const edge = String(point.inputEdges?.[slot] ?? '').trim();
         const known = named.get(key) ?? [];
+        const given = parts.get(edge) ?? [];
+        parts.set(edge, given);
         if (label !== '' && !known.includes(label)) {
           named.set(key, [...known, label]);
         }
-        const edge = String(point.inputEdges?.[slot] ?? '').trim();
-        const parts = drawn.get(key) ?? [];
-        if (edge !== '' && !parts.includes(edge)) {
-          drawn.set(key, [...parts, edge]);
+        if (label !== '' && !given.includes(label)) {
+          given.push(label);
         }
-        if (seen.has(key)) {
-          return;
-        }
-        seen.add(key);
-        successors[from].push(to);
-        predecessors[to].push(from);
       });
     });
     const labels = new Map<string, string>();
     named.forEach((names, key) => labels.set(key, names.join('; ')));
 
-    // Each drawn edge an id names once, and each edge no id names by itself.
-    const ids = new Set([...drawn.values()].flat());
-    const unnamed = [...seen].filter(key => !drawn.has(key)).length;
+    // Each drawn edge an id names once, and the edges declared without one
+    // once for each two nodes they join.
+    const ids = new Set<string>();
+    let unnamed = 0;
+    drawn.forEach(parts => parts.forEach((_, edge) => {
+      if (edge === '') {
+        unnamed++;
+      } else {
+        ids.add(edge);
+      }
+    }));
     return { successors, predecessors, edges: ids.size + unnamed, labels, drawn };
   }
 
@@ -425,16 +437,18 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * each way sharing one drawn edge (`inputEdges`), and those two edges are a
    * cycle only by declaration: the diagram draws a single line. So each such
    * pair is read as a line, and the graph has a cycle when its lines close a
-   * loop among themselves, or when the one-way edges, with every group of
-   * nodes the lines join taken as one, still do: a one-way edge between two
-   * nodes the lines already join closes a loop with them, and so does a
-   * chain of one-way edges that returns to where it started.
+   * loop among themselves, two drawn between the same nodes included, or
+   * when the one-way edges, with every group of nodes the lines join taken
+   * as one, still do: a one-way edge between two nodes the lines already
+   * join closes a loop with them, and so does a chain of one-way edges that
+   * returns to where it started.
    *
    * @param successors - Each node's successors
-   * @param drawn - Each edge's drawn edges, keyed `from>to`
+   * @param drawn - Each edge's declarations by the drawn edge they are part
+   *   of, keyed `from>to`
    * @returns True when the graph has a cycle as drawn
    */
-  private static hasCycle(successors: number[][], drawn: Map<string, string[]>): boolean {
+  private static hasCycle(successors: number[][], drawn: Map<string, Map<string, string[]>>): boolean {
     const group = successors.map((_, node) => node);
     const find = (node: number): number => {
       let root = node;
@@ -445,23 +459,32 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       return root;
     };
 
-    const line = (from: number, to: number): boolean => {
-      const there = drawn.get(`${from}>${to}`) ?? [];
-      const back = drawn.get(`${to}>${from}`) ?? [];
-      return there.some(edge => back.includes(edge));
+    const parts = (from: number, to: number): string[] => [...(drawn.get(`${from}>${to}`)?.keys() ?? [])];
+    // The lines between two nodes: the drawn edges declared each way.
+    const lines = (from: number, to: number): string[] => {
+      const back = parts(to, from);
+      return parts(from, to).filter(edge => edge !== '' && back.includes(edge));
+    };
+    // Whether an edge is also drawn one way: declared without an id, or with
+    // one not declared back.
+    const oneWay = (from: number, to: number): boolean => {
+      const back = parts(to, from);
+      return parts(from, to).some(edge => edge === '' || !back.includes(edge));
     };
 
-    // The lines: a loop of them is a cycle; otherwise each joins its ends
-    // into one group.
+    // The lines: a loop of them is a cycle, as two between the same nodes
+    // are; otherwise each joins its ends into one group.
     for (let from = 0; from < successors.length; from++) {
       for (const to of successors[from]) {
-        if (from < to && line(from, to)) {
-          const [a, b] = [find(from), find(to)];
-          if (a === b) {
-            return true;
-          }
-          group[b] = a;
+        const between = from < to ? lines(from, to).length : 0;
+        if (between === 0) {
+          continue;
         }
+        const [a, b] = [find(from), find(to)];
+        if (a === b || between > 1) {
+          return true;
+        }
+        group[b] = a;
       }
     }
 
@@ -472,7 +495,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     for (let from = 0; from < successors.length; from++) {
       waiting.set(find(from), waiting.get(find(from)) ?? 0);
       for (const to of successors[from]) {
-        if (line(from, to)) {
+        if (!oneWay(from, to)) {
           continue;
         }
         const [a, b] = [find(from), find(to)];
@@ -1786,7 +1809,8 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * as one arrow out of the composite, and Idle's inputs read `start,
    * Running (stop)`, not one entry per state. Their label is given when they
    * all carry the same one, as a move hears it. Copies that share no scope
-   * apart from the node's own are listed one by one.
+   * apart from the node's own are listed one by one, and so is an edge drawn
+   * beside a copy, between the same two nodes.
    *
    * @param node - The node, as a declared index
    * @param along - Whether to list the edges arriving at it or leaving it
@@ -1795,38 +1819,65 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   private neighbourCell(node: number, along: 'inputs' | 'outputs'): string {
     const nodes = this.nodeItems;
     const keyOf = (one: number): string => (along === 'inputs' ? `${one}>${node}` : `${node}>${one}`);
+    const partsOf = (one: number): Map<string, string[]> => this.drawnEdges.get(keyOf(one)) ?? new Map<string, string[]>();
+    const joined = (labels: string[]): string | undefined => (labels.length > 0 ? labels.join('; ') : undefined);
     const neighbours = along === 'inputs' ? this.predecessors[node] : this.successors[node];
 
-    // The neighbours each drawn edge reaches, by its first id. An edge is
-    // part of one drawn edge in every producer that says so; one declared
-    // twice under two ids is grouped by the first, and the second still
-    // counts towards the total.
+    // The neighbours each drawn edge reaches, by its id.
     const copies = new Map<string, number[]>();
     for (const one of neighbours) {
-      const edge = this.drawnEdges.get(keyOf(one))?.[0];
-      if (edge !== undefined) {
-        copies.set(edge, [...(copies.get(edge) ?? []), one]);
+      for (const edge of partsOf(one).keys()) {
+        if (edge === '') {
+          continue;
+        }
+        const list = copies.get(edge);
+        if (list === undefined) {
+          copies.set(edge, [one]);
+        } else {
+          list.push(one);
+        }
       }
     }
+    // The scope a drawn edge's copies all come from or go to, when there are
+    // several and it is not the node's own.
+    const scopeOf = (edge: string): GraphItem | null => {
+      const group = copies.get(edge) ?? [];
+      const scope = group.length > 1 ? DirectedGraphTrace.commonScope(group.map(each => nodes[each])) : null;
+      return scope !== null && !scope.members.includes(node) ? scope : null;
+    };
 
-    const listed = new Set<number>();
+    const listed = new Set<string>();
     const entries: string[] = [];
     for (const one of neighbours) {
-      if (listed.has(one)) {
+      const grouped: [string, GraphItem][] = [];
+      const beside: string[] = [];
+      let alone = false;
+      for (const [edge, labels] of partsOf(one)) {
+        const scope = edge === '' ? null : scopeOf(edge);
+        if (scope === null) {
+          alone = true;
+          beside.push(...labels.filter(label => !beside.includes(label)));
+        } else {
+          grouped.push([edge, scope]);
+        }
+      }
+      if (grouped.length === 0) {
+        entries.push(DirectedGraphTrace.labelled(DirectedGraphTrace.nameFrom(nodes[one], null), this.edgeLabels.get(keyOf(one))));
         continue;
       }
-      const edge = this.drawnEdges.get(keyOf(one))?.[0];
-      const group = edge === undefined ? [one] : copies.get(edge) ?? [one];
-      const scope = group.length > 1 ? DirectedGraphTrace.commonScope(group.map(each => nodes[each])) : null;
-      if (scope !== null && !scope.members.includes(node)) {
-        const labels = new Set(group.map(each => this.edgeLabels.get(keyOf(each))));
+      for (const [edge, scope] of grouped) {
+        if (listed.has(edge)) {
+          continue;
+        }
+        listed.add(edge);
+        const labels = new Set((copies.get(edge) ?? []).map(each => joined(partsOf(each).get(edge) ?? [])));
         const label = labels.size === 1 ? [...labels][0] : undefined;
         entries.push(DirectedGraphTrace.labelled(DirectedGraphTrace.nameFrom(scope, null), label));
-        group.forEach(each => listed.add(each));
-        continue;
       }
-      entries.push(DirectedGraphTrace.labelled(DirectedGraphTrace.nameFrom(nodes[one], null), this.edgeLabels.get(keyOf(one))));
-      listed.add(one);
+      // An edge drawn beside the copies, between the same two nodes.
+      if (alone) {
+        entries.push(DirectedGraphTrace.labelled(DirectedGraphTrace.nameFrom(nodes[one], null), joined(beside)));
+      }
     }
     return entries.join(', ');
   }

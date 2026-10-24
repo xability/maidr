@@ -485,6 +485,38 @@ describe('the edges are read as declared, and no further', () => {
     expect(stat('Cycle', beside)).toBeUndefined();
   });
 
+  test('an edge drawn beside a line, between the same two nodes, is an edge of its own and closes a loop', () => {
+    // A line between a and b, and an arrow from a to b, declared with no id
+    // or with one of its own; then two lines between a and b.
+    const bare: DirectedGraphPoint[] = [
+      { id: 'a', inputs: ['b'], inputEdges: ['line'] },
+      { id: 'b', inputs: ['a', 'a'], inputEdges: ['line', null] },
+    ];
+    const own: DirectedGraphPoint[] = [
+      { id: 'a', inputs: ['b'], inputEdges: ['line'] },
+      { id: 'b', inputs: ['a', 'a'], inputEdges: ['line', 'arrow'] },
+    ];
+    const lines: DirectedGraphPoint[] = [
+      { id: 'a', inputs: ['b', 'b'], inputEdges: ['top', 'bottom'] },
+      { id: 'b', inputs: ['a', 'a'], inputEdges: ['top', 'bottom'] },
+    ];
+
+    for (const data of [bare, own, lines]) {
+      expect(stat('Number of edges', data)).toBe(2);
+      expect(stat('Cycle', data)).toBeDefined();
+    }
+  });
+
+  test('a self input is dropped with the drawn edge it names', () => {
+    const data: DirectedGraphPoint[] = [
+      { id: 'a', inputs: ['a'], inputEdges: ['loop'] },
+      { id: 'b', inputs: ['a'] },
+    ];
+
+    expect(stat('Number of edges', data)).toBe(1);
+    expect(stat('Cycle', data)).toBeUndefined();
+  });
+
   test('scopes sharing a name under different parents stay apart', () => {
     const data: DirectedGraphPoint[] = [
       { id: 'a/x/n', label: 'n', path: ['a', 'x'] },
@@ -688,6 +720,20 @@ describe('the description', () => {
     expect(row('end')?.[2]).toBe('Running');
     // Each copy still leads where it was declared to, from the state it leaves.
     expect(row('Loading')?.[3]).toBe('Idle (stop), Running > Playing (loaded), end (quit)');
+  });
+
+  test('lists an edge drawn beside the copies of one, between the same two nodes, by itself', () => {
+    // Running's stop, declared from Loading and Paused, and Paused's own
+    // reset to Idle, which the copy from Paused shares its two nodes with.
+    const drawn: DirectedGraphPoint[] = [
+      { id: 'Idle', inputs: ['Loading', 'Paused', 'Paused'], inputLabels: ['stop', 'stop', 'reset'], inputEdges: ['stop', 'stop', null] },
+      { id: 'Loading', path: ['Running'], inputs: ['Idle'] },
+      { id: 'Paused', path: ['Running'], inputs: ['Loading'] },
+    ];
+    const rows = graph(drawn).description.dataTable.rows;
+
+    expect(rows.find(cells => cells[1] === 'Idle')?.[2]).toBe('Running (stop), Running > Paused (reset)');
+    expect(stat('Number of edges', drawn)).toBe(4);
   });
 
   test('a graph with no scopes leaves out the Path column', () => {
