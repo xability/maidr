@@ -1162,7 +1162,9 @@ export interface DirectedGraphPoint {
    * the copies arriving from or leaving for one scope as that scope, and
    * does not call a line declared each way a cycle. Moves are unchanged, as
    * every declared edge is still one a reader can follow. `null`, an empty
-   * string or a missing entry leaves that edge an edge of its own.
+   * string or a missing entry leaves that edge an edge of its own. Ids are
+   * compared as text, so the two directions of a line must carry the same
+   * one.
    *
    * @example
    * // A line drawn between Database and Storage, with no arrow.

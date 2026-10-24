@@ -1797,7 +1797,10 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     const keyOf = (one: number): string => (along === 'inputs' ? `${one}>${node}` : `${node}>${one}`);
     const neighbours = along === 'inputs' ? this.predecessors[node] : this.successors[node];
 
-    // The neighbours each drawn edge reaches, by its first id.
+    // The neighbours each drawn edge reaches, by its first id. An edge is
+    // part of one drawn edge in every producer that says so; one declared
+    // twice under two ids is grouped by the first, and the second still
+    // counts towards the total.
     const copies = new Map<string, number[]>();
     for (const one of neighbours) {
       const edge = this.drawnEdges.get(keyOf(one))?.[0];

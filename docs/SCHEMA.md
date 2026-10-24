@@ -1119,7 +1119,9 @@ the edges are declared on the node they arrive at, as `inputs`, and scopes as a
   copies arriving from or leaving for one scope are listed as that scope in
   the table, with their label when they all carry the same one. Moves are
   unchanged: every declared edge is one a reader can follow. A blank or
-  `null` entry is an edge of its own.
+  `null` entry is an edge of its own. Ids are compared as text, so the two
+  directions of a line must carry the same one: with different ids
+  they are two edges, and the line a cycle, as they were before `inputEdges`.
 - `attributes` is free-form: each entry is announced as a clause, in declared
   order, and becomes a column of the description's table.
 

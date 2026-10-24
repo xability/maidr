@@ -91,9 +91,8 @@ function pathOf(group: string | undefined, groups: Map<string, GraphGroup>): str
  * flowchart, a transition into a composite state -- is drawn from the group
  * as a whole, so it is read as an edge from the nodes the group ends on, or
  * to the nodes it starts on, each declared as part of the one edge drawn.
- * A group no node sits
- * in has nothing to open and is left out, as a directed graph derives its
- * scopes from its nodes.
+ * A group no node sits in has nothing to open and is left out, as a directed
+ * graph derives its scopes from its nodes.
  *
  * @param context - The diagram being converted
  * @param parts - Its nodes, groups and edges
