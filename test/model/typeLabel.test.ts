@@ -83,3 +83,38 @@ describe('a layer that names its chart type', () => {
     expect(instructionFor(packetLayer('  '))).toContain('type: horizontal gantt.');
   });
 });
+
+describe('a layer that explains the chart type it names', () => {
+  const GUIDE = {
+    definition: '  A packet diagram shows the layout of a block of data as fields of bits.  ',
+    purpose: 'It is used to document a protocol.',
+    appearance: 'Each field is a box as wide as its bits.',
+  };
+
+  test('is described with its own guide in place of the trace type\'s', () => {
+    const trace = TraceFactory.create({ ...packetLayer('Packet Diagram'), typeGuide: GUIDE }) as GanttTrace;
+
+    expect(trace.guide).toEqual({
+      definition: 'A packet diagram shows the layout of a block of data as fields of bits.',
+      purpose: 'It is used to document a protocol.',
+      appearance: 'Each field is a box as wide as its bits.',
+    });
+  });
+
+  test('is described with no guide when its guide leaves a part out or blank', () => {
+    const missing = { definition: GUIDE.definition, purpose: GUIDE.purpose } as typeof GUIDE;
+    const blank = { ...GUIDE, appearance: '   ' };
+
+    expect((TraceFactory.create({ ...packetLayer('Packet Diagram'), typeGuide: missing }) as GanttTrace).guide)
+      .toBeUndefined();
+    expect((TraceFactory.create({ ...packetLayer('Packet Diagram'), typeGuide: blank }) as GanttTrace).guide)
+      .toBeUndefined();
+  });
+
+  test('keeps the trace type\'s guide when it names no chart type of its own', () => {
+    const trace = TraceFactory.create({ ...packetLayer(), typeGuide: GUIDE }) as GanttTrace;
+
+    expect(trace.description.chartType).toBe('Gantt Chart');
+    expect(trace.guide?.definition).toContain('Gantt');
+  });
+});

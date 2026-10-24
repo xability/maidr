@@ -1817,6 +1817,20 @@ export interface CandlestickSelector {
 }
 
 /**
+ * A plain-language introduction to a chart type a layer names for itself:
+ * what it is, what it is for, and what it looks like. See
+ * {@link MaidrLayer.typeGuide}.
+ */
+export interface TypeGuide {
+  /** What the chart is, in one or two sentences. */
+  definition: string;
+  /** What people use it for. */
+  purpose: string;
+  /** What it looks like, by shape and position rather than by colour alone. */
+  appearance: string;
+}
+
+/**
  * Layer/trace definition containing plot type, data, and rendering configuration.
  */
 export interface MaidrLayer {
@@ -1850,13 +1864,33 @@ export interface MaidrLayer {
    * named -- its accessible name, the instruction on entering it, the
    * description's Chart Type and layer tab, a layer switch -- and the
    * description leaves out its "About this chart type" guide, which explains
-   * the trace type rather than this chart. Written as given, in every
-   * language, as `title` is.
+   * the trace type rather than this chart, unless the layer gives a guide to
+   * its own chart in {@link typeGuide}. Written as given, in every language,
+   * as `title` is.
    *
    * @example
    * typeLabel: 'Packet Diagram'
    */
   typeLabel?: string;
+  /**
+   * A plain-language introduction to the chart {@link typeLabel} names, shown
+   * in the description's "About this chart type" section in place of the
+   * guide to the trace type, which a layer that names its chart leaves out.
+   *
+   * Read only beside a `typeLabel`: that section is headed with the chart
+   * type's name, and without one it names the trace type, which this guide
+   * does not explain. All three parts must be given, since the section reads
+   * all three; a guide missing one, or blank in one, is not shown. Written as
+   * given, in every language, as `typeLabel` is.
+   *
+   * @example
+   * typeGuide: {
+   *   definition: 'A packet diagram shows the layout of a block of data as fields of bits, in order.',
+   *   purpose: 'It is used to document a data format or protocol.',
+   *   appearance: 'Bits are numbered from left to right in rows; each field is a box as wide as its bits.',
+   * }
+   */
+  typeGuide?: TypeGuide;
   /**
    * Which element of the chart each point of the layer is drawn as.
    *
