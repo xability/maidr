@@ -1110,6 +1110,20 @@ the edges are declared on the node they arrive at, as `inputs`, and scopes as a
   the far end, and is heard with their label when they all carry the same
   one -- a state's `stop` out of a composite state, a flowchart's `yes` into
   a subgraph -- and without one when they differ or some are unnamed.
+- `inputEdges` says which drawn edge each edge in `inputs` is, index for
+  index, where the diagram draws one edge that is declared as several: a line
+  drawn without an arrow, or with an arrow at each end, declared once from
+  each end; an edge into or out of a scope declared once for each node it
+  enters or leaves. Edges sharing an id are counted once in the description's
+  `Number of edges`, a line declared each way is not called a cycle, and the
+  copies arriving from or leaving for one scope are listed as that scope in
+  the table, with their label when they all carry the same one. Moves are
+  unchanged: every declared edge is one a reader can follow. A blank or
+  `null` entry is an edge of its own, apart from any drawn edge between the
+  same two nodes: a line and an arrow drawn between them are two edges, and
+  a cycle. Ids are compared as text, so the two directions of a line must
+  carry the same one: with different ids they are two edges, and the line a
+  cycle, as they were before `inputEdges`.
 - `attributes` is free-form: each entry is announced as a clause, in declared
   order, and becomes a column of the description's table.
 
@@ -1130,7 +1144,9 @@ x axis's noun for a node -- `Scope is block1, Size is 3 nodes inside` -- and is
 called not connected only when nothing inside it has an edge.
 
 The description speaks of the whole graph at once. Its table lists every
-node's own inputs and outputs, as declared. Its branch and merge points are
+node's own inputs and outputs, as declared, but for the copies of one drawn
+edge (`inputEdges`) that reach a node from one scope or leave it for one,
+listed once as that scope. Its branch and merge points are
 the items a move announces as one and the object list's filters gather, each
 seen from its scope, and are named so each can be found: the skip
 connection's `input_1` above has two edges of its own, as the table lists,

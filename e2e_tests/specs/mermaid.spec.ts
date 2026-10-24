@@ -889,6 +889,26 @@ test.describe('Mermaid adapter', () => {
     expect(storage).not.toContain('graph input');
   });
 
+  test('counts edges in the description as they are drawn', async ({ page }) => {
+    // The plain line, read both ways, is still one of three connections, and
+    // no cycle.
+    await openExample(page, 'architecture');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('d');
+    let dialog = page.getByRole('dialog', { name: 'Chart Description', exact: true });
+    await expect(dialog).toContainText('Number of edges: 3');
+    await expect(dialog).not.toContainText('Cycle');
+
+    // stop and quit leave Running once each, from whichever state is current.
+    await openExample(page, 'state');
+    await press(page, 'ArrowRight');
+    await page.keyboard.press('d');
+    dialog = page.getByRole('dialog', { name: 'Chart Description', exact: true });
+    await expect(dialog).toContainText('Number of edges: 8');
+    // Idle's inputs: one stop, from Running, not one from each state in it.
+    await expect(dialog.getByRole('cell', { name: 'start, Running (stop)', exact: true })).toBeVisible();
+  });
+
   test('reads an agent flow by the kind of each step', async ({ page }) => {
     await openExample(page, 'agentflow');
     await press(page, 'ArrowRight');

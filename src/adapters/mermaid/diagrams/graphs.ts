@@ -78,16 +78,18 @@ export function c4(context: DiagramContext): DiagramConversion {
   });
 
   const edges: GraphEdge[] = [];
-  for (const rel of rows(call(context.db, 'getRels'))) {
+  rows(call(context.db, 'getRels')).forEach((rel, at) => {
     const from = str(rel.from) ?? '';
     const to = str(rel.to) ?? '';
     const technology = plain(rel.techn);
     const label = technology ? `${plain(rel.label)} [${technology}]` : plain(rel.label);
-    edges.push({ from, to, label });
     if (/^birel/i.test(str(rel.type) ?? '')) {
-      edges.push({ from: to, to: from, label });
+      // One line, an arrow at each end: one edge each way, drawn as one.
+      edges.push({ from, to, label, drawn: `rel-${at}` }, { from: to, to: from, label, drawn: `rel-${at}` });
+    } else {
+      edges.push({ from, to, label });
     }
-  }
+  });
   const level = str(call(context.db, 'getC4Type'))?.trim();
   return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: c4DiagramType(level) }));
 }
@@ -174,14 +176,16 @@ export function architecture(context: DiagramContext): DiagramConversion {
     ...rows(call(context.db, 'getServices')).map(one => service(one, 'service')),
     ...rows(call(context.db, 'getJunctions')).map(one => service(one, 'junction')),
   ];
-  const edges: GraphEdge[] = rows(call(context.db, 'getEdges')).flatMap((edge) => {
+  const edges: GraphEdge[] = rows(call(context.db, 'getEdges')).flatMap((edge, at) => {
     const lhs = str(edge.lhsId) ?? '';
     const rhs = str(edge.rhsId) ?? '';
     const label = plain(edge.title);
     const intoLhs = edge.lhsInto === true;
     if (intoLhs === (edge.rhsInto === true)) {
-      // No arrow, or one at each end: neither side leads to the other.
-      return [{ from: lhs, to: rhs, label }, { from: rhs, to: lhs, label }];
+      // No arrow, or one at each end: neither side leads to the other, so
+      // the one line drawn is an edge each way.
+      const drawn = `connection-${at}`;
+      return [{ from: lhs, to: rhs, label, drawn }, { from: rhs, to: lhs, label, drawn }];
     }
     return [intoLhs ? { from: rhs, to: lhs, label } : { from: lhs, to: rhs, label }];
   });

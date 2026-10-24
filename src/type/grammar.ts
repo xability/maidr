@@ -1150,6 +1150,28 @@ export interface DirectedGraphPoint {
    */
   inputLabels?: (string | number | null)[];
   /**
+   * Which drawn edge each edge in `inputs` is, index for index, where the
+   * diagram draws one edge that is declared as several:
+   *
+   * - a line drawn with no arrow, or with an arrow at each end, which runs
+   *   both ways and so is declared once from each end;
+   * - an edge into or out of a scope -- a transition out of a composite
+   *   state -- declared once for each node it enters or leaves.
+   *
+   * Edges sharing an id are one edge: the description counts it once, lists
+   * the copies arriving from or leaving for one scope as that scope, and
+   * does not call a line declared each way a cycle. Moves are unchanged, as
+   * every declared edge is still one a reader can follow. `null`, an empty
+   * string or a missing entry leaves that edge an edge of its own, apart
+   * from any drawn edge between the same two nodes. Ids are compared as
+   * text, so the two directions of a line must carry the same one.
+   *
+   * @example
+   * // A line drawn between Database and Storage, with no arrow.
+   * [{ id: 'db', inputs: ['disk'], inputEdges: ['db-disk'] }, { id: 'disk', inputs: ['db'], inputEdges: ['db-disk'] }]
+   */
+  inputEdges?: (string | number | null)[];
+  /**
    * Anything else the reader should hear about the node, announced as
    * `key, value` clauses in declared order and tabulated in the
    * description: a layer type, an output shape, a parameter count.

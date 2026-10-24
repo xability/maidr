@@ -359,16 +359,22 @@ describe('a state diagram', () => {
   });
 
   // A transition out of a composite state is declared once from each state it
-  // leaves from, since a directed graph declares edges between nodes only, so
-  // the description counts 12 edges for the 8 transitions drawn. docs/mermaid.md
-  // says so. This turns red when the schema can declare an edge from a scope:
-  // delete the pin and that paragraph then.
-  it.failing('counts a transition out of a composite state once, as it is drawn', () => {
+  // leaves from, since a directed graph declares edges between nodes only, and
+  // the copies say they are the one transition drawn. The description counted
+  // 12 edges for the 8 transitions drawn, and listed Idle's inputs once per
+  // state Running holds.
+  it('counts a transition out of a composite state once, as it is drawn, and lists it from the state', () => {
     const layer = layersOf(convert('stateDiagram', RUNNING))[0];
-    const trace = TraceFactory.create(layer) as DirectedGraphTrace;
-    const edges = trace.description.stats.find(entry => entry.label === 'Number of edges')?.value;
+    const description = (TraceFactory.create(layer) as DirectedGraphTrace).description;
+    const edges = description.stats.find(entry => entry.label === 'Number of edges')?.value;
+    const row = (state: string): (string | number | number[])[] | undefined =>
+      description.dataTable.rows.find(cells => cells[1] === state);
 
     expect(edges).toBe(8);
+    expect(row('Idle')?.[2]).toBe('start, Running (stop)');
+    expect(row('end')?.[2]).toBe('Running (quit)');
+    // A state the transition leaves from is still told where it leads.
+    expect(row('Playing')?.[3]).toBe('Idle (stop), Running > Paused (pause), end (quit)');
   });
 
   it('enters a composite state that starts in a loop on its states, not its final state', () => {
