@@ -429,6 +429,62 @@ describe('the edges are read as declared, and no further', () => {
     expect(stat('Cycle')).toBeUndefined();
   });
 
+  test('edges declared as one drawn edge are counted once, and the rest one by one', () => {
+    // A line between b and c drawn without an arrow, declared each way, and
+    // an edge out of the scope s declared from both nodes it leaves.
+    const data: DirectedGraphPoint[] = [
+      { id: 'a' },
+      { id: 'b', inputs: ['a', 'c'], inputEdges: [null, 'line'] },
+      { id: 'c', inputs: ['b'], inputEdges: ['line'] },
+      { id: 's1', path: ['s'], inputs: ['c'] },
+      { id: 's2', path: ['s'], inputs: ['s1'] },
+      { id: 'out', inputs: ['s1', 's2'], inputEdges: ['exit', 'exit'] },
+    ];
+
+    expect(stat('Number of edges', data)).toBe(5);
+  });
+
+  test('a line declared each way is no cycle, as nothing is drawn going round', () => {
+    const data: DirectedGraphPoint[] = [
+      { id: 'a' },
+      { id: 'b', inputs: ['a', 'c'], inputEdges: [null, 'line'] },
+      { id: 'c', inputs: ['b'], inputEdges: ['line'] },
+    ];
+
+    expect(stat('Cycle', data)).toBeUndefined();
+    // Both ways are still edges a reader can follow.
+    expect(aside(graph(data), 'Connections')).toBe('0 inputs, 1 output');
+  });
+
+  test('lines and one-way edges that close a loop between them are a cycle', () => {
+    // a to b, a line from b to c, and c back to a: round and back to a.
+    const closed: DirectedGraphPoint[] = [
+      { id: 'a', inputs: ['c'] },
+      { id: 'b', inputs: ['a', 'c'], inputEdges: [null, 'line'] },
+      { id: 'c', inputs: ['b'], inputEdges: ['line'] },
+    ];
+    // Three lines joined in a triangle.
+    const triangle: DirectedGraphPoint[] = [
+      { id: 'a', inputs: ['b', 'c'], inputEdges: ['ab', 'ca'] },
+      { id: 'b', inputs: ['a', 'c'], inputEdges: ['ab', 'bc'] },
+      { id: 'c', inputs: ['b', 'a'], inputEdges: ['bc', 'ca'] },
+    ];
+    // A line and arrows that meet at d without coming back: a to b by the
+    // line, and on to d two ways.
+    const beside: DirectedGraphPoint[] = [
+      { id: 'a', inputs: ['b'], inputEdges: ['line'] },
+      { id: 'b', inputs: ['a'], inputEdges: ['line'] },
+      { id: 'c', inputs: ['b'] },
+      { id: 'd', inputs: ['c', 'a'] },
+      { id: 'e', inputs: ['d'] },
+      { id: 'f', inputs: ['e'] },
+    ];
+
+    expect(stat('Cycle', closed)).toBeDefined();
+    expect(stat('Cycle', triangle)).toBeDefined();
+    expect(stat('Cycle', beside)).toBeUndefined();
+  });
+
   test('scopes sharing a name under different parents stay apart', () => {
     const data: DirectedGraphPoint[] = [
       { id: 'a/x/n', label: 'n', path: ['a', 'x'] },
@@ -612,6 +668,26 @@ describe('the description', () => {
     expect(table.headers).toEqual(['Path', 'Layer', 'Inputs', 'Outputs', 'Layer type', 'Parameters', 'Output shape']);
     expect(table.rows.map(row => row[1])).toEqual(['input', 'conv1', 'conv2', 'add', 'conv', 'pool', 'dense']);
     expect(table.rows[3]).toEqual(['block1', 'add', 'block1 > conv2, input', 'block2 > conv', '', '', '']);
+  });
+
+  test('lists the copies of one drawn edge as the scope they leave or enter', () => {
+    // Running's stop and quit, and Idle's start into it, each drawn once and
+    // declared once for every state they leave or enter.
+    const drawn: DirectedGraphPoint[] = [
+      { id: 'Idle', inputs: ['Loading', 'Playing'], inputLabels: ['stop', 'stop'], inputEdges: ['stop', 'stop'] },
+      { id: 'Loading', path: ['Running'], inputs: ['Idle'], inputLabels: ['start'], inputEdges: ['start'] },
+      { id: 'Playing', path: ['Running'], inputs: ['Loading', 'Idle'], inputLabels: ['loaded', 'start'], inputEdges: [null, 'start'] },
+      { id: 'end', inputs: ['Loading', 'Playing'], inputLabels: ['quit', 'stop'], inputEdges: ['quit', 'quit'] },
+    ];
+    const rows = graph(drawn).description.dataTable.rows;
+    const row = (name: string): (string | number | number[])[] | undefined => rows.find(cells => cells[1] === name);
+
+    expect(row('Idle')?.slice(2, 4)).toEqual(['Running (stop)', 'Running (start)']);
+    // Copies whose labels differ are listed as the scope, unlabelled, as a
+    // move would hear them.
+    expect(row('end')?.[2]).toBe('Running');
+    // Each copy still leads where it was declared to, from the state it leaves.
+    expect(row('Loading')?.[3]).toBe('Idle (stop), Running > Playing (loaded), end (quit)');
   });
 
   test('a graph with no scopes leaves out the Path column', () => {

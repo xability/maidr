@@ -251,14 +251,20 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   /** The declared nodes in topological order, as indices. */
   private readonly order: number[];
 
-  /** Whether the edges form a cycle, so the order is not topological throughout. */
+  /** Whether the edges form a cycle as drawn, so the order is not topological throughout. */
   private readonly cyclic: boolean;
 
-  /** How many distinct edges the layer declared. */
+  /** How many edges the layer's edges are drawn as. */
   private readonly edgeCount: number;
 
   /** Each labelled edge's label, keyed `from>to` by declared index. */
   private readonly edgeLabels: Map<string, string>;
+
+  /**
+   * The drawn edges each edge is one of, keyed `from>to` by declared index,
+   * for an edge the layer said is part of one (`inputEdges`).
+   */
+  private readonly drawnEdges: Map<string, string[]>;
 
   /** Each declared node's successors, as indices, in declared order. */
   private readonly successors: number[][];
@@ -304,17 +310,17 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     super(layer);
 
     this.points = layer.data as DirectedGraphPoint[];
-    const { successors, predecessors, edges, labels } = DirectedGraphTrace.resolveEdges(this.points);
+    const { successors, predecessors, edges, labels, drawn } = DirectedGraphTrace.resolveEdges(this.points);
     this.successors = successors;
     this.predecessors = predecessors;
     this.edgeCount = edges;
     this.edgeLabels = labels;
+    this.drawnEdges = drawn;
 
-    const { order, cyclic } = DirectedGraphTrace.topologicalOrder(successors, predecessors);
-    this.order = order;
-    this.cyclic = cyclic;
+    this.order = DirectedGraphTrace.topologicalOrder(successors, predecessors);
+    this.cyclic = DirectedGraphTrace.hasCycle(successors, drawn);
     const rank: number[] = Array.from({ length: this.points.length }, () => 0);
-    order.forEach((node, at) => {
+    this.order.forEach((node, at) => {
       rank[node] = at;
     });
 
@@ -345,15 +351,22 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * one edge the reader hears as `B (yes; retry)`. The semicolon keeps them
    * apart from the commas of the neighbour list.
    *
+   * Edges are counted as the diagram draws them. The edges a layer says are
+   * one drawn edge (`inputEdges`) -- a line declared once from each end, an
+   * edge out of a scope declared from each node it leaves -- count once
+   * between them, and every other edge counts by itself.
+   *
    * @param points - The declared nodes
-   * @returns Successors and predecessors per node, the edge count, and each
-   *   labelled edge's labels keyed by `from>to`
+   * @returns Successors and predecessors per node, the edge count, each
+   *   labelled edge's labels keyed by `from>to`, and each edge's drawn
+   *   edges, keyed the same way
    */
   private static resolveEdges(points: DirectedGraphPoint[]): {
     successors: number[][];
     predecessors: number[][];
     edges: number;
     labels: Map<string, string>;
+    drawn: Map<string, string[]>;
   } {
     const byId = new Map<string, number>();
     points.forEach((point, at) => {
@@ -369,7 +382,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     const predecessors: number[][] = points.map(() => []);
     const seen = new Set<string>();
     const named = new Map<string, string[]>();
-    let edges = 0;
+    const drawn = new Map<string, string[]>();
     points.forEach((point, to) => {
       (point.inputs ?? []).forEach((input, slot) => {
         const from = byId.get(String(input));
@@ -382,18 +395,113 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
         if (label !== '' && !known.includes(label)) {
           named.set(key, [...known, label]);
         }
+        const edge = String(point.inputEdges?.[slot] ?? '').trim();
+        const parts = drawn.get(key) ?? [];
+        if (edge !== '' && !parts.includes(edge)) {
+          drawn.set(key, [...parts, edge]);
+        }
         if (seen.has(key)) {
           return;
         }
         seen.add(key);
         successors[from].push(to);
         predecessors[to].push(from);
-        edges++;
       });
     });
     const labels = new Map<string, string>();
     named.forEach((names, key) => labels.set(key, names.join('; ')));
-    return { successors, predecessors, edges, labels };
+
+    // Each drawn edge an id names once, and each edge no id names by itself.
+    const ids = new Set([...drawn.values()].flat());
+    const unnamed = [...seen].filter(key => !drawn.has(key)).length;
+    return { successors, predecessors, edges: ids.size + unnamed, labels, drawn };
+  }
+
+  /**
+   * Whether the edges form a cycle, reading a line declared each way as the
+   * one line it is drawn as.
+   *
+   * A line with no arrow, or an arrow at each end, is declared as an edge
+   * each way sharing one drawn edge (`inputEdges`), and those two edges are a
+   * cycle only by declaration: the diagram draws a single line. So each such
+   * pair is read as a line, and the graph has a cycle when its lines close a
+   * loop among themselves, or when the one-way edges, with every group of
+   * nodes the lines join taken as one, still do: a one-way edge between two
+   * nodes the lines already join closes a loop with them, and so does a
+   * chain of one-way edges that returns to where it started.
+   *
+   * @param successors - Each node's successors
+   * @param drawn - Each edge's drawn edges, keyed `from>to`
+   * @returns True when the graph has a cycle as drawn
+   */
+  private static hasCycle(successors: number[][], drawn: Map<string, string[]>): boolean {
+    const group = successors.map((_, node) => node);
+    const find = (node: number): number => {
+      let root = node;
+      while (group[root] !== root) {
+        root = group[root];
+      }
+      group[node] = root;
+      return root;
+    };
+
+    const line = (from: number, to: number): boolean => {
+      const there = drawn.get(`${from}>${to}`) ?? [];
+      const back = drawn.get(`${to}>${from}`) ?? [];
+      return there.some(edge => back.includes(edge));
+    };
+
+    // The lines: a loop of them is a cycle; otherwise each joins its ends
+    // into one group.
+    for (let from = 0; from < successors.length; from++) {
+      for (const to of successors[from]) {
+        if (from < to && line(from, to)) {
+          const [a, b] = [find(from), find(to)];
+          if (a === b) {
+            return true;
+          }
+          group[b] = a;
+        }
+      }
+    }
+
+    // The one-way edges between the groups, ordered as Kahn's algorithm
+    // orders nodes: any left over are on a cycle.
+    const waiting = new Map<number, number>();
+    const next = new Map<number, number[]>();
+    for (let from = 0; from < successors.length; from++) {
+      waiting.set(find(from), waiting.get(find(from)) ?? 0);
+      for (const to of successors[from]) {
+        if (line(from, to)) {
+          continue;
+        }
+        const [a, b] = [find(from), find(to)];
+        if (a === b) {
+          return true;
+        }
+        const list = next.get(a);
+        if (list === undefined) {
+          next.set(a, [b]);
+        } else {
+          list.push(b);
+        }
+        waiting.set(b, (waiting.get(b) ?? 0) + 1);
+      }
+    }
+    const ready = [...waiting].filter(([, count]) => count === 0).map(([one]) => one);
+    let placed = 0;
+    while (ready.length > 0) {
+      const one = ready.pop() as number;
+      placed++;
+      for (const after of next.get(one) ?? []) {
+        const count = (waiting.get(after) ?? 0) - 1;
+        waiting.set(after, count);
+        if (count === 0) {
+          ready.push(after);
+        }
+      }
+    }
+    return placed < waiting.size;
   }
 
   /**
@@ -403,16 +511,18 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    * Kahn's algorithm, taking ready nodes in declared order. A cycle leaves
    * nodes that never become ready; they follow in declared order, and the
    * description says the order is not topological throughout rather than
-   * claim one the data does not have.
+   * claim one the data does not have -- see {@link hasCycle}, which does not
+   * count a line declared each way as one, as nothing about such a line says
+   * which end comes first.
    *
    * @param successors - Each node's successors
    * @param predecessors - Each node's predecessors
-   * @returns The order, and whether a cycle interrupted it
+   * @returns The order
    */
   private static topologicalOrder(
     successors: number[][],
     predecessors: number[][],
-  ): { order: number[]; cyclic: boolean } {
+  ): number[] {
     const waiting = predecessors.map(list => list.length);
     const ready = new MinQueue();
     waiting.forEach((count, node) => {
@@ -435,13 +545,12 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       }
     }
 
-    const cyclic = order.length < successors.length;
     for (let node = 0; node < successors.length; node++) {
       if (!placed.has(node)) {
         order.push(node);
       }
     }
-    return { order, cyclic };
+    return order;
   }
 
   /**
@@ -1657,19 +1766,82 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
           return [
             ...(scoped ? [DirectedGraphTrace.pathOf(item).join(PATH_JOIN)] : []),
             item.name,
-            this.predecessors[node].map(one => DirectedGraphTrace.labelled(
-              DirectedGraphTrace.nameFrom(nodes[one], null),
-              this.edgeLabels.get(`${one}>${node}`),
-            )).join(', '),
-            this.successors[node].map(one => DirectedGraphTrace.labelled(
-              DirectedGraphTrace.nameFrom(nodes[one], null),
-              this.edgeLabels.get(`${node}>${one}`),
-            )).join(', '),
+            this.neighbourCell(node, 'inputs'),
+            this.neighbourCell(node, 'outputs'),
             ...keys.map(key => attributes.get(key) ?? ''),
           ];
         }),
       },
     };
+  }
+
+  /**
+   * One node's inputs or outputs, as the description's table lists them:
+   * each declared edge by the node at its far end, with its label, in
+   * declared order.
+   *
+   * Copies of one drawn edge (`inputEdges`) that all reach the node from one
+   * scope, or all leave it for one, are listed as that scope, once: a
+   * composite state's `stop`, declared from each state inside it, is drawn
+   * as one arrow out of the composite, and Idle's inputs read `start,
+   * Running (stop)`, not one entry per state. Their label is given when they
+   * all carry the same one, as a move hears it. Copies that share no scope
+   * apart from the node's own are listed one by one.
+   *
+   * @param node - The node, as a declared index
+   * @param along - Whether to list the edges arriving at it or leaving it
+   * @returns The joined entries
+   */
+  private neighbourCell(node: number, along: 'inputs' | 'outputs'): string {
+    const nodes = this.nodeItems;
+    const keyOf = (one: number): string => (along === 'inputs' ? `${one}>${node}` : `${node}>${one}`);
+    const neighbours = along === 'inputs' ? this.predecessors[node] : this.successors[node];
+
+    // The neighbours each drawn edge reaches, by its first id.
+    const copies = new Map<string, number[]>();
+    for (const one of neighbours) {
+      const edge = this.drawnEdges.get(keyOf(one))?.[0];
+      if (edge !== undefined) {
+        copies.set(edge, [...(copies.get(edge) ?? []), one]);
+      }
+    }
+
+    const listed = new Set<number>();
+    const entries: string[] = [];
+    for (const one of neighbours) {
+      if (listed.has(one)) {
+        continue;
+      }
+      const edge = this.drawnEdges.get(keyOf(one))?.[0];
+      const group = edge === undefined ? [one] : copies.get(edge) ?? [one];
+      const scope = group.length > 1 ? DirectedGraphTrace.commonScope(group.map(each => nodes[each])) : null;
+      if (scope !== null && !scope.members.includes(node)) {
+        const labels = new Set(group.map(each => this.edgeLabels.get(keyOf(each))));
+        const label = labels.size === 1 ? [...labels][0] : undefined;
+        entries.push(DirectedGraphTrace.labelled(DirectedGraphTrace.nameFrom(scope, null), label));
+        group.forEach(each => listed.add(each));
+        continue;
+      }
+      entries.push(DirectedGraphTrace.labelled(DirectedGraphTrace.nameFrom(nodes[one], null), this.edgeLabels.get(keyOf(one))));
+      listed.add(one);
+    }
+    return entries.join(', ');
+  }
+
+  /**
+   * The deepest scope holding every one of the given nodes.
+   *
+   * @param items - Declared nodes' own items
+   * @returns The scope, or null when only the top level holds them all
+   */
+  private static commonScope(items: GraphItem[]): GraphItem | null {
+    for (let scope = items[0]?.parent ?? null; scope !== null; scope = scope.parent) {
+      const holds = scope.members;
+      if (items.every(item => item.source !== null && holds.includes(item.source))) {
+        return scope;
+      }
+    }
+    return null;
   }
 
   /**
