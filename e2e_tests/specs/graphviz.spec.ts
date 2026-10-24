@@ -158,6 +158,22 @@ test.describe('Graphviz adapter', () => {
     await expect(dialog.getByRole('columnheader')).toHaveText(['Step', 'Inputs', 'Outputs']);
     await expect(dialog.getByRole('rowheader').first()).toHaveText('Order received');
   });
+
+  test('should explain a directed graph as one-way arrows between nodes, not only as a computation', async ({ page }) => {
+    const plot = new GraphvizPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await page.keyboard.press('d');
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'About this chart type (Directed Graph)', exact: true }).click();
+
+    // An order-handling process is not "how something is computed".
+    const parts = dialog.getByRole('definition');
+    await expect(parts.first()).toHaveText(
+      'A directed graph shows items, called nodes, joined by arrows that each point one way, from one node to another.',
+    );
+    await expect(parts.nth(1)).toContainText('the steps of a process');
+  });
 });
 
 test.describe('Graphviz adapter, undirected graph', () => {
