@@ -17,8 +17,27 @@ import { text } from './text';
  * Split by the area of the code that speaks each message so a translator can
  * work one area at a time. Keys are namespaced the same way (`text.`,
  * `settings.`, …) so two areas cannot define the same key.
+ *
+ * Typed as a record of the areas' keys rather than as its own literal type.
+ * The literal is every message written out twice in the API reference, and
+ * that page outgrew the 2 MB that Googlebot reads (`scripts/pageSizes.js`).
+ * The areas' own pages still show each message.
  */
-export const en = {
+export const en: Readonly<Record<
+  | keyof typeof common
+  | keyof typeof text
+  | keyof typeof keybinding
+  | keyof typeof rotor
+  | keyof typeof notification
+  | keyof typeof description
+  | keyof typeof diagram
+  | keyof typeof tactile
+  | keyof typeof settings
+  | keyof typeof dialogs
+  | keyof typeof model
+  | keyof typeof llm,
+  string
+>> = {
   ...common,
   ...text,
   ...keybinding,
@@ -31,4 +50,4 @@ export const en = {
   ...dialogs,
   ...model,
   ...llm,
-} as const;
+};
