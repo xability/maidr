@@ -1,6 +1,7 @@
 import type { MessageKey } from '../index';
 import { common } from './common';
 import { description } from './description';
+import { diagram } from './diagram';
 import { dialogs } from './dialogs';
 import { keybinding } from './keybinding';
 import { llm } from './llm';
@@ -23,6 +24,7 @@ export const es: Record<MessageKey, string> = {
   ...rotor,
   ...notification,
   ...description,
+  ...diagram,
   ...tactile,
   ...settings,
   ...dialogs,

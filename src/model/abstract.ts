@@ -855,7 +855,8 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   /**
    * What the entry instruction calls this chart: the name the layer gives
-   * its own chart type ({@link MaidrLayer.typeLabel}), or the trace's word.
+   * its own chart type ({@link MaidrLayer.diagramType} or
+   * {@link MaidrLayer.typeLabel}), or the trace's word.
    *
    * A trace that names itself -- a line "single line" or "multiline", a
    * radar "polar area" -- passes its word through here, so a layer that
@@ -892,7 +893,8 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * A layer that names its own chart type never gets the trace type's: that
    * guide explains the type the chart is read as, which is not what the chart
    * is, and a gantt's tasks, dates and project plans said of a packet's bit
-   * fields are false. It gets the guide it gives to its own chart instead
+   * fields are false. It gets the guide to the diagram it names
+   * ({@link MaidrLayer.diagramType}), or the one it gives to its own chart
    * ({@link MaidrLayer.typeGuide}), or none.
    */
   public get guide(): ChartGuide | undefined {

@@ -142,9 +142,9 @@ function getInitialInstruction(data: MaidrData): string {
  *
  * The title is the figure's, or, for a single panel, its first layer's:
  * producers give every layer the chart's title. The type is the one that
- * layer names when it is read as another (`typeLabel`). A figure of several
- * panels with no title of its own is named by its panel count, as no one
- * panel names it.
+ * layer names when it is read as another (`diagramType` or `typeLabel`). A
+ * figure of several panels with no title of its own is named by its panel
+ * count, as no one panel names it.
  *
  * @param data - The chart's MAIDR data
  * @returns The name, e.g. `Tips by day, Bar Chart`

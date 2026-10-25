@@ -20,7 +20,7 @@
 import type { BoxPoint, Maidr as MaidrData, MaidrLayer } from '@type/grammar';
 import { describe, expect, test } from '@jest/globals';
 import { createEvent, fireEvent, render, screen } from '@testing-library/react';
-import { Orientation, TraceType } from '@type/grammar';
+import { DiagramType, Orientation, TraceType } from '@type/grammar';
 import { Maidr } from '../../src/maidr-component';
 
 /**
@@ -185,6 +185,23 @@ describe('pre-activation name', () => {
 
     expect(name).toBe('UDP packet, Packet Diagram');
     // As the trace calls itself once the reader is in the chart.
+    expect(description).toContain('This is a maidr plot of type: horizontal Packet Diagram.');
+  });
+
+  test('names a chart that says which diagram it is by that diagram', () => {
+    // The same packet diagram, named by the diagram MAIDR knows it as.
+    const layer: MaidrLayer = {
+      id: 'packet-layer',
+      type: TraceType.GANTT,
+      orientation: Orientation.HORIZONTAL,
+      diagramType: DiagramType.PACKET,
+      axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
+      data: { points: [[{ x: 'Bits 0 to 31', start: 0, end: 15 }]], unit: 'bits' },
+    };
+
+    const { name, description } = announcementOf({ id: 'name-test', title: 'UDP packet', subplots: [[{ layers: [layer] }]] });
+
+    expect(name).toBe('UDP packet, Packet Diagram');
     expect(description).toContain('This is a maidr plot of type: horizontal Packet Diagram.');
   });
 
