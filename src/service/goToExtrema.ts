@@ -124,7 +124,7 @@ export class GoToExtremaService {
   }
 
   /**
-   * Every target sharing the lowest (or highest) value a trace reports, in the
+   * Every place holding the lowest (or highest) value a trace reports, in the
    * order the trace listed them.
    *
    * A trace can report several min/max targets — one per tied point, per
@@ -132,9 +132,17 @@ export class GoToExtremaService {
    * than taking the first match, and every target holding that value comes
    * back. `intersection` targets are excluded by the type check: they are
    * neither a minimum nor a maximum, and their value would otherwise compete.
+   *
+   * A place several targets name comes back once, under the first of them.
+   * A heatmap lists its current row's and column's maximum beside the cells
+   * holding its overall maximum, and each is one of those cells whenever it
+   * holds that value. Counted per target, a maximum held by one cell was
+   * announced as "1 of 2", and once the cursor stood on a cell every target
+   * named, each further press stayed on it.
    * @param targets - The extrema targets reported by the trace.
    * @param type - Which extreme to collect.
-   * @returns The tied targets, or an empty array when the trace reports none.
+   * @returns The tied targets, one per place, or an empty array when the
+   * trace reports none.
    */
   private static tiedExtremeTargets(
     targets: ExtremaTarget[],
@@ -153,7 +161,35 @@ export class GoToExtremaService {
         : Math.max(best, target.value)),
       candidates[0].value,
     );
-    return candidates.filter(target => target.value === extreme);
+    const places = new Set<string>();
+    return candidates.filter((target) => {
+      const place = GoToExtremaService.placeOf(target);
+      if (target.value !== extreme || places.has(place)) {
+        return false;
+      }
+      places.add(place);
+      return true;
+    });
+  }
+
+  /**
+   * Where a target sends the cursor, as a key two targets share exactly when
+   * they send it to the same place.
+   *
+   * Read the way {@link isCursorAt} reads a target, so that the walk holds no
+   * two stops the cursor would find itself on at once: a group target
+   * addresses a row and a column, and a point target a column of the current
+   * row.
+   * @param target - The target to locate.
+   * @returns The place's key.
+   */
+  private static placeOf(target: ExtremaTarget): string {
+    if (target.navigationType === 'group'
+      && target.groupIndex !== undefined
+      && target.categoryIndex !== undefined) {
+      return `cell ${target.groupIndex} ${target.categoryIndex}`;
+    }
+    return `column ${target.pointIndex}`;
   }
 
   /**
