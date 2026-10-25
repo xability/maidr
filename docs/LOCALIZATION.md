@@ -118,6 +118,20 @@ and Latin letters are judged by their usual Korean reading, so `1은`, `2는`,
 `Team은`, and `Price는` all come out right. A language with a similar need can
 add its own modifier in `src/util/i18n/index.ts`.
 
+## For other scripts on the page
+
+MAIDR fires `maidr:languagechange` on the document each time the language it
+speaks changes, with the new locale in `event.detail.language`. It does not fire
+when a locale pack arrives for the language already spoken. A script that
+writes words of its own into chart data, as the diagram adapters do, can listen
+for it and write them again:
+
+```js
+document.addEventListener('maidr:languagechange', (event) => {
+  rebuildLabels(event.detail.language); // 'ko', 'de', …
+});
+```
+
 ## For code
 
 - Non-React code imports `t` from `@util/i18n` and calls it where the string

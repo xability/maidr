@@ -1,30 +1,23 @@
 import type { Disposable } from '@type/disposable';
+import type { MessageParams } from './interpolate';
+import type { LanguageChangeDetail, Locale } from './locale';
 import { en } from './en';
-import { attachJosa, isJosaPair } from './josa';
+import { interpolate } from './interpolate';
+import { DEFAULT_LOCALE, isLocale, LANGUAGE_CHANGE_EVENT } from './locale';
 import { adoptLocalePacks } from './pack';
 
-/**
- * A language MAIDR can speak. Every dictionary under `src/util/i18n/` has an
- * entry for every key of the English one, so any locale can render any
- * message.
- *
- * English ships inside the core bundle. Every other dictionary is a locale
- * pack — `dist/locale-ko.js`, or `maidr/locale/ko` from npm — registered
- * through {@link registerLocale}, so adding a language costs nothing to a
- * page that does not load it. A locale that is active but not registered
- * renders in English until its pack arrives.
- */
-export type Locale = 'en' | 'ko' | 'ja' | 'zh' | 'es' | 'de' | 'fr' | 'it' | 'hi';
-
-/**
- * The locales MAIDR knows a dictionary for, in the order the settings dialog
- * lists them. Knowing one is not the same as having it loaded; see
- * {@link isLocaleLoaded}.
- */
-export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'ko', 'ja', 'zh', 'es', 'de', 'fr', 'it', 'hi'];
-
-/** The language before a preference is set and when the browser's is unknown. */
-export const DEFAULT_LOCALE: Locale = 'en';
+export { interpolate } from './interpolate';
+export type { MessageParams } from './interpolate';
+export {
+  browserLanguages,
+  DEFAULT_LOCALE,
+  isLanguageSetting,
+  isLocale,
+  LANGUAGE_CHANGE_EVENT,
+  resolveLocale,
+  SUPPORTED_LOCALES,
+} from './locale';
+export type { LanguageChangeDetail, LanguageSetting, Locale } from './locale';
 
 /**
  * Each locale named in itself, the way a language picker lists them: a reader
@@ -42,17 +35,8 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   hi: 'हिन्दी',
 };
 
-/**
- * The language preference as stored in settings: a locale, or `auto` to
- * follow the browser.
- */
-export type LanguageSetting = Locale | 'auto';
-
 /** Every key the English dictionary defines; the other dictionaries follow it. */
 export type MessageKey = keyof typeof en;
-
-/** Values substituted into a message's `{placeholders}`. */
-export type MessageParams = Record<string, string | number | undefined>;
 
 const MESSAGES: Partial<Record<Locale, Readonly<Record<MessageKey, string>>>> = { en };
 
@@ -115,68 +99,6 @@ export function registerLocale(locale: Locale, messages: Readonly<Record<Message
 adoptLocalePacks(registerLocale);
 
 /**
- * Whether a value names a supported locale.
- * @param value - Any value, typically read from settings or the browser
- * @returns True when it is one of {@link SUPPORTED_LOCALES}
- */
-export function isLocale(value: unknown): value is Locale {
-  return typeof value === 'string' && (SUPPORTED_LOCALES as readonly string[]).includes(value);
-}
-
-/**
- * Whether a value is a valid language preference.
- * @param value - Any value, typically read from settings
- * @returns True for a supported locale or `auto`
- */
-export function isLanguageSetting(value: unknown): value is LanguageSetting {
-  return value === 'auto' || isLocale(value);
-}
-
-/**
- * The languages the browser asks for, in preference order.
- *
- * `navigator.languages` is the full list, but some embedded browsers leave
- * it empty and set only `navigator.language`; a reader there would otherwise
- * fall through to English no matter what their browser is set to.
- * @returns The browser's languages, or none outside a browser
- */
-export function browserLanguages(): readonly string[] {
-  if (typeof navigator === 'undefined') {
-    return [];
-  }
-  const languages = navigator.languages ?? [];
-  if (languages.length > 0) {
-    return languages;
-  }
-  return navigator.language ? [navigator.language] : [];
-}
-
-/**
- * Picks the locale a language preference means.
- *
- * `auto` follows the first browser language MAIDR supports, matched on its
- * primary subtag so `ko-KR` finds Korean. When none match, English.
- * @param setting - The stored preference
- * @param languages - The browser's languages in preference order, {@link browserLanguages} by default
- * @returns The locale to speak
- */
-export function resolveLocale(
-  setting: LanguageSetting,
-  languages: readonly string[] = browserLanguages(),
-): Locale {
-  if (setting !== 'auto') {
-    return setting;
-  }
-  for (const language of languages) {
-    const primary = language.toLowerCase().split('-')[0];
-    if (isLocale(primary)) {
-      return primary;
-    }
-  }
-  return DEFAULT_LOCALE;
-}
-
-/**
  * Every message of a locale, as templates rather than rendered text.
  *
  * For tooling that checks the dictionaries against each other; code that
@@ -199,8 +121,9 @@ export function getLocale(): Locale {
 /**
  * Switches the language every later {@link t} call renders in.
  *
- * Listeners registered with {@link onLocaleChange} are told only when the
- * locale actually changes, so re-saving settings does not re-render anything.
+ * Listeners registered with {@link onLocaleChange}, and the page through a
+ * {@link LANGUAGE_CHANGE_EVENT}, are told only when the locale actually
+ * changes, so re-saving settings does not re-render anything.
  * @param locale - The locale to switch to
  */
 export function setLocale(locale: Locale): void {
@@ -209,6 +132,25 @@ export function setLocale(locale: Locale): void {
   }
   activeLocale = locale;
   notify();
+  announceLanguage(locale);
+}
+
+/**
+ * Tells the page MAIDR now speaks a language, with a
+ * {@link LANGUAGE_CHANGE_EVENT} on the document.
+ *
+ * Listeners inside this bundle hear of it through {@link onLocaleChange}. A
+ * diagram adapter is a bundle of its own, sharing no module with this one,
+ * and writes words of its own into the chart data it hands MAIDR; the event
+ * is how it learns to write them again.
+ * @param locale - The language MAIDR speaks from now on
+ */
+function announceLanguage(locale: Locale): void {
+  if (typeof document === 'undefined' || typeof CustomEvent !== 'function') {
+    return;
+  }
+  const detail: LanguageChangeDetail = { language: locale };
+  document.dispatchEvent(new CustomEvent(LANGUAGE_CHANGE_EVENT, { detail }));
 }
 
 /**
@@ -219,30 +161,6 @@ export function setLocale(locale: Locale): void {
 export function onLocaleChange(listener: (locale: Locale) => void): Disposable {
   listeners.add(listener);
   return { dispose: () => listeners.delete(listener) };
-}
-
-const PLACEHOLDER = /\{(\w+)(?:\|([^}]+))?\}/g;
-
-/**
- * Fills a message template's placeholders.
- *
- * `{name}` is replaced by the parameter of that name; an absent parameter
- * renders as nothing. `{name|은는}` additionally attaches the Korean particle
- * whose form suits the value — see `josa.ts`. Any other modifier is ignored,
- * so an English template that copies the placeholder still renders.
- * @param template - The message text with placeholders
- * @param params - The values to substitute
- * @returns The rendered message
- */
-export function interpolate(template: string, params: MessageParams = {}): string {
-  return template.replace(PLACEHOLDER, (_match, name: string, modifier?: string) => {
-    const raw = params[name];
-    const value = raw === undefined ? '' : String(raw);
-    if (modifier && isJosaPair(modifier)) {
-      return attachJosa(value, modifier);
-    }
-    return value;
-  });
 }
 
 /**

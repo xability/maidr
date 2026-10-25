@@ -11,8 +11,10 @@ import { normalizeBrailleDisplay } from '@util/braillePreset';
 import { deepMerge } from '@util/deepMerge';
 import { isLanguageSetting, resolveLocale, setLocale } from '@util/i18n';
 import { ensureLocalePack } from '@util/i18n/localePack';
+import { readerLocale } from '@util/i18n/readerLocale';
+import { SETTINGS_KEY } from '@util/settingsKey';
 
-export const SETTINGS_KEY = 'maidr-settings';
+export { SETTINGS_KEY };
 
 /**
  * Saved beside the settings once the reader has changed the hover mode
@@ -121,10 +123,7 @@ export function readAgentToolsChoice(storage: StorageService): boolean {
  * @param storage - Where settings are persisted
  */
 export function applyStoredLanguage(storage: StorageService): void {
-  const language = loadStoredGeneralSettings(storage).language;
-  speak(resolveLocale(
-    isLanguageSetting(language) ? language : DEFAULT_SETTINGS.general.language,
-  ));
+  speak(readerLocale(key => storage.load(key), DEFAULT_SETTINGS.general.language));
 }
 
 /**
