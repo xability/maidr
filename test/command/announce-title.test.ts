@@ -7,6 +7,7 @@ import type { PlotState } from '@type/state';
 import { AnnounceTitleCommand } from '@command/describe';
 import { describe, expect, jest, test } from '@jest/globals';
 import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
+import { Scope } from '@type/event';
 
 /**
  * Mock factory configuration for the title-related context surface.
@@ -402,5 +403,27 @@ describe('AnnounceTitleCommand', () => {
 
     expect(textViewModel.update).toHaveBeenCalledWith('No title available');
     expect(audioService.playWarningToneIfEnabled).toHaveBeenCalled();
+  });
+
+  test('leaves label mode even when the announcement fails', () => {
+    const context = {
+      state: { empty: false, type: 'trace', title: 'Sales' } as unknown as PlotState,
+      scope: Scope.TRACE_LABEL,
+      isAuthoredTitle: () => {
+        throw new TypeError('title.trim is not a function');
+      },
+    } as unknown as Context;
+    const displayService = createMockDisplayService();
+    const command = new AnnounceTitleCommand(
+      context,
+      createMockTextViewModel(),
+      createMockAudioService(),
+      createMockTextService(),
+      displayService,
+    );
+
+    expect(() => command.execute()).toThrow(TypeError);
+
+    expect(displayService.exitLabelScope).toHaveBeenCalledTimes(1);
   });
 });
