@@ -14,7 +14,7 @@
 import type { Maidr as MaidrData } from '@type/grammar';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { SETTINGS_KEY } from '@service/settings';
-import { TraceType } from '@type/grammar';
+import { DiagramType, Orientation, TraceType } from '@type/grammar';
 import { setLocale } from '@util/i18n';
 import { renderToString } from 'react-dom/server.node';
 import { Maidr } from '../../src/maidr-component';
@@ -37,12 +37,13 @@ const data: MaidrData = {
  * Renders the chart once, with no effects run, and reads the wrapper's name,
  * the instructions it is described by and the article's language out of the
  * markup.
+ * @param chart - The chart to render, a bar chart unless given
  * @returns The wrapper's `aria-label`, the text of the element its
  * `aria-describedby` names, and the article's `lang`, in the first render
  */
-function firstRender(): { name: string; description: string; lang: string } {
+function firstRender(chart: MaidrData = data): { name: string; description: string; lang: string } {
   const markup = renderToString(
-    <Maidr data={data}>
+    <Maidr data={chart}>
       <svg />
     </Maidr>,
   );
@@ -69,6 +70,28 @@ describe('pre-activation instruction language', () => {
     expect(description).toContain('maidr 그래프입니다');
     expect(description).toContain('키보드 도움말을 보려면');
     expect(description).not.toContain('This is a maidr plot');
+  });
+
+  test('names a diagram MAIDR knows in the stored language', () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ general: { language: 'ko' } }));
+
+    const { name, description } = firstRender({
+      id: 'language-test',
+      title: 'UDP packet',
+      subplots: [[{
+        layers: [{
+          id: 'packet-layer',
+          type: TraceType.GANTT,
+          orientation: Orientation.HORIZONTAL,
+          diagramType: DiagramType.PACKET,
+          axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
+          data: { points: [[{ x: 'Bits 0 to 31', start: 0, end: 15 }]], unit: 'bits' },
+        }],
+      }]],
+    });
+
+    expect(name).toBe('UDP packet, 패킷 다이어그램');
+    expect(description).toContain('패킷 다이어그램');
   });
 
   test('speaks English when nothing is stored', () => {

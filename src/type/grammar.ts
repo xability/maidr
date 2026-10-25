@@ -1853,6 +1853,73 @@ export interface TypeGuide {
 }
 
 /**
+ * A diagram MAIDR names and explains in the reader's language, though no
+ * layer type of its own reads it: each is read as a layer type that
+ * navigates it, as a flowchart is read as a `directed_graph` and a kanban
+ * board as a `tree`. See {@link MaidrLayer.diagramType}.
+ */
+export enum DiagramType {
+  /** A process as steps joined by arrows. */
+  FLOWCHART = 'flowchart',
+  /** A flowchart whose steps are divided into lanes, one per actor. */
+  SWIMLANE = 'swimlane',
+  /** The steps an AI agent takes to do a task. */
+  AGENT_FLOW = 'agent_flow',
+  /** The states something can be in, and the events between them. */
+  STATE = 'state',
+  /** A program's classes and how they are related. */
+  CLASS = 'class',
+  /** What a database records, and how its entities are related. */
+  ENTITY_RELATIONSHIP = 'entity_relationship',
+  /** A system's requirements and what meets or tests them. */
+  REQUIREMENT = 'requirement',
+  /** The actors that use a system, and what they can do with it. */
+  USE_CASE = 'use_case',
+  /** A C4 diagram of a software system, at a level it does not name. */
+  C4 = 'c4',
+  /** A C4 diagram of a system among the people and systems around it. */
+  C4_CONTEXT = 'c4_context',
+  /** A C4 diagram of the containers inside a system. */
+  C4_CONTAINER = 'c4_container',
+  /** A C4 diagram of the components inside a container. */
+  C4_COMPONENT = 'c4_component',
+  /** A C4 diagram of how its parts work together, step by step. */
+  C4_DYNAMIC = 'c4_dynamic',
+  /** A C4 diagram of where a system's containers run. */
+  C4_DEPLOYMENT = 'c4_deployment',
+  /** A system's parts as blocks in rows and columns. */
+  BLOCK = 'block',
+  /** The services a system is made of, and their connections. */
+  ARCHITECTURE = 'architecture',
+  /** A repository's commits, on their branches. */
+  GIT_GRAPH = 'git_graph',
+  /** How information moves through a system, as screens, commands and events. */
+  EVENT_MODEL = 'event_model',
+  /** Ideas branching out from one central topic. */
+  MINDMAP = 'mindmap',
+  /** Work as cards in columns, one per stage. */
+  KANBAN = 'kanban',
+  /** A hierarchy as an indented list, such as a project's files. */
+  TREE_VIEW = 'tree_view',
+  /** The causes of a problem, grouped into categories: a fishbone diagram. */
+  ISHIKAWA = 'ishikawa',
+  /** Events along a line of time. */
+  TIMELINE = 'timeline',
+  /** The rules of a grammar as tracks: a syntax diagram. */
+  RAILROAD = 'railroad',
+  /** Situations sorted into domains by how clearly cause and effect show. */
+  CYNEFIN = 'cynefin',
+  /** Items on two scales, in four quadrants. */
+  QUADRANT = 'quadrant',
+  /** The tasks a person goes through, and how satisfied they are at each. */
+  USER_JOURNEY = 'user_journey',
+  /** The layout of a block of data as fields of bits. */
+  PACKET = 'packet',
+  /** A user need's components by visibility and evolution. */
+  WARDLEY_MAP = 'wardley_map',
+}
+
+/**
  * Layer/trace definition containing plot type, data, and rendering configuration.
  */
 export interface MaidrLayer {
@@ -1880,7 +1947,7 @@ export interface MaidrLayer {
   name?: string;
   /**
    * What the chart is called, when it is read as a trace type it is not: a
-   * Mermaid packet diagram read as a `gantt`, its fields intervals of bits.
+   * deal pipeline read as a `tree`, its stages columns and its deals cards.
    *
    * Said in place of the trace type's name wherever the chart's type is
    * named -- its accessible name, the instruction on entering it, the
@@ -1888,10 +1955,11 @@ export interface MaidrLayer {
    * description leaves out its "About this chart type" guide, which explains
    * the trace type rather than this chart, unless the layer gives a guide to
    * its own chart in {@link typeGuide}. Written as given, in every language,
-   * as `title` is.
+   * as `title` is: a diagram MAIDR knows is better named by
+   * {@link diagramType}, which MAIDR says in the reader's language.
    *
    * @example
-   * typeLabel: 'Packet Diagram'
+   * typeLabel: 'Deal Pipeline'
    */
   typeLabel?: string;
   /**
@@ -1907,12 +1975,28 @@ export interface MaidrLayer {
    *
    * @example
    * typeGuide: {
-   *   definition: 'A packet diagram shows the layout of a block of data as fields of bits, in order.',
-   *   purpose: 'It is used to document a data format or protocol.',
-   *   appearance: 'Bits are numbered from left to right in rows; each field is a box as wide as its bits.',
+   *   definition: 'A deal pipeline shows deals as cards in columns, one for each stage of a sale.',
+   *   purpose: 'It is used to see how many deals are at each stage, and which are stuck.',
+   *   appearance: 'Columns stand side by side, each headed by its stage, with a card for each deal.',
    * }
    */
   typeGuide?: TypeGuide;
+  /**
+   * What the chart is, when it is a diagram MAIDR knows but reads as a layer
+   * type it is not: a Mermaid flowchart read as a `directed_graph`, a kanban
+   * board as a `tree`, a packet diagram as a `gantt`.
+   *
+   * MAIDR names the diagram wherever {@link typeLabel} would name it, and
+   * explains it in the description's "About this chart type" guide, both in
+   * the reader's language, as it does a layer type. Where MAIDR knows the
+   * diagram, this wins over `typeLabel` and {@link typeGuide}; a producer may
+   * give those as well, for a MAIDR that does not, and they are read as
+   * before. One this MAIDR does not know is said in the console.
+   *
+   * @example
+   * diagramType: DiagramType.FLOWCHART // "flowchart" in JSON
+   */
+  diagramType?: DiagramType;
   /**
    * Which element of the chart each point of the layer is drawn as.
    *

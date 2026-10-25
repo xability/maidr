@@ -1441,3 +1441,46 @@ test.describe('Mermaid adapter', () => {
     expect(await press(page, 't')).toContain('Title is Web accessibility milestones');
   });
 });
+
+/**
+ * A diagram is named and explained in the reader's language, as a layer type
+ * is: the browser asks for the language, and MAIDR loads its pack from beside
+ * the bundle. Each locale, the example it opens, and what its dialog says.
+ */
+const IN_LANGUAGE: { locale: string; example: string; dialog: string; chartType: string; guide: string; definition: RegExp }[] = [
+  {
+    locale: 'ko-KR',
+    example: 'kanban',
+    dialog: '차트 설명',
+    chartType: '차트 유형: 칸반 보드',
+    guide: '이 차트 종류 알아보기 (칸반 보드)',
+    definition: /^칸반 보드는 일을 카드로 나타내고/,
+  },
+  {
+    locale: 'de-DE',
+    example: 'flowchart',
+    dialog: 'Diagrammbeschreibung',
+    chartType: 'Diagrammtyp: Flussdiagramm',
+    guide: 'Über diesen Diagrammtyp (Flussdiagramm)',
+    definition: /^Ein Flussdiagramm zeigt die Schritte eines Ablaufs/,
+  },
+];
+
+for (const { locale, example, dialog: dialogName, chartType, guide: guideName, definition } of IN_LANGUAGE) {
+  test.describe(`Mermaid adapter in a ${locale} browser`, () => {
+    test.use({ locale });
+
+    test(`names and explains the ${example} example in the reader's language`, async ({ page }) => {
+      await openExample(page, example);
+      await page.keyboard.press('d');
+      const dialog = page.getByRole('dialog', { name: dialogName, exact: true });
+
+      await expect(dialog.getByText(chartType, { exact: true })).toBeVisible();
+      const guide = dialog.getByRole('button', { name: guideName, exact: true });
+      if (await guide.getAttribute('aria-expanded') === 'false') {
+        await guide.click();
+      }
+      await expect(dialog.getByRole('definition').first()).toHaveText(definition);
+    });
+  });
+}

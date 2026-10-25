@@ -7,7 +7,7 @@ import type { NonEmptyTraceState } from '@type/state';
 import { convertMermaidDiagram } from '@adapters/mermaid/converter';
 import { describe, expect, it } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
-import { TraceType } from '@type/grammar';
+import { DiagramType, TraceType } from '@type/grammar';
 import { convert, drawn, layersOf, matched } from './helpers';
 
 /**
@@ -51,7 +51,7 @@ describe('the charts', () => {
       ],
     }))[0];
     expect(layer.type).toBe(TraceType.GANTT);
-    expect(layer.typeLabel).toBe('Packet Diagram');
+    expect(layer.diagramType).toBe(DiagramType.PACKET);
     const data = layer.data as GanttData;
     expect(data.points).toEqual([
       [
