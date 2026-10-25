@@ -15,6 +15,11 @@ import type { Maidr, MaidrLayer, MaidrSubplot } from '@type/grammar';
  * kept, a number or a boolean is read as the string it prints as, and anything
  * else is dropped, as if the producer had written nothing there, with a console
  * warning naming the field. Every other field is passed on as given.
+ *
+ * The list is deliberate: these are the fields the model reads as plain text.
+ * `selectors` has its own reader (`src/util/selectors.ts`), and the values and
+ * labels inside a layer's `data` are read by each trace type, which knows
+ * their shape.
  */
 
 /** Warnings already given, so a chart built again does not repeat them. */
