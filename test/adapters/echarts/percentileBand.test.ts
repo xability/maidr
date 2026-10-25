@@ -72,10 +72,11 @@ const BANDS: EChartsAdapterOptions['percentileBands'] = [{
   ],
 }];
 
-function render(series: object[], options: EChartsAdapterOptions) {
+function render(series: object[], options: EChartsAdapterOptions, title?: string) {
   const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 400, height: 300 });
   chart.setOption({
     animation: false,
+    ...(title === undefined ? {} : { title: { text: title } }),
     xAxis: { type: 'category', data: STEPS, name: 'Step' },
     yAxis: { type: 'value', name: 'Value' },
     series,
@@ -103,7 +104,7 @@ describe('echarts percentile band', () => {
 
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.PERCENTILE_BAND);
-    expect(layers[0].title).toBe('Median');
+    expect(layers[0].name).toBe('Median');
     expect((layers[0].data as PercentileBandPoint[])[1]).toEqual({
       x: '1',
       quantiles: [
@@ -114,6 +115,27 @@ describe('echarts percentile band', () => {
         { level: 0.95, value: 3 },
       ],
     });
+  });
+
+  it('names the fan after its median series and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: "Title is Median" on a
+    // chart titled Forecast.
+    const { maidr } = render(FAN, { percentileBands: BANDS }, 'Forecast');
+    const layer = maidr.subplots[0][0].layers[0];
+
+    expect(maidr.title).toBe('Forecast');
+    expect(layer.title).toBeUndefined();
+    expect(layer.name).toBe('Median');
+  });
+
+  it('keeps the title and the name the page gave the fan', () => {
+    const { maidr } = render(FAN, {
+      percentileBands: [{ ...BANDS[0], title: 'Forecast with intervals', name: 'Central estimate' }],
+    }, 'Forecast');
+    const layer = maidr.subplots[0][0].layers[0];
+
+    expect(layer.title).toBe('Forecast with intervals');
+    expect(layer.name).toBe('Central estimate');
   });
 
   it('marks each quantile on its band\'s area, outermost first, then on the median', () => {
