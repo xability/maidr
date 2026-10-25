@@ -7388,13 +7388,14 @@ function buildFanLayer(median: AnyChartSeries, index: number, fan: AnyChartFan):
     });
     data.push({ x: row.x as string | number, quantiles });
   }
+  // The median series' name says which layer this is; it is not the chart's
+  // title, which a layer `title` would be read as in place of the figure's.
+  const name = fan.declaration.name ?? readSeriesName(median);
   return {
     id: String(index),
     type: TraceType.PERCENTILE_BAND,
-    ...(fan.declaration.title !== undefined
-      ? { title: fan.declaration.title }
-      : (readSeriesName(median) ? { title: readSeriesName(median) } : {})),
-    ...(fan.declaration.name !== undefined ? { name: fan.declaration.name } : {}),
+    ...(fan.declaration.title !== undefined ? { title: fan.declaration.title } : {}),
+    ...(name !== undefined ? { name } : {}),
     data,
   };
 }
