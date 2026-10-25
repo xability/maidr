@@ -20,6 +20,7 @@ import type { SubplotLayout } from '@util/subplotLayout';
 import type { Dimension } from './abstract';
 import { TraceType } from '@type/grammar';
 import { chartTypeLabel } from '@util/chartTypeLabel';
+import { chartWithText } from '@util/producerText';
 import { Svg } from '@util/svg';
 import { AbstractPlot, DEFAULT_SUBPLOT_TITLE } from './abstract';
 import { TraceFactory } from './factory';
@@ -176,11 +177,14 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
    *
    * After construction, call {@link applyLayout} with the result of
    * `resolveSubplotLayout()` to set visual ordering and axes references.
-   * @param maidr - The MAIDR data containing figure information and subplots
+   * @param chart - The MAIDR data containing figure information and subplots
    */
-  public constructor(maidr: Maidr) {
+  public constructor(chart: Maidr) {
     super();
 
+    // Text fields a producer wrote as something other than text are read as
+    // absent, before anything below calls a string method on them.
+    const maidr = chartWithText(chart);
     this.id = maidr.id;
 
     this.title = maidr.title ?? DEFAULT_FIGURE_TITLE;
