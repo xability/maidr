@@ -59,7 +59,11 @@ const FIXTURES: readonly Fixture[] = [
     keys: [RIGHT, ['ArrowRight', 'PageUp', 'ArrowRight'], ['ArrowDown', 'ArrowDown', 'ArrowUp']],
     // Quarto's own scripts, without the require.js the page loads from a CDN
     // and the libraries it keeps beside it, which the fixture does not carry.
-    pageErrors: [/^define is not defined$/, /^window\.AnchorJS is not a constructor$/],
+    // Each as Chromium and Firefox word it, and as WebKit does.
+    pageErrors: [
+      /^(?:define is not defined|Can't find variable: define)$/,
+      /^(?:window\.AnchorJS is not a constructor|undefined is not a constructor \(evaluating 'new window\.AnchorJS\(\)'\))$/,
+    ],
   },
 ];
 

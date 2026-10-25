@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { BasePage } from '../page-objects/base-page';
+import { modifierKey } from '../utils/platform';
 
 /**
  * E2E coverage for the Mermaid adapter (`maidr/mermaid`).
@@ -478,12 +479,13 @@ test.describe('Mermaid adapter', () => {
 
   test('keeps a sequence diagram\'s moment with control and up and down', async ({ page }) => {
     await openExample(page, 'sequence');
+    const modifier = await modifierKey(page);
     await press(page, 'ArrowRight');
-    const note = await press(page, 'Control+ArrowRight');
+    const note = await press(page, `${modifier}+ArrowRight`);
     expect(note).toContain('Session stored');
 
-    expect(await press(page, 'Control+ArrowDown')).toContain('User row');
-    const back = await press(page, 'Control+ArrowUp');
+    expect(await press(page, `${modifier}+ArrowDown`)).toContain('User row');
+    const back = await press(page, `${modifier}+ArrowUp`);
     expect(back).toContain('Session stored');
     expect(back).toContain('Order is 6 of 6');
   });
@@ -494,7 +496,7 @@ test.describe('Mermaid adapter', () => {
     // Mermaid's stylesheet draws a message 1.5px wide, over the attribute.
     await expect(page.locator(HIGHLIGHT)).toHaveCSS('stroke-width', '3.5px');
 
-    expect(await press(page, 'Control+ArrowRight')).toContain('Note is Session stored');
+    expect(await press(page, `${await modifierKey(page)}+ArrowRight`)).toContain('Note is Session stored');
     await expect(page.locator(`${HIGHLIGHT} rect`)).toHaveCSS('stroke', HIGHLIGHT_STROKE);
   });
 
@@ -1336,7 +1338,7 @@ test.describe('Mermaid adapter', () => {
     await openExample(page, 'timeline');
     await press(page, 'ArrowRight');
     expect(await press(page, 'ArrowDown')).toContain('Period is 1999, Path is Guidelines');
-    await press(page, 'Control+ArrowRight');
+    await press(page, `${await modifierKey(page)}+ArrowRight`);
     await page.keyboard.press('Alt+Shift+ArrowDown');
     await expect(page.locator('#maidr-rotor-area')).toContainText('Level');
 

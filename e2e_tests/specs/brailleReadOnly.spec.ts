@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { BarPlotPage } from '../page-objects/plots/barplot-page';
 import { TestConstants } from '../utils/constants';
+import { modifierKey } from '../utils/platform';
 
 /**
  * The braille field takes no text (#1131).
@@ -66,7 +67,7 @@ test.describe('braille field', () => {
     await openBraille(page);
     const value = await page.$eval(BRAILLE, el => (el as HTMLTextAreaElement).value);
 
-    await page.keyboard.press('Control+ArrowRight');
+    await page.keyboard.press(`${await modifierKey(page)}+ArrowRight`);
     for (const key of ['\'', '5', ';']) {
       await page.keyboard.press(key);
     }

@@ -138,12 +138,24 @@ async function fieldPaint(page: Page, selector: string): Promise<FieldPaint> {
  * Waits for the re-render a key asked for to land, and then for every CSS
  * transition on the page to end, so the colours read are where they settle,
  * not where a transition passes through.
+ *
+ * Waits again for any that start meanwhile: on a page that transitions every
+ * element's colours, WebKit can start an element's transition of a colour it
+ * inherits once its parent's has ended, so the transitions run in waves down
+ * the page, and the first wave's end is not the colours' end. Ten seconds
+ * at most.
  */
 async function settle(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    const transitions = document.getAnimations().filter(animation => animation instanceof CSSTransition);
-    await Promise.all(transitions.map(transition => transition.finished.catch(() => undefined)));
+    const deadline = performance.now() + 10000;
+    while (performance.now() < deadline) {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const transitions = document.getAnimations().filter(animation => animation instanceof CSSTransition);
+      if (transitions.length === 0) {
+        return;
+      }
+      await Promise.all(transitions.map(transition => transition.finished.catch(() => undefined)));
+    }
   });
 }
 
@@ -972,11 +984,34 @@ test.describe('Braille and review field colours', () => {
   test.describe('under forced colours', () => {
     // A guard: forced colours replace both colours with the system's, over
     // the reader's pair and over any the floor would give.
+
+    /**
+     * Whether the browser paints forced colours, rather than only reporting
+     * them. Playwright's WebKit matches `(forced-colors: active)` once it is
+     * emulated, but WebKit has no forced colours mode to paint them with, so
+     * a colour set on an element keeps its value; no reader in Safari is ever
+     * in forced colours, and the floor, which stays out under them, would be
+     * measured against a page that only claims to be.
+     * @param page - The page, with forced colours emulated
+     * @returns Whether a colour set on an element is replaced
+     */
+    async function paintsForcedColours(page: Page): Promise<boolean> {
+      return page.evaluate(() => {
+        const probe = document.createElement('div');
+        probe.style.color = 'rgb(1, 2, 3)';
+        document.body.appendChild(probe);
+        const replaced = window.getComputedStyle(probe).color !== 'rgb(1, 2, 3)';
+        probe.remove();
+        return replaced;
+      });
+    }
+
     for (const colorScheme of ['light', 'dark'] as const) {
       for (const highContrast of [false, true]) {
         test(`keeps both fields readable in the ${colorScheme} scheme with high contrast ${highContrast ? 'on' : 'off'}`, async ({ page }) => {
           await page.emulateMedia({ forcedColors: 'active', colorScheme });
           const barPage = await openChart(page, `${INHERIT_RESET} body { background-color: #222; color: #fff; }`);
+          test.skip(!await paintsForcedColours(page), 'This browser reports forced colours but does not paint them.');
           if (highContrast) {
             await barPage.pressKey('c', 'turn high contrast on');
           }
