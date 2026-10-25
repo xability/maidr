@@ -27,6 +27,13 @@ Chart data is never translated. Axis labels, category names, and titles are
 read exactly as the chart's author wrote them; only MAIDR's own words around
 them change. The AI chat is asked to answer in the chosen language.
 
+The Mermaid and Graphviz adapters write some words of their own into the chart
+data, such as what a diagram calls its nodes, the kind each node is, and the
+names of its attributes. Those are MAIDR's words too, so they are written in the
+reader's language and written again when it changes. A diagram picks the new
+language up the next time the reader enters it. See
+[Mermaid](mermaid.md#language).
+
 ## Loading a language
 
 English is built into `maidr.js`. Every other language is a **locale pack**, a

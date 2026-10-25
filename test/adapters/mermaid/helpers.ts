@@ -8,6 +8,7 @@
  * and classes it gives them. The e2e spec runs the real Mermaid.
  */
 
+import type { MermaidAdapterOptions } from '@adapters/mermaid/types';
 import type { Maidr, MaidrLayer } from '@type/grammar';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -37,10 +38,11 @@ export function drawn(id: string, markup = ''): SVGSVGElement {
  * @param type - The diagram type
  * @param db - The database
  * @param svg - The drawing
+ * @param options - Figure options: a `language` to write the adapter's words in
  * @returns The figure
  */
-export function convert(type: string, db: object, svg: SVGSVGElement = drawn('d')): Maidr {
-  return convertMermaidDiagram({ type, db }, svg);
+export function convert(type: string, db: object, svg: SVGSVGElement = drawn('d'), options: MermaidAdapterOptions = {}): Maidr {
+  return convertMermaidDiagram({ type, db }, svg, options);
 }
 
 /**

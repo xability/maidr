@@ -95,7 +95,7 @@ export const diagram = {
   'diagram.timeline.name': '타임라인',
   'diagram.timeline.definition': '타임라인은 시간의 흐름을 따라 놓인 사건들을, 그 사건이 속한 시기별로 묶어 보여 줍니다.',
   'diagram.timeline.purpose': '웹 접근성 표준의 주요 단계처럼 어떤 것의 역사를 한눈에 보여 줄 때 씁니다.',
-  'diagram.timeline.appearance': '연도 같은 시기들은 시간을 나타내는 화살표 선 위에 왼쪽에서 오른쪽으로 한 줄로 놓인 상자이며, 그 위의 구간 제목 아래에 묶여 있을 수도 있습니다. 각 시기의 사건들은 그 시기 아래에 쌓인 상자입니다.',
+  'diagram.timeline.appearance': '연도 같은 시기들은 시간을 나타내는 화살표 선 위에 왼쪽에서 오른쪽으로 한 줄로 놓인 상자이며, 그 위의 섹션 제목 아래에 묶여 있을 수도 있습니다. 각 시기의 사건들은 그 시기 아래에 쌓인 상자입니다.',
 
   'diagram.railroad.name': '레일로드 다이어그램',
   'diagram.railroad.definition': '레일로드 다이어그램은 구문 다이어그램이라고도 하며, 문법 규칙을 처음부터 끝까지 따라가는 선로로 보여 줍니다.',
@@ -115,7 +115,7 @@ export const diagram = {
   'diagram.user_journey.name': '사용자 여정',
   'diagram.user_journey.definition': '사용자 여정은 어떤 사람이 목표에 이르기까지 거치는 작업들과, 각 작업에서 그 사람이 얼마나 만족하는지 보여 줍니다.',
   'diagram.user_journey.purpose': '하루 일과 같은 경험에서 좋은 순간과 나쁜 순간을 찾아, 나쁜 순간을 개선하려고 할 때 씁니다.',
-  'diagram.user_journey.appearance': '작업들은 왼쪽에서 오른쪽으로 한 줄로 놓인 상자로, 구간 제목 아래에 묶여 있으며, 각 작업에는 참여하는 사람마다 작은 점이 하나씩 찍혀 있습니다. 그 아래에는 작업마다 얼굴이 하나씩 있어서, 점수가 좋으면 더 높은 곳에 웃는 얼굴로, 나쁘면 더 낮은 곳에 찡그린 얼굴로 그려집니다.',
+  'diagram.user_journey.appearance': '작업들은 왼쪽에서 오른쪽으로 한 줄로 놓인 상자로, 섹션 제목 아래에 묶여 있으며, 각 작업에는 참여하는 사람마다 작은 점이 하나씩 찍혀 있습니다. 그 아래에는 작업마다 얼굴이 하나씩 있어서, 점수가 좋으면 더 높은 곳에 웃는 얼굴로, 나쁘면 더 낮은 곳에 찡그린 얼굴로 그려집니다.',
 
   'diagram.packet.name': '패킷 다이어그램',
   'diagram.packet.definition': '패킷 다이어그램은 네트워크 패킷이나 다른 데이터 덩어리의 배치를, 순서대로 놓인 비트 필드로 보여 줍니다.',

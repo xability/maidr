@@ -12,9 +12,11 @@
 import type { GraphEdge, GraphGroup, GraphNode } from '../graph';
 import type { Row } from '../read';
 import type { DiagramContext, DiagramConversion } from '../types';
+import type { Say, WordKey } from '../words';
 import { DiagramType } from '@type/grammar';
 import { directedGraphLayer } from '../graph';
 import { all, call, findById, plain, rows, str } from '../read';
+import { sayKnown } from '../words';
 
 /** Shapes every box of a diagram has, which are not worth announcing. */
 const PLAIN_SHAPES = new Set([
@@ -42,180 +44,180 @@ const PLAIN_SHAPES = new Set([
  * its short name, its aliases and the name of the shape that draws it, which
  * is what a flowchart written with the classic brackets records.
  */
-const SHAPE_NAMES: Record<string, string> = {
-  'diamond': 'decision',
-  'question': 'decision',
-  'diam': 'decision',
-  'decision': 'decision',
-  'cylinder': 'database',
-  'cyl': 'database',
-  'db': 'database',
-  'database': 'database',
-  'lined-cylinder': 'disk',
-  'lin-cyl': 'disk',
-  'disk': 'disk',
-  'linedCylinder': 'disk',
-  'stadium': 'terminal',
-  'terminal': 'terminal',
-  'pill': 'terminal',
-  'circle': 'circle',
-  'circ': 'circle',
-  'ellipse': 'ellipse',
-  'sm-circ': 'start',
-  'start': 'start',
-  'small-circle': 'start',
-  'doublecircle': 'stop',
-  'dbl-circ': 'stop',
-  'double-circle': 'stop',
-  'fr-circ': 'stop',
-  'stop': 'stop',
-  'framed-circle': 'stop',
-  'subroutine': 'subprocess',
-  'fr-rect': 'subprocess',
-  'subprocess': 'subprocess',
-  'subproc': 'subprocess',
-  'framed-rectangle': 'subprocess',
-  'hexagon': 'preparation',
-  'hex': 'preparation',
-  'prepare': 'preparation',
-  'lean-right': 'input or output',
-  'lean_right': 'input or output',
-  'lean-r': 'input or output',
-  'in-out': 'input or output',
-  'lean-left': 'output or input',
-  'lean_left': 'output or input',
-  'lean-l': 'output or input',
-  'out-in': 'output or input',
-  'trapezoid': 'priority action',
-  'trap-b': 'priority action',
-  'priority': 'priority action',
-  'trapezoid-bottom': 'priority action',
-  'inv-trapezoid': 'manual operation',
-  'inv_trapezoid': 'manual operation',
-  'trap-t': 'manual operation',
-  'manual': 'manual operation',
-  'trapezoid-top': 'manual operation',
-  'odd': 'asymmetric',
-  'rect_left_inv_arrow': 'asymmetric',
-  'datastore': 'data store',
-  'data-store': 'data store',
-  'folder': 'folder',
-  'directory': 'folder',
-  'bucket': 'bucket',
-  'console': 'console',
-  'consoleWindow': 'console',
-  'browser': 'browser',
-  'person': 'person',
-  'bang': 'bang',
-  'cloud': 'cloud',
-  'text': 'text block',
-  'notch-rect': 'card',
-  'card': 'card',
-  'notched-rectangle': 'card',
-  'lin-rect': 'lined process',
-  'lined-rectangle': 'lined process',
-  'lined-process': 'lined process',
-  'lin-proc': 'lined process',
-  'shaded-process': 'lined process',
-  'shadedProcess': 'lined process',
-  'hourglass': 'collate',
-  'collate': 'collate',
-  'brace': 'comment',
-  'brace-l': 'comment',
-  'brace-r': 'comment',
-  'braces': 'comment',
-  'comment': 'comment',
-  'curlyBraceLeft': 'comment',
-  'curlyBraceRight': 'comment',
-  'curlyBraces': 'comment',
-  'bolt': 'communication link',
-  'com-link': 'communication link',
-  'lightning-bolt': 'communication link',
-  'lightningBolt': 'communication link',
-  'doc': 'document',
-  'document': 'document',
-  'waveEdgedRectangle': 'document',
-  'delay': 'delay',
-  'half-rounded-rectangle': 'delay',
-  'halfRoundedRectangle': 'delay',
-  'h-cyl': 'direct access storage',
-  'das': 'direct access storage',
-  'horizontal-cylinder': 'direct access storage',
-  'tiltedCylinder': 'direct access storage',
-  'curv-trap': 'display',
-  'curved-trapezoid': 'display',
-  'display': 'display',
-  'curvedTrapezoid': 'display',
-  'div-rect': 'divided process',
-  'div-proc': 'divided process',
-  'divided-rectangle': 'divided process',
-  'divided-process': 'divided process',
-  'dividedRectangle': 'divided process',
-  'tri': 'extract',
-  'extract': 'extract',
-  'triangle': 'extract',
-  'win-pane': 'internal storage',
-  'internal-storage': 'internal storage',
-  'window-pane': 'internal storage',
-  'windowPane': 'internal storage',
-  'f-circ': 'junction',
-  'junction': 'junction',
-  'filled-circle': 'junction',
-  'filledCircle': 'junction',
-  'notch-pent': 'loop limit',
-  'loop-limit': 'loop limit',
-  'notched-pentagon': 'loop limit',
-  'trapezoidalPentagon': 'loop limit',
-  'flip-tri': 'manual file',
-  'manual-file': 'manual file',
-  'flipped-triangle': 'manual file',
-  'flippedTriangle': 'manual file',
-  'sl-rect': 'manual input',
-  'manual-input': 'manual input',
-  'sloped-rectangle': 'manual input',
-  'slopedRect': 'manual input',
-  'docs': 'multiple documents',
-  'documents': 'multiple documents',
-  'st-doc': 'multiple documents',
-  'stacked-document': 'multiple documents',
-  'multiWaveEdgedRectangle': 'multiple documents',
-  'st-rect': 'multiple processes',
-  'procs': 'multiple processes',
-  'processes': 'multiple processes',
-  'stacked-rectangle': 'multiple processes',
-  'multiRect': 'multiple processes',
-  'bow-rect': 'stored data',
-  'stored-data': 'stored data',
-  'bow-tie-rectangle': 'stored data',
-  'bowTieRect': 'stored data',
-  'cross-circ': 'summary',
-  'summary': 'summary',
-  'crossed-circle': 'summary',
-  'crossedCircle': 'summary',
-  'tag-doc': 'tagged document',
-  'tagged-document': 'tagged document',
-  'taggedWaveEdgedRectangle': 'tagged document',
-  'tag-rect': 'tagged process',
-  'tagged-rectangle': 'tagged process',
-  'tag-proc': 'tagged process',
-  'tagged-process': 'tagged process',
-  'taggedRect': 'tagged process',
-  'flag': 'paper tape',
-  'paper-tape': 'paper tape',
-  'waveRectangle': 'paper tape',
-  'lin-doc': 'lined document',
-  'lined-document': 'lined document',
-  'linedWaveEdgedRect': 'lined document',
-  'icon': 'icon',
-  'iconCircle': 'icon',
-  'iconSquare': 'icon',
-  'iconRounded': 'icon',
-  'imageSquare': 'image',
-  'choice': 'choice',
-  'fork': 'fork',
-  'join': 'join',
-  'forkJoin': 'fork or join',
-  'divider': 'divider',
+const SHAPE_WORDS: Record<string, WordKey> = {
+  'diamond': 'shape.decision',
+  'question': 'shape.decision',
+  'diam': 'shape.decision',
+  'decision': 'shape.decision',
+  'cylinder': 'shape.database',
+  'cyl': 'shape.database',
+  'db': 'shape.database',
+  'database': 'shape.database',
+  'lined-cylinder': 'shape.disk',
+  'lin-cyl': 'shape.disk',
+  'disk': 'shape.disk',
+  'linedCylinder': 'shape.disk',
+  'stadium': 'shape.terminal',
+  'terminal': 'shape.terminal',
+  'pill': 'shape.terminal',
+  'circle': 'shape.circle',
+  'circ': 'shape.circle',
+  'ellipse': 'shape.ellipse',
+  'sm-circ': 'shape.start',
+  'start': 'shape.start',
+  'small-circle': 'shape.start',
+  'doublecircle': 'shape.stop',
+  'dbl-circ': 'shape.stop',
+  'double-circle': 'shape.stop',
+  'fr-circ': 'shape.stop',
+  'stop': 'shape.stop',
+  'framed-circle': 'shape.stop',
+  'subroutine': 'shape.subprocess',
+  'fr-rect': 'shape.subprocess',
+  'subprocess': 'shape.subprocess',
+  'subproc': 'shape.subprocess',
+  'framed-rectangle': 'shape.subprocess',
+  'hexagon': 'shape.preparation',
+  'hex': 'shape.preparation',
+  'prepare': 'shape.preparation',
+  'lean-right': 'shape.inputOrOutput',
+  'lean_right': 'shape.inputOrOutput',
+  'lean-r': 'shape.inputOrOutput',
+  'in-out': 'shape.inputOrOutput',
+  'lean-left': 'shape.outputOrInput',
+  'lean_left': 'shape.outputOrInput',
+  'lean-l': 'shape.outputOrInput',
+  'out-in': 'shape.outputOrInput',
+  'trapezoid': 'shape.priorityAction',
+  'trap-b': 'shape.priorityAction',
+  'priority': 'shape.priorityAction',
+  'trapezoid-bottom': 'shape.priorityAction',
+  'inv-trapezoid': 'shape.manualOperation',
+  'inv_trapezoid': 'shape.manualOperation',
+  'trap-t': 'shape.manualOperation',
+  'manual': 'shape.manualOperation',
+  'trapezoid-top': 'shape.manualOperation',
+  'odd': 'shape.asymmetric',
+  'rect_left_inv_arrow': 'shape.asymmetric',
+  'datastore': 'shape.dataStore',
+  'data-store': 'shape.dataStore',
+  'folder': 'shape.folder',
+  'directory': 'shape.folder',
+  'bucket': 'shape.bucket',
+  'console': 'shape.console',
+  'consoleWindow': 'shape.console',
+  'browser': 'shape.browser',
+  'person': 'shape.person',
+  'bang': 'shape.bang',
+  'cloud': 'shape.cloud',
+  'text': 'shape.textBlock',
+  'notch-rect': 'shape.card',
+  'card': 'shape.card',
+  'notched-rectangle': 'shape.card',
+  'lin-rect': 'shape.linedProcess',
+  'lined-rectangle': 'shape.linedProcess',
+  'lined-process': 'shape.linedProcess',
+  'lin-proc': 'shape.linedProcess',
+  'shaded-process': 'shape.linedProcess',
+  'shadedProcess': 'shape.linedProcess',
+  'hourglass': 'shape.collate',
+  'collate': 'shape.collate',
+  'brace': 'shape.comment',
+  'brace-l': 'shape.comment',
+  'brace-r': 'shape.comment',
+  'braces': 'shape.comment',
+  'comment': 'shape.comment',
+  'curlyBraceLeft': 'shape.comment',
+  'curlyBraceRight': 'shape.comment',
+  'curlyBraces': 'shape.comment',
+  'bolt': 'shape.communicationLink',
+  'com-link': 'shape.communicationLink',
+  'lightning-bolt': 'shape.communicationLink',
+  'lightningBolt': 'shape.communicationLink',
+  'doc': 'shape.document',
+  'document': 'shape.document',
+  'waveEdgedRectangle': 'shape.document',
+  'delay': 'shape.delay',
+  'half-rounded-rectangle': 'shape.delay',
+  'halfRoundedRectangle': 'shape.delay',
+  'h-cyl': 'shape.directAccessStorage',
+  'das': 'shape.directAccessStorage',
+  'horizontal-cylinder': 'shape.directAccessStorage',
+  'tiltedCylinder': 'shape.directAccessStorage',
+  'curv-trap': 'shape.display',
+  'curved-trapezoid': 'shape.display',
+  'display': 'shape.display',
+  'curvedTrapezoid': 'shape.display',
+  'div-rect': 'shape.dividedProcess',
+  'div-proc': 'shape.dividedProcess',
+  'divided-rectangle': 'shape.dividedProcess',
+  'divided-process': 'shape.dividedProcess',
+  'dividedRectangle': 'shape.dividedProcess',
+  'tri': 'shape.extract',
+  'extract': 'shape.extract',
+  'triangle': 'shape.extract',
+  'win-pane': 'shape.internalStorage',
+  'internal-storage': 'shape.internalStorage',
+  'window-pane': 'shape.internalStorage',
+  'windowPane': 'shape.internalStorage',
+  'f-circ': 'shape.junction',
+  'junction': 'shape.junction',
+  'filled-circle': 'shape.junction',
+  'filledCircle': 'shape.junction',
+  'notch-pent': 'shape.loopLimit',
+  'loop-limit': 'shape.loopLimit',
+  'notched-pentagon': 'shape.loopLimit',
+  'trapezoidalPentagon': 'shape.loopLimit',
+  'flip-tri': 'shape.manualFile',
+  'manual-file': 'shape.manualFile',
+  'flipped-triangle': 'shape.manualFile',
+  'flippedTriangle': 'shape.manualFile',
+  'sl-rect': 'shape.manualInput',
+  'manual-input': 'shape.manualInput',
+  'sloped-rectangle': 'shape.manualInput',
+  'slopedRect': 'shape.manualInput',
+  'docs': 'shape.documents',
+  'documents': 'shape.documents',
+  'st-doc': 'shape.documents',
+  'stacked-document': 'shape.documents',
+  'multiWaveEdgedRectangle': 'shape.documents',
+  'st-rect': 'shape.processes',
+  'procs': 'shape.processes',
+  'processes': 'shape.processes',
+  'stacked-rectangle': 'shape.processes',
+  'multiRect': 'shape.processes',
+  'bow-rect': 'shape.storedData',
+  'stored-data': 'shape.storedData',
+  'bow-tie-rectangle': 'shape.storedData',
+  'bowTieRect': 'shape.storedData',
+  'cross-circ': 'shape.summary',
+  'summary': 'shape.summary',
+  'crossed-circle': 'shape.summary',
+  'crossedCircle': 'shape.summary',
+  'tag-doc': 'shape.taggedDocument',
+  'tagged-document': 'shape.taggedDocument',
+  'taggedWaveEdgedRectangle': 'shape.taggedDocument',
+  'tag-rect': 'shape.taggedProcess',
+  'tagged-rectangle': 'shape.taggedProcess',
+  'tag-proc': 'shape.taggedProcess',
+  'tagged-process': 'shape.taggedProcess',
+  'taggedRect': 'shape.taggedProcess',
+  'flag': 'shape.paperTape',
+  'paper-tape': 'shape.paperTape',
+  'waveRectangle': 'shape.paperTape',
+  'lin-doc': 'shape.linedDocument',
+  'lined-document': 'shape.linedDocument',
+  'linedWaveEdgedRect': 'shape.linedDocument',
+  'icon': 'shape.icon',
+  'iconCircle': 'shape.icon',
+  'iconSquare': 'shape.icon',
+  'iconRounded': 'shape.icon',
+  'imageSquare': 'shape.image',
+  'choice': 'shape.choice',
+  'fork': 'shape.fork',
+  'join': 'shape.join',
+  'forkJoin': 'shape.forkOrJoin',
+  'divider': 'shape.divider',
 };
 
 /**
@@ -223,29 +225,31 @@ const SHAPE_NAMES: Record<string, string> = {
  * Mermaid has added since is announced by its name, its words spaced out.
  *
  * @param shape - The shape Mermaid drew
+ * @param say - Writes the adapter's words
  * @returns The word for it
  */
-function shapeName(shape: string | undefined): string | undefined {
+function shapeName(shape: string | undefined, say: Say): string | undefined {
   if (shape === undefined || PLAIN_SHAPES.has(shape)) {
     return undefined;
   }
-  return Object.hasOwn(SHAPE_NAMES, shape)
-    ? SHAPE_NAMES[shape]
-    : shape.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[-_]/g, ' ').toLowerCase();
+  const word = Object.hasOwn(SHAPE_WORDS, shape) ? SHAPE_WORDS[shape] : undefined;
+  return word === undefined
+    ? shape.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[-_]/g, ' ').toLowerCase()
+    : say(word);
 }
 
 /** What the arrowhead names on a class or ER edge mean. */
-const ARROW_WORDS: Record<string, string> = {
-  extension: 'inherits from',
-  composition: 'composed of',
-  aggregation: 'aggregates',
-  dependency: 'depends on',
-  lollipop: 'provides interface',
-  only_one: 'exactly one',
-  zero_or_one: 'zero or one',
-  zero_or_more: 'zero or more',
-  one_or_more: 'one or more',
-  md_parent: 'parent',
+const ARROW_WORDS: Record<string, WordKey> = {
+  extension: 'relation.inheritsFrom',
+  composition: 'relation.composedOf',
+  aggregation: 'relation.aggregates',
+  dependency: 'relation.dependsOn',
+  lollipop: 'relation.providesInterface',
+  only_one: 'cardinality.exactlyOne',
+  zero_or_one: 'cardinality.zeroOrOne',
+  zero_or_more: 'cardinality.zeroOrMore',
+  one_or_more: 'cardinality.oneOrMore',
+  md_parent: 'cardinality.parent',
 };
 
 /** The arrowheads that only end a line, saying nothing about it. */
@@ -321,7 +325,7 @@ function readData(context: DiagramContext): {
         // A concurrent region of a state has no name of its own.
         const count = (regions.get(parent ?? '') ?? 0) + 1;
         regions.set(parent ?? '', count);
-        label = `region ${count}`;
+        label = context.say('state.region', { index: count });
       }
       groups.push({ id, label: label || id, parent });
       continue;
@@ -330,12 +334,12 @@ function readData(context: DiagramContext): {
       notes.set(id, plain(row.label));
       continue;
     }
-    const shape = shapeName(str(row.shape));
+    const shape = shapeName(str(row.shape), context.say);
     nodes.push({
       id,
       label: plain(row.label),
       parent: str(row.parentId),
-      attributes: shape ? { Shape: shape } : {},
+      attributes: shape ? { [context.say('attribute.shape')]: shape } : {},
       element: findById(candidates, context.svgId, [str(row.domId), id], used),
     });
   }
@@ -351,7 +355,7 @@ function readData(context: DiagramContext): {
       const target = byId.get(noteEnd === from ? to : from);
       const text = notes.get(noteEnd);
       if (target && text) {
-        target.attributes = { ...target.attributes, Note: text };
+        target.attributes = { ...target.attributes, [context.say('attribute.note')]: text };
         notes.delete(noteEnd);
       }
       continue;
@@ -361,24 +365,32 @@ function readData(context: DiagramContext): {
   // A note attached to nothing is still something the diagram says.
   for (const [id, text] of notes) {
     if (text) {
-      nodes.push({ id, label: text, attributes: { Kind: 'note' }, element: findById(candidates, context.svgId, [id], used) });
+      nodes.push({
+        id,
+        label: text,
+        attributes: { [context.say('attribute.kind')]: context.say('kind.note') },
+        element: findById(candidates, context.svgId, [id], used),
+      });
     }
   }
   return { nodes, groups, edges, byId: new Map(nodes.map(node => [node.id, node])), raw };
 }
 
 /**
- * The words for what an arrowhead says, when it says something.
+ * The words for what an arrowhead says, when it says something. A head
+ * Mermaid has added since is announced by its name, its words spaced out.
  *
  * @param arrow - The arrowhead's name
+ * @param say - Writes the adapter's words
  * @returns The words, or undefined for a plain head
  */
-function arrowWords(arrow: unknown): string | undefined {
+function arrowWords(arrow: unknown, say: Say): string | undefined {
   const name = str(arrow);
   if (name === undefined || PLAIN_ARROWS.has(name)) {
     return undefined;
   }
-  return ARROW_WORDS[name] ?? name.replace(/_/g, ' ');
+  const word = Object.hasOwn(ARROW_WORDS, name) ? ARROW_WORDS[name] : undefined;
+  return word === undefined ? name.replace(/_/g, ' ') : say(word);
 }
 
 /**
@@ -389,17 +401,18 @@ function arrowWords(arrow: unknown): string | undefined {
  *
  * @param arrow - The arrowhead's name
  * @param dashed - Whether the line is dashed
+ * @param say - Writes the adapter's words
  * @returns The words, or undefined for a plain head
  */
-function relationWords(arrow: unknown, dashed: boolean): string | undefined {
-  const words = arrowWords(arrow);
-  if (words === ARROW_WORDS.extension && dashed) {
-    return 'realizes';
+function relationWords(arrow: unknown, dashed: boolean, say: Say): string | undefined {
+  const name = str(arrow);
+  if (name === 'extension' && dashed) {
+    return say('relation.realizes');
   }
-  if (words === ARROW_WORDS.dependency && !dashed) {
-    return 'associated with';
+  if (name === 'dependency' && !dashed) {
+    return say('relation.associatedWith');
   }
-  return words;
+  return arrowWords(arrow, say);
 }
 
 /**
@@ -421,9 +434,9 @@ function joinLabel(...parts: (string | undefined)[]): string | undefined {
  * @param diagram - What the diagram is called and what it is
  * @returns The conversion
  */
-function plainGraph(context: DiagramContext, nodeLabel: string, diagram: DiagramType): DiagramConversion {
+function plainGraph(context: DiagramContext, nodeLabel: WordKey, diagram: DiagramType): DiagramConversion {
   const { nodes, groups, edges } = readData(context);
-  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel, diagram });
+  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: context.say(nodeLabel), diagram });
   return { layers: layer ? [layer] : [] };
 }
 
@@ -434,7 +447,7 @@ function plainGraph(context: DiagramContext, nodeLabel: string, diagram: Diagram
  * @returns The conversion
  */
 export function flowchart(context: DiagramContext): DiagramConversion {
-  return plainGraph(context, 'Step', DiagramType.FLOWCHART);
+  return plainGraph(context, 'node.step', DiagramType.FLOWCHART);
 }
 
 /**
@@ -445,12 +458,18 @@ export function flowchart(context: DiagramContext): DiagramConversion {
  * @returns The conversion
  */
 export function swimlane(context: DiagramContext): DiagramConversion {
-  return plainGraph(context, 'Step', DiagramType.SWIMLANE);
+  return plainGraph(context, 'node.step', DiagramType.SWIMLANE);
 }
 
-/** Agent flow kinds whose name is not a word a reader knows. */
-const AGENT_FLOW_KINDS: Record<string, string> = {
-  refdoc: 'reference document',
+/** What an agent flow's kinds are called. */
+const AGENT_FLOW_KINDS: Record<string, WordKey> = {
+  task: 'kind.task',
+  tool: 'kind.tool',
+  input: 'kind.input',
+  decision: 'kind.decision',
+  action: 'kind.action',
+  refdoc: 'kind.referenceDocument',
+  connector: 'kind.connector',
 };
 
 /**
@@ -482,14 +501,21 @@ export function agentflow(context: DiagramContext): DiagramConversion {
       kinds.set(id, 'connector');
     }
   }
+  const shapeKey = context.say('attribute.shape');
   for (const node of nodes) {
     const kind = kinds.get(node.id);
     if (kind) {
-      const { Shape: _shape, ...rest } = node.attributes ?? {};
-      node.attributes = { Kind: AGENT_FLOW_KINDS[kind] ?? kind, ...rest };
+      const { [shapeKey]: _shape, ...rest } = node.attributes ?? {};
+      node.attributes = { [context.say('attribute.kind')]: sayKnown(kind, AGENT_FLOW_KINDS, context.say), ...rest };
     }
   }
-  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Step', diagram: DiagramType.AGENT_FLOW });
+  const layer = directedGraphLayer(context, {
+    nodes,
+    groups,
+    edges,
+    nodeLabel: context.say('node.step'),
+    diagram: DiagramType.AGENT_FLOW,
+  });
   return { layers: layer ? [layer] : [] };
 }
 
@@ -505,15 +531,15 @@ export function state(context: DiagramContext): DiagramConversion {
   for (const node of nodes) {
     const shape = str(raw.get(node.id)?.shape);
     if (shape === 'stateStart') {
-      node.label = 'start';
+      node.label = context.say('state.start');
     } else if (shape === 'stateEnd') {
-      node.label = 'end';
+      node.label = context.say('state.end');
     }
     if (!node.label) {
       node.label = node.id;
     }
   }
-  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'State', diagram: DiagramType.STATE });
+  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: context.say('node.state'), diagram: DiagramType.STATE });
   return { layers: layer ? [layer] : [] };
 }
 
@@ -577,9 +603,9 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
     const methods = rows(one.methods).map(memberText).filter(Boolean);
     node.attributes = {
       ...node.attributes,
-      ...(annotations.length > 0 ? { Annotation: annotations.join(', ') } : {}),
-      ...(attributes.length > 0 ? { Attributes: attributes.join('; ') } : {}),
-      ...(methods.length > 0 ? { Methods: methods.join('; ') } : {}),
+      ...(annotations.length > 0 ? { [context.say('attribute.annotation')]: annotations.join(', ') } : {}),
+      ...(attributes.length > 0 ? { [context.say('attribute.attributes')]: attributes.join('; ') } : {}),
+      ...(methods.length > 0 ? { [context.say('attribute.methods')]: methods.join('; ') } : {}),
     };
     const generic = plain(one.type);
     if (generic) {
@@ -609,15 +635,19 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
       { arrow: edge.row.arrowTypeStart, at: edge.from, other: edge.to },
       { arrow: edge.row.arrowTypeEnd, at: edge.to, other: edge.from },
     ].flatMap(({ arrow, at, other }) => {
-      const words = relationWords(arrow, dashed);
+      const words = relationWords(arrow, dashed, context.say);
       if (words === undefined) {
         return [];
       }
       return [DIAMONDS.has(str(arrow) ?? '') ? { from: at, to: other, words } : { from: other, to: at, words }];
     });
     const label = (from: string, words?: string): string | undefined => {
-      const ends = (from === edge.from ? cardinalities : [...cardinalities].reverse()).filter(Boolean);
-      return joinLabel(edge.label, words, ends.length > 0 ? `cardinality ${ends.join(' to ')}` : undefined);
+      const ends = (from === edge.from ? cardinalities : [...cardinalities].reverse())
+        .filter((end): end is string => !!end);
+      const cardinality = ends.length > 1
+        ? context.say('relation.cardinalities', { from: ends[0], to: ends[1] })
+        : ends.length === 1 ? context.say('relation.cardinality', { end: ends[0] }) : undefined;
+      return joinLabel(edge.label, words, cardinality);
     };
     if (heads.length === 0) {
       return [{ ...edge, label: label(edge.from) }];
@@ -636,7 +666,13 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
       ...(drawn === undefined ? {} : { drawn }),
     }));
   });
-  const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: 'Class', diagram: DiagramType.CLASS });
+  const layer = directedGraphLayer(context, {
+    nodes,
+    groups,
+    edges: labelled,
+    nodeLabel: context.say('node.class'),
+    diagram: DiagramType.CLASS,
+  });
   return { layers: layer ? [layer] : [] };
 }
 
@@ -665,25 +701,61 @@ export function entityRelationship(context: DiagramContext): DiagramConversion {
         .join(' ');
     }).filter(Boolean);
     if (attributes.length > 0) {
-      node.attributes = { ...node.attributes, Attributes: attributes.join('; ') };
+      node.attributes = { ...node.attributes, [context.say('attribute.attributes')]: attributes.join('; ') };
     }
   }
   const labelled = edges.map((edge) => {
-    const from = arrowWords(edge.row.arrowTypeStart);
-    const to = arrowWords(edge.row.arrowTypeEnd);
-    const cardinality = from && to ? `${from} to ${to}` : from ?? to;
-    const optional = str(edge.row.pattern) === 'dashed' ? 'non-identifying' : undefined;
+    const from = arrowWords(edge.row.arrowTypeStart, context.say);
+    const to = arrowWords(edge.row.arrowTypeEnd, context.say);
+    const cardinality = from && to ? context.say('cardinality.both', { from, to }) : from ?? to;
+    const optional = str(edge.row.pattern) === 'dashed' ? context.say('relation.nonIdentifying') : undefined;
     return { ...edge, label: joinLabel(edge.label, cardinality, optional) };
   });
   const layer = directedGraphLayer(context, {
     nodes,
     groups,
     edges: labelled,
-    nodeLabel: 'Entity',
+    nodeLabel: context.say('node.entity'),
     diagram: DiagramType.ENTITY_RELATIONSHIP,
   });
   return { layers: layer ? [layer] : [] };
 }
+
+/** A requirement's types, as Mermaid names them, and the words for each. */
+const REQUIREMENT_TYPES: Record<string, WordKey> = {
+  'Requirement': 'kind.requirement',
+  'Functional Requirement': 'kind.functionalRequirement',
+  'Interface Requirement': 'kind.interfaceRequirement',
+  'Performance Requirement': 'kind.performanceRequirement',
+  'Physical Requirement': 'kind.physicalRequirement',
+  'Design Constraint': 'kind.designConstraint',
+};
+
+/** A requirement's risks, as Mermaid names them, and the words for each. */
+const RISKS: Record<string, WordKey> = {
+  Low: 'risk.low',
+  Medium: 'risk.medium',
+  High: 'risk.high',
+};
+
+/** How a requirement is verified, as Mermaid names it, and the words for each. */
+const VERIFICATIONS: Record<string, WordKey> = {
+  Analysis: 'verification.analysis',
+  Demonstration: 'verification.demonstration',
+  Inspection: 'verification.inspection',
+  Test: 'verification.test',
+};
+
+/** What a requirement relationship asserts, as Mermaid names it, and the words for each. */
+const REQUIREMENT_RELATIONS: Record<string, WordKey> = {
+  contains: 'requirement.contains',
+  copies: 'requirement.copies',
+  derives: 'requirement.derives',
+  satisfies: 'requirement.satisfies',
+  verifies: 'requirement.verifies',
+  refines: 'requirement.refines',
+  traces: 'requirement.traces',
+};
 
 /**
  * Requirement diagrams: requirements with their id, text, risk and
@@ -711,26 +783,32 @@ export function requirement(context: DiagramContext): DiagramConversion {
     anyElement ||= element;
     node.label = plain(row.name) || node.label;
     // A requirement's type is its kind; an element's is a type of its own.
-    const fields: [string, unknown][] = [
-      ['Kind', element ? 'Element' : row.type],
-      ['Type', element ? row.type : undefined],
-      ['ID', row.requirementId],
-      ['Text', row.text],
-      ['Risk', row.risk],
-      ['Verification', row.verifyMethod],
-      ['Document', row.docRef],
+    const say = context.say;
+    const fields: [WordKey, string][] = [
+      ['attribute.kind', element ? say('kind.element') : sayKnown(plain(row.type), REQUIREMENT_TYPES, say)],
+      ['attribute.type', element ? plain(row.type) : ''],
+      ['attribute.id', plain(row.requirementId)],
+      ['attribute.text', plain(row.text)],
+      ['attribute.risk', sayKnown(plain(row.risk), RISKS, say)],
+      ['attribute.verification', sayKnown(plain(row.verifyMethod), VERIFICATIONS, say)],
+      ['attribute.document', plain(row.docRef)],
     ];
     node.attributes = {
       ...node.attributes,
-      ...Object.fromEntries(fields.map(([key, value]) => [key, plain(value)]).filter(([, value]) => value !== '')),
+      ...Object.fromEntries(fields.filter(([, value]) => value !== '').map(([key, value]) => [say(key), value])),
     };
   }
-  const labelled = edges.map(edge => ({ ...edge, label: edge.label?.replace(/^<<(.*)>>$/, '$1') }));
+  const labelled = edges.map(edge => ({
+    ...edge,
+    label: edge.label === undefined
+      ? undefined
+      : sayKnown(edge.label.replace(/^<<(.*)>>$/, '$1'), REQUIREMENT_RELATIONS, context.say),
+  }));
   const layer = directedGraphLayer(context, {
     nodes,
     groups,
     edges: labelled,
-    nodeLabel: anyElement ? undefined : 'Requirement',
+    nodeLabel: anyElement ? undefined : context.say('node.requirement'),
     diagram: DiagramType.REQUIREMENT,
   });
   return { layers: layer ? [layer] : [] };
@@ -747,11 +825,19 @@ export function usecase(context: DiagramContext): DiagramConversion {
   const { nodes, groups, edges, raw } = readData(context);
   for (const node of nodes) {
     const shape = str(raw.get(node.id)?.shape);
-    const kind = shape === 'usecaseActor' ? 'actor' : shape === 'usecaseEllipse' ? 'use case' : undefined;
+    const kind: WordKey | undefined = shape === 'usecaseActor'
+      ? 'kind.actor'
+      : shape === 'usecaseEllipse' ? 'kind.useCase' : undefined;
     if (kind) {
-      node.attributes = { Kind: kind, ...node.attributes };
+      node.attributes = { [context.say('attribute.kind')]: context.say(kind), ...node.attributes };
     }
   }
-  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: DiagramType.USE_CASE });
+  const layer = directedGraphLayer(context, {
+    nodes,
+    groups,
+    edges,
+    nodeLabel: context.say('node.element'),
+    diagram: DiagramType.USE_CASE,
+  });
   return { layers: layer ? [layer] : [] };
 }

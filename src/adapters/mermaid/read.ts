@@ -386,12 +386,30 @@ export function findById(
 }
 
 /**
- * The elements matching a selector inside the diagram, in document order.
+ * The elements matching a selector inside the diagram, in document order,
+ * leaving out MAIDR's own copies.
+ *
+ * A diagram is converted again when the reader changes language, while
+ * MAIDR may be showing it: the mark the reader is on then has its highlight
+ * beside it, a copy carrying the mark's classes, and counted with the marks
+ * it would put every one after it out of step.
  *
  * @param svg - The diagram
  * @param selector - What to match
  * @returns The matches
  */
 export function all(svg: Element, selector: string): Element[] {
-  return [...svg.querySelectorAll(selector)];
+  return [...svg.querySelectorAll(selector)].filter(element => element.closest('[data-maidr-owned]') === null);
+}
+
+/**
+ * The first element matching a selector inside the diagram, leaving out
+ * MAIDR's own copies (see {@link all}).
+ *
+ * @param svg - The diagram
+ * @param selector - What to match
+ * @returns The match, or null
+ */
+export function first(svg: Element, selector: string): Element | null {
+  return all(svg, selector)[0] ?? null;
 }
