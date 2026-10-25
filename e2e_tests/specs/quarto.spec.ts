@@ -48,19 +48,21 @@ const HIGHLIGHT = '[id^="maidr-highlight"]';
 /**
  * The file a request to the page's origin is answered with: Quarto's copy of
  * Mermaid from node_modules, its Mermaid runtime from the vendored copy, and
- * anything else from the repository.
+ * anything else from the repository, but nothing outside it.
  *
- * @param pathname - The request's path
- * @returns The file
+ * @param pathname - The request's path, decoded
+ * @returns The file, or null for a path that leads out of the repository
  */
-function fileFor(pathname: string): string {
+function fileFor(pathname: string): string | null {
   if (pathname.endsWith('/libs/quarto-diagram/mermaid.min.js')) {
     return path.join(mermaidDist, 'mermaid.min.js');
   }
   if (pathname.endsWith('/libs/quarto-diagram/mermaid-init.js')) {
     return quartoInit;
   }
-  return path.join(path.resolve('.'), pathname);
+  const root = path.resolve('.');
+  const file = path.resolve(root, `.${pathname}`);
+  return file.startsWith(`${root}${path.sep}`) ? file : null;
 }
 
 /**
@@ -71,7 +73,7 @@ function fileFor(pathname: string): string {
 async function openQuartoPage(page: Page): Promise<void> {
   await page.route(`${ORIGIN}/**`, async (route) => {
     const file = fileFor(decodeURIComponent(new URL(route.request().url()).pathname));
-    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
+    if (file === null || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       await route.fulfill({ status: 404, body: '' });
       return;
     }
