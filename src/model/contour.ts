@@ -1,5 +1,6 @@
 import type { ContourPoint, MaidrLayer } from '@type/grammar';
-import type { DescriptionState, TextState } from '@type/state';
+import type { DescriptionState, TextState, TraceState } from '@type/state';
+import { contourCurveLevel, contourLevelCount } from '@util/contourLevel';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
@@ -69,27 +70,26 @@ export class ContourTrace extends LineTrace {
     super(layer);
 
     this.curves = layer.data as ContourPoint[][];
-    this.levels = this.curves.map(curve => ContourTrace.levelOf(curve));
+    this.levels = this.curves.map(curve => contourCurveLevel(curve));
   }
 
   /**
-   * The level a curve runs at.
+   * The state the entry instruction is built from names a contour plot and
+   * counts its levels: inherited, it said "multiline with 4 groups", which is
+   * the line chart this trace is built on, not the chart the reader is on.
    *
-   * Read from the first point that declares one rather than from a fixed
-   * index: the level belongs to the curve, so every point of it carries the
-   * same number, and a producer that put it on one is emitting something
-   * sensible.
-   *
-   * @param curve - One iso-value curve
-   * @returns Its level, or NaN when the curve declares none
+   * @returns The line's state, as a contour plot
    */
-  private static levelOf(curve: readonly ContourPoint[]): number {
-    for (const point of curve) {
-      if (typeof point.level === 'number' && Number.isFinite(point.level)) {
-        return point.level;
-      }
+  public override get state(): TraceState {
+    const state = super.state;
+    if (state.empty) {
+      return state;
     }
-    return Number.NaN;
+    return {
+      ...state,
+      plotType: this.spokenPlotType(t('model.plotTypeContour')),
+      groupCount: contourLevelCount(this.curves),
+    };
   }
 
   /**

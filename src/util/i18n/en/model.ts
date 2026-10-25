@@ -159,6 +159,7 @@ export const model = {
   'model.instructionSubplot': 'This is a maidr plot containing {size} layers, and\n        this is layer {index} of {size}: {plotType} plot. {clickPrompt}\n        Use Arrows to navigate data points. Toggle B for Braille, T for Text,\n        S for Sonification, and R for Review mode.',
   'model.instructionTrace': 'This is a maidr plot of type: {displayType}{groupCount}. {clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.',
   'model.instructionGroupCount': ' with {count} groups',
+  'model.instructionLevelCount': ' with {count} levels',
   'model.levelFigure': 'figure',
   'model.levelSubplot': 'subplot',
   'model.levelTrace': 'trace',

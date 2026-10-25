@@ -156,6 +156,7 @@ export const model = {
   'model.instructionSubplot': '이것은 레이어 {size}개를 담은 maidr 그래프이며, 지금은 {size}개 중 {index}번째 레이어인 {plotType} 그래프입니다. {clickPrompt} 화살표 키로 데이터 점을 탐색하세요. B는 점자, T는 텍스트, S는 소리 표현, R은 검토 모드를 전환합니다.',
   'model.instructionTrace': '이것은 {displayType} 유형의 maidr 그래프입니다.{groupCount} {clickPrompt} 화살표 키로 데이터 점을 탐색하세요. B는 점자, T는 텍스트, S는 소리 표현, R은 검토 모드를 전환합니다.',
   'model.instructionGroupCount': ' 그룹은 {count}개입니다.',
+  'model.instructionLevelCount': ' 수준은 {count}개입니다.',
   'model.levelFigure': '그림',
   'model.levelSubplot': '서브플롯',
   'model.levelTrace': '레이어',

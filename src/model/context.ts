@@ -9,6 +9,7 @@ import { Emitter, Scope } from '@type/event';
 import { isGridNavigable, isPointCloudAddressable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { t } from '@util/i18n';
+import { groupCountKey } from '@util/instruction';
 import { formatPlotType } from '@util/orientation';
 import { plotTypeLabel } from '@util/plotTypeLabel';
 import { Stack } from '@util/stack';
@@ -1072,10 +1073,11 @@ export class Context implements Disposable {
         // itself 'multiline', so a trace that reports groups under its own
         // name — a multi-series step chart calls itself 'step' — still says
         // how many it has. Unchanged for line charts: LineTrace only sets
-        // groupCount when there is more than one series.
+        // groupCount when there is more than one series. A contour's groups
+        // are its levels, and it says so.
         const groupCountText
           = state.groupCount && state.groupCount > 1
-            ? t('model.instructionGroupCount', { count: state.groupCount })
+            ? t(groupCountKey(state.traceType), { count: state.groupCount })
             : '';
 
         const displayType = formatPlotType(effectivePlotType, state.orientation);

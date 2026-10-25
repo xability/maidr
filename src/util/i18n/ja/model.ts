@@ -156,6 +156,7 @@ export const model = {
   'model.instructionSubplot': 'これは{size}個のレイヤーを含む maidr のグラフで、現在は{size}個中{index}番目のレイヤー、{plotType}です。{clickPrompt} 矢印キーでデータポイントを移動します。B キーで点字、T キーでテキスト、S キーで音声化、R キーでレビューモードを切り替えます。',
   'model.instructionTrace': 'これは maidr のグラフで、種類は{displayType}です{groupCount}。{clickPrompt} 矢印キーでデータポイントを移動します。B キーで点字、T キーでテキスト、S キーで音声化、R キーでレビューモードを切り替えます。',
   'model.instructionGroupCount': '。グループ数は{count}',
+  'model.instructionLevelCount': '。レベル数は{count}',
   'model.levelFigure': '図',
   'model.levelSubplot': 'サブプロット',
   'model.levelTrace': 'レイヤー',

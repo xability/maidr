@@ -156,6 +156,7 @@ export const model = {
   'model.instructionSubplot': 'Este es un gráfico maidr que contiene {size} capas, y esta es la capa {index} de {size}: gráfico {plotType}. {clickPrompt} Use las flechas para navegar por los puntos de datos. Presione B para braille, T para texto, S para sonificación y R para el modo de revisión.',
   'model.instructionTrace': 'Este es un gráfico maidr {displayType}{groupCount}. {clickPrompt} Use las flechas para navegar por los puntos de datos. Presione B para braille, T para texto, S para sonificación y R para el modo de revisión.',
   'model.instructionGroupCount': ' con {count} grupos',
+  'model.instructionLevelCount': ' con {count} niveles',
   'model.levelFigure': 'la figura',
   'model.levelSubplot': 'el subgráfico',
   'model.levelTrace': 'la capa',

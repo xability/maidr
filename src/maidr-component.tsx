@@ -1,13 +1,14 @@
 import type { AppStore } from '@state/store';
-import type { Maidr as MaidrData } from '@type/grammar';
+import type { ContourPoint, Maidr as MaidrData } from '@type/grammar';
 import type { JSX, ReactNode, PointerEvent as ReactPointerEvent } from 'react';
 import { TraceType } from '@type/grammar';
 import { visuallyHidden } from '@ui/visuallyHidden';
 import { chartTypeLabel, ownTypeLabel } from '@util/chartTypeLabel';
 import { Constant } from '@util/constant';
+import { contourLevelCount } from '@util/contourLevel';
 import { ensureDocumentStyle } from '@util/documentStyle';
 import { t } from '@util/i18n';
-import { currentInstructionId, describeWithInstruction, initialInstructionId, withKeyboardHelp } from '@util/instruction';
+import { currentInstructionId, describeWithInstruction, groupCountKey, initialInstructionId, withKeyboardHelp } from '@util/instruction';
 import { formatPlotType, resolveOrientation } from '@util/orientation';
 import { plotTypeLabel } from '@util/plotTypeLabel';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -101,6 +102,13 @@ function getInitialInstruction(data: MaidrData): string {
     const groupCount = firstLayer.data.length;
     if (groupCount > 1) {
       groupCountText = t('model.instructionGroupCount', { count: groupCount });
+    }
+  } else if (traceType === TraceType.CONTOUR && Array.isArray(firstLayer?.data)) {
+    // Counted as ContourTrace counts them once the model exists: by level,
+    // so a level drawn as two islands is one level, not two groups.
+    const levelCount = contourLevelCount(firstLayer.data as ContourPoint[][]);
+    if (levelCount > 1) {
+      groupCountText = t(groupCountKey(traceType), { count: levelCount });
     }
   }
 

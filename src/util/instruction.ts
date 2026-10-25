@@ -1,3 +1,5 @@
+import type { MessageKey } from '@util/i18n';
+import { TraceType } from '@type/grammar';
 import { t } from '@util/i18n';
 import { Platform } from '@util/platform';
 
@@ -66,4 +68,16 @@ export function describeWithInstruction(
   } else {
     element.removeAttribute('aria-describedby');
   }
+}
+
+/**
+ * The phrase the entry instruction counts a layer's groups with: a line
+ * chart's are groups ("with 3 groups"), a contour plot's are its levels
+ * ("with 4 levels").
+ *
+ * @param traceType - The layer's trace type
+ * @returns The message key of the count phrase
+ */
+export function groupCountKey(traceType: TraceType | string): MessageKey {
+  return traceType === TraceType.CONTOUR ? 'model.instructionLevelCount' : 'model.instructionGroupCount';
 }
