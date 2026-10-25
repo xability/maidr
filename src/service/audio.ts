@@ -1785,15 +1785,31 @@ export class AudioService implements Observer<PlotState>, Disposable {
       gainNode.gain.setValueAtTime(this.volume, now);
       gainNode.gain.exponentialRampToValueAtTime(0.01 * this.volume, now + duration);
 
+      // Heard where the shared point is, as every other data tone is. Wired
+      // straight to the compressor, the chord sounded in the centre wherever
+      // the point was: series indexed to the same first value met at the
+      // chart's left edge and were heard in the middle (#1464).
+      // createStereoPanner is unavailable on Safari < 14.5; degrade to mono.
+      const stereoPanner = typeof ctx.createStereoPanner === 'function'
+        ? ctx.createStereoPanner()
+        : null;
       oscillator.connect(gainNode);
-      gainNode.connect(this.compressor);
+      if (stereoPanner) {
+        stereoPanner.pan.value = this.stereoSlotOf(tone.panning);
+        gainNode.connect(stereoPanner);
+        stereoPanner.connect(this.compressor);
+      } else {
+        gainNode.connect(this.compressor);
+      }
 
       oscillator.start(now);
       oscillator.stop(now + duration);
 
+      const nodes: AudioNode[] = stereoPanner
+        ? [oscillator, gainNode, stereoPanner]
+        : [oscillator, gainNode];
       const audioId = setTimeout(() => {
-        oscillator.disconnect();
-        gainNode.disconnect();
+        nodes.forEach(node => node.disconnect());
         this.activeAudioIds.delete(audioId);
       }, duration * 1000 * 2);
 
