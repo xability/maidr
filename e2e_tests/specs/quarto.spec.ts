@@ -20,28 +20,67 @@ const mermaidDist = path.resolve('node_modules/mermaid/dist');
 /** Quarto's own `mermaid-init.js`, vendored unchanged and kept as data. */
 const quartoInit = path.resolve('e2e_tests/fixtures/quarto/libs/quarto-diagram/mermaid-init.js.txt');
 
+/**
+ * Where the page is served from: an origin every request to which is
+ * answered from the repository.
+ *
+ * Not the `file://` URLs the other specs use. Playwright routes a request a
+ * `file://` page makes only in Chromium; Firefox and WebKit read it from the
+ * disk, where Quarto's copy of Mermaid and its runtime are not, so they drew
+ * no `{mermaid}` cell at all. A request to an `http` origin is routed in all
+ * three.
+ */
+const ORIGIN = 'http://quarto.maidr.test';
+
+/** The content type each file served is given, by its extension. */
+const CONTENT_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+};
+
 const FOCUS_TARGET = '[id^="maidr-figure-"] [tabindex="0"]';
 const TEXT = '#maidr-text-container';
 const BRAILLE = 'textarea[id^="maidr-braille-textarea-"]';
 const HIGHLIGHT = '[id^="maidr-highlight"]';
 
 /**
- * Opens the page, serving Quarto's copy of Mermaid from node_modules and its
- * Mermaid runtime from the vendored copy, and waits for every diagram to be
- * bound.
+ * The file a request to the page's origin is answered with: Quarto's copy of
+ * Mermaid from node_modules, its Mermaid runtime from the vendored copy, and
+ * anything else from the repository.
+ *
+ * @param pathname - The request's path
+ * @returns The file
+ */
+function fileFor(pathname: string): string {
+  if (pathname.endsWith('/libs/quarto-diagram/mermaid.min.js')) {
+    return path.join(mermaidDist, 'mermaid.min.js');
+  }
+  if (pathname.endsWith('/libs/quarto-diagram/mermaid-init.js')) {
+    return quartoInit;
+  }
+  return path.join(path.resolve('.'), pathname);
+}
+
+/**
+ * Opens the page and waits for every diagram to be bound.
  *
  * @param page - The page
  */
 async function openQuartoPage(page: Page): Promise<void> {
-  await page.route('**/libs/quarto-diagram/mermaid.min.js', route => route.fulfill({
-    body: fs.readFileSync(path.join(mermaidDist, 'mermaid.min.js')),
-    contentType: 'text/javascript',
-  }));
-  await page.route('**/libs/quarto-diagram/mermaid-init.js', route => route.fulfill({
-    body: fs.readFileSync(quartoInit),
-    contentType: 'text/javascript',
-  }));
-  await page.goto('e2e_tests/fixtures/quarto/diagrams.html');
+  await page.route(`${ORIGIN}/**`, async (route) => {
+    const file = fileFor(decodeURIComponent(new URL(route.request().url()).pathname));
+    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      await route.fulfill({ status: 404, body: '' });
+      return;
+    }
+    await route.fulfill({
+      body: fs.readFileSync(file),
+      contentType: CONTENT_TYPES[path.extname(file)] ?? 'application/octet-stream',
+    });
+  });
+  await page.goto(`${ORIGIN}/e2e_tests/fixtures/quarto/diagrams.html`);
   await expect(page.locator('svg[maidr]')).toHaveCount(4, { timeout: 15000 });
 }
 
