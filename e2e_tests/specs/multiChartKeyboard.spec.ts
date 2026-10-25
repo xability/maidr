@@ -119,7 +119,12 @@ test.describe('the keyboard on a page with two charts', () => {
 
   test('keeps the reader\'s keys while the other chart is unbound and bound again', async ({ page }) => {
     await openTwoCharts(page);
-    await page.click('svg#bar2');
+    // Into the second chart with Tab, for the Shift+Tab back below: after a
+    // click inside a chart, WebKit does not take Shift+Tab back from it,
+    // MAIDR or not, as on a page of two plain focusable boxes.
+    await page.click('svg#bar');
+    await page.keyboard.press('Tab');
+    expect(await plotHasFocus(page, 'bar2')).toBe(true);
     await page.keyboard.press('ArrowRight');
     await expect.poll(() => chartText(page, 'bar2')).toContain('Saturday');
 
