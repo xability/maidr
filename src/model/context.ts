@@ -1046,8 +1046,11 @@ export class Context implements Disposable {
 
       case 'subplot': {
         const subplotTraceOrientation = !state.trace.empty ? state.trace.orientation : undefined;
+        // The layer's plot type as it announces itself, as the one-layer
+        // instruction below names it: a Mermaid layer read as a tree is
+        // called by its diagram ("Cynefin Framework"), not "tree".
         const subplotPlotType = formatPlotType(
-          plotTypeLabel(state.trace.traceType),
+          state.trace.empty ? plotTypeLabel(state.trace.traceType) : state.trace.plotType,
           subplotTraceOrientation,
         );
         return t('model.instructionSubplot', {

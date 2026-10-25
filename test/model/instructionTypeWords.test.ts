@@ -93,3 +93,15 @@ describe('a contour plot names itself and counts its levels', () => {
     expect(instructionFor(layerOf(TraceType.CONTOUR, islands))).toContain('contour with 2 levels.');
   });
 });
+
+describe('a multi-layer instruction names the first layer as it names itself', () => {
+  test('a layer with a chart type of its own is called by it', () => {
+    const tree: MaidrLayer = {
+      ...layerOf(TraceType.SCATTER, [{ x: 1, y: 2 }, { x: 3, y: 4 }]),
+      typeLabel: 'Cynefin Framework',
+    };
+    const other = layerOf(TraceType.SCATTER, [{ x: 5, y: 6 }]);
+
+    expect(instructionFor(tree, other)).toContain('this is layer 1 of 2: Cynefin Framework plot.');
+  });
+});
