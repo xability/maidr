@@ -76,9 +76,13 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       ))
       .filter(Number.isFinite);
     if (widths.length > 0) {
+      const narrowest = MathUtil.safeMin(widths);
+      const widest = MathUtil.safeMax(widths);
       stats.push({
         label: t('model.statBinWidth'),
-        value: MathUtil.spannedOrMissing(MathUtil.safeMin(widths), MathUtil.safeMax(widths)),
+        value: Histogram.binsAreEqual(narrowest, widest, [...lows, ...highs])
+          ? MathUtil.spanned(narrowest, narrowest)
+          : MathUtil.spannedOrMissing(narrowest, widest),
       });
     }
 
@@ -109,6 +113,33 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       stats,
       dataTable: { headers, columnAxes, rows },
     };
+  }
+
+  /**
+   * Whether bins this narrow and this wide are the same width.
+   *
+   * Producers compute bin edges in floating point -- numpy as
+   * `start + i * step`, R writing its edges out to fifteen significant
+   * figures -- so the widths of equal bins agree in every digit a reader is
+   * shown and differ in the last few bits: 4.916666666666657 beside
+   * 4.916666666666686. Compared exactly, twelve equal bins read
+   * "Bin width: 4.92 to 4.92".
+   *
+   * The noise in a width comes from the edges it is taken from, so the
+   * tolerance is scaled by the largest edge rather than by the width: two
+   * widths are the same when they differ by less than a billionth of it.
+   * Rounding each width instead, the way a single derived length is trimmed
+   * elsewhere, would still split two widths either side of a rounding
+   * boundary, and R's widths carry noise close to the twelfth figure.
+   *
+   * @param narrowest - The narrowest bin's width
+   * @param widest - The widest bin's width
+   * @param edges - Every bin edge the widths were taken from
+   * @returns True when the bins differ in width by float noise alone
+   */
+  private static binsAreEqual(narrowest: number, widest: number, edges: number[]): boolean {
+    const scale = MathUtil.safeMax(edges.map(Math.abs));
+    return Number.isFinite(scale) && widest - narrowest <= scale * 1e-9;
   }
 
   protected override get text(): TextState {
