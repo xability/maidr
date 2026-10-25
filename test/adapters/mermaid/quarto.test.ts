@@ -135,7 +135,7 @@ describe('watchQuartoMermaid', () => {
 
     const svg = document.querySelector('svg.mermaid-js') as SVGSVGElement;
     expect(svg.hasAttribute('maidr')).toBe(true);
-    expect(svg.style.padding).toBe('5px');
+    expect(svg.style.padding).toBe('6px');
     expect(svg.style.boxSizing).toBe('border-box');
   });
 
