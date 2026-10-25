@@ -9,11 +9,10 @@
  * attributes, a relationship's cardinality.
  */
 
-import type { DiagramType } from '../diagramTypes';
 import type { GraphEdge, GraphGroup, GraphNode } from '../graph';
 import type { Row } from '../read';
 import type { DiagramContext, DiagramConversion } from '../types';
-import { DIAGRAM_TYPES } from '../diagramTypes';
+import { DiagramType } from '@type/grammar';
 import { directedGraphLayer } from '../graph';
 import { all, call, findById, plain, rows, str } from '../read';
 
@@ -271,7 +270,7 @@ function plainGraph(context: DiagramContext, nodeLabel: string, diagram: Diagram
  * @returns The conversion
  */
 export function flowchart(context: DiagramContext): DiagramConversion {
-  return plainGraph(context, 'Step', DIAGRAM_TYPES.flowchart);
+  return plainGraph(context, 'Step', DiagramType.FLOWCHART);
 }
 
 /**
@@ -282,7 +281,7 @@ export function flowchart(context: DiagramContext): DiagramConversion {
  * @returns The conversion
  */
 export function swimlane(context: DiagramContext): DiagramConversion {
-  return plainGraph(context, 'Step', DIAGRAM_TYPES.swimlane);
+  return plainGraph(context, 'Step', DiagramType.SWIMLANE);
 }
 
 /** Agent flow kinds whose name is not a word a reader knows. */
@@ -326,7 +325,7 @@ export function agentflow(context: DiagramContext): DiagramConversion {
       node.attributes = { Kind: AGENT_FLOW_KINDS[kind] ?? kind, ...rest };
     }
   }
-  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Step', diagram: DIAGRAM_TYPES.agentflow });
+  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Step', diagram: DiagramType.AGENT_FLOW });
   return { layers: layer ? [layer] : [] };
 }
 
@@ -350,7 +349,7 @@ export function state(context: DiagramContext): DiagramConversion {
       node.label = node.id;
     }
   }
-  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'State', diagram: DIAGRAM_TYPES.state });
+  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'State', diagram: DiagramType.STATE });
   return { layers: layer ? [layer] : [] };
 }
 
@@ -473,7 +472,7 @@ export function classDiagram(context: DiagramContext): DiagramConversion {
       ...(drawn === undefined ? {} : { drawn }),
     }));
   });
-  const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: 'Class', diagram: DIAGRAM_TYPES.class });
+  const layer = directedGraphLayer(context, { nodes, groups, edges: labelled, nodeLabel: 'Class', diagram: DiagramType.CLASS });
   return { layers: layer ? [layer] : [] };
 }
 
@@ -517,7 +516,7 @@ export function entityRelationship(context: DiagramContext): DiagramConversion {
     groups,
     edges: labelled,
     nodeLabel: 'Entity',
-    diagram: DIAGRAM_TYPES.entityRelationship,
+    diagram: DiagramType.ENTITY_RELATIONSHIP,
   });
   return { layers: layer ? [layer] : [] };
 }
@@ -568,7 +567,7 @@ export function requirement(context: DiagramContext): DiagramConversion {
     groups,
     edges: labelled,
     nodeLabel: anyElement ? undefined : 'Requirement',
-    diagram: DIAGRAM_TYPES.requirement,
+    diagram: DiagramType.REQUIREMENT,
   });
   return { layers: layer ? [layer] : [] };
 }
@@ -589,6 +588,6 @@ export function usecase(context: DiagramContext): DiagramConversion {
       node.attributes = { Kind: kind, ...node.attributes };
     }
   }
-  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: DIAGRAM_TYPES.usecase });
+  const layer = directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: DiagramType.USE_CASE });
   return { layers: layer ? [layer] : [] };
 }

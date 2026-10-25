@@ -10,8 +10,7 @@
  * the node it arrives at, and pairing nodes with their drawn elements.
  */
 
-import type { DirectedGraphPoint, MaidrLayer } from '@type/grammar';
-import type { DiagramType } from './diagramTypes';
+import type { DiagramType, DirectedGraphPoint, MaidrLayer } from '@type/grammar';
 import type { DiagramContext } from './types';
 import { TraceType } from '@type/grammar';
 import { selectorsFor } from './read';
@@ -59,7 +58,7 @@ export interface GraphParts {
   nodeLabel?: string;
   /** The layer's name, when the figure has several. */
   name?: string;
-  /** What the diagram is called and what it is, as it is not a plain directed graph. */
+  /** The diagram MAIDR names and explains this as, since it is not a plain directed graph. */
   diagram?: DiagramType;
 }
 
@@ -187,7 +186,7 @@ export function directedGraphLayer(context: DiagramContext, parts: GraphParts): 
     id: context.layerId('graph'),
     type: TraceType.DIRECTED_GRAPH,
     ...(parts.name ? { name: parts.name } : {}),
-    ...(parts.diagram ? { typeLabel: parts.diagram.typeLabel, typeGuide: parts.diagram.typeGuide } : {}),
+    ...(parts.diagram ? { diagramType: parts.diagram } : {}),
     ...(parts.nodeLabel ? { axes: { x: { label: parts.nodeLabel } } } : {}),
     ...(selectors ? { selectors } : {}),
     data,

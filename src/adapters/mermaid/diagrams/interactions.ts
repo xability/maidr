@@ -15,9 +15,8 @@ import type {
 import type { GraphEdge, GraphNode } from '../graph';
 import type { Row } from '../read';
 import type { DiagramContext, DiagramConversion } from '../types';
-import { TraceType } from '@type/grammar';
+import { DiagramType, TraceType } from '@type/grammar';
 import { cssEscape } from '../../shared/selectorUtil';
-import { DIAGRAM_TYPES } from '../diagramTypes';
 import { directedGraphLayer } from '../graph';
 import { all, call, num, plain, rows, selectorsFor, str } from '../read';
 
@@ -407,7 +406,7 @@ export function wardley(context: DiagramContext): DiagramConversion {
       id: context.layerId('map'),
       type: TraceType.SCATTER,
       name: 'Components',
-      ...DIAGRAM_TYPES.wardley,
+      diagramType: DiagramType.WARDLEY_MAP,
       axes: {
         x: { label: 'Evolution', min: 0, max: 1, tickStep: 0.25 },
         y: { label: 'Visibility', min: 0, max: 1, tickStep: 0.25 },
@@ -439,7 +438,7 @@ export function wardley(context: DiagramContext): DiagramConversion {
       edges,
       nodeLabel: 'Component',
       name: 'Value chain',
-      diagram: DIAGRAM_TYPES.wardley,
+      diagram: DiagramType.WARDLEY_MAP,
     });
     if (graph) {
       layers.push(graph);

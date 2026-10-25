@@ -7,7 +7,8 @@
 import type { GraphEdge, GraphGroup, GraphNode } from '../graph';
 import type { Row } from '../read';
 import type { DiagramContext, DiagramConversion } from '../types';
-import { c4DiagramType, DIAGRAM_TYPES } from '../diagramTypes';
+import { DiagramType } from '@type/grammar';
+import { c4DiagramType } from '../diagramTypes';
 import { directedGraphLayer } from '../graph';
 import { all, call, findById, plain, rows, str } from '../read';
 
@@ -141,7 +142,7 @@ export function block(context: DiagramContext): DiagramConversion {
     to: str(edge.end) ?? '',
     label: plain(edge.label),
   }));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Block', diagram: DIAGRAM_TYPES.block }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Block', diagram: DiagramType.BLOCK }));
 }
 
 /**
@@ -189,7 +190,7 @@ export function architecture(context: DiagramContext): DiagramConversion {
     }
     return [intoLhs ? { from: rhs, to: lhs, label } : { from: lhs, to: rhs, label }];
   });
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: DIAGRAM_TYPES.architecture }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: DiagramType.ARCHITECTURE }));
 }
 
 /** Mermaid's commit types, in its own numbering. */
@@ -252,7 +253,7 @@ export function gitGraph(context: DiagramContext): DiagramConversion {
       from: String(parent),
       to: nodes[at].id,
     })));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Commit', diagram: DIAGRAM_TYPES.gitGraph }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Commit', diagram: DiagramType.GIT_GRAPH }));
 }
 
 /** What an event model's entity types are called. */
@@ -303,5 +304,5 @@ export function eventModeling(context: DiagramContext): DiagramConversion {
     from: String((relation.sourceBox as Row | undefined)?.index ?? ''),
     to: String((relation.targetBox as Row | undefined)?.index ?? ''),
   }));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Entity', diagram: DIAGRAM_TYPES.eventModel }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Entity', diagram: DiagramType.EVENT_MODEL }));
 }
