@@ -9,6 +9,8 @@
  */
 
 import type { Maidr, MaidrLayer } from '@type/grammar';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { convertMermaidDiagram } from '@adapters/mermaid/converter';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -63,4 +65,33 @@ export function matched(layer: MaidrLayer): number {
     return document.querySelectorAll(selectors).length;
   }
   return (selectors as string[] ?? []).flatMap(one => [...document.querySelectorAll(one)]).length;
+}
+
+/**
+ * Mermaid's own list of the shapes a flowchart can draw, each as the names
+ * Mermaid takes for it: its short name, its aliases, and the internal names
+ * a flowchart written with brackets records. Read from Mermaid's bundle,
+ * since Mermaid does not load here.
+ *
+ * @returns One list of names per shape
+ * @throws When the bundle holds no list, as it would once Mermaid lists its
+ * shapes some other way
+ */
+export function mermaidShapeNames(): string[][] {
+  const dir = path.resolve('node_modules/mermaid/dist/chunks/mermaid.esm');
+  const source = readdirSync(dir)
+    .filter(file => file.endsWith('.mjs'))
+    .map(file => readFileSync(path.join(dir, file), 'utf8'))
+    .find(text => text.includes('semanticName:'));
+  if (source === undefined) {
+    throw new Error(`No list of shapes in ${dir}: see how Mermaid lists its shapes now.`);
+  }
+  return [...source.matchAll(/\{\s*semanticName:[^{}]*\}/g)].map(([entry]) => {
+    const names = (field: string): string[] => {
+      const list = new RegExp(`\\b${field}:\\s*\\[([^\\]]*)\\]`).exec(entry)?.[1] ?? '';
+      return [...list.matchAll(/"([^"]+)"/g)].map(([, name]) => name);
+    };
+    const short = /shortName:\s*"([^"]+)"/.exec(entry)?.[1];
+    return [...new Set([...(short === undefined ? [] : [short]), ...names('aliases'), ...names('internalAliases')])];
+  });
 }
