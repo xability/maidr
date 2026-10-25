@@ -55,7 +55,7 @@ describe('the drawing\'s size', () => {
 
     convert('pie', PIE, svg);
 
-    expect(svg.style.padding).toBe('5px');
+    expect(svg.style.padding).toBe('6px');
     expect(svg.style.boxSizing).toBe('border-box');
     expect(svg.style.maxWidth).toBe('400px');
   });
@@ -82,7 +82,7 @@ describe('the drawing\'s size', () => {
     const svg = document.querySelector('svg[maidr]') as SVGSVGElement;
     expect(svg.style.width).toBe('640px');
     expect(svg.style.maxWidth).toBe('100%');
-    expect(svg.style.padding).toBe('5px');
+    expect(svg.style.padding).toBe('6px');
     expect(svg.style.boxSizing).toBe('border-box');
   });
 

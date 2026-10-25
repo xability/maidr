@@ -328,12 +328,25 @@ test.describe('Power BI adapter: companion mode (powerbi-line.html)', () => {
 
   test('leaving the companion clears the native chart\'s highlight', async ({ page }) => {
     await tabIntoCompanion(page);
+    // A visual sits among others on a report page, with tab stops before it.
+    // This page has none, and from a page's first tab stop Shift+Tab leaves
+    // the page itself: Chromium lands on the body, but Firefox goes out to its
+    // own toolbar, which is the reader leaving the window rather than the
+    // chart, and MAIDR keeps their place for that. One stand-in for the
+    // visual before it gives Shift+Tab the same place to go in every browser.
+    await page.evaluate(() => {
+      const before = document.createElement('button');
+      before.type = 'button';
+      before.textContent = 'The visual before';
+      document.getElementById('companion')?.before(before);
+    });
     await page.keyboard.press('ArrowRight');
     await waitForText(page, 'Month is 2025-01-01, Y is 1200, Group is Visits');
     expect(await nativeHighlights(page)).toEqual(['0/0']);
 
     await page.keyboard.press('Shift+Tab');
 
+    await expect(page.getByRole('button', { name: 'The visual before' })).toBeFocused();
     await expect.poll(() => page.evaluate(() => document.getElementById('companion')?.contains(document.activeElement))).toBe(false);
     await expect.poll(() => nativeHighlights(page)).toEqual([]);
   });

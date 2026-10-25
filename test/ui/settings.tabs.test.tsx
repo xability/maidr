@@ -151,6 +151,21 @@ describe('settings tabs', () => {
     );
   });
 
+  it('should keep the tab bar\'s scroller out of the Tab order', () => {
+    renderSettings();
+
+    // The tabs scroll sideways inside the element wrapping the tablist when
+    // they are wider than the dialog. Firefox makes a scroll container that
+    // overflows a Tab stop of its own, so Tab from the dialog landed on it
+    // rather than on the selected tab, as the docs tell readers it does.
+    // jsdom lays nothing out and cannot overflow, so the element is checked
+    // for the one thing that keeps any browser from stopping there.
+    const scroller = screen.getByRole('tablist').parentElement;
+
+    expect(scroller).toHaveAttribute('tabindex', '-1');
+    expect(scroller?.contains(screen.getByRole('tab', { name: 'General' }))).toBe(true);
+  });
+
   it('should open on General with only that panel mounted', () => {
     renderSettings();
 

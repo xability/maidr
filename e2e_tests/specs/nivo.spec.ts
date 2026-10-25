@@ -145,6 +145,12 @@ interface Box { x: number; y: number; width: number; height: number }
 
 /**
  * Where MAIDR's visible outline is, and where the named Nivo mark is.
+ *
+ * Each is the box of the shape it draws, stroke left out. The outline is
+ * stroked where the mark is not, and Firefox's `getBoundingClientRect`
+ * counts a stroke where Chromium's does not, so measured that way a cell
+ * outlined exactly read as two pixels off on every side in Firefox.
+ *
  * @param page - The Playwright page
  * @param id - The chart's id, to scope the mark lookup to its figure
  * @param mark - The mark
@@ -160,8 +166,28 @@ async function measure(page: Page, id: string, mark: Mark): Promise<{ outline: B
     const box = (element: Element | null | undefined): Box | null => {
       if (!element)
         return null;
-      const r = element.getBoundingClientRect();
-      return { x: r.x, y: r.y, width: r.width, height: r.height };
+      if (!(element instanceof SVGGraphicsElement)) {
+        const r = element.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      }
+      const toScreen = element.getScreenCTM();
+      if (toScreen === null)
+        return null;
+      const drawn = element.getBBox();
+      const corners = [
+        [drawn.x, drawn.y],
+        [drawn.x + drawn.width, drawn.y],
+        [drawn.x, drawn.y + drawn.height],
+        [drawn.x + drawn.width, drawn.y + drawn.height],
+      ].map(([x, y]) => new DOMPoint(x, y).matrixTransform(toScreen));
+      const xs = corners.map(corner => corner.x);
+      const ys = corners.map(corner => corner.y);
+      return {
+        x: Math.min(...xs),
+        y: Math.min(...ys),
+        width: Math.max(...xs) - Math.min(...xs),
+        height: Math.max(...ys) - Math.min(...ys),
+      };
     };
     const outline = Array.from(figure?.querySelectorAll('svg [data-maidr-owned]') ?? [])
       .find(e => getComputedStyle(e).visibility !== 'hidden' && e.getAttribute('visibility') !== 'hidden');
