@@ -45,10 +45,27 @@ abstract class AnnounceCommand implements Command {
   }
 
   /**
-   * Executes the describe command.
+   * Executes the describe command, and leaves label mode however it ends.
+   *
+   * The key after `L` always ends label mode. When an announcement threw
+   * before it got there, the reader was left in label mode, where braille,
+   * text and the arrow keys answered "Invalid key" and `S` read the subtitle,
+   * until they found Escape.
    * @param {Event} [event] - Optional event that triggered the command.
    */
-  public abstract execute(event?: Event): void;
+  public execute(event?: Event): void {
+    try {
+      this.run(event);
+    } finally {
+      this.restoreScope();
+    }
+  }
+
+  /**
+   * What the command announces.
+   * @param {Event} [event] - Optional event that triggered the command.
+   */
+  protected abstract run(event?: Event): void;
 
   /**
    * Restores the scope to the previous scope before entering label mode.
@@ -57,11 +74,11 @@ abstract class AnnounceCommand implements Command {
    * was active before entering label mode.
    *
    * Only exits when a label scope (TRACE_LABEL or FIGURE_LABEL) is actually
-   * active. Every current caller (announce x/y/z/title/subtitle/caption) is
-   * bound only inside a label scope, so this guard is defensive: it keeps the
-   * command safe if a future keybinding ever invokes it from a non-label
-   * scope, where exiting unconditionally would flip navigation into TRACE
-   * scope via the stale focus stack and break subplot activation.
+   * active. {@link execute} calls it after every command of this class, and
+   * two of them -- replaying the point and announcing the position -- are
+   * bound outside label mode, where exiting unconditionally would flip
+   * navigation into TRACE scope via the stale focus stack and break subplot
+   * activation.
    */
   protected restoreScope(): void {
     const scope = this.context.scope;
@@ -163,7 +180,6 @@ abstract class AnnounceCommand implements Command {
         ? figureLabel
         : t('text.figureAxisLabelIs', { axis: axisName, label: figureLabel });
       this.textViewModel.update(text);
-      this.restoreScope();
       return;
     }
 
@@ -185,7 +201,6 @@ abstract class AnnounceCommand implements Command {
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
-    this.restoreScope();
   }
 }
 
@@ -221,7 +236,7 @@ export class AnnounceXCommand extends AnnounceCommand {
    * unauthored, blank or whitespace-only label is announced as "not
    * available".
    */
-  public execute(): void {
+  protected run(): void {
     this.announceAxisLabel('x');
   }
 }
@@ -258,7 +273,7 @@ export class AnnounceYCommand extends AnnounceCommand {
    * unauthored, blank or whitespace-only label is announced as "not
    * available".
    */
-  public execute(): void {
+  protected run(): void {
     this.announceAxisLabel('y');
   }
 }
@@ -298,7 +313,7 @@ export class AnnounceZCommand extends AnnounceCommand {
    * multi-panel/facet figures, degrading to "not available" for chart types
    * (e.g. box, single-line) that have no z.
    */
-  public execute(): void {
+  protected run(): void {
     const traceState = this.resolveActiveTraceState();
 
     // text.z is optional and may be undefined for some chart types (e.g. box,
@@ -325,7 +340,6 @@ export class AnnounceZCommand extends AnnounceCommand {
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
-    this.restoreScope();
   }
 }
 
@@ -368,19 +382,17 @@ export class AnnounceTitleCommand extends AnnounceCommand {
    *   "Subplot title is ...", then falls back to the figure title as
    *   "Figure title is ..." so the announcement disambiguates the source.
    */
-  public execute(): void {
+  protected run(): void {
     const state = this.context.state;
 
     if (state.empty) {
       this.announceUnavailable();
-      this.restoreScope();
       return;
     }
 
     if (state.type === 'figure') {
       if (this.context.isAuthoredTitle(state.title)) {
         this.announce(state.title, t('text.figureTitle'));
-        this.restoreScope();
         return;
       }
       // No figure title: fall back to the focused subplot's own title, reusing
@@ -393,19 +405,16 @@ export class AnnounceTitleCommand extends AnnounceCommand {
       } else {
         this.announceUnavailable();
       }
-      this.restoreScope();
       return;
     }
 
     if (state.type === 'trace') {
       this.announceTraceTitle(state.title);
-      this.restoreScope();
       return;
     }
 
     // Fallback for unexpected state types (e.g. 'subplot').
     this.announceUnavailable();
-    this.restoreScope();
   }
 
   /**
@@ -490,7 +499,7 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
    * available", matching the unavailable phrasing used by sibling title
    * and caption commands.
    */
-  public execute(): void {
+  protected run(): void {
     const subtitle = this.context.figureSubtitle;
     if (this.context.isAuthoredSubtitle(subtitle)) {
       const text = this.textService.isTerse()
@@ -504,7 +513,6 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
-    this.restoreScope();
   }
 }
 
@@ -538,7 +546,7 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
    * available", matching the unavailable phrasing used by sibling title
    * and subtitle commands.
    */
-  public execute(): void {
+  protected run(): void {
     const caption = this.context.figureCaption;
     if (this.context.isAuthoredCaption(caption)) {
       const text = this.textService.isTerse()
@@ -552,7 +560,6 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
       this.textViewModel.update(text);
       this.audioService.playWarningToneIfEnabled();
     }
-    this.restoreScope();
   }
 }
 
@@ -592,7 +599,7 @@ export class AnnouncePointCommand extends AnnounceCommand {
   /**
    * Executes the command to describe the current point with multiple modalities.
    */
-  public execute(): void {
+  protected run(): void {
     // Before the first move there is no current point to replay: the cursor
     // is parked where entry will land, unhighlighted, and the next arrow
     // would enter there and announce it again. So Space enters as that arrow
@@ -738,7 +745,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
   /**
    * Executes the command to announce the current position.
    */
-  public execute(): void {
+  protected run(): void {
     // Get current state
     const state = this.context.state;
 
