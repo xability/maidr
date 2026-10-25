@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { BasePage } from '../page-objects/base-page';
 
 /**
  * E2E coverage for the Mermaid adapter (`maidr/mermaid`).
@@ -1514,7 +1515,9 @@ for (const { locale, example, dialog: dialogName, chartType, guide: guideName, d
 test.describe('Mermaid adapter when the reader changes language', () => {
   test('writes the adapter\'s words in the new one from the next time the reader enters the diagram', async ({ page }) => {
     await openExample(page, 'kanban');
-    await page.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+Comma`);
+    // Command where the browser says it is a Mac, as Playwright's WebKit
+    // does on any host, since that is what MAIDR binds there.
+    await new BasePage(page).openSettingsMenu();
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
     await settings.getByRole('combobox', { name: 'Language' }).click();
     await page.getByRole('option', { name: '한국어' }).click();
