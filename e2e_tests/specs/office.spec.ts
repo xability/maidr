@@ -150,6 +150,13 @@ test.describe('Office adapter: the Word task pane (office-taskpane.html?host=Wor
 
   test('reads the chart selected as it is now, edits included', async ({ page }) => {
     await open(page, '?host=Word');
+    // From the other chart, so the picker coming back to this one says the
+    // pane has followed the selection: it does so a moment after it changes,
+    // and the picker shows this chart from the start. Waiting on that alone
+    // tabbed into the chart as it was before the edit -- in Chromium only
+    // its 50ms between actions gave the pane time to catch up.
+    await page.locator('#select-visitors').click();
+    await expect(picker(page)).toHaveValue('2');
 
     await page.locator('#edit-sales').click();
     await expect(picker(page)).toHaveValue('1');
