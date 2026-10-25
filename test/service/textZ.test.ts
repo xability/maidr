@@ -164,7 +164,7 @@ describe('the other formatting paths', () => {
     // prefers over the trace type.
     const announcement = (notification.notify as jest.Mock).mock.calls[0][0];
     expect(announcement).toBe(
-      'Layer 1 of 2: point plot at X is 1, Y is 2, 4, Depth is 10.5, 20.25',
+      'Layer 1 of 2: scatter plot at X is 1, Y is 2, 4, Depth is 10.5, 20.25',
     );
   });
 });

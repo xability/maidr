@@ -130,8 +130,8 @@ export abstract class TestConstants {
   // `resolveOrientation` in src/util/orientation.ts — and a layer that does not
   // declare one is navigated, and so announced, as vertical.
   static readonly BAR_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly HISTOGRAM_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical hist. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly HEATMAP_INSTRUCTION_TEXT = 'This is a maidr plot of type: heat. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly HISTOGRAM_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical histogram. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly HEATMAP_INSTRUCTION_TEXT = 'This is a maidr plot of type: heatmap. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly LINEPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: single line. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   // `StepTrace.state` overrides the inherited line plotType, so a step chart
   // announces itself as a step plot rather than as a line one.
@@ -139,16 +139,16 @@ export abstract class TestConstants {
   // A multi-series trace names its group count, as the multiline entry above
   // does; the example this asserts against carries two bands.
   static readonly AREAPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: stacked area with 2 groups. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly ERRORBAR_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical error_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly ERRORBAR_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical error bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   static readonly WATERFALL_INSTRUCTION_TEXT = 'This is a maidr plot of type: waterfall. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly WORDCLOUD_INSTRUCTION_TEXT = 'This is a maidr plot of type: word_cloud. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly WORDCLOUD_INSTRUCTION_TEXT = 'This is a maidr plot of type: word cloud. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   // 'horizontal' because the trace is orientation-aware and the example draws
   // its categories down the page, which is how a dumbbell is usually laid out.
   static readonly DUMBBELL_INSTRUCTION_TEXT = 'This is a maidr plot of type: horizontal dumbbell. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
 
   static readonly GAUGE_INSTRUCTION_TEXT = 'This is a maidr plot of type: gauge. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical dodged_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
-  static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical stacked_bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly DODGED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical dodged bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly STACKED_BARPLOT_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical stacked bar. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   // `formatPlotType` in src/util/orientation.ts prefixes the box type with its
   // orientation, so a screen reader user hears which axis the boxes run along.
   static readonly BOXPLOT_VERTICAL_INSTRUCTION_TEXT = 'This is a maidr plot of type: vertical box. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
@@ -157,7 +157,7 @@ export abstract class TestConstants {
   static readonly MULTI_LAYER_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: vertical bar plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   // Violin layers are their own trace types (violin_kde / violin_box), not the
   // smooth + box pair they used to be modelled as.
-  static readonly VIOLIN_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: vertical violin_box plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
+  static readonly VIOLIN_PLOT_INSTRUCTION_TEXT = 'This is a maidr plot containing 2 layers, and this is layer 1 of 2: vertical violin box plot. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.';
   // No orientation prefix: `IS_ORIENTED[PIE]` is false, so unlike a bar chart a
   // pie is announced by its bare type. Slices run around a circle, and calling
   // one "vertical" would describe nothing.

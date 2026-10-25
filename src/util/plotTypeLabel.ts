@@ -5,11 +5,11 @@ import { t } from '@util/i18n';
 /**
  * How each trace type announces itself when it does not name itself.
  *
- * The English rendering of every key here is the type's wire value — `bar`,
- * `stacked_bar` — which is what the entry announcement has always said, so
- * the sentence is unchanged. A trace with a name of its own for what it is
- * (a line calls itself `multiline`, a radar `polar area`) sets `plotType`
- * itself and never reaches this.
+ * Every key renders the type in words, in English as in the other languages:
+ * `stacked bar` for {@link TraceType.STACKED}, not its wire value
+ * `stacked_bar`. A trace with a name of its own for what it is (a line calls
+ * itself `multiline`, a radar `polar area`) sets `plotType` itself and never
+ * reaches this.
  */
 const PLOT_TYPE_LABEL: Record<TraceType, MessageKey> = {
   [TraceType.AREA]: 'model.plotTypeArea',
@@ -78,7 +78,7 @@ const PLOT_TYPE_LABEL: Record<TraceType, MessageKey> = {
  * How a trace type announces itself in the entry instruction.
  *
  * @param type - The layer's trace type
- * @returns The spoken plot type, e.g. `bar` for {@link TraceType.BAR}
+ * @returns The spoken plot type, e.g. `stacked bar` for {@link TraceType.STACKED}
  */
 export function plotTypeLabel(type: TraceType): string {
   return t(PLOT_TYPE_LABEL[type]);

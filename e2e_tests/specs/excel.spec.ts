@@ -76,13 +76,13 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
     ]);
     // No chart is active, so the first is shown, inside MAIDR's figure.
     await expect(picker(page)).toHaveValue('{chart-sales}');
-    await expect(plot(page)).toHaveAccessibleDescription(/maidr plot of type: vertical dodged_bar/);
+    await expect(plot(page)).toHaveAccessibleDescription(/maidr plot of type: vertical dodged bar/);
     await expect(plot(page).locator('img')).toHaveAttribute('src', /^data:image\/png;base64,/);
   });
 
   test('Tab from the picker reaches the chart, and the arrows read it', async ({ page }) => {
     await open(page);
-    await tabIntoFigure(page, 'maidr plot of type: vertical dodged_bar');
+    await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
 
     await page.keyboard.press('ArrowRight');
     await waitForText(page, 'Quarter is Q1, Sales ($) is 120, Level is North');
@@ -94,7 +94,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
 
   test('a blank cell is announced as missing', async ({ page }) => {
     await open(page);
-    await tabIntoFigure(page, 'maidr plot of type: vertical dodged_bar');
+    await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
     for (const quarter of ['Q1', 'Q2', 'Q3']) {
       await page.keyboard.press('ArrowRight');
       await waitForText(page, `Quarter is ${quarter}, Sales ($)`);
@@ -124,7 +124,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
 
   test('a chart chosen after the reader left another is described as the one chosen', async ({ page }) => {
     await open(page);
-    await tabIntoFigure(page, 'maidr plot of type: vertical dodged_bar');
+    await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
     await page.keyboard.press('ArrowRight');
     await waitForText(page, 'Quarter is Q1');
     await picker(page).focus();
@@ -174,7 +174,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
 
   test('an edit in the grid is read in place while the reader is in the chart', async ({ page }) => {
     await open(page);
-    await tabIntoFigure(page, 'maidr plot of type: vertical dodged_bar');
+    await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
     for (const quarter of ['Q1', 'Q2', 'Q3']) {
       await page.keyboard.press('ArrowRight');
       await waitForText(page, `Quarter is ${quarter}`);
@@ -215,7 +215,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
 
   test('focus moves to the message when the chart\'s data goes, and back when it returns', async ({ page }) => {
     await open(page);
-    await tabIntoFigure(page, 'maidr plot of type: vertical dodged_bar');
+    await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
 
     await page.evaluate(() => document.getElementById('clear')?.click());
 

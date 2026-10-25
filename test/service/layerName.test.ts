@@ -89,7 +89,7 @@ describe('announcing which layer the reader landed on', () => {
   test('falls back to the trace type when the layer has no name', () => {
     // A figure whose layers differ in kind is better served by the type than
     // by a placeholder, so the existing wording is what an unnamed layer keeps.
-    expect(announceSwitch(undefined)).toContain('Layer 1 of 2: error_bar plot');
+    expect(announceSwitch(undefined)).toContain('Layer 1 of 2: error bar plot');
   });
 
   test('does not mistake the figure title for the layer', () => {
@@ -102,7 +102,7 @@ describe('announcing which layer the reader landed on', () => {
   test('treats a blank name as no name', () => {
     // A producer emitting an empty string for a layer it could not name should
     // get the type, not "Layer 1 of 2: ".
-    expect(announceSwitch('   ')).toContain('Layer 1 of 2: error_bar plot');
+    expect(announceSwitch('   ')).toContain('Layer 1 of 2: error bar plot');
   });
 
   test('still announces where in the data the reader is', () => {
