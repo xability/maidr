@@ -1003,6 +1003,12 @@ const Settings: React.FC = () => {
         allowScrollButtonsMobile
         aria-label={t('settings.sections')}
         className="settings-tabs"
+        // Out of the Tab order: Firefox puts a scroll container there when it
+        // overflows, as this one does when the tabs are wider than the
+        // dialog, so Tab stopped on it before the tabs the docs send the
+        // reader to. Arrowing along the tabs scrolls each into view, so the
+        // stop gave nothing that the tabs do not.
+        slotProps={{ scroller: { tabIndex: -1 } }}
         sx={{
           'px': 3,
           'borderBottom': 1,
