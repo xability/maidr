@@ -138,12 +138,24 @@ async function fieldPaint(page: Page, selector: string): Promise<FieldPaint> {
  * Waits for the re-render a key asked for to land, and then for every CSS
  * transition on the page to end, so the colours read are where they settle,
  * not where a transition passes through.
+ *
+ * Waits again for any that start meanwhile: on a page that transitions every
+ * element's colours, WebKit can start an element's transition of a colour it
+ * inherits once its parent's has ended, so the transitions run in waves down
+ * the page, and the first wave's end is not the colours' end. Ten seconds
+ * at most.
  */
 async function settle(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    const transitions = document.getAnimations().filter(animation => animation instanceof CSSTransition);
-    await Promise.all(transitions.map(transition => transition.finished.catch(() => undefined)));
+    const deadline = performance.now() + 10000;
+    while (performance.now() < deadline) {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const transitions = document.getAnimations().filter(animation => animation instanceof CSSTransition);
+      if (transitions.length === 0) {
+        return;
+      }
+      await Promise.all(transitions.map(transition => transition.finished.catch(() => undefined)));
+    }
   });
 }
 
