@@ -99,6 +99,34 @@ for (const example of ['boxplot-horizontal', 'barplot']) {
   });
 }
 
+test('keeps a centred chart where it is as the reader moves through its points', async ({ page }) => {
+  await page.goto('examples/multiline_plot_intersection.html');
+  await page.locator(PLOT).first().waitFor({ state: 'attached' });
+  await shrinkWrap(page);
+  // Narrower than what it says at a point three series meet, as on a slide.
+  await page.addStyleTag({ content: 'figure[id^="maidr-figure-"] svg { width: 400px; height: auto; }' });
+
+  const plot = page.locator(PLOT).first();
+  const text = page.locator('#maidr-text-container');
+  await plot.focus();
+  await expect(text).toContainText(/\S/);
+  const inChart = await layout(page);
+
+  // Into the point series 1 and 2 share, whose text names both, and out of it
+  // either way: each move says something of its own length.
+  for (const key of ['ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowLeft', 'ArrowLeft']) {
+    const said = await text.textContent();
+    await page.keyboard.press(key);
+    await expect(text).not.toHaveText(said ?? '');
+    const moved = await layout(page);
+    expect(moved.figureLeft).toBeCloseTo(inChart.figureLeft, 0);
+    expect(moved.figureWidth).toBeCloseTo(inChart.figureWidth, 0);
+    expect(moved.chartLeft).toBeCloseTo(inChart.chartLeft, 0);
+    expect(moved.chartWidth).toBeCloseTo(inChart.chartWidth, 0);
+    expect(moved.textWidth).toBeCloseTo(moved.chartWidth, 0);
+  }
+});
+
 test('wraps the text at the chart\'s width in a host that does not wrap', async ({ page }) => {
   await page.goto('examples/barplot.html');
   await page.locator(PLOT).first().waitFor({ state: 'attached' });
