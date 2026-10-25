@@ -20,6 +20,7 @@
  */
 
 import type { Maidr } from '@type/grammar';
+import type { Locale } from '@util/i18n/locale';
 import type {
   DiagramContext,
   DiagramConversion,
@@ -27,8 +28,11 @@ import type {
   MermaidAdapterOptions,
   MermaidApi,
 } from './types';
+import { isLocale } from '@util/i18n/locale';
+import { adapterLocale, followReaderLanguage, stopFollowingReaderLanguage } from '../shared/language';
 import { call, plain } from './read';
 import { DIAGRAM_CONVERTERS } from './registry';
+import { sayIn } from './words';
 
 let figureCounter = 0;
 
@@ -130,6 +134,11 @@ function leaveRoomForFocusRing(svg: SVGSVGElement): void {
  * at, so MAIDR's figure draws it at Mermaid's size, and every drawing is
  * padded inside that size so MAIDR's focus ring covers none of it.
  *
+ * The adapter's own words are written in `options.language`, or else in the
+ * language MAIDR speaks to the reader. A figure made here does not follow a
+ * change of language; one made by {@link createMaidrFromMermaid}, which can
+ * parse the diagram again, does.
+ *
  * @param diagram - The parsed diagram: its type and database
  * @param diagram.type - The diagram type Mermaid detected
  * @param diagram.db - The diagram's database
@@ -165,6 +174,7 @@ export function convertMermaidDiagram(
     svg,
     svgId: options.idPrefix ?? svg.id,
     layerId: suffix => `${id}-${suffix}`,
+    say: sayIn(adapterLocale(options.language, 'mermaid')),
   };
   // A diagram with nothing in it yet -- a gantt with no tasks, a quadrant
   // chart with no points -- is still a diagram on the page. It becomes a
@@ -202,6 +212,11 @@ export function convertMermaidDiagram(
  * elements Mermaid drew. The text is parsed again with Mermaid's own parser,
  * so pass exactly the text that was rendered.
  *
+ * Unless `options.language` names one, the adapter's own words are written
+ * in the language MAIDR speaks to the reader, and written again when the
+ * reader changes it: the figure is converted again and handed to MAIDR, which
+ * reads it from the next time the reader enters the diagram.
+ *
  * @param mermaid - The Mermaid API: the global `mermaid`, or the package's default export
  * @param text - The diagram's source text
  * @param svg - The rendered diagram
@@ -225,6 +240,34 @@ export async function createMaidrFromMermaid(
   svg: SVGSVGElement,
   options: MermaidAdapterOptions = {},
 ): Promise<Maidr> {
+  const language = adapterLocale(options.language, 'mermaid');
+  const maidr = await convertIn(mermaid, text, svg, options, language);
+  if (isLocale(options.language)) {
+    stopFollowingReaderLanguage(svg);
+  } else {
+    followReaderLanguage(svg, language, maidr, next => convertIn(mermaid, text, svg, options, next));
+  }
+  return maidr;
+}
+
+/**
+ * Parses a rendered diagram's text and converts it, writing the adapter's
+ * words in a language.
+ *
+ * @param mermaid - The Mermaid API
+ * @param text - The diagram's source text
+ * @param svg - The rendered diagram
+ * @param options - Figure options
+ * @param language - The language of the adapter's words
+ * @returns The MAIDR figure
+ */
+async function convertIn(
+  mermaid: MermaidApi,
+  text: string,
+  svg: SVGSVGElement,
+  options: MermaidAdapterOptions,
+  language: Locale,
+): Promise<Maidr> {
   const diagram = await mermaid.mermaidAPI.getDiagramFromText(text);
   // Read before anything else awaits: some diagram databases are shared
   // between parses, and another diagram on the page parsing in between
@@ -233,6 +276,6 @@ export async function createMaidrFromMermaid(
   return convertMermaidDiagram(
     { type: diagram.type, db: diagram.db, text: diagram.text ?? text },
     svg,
-    title === undefined ? options : { ...options, title },
+    { ...options, ...(title === undefined ? {} : { title }), language },
   );
 }

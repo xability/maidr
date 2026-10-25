@@ -27,6 +27,13 @@ Chart data is never translated. Axis labels, category names, and titles are
 read exactly as the chart's author wrote them; only MAIDR's own words around
 them change. The AI chat is asked to answer in the chosen language.
 
+The Mermaid and Graphviz adapters write some words of their own into the chart
+data, such as what a diagram calls its nodes, the kind each node is, and the
+names of its attributes. Those are MAIDR's words too, so they are written in the
+reader's language and written again when it changes. A diagram picks the new
+language up the next time the reader enters it. See
+[Mermaid](mermaid.md#language).
+
 ## Loading a language
 
 English is built into `maidr.js`. Every other language is a **locale pack**, a
@@ -117,6 +124,20 @@ Supported pairs are `은는`, `이가`, `을를`, `과와`, `으로`, and `이�
 and Latin letters are judged by their usual Korean reading, so `1은`, `2는`,
 `Team은`, and `Price는` all come out right. A language with a similar need can
 add its own modifier in `src/util/i18n/index.ts`.
+
+## For other scripts on the page
+
+MAIDR fires `maidr:languagechange` on the document each time the language it
+speaks changes, with the new locale in `event.detail.language`. It does not fire
+when a locale pack arrives for the language already spoken. A script that
+writes words of its own into chart data, as the diagram adapters do, can listen
+for it and write them again:
+
+```js
+document.addEventListener('maidr:languagechange', (event) => {
+  rebuildLabels(event.detail.language); // 'ko', 'de', …
+});
+```
 
 ## For code
 

@@ -15,10 +15,26 @@ import type {
 import type { GraphEdge, GraphNode } from '../graph';
 import type { Row } from '../read';
 import type { DiagramContext, DiagramConversion } from '../types';
+import type { WordKey } from '../words';
 import { DiagramType, TraceType } from '@type/grammar';
 import { cssEscape } from '../../shared/selectorUtil';
 import { directedGraphLayer } from '../graph';
-import { all, call, num, plain, rows, selectorsFor, str } from '../read';
+import { all, call, first, num, plain, rows, selectorsFor, str } from '../read';
+import { sayKnown } from '../words';
+
+/**
+ * What a sequence diagram's participants are drawn as, other than a plain
+ * box, by Mermaid's keyword and by ZenUML's annotator.
+ */
+export const PARTICIPANT_KINDS: Readonly<Record<string, WordKey>> = {
+  actor: 'participant.actor',
+  boundary: 'participant.boundary',
+  collections: 'participant.collections',
+  control: 'participant.control',
+  database: 'participant.database',
+  entity: 'participant.entity',
+  queue: 'participant.queue',
+};
 
 /** Mermaid's sequence line types, used when the database does not expose them. */
 const LINETYPE: Record<string, number> = {
@@ -111,7 +127,7 @@ export function sequence(context: DiagramContext): DiagramConversion {
     return {
       id: String(key),
       label: plain(actor.description) || String(key),
-      ...(kind && kind !== 'participant' ? { kind } : {}),
+      ...(kind && kind !== 'participant' ? { kind: sayKnown(kind, PARTICIPANT_KINDS, context.say) } : {}),
       ...(group ? { group } : {}),
     };
   });
@@ -181,7 +197,7 @@ export function sequence(context: DiagramContext): DiagramConversion {
         kind: 'note',
         ...(fragments.length > 0 ? { fragments: [...fragments] } : {}),
       });
-      elements.push(context.svg.querySelector(`[data-et="note"][data-id="i${cssEscape(id)}"], .note.i${cssEscape(id)}`));
+      elements.push(first(context.svg, `[data-et="note"][data-id="i${cssEscape(id)}"], .note.i${cssEscape(id)}`));
       return;
     }
     let kind: SequenceMessageKind = /DOTTED/.test(type) ? 'reply' : /OPEN|POINT/.test(type) ? 'async' : 'sync';
@@ -201,7 +217,7 @@ export function sequence(context: DiagramContext): DiagramConversion {
     if (numbering) {
       next += step;
     }
-    elements.push(context.svg.querySelector(`[data-et="message"][data-id="i${cssEscape(id)}"], line.message.i${cssEscape(id)}, path.message.i${cssEscape(id)}`));
+    elements.push(first(context.svg, `[data-et="message"][data-id="i${cssEscape(id)}"], line.message.i${cssEscape(id)}, path.message.i${cssEscape(id)}`));
   });
 
   if (participants.length === 0 && messages.length === 0) {
@@ -358,6 +374,12 @@ function drawnInOrder(points: ScatterPoint[], marks: (Element | null)[]): boolea
     && Math.sign(point.y - other.y) === Math.sign(placed[j].y - placed[i].y)));
 }
 
+/** What a Wardley map's nodes are, other than components. */
+const WARDLEY_KINDS: Readonly<Record<string, WordKey>> = {
+  'anchor': 'wardley.anchor',
+  'pipeline-component': 'wardley.pipelineComponent',
+};
+
 /**
  * Wardley maps: each component placed by its evolution and its visibility to
  * the user, and what it depends on.
@@ -377,6 +399,7 @@ export function wardley(context: DiagramContext): DiagramConversion {
   const groups = all(context.svg, 'g.wardley-node');
   const elements = groups.length === nodes.length ? groups : [];
 
+  const say = context.say;
   const points: ScatterPoint[] = nodes.map((node) => {
     const evolution = (num(node.x) ?? 0) / 100;
     const visibility = (num(node.y) ?? 0) / 100;
@@ -384,9 +407,9 @@ export function wardley(context: DiagramContext): DiagramConversion {
     const kind = plain(node.className);
     const name = plain(node.label) || plain(node.id);
     const notes = [
-      kind && kind !== 'component' ? kind : '',
-      node.inertia === true ? 'inertia' : '',
-      target !== undefined ? `evolving to ${target / 100}` : '',
+      kind && kind !== 'component' ? sayKnown(kind, WARDLEY_KINDS, say) : '',
+      node.inertia === true ? say('wardley.inertia') : '',
+      target !== undefined ? say('wardley.evolvingTo', { value: target / 100 }) : '',
     ].filter(Boolean).join(', ');
     // The notes in parentheses, which a layer switch reads as notes on the
     // name, so the value chain's "Kettle" finds "Kettle (evolving to 0.62)".
@@ -405,11 +428,11 @@ export function wardley(context: DiagramContext): DiagramConversion {
     layers.push({
       id: context.layerId('map'),
       type: TraceType.SCATTER,
-      name: 'Components',
+      name: say('layer.components'),
       diagramType: DiagramType.WARDLEY_MAP,
       axes: {
-        x: { label: 'Evolution', min: 0, max: 1, tickStep: 0.25 },
-        y: { label: 'Visibility', min: 0, max: 1, tickStep: 0.25 },
+        x: { label: say('wardley.evolution'), min: 0, max: 1, tickStep: 0.25 },
+        y: { label: say('wardley.visibility'), min: 0, max: 1, tickStep: 0.25 },
       },
       // One string, as a point layer reads: in document order, which is the
       // nodes' order, since Mermaid draws a group per node in turn.
@@ -422,22 +445,22 @@ export function wardley(context: DiagramContext): DiagramConversion {
     id: str(node.id) ?? String(at),
     label: plain(node.label) || str(node.id),
     attributes: {
-      Evolution: (num(node.x) ?? 0) / 100,
-      Visibility: (num(node.y) ?? 0) / 100,
+      [say('wardley.evolution')]: (num(node.x) ?? 0) / 100,
+      [say('wardley.visibility')]: (num(node.y) ?? 0) / 100,
     },
     element: elements[at] ?? null,
   }));
   const edges: GraphEdge[] = rows(map?.links).map(link => ({
     from: str(link.source) ?? '',
     to: str(link.target) ?? '',
-    label: link.dashed === true ? 'dashed' : plain(link.label),
+    label: link.dashed === true ? say('wardley.dashed') : plain(link.label),
   }));
   if (edges.length > 0) {
     const graph = directedGraphLayer(context, {
       nodes: graphNodes,
       edges,
-      nodeLabel: 'Component',
-      name: 'Value chain',
+      nodeLabel: say('node.component'),
+      name: say('layer.valueChain'),
       diagram: DiagramType.WARDLEY_MAP,
     });
     if (graph) {

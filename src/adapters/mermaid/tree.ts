@@ -33,6 +33,12 @@ export interface TreeParts {
   valueLabel?: string;
   /** The layer's name, when the figure has several. */
   name?: string;
+  /**
+   * What the layer's id ends in, `tree` unless given: a figure with two tree
+   * layers gives each its own. Not the name, which is in the reader's
+   * language, while an id is the same in every language.
+   */
+  idSuffix?: string;
   /** `tree` unless the diagram is drawn as nested areas. */
   type?: TraceType.TREE | TraceType.TREEMAP;
   /** The diagram MAIDR names and explains this as, when it is not drawn as its layer type. */
@@ -56,7 +62,7 @@ export function treeLayer(context: DiagramContext, parts: TreeParts): MaidrLayer
   const visit = (nodes: TreeNode[], path: string[]): void => {
     const seen = new Map<string, number>();
     for (const node of nodes) {
-      const base = node.name.trim() || '(blank)';
+      const base = node.name.trim() || context.say('tree.blank');
       const count = (seen.get(base) ?? 0) + 1;
       seen.set(base, count);
       const name = count === 1 ? base : `${base} (${count})`;
@@ -90,7 +96,7 @@ export function treeLayer(context: DiagramContext, parts: TreeParts): MaidrLayer
       }
     : {};
   return {
-    id: context.layerId(parts.name ? `tree-${parts.name}` : 'tree'),
+    id: context.layerId(parts.idSuffix ?? 'tree'),
     type: parts.type ?? TraceType.TREE,
     ...(parts.name ? { name: parts.name } : {}),
     ...(parts.diagram ? { diagramType: parts.diagram } : {}),

@@ -9,6 +9,8 @@
  */
 
 import type { MaidrLayer } from '@type/grammar';
+import type { Locale } from '@util/i18n/locale';
+import type { Say } from './words';
 
 /** A parsed Mermaid diagram, as `mermaidAPI.getDiagramFromText` returns it. */
 export interface MermaidDiagram {
@@ -53,6 +55,17 @@ export interface MermaidAdapterOptions {
    * was renamed after rendering, as Quarto does to a labelled diagram.
    */
   idPrefix?: string;
+  /**
+   * The language of the words the adapter writes itself -- what a node is
+   * called, its kind, the names of its attributes, the words for a shape or
+   * a relation. What the diagram's author wrote is read as written.
+   *
+   * Defaults to the language MAIDR speaks to the reader: the one they chose
+   * in its settings, or else their browser's. A diagram converted in that
+   * language follows it when the reader changes it; one given a language
+   * here keeps it.
+   */
+  language?: Locale;
 }
 
 /**
@@ -73,6 +86,8 @@ export interface DiagramContext {
   svgId: string;
   /** Makes layer ids unique within the figure. */
   layerId: (suffix: string) => string;
+  /** Writes the adapter's own words, in the reader's language. */
+  say: Say;
 }
 
 /**

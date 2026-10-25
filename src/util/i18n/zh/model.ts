@@ -582,7 +582,7 @@ export const model = {
   'model.statNetChange': '净变化',
   'model.statLargestIncrease': '最大增幅',
   'model.statLargestDecrease': '最大降幅',
-  'model.tableKind': '类型',
+  'model.tableKind': '种类',
   'model.extremaLargestIncrease': '最大增幅',
   'model.extremaLargestDecrease': '最大降幅',
   // Word cloud.

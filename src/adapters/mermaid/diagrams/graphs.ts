@@ -7,10 +7,12 @@
 import type { GraphEdge, GraphGroup, GraphNode } from '../graph';
 import type { Row } from '../read';
 import type { DiagramContext, DiagramConversion } from '../types';
+import type { Say, WordKey } from '../words';
 import { DiagramType } from '@type/grammar';
 import { c4DiagramType } from '../diagramTypes';
 import { directedGraphLayer } from '../graph';
 import { all, call, findById, plain, rows, str } from '../read';
+import { sayKnown } from '../words';
 
 /**
  * A conversion holding the one layer, or none.
@@ -23,13 +25,44 @@ function single(layer: ReturnType<typeof directedGraphLayer>): DiagramConversion
 }
 
 /**
- * Attributes with the empty ones left out.
+ * Attributes with the empty ones left out, each named in the reader's
+ * language.
  *
  * @param entries - Name and value pairs
+ * @param say - Writes the adapter's words
  * @returns The attributes that have a value
  */
-function present(entries: [string, string][]): Record<string, string> {
-  return Object.fromEntries(entries.filter(([, value]) => value !== ''));
+function present(entries: [WordKey, string][], say: Say): Record<string, string> {
+  return Object.fromEntries(entries.filter(([, value]) => value !== '').map(([key, value]) => [say(key), value]));
+}
+
+/** The four things a C4 element can be, inside the system and outside it. */
+const C4_ELEMENTS: Record<string, readonly [inside: WordKey, outside: WordKey]> = {
+  person: ['c4.person', 'c4.externalPerson'],
+  system: ['c4.system', 'c4.externalSystem'],
+  container: ['c4.container', 'c4.externalContainer'],
+  component: ['c4.component', 'c4.externalComponent'],
+};
+
+/**
+ * What a C4 element is, from the macro that declared it: `System_Ext` is
+ * held as `external_system`, `ContainerDb` as `container_db`. One Mermaid
+ * adds later is read as its words, spaced out.
+ *
+ * @param type - The type Mermaid holds
+ * @param say - Writes the adapter's words
+ * @returns The words
+ */
+function c4ElementType(type: string, say: Say): string {
+  const [, external, base = '', store] = /^(external_)?(.*?)(?:_(db|queue))?$/.exec(type) ?? [];
+  if (!Object.hasOwn(C4_ELEMENTS, base)) {
+    return type.replace(/_/g, ' ');
+  }
+  const words = say(C4_ELEMENTS[base][external === undefined ? 0 : 1]);
+  if (store === 'db') {
+    return say('c4.database', { type: words });
+  }
+  return store === 'queue' ? say('c4.queue', { type: words }) : words;
 }
 
 /**
@@ -70,10 +103,10 @@ export function c4(context: DiagramContext): DiagramConversion {
       label: plain(shape.label) || id,
       parent: parent && parent !== 'global' ? parent : undefined,
       attributes: present([
-        ['Type', plain(shape.typeC4Shape).replace(/_/g, ' ')],
-        ['Technology', plain(shape.techn)],
-        ['Description', plain(shape.descr)],
-      ]),
+        ['attribute.type', c4ElementType(plain(shape.typeC4Shape), context.say)],
+        ['attribute.technology', plain(shape.techn)],
+        ['attribute.description', plain(shape.descr)],
+      ], context.say),
       element: findById(candidates, context.svgId, [id], used),
     };
   });
@@ -92,8 +125,22 @@ export function c4(context: DiagramContext): DiagramConversion {
     }
   });
   const level = str(call(context.db, 'getC4Type'))?.trim();
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: c4DiagramType(level) }));
+  return single(directedGraphLayer(context, {
+    nodes,
+    groups,
+    edges,
+    nodeLabel: context.say('node.element'),
+    diagram: c4DiagramType(level),
+  }));
 }
+
+/** The ways a block arrow points, as written. */
+const BLOCK_DIRECTIONS: Record<string, WordKey> = {
+  up: 'block.up',
+  down: 'block.down',
+  left: 'block.left',
+  right: 'block.right',
+};
 
 /**
  * Block diagrams: blocks laid out in columns, composite blocks holding
@@ -123,14 +170,20 @@ export function block(context: DiagramContext): DiagramConversion {
         visit(children, id === 'root' ? undefined : id);
         continue;
       }
-      const directions = Array.isArray(one.directions) ? one.directions.map(String).join(' and ') : '';
+      const ways = (Array.isArray(one.directions) ? one.directions : [])
+        .map(direction => sayKnown(String(direction), BLOCK_DIRECTIONS, context.say));
+      const directions = ways.length === 0
+        ? ''
+        : ways.reduce((first, second) => context.say('block.and', { first, second }));
       const label = plain(one.label).trim();
       nodes.push({
         id,
         // A block arrow is labelled with spaces as often as with words.
-        label: label || (type === 'block_arrow' ? 'arrow' : id),
+        label: label || (type === 'block_arrow' ? context.say('block.arrow') : id),
         parent,
-        attributes: type === 'block_arrow' ? { Kind: `arrow pointing ${directions}` } : {},
+        attributes: type === 'block_arrow'
+          ? { [context.say('attribute.kind')]: context.say('block.arrowPointing', { directions }) }
+          : {},
         element: findById(candidates, context.svgId, [id], used),
       });
     }
@@ -142,7 +195,7 @@ export function block(context: DiagramContext): DiagramConversion {
     to: str(edge.end) ?? '',
     label: plain(edge.label),
   }));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Block', diagram: DiagramType.BLOCK }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: context.say('node.block'), diagram: DiagramType.BLOCK }));
 }
 
 /**
@@ -163,19 +216,19 @@ export function architecture(context: DiagramContext): DiagramConversion {
   }));
   const candidates = all(context.svg, 'g[id], rect[id]');
   const used = new Set<Element>();
-  const service = (one: Row, kind: string): GraphNode => {
+  const service = (one: Row, kind: 'kind.service' | 'kind.junction'): GraphNode => {
     const id = str(one.id) ?? '';
     return {
       id,
-      label: plain(one.title) || (kind === 'junction' ? `junction ${id}` : id),
+      label: plain(one.title) || (kind === 'kind.junction' ? context.say('architecture.junction', { id }) : id),
       parent: str(one.in),
-      attributes: present([['Kind', kind], ['Icon', plain(one.icon)]]),
+      attributes: present([['attribute.kind', context.say(kind)], ['attribute.icon', plain(one.icon)]], context.say),
       element: findById(candidates, context.svgId, [`service-${id}`, `node-${id}`, `junction-${id}`, id], used),
     };
   };
   const nodes = [
-    ...rows(call(context.db, 'getServices')).map(one => service(one, 'service')),
-    ...rows(call(context.db, 'getJunctions')).map(one => service(one, 'junction')),
+    ...rows(call(context.db, 'getServices')).map(one => service(one, 'kind.service')),
+    ...rows(call(context.db, 'getJunctions')).map(one => service(one, 'kind.junction')),
   ];
   const edges: GraphEdge[] = rows(call(context.db, 'getEdges')).flatMap((edge, at) => {
     const lhs = str(edge.lhsId) ?? '';
@@ -190,11 +243,20 @@ export function architecture(context: DiagramContext): DiagramConversion {
     }
     return [intoLhs ? { from: rhs, to: lhs, label } : { from: lhs, to: rhs, label }];
   });
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Element', diagram: DiagramType.ARCHITECTURE }));
+  return single(directedGraphLayer(context, {
+    nodes,
+    groups,
+    edges,
+    nodeLabel: context.say('node.element'),
+    diagram: DiagramType.ARCHITECTURE,
+  }));
 }
 
-/** Mermaid's commit types, in its own numbering. */
-const COMMIT_TYPES = ['normal', 'reverse', 'highlight', 'merge', 'cherry-pick'];
+/**
+ * Mermaid's commit types, in its own numbering, and the words for each: none
+ * for a normal commit, which is what a commit is.
+ */
+const COMMIT_TYPES: (WordKey | null)[] = [null, 'commit.reverse', 'commit.highlight', 'commit.merge', 'commit.cherryPick'];
 
 /**
  * Git graphs: commits on their branches, each commit fed by its parents --
@@ -229,9 +291,9 @@ export function gitGraph(context: DiagramContext): DiagramConversion {
     const seq = str(commit.seq) ?? String(at);
     const message = plain(commit.message);
     const label = generated.test(id) || commit.customId === false
-      ? (message || `commit ${Number(seq) + 1}`)
+      ? (message || context.say('commit.numbered', { number: Number(seq) + 1 }))
       : id;
-    const type = COMMIT_TYPES[Number(commit.type)] ?? '';
+    const type = COMMIT_TYPES[Number(commit.type)];
     const tags = Array.isArray(commit.tags) ? commit.tags.map(plain).filter(Boolean) : [];
     const element = runs.length === commits.length ? runs[at] : null;
     return {
@@ -239,10 +301,10 @@ export function gitGraph(context: DiagramContext): DiagramConversion {
       label,
       parent: plain(commit.branch) || undefined,
       attributes: present([
-        ['Type', type === 'normal' ? '' : type],
-        ['Tags', tags.join(', ')],
-        ['Message', label === message ? '' : message],
-      ]),
+        ['attribute.type', type ? context.say(type) : ''],
+        ['attribute.tags', tags.join(', ')],
+        ['attribute.message', label === message ? '' : message],
+      ], context.say),
       element,
     };
   });
@@ -253,20 +315,20 @@ export function gitGraph(context: DiagramContext): DiagramConversion {
       from: String(parent),
       to: nodes[at].id,
     })));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Commit', diagram: DiagramType.GIT_GRAPH }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: context.say('node.commit'), diagram: DiagramType.GIT_GRAPH }));
 }
 
 /** What an event model's entity types are called. */
-const EVENT_MODEL_TYPES: Record<string, string> = {
-  ui: 'UI',
-  cmd: 'command',
-  command: 'command',
-  evt: 'event',
-  event: 'event',
-  rmo: 'read model',
-  readmodel: 'read model',
-  pcr: 'processor',
-  processor: 'processor',
+const EVENT_MODEL_TYPES: Record<string, WordKey> = {
+  ui: 'eventModel.ui',
+  cmd: 'eventModel.command',
+  command: 'eventModel.command',
+  evt: 'eventModel.event',
+  event: 'eventModel.event',
+  rmo: 'eventModel.readModel',
+  readmodel: 'eventModel.readModel',
+  pcr: 'eventModel.processor',
+  processor: 'eventModel.processor',
 };
 
 /**
@@ -292,9 +354,9 @@ export function eventModeling(context: DiagramContext): DiagramConversion {
       label: plain(box.text) || plain(frame.entityIdentifier),
       parent: lane || undefined,
       attributes: present([
-        ['Frame', plain(frame.name)],
-        ['Type', EVENT_MODEL_TYPES[type] ?? type],
-      ]),
+        ['attribute.frame', plain(frame.name)],
+        ['attribute.type', sayKnown(type, EVENT_MODEL_TYPES, context.say)],
+      ], context.say),
       element: drawn.length === boxes.length ? drawn[at] : null,
     };
   });
@@ -304,5 +366,5 @@ export function eventModeling(context: DiagramContext): DiagramConversion {
     from: String((relation.sourceBox as Row | undefined)?.index ?? ''),
     to: String((relation.targetBox as Row | undefined)?.index ?? ''),
   }));
-  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: 'Entity', diagram: DiagramType.EVENT_MODEL }));
+  return single(directedGraphLayer(context, { nodes, groups, edges, nodeLabel: context.say('node.entity'), diagram: DiagramType.EVENT_MODEL }));
 }

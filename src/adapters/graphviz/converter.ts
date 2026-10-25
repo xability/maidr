@@ -18,12 +18,31 @@
  */
 
 import type { DirectedGraphPoint, Maidr, MaidrLayer, NetworkPoint, TreemapPoint } from '@type/grammar';
+import type { Locale } from '@util/i18n/locale';
 import type { Bounds } from './geometry';
 import type { GraphvizAdapterOptions, GraphvizGraph } from './types';
+import { adapterLocale, followReaderLanguage, stopFollowingReaderLanguage } from '@adapters/shared/language';
 import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { TraceType } from '@type/grammar';
+import { isLocale } from '@util/i18n/locale';
 import { boundsOf } from './geometry';
 import { readGraphviz } from './read';
+
+/**
+ * What a patchwork drawing's magnitude measures, in each language: the one
+ * word the adapter writes itself. Everything else it reads is the drawing's.
+ */
+const AREA: Readonly<Record<Locale, string>> = {
+  en: 'Area',
+  ko: '면적',
+  ja: '面積',
+  zh: '面积',
+  es: 'Área',
+  de: 'Fläche',
+  fr: 'Aire',
+  it: 'Area',
+  hi: 'क्षेत्रफल',
+};
 
 /** The attribute each node's group is marked with, by its index. */
 const NODE_MARK = 'data-maidr-graphviz-node';
@@ -159,6 +178,7 @@ function treemapLayer(
   svgId: string,
   layerId: string,
   options: GraphvizAdapterOptions,
+  language: Locale,
 ): MaidrLayer {
   const branches: TreemapPoint[] = graph.clusters.map(cluster => ({
     x: cluster.label,
@@ -188,7 +208,7 @@ function treemapLayer(
     type: TraceType.TREEMAP,
     axes: {
       ...(options.nodeLabel ? { x: { label: options.nodeLabel } } : {}),
-      y: { label: 'Area' },
+      y: { label: AREA[language] },
     },
     selectors: selectorsFor(svgId, CELL_MARK, [
       ...graph.clusters.map(cluster => cluster.element),
@@ -253,13 +273,20 @@ function networkLayer(
  * @param svgId - The drawing's id
  * @param id - The figure's id
  * @param options - Figure options
+ * @param language - The language of the adapter's own words
  * @returns The layer
  */
-function layerFor(graph: GraphvizGraph, svgId: string, id: string, options: GraphvizAdapterOptions): MaidrLayer {
+function layerFor(
+  graph: GraphvizGraph,
+  svgId: string,
+  id: string,
+  options: GraphvizAdapterOptions,
+  language: Locale,
+): MaidrLayer {
   // Patchwork draws no edges, and is read as a treemap whatever kind of
   // graph it was written as.
   if (options.layout === 'patchwork') {
-    return treemapLayer(graph, svgId, `${id}-treemap`, options);
+    return treemapLayer(graph, svgId, `${id}-treemap`, options, language);
   }
   if (graph.edges.length > 0 && graph.edges.every(edge => !edge.directed)) {
     return networkLayer(graph, svgId, `${id}-network`, options);
@@ -273,6 +300,10 @@ function layerFor(graph: GraphvizGraph, svgId: string, id: string, options: Grap
  * Call it once the SVG is in the document: the layer's selectors name the
  * drawing's own node groups, and each group is marked so it can be named
  * however many graphs share the page.
+ *
+ * Unless `options.language` names one, the one word the adapter writes
+ * itself -- a patchwork drawing's `Area` -- is in the language MAIDR speaks
+ * to the reader, and is written again when the reader changes it.
  *
  * @param svg - The SVG Graphviz drew
  * @param options - Figure options
@@ -290,10 +321,29 @@ export function createMaidrFromGraphviz(
   svg: SVGSVGElement,
   options: GraphvizAdapterOptions = {},
 ): Maidr {
+  const language = adapterLocale(options.language, 'graphviz');
+  const maidr = convertIn(svg, options, language);
+  if (isLocale(options.language)) {
+    stopFollowingReaderLanguage(svg);
+  } else {
+    followReaderLanguage(svg, language, maidr, next => convertIn(svg, options, next));
+  }
+  return maidr;
+}
+
+/**
+ * Converts a drawing, writing the adapter's words in a language.
+ *
+ * @param svg - The SVG Graphviz drew
+ * @param options - Figure options
+ * @param language - The language of the adapter's own words
+ * @returns The MAIDR figure
+ */
+function convertIn(svg: SVGSVGElement, options: GraphvizAdapterOptions, language: Locale): Maidr {
   const graph = readGraphviz(svg);
   const svgId = ensureContainerId(svg, 'maidr-graphviz');
   const id = options.id ?? svgId;
-  const layers = graph.nodes.length === 0 ? [] : [layerFor(graph, svgId, id, options)];
+  const layers = graph.nodes.length === 0 ? [] : [layerFor(graph, svgId, id, options, language)];
   const title = options.title ?? graph.label;
   return {
     id,

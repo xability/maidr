@@ -14,8 +14,11 @@
 
 import type { MaidrLayer, SequenceMessage, SequenceParticipant } from '@type/grammar';
 import type { DiagramContext, DiagramConversion } from '../types';
+import type { Say } from '../words';
 import { TraceType } from '@type/grammar';
 import { all, plain, selectorsFor } from '../read';
+import { sayIn, sayKnown } from '../words';
+import { PARTICIPANT_KINDS } from './interactions';
 
 /** The participant a top-level sync message comes from, as ZenUML names it. */
 const STARTER = '_STARTER_';
@@ -256,9 +259,11 @@ function participantOf(statement: string): { id: string; kind?: string; label?: 
  * Reads ZenUML text into participants and messages.
  *
  * @param source - The diagram's text, `zenuml` keyword included
+ * @param say - Writes the adapter's words: what the starter is called, and
+ *   what a participant is drawn as. In English unless given
  * @returns The diagram's title, participants and messages
  */
-export function parseZenUml(source: string): {
+export function parseZenUml(source: string, say: Say = sayIn('en')): {
   title?: string;
   participants: SequenceParticipant[];
   messages: SequenceMessage[];
@@ -387,7 +392,7 @@ export function parseZenUml(source: string): {
     const participant = opens ? null : participantOf(token);
     if (participant) {
       declare(participant.id, {
-        ...(participant.kind ? { kind: participant.kind } : {}),
+        ...(participant.kind ? { kind: sayKnown(participant.kind, PARTICIPANT_KINDS, say) } : {}),
         ...(participant.label ? { label: participant.label } : {}),
       });
       continue;
@@ -400,7 +405,7 @@ export function parseZenUml(source: string): {
   // The starter is drawn only when a message comes from it.
   const starterUsed = messages.some(message => message.from === STARTER || message.to === STARTER);
   if (starterUsed) {
-    participants.unshift({ id: STARTER, label: 'Starter' });
+    participants.unshift({ id: STARTER, label: say('participant.starter') });
   }
   return { ...(title ? { title } : {}), participants, messages };
 }
@@ -432,7 +437,7 @@ function drawnAt(group: Element): number | null {
  * @returns The conversion
  */
 export function zenuml(context: DiagramContext): DiagramConversion {
-  const { title, participants, messages } = parseZenUml(context.text ?? '');
+  const { title, participants, messages } = parseZenUml(context.text ?? '', context.say);
   if (messages.length === 0 && participants.length === 0) {
     return { layers: [] };
   }

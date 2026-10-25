@@ -16,6 +16,7 @@ import type {
 import type { Row } from '../read';
 import type { TreeNode } from '../tree';
 import type { DiagramContext, DiagramConversion } from '../types';
+import type { Say, WordKey } from '../words';
 import { DiagramType, Orientation, TraceType } from '@type/grammar';
 import { cssEscape } from '../../shared/selectorUtil';
 import { all, call, findById, num, plain, rows, selectorsFor, str } from '../read';
@@ -50,7 +51,7 @@ export function pie(context: DiagramContext): DiagramConversion {
   const layer: MaidrLayer = {
     id: context.layerId('pie'),
     type: TraceType.PIE,
-    axes: { x: { label: 'Section' }, y: { label: 'Value' } },
+    axes: { x: { label: context.say('chart.section') }, y: { label: context.say('chart.value') } },
     ...(slices.length === data.length && data.length > 0
       ? { selectors: `#${cssEscape(context.svg.id)} path.pieCircle` }
       : {}),
@@ -87,7 +88,7 @@ export function gantt(context: DiagramContext): DiagramConversion {
   const laneNames: string[] = [];
   const elements: (Element | null)[][] = [];
   for (const task of tasks) {
-    const section = plain(task.section) || 'Tasks';
+    const section = plain(task.section) || context.say('gantt.tasks');
     let lane = laneNames.indexOf(section);
     if (lane < 0) {
       laneNames.push(section);
@@ -95,9 +96,9 @@ export function gantt(context: DiagramContext): DiagramConversion {
       elements.push([]);
       lane = laneNames.length - 1;
     }
-    const status = ['done', 'active', 'crit', 'milestone']
-      .filter(flag => task[flag] === true)
-      .map(flag => (flag === 'crit' ? 'critical' : flag));
+    const status = ([['done', 'gantt.done'], ['active', 'gantt.active'], ['crit', 'gantt.critical'], ['milestone', 'gantt.milestone']] as const)
+      .filter(([flag]) => task[flag] === true)
+      .map(([, word]) => context.say(word));
     const name = plain(task.task);
     lanes[lane].push({
       x: section,
@@ -115,17 +116,17 @@ export function gantt(context: DiagramContext): DiagramConversion {
     orientation: Orientation.HORIZONTAL,
     axes: {
       x: {
-        label: 'Date',
+        label: context.say('gantt.date'),
         format: {
           function: hourly
             ? `return new Date(value * ${MS_PER_HOUR}).toLocaleString()`
             : `return new Date(value * ${MS_PER_DAY}).toLocaleDateString()`,
         },
       },
-      y: { label: 'Section' },
+      y: { label: context.say('chart.section') },
     },
     ...(selectors ? { selectors } : {}),
-    data: { points: lanes, lanes: laneNames, unit: hourly ? 'hours' : 'days' },
+    data: { points: lanes, lanes: laneNames, unit: context.say(hourly ? 'gantt.hours' : 'gantt.days') },
   };
   return { layers: [layer] };
 }
@@ -144,7 +145,7 @@ export function packet(context: DiagramContext): DiagramConversion {
   const lanes: GanttPoint[][] = lines.map((fields) => {
     const first = num(fields[0]?.start) ?? 0;
     const last = num(fields[fields.length - 1]?.end) ?? first;
-    const lane = `Bits ${first} to ${last}`;
+    const lane = context.say('packet.rowBits', { first, last });
     return fields.map(field => ({
       x: lane,
       start: num(field.start) ?? Number.NaN,
@@ -169,9 +170,9 @@ export function packet(context: DiagramContext): DiagramConversion {
     // to be introduced or explained as one.
     diagramType: DiagramType.PACKET,
     orientation: Orientation.HORIZONTAL,
-    axes: { x: { label: 'Bit' }, y: { label: 'Row' } },
+    axes: { x: { label: context.say('packet.bit') }, y: { label: context.say('packet.row') } },
     ...(blocks.length === count && count > 0 ? { selectors: selectorsFor(blocks) } : {}),
-    data: { points: lanes, unit: 'bits', inclusive: true, ...wrap },
+    data: { points: lanes, unit: context.say('packet.bits'), inclusive: true, ...wrap },
   };
   return { layers: count > 0 ? [layer] : [] };
 }
@@ -213,8 +214,12 @@ export function quadrant(context: DiagramContext): DiagramConversion {
   const axisLabels = rows(built?.axisLabels).map(one => plain(one.text));
   // Mermaid lays the labels out left, right, bottom, top -- but omits the
   // ones the chart did not declare.
-  const xLabel = axisLabels.slice(0, 2).filter(Boolean).join(' to ') || 'x';
-  const yLabel = axisLabels.slice(2, 4).filter(Boolean).join(' to ') || 'y';
+  const axisLabel = (ends: string[], fallback: string): string => {
+    const [from, to] = ends.filter(Boolean);
+    return to === undefined ? from || fallback : context.say('quadrant.axis', { from, to });
+  };
+  const xLabel = axisLabel(axisLabels.slice(0, 2), 'x');
+  const yLabel = axisLabel(axisLabels.slice(2, 4), 'y');
   const marks = all(context.svg, 'g.data-point');
   // A step of one half makes the scatter's grid the four quadrants, which is
   // how the chart is read. Without a step there is no grid, and so no braille:
@@ -238,13 +243,16 @@ export function quadrant(context: DiagramContext): DiagramConversion {
     return { layers: [] };
   }
   // Mermaid numbers its quadrants from the top right, anticlockwise.
-  const corners = ['top right', 'top left', 'bottom left', 'bottom right'];
+  const corners: WordKey[] = ['quadrant.topRight', 'quadrant.topLeft', 'quadrant.bottomLeft', 'quadrant.bottomRight'];
   const names = quadrants
-    .map((one, at) => (plain(one.text) ? `${plain(one.text)} (${corners[at] ?? ''})` : ''))
+    .map((one, at) => {
+      const corner = corners[at];
+      return plain(one.text) ? `${plain(one.text)} (${corner === undefined ? '' : context.say(corner)})` : '';
+    })
     .filter(Boolean);
   return {
     layers: [layer],
-    ...(names.length > 0 ? { subtitle: `Quadrants: ${names.join('; ')}` } : {}),
+    ...(names.length > 0 ? { subtitle: context.say('quadrant.quadrants', { names: names.join('; ') }) } : {}),
   };
 }
 
@@ -261,7 +269,7 @@ export function xychart(context: DiagramContext): DiagramConversion {
   const yAxis = (chart?.yAxis as Row | undefined) ?? {};
   const config = call(context.db, 'getChartConfig') as Row | undefined;
   const horizontal = str(config?.chartOrientation) === 'horizontal';
-  const xLabel = plain(xAxis.title) || (str(xAxis.type) === 'band' ? 'Category' : 'x');
+  const xLabel = plain(xAxis.title) || (str(xAxis.type) === 'band' ? context.say('chart.category') : 'x');
   const yLabel = plain(yAxis.title) || 'y';
 
   const layers: MaidrLayer[] = [];
@@ -323,8 +331,8 @@ export function radar(context: DiagramContext): DiagramConversion {
     id: context.layerId('radar'),
     type: TraceType.RADAR,
     axes: {
-      x: { label: 'Axis' },
-      y: { label: 'Value', ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) },
+      x: { label: context.say('chart.axis') },
+      y: { label: context.say('chart.value'), ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) },
     },
     ...(paths.every(Boolean) && paths.length > 0
       ? { selectors: curves.map((_, at) => `#${cssEscape(context.svg.id)} .radarCurve-${at}`) }
@@ -405,7 +413,7 @@ export function sankey(context: DiagramContext): DiagramConversion {
   const layer: MaidrLayer = {
     id: context.layerId('sankey'),
     type: TraceType.SANKEY,
-    axes: { y: { label: 'Value' } },
+    axes: { y: { label: context.say('chart.value') } },
     ...(links.length === data.length && data.length > 0 ? { selectors: selectorsFor(links) } : {}),
     ...(columns !== undefined ? { flowOptions: { columns } } : {}),
     data,
@@ -517,7 +525,12 @@ export function treemap(context: DiagramContext): DiagramConversion {
   pairTreemap(context.svg, whole);
   // The root is the page itself, unnamed, unless the diagram named it.
   const top = whole.name ? [whole] : whole.children ?? [];
-  const layer = treeLayer(context, { roots: top, nodeLabel: 'Item', valueLabel: 'Value', type: TraceType.TREEMAP });
+  const layer = treeLayer(context, {
+    roots: top,
+    nodeLabel: context.say('node.item'),
+    valueLabel: context.say('chart.value'),
+    type: TraceType.TREEMAP,
+  });
   return { layers: layer ? [layer] : [] };
 }
 
@@ -525,13 +538,14 @@ export function treemap(context: DiagramContext): DiagramConversion {
  * The mood Mermaid draws a journey score with.
  *
  * @param score - The score, 1 to 5
+ * @param say - Writes the adapter's words
  * @returns The mood
  */
-function mood(score: number): string {
+function mood(score: number, say: Say): string {
   if (score >= 4) {
-    return 'happy';
+    return say('journey.happy');
   }
-  return score >= 3 ? 'neutral' : 'unhappy';
+  return say(score >= 3 ? 'journey.neutral' : 'journey.unhappy');
 }
 
 /**
@@ -561,7 +575,7 @@ export function journey(context: DiagramContext): DiagramConversion {
       x: people.length > 0 ? `${name} (${people.join(', ')})` : name,
       y: score,
       ...(section ? { z: section } : {}),
-      ...(score === null ? {} : { label: `${score}, ${mood(score)}` }),
+      ...(score === null ? {} : { label: `${score}, ${mood(score, context.say)}` }),
     };
   });
   const faces = all(context.svg, 'circle.face');
@@ -573,9 +587,9 @@ export function journey(context: DiagramContext): DiagramConversion {
     // face at each task's height.
     diagramType: DiagramType.USER_JOURNEY,
     axes: {
-      x: { label: 'Task' },
-      y: { label: 'Score', min: 1, max: 5 },
-      ...(line.some(point => point.z !== undefined) ? { z: { label: 'Section' } } : {}),
+      x: { label: context.say('journey.task') },
+      y: { label: context.say('journey.score'), min: 1, max: 5 },
+      ...(line.some(point => point.z !== undefined) ? { z: { label: context.say('chart.section') } } : {}),
     },
     // One selector for the one line, matching its faces in document order.
     ...(refs ? { selectors: [refs.join(', ')] } : {}),

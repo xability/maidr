@@ -1445,9 +1445,21 @@ test.describe('Mermaid adapter', () => {
 /**
  * A diagram is named and explained in the reader's language, as a layer type
  * is: the browser asks for the language, and MAIDR loads its pack from beside
- * the bundle. Each locale, the example it opens, and what its dialog says.
+ * the bundle. The adapter writes its own words in it too -- what the diagram
+ * calls its nodes, their kinds and attributes -- while what the author wrote
+ * stays as written. Each locale, the example it opens, and what its dialog
+ * says.
  */
-const IN_LANGUAGE: { locale: string; example: string; dialog: string; chartType: string; guide: string; definition: RegExp }[] = [
+const IN_LANGUAGE: {
+  locale: string;
+  example: string;
+  dialog: string;
+  chartType: string;
+  guide: string;
+  definition: RegExp;
+  /** Table cells the adapter wrote, in the reader's language. */
+  cells: string[];
+}[] = [
   {
     locale: 'ko-KR',
     example: 'kanban',
@@ -1455,6 +1467,7 @@ const IN_LANGUAGE: { locale: string; example: string; dialog: string; chartType:
     chartType: '차트 유형: 칸반 보드',
     guide: '이 차트 종류 알아보기 (칸반 보드)',
     definition: /^칸반 보드는 일을 카드로 나타내고/,
+    cells: ['항목', '열', '카드', 'Write the docs (담당자 ana, 우선순위 높음)'],
   },
   {
     locale: 'de-DE',
@@ -1463,10 +1476,11 @@ const IN_LANGUAGE: { locale: string; example: string; dialog: string; chartType:
     chartType: 'Diagrammtyp: Flussdiagramm',
     guide: 'Über diesen Diagrammtyp (Flussdiagramm)',
     definition: /^Ein Flussdiagramm zeigt die Schritte eines Ablaufs/,
+    cells: ['Schritt', 'Form', 'Entscheidung', 'Grenzstelle'],
   },
 ];
 
-for (const { locale, example, dialog: dialogName, chartType, guide: guideName, definition } of IN_LANGUAGE) {
+for (const { locale, example, dialog: dialogName, chartType, guide: guideName, definition, cells } of IN_LANGUAGE) {
   test.describe(`Mermaid adapter in a ${locale} browser`, () => {
     test.use({ locale });
 
@@ -1482,5 +1496,48 @@ for (const { locale, example, dialog: dialogName, chartType, guide: guideName, d
       }
       await expect(dialog.getByRole('definition').first()).toHaveText(definition);
     });
+
+    test(`writes the adapter's own words on the ${example} example in the reader's language`, async ({ page }) => {
+      await openExample(page, example);
+      await page.keyboard.press('d');
+      const dialog = page.getByRole('dialog', { name: dialogName, exact: true });
+
+      for (const cell of cells) {
+        await expect(dialog.getByRole('cell', { name: cell, exact: true }).or(
+          dialog.getByRole('columnheader', { name: cell, exact: true }),
+        ).first()).toBeVisible();
+      }
+    });
   });
 }
+
+test.describe('Mermaid adapter when the reader changes language', () => {
+  test('writes the adapter\'s words in the new one from the next time the reader enters the diagram', async ({ page }) => {
+    await openExample(page, 'kanban');
+    await page.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+Comma`);
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+    await settings.getByRole('combobox', { name: 'Language' }).click();
+    await page.getByRole('option', { name: '한국어' }).click();
+    await settings.getByRole('button', { name: 'Save & Close Settings' }).click();
+    await expect(settings).toBeHidden();
+
+    // Out of the diagram and back in, as a reader moving on and returning.
+    // The words are written again a moment after the change, so a reader
+    // back sooner than that hears them on the visit after.
+    const target = page.locator(FOCUS_TARGET).first();
+    const dialog = page.getByRole('dialog', { name: '차트 설명', exact: true });
+    await expect(async () => {
+      if (await dialog.isVisible()) {
+        await page.keyboard.press('Escape');
+        await expect(dialog).toBeHidden();
+      }
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await expect.poll(() => target.evaluate(element => element.contains(document.activeElement))).toBe(false);
+      await target.focus();
+      await page.keyboard.press('d');
+      await expect(dialog.getByRole('cell', { name: '카드', exact: true }).first()).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20_000 });
+
+    await expect(dialog.getByRole('cell', { name: 'Card', exact: true })).toHaveCount(0);
+  });
+});

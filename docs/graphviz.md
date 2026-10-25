@@ -245,6 +245,7 @@ Each function takes the same options:
 | `caption` | none | The figure's caption. |
 | `nodeLabel` | "Node" | What a node is on this graph, announced as the node noun. |
 | `layout` | none | `'patchwork'` reads a drawing the patchwork layout made as a treemap. |
+| `language` | the reader's | The language of the one word the adapter writes itself, a patchwork treemap's `Area`: `en`, `ko`, `ja`, `zh`, `es`, `de`, `fr`, `it` or `hi`. By default it is the language MAIDR speaks to the reader, and changes when they change it. Everything else is read from the drawing as written. |
 
 ## Using with npm/Bundlers
 
