@@ -64,6 +64,48 @@ describe('a flowchart', () => {
     expect(layer.selectors).toBeUndefined();
   });
 
+  /**
+   * A flowchart of one step per shape, in the order given.
+   *
+   * @param shapes - The shapes, by any name Mermaid takes
+   * @returns Each step's announced shape, or undefined for none
+   */
+  function shapesOf(shapes: string[]): unknown[] {
+    const figure = convert('flowchart-v2', {
+      getData: () => ({ nodes: shapes.map((shape, at) => ({ id: `n${at}`, label: `Step ${at}`, shape })), edges: [] }),
+    });
+    return (layersOf(figure)[0].data as DirectedGraphPoint[]).map(point => point.attributes?.Shape);
+  }
+
+  it('names each shape for what it stands for, under whichever of its names the chart used', () => {
+    const shapes = shapesOf(['trapezoid', 'priority', 'inv_trapezoid', 'manual', 'lean_right', 'lean-l', 'odd', 'notch-rect', 'docs', 'h-cyl', 'f-circ', 'sm-circ', 'bolt']);
+
+    expect(shapes).toEqual([
+      'priority action',
+      'priority action',
+      'manual operation',
+      'manual operation',
+      'input or output',
+      'output or input',
+      'asymmetric',
+      'card',
+      'multiple documents',
+      'direct access storage',
+      'junction',
+      'start',
+      'communication link',
+    ]);
+  });
+
+  it('announces no shape for a plain step, under any of the plain shape\'s names', () => {
+    expect(shapesOf(['rect', 'proc', 'process', 'rectangle', 'squareRect', 'rounded', 'event', 'roundedRect']))
+      .toEqual(Array.from({ length: 8 }, () => undefined));
+  });
+
+  it('spells out a shape it has no word for', () => {
+    expect(shapesOf(['tiltedHexagon', 'wavy_box', 'constructor'])).toEqual(['tilted hexagon', 'wavy box', 'constructor']);
+  });
+
   it('leaves a subgraph that ends in a loop from the loop, not the step it starts on', () => {
     const figure = convert('flowchart-v2', {
       getData: () => ({
