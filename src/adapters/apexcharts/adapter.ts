@@ -701,12 +701,14 @@ function fanLayer(ctx: Context, fan: ApexFan): MaidrLayer | null {
     return { lower: band.lower, upper: band.upper, edgesAt: position => at.get(medians[position].x) };
   });
 
-  const title = fan.plan.title ?? seriesName(chart, fan.median);
+  // The median series' name says which layer this is, as every other layer's
+  // series name does; it is not the chart's title, which a layer `title`
+  // would be read as in place of the figure's.
   return {
     id: nextLayerId(ctx),
     type: TraceType.PERCENTILE_BAND,
-    title,
-    ...(fan.plan.name ? { name: fan.plan.name } : {}),
+    ...(fan.plan.title ? { title: fan.plan.title } : {}),
+    name: fan.plan.name ?? seriesName(chart, fan.median),
     axes: { x: positionalXAxis(ctx, [medians]), y: axis(yLabelOf(ctx, [fan.median])) },
     ...(ctx.wrap
       ? {
