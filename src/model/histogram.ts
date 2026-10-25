@@ -35,21 +35,26 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       MathUtil.safeMax(highs),
     );
 
+    // A bar's height is a count only when it is a whole number. A density, a
+    // probability or a weighted histogram draws fractions, and they add up to
+    // no number of observations: the densities of 500 samples in bins half a
+    // unit wide sum to 2, which was reported as "Total observations: 2".
+    const measuredCounts = counts.filter(isMeasured);
+    const heightsAreCounts = measuredCounts.every(Number.isInteger);
+
     const stats: DescriptionState['stats'] = [
       { label: t('model.statNumberOfBins'), value: points.length },
-      // `count`, not `value`: these are bin heights, and they sat directly
-      // above a `Bin range` that is the binned variable -- two adjacent lines
-      // about two different axes, under labels naming neither.
-      ...this.rangeStats({ min: 'model.statMinCount', max: 'model.statMaxCount' }),
+      ...this.heightStats(heightsAreCounts),
       { label: t('model.statBinRange'), value: binRange },
     ];
 
-    const measuredCounts = counts.filter(isMeasured);
     if (measuredCounts.length > 0) {
-      stats.push({
-        label: t('model.statTotalObservations'),
-        value: measuredCounts.reduce((sum, count) => sum + count, 0),
-      });
+      if (heightsAreCounts) {
+        stats.push({
+          label: t('model.statTotalObservations'),
+          value: measuredCounts.reduce((sum, count) => sum + count, 0),
+        });
+      }
 
       // Where the distribution peaks -- the question a histogram is drawn to
       // answer, and one a reader could previously only get by walking every
@@ -113,6 +118,31 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       stats,
       dataTable: { headers, columnAxes, rows },
     };
+  }
+
+  /**
+   * The lowest and highest bar, named for what a bar's height is.
+   *
+   * `count`, not `value`, when the heights are counts: they sit directly
+   * above a `Bin range` that is the binned variable, and `Min value` there
+   * would be two adjacent lines about two different axes under labels naming
+   * neither. Heights that are not counts are named for the axis they are read
+   * off ("Maximum Density"), which keeps the two lines apart without calling
+   * a density a count.
+   *
+   * @param heightsAreCounts - Whether every measured height is a whole number
+   * @returns The minimum and maximum stats
+   */
+  private heightStats(heightsAreCounts: boolean): DescriptionState['stats'] {
+    if (heightsAreCounts) {
+      return this.rangeStats({ min: 'model.statMinCount', max: 'model.statMaxCount' });
+    }
+    const axis = this.orientation === Orientation.VERTICAL ? this.yAxis : this.xAxis;
+    const [lowest, highest] = this.rangeStats();
+    return [
+      { ...lowest, label: t('model.statMinimumAxis', { axis }) },
+      { ...highest, label: t('model.statMaximumAxis', { axis }) },
+    ];
   }
 
   /**
