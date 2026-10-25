@@ -105,3 +105,40 @@ describe('a graph the patchwork layout drew', () => {
     warn.mockRestore();
   });
 });
+
+describe('the one word the Graphviz adapter writes itself', () => {
+  afterEach(() => {
+    localStorage.clear();
+    delete (window as unknown as { maidrLive?: unknown }).maidrLive;
+  });
+
+  test('is in the language asked for, or else the one the reader chose', () => {
+    const asked = createMaidrFromGraphviz(mount(disk), { layout: 'patchwork', language: 'ko' });
+    localStorage.setItem('maidr-settings', JSON.stringify({ general: { language: 'de' } }));
+    const chosen = createMaidrFromGraphviz(mount(disk), { layout: 'patchwork' });
+
+    expect(asked.subplots[0][0].layers[0].axes).toEqual({ y: { label: '면적' } });
+    expect(chosen.subplots[0][0].layers[0].axes).toEqual({ y: { label: 'Fläche' } });
+  });
+
+  test('is written again when the reader changes language, and MAIDR handed the drawing read again', async () => {
+    const setData = jest.fn(() => true);
+    (window as unknown as { maidrLive?: unknown }).maidrLive = { setData };
+    const svg = mount(disk);
+    svg.setAttribute('maidr', JSON.stringify(createMaidrFromGraphviz(svg, { layout: 'patchwork' })));
+    // MAIDR's copy of the node the reader is on, beside it, as it is while
+    // MAIDR shows the drawing: read again, it is not a node of its own.
+    const docs = [...svg.querySelectorAll('g.node')].find(node => node.querySelector('title')?.textContent === 'docs');
+    const copy = docs?.cloneNode(true) as Element;
+    copy.setAttribute('data-maidr-owned', 'true');
+    docs?.after(copy);
+
+    document.dispatchEvent(new CustomEvent('maidr:languagechange', { detail: { language: 'fr' } }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(setData).toHaveBeenCalledTimes(1);
+    const layer = (setData.mock.calls[0] as unknown as [{ subplots: { layers: { axes: unknown; data: TreemapPoint[] }[] }[][] }])[0].subplots[0][0].layers[0];
+    expect(layer.axes).toEqual({ y: { label: 'Aire' } });
+    expect(layer.data.map(point => point.x)).toEqual(['home', 'system', 'docs', 'photos', 'lib', 'bin', 'tmp']);
+  });
+});

@@ -59,6 +59,8 @@ function isGroup(element: Element, kind: string): boolean {
  */
 function textOf(elements: Iterable<Element>): string {
   return [...elements]
+    // A label MAIDR copied over its highlight, when the drawing is read again.
+    .filter(text => text.closest('[data-maidr-owned]') === null)
     .map(text => (text.textContent ?? '').trim())
     .filter(text => text !== '')
     .join(' ')
@@ -285,6 +287,11 @@ export function readGraphviz(svg: Element): GraphvizGraph {
   const edgeGroups: Element[] = [];
   const labelTexts: Element[] = [];
   for (const child of graph.children) {
+    // A copy MAIDR draws beside a node it highlights, when the drawing is
+    // read again while MAIDR shows it: on a change of language.
+    if (child.hasAttribute('data-maidr-owned')) {
+      continue;
+    }
     if (isGroup(child, 'node')) {
       const name = ownTitle(child);
       if (name !== null) {

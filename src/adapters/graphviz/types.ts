@@ -2,6 +2,8 @@
  * Types for the Graphviz adapter.
  */
 
+import type { Locale } from '@util/i18n/locale';
+
 /** Options for the figure a Graphviz drawing becomes. */
 export interface GraphvizAdapterOptions {
   /**
@@ -32,6 +34,17 @@ export interface GraphvizAdapterOptions {
    * layout drew it, so this is the caller's to say.
    */
   layout?: 'patchwork';
+  /**
+   * The language of the one word the adapter writes itself, `Area`, which a
+   * patchwork drawing's magnitude is announced as. Everything else is read
+   * from the drawing as written.
+   *
+   * Defaults to the language MAIDR speaks to the reader: the one they chose
+   * in its settings, or else their browser's. A figure converted in that
+   * language follows it when the reader changes it; one given a language
+   * here keeps it.
+   */
+  language?: Locale;
 }
 
 /** One node Graphviz drew: a `<g class="node">`. */
