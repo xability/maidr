@@ -7,7 +7,7 @@ import type { DirectedGraphPoint } from '@type/grammar';
 import { describe, expect, it } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
-import { convert, drawn, layersOf, matched } from './helpers';
+import { convert, drawn, layersOf, matched, mermaidShapeNames } from './helpers';
 
 /**
  * The diagrams Mermaid lays out as one graph (`diagrams/unified.ts`): flowcharts, agent flows, class, entity-relationship, state and requirement diagrams.
@@ -95,6 +95,22 @@ describe('a flowchart', () => {
       'start',
       'communication link',
     ]);
+  });
+
+  it('names a shape the same under each of the names Mermaid takes for it', () => {
+    // A state's start and end are named in words of their own, so their
+    // shape is not announced; a fork and a join keep the word the author
+    // chose, though Mermaid draws the two as one bar.
+    const ownWords = new Set(['stateStart', 'stateEnd', 'join', 'forkJoin']);
+    const shapes = mermaidShapeNames();
+
+    const disagreeing = shapes
+      .map(names => names.filter(name => !ownWords.has(name)))
+      .map(names => ({ names, words: shapesOf(names) }))
+      .filter(({ words }) => new Set(words).size > 1);
+
+    expect(shapes.length).toBeGreaterThan(40);
+    expect(disagreeing).toEqual([]);
   });
 
   it('announces no shape for a plain step, under any of the plain shape\'s names', () => {
