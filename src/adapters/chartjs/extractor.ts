@@ -31,6 +31,7 @@ import type {
   FlowPoint,
   GanttData,
   GanttPoint,
+  GaugeBand,
   GaugePoint,
   HeatmapData,
   LinePoint,
@@ -3013,6 +3014,23 @@ function getGaugeAxes(pluginOptions?: MaidrPluginOptions): MaidrLayer['axes'] {
 }
 
 /**
+ * The page's gauge bands, copied out of Chart.js's option resolver.
+ *
+ * Chart.js hands a plugin its options through Proxies, and every object in an
+ * array-valued option comes back as a Proxy of its own rather than as the
+ * object the page wrote. MAIDR copies its data with `structuredClone` when it
+ * starts, which cannot copy a Proxy, so a band passed on as it came stopped
+ * the gauge from starting at all. Reading the two fields out gives plain
+ * objects.
+ *
+ * @param bands - The bands from `options.plugins.maidr`
+ * @returns The same bands as plain objects
+ */
+function copyGaugeBands(bands: readonly GaugeBand[]): GaugeBand[] {
+  return bands.map(({ to, label }) => ({ to, label }));
+}
+
+/**
  * Extracts a doughnut gauge as its single measure.
  *
  * The payload is one object rather than an array, because the chart draws one
@@ -3047,7 +3065,7 @@ function extractGaugeLayer(
     max,
     ...(label !== undefined ? { label: String(label) } : {}),
     ...(pluginOptions?.target !== undefined ? { target: pluginOptions.target } : {}),
-    ...(pluginOptions?.bands ? { bands: pluginOptions.bands } : {}),
+    ...(pluginOptions?.bands ? { bands: copyGaugeBands(pluginOptions.bands) } : {}),
   };
 
   return {

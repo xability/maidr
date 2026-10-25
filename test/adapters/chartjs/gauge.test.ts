@@ -1,7 +1,8 @@
 import type { ChartJsChart, ChartJsData, ChartJsDataset, ChartJsOptions } from '@adapters/chartjs/types';
-import type { GaugePoint, MaidrLayer, PiePoint } from '@type/grammar';
+import type { GaugeBand, GaugePoint, MaidrLayer, PiePoint } from '@type/grammar';
 import { extractChartData } from '@adapters/chartjs/extractor';
 import { computeTargetMaps, resolveActiveTargets } from '@adapters/chartjs/highlightTargets';
+import { cloneMaidrData } from '@service/liveData';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -104,6 +105,21 @@ describe('chart.js gauge extraction', () => {
 
     expect(point.target).toBe(80);
     expect(point.bands).toEqual([{ to: 50, label: 'idle' }, { to: 90, label: 'ok' }]);
+  });
+
+  it('carries bands MAIDR can copy when Chart.js hands them over as Proxies', () => {
+    // Chart.js resolves `options.plugins.maidr` before a plugin reads it, and
+    // every object in an array-valued option comes back as a Proxy. MAIDR
+    // copies its data with structuredClone when it starts, which throws on a
+    // Proxy, so the gauge never started.
+    const chart = doughnut(['CPU'], [{ data: [73, 27] }], dial);
+    const bands: GaugeBand[] = [{ to: 50, label: 'idle' }, { to: 85, label: 'ok' }]
+      .map(band => new Proxy(band, {}));
+
+    const copy = cloneMaidrData(extractChartData(chart, { target: 80, bands }).maidr);
+    const point = copy.subplots[0][0].layers[0].data as GaugePoint;
+
+    expect(point.bands).toEqual([{ to: 50, label: 'idle' }, { to: 85, label: 'ok' }]);
   });
 
   it('names what the dial measures', () => {
