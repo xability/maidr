@@ -1125,6 +1125,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           value: stack[idx] === undefined ? '' : named(stack[idx], stackLabels[idx]),
         },
         z,
+        // y comes first here, so it is formatted as y; see the ROW branch below.
+        mainAxis: 'y',
+        crossAxis: 'x',
       }, stackName);
     }
 
@@ -1180,6 +1183,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         main: { label: this.yAxis, value: named(current.y, current.label) },
         cross: { label: this.xAxis, value: namedAll(current.x, current.xLabels) },
         z: this.textZ(current.z),
+        // A row is read y first. Unmarked, `main` is formatted with the x
+        // axis's format and `cross` with the y axis's, which gave each value
+        // here the other's: on a chart formatting x to one decimal and y to
+        // two, a row read "y is 0.5, x is 0.00" where it reads "y is 0.53,
+        // x is 0.0" now.
+        mainAxis: 'y',
+        crossAxis: 'x',
       }, current.names);
     }
   }
