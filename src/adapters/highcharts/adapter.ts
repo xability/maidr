@@ -636,6 +636,26 @@ function pointLabel(point: HighchartsPoint): string | number {
 }
 
 /**
+ * What a point that sits on no category axis is called: the name its data
+ * label prints -- a pie's slice, a funnel's stage, a word cloud's term.
+ *
+ * {@link pointLabel} asks `point.category` before `point.name`, and on these
+ * series the category is no name. Highcharts 13 fills it on every point, with
+ * the x axis' category where there is one and the point's own `x` otherwise
+ * (`categories?.[x] ?? x`), so it held each slice's index, and every slice,
+ * stage and term was announced as 0, 1, 2. Highcharts names such a point by
+ * its `name` first itself, in `point.key`.
+ *
+ * @param point - The point to name
+ * @returns Its name, or {@link pointLabel}'s answer when it has none
+ */
+function pointName(point: HighchartsPoint): string | number {
+  return typeof point.name === 'string' && point.name !== ''
+    ? point.name
+    : pointLabel(point);
+}
+
+/**
  * The `plotOptions` keys a stacking mode can be declared under, per series
  * type. Highcharts merges `plotOptions[type]` into `series.options` before it
  * renders, so these only matter for the partially built chart objects the
@@ -3292,7 +3312,7 @@ function convertFunnelSeries(
   const data: BarPoint[] = series.data
     .filter(p => p.y != null)
     .map(p => ({
-      x: pointLabel(p),
+      x: pointName(p),
       y: p.y as number,
     }));
 
@@ -3339,7 +3359,7 @@ function convertWordCloudSeries(
   const data: WordCloudPoint[] = series.data
     .filter(p => (p.weight ?? p.y) !== null)
     .map(p => ({
-      x: String(pointLabel(p)),
+      x: String(pointName(p)),
       y: (p.weight ?? p.y) as number,
     }))
     .sort((a, b) => Number(b.y) - Number(a.y));
@@ -4934,7 +4954,7 @@ function convertPieSeries(
   const data: PiePoint[] = series.data
     .filter(p => p.y != null)
     .map(p => ({
-      x: pointLabel(p),
+      x: pointName(p),
       y: p.y as number,
     }));
 
