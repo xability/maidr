@@ -394,7 +394,13 @@ export type AxisType = 'x' | 'y' | 'z';
  * {@link TextState.asides}.
  */
 export interface TextAside {
-  label: string;
+  /**
+   * What the value is, read before it: "Weight is 12.0%". Left out for an
+   * aside that is a statement rather than a reading -- a forest study's
+   * verdict, "does not cross the null" -- which is read as its value alone,
+   * after the readings, in both text modes.
+   */
+  label?: string;
   value: string;
   /**
    * What terse mode says in place of `value`, when `value` alone does not

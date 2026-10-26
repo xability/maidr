@@ -8,7 +8,7 @@
  */
 
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
-import type { TraceState } from '@type/state';
+import type { TextAside, TraceState } from '@type/state';
 import type { Ohlc } from '@util/candlePattern';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { Candlestick } from '@model/candlestick';
@@ -79,7 +79,7 @@ function lastRun(
  */
 function asides(
   subject: Candlestick,
-): { label: string; value: string }[] | undefined {
+): TextAside[] | undefined {
   const state = subject.state as Extract<TraceState, { empty: false }>;
   return state.text.asides;
 }

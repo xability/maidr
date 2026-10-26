@@ -14,7 +14,7 @@
  */
 
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
-import type { TraceState } from '@type/state';
+import type { TextAside, TraceState } from '@type/state';
 import type { Ohlc } from '@util/candlePattern';
 import { describe, expect, it } from '@jest/globals';
 import { Candlestick } from '@model/candlestick';
@@ -63,7 +63,7 @@ function trace(): Candlestick {
  * @param subject - The trace to read
  * @returns The aside label/value pairs, or undefined when there are none
  */
-function asidesOf(subject: Candlestick): { label: string; value: string }[] | undefined {
+function asidesOf(subject: Candlestick): TextAside[] | undefined {
   const state = subject.state as Extract<TraceState, { empty: false }>;
   return state.text.asides;
 }
