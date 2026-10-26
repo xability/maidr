@@ -456,6 +456,11 @@ export interface HighchartsAxis {
   options: {
     title?: { text?: string };
     type?: string;
+    /**
+     * False on an axis the chart does not draw — a timeline's, usually. Its
+     * title is then drawn nowhere, though Highcharts still fills one in.
+     */
+    visible?: boolean;
     /** Declares {@link HighchartsAxis.reversed}; read as its fallback. */
     reversed?: boolean;
     /**

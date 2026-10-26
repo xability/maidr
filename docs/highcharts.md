@@ -59,7 +59,7 @@ Once the page loads, click on the chart (or Tab to it) and MAIDR activates with:
 
 The adapter pipeline runs in three short steps:
 
-1. **Read** — `highchartsToMaidr(chart)` reads `chart.series`, `chart.xAxis`, `chart.yAxis`, `chart.title`, and (when present) `chart.subtitle` / `chart.caption`. Each series is mapped to a MAIDR `TraceType` based on its rendered type (`bar`, `line`, `scatter`, etc.) and Highcharts `stacking` mode.
+1. **Read** — `highchartsToMaidr(chart)` reads `chart.series`, `chart.xAxis`, `chart.yAxis`, `chart.title`, and (when present) `chart.subtitle` / `chart.caption`. Each series is mapped to a MAIDR `TraceType` based on its rendered type (`bar`, `line`, `scatter`, etc.) and Highcharts `stacking` mode. Each axis is named by the title the chart draws on it; an axis drawn without a title, or not drawn at all (`visible: false`), is left unnamed, so MAIDR says its label is not available rather than calling it "X".
 2. **Locate** — Scoped CSS selectors are generated per chart container so MAIDR can highlight the correct SVG element for the active data point.
 3. **Sync (optional)** — `createHighchartsSync(chart)` wires MAIDR's navigation events back into Highcharts' native `tooltip.refresh()` and `point.setState('hover')`, so the visual cursor follows the user as they navigate.
 

@@ -565,10 +565,26 @@ function radialLineType(
   return undefined;
 }
 
+/**
+ * What one of a series' axes is called: the title the chart draws on it.
+ *
+ * An axis the chart draws untitled -- every x axis Highcharts draws without a
+ * `title.text` -- is left unlabelled rather than called "X", so MAIDR says its
+ * label is not available instead of naming it after a coordinate. So is an
+ * axis the chart hides: Highcharts gives every y axis the title "Values" by
+ * default, and a hidden one still carries it, though it is drawn nowhere.
+ *
+ * @param series - The series whose axis is named
+ * @param axis - Which of its two axes
+ * @returns The axis' label, or none
+ */
 function getAxisLabel(series: HighchartsSeries, axis: 'x' | 'y'): AxisConfig {
   const axisObj = axis === 'x' ? series.xAxis : series.yAxis;
-  const label = axisObj?.options?.title?.text ?? (axis === 'x' ? 'X' : 'Y');
-  return { label };
+  if (axisObj?.options?.visible === false) {
+    return {};
+  }
+  const label = axisObj?.options?.title?.text;
+  return typeof label === 'string' && label.trim() !== '' ? { label } : {};
 }
 
 /**
@@ -3285,8 +3301,7 @@ function convertVariwideSeries(
 
 /**
  * What a funnel's two dimensions are called. Like a pie, a funnel series is
- * bound to no axis, so {@link getAxisLabel}'s `'X'` / `'Y'` fallback would
- * name them after coordinates the chart does not have.
+ * bound to no axis, so {@link getAxisLabel} has no title to read for either.
  */
 const FUNNEL_STAGE_AXIS = 'Stage';
 const FUNNEL_COUNT_AXIS = 'Count';
@@ -3476,8 +3491,7 @@ function convertNetworkSeries(
 
 /**
  * What a hierarchy's two dimensions are called — a treemap and a sunburst are
- * bound to no axis, so `getAxisLabel`'s `'X'` / `'Y'` fallback would name them
- * after coordinates neither chart has.
+ * bound to no axis, so `getAxisLabel` has no title to read for either.
  */
 const TREE_NODE_AXIS = 'Node';
 const TREE_VALUE_AXIS = 'Value';
@@ -4932,8 +4946,8 @@ function convertSignificanceSeries(
 
 /**
  * What a pie's two dimensions are called. A pie series is bound to no axis, so
- * {@link getAxisLabel}'s `'X'` / `'Y'` fallback would name them after
- * coordinates a pie does not have; these name what each one actually holds.
+ * {@link getAxisLabel} has no title to read for either; these name what each
+ * one actually holds.
  */
 const PIE_LABEL_AXIS = 'Label';
 const PIE_VALUE_AXIS = 'Value';
@@ -5559,8 +5573,7 @@ function stampHexbinIndices(rows: HighchartsPoint[][]): void {
 /**
  * What a choropleth's two dimensions are called. A `map` series is bound to no
  * axis a title could be read from — the value runs along a colour axis and the
- * regions along nothing at all — so {@link getAxisLabel}'s `'X'` / `'Y'`
- * fallback would name them after coordinates the chart does not have.
+ * regions along nothing at all — so {@link getAxisLabel} has none to read.
  */
 /** What a map marker's own coordinates are called when it has no other axis. */
 const MAP_LONGITUDE_AXIS = 'Longitude';
