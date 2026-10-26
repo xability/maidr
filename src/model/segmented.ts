@@ -378,9 +378,13 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   /**
    * Whether a category's DOM elements run in the order the series are declared.
    *
-   * A stacked bar's producers draw its segments bottom-up, so the first
-   * element of a category is the *last* series -- which is why the default is
-   * reverse, and has been since this was called `domOrder`.
+   * A stack's series are listed bottom segment first -- Up is the next series
+   * and the Sum row sits on top -- and ggplot2, through r-maidr, draws each
+   * column from its top segment down, so there the first element of a
+   * category is the *last* series. That is why the default is reverse, and
+   * has been since this was called `domOrder`. A column drawn from its bottom
+   * segment up, as base R draws one, starts from the first series and says
+   * `groupDirection: 'forward'`.
    *
    * Only consulted on a column-major layout, which is now declared rather
    * than inferred: a producer that draws category by category says
@@ -545,10 +549,10 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     //
     // Row-major is the default because every producer in the tree either
     // declares its order or draws series-major, so nothing here relies on the
-    // other answer. A producer that draws each category's segments bottom-up
-    // -- the convention `groupsRunForward` describes -- says so with
-    // `order: 'column'` and gets exactly what the rect branch used to give it
-    // by default.
+    // other answer. A producer that draws category by category, each column
+    // from its top segment down -- the convention `groupsRunForward`
+    // describes -- says so with `order: 'column'` and gets exactly what the
+    // rect branch used to give it by default.
     //
     // One exception, and only for the pre-4.0 shape. A layer that arrived as
     // a flat list was written against maidr.js before #1135, where a `<rect>`
