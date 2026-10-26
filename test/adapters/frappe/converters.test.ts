@@ -2,7 +2,7 @@ import type { FrappeChart, FrappeChartType, FrappePanel } from '@adapters/frappe
 import type { BarPoint, LinePoint, MaidrLayer, PiePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
 import { createMaidrFromFrappeChart, createMaidrFromFrappeCharts } from '@adapters/frappe/converters';
 import { afterAll, beforeEach, jest } from '@jest/globals';
-import { Orientation, TraceType } from '@type/grammar';
+import { Orientation, PieDirection, TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 
 /** A minimal chart stub — the adapter only reads `chart.data`. */
@@ -541,7 +541,7 @@ describe('createMaidrFromFrappeChart (pie and donut)', () => {
   /** A chart whose labels each carry one value, as a pie is normally built. */
   function makePieChart(
     slices: Array<[string, number]>,
-    config?: { maxSlices?: number },
+    config?: { maxSlices?: number; startAngle?: number },
   ): FrappeChart {
     return {
       data: {
@@ -653,6 +653,51 @@ describe('createMaidrFromFrappeChart (pie and donut)', () => {
     );
 
     expect((layer.data as PiePoint[]).map(point => point.x)).toEqual(['A', 'B', 'C']);
+  });
+
+  it.each(['pie', 'donut'] as const)(
+    'declares Frappe\'s default %s layout: counterclockwise from 12 o\'clock',
+    (chartType) => {
+      // Frappe starts the first slice at the top and steps the rest round to
+      // the left unless `clockWise` is set; MAIDR walks clockwise unless told
+      // otherwise, so a chart left at the defaults has to say so. The live
+      // config holds `startAngle: 0` once Frappe has resolved it.
+      const layer = pieLayer(
+        makePieChart([['Apples', 30], ['Bananas', 50]], { startAngle: 0 }),
+        chartType,
+      );
+
+      expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+      expect(layer.startAngle).toBeUndefined();
+    },
+  );
+
+  it('assumes Frappe\'s default layout for a plain { data } object', () => {
+    const layer = pieLayer(makePieChart([['Apples', 30], ['Bananas', 50]]), 'pie');
+
+    expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+  });
+
+  it('declares nothing for a chart drawn with clockWise, the grammar\'s default', () => {
+    const layer = pieLayer(
+      { ...makePieChart([['Apples', 30], ['Bananas', 50]]), clockWise: true },
+      'pie',
+    );
+
+    expect(layer.direction).toBeUndefined();
+    expect(layer.startAngle).toBeUndefined();
+  });
+
+  it('carries startAngle over, since Frappe measures it as the grammar does', () => {
+    // Frappe's `startAngle` is degrees clockwise from 12 o'clock: 90 starts
+    // the first slice at 3 o'clock.
+    const layer = pieLayer(
+      makePieChart([['Apples', 30], ['Bananas', 50]], { startAngle: 90 }),
+      'pie',
+    );
+
+    expect(layer.startAngle).toBe(90);
+    expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
   });
 });
 

@@ -39,13 +39,24 @@ export interface FrappeData {
 export interface FrappeChart {
   data: FrappeData;
   /**
-   * The chart's resolved configuration. Only `maxSlices` is read, and only for
-   * pie / donut charts: Frappe collapses everything past that many slices into
-   * a single "Rest" wedge, and the conversion has to collapse the same way to
-   * stay aligned with the wedges it draws. Absent on a plain `{ data }` object,
-   * in which case Frappe's own default (20) is assumed.
+   * The chart's resolved configuration, read only for pie / donut charts.
+   *
+   * `maxSlices`: Frappe collapses everything past that many slices into a
+   * single "Rest" wedge, and the conversion has to collapse the same way to
+   * stay aligned with the wedges it draws. `startAngle`: where the first slice
+   * begins, in degrees clockwise from 12 o'clock — Frappe's own convention is
+   * the grammar's. Absent on a plain `{ data }` object, in which case Frappe's
+   * own defaults (20 slices, from 12 o'clock) are assumed.
    */
-  config?: { maxSlices?: number };
+  config?: { maxSlices?: number; startAngle?: number };
+  /**
+   * Whether a pie or donut lays its slices out clockwise. Frappe keeps the
+   * `clockWise` option on the instance rather than in `config`, and its
+   * default is **counterclockwise**: without it, the first slice runs from
+   * 12 o'clock round to the left. Absent on a plain `{ data }` object, in
+   * which case that default is assumed.
+   */
+  clockWise?: boolean;
   /**
    * The chart's line rendering options, an instance field on Frappe's
    * `AxisChart` rather than part of `config`. Only `regionFill` is read: it is
