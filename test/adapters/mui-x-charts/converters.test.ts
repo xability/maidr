@@ -126,7 +126,7 @@ describe('bar charts', () => {
     expect(expanded.layers[0].type).toBe(TraceType.NORMALIZED);
   });
 
-  it('gives each stack group of a grouped-stacked chart its own titled layer', () => {
+  it('gives each stack group of a grouped-stacked chart its own named layer', () => {
     const { layers } = convertMuiChart('bar', {
       xAxis: [{ data: ['A'] }],
       series: [
@@ -136,9 +136,46 @@ describe('bar charts', () => {
       ],
     }, SCOPE);
 
-    expect(layers.map(layer => [layer.type, layer.title])).toEqual([
+    expect(layers.map(layer => [layer.type, layer.name])).toEqual([
       [TraceType.STACKED, 'a, c'],
       [TraceType.BAR, 'b'],
+    ]);
+  });
+
+  it('names the layers in name and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: a chart titled "Sales by
+    // region" was announced as "Title is a, c".
+    const maidr = convertMuiChartsToMaidr({ id: 'sales', title: 'Sales by region' }, 'bar', {
+      xAxis: [{ data: ['A'] }],
+      series: [
+        { data: [1], stack: 'x', label: 'a' },
+        { data: [2], label: 'b' },
+        { data: [3], stack: 'x', label: 'c' },
+      ],
+    }, SCOPE);
+    const layers = maidr.subplots[0][0].layers;
+
+    expect(maidr.title).toBe('Sales by region');
+    expect(layers.map(layer => layer.title)).toEqual([undefined, undefined]);
+    expect(layers.map(layer => layer.name)).toEqual(['a, c', 'b']);
+  });
+
+  it('leaves a layer unnamed for a series MUI draws no label for', () => {
+    // MUI X leaves a series without a label out of its legend and its tooltip,
+    // so the "Series 2" MAIDR calls it is a name the chart never shows; left
+    // unnamed, the layer is announced by its plot type.
+    const { layers } = convertMuiChart('bar', {
+      xAxis: [{ data: ['A'] }],
+      series: [
+        { data: [1], stack: 'x', label: 'a' },
+        { data: [2] },
+        { data: [3], stack: 'x' },
+      ],
+    }, SCOPE);
+
+    expect(layers.map(layer => [layer.type, layer.name])).toEqual([
+      [TraceType.STACKED, 'a'],
+      [TraceType.BAR, undefined],
     ]);
   });
 
@@ -410,7 +447,8 @@ describe('pie charts', () => {
       ],
     }, SCOPE);
 
-    expect(layers.map(layer => layer.title)).toEqual(['Inner', 'Outer']);
+    expect(layers.map(layer => layer.name)).toEqual(['Inner', 'Outer']);
+    expect(layers.map(layer => layer.title)).toEqual([undefined, undefined]);
   });
 });
 

@@ -240,6 +240,23 @@ function seriesList(props: MuiChartProps): readonly MuiSeriesConfig[] {
  * The name a series is announced and listed in the legend by.
  */
 function seriesLabel(series: MuiSeriesConfig, index: number): string {
+  return drawnLabel(series) ?? `Series ${index + 1}`;
+}
+
+/**
+ * The label MUI X draws for a series, or `undefined` for a series it draws no
+ * label for.
+ *
+ * MUI X leaves a series without a `label` out of its legend and names it
+ * nowhere in the tooltip, so the "Series 2" {@link seriesLabel} gives it is
+ * MAIDR's own. A layer's `name` is taken from this instead: a layer named by
+ * a label the chart never shows is left unnamed, and a layer switch says its
+ * plot type.
+ *
+ * @param series - The series
+ * @returns The label's text
+ */
+function drawnLabel(series: MuiSeriesConfig): string | undefined {
   const { label } = series;
   if (typeof label === 'function') {
     try {
@@ -249,10 +266,33 @@ function seriesLabel(series: MuiSeriesConfig, index: number): string {
     } catch {
       // A label callback that throws outside MUI's own render names nothing.
     }
-  } else if (typeof label === 'string' && label !== '') {
-    return label;
+    return undefined;
   }
-  return `Series ${index + 1}`;
+  return typeof label === 'string' && label !== '' ? label : undefined;
+}
+
+/**
+ * The drawn labels of several series, joined into one layer's name, or
+ * `undefined` when the chart draws a label for none of them.
+ *
+ * @param entries - The layer's series
+ * @returns The joined labels
+ */
+function drawnLabels(entries: readonly SeriesEntry[]): string | undefined {
+  const labels = entries
+    .map(entry => drawnLabel(entry.series))
+    .filter((label): label is string => label !== undefined);
+  return labels.length > 0 ? labels.join(', ') : undefined;
+}
+
+/**
+ * A layer's `name`, spread into the layer: nothing when there is none.
+ *
+ * @param name - The name, if any
+ * @returns `{ name }`, or an empty object
+ */
+function nameOf(name: string | undefined): { name?: string } {
+  return name === undefined ? {} : { name };
 }
 
 /**
@@ -525,12 +565,12 @@ function convertBar(props: MuiChartProps, scope: string): MuiConvertedChart {
    * One series as a single-row bar layer. A bar MUI does not draw is not a
    * point, so every remaining point has exactly one rect, in order.
    */
-  const barLayer = (entry: SeriesEntry, layerId: string, title?: string): MaidrLayer => {
+  const barLayer = (entry: SeriesEntry, layerId: string, name?: string): MaidrLayer => {
     const [drawn] = drawnBars([entry], count, valueAxis);
     return {
       id: layerId,
       type: TraceType.BAR,
-      ...(title ? { title } : {}),
+      ...(name ? { name } : {}),
       ...orientation,
       axes,
       selectors: barSeriesSelector(scope, entry.id),
@@ -545,7 +585,7 @@ function convertBar(props: MuiChartProps, scope: string): MuiConvertedChart {
    * the bar family reads as a missing reading) and a bar MUI did not draw has
    * a `null` selector cell, which the grammar reads as "no element here".
    */
-  const gridLayer = (group: SeriesEntry[], type: TraceType, layerId: string, title?: string): MaidrLayer => {
+  const gridLayer = (group: SeriesEntry[], type: TraceType, layerId: string, name?: string): MaidrLayer => {
     // Side by side, every bar starts at zero; only a stack builds on the
     // series before it.
     const drawn = type === TraceType.DODGED
@@ -568,7 +608,7 @@ function convertBar(props: MuiChartProps, scope: string): MuiConvertedChart {
     return {
       id: layerId,
       type,
-      ...(title ? { title } : {}),
+      ...(name ? { name } : {}),
       ...orientation,
       axes,
       selectors,
@@ -587,14 +627,17 @@ function convertBar(props: MuiChartProps, scope: string): MuiConvertedChart {
     return { layers: [gridLayer(entries, TraceType.DODGED, '0')], legend };
   }
 
-  const titled = groups.length > 1;
+  // Several layers are told apart on a layer switch by their series' labels,
+  // in each layer's `name`. Never in its `title`: MAIDR reads that as the
+  // chart's, which the adapter's `title` option gives.
+  const nameEach = groups.length > 1;
   const layers = groups.map((group, index) => {
     const layerId = String(index);
     if (group.length === 1)
-      return barLayer(group[0], layerId, titled ? group[0].label : undefined);
+      return barLayer(group[0], layerId, nameEach ? drawnLabel(group[0].series) : undefined);
     const normalized = group.some(entry => entry.series.stackOffset === 'expand');
-    const title = titled ? group.map(entry => entry.label).join(', ') : undefined;
-    return gridLayer(group, normalized ? TraceType.NORMALIZED : TraceType.STACKED, layerId, title);
+    const name = nameEach ? drawnLabels(group) : undefined;
+    return gridLayer(group, normalized ? TraceType.NORMALIZED : TraceType.STACKED, layerId, name);
   });
   return { layers, legend };
 }
@@ -690,7 +733,7 @@ function convertLine(
     }
   }
 
-  const titled = buckets.size + fans.layers.length > 1;
+  const nameEach = buckets.size + fans.layers.length > 1;
   const lines = [...buckets.values()].map((bucket, index): MaidrLayer => {
     const stacked = bucket.type === TraceType.STACKED_AREA || bucket.type === TraceType.NORMALIZED_AREA;
     const data = bucket.entries.map(entry => points(entry, stacked));
@@ -701,7 +744,7 @@ function convertLine(
     return {
       id: String(index),
       type: prCurve ? TraceType.PR_CURVE : bucket.type,
-      ...(titled ? { title: bucket.entries.map(entry => entry.label).join(', ') } : {}),
+      ...(nameEach ? nameOf(drawnLabels(bucket.entries)) : {}),
       ...(bucket.step && !prCurve ? { stepDirection: bucket.step } : {}),
       axes,
       selectors: bucket.entries.map(entry => lineSeriesSelector(scope, entry.id)),
@@ -798,8 +841,8 @@ function fanLayers(
     layers.push({
       id: '',
       type: TraceType.PERCENTILE_BAND,
-      title: plan.title ?? median.label,
-      ...(plan.name ? { name: plan.name } : {}),
+      ...(plan.title ? { title: plan.title } : {}),
+      ...nameOf(plan.name ?? drawnLabel(median.series)),
       axes,
       selectors: [...selectors, lineSeriesSelector(scope, median.id)],
       data: percentileBandPoints(medians, bands),
@@ -845,7 +888,7 @@ function convertScatter(props: MuiChartProps, scope: string): MuiConvertedChart 
   const inside = (value: number, min?: number, max?: number): boolean =>
     (min === undefined || value >= min) && (max === undefined || value <= max);
   const all = seriesList(props);
-  const titled = all.length > 1;
+  const nameEach = all.length > 1;
 
   const layers = all.map((series, index): MaidrLayer => {
     const data: ScatterPoint[] = scatterRawPoints(series, props.dataset).flatMap(({ x, y }) => {
@@ -858,13 +901,13 @@ function convertScatter(props: MuiChartProps, scope: string): MuiConvertedChart 
     return {
       id: String(index),
       type: TraceType.SCATTER,
-      ...(titled ? { title: seriesLabel(series, index) } : {}),
+      ...(nameEach ? nameOf(drawnLabel(series)) : {}),
       axes,
       selectors: scatterSeriesSelector(scope, muiSeriesId(series, index)),
       data,
     };
   });
-  const legend = titled ? all.map(seriesLabel) : undefined;
+  const legend = nameEach ? all.map(seriesLabel) : undefined;
   return { layers, legend };
 }
 
@@ -899,7 +942,7 @@ function pieComparator(sorting: MuiSeriesConfig['sortingValues']): ((a: number, 
  */
 function convertPie(props: MuiChartProps, scope: string, chartId: string): MuiConvertedChart {
   const all = seriesList(props);
-  const titled = all.length > 1;
+  const nameEach = all.length > 1;
 
   const layers = all.map((series, index): MaidrLayer => {
     const items = Array.isArray(series.data) ? (series.data as unknown[]) : [];
@@ -938,7 +981,7 @@ function convertPie(props: MuiChartProps, scope: string, chartId: string): MuiCo
     return {
       id: String(index),
       type: TraceType.PIE,
-      ...(titled ? { title: seriesLabel(series, index) } : {}),
+      ...(nameEach ? nameOf(drawnLabel(series)) : {}),
       ...pieGeometry(start, end >= start),
       // A pie has no axes to read labels off; name what the two positions
       // mean on a pie rather than let the core announce "X" and "Y".
@@ -1152,7 +1195,7 @@ function convertHeatmap(props: MuiChartProps, scope: string): MuiConvertedChart 
 function convertFunnel(props: MuiChartProps, scope: string): MuiConvertedChart {
   const all = seriesList(props);
   const across = all.some(series => series.layout === 'horizontal');
-  const titled = all.length > 1;
+  const nameEach = all.length > 1;
   const layers = all.map((series, index): MaidrLayer => {
     const items = Array.isArray(series.data) ? (series.data as unknown[]) : [];
     const categories = props.categoryAxis?.categories;
@@ -1183,7 +1226,7 @@ function convertFunnel(props: MuiChartProps, scope: string): MuiConvertedChart {
     return {
       id: String(index),
       type: TraceType.FUNNEL,
-      ...(titled ? { title: seriesLabel(series, index) } : {}),
+      ...(nameEach ? nameOf(drawnLabel(series)) : {}),
       ...(across ? {} : { orientation: Orientation.HORIZONTAL }),
       axes: across
         ? { x: { label: 'Stage' }, y: { label: 'Value' } }
@@ -1246,7 +1289,7 @@ function convertSankey(props: MuiChartProps, scope: string, chartId: string): Mu
     layers: [{
       id: '0',
       type: TraceType.SANKEY,
-      ...(series?.label ? { title: series.label } : {}),
+      ...(series?.label ? { name: series.label } : {}),
       axes: {},
       // One selector per flow, each naming exactly one ribbon; with a
       // repeated pair a selector names two and the trace would decline the

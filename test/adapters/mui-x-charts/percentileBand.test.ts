@@ -58,11 +58,11 @@ const BANDS: PercentileBandOption[] = [{
   ],
 }];
 
-function render(chart: ReactElement, option?: PercentileBandOption[]): { doc: Document; maidr: Maidr; layers: MaidrLayer[] } {
+function render(chart: ReactElement, option?: PercentileBandOption[], title?: string): { doc: Document; maidr: Maidr; layers: MaidrLayer[] } {
   const dom = new JSDOM(`<!doctype html><body><div id="mui">${renderToStaticMarkup(chart)}</div></body>`);
   const doc = dom.window.document as unknown as Document;
   const found = findMuiChartElement(chart);
-  const maidr = convertMuiChartsToMaidr({ id: 'c' }, found?.kind, found?.props, '#mui ', option);
+  const maidr = convertMuiChartsToMaidr({ id: 'c', title }, found?.kind, found?.props, '#mui ', option);
   return { doc, maidr, layers: maidr.subplots[0][0].layers };
 }
 
@@ -72,7 +72,8 @@ describe('mui percentile band', () => {
 
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.PERCENTILE_BAND);
-    expect(layers[0].title).toBe('Median');
+    expect(layers[0].name).toBe('Median');
+    expect(layers[0].title).toBeUndefined();
     expect((layers[0].data as PercentileBandPoint[])[1]).toEqual({
       x: 1,
       quantiles: [
@@ -83,6 +84,23 @@ describe('mui percentile band', () => {
         { level: 0.95, value: 3 },
       ],
     });
+  });
+
+  it('names the fan after its median series and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: "Title is Median" on a
+    // chart titled Forecast.
+    const { maidr, layers } = render(fan(), BANDS, 'Forecast');
+
+    expect(maidr.title).toBe('Forecast');
+    expect(layers[0].title).toBeUndefined();
+    expect(layers[0].name).toBe('Median');
+  });
+
+  it('keeps the title and the name the page gave the fan', () => {
+    const { layers } = render(fan(), [{ ...BANDS[0], title: 'Forecast with intervals', name: 'Central estimate' }], 'Forecast');
+
+    expect(layers[0].title).toBe('Forecast with intervals');
+    expect(layers[0].name).toBe('Central estimate');
   });
 
   it('marks each quantile on its band\'s fill, outermost first, then on the median\'s line', () => {
