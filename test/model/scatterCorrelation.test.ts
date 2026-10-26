@@ -252,6 +252,31 @@ describe('a scatter says where its cloud sits, not only which way it tilts', () 
       .toBe('40% in the upper left (quadrant 2) and the lower right (quadrant 4)');
   });
 
+  test('names both quarters that hold the same number of points', () => {
+    // plotnine's mtcars panel for four cylinders: eleven cars, four of them
+    // in the upper left and four in the lower right. Rounded, the two shares
+    // came out 37% and 36%, and the headline named the upper left alone.
+    const fourCylinders: ScatterPoint[] = [
+      [2.32, 22.8],
+      [3.19, 24.4],
+      [3.15, 22.8],
+      [2.2, 32.4],
+      [1.615, 30.4],
+      [1.835, 33.9],
+      [2.465, 21.5],
+      [1.935, 27.3],
+      [2.14, 26],
+      [1.513, 30.4],
+      [2.78, 21.4],
+    ].map(([x, y]) => ({ x, y }));
+    const trace = traceOf(fourCylinders);
+
+    expect(statOf(trace, 'Most points'))
+      .toBe('36% in the upper left (quadrant 2) and the lower right (quadrant 4)');
+    expect(statOf(trace, 'Points by quadrant'))
+      .toBe('1 upper right 0%, 2 upper left 36%, 3 lower left 28%, 4 lower right 36%');
+  });
+
   test('cuts at the middle of the extent when they do not', () => {
     // Most scatters hold no negative value at all, so origin quadrants would
     // put every point in the first and say nothing.
