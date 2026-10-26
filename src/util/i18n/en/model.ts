@@ -751,6 +751,8 @@ export const model = {
   'model.statNumberOfFlows': 'Number of flows',
   'model.statStages': 'Stages',
   'model.flowCycle': 'none, the flows form a cycle',
+  'model.flowNoEndCycle': 'No end to go to: following the largest flow out of {node} goes round in a cycle',
+  'model.flowNoStartCycle': 'No start to go to: following the largest flow into {node} goes round in a cycle',
   'model.statTotalFlow': 'Total flow',
   'model.statTotalOfAllFlows': 'Total of all flows',
   'model.statSourcesAndSinks': 'Sources and sinks',

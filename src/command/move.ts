@@ -1,7 +1,9 @@
 import type { Context } from '@model/context';
+import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
+import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { Command } from './command';
@@ -141,24 +143,60 @@ export class MoveToBottomExtremeCommand implements Command {
 }
 
 /**
+ * Jumps to the left or right extreme, or says why there is none to jump to.
+ *
+ * The edge signal is the answer when the cursor is already at the extreme.
+ * Where the trace has another reason -- the largest flows of a chord diagram
+ * go round in a cycle, so no end follows them -- the edge signal would tell
+ * the reader they are at the end while the next arrow still moves, so the
+ * trace's reason is announced instead, with the warning tone every refused
+ * key plays.
+ *
+ * @param context - The context in which the jump is made
+ * @param direction - Which way the jump goes
+ * @param notification - For saying why there is nowhere to jump
+ * @param audio - For the warning tone that goes with it
+ */
+function jumpOrRefuse(
+  context: Context,
+  direction: 'FORWARD' | 'BACKWARD',
+  notification: NotificationService,
+  audio: AudioService,
+): void {
+  const refusal = context.extremeRefusal(direction);
+  if (refusal === null) {
+    context.moveToExtreme(direction);
+    return;
+  }
+  notification.notify(refusal);
+  audio.playWarningToneIfEnabled();
+}
+
+/**
  * Command to move the current position to the leftmost extreme.
  */
 export class MoveToLeftExtremeCommand implements Command {
   private readonly context: Context;
+  private readonly notification: NotificationService;
+  private readonly audio: AudioService;
 
   /**
    * Creates an instance of MoveToLeftExtremeCommand.
    * @param {Context} context - The context in which the move operation is performed.
+   * @param {NotificationService} notification - For saying why there is nowhere to jump.
+   * @param {AudioService} audio - For the warning tone that goes with it.
    */
-  public constructor(context: Context) {
+  public constructor(context: Context, notification: NotificationService, audio: AudioService) {
     this.context = context;
+    this.notification = notification;
+    this.audio = audio;
   }
 
   /**
    * Executes the move operation to jump to the leftmost extreme position.
    */
   public execute(): void {
-    this.context.moveToExtreme('BACKWARD');
+    jumpOrRefuse(this.context, 'BACKWARD', this.notification, this.audio);
   }
 }
 
@@ -167,20 +205,26 @@ export class MoveToLeftExtremeCommand implements Command {
  */
 export class MoveToRightExtremeCommand implements Command {
   private readonly context: Context;
+  private readonly notification: NotificationService;
+  private readonly audio: AudioService;
 
   /**
    * Creates an instance of MoveToRightExtremeCommand.
    * @param {Context} context - The context in which the move operation is performed.
+   * @param {NotificationService} notification - For saying why there is nowhere to jump.
+   * @param {AudioService} audio - For the warning tone that goes with it.
    */
-  public constructor(context: Context) {
+  public constructor(context: Context, notification: NotificationService, audio: AudioService) {
     this.context = context;
+    this.notification = notification;
+    this.audio = audio;
   }
 
   /**
    * Executes the move operation to jump to the rightmost extreme position.
    */
   public execute(): void {
-    this.context.moveToExtreme('FORWARD');
+    jumpOrRefuse(this.context, 'FORWARD', this.notification, this.audio);
   }
 }
 

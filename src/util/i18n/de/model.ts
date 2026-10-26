@@ -747,6 +747,8 @@ export const model = {
   'model.statNumberOfFlows': 'Anzahl der Flüsse',
   'model.statStages': 'Stufen',
   'model.flowCycle': 'keine, die Flüsse bilden einen Kreislauf',
+  'model.flowNoEndCycle': 'Kein Ende zum Anspringen: Der Weg entlang des größten Flusses aus {node} führt im Kreis',
+  'model.flowNoStartCycle': 'Kein Anfang zum Anspringen: Der Weg entlang des größten Flusses in {node} führt im Kreis',
   'model.statTotalFlow': 'Gesamtfluss',
   'model.statTotalOfAllFlows': 'Summe aller Flüsse',
   'model.statSourcesAndSinks': 'Quellen und Senken',

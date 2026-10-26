@@ -239,9 +239,9 @@ export class CommandFactory {
       case 'MOVE_TO_BOTTOM_EXTREME':
         return new MoveToBottomExtremeCommand(this.context);
       case 'MOVE_TO_LEFT_EXTREME':
-        return new MoveToLeftExtremeCommand(this.context);
+        return new MoveToLeftExtremeCommand(this.context, this.notificationService, this.audioService);
       case 'MOVE_TO_RIGHT_EXTREME':
-        return new MoveToRightExtremeCommand(this.context);
+        return new MoveToRightExtremeCommand(this.context, this.notificationService, this.audioService);
 
       case 'MOVE_TO_TRACE_CONTEXT':
         return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService, this.subplotCue);

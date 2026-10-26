@@ -743,6 +743,8 @@ export const model = {
   'model.statNumberOfFlows': '흐름 개수',
   'model.statStages': '단계',
   'model.flowCycle': '없음, 흐름이 순환합니다',
+  'model.flowNoEndCycle': '이동할 끝이 없습니다. {node}에서 나가는 가장 큰 흐름을 따라가면 순환합니다',
+  'model.flowNoStartCycle': '이동할 시작이 없습니다. {node|으로} 들어오는 가장 큰 흐름을 거슬러 가면 순환합니다',
   'model.statTotalFlow': '전체 흐름',
   'model.statTotalOfAllFlows': '모든 흐름의 합',
   'model.statSourcesAndSinks': '시작점과 도착점',

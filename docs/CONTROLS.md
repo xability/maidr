@@ -59,6 +59,15 @@ parent, Control + Left and Right go to the first and last node of the level.
 Already at that extreme, you hear the same edge signal as at the end of the
 data, in each of the four directions, rather than the item again.
 
+On a sankey, alluvial or chord diagram, Right follows the largest flow out of
+a node and Left the largest flow into it, so Control + Right follows the
+largest flows to the node where they run out and Control + Left back to the
+node where they start. Where the largest flows go round in a cycle, as a chord
+diagram's often do, Right and Left keep going round it, and there is no end or
+start to go to: Control + Right or Control + Left says so, with the warning
+tone, rather than landing on a node of the cycle that the next arrow moves on
+from.
+
 On a layer with nothing to jump to, such as a flowchart, whose nodes carry no
 values, [ and ] say there is no minimum or maximum value to go to, and G says
 there are no extrema to go to. All three play the warning tone with their

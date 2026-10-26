@@ -456,8 +456,87 @@ describe('stages are derived, and a cycle is answered honestly', () => {
     ];
     const trace = flow(circle);
 
+    expect(trace.moveToExtreme('FORWARD')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('A');
+  });
+});
+
+describe('a route round a cycle has no end to jump to', () => {
+  /** A ring, every node sending its largest flow on to the next. */
+  const CIRCLE: FlowPoint[] = [
+    { source: 'A', target: 'B', value: 3 },
+    { source: 'B', target: 'C', value: 2 },
+    { source: 'C', target: 'A', value: 1 },
+  ];
+
+  /**
+   * A source feeding a ring: the route out of it loops, and the route into
+   * the ring's first node goes back to the source, where it ends.
+   */
+  const TETHERED: FlowPoint[] = [
+    { source: 'Source', target: 'A', value: 5 },
+    { source: 'A', target: 'B', value: 3 },
+    { source: 'B', target: 'C', value: 2 },
+    { source: 'C', target: 'A', value: 1 },
+  ];
+
+  test('the jump right says the largest flows go round in a cycle', () => {
+    // It used to land on C, the last node before the route came back to A,
+    // and the next Right went on to A as if C were not the end.
+    expect(flow(CIRCLE).extremeRefusal('FORWARD'))
+      .toBe('No end to go to: following the largest flow out of A goes round in a cycle');
+  });
+
+  test('so does the jump left', () => {
+    expect(flow(CIRCLE).extremeRefusal('BACKWARD'))
+      .toBe('No start to go to: following the largest flow into A goes round in a cycle');
+  });
+
+  test('a route that loops is refused wherever the cursor is on it', () => {
+    // The old landing depended on where the jump began, so two jumps from
+    // two nodes of one ring landed on two different "ends".
+    const trace = flow(CIRCLE);
+    walk(trace, 'FORWARD');
+
+    expect(trace.moveToExtreme('FORWARD')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('B');
+    expect(trace.extremeRefusal('FORWARD')).not.toBeNull();
+  });
+
+  test('the arrows still go round the cycle', () => {
+    expect(walk(flow(CIRCLE), 'FORWARD', 'FORWARD', 'FORWARD')).toEqual(['B', 'C', 'A']);
+  });
+
+  test('a route back out of a cycle to a source still ends there', () => {
+    // A's largest inflow is the source's 5, and nothing flows into the
+    // source: an end the edge signal follows, on a chart with a cycle.
+    const trace = flow(TETHERED);
+    walk(trace, 'FORWARD');
+
+    expect(trace.extremeRefusal('BACKWARD')).toBeNull();
+    expect(trace.moveToExtreme('BACKWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Source');
+    expect(trace.moveOnce('BACKWARD')).toBe(false);
+  });
+
+  test('a route into a cycle from a source has no end either', () => {
+    expect(flow(TETHERED).extremeRefusal('FORWARD'))
+      .toBe('No end to go to: following the largest flow out of Source goes round in a cycle');
+  });
+
+  test('a route that runs out is jumped to as before', () => {
+    expect(flow().extremeRefusal('FORWARD')).toBeNull();
+    expect(flow().extremeRefusal('BACKWARD')).toBeNull();
+  });
+
+  test('before the reader has entered the chart, the jump lands on the first node', () => {
+    // As on every chart: the first press enters, whether or not the jump
+    // goes on from there.
+    const trace = TraceFactory.create(createLayer(CIRCLE, TraceType.CHORD)) as FlowTrace;
+
+    expect(trace.extremeRefusal('FORWARD')).toBeNull();
     expect(trace.moveToExtreme('FORWARD')).toBe(true);
-    expect(nonEmptyState(trace).text.main.value).toBe('C');
+    expect(nonEmptyState(trace).text.main.value).toBe('A');
   });
 });
 

@@ -471,9 +471,11 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
           top: { row: 0, col: stage },
           bottom: { row: column.length - 1, col: stage },
           // The ribbon followed to its end, and back to its origin: the
-          // sighted action this chart is read with, in one keystroke.
-          end: this.addressOf(this.followFrom(node, 'out')),
-          start: this.addressOf(this.followFrom(node, 'in')),
+          // sighted action this chart is read with, in one keystroke. A
+          // route that goes round in a cycle has neither, and the jump is
+          // refused there: see `extremeRefusal`.
+          end: this.addressOf(this.followFrom(node, 'out') ?? undefined),
+          start: this.addressOf(this.followFrom(node, 'in') ?? undefined),
         };
       }));
   }
@@ -495,15 +497,20 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   /**
    * Follows the largest flow repeatedly until it runs out.
    *
-   * Guarded against revisiting, because a cyclic graph would otherwise walk
-   * forever -- and a chord diagram is cyclic by construction.
+   * On a graph with a cycle -- a chord diagram is cyclic by construction --
+   * the route can come back to a node it has already passed, and then it
+   * never runs out: every node on the loop has a largest flow onward, so the
+   * arrows go round it for as long as they are pressed. Such a route has no
+   * end. Answering with the last node before the loop closed named an end
+   * that the next arrow walked straight past, so the route is reported as
+   * looping instead.
    *
    * @param from - Where to start
    * @param along - Whether to run with the flow or against it
-   * @returns The last node reached, or undefined when the first step is not
-   *   available
+   * @returns The last node reached; undefined when the first step is not
+   *   available; null when the route comes back on itself
    */
-  private followFrom(from: FlowNode, along: 'out' | 'in'): number | undefined {
+  private followFrom(from: FlowNode, along: 'out' | 'in'): number | null | undefined {
     const seen = new Set<FlowNode>([from]);
     let at = from;
     let last: number | undefined;
@@ -513,13 +520,49 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
         return last;
       }
       const next = this.nodes[along === 'out' ? edge.to : edge.from];
-      if (next === undefined || seen.has(next)) {
+      if (next === undefined) {
         return last;
+      }
+      if (seen.has(next)) {
+        return null;
       }
       seen.add(next);
       last = along === 'out' ? edge.to : edge.from;
       at = next;
     }
+  }
+
+  /**
+   * Why there is no end, or no start, to jump to from the node the cursor is
+   * on, when that is because the largest flows go round in a cycle.
+   *
+   * Control + Right follows the largest flow out of each node to where the
+   * flows run out, and Control + Left the largest flow in. Where that route
+   * loops, nothing ends it, and Right and Left go round the loop for as long
+   * as they are pressed -- so the jump says so rather than landing on a node
+   * the next arrow moves on from. The edge signal would be no better: it
+   * says the cursor is at the end, and the next arrow moves.
+   *
+   * Before the reader has entered the chart the jump lands on the first
+   * node, as on every other chart, so there is no refusal to make yet.
+   *
+   * @param direction - Which way the jump goes
+   * @returns What to tell the reader, or null when the route has an end, or
+   *   no first step, which the edge signal answers
+   */
+  public extremeRefusal(direction: 'FORWARD' | 'BACKWARD'): string | null {
+    const node = this.isInitialEntry ? null : this.current;
+    if (node === null) {
+      return null;
+    }
+    const along = direction === 'FORWARD' ? 'out' : 'in';
+    if (this.followFrom(node, along) !== null) {
+      return null;
+    }
+    return t(
+      along === 'out' ? 'model.flowNoEndCycle' : 'model.flowNoStartCycle',
+      { node: node.name },
+    );
   }
 
   /** The node the cursor is on, when it is on one. */
