@@ -217,8 +217,22 @@ export class Candlestick extends AbstractTrace {
 
   private readonly sections: readonly CandlestickNavSegmentType[];
 
-  private readonly min: number;
-  private readonly max: number;
+  /**
+   * The register open, high, low and close are pitched on: the lowest price
+   * on the chart to the highest, which is the lowest low to the highest high.
+   */
+  private readonly priceRange: { readonly min: number; readonly max: number };
+
+  /**
+   * The register volatility is pitched on: its own lowest to its highest.
+   *
+   * Volatility is a high-minus-low difference rather than a price, an order of
+   * magnitude below the prices on any real chart. On one register with them it
+   * took the bottom of the range and squeezed every price into the top few
+   * percent of it, so the price movement the chart draws was close to
+   * inaudible.
+   */
+  private readonly volatilityRange: { readonly min: number; readonly max: number };
 
   // Pre-computed braille data. Candles are immutable after construction, so
   // per-row min/max and trends are computed once here instead of on every
@@ -312,8 +326,18 @@ export class Candlestick extends AbstractTrace {
       row: this.sections.length - 1,
     });
 
-    this.min = MathUtil.minFrom2D(this.candleValues);
-    this.max = MathUtil.maxFrom2D(this.candleValues);
+    const priceRows = this.candleValues.filter(
+      (_row, index) => this.sections[index] !== 'volatility',
+    );
+    this.priceRange = {
+      min: MathUtil.minFrom2D(priceRows),
+      max: MathUtil.maxFrom2D(priceRows),
+    };
+    const volatilityRow = this.candleValues[this.sections.indexOf('volatility')] ?? [];
+    this.volatilityRange = {
+      min: MathUtil.safeMin(volatilityRow),
+      max: MathUtil.safeMax(volatilityRow),
+    };
 
     // Pre-compute per-row min/max and trends once; the braille getter returns
     // these cached references (see get braille) rather than rebuilding them
@@ -760,17 +784,6 @@ export class Candlestick extends AbstractTrace {
     const bearCount = this.candles.filter(c => c.trend === 'Bear').length;
     const neutralCount = this.candles.filter(c => c.trend === 'Neutral').length;
 
-    // `this.min`/`this.max` span the volatility row as well, and volatility is
-    // a high-minus-low *difference* rather than a price -- an order of
-    // magnitude below the prices on any real chart, so the low end of a range
-    // labelled `Price range` was never a price. The audio scale goes on
-    // spanning all five rows, because one pitch scale across the sections is
-    // what makes them comparable by ear; only the stat is narrowed to what it
-    // says it reports.
-    const priceRows = this.candleValues.filter(
-      (_row, index) => this.sections[index] !== 'volatility',
-    );
-
     // A chart with no open has no bodies to count, so the trend tallies are
     // left out rather than reported as zero -- "Bull count 0" says the chart
     // rose on no day, which is a finding, where the truth is that it never
@@ -778,11 +791,11 @@ export class Candlestick extends AbstractTrace {
     const stats: DescriptionState['stats'] = [
       { label: t('model.statNumberOfPeriods'), value: this.candles.length },
       {
+        // The prices alone: volatility is a high-minus-low difference, not a
+        // price, so a range taken over it as well started at a number that
+        // was never a price.
         label: t('model.statPriceRange'),
-        value: MathUtil.spannedOrMissing(
-          MathUtil.minFrom2D(priceRows),
-          MathUtil.maxFrom2D(priceRows),
-        ),
+        value: MathUtil.spannedOrMissing(this.priceRange.min, this.priceRange.max),
       },
       ...(this.hasOpen
         ? [
@@ -919,15 +932,16 @@ export class Candlestick extends AbstractTrace {
     // a section this chart *has*, and volatility is the one every chart
     // leads with. The old default named the row a high-low-close chart does
     // not draw.
-    const value = this.priceOf(
-      this.candles[this.currentPointIndex],
-      this.currentSegmentType ?? this.sections[0],
-    );
+    const segment = this.currentSegmentType ?? this.sections[0];
+    const value = this.priceOf(this.candles[this.currentPointIndex], segment);
+    // The prices share one register, so an open, a high, a low and a close
+    // are comparable by ear across every candle; volatility has its own.
+    const { min, max } = segment === 'volatility' ? this.volatilityRange : this.priceRange;
 
     return {
       freq: {
-        min: this.min,
-        max: this.max,
+        min,
+        max,
         raw: value,
       },
       panning: {
