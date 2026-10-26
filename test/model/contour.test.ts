@@ -185,6 +185,102 @@ describe('spacing is the gradient', () => {
   });
 });
 
+/**
+ * Three levels of a peak, each traced at its own x values, as a contour
+ * tracer samples them: no two curves share an x, so a line chart's reading of
+ * Up and Down -- another series at the same x -- finds nothing.
+ */
+const RINGS: ContourPoint[][] = [
+  [{ x: 1, y: 5, level: 0.1 }, { x: 5, y: 9, level: 0.1 }, { x: 9, y: 5, level: 0.1 }],
+  [{ x: 2.5, y: 6, level: 0.2 }, { x: 4.9, y: 7.5, level: 0.2 }, { x: 7.5, y: 5, level: 0.2 }],
+  [{ x: 4, y: 4.5, level: 0.3 }, { x: 5.5, y: 6, level: 0.3 }, { x: 6, y: 5, level: 0.3 }],
+];
+
+/**
+ * Where the reader is, as the x, y and level announced.
+ * @param trace The trace to read
+ * @returns The announced x, y and level
+ */
+function place(trace: ContourTrace): [unknown, unknown, unknown] {
+  const { text } = nonEmptyState(trace);
+  return [text.main.value, text.cross?.value, text.z?.value];
+}
+
+describe('up and down move between levels', () => {
+  test('up goes to the nearest point of the next level up', () => {
+    const trace = contour(0, 0, RINGS);
+
+    const moved = trace.moveOnce('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(place(trace)).toEqual([2.5, 6, 0.2]);
+  });
+
+  test('down goes to the nearest point of the next level down', () => {
+    const trace = contour(2, 1, RINGS);
+
+    const moved = trace.moveOnce('DOWNWARD');
+
+    expect(moved).toBe(true);
+    expect(place(trace)).toEqual([4.9, 7.5, 0.2]);
+  });
+
+  test('the nearest point is taken wherever the reader is on the curve', () => {
+    const trace = contour(0, 2, RINGS);
+
+    trace.moveOnce('UPWARD');
+
+    expect(place(trace)).toEqual([7.5, 5, 0.2]);
+  });
+
+  test('the top and bottom levels are the edges', () => {
+    expect(contour(2, 0, RINGS).moveOnce('UPWARD')).toBe(false);
+    expect(contour(0, 0, RINGS).moveOnce('DOWNWARD')).toBe(false);
+  });
+
+  test('a level drawn as two islands is one level, reached at its nearer island', () => {
+    const islands: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 1 }, { x: 10, y: 0, level: 1 }],
+      [{ x: 1, y: 1, level: 2 }],
+      [{ x: 9, y: 1, level: 2 }],
+    ];
+    const trace = contour(0, 1, islands);
+
+    trace.moveOnce('UPWARD');
+
+    expect(place(trace)).toEqual([9, 1, 2]);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+  });
+
+  test('control and up goes to the highest level, and up from there is the edge', () => {
+    // Inherited, the jump went to the top of the reader's column by point
+    // index, here level 0.2, and Up then moved again.
+    const trace = contour(0, 0, RINGS);
+
+    trace.moveToExtreme('UPWARD');
+
+    expect(place(trace)).toEqual([4, 4.5, 0.3]);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+  });
+
+  test('control and down goes to the lowest level', () => {
+    const trace = contour(2, 1, RINGS);
+
+    trace.moveToExtreme('DOWNWARD');
+
+    expect(place(trace)).toEqual([5, 9, 0.1]);
+    expect(trace.moveOnce('DOWNWARD')).toBe(false);
+  });
+
+  test('left and right still walk the curve', () => {
+    const trace = contour(1, 0, RINGS);
+
+    trace.moveOnce('FORWARD');
+
+    expect(place(trace)).toEqual([4.9, 7.5, 0.2]);
+  });
+});
+
 describe('the description answers what a curve cannot', () => {
   test('counts and names the levels', () => {
     expect(stat('Number of levels')).toBe(3);

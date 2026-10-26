@@ -1,4 +1,5 @@
 import type { ContourPoint, MaidrLayer } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import { contourCurveLevel, contourLevelCount } from '@util/contourLevel';
 import { defaultFormat } from '@util/format';
@@ -56,6 +57,13 @@ export class ContourTrace extends LineTrace {
   private readonly curves: ContourPoint[][];
 
   /**
+   * The declared levels, each once, lowest first. A level drawn as several
+   * islands arrives as several curves carrying one number; this is the list
+   * of levels the reader moves between.
+   */
+  private readonly levelOrder: number[];
+
+  /**
    * Memoised {@link ContourTrace.spacingExtremes}. `undefined` means not yet
    * computed; `null` is a computed answer of "no gap is measurable".
    */
@@ -71,6 +79,112 @@ export class ContourTrace extends LineTrace {
 
     this.curves = layer.data as ContourPoint[][];
     this.levels = this.curves.map(curve => contourCurveLevel(curve));
+    this.levelOrder = [...new Set(this.levels.filter(Number.isFinite))]
+      .sort((a, b) => a - b);
+  }
+
+  /**
+   * Where Up and Down land: the nearest point of the next level up or down.
+   *
+   * Inherited, Up and Down looked for another curve with a point at the
+   * reader's exact x and a larger or smaller y, which is how a line chart's
+   * series line up. Contour curves share no x values: each is traced where
+   * the field crosses its own level. So a reader could leave a level only
+   * from the one or two points where two curves happened to share an x, and
+   * heard "No more data" everywhere else. On a contour plot up is the next
+   * level up, and the place on it is the one nearest the reader's.
+   *
+   * A curve that declares no level has no next level, and keeps the line
+   * chart's reading.
+   *
+   * @param direction - UPWARD for the next level up, DOWNWARD for the next down
+   * @returns The row and column to move to, or null at the top or bottom level
+   */
+  protected override findVerticalTarget(
+    direction: 'UPWARD' | 'DOWNWARD',
+  ): { row: number; col: number } | null {
+    const level = this.levels[this.row];
+    if (!Number.isFinite(level)) {
+      return super.findVerticalTarget(direction);
+    }
+    const at = this.levelOrder.indexOf(level);
+    const next = this.levelOrder[direction === 'UPWARD' ? at + 1 : at - 1];
+    return next === undefined ? null : this.nearestPointOf(next);
+  }
+
+  /**
+   * Control+Up and Control+Down go to the highest and the lowest level, at
+   * the point of it nearest the reader's.
+   *
+   * Inherited, they went to the top or bottom of the reader's column of a
+   * line chart, matched by point index -- an index that is a different place
+   * on every curve -- so they landed on an arbitrary curve rather than the
+   * highest or lowest level, and the next Up or Down still moved.
+   *
+   * @param direction - The direction to jump in
+   * @returns Whether the reader moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
+      return super.moveToExtreme(direction);
+    }
+    if (this.isInitialEntry) {
+      // Entering is the first move, as it is for every other jump: the
+      // reader lands on the first point, and the jump goes on from there.
+      this.enterTrace();
+    }
+    const level = this.levels[this.row];
+    const extreme = direction === 'UPWARD'
+      ? this.levelOrder[this.levelOrder.length - 1]
+      : this.levelOrder[0];
+    if (!Number.isFinite(level) || extreme === undefined) {
+      return super.moveToExtreme(direction);
+    }
+    const target = level === extreme
+      ? { row: this.row, col: this.col }
+      : this.nearestPointOf(extreme);
+    if (target === null) {
+      return super.moveToExtreme(direction);
+    }
+    this.row = target.row;
+    this.col = target.col;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * The point of a level nearest the reader's, across every curve the level
+   * is drawn as.
+   *
+   * @param level - The level to land on
+   * @returns Its nearest point, or null when the reader's point or every
+   * point of the level has no position
+   */
+  private nearestPointOf(level: number): { row: number; col: number } | null {
+    const here = this.curves[this.row]?.[this.col];
+    const x = Number(here?.x);
+    const y = Number(here?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return null;
+    }
+
+    let best: { row: number; col: number } | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const [row, curve] of this.curves.entries()) {
+      if (this.levels[row] !== level) {
+        continue;
+      }
+      for (const [col, point] of curve.entries()) {
+        const dx = Number(point.x) - x;
+        const dy = Number(point.y) - y;
+        const distance = dx * dx + dy * dy;
+        if (Number.isFinite(distance) && distance < bestDistance) {
+          bestDistance = distance;
+          best = { row, col };
+        }
+      }
+    }
+    return best;
   }
 
   /**
