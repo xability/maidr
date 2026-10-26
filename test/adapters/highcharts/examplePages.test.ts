@@ -25,6 +25,24 @@ function inlineScripts(html: string): string[] {
 }
 
 /**
+ * A script with its comments taken out, so a comment that names a call is not
+ * read as the call.
+ *
+ * @param script - A script's source
+ * @returns The source without its comments; a `//` after a colon is a URL's
+ *   and stays
+ */
+function withoutComments(script: string): string {
+  return script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+/** A script setting the attribute MAIDR reads a chart from. */
+const SETS_MAIDR_DATA = /setAttribute\(\s*['"]maidr-data['"]/g;
+
+/** A script asking MAIDR to read that attribute now. */
+const DISPATCHES_BIND = /dispatchEvent\(\s*new CustomEvent\(\s*['"]maidr:bindchart['"]/;
+
+/**
  * How many times a pattern occurs in a text.
  *
  * @param text - The text
@@ -40,18 +58,21 @@ describe('the highcharts example pages', () => {
     expect(PAGES.length).toBeGreaterThan(30);
   });
 
-  it('bind a chart they draw after an await, which MAIDR does not read by itself', () => {
+  it('bind a chart they draw after waiting on a promise, which MAIDR does not read by itself', () => {
     // MAIDR reads `maidr-data` attributes once, when the page has loaded. The
     // choropleth page drew its map after fetching the topology and set the
     // attribute then, so MAIDR never bound it: no figure, nothing to focus.
-    // Asked of each script that awaits: whatever it does after setting the
-    // attribute has to include the dispatch.
+    // Asked of each script that waits, by `await` or `.then(`: after its last
+    // `setAttribute('maidr-data', …)` it has to dispatch `maidr:bindchart`.
+    // Comments are taken out first, so one that names either call does not
+    // stand in for it.
     const unbound = PAGES
       .filter(page => inlineScripts(page.html)
-        .filter(script => /\bawait\b/.test(script))
+        .map(withoutComments)
+        .filter(script => /\bawait\b|\.then\(/.test(script))
         .some((script) => {
-          const set = script.lastIndexOf('maidr-data');
-          return set >= 0 && !script.slice(set).includes('maidr:bindchart');
+          const set = [...script.matchAll(SETS_MAIDR_DATA)].pop()?.index;
+          return set !== undefined && !DISPATCHES_BIND.test(script.slice(set));
         }))
       .map(page => page.name);
 
