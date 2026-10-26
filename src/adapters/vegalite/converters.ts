@@ -2503,8 +2503,17 @@ function extractHeatmapData(
  * available.  Vega-Lite's `boxplot` mark compiles to datasets with
  * `lower_box_<field>`, `upper_box_<field>`, `mid_box_<field>`,
  * `lower_whisker_<field>`, and `upper_whisker_<field>` columns.
- * When those are present we use them directly; otherwise we compute
- * quartiles from the raw values.
+ * When a table carries all five we use them directly; otherwise we compute
+ * the statistics from the raw values.
+ *
+ * Only the `min-max` extent puts all five on one table. For the default
+ * (Tukey) extent the median and the whisker ends are in tables of their own,
+ * and the one a layer's rows usually resolve to when its data is named -- as
+ * Altair names it -- is the joinaggregate stage: every raw row plus
+ * `lower_box_*` and `upper_box_*` alone. Read as computed, that announced
+ * every median as 0, the quartiles as the whisker ends, and every value
+ * outside the box as an outlier; read for its raw values, it gives the
+ * statistics the chart draws.
  */
 function extractBoxData(
   rows: Record<string, unknown>[],
@@ -2528,16 +2537,18 @@ function extractBoxData(
   const lowerWhiskerKey = `lower_whisker_${valField}`;
   const upperWhiskerKey = `upper_whisker_${valField}`;
 
-  const hasPrecomputed = rows.length > 0 && lowerBoxKey in rows[0];
+  const hasPrecomputed = rows.length > 0
+    && [lowerBoxKey, upperBoxKey, midBoxKey, lowerWhiskerKey, upperWhiskerKey]
+      .every(key => key in rows[0]);
 
   // Boxes are emitted in the same order as the rows of the compiled
   // dataset. We keep that order so highlight indices match the SVG
   // group order.
   if (hasPrecomputed) {
-    // Vega-Lite's joinaggregate transform produces a denormalized dataset:
-    // each raw row carries both its original value AND the replicated box
-    // stats for its category group. Deduplicate by category, and extract
-    // outliers from raw values that fall outside the whisker bounds.
+    // One row per box (the min-max extent's table), or a denormalized
+    // dataset repeating a box's statistics on every one of its raw rows.
+    // Deduplicate by category, and take the raw values that fall outside
+    // the whisker bounds as outliers when the rows carry them.
     interface BoxAccumulator {
       stats: { min: number; q1: number; q2: number; q3: number; max: number };
       lowerOutliers: number[];
