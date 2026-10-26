@@ -550,7 +550,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     } else {
       const value = audio.freq.raw as number;
       const zScalar = typeof audio.zIntensity === 'number' ? audio.zIntensity : undefined;
-      if (value === 0) {
+      if (value === 0 && (audio.zeroClick || AudioService.isZeroMagnitude(audio))) {
         // A trace can opt into a percussive click for exact zeros (e.g. the
         // candlestick delta layer, where zero means "on the reference line").
         if (audio.zeroClick) {
@@ -572,6 +572,25 @@ export class AudioService implements Observer<PlotState>, Disposable {
         this.markEchoTail(zScalar);
       }
     }
+  }
+
+  /**
+   * Whether a value of exactly 0 is the absence of a magnitude, which the low
+   * "null" tone marks, rather than a place in the register.
+   *
+   * It is an absence where nothing in the register lies below it: a bar of no
+   * height, an empty bin, a count of none. Where the register runs below zero
+   * -- a signed value, a coordinate, a median between negative and positive
+   * quantiles -- 0 lies between the values either side of it, and the null
+   * tone, which sounds below the whole register, said it was lower than the
+   * minimum. An ordinal level's code is a place too: a level coded 0 is the
+   * lowest level, not a missing one.
+   *
+   * @param audio - The point's audio state
+   * @returns True when a 0 is to be played as the null tone
+   */
+  private static isZeroMagnitude(audio: AudioState): boolean {
+    return audio.ordinal !== true && Math.min(audio.freq.min, audio.freq.max) >= 0;
   }
 
   /**

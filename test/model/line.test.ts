@@ -436,6 +436,36 @@ describe('lineTrace ordinal levels', () => {
     });
   });
 
+  test('marks a named level as an ordinal code, so a code of 0 is pitched as the lowest level', () => {
+    // A hypnogram coded from 0 put its deepest stage on 0, which the audio
+    // service played as the "null" tone of a missing value.
+    const trace = new LineTrace(createLineLayer([[
+      { x: 0, y: 1, label: 'N2' },
+      { x: 1, y: 0, label: 'N3' },
+    ]]));
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    expect(nonEmptyState(trace).audio).toMatchObject({
+      freq: { min: 0, max: 1, raw: 0 },
+      ordinal: true,
+    });
+  });
+
+  test('leaves a value with no level name a magnitude', () => {
+    const trace = new LineTrace(createLineLayer([[
+      { x: 0, y: 1, label: '' },
+      { x: 1, y: 0 },
+    ]]));
+    trace.moveOnce('FORWARD');
+
+    expect(nonEmptyState(trace).audio.ordinal).toBeUndefined();
+
+    trace.moveOnce('FORWARD');
+
+    expect(nonEmptyState(trace).audio.ordinal).toBeUndefined();
+  });
+
   test('prints the level name in the data table, not the code behind it', () => {
     // The cursor says "Y is Awake" and the table said `3`, with no key
     // anywhere in the dialog mapping the two -- the same defect `ScatterTrace`

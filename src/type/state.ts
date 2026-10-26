@@ -245,6 +245,14 @@ export interface AudioState {
    */
   zeroClick?: boolean;
   /**
+   * When true, the value is an ordinal level's code -- a sleep stage, a
+   * Likert response -- rather than a magnitude. A code of 0 is then the
+   * lowest level, not the absence of one, so it is pitched like any other
+   * value instead of played as the low "null" tone. Set by a line point that
+   * carries a `label`.
+   */
+  ordinal?: boolean;
+  /**
    * Pitch-glide direction for the tone. When set, the tone glides its pitch
    * over the note duration to convey a direction while `freq.raw` still sets
    * the base pitch: `'up'` sweeps upward (a rising "whoosh"), `'down'` sweeps
