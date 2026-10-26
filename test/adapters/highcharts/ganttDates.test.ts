@@ -96,7 +96,10 @@ describe('a highcharts gantt chart on a datetime axis', () => {
       { name: 'Wireframes', x: START + 8 * HOUR + 40 * MINUTE, x2: START + DAY + 20 * HOUR + 40 * MINUTE },
     ])).subplots[0][0].layers[0];
     const [task] = (layer.data as GanttData).points[0];
-    const state = (TraceFactory.create(layer) as GanttTrace).state;
+    // Read without the layer's selectors: they name bars this test does not
+    // draw, and the trace would look for them in a document the unit
+    // project's node environment does not have.
+    const state = (TraceFactory.create({ ...layer, selectors: undefined }) as GanttTrace).state;
     if (state.empty) {
       throw new Error('the gantt layer reads as empty');
     }
