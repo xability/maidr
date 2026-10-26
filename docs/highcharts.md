@@ -37,7 +37,7 @@ Render your chart with Highcharts, convert it with `maidrHighcharts.highchartsTo
       const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'chart' });
       document.getElementById('chart').setAttribute('maidr-data', JSON.stringify(maidrData));
 
-      // 5. (Optional) bidirectional tooltip + point highlighting
+      // 5. (Optional) Highcharts' tooltip and hover state follow MAIDR's cursor
       maidrHighcharts.createHighchartsSync(chart);
     </script>
   </body>
@@ -59,7 +59,7 @@ The adapter pipeline runs in three short steps:
 
 1. **Read** — `highchartsToMaidr(chart)` reads `chart.series`, `chart.xAxis`, `chart.yAxis`, `chart.title`, and (when present) `chart.subtitle` / `chart.caption`. Each series is mapped to a MAIDR `TraceType` based on its rendered type (`bar`, `line`, `scatter`, etc.) and Highcharts `stacking` mode.
 2. **Locate** — Scoped CSS selectors are generated per chart container so MAIDR can highlight the correct SVG element for the active data point.
-3. **Sync (optional)** — `createHighchartsSync(chart)` wires MAIDR's navigation events back into Highcharts' native `tooltip.refresh()` and `point.setState('hover')`, so the visual cursor follows the user as they navigate.
+3. **Sync (optional)** — `createHighchartsSync(chart)` watches the chart for the highlight MAIDR draws as the reader moves and points Highcharts' native `tooltip.refresh()` and `point.setState('hover')` at the same point, so the chart's own tooltip follows the reader.
 
 ## Installation
 
@@ -364,11 +364,11 @@ Charts with no convertible series are skipped with a console warning; if **no** 
 
 ### `createHighchartsSync(chart)`
 
-Creates a bidirectional sync controller so the MAIDR cursor and Highcharts' native tooltip/highlight stay in lock-step. Returns a `HighchartsSync` object with a `dispose()` method for cleanup.
+Makes Highcharts' own tooltip and hover state follow MAIDR's cursor, from the moment it is called. MAIDR draws its highlight into the chart as a copy of the mark the reader is on; the sync watches the chart's container for those copies, finds the Highcharts point drawn with the same shape (or, on a line, the point at the dot MAIDR draws on its vertex), sets it to its hover state and shows its tooltip. When the reader is on something no single point draws — a stacked total, a whole column of a scatter, a candle MAIDR highlights in parts — the tooltip is hidden rather than left on another point, and it is hidden when MAIDR takes its highlight away. Returns a `HighchartsSync` object: `highlightPoint(seriesIndex, pointIndex)` and `clearHighlight()` drive the same tooltip by hand, and `dispose()` stops following MAIDR.
 
 ```ts
 const sync = maidrHighcharts.createHighchartsSync(chart);
-// ... user navigates with MAIDR; Highcharts tooltip follows automatically
+// ... the reader navigates with MAIDR; the Highcharts tooltip follows
 sync.dispose();
 ```
 
@@ -612,7 +612,7 @@ const maidrData = maidrHighcharts.highchartsToMaidr(chart, {
 
 ### Visual sync lifecycle
 
-`createHighchartsSync()` attaches event listeners to the chart container. Always call `sync.dispose()` if you destroy the chart manually (otherwise listeners leak):
+`createHighchartsSync()` observes the chart container. Always call `sync.dispose()` if you destroy the chart manually (otherwise the observer outlives it):
 
 ```js
 const sync = maidrHighcharts.createHighchartsSync(chart);

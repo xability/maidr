@@ -5,8 +5,8 @@
  * instances into MAIDR-compatible data (including multi-pane charts, which
  * become MAIDR subplot grids), {@link highchartsGridToMaidr} to combine
  * several chart instances into one figure with subplot navigation, and
- * {@link createHighchartsSync} for bidirectional visual synchronization
- * (tooltip and point highlighting).
+ * {@link createHighchartsSync} to make Highcharts' own tooltip and hover
+ * state follow MAIDR's cursor.
  *
  * @remarks
  * Highcharts is **not** bundled — users must provide their own Highcharts

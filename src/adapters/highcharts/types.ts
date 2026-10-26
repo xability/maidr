@@ -238,6 +238,11 @@ export interface HighchartsSeries {
   nodes?: HighchartsNode[];
   xAxis: HighchartsAxis;
   yAxis: HighchartsAxis;
+  /**
+   * The SVG group the series draws its marks into. A line draws its path
+   * here, and MAIDR draws the dot for a line's point beside it.
+   */
+  group?: { element: SVGElement };
   index: number;
   visible: boolean;
   /**
@@ -414,6 +419,13 @@ export interface HighchartsPoint {
   };
   /** Reference to the SVG element for this point (may be undefined if not rendered). */
   graphic?: { element: SVGElement };
+  /**
+   * Where the point is drawn, in the coordinates of its series' group: the
+   * vertex a line passes through at this point.
+   */
+  plotX?: number;
+  /** See {@link HighchartsPoint.plotX}. */
+  plotY?: number;
   series: HighchartsSeries;
   index: number;
   setState?: (state: string) => void;
