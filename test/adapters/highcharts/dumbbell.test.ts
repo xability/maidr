@@ -33,7 +33,7 @@ describe('highcharts dumbbell series', () => {
     const layer = highchartsToMaidr(lifeExpectancyChart()).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.DUMBBELL);
-    expect(layer.title).toBe('Life expectancy');
+    expect(layer.name).toBe('Life expectancy');
     // The change between the ends is deliberately absent: `DumbbellTrace`
     // derives it, so an authored one would be a second source of truth.
     expect(layer.data as DumbbellData).toEqual({

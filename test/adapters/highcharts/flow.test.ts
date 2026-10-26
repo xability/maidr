@@ -23,7 +23,7 @@ describe('highcharts sankey-family series', () => {
     const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.SANKEY);
-    expect(layer.title).toBe('Energy');
+    expect(layer.name).toBe('Energy');
     // The nodes are derived from the edges by the model; the adapter never
     // reads `series.nodes`.
     expect(layer.data as FlowPoint[]).toEqual([

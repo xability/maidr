@@ -121,7 +121,7 @@ describe('highcharts treegraph series', () => {
 
     // TREE, not TREEMAP: the navigation is the same and the picture is not.
     expect(layer.type).toBe(TraceType.TREE);
-    expect(layer.title).toBe('Org');
+    expect(layer.name).toBe('Org');
     expect(layer.data as TreemapPoint[]).toEqual([
       { x: 'Company', y: 1, path: [] },
       { x: 'Sales', y: 2, path: ['Company'] },
@@ -222,7 +222,7 @@ describe('highcharts packedbubble series', () => {
     // The grouping is which *series* a bubble is in -- nothing declares a
     // `parent` -- and the adapter already names each layer after its series,
     // so the paths are empty and each layer is the flat pack it draws.
-    expect(layers.map(l => l.title)).toEqual(['Europe', 'Asia']);
+    expect(layers.map(l => l.name)).toEqual(['Europe', 'Asia']);
     expect(layers[0].data as TreemapPoint[]).toEqual([
       { x: 'Germany', y: 12, path: [] },
       { x: 'France', y: 8, path: [] },

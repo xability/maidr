@@ -36,7 +36,7 @@ describe('highcharts polar charts', () => {
     // Both outlines share the spokes, so they are one layer with a row each.
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.RADAR);
-    expect(layers[0].title).toBe('Allocated, Actual');
+    expect(layers[0].name).toBe('Allocated, Actual');
     expect((layers[0].data as LinePoint[][])[0]).toEqual([
       { x: 'Sales', y: 43000, z: 'Allocated' },
       { x: 'Marketing', y: 19000, z: 'Allocated' },

@@ -24,7 +24,7 @@ describe('highcharts category-axis scatter (dot plot)', () => {
     const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.DOT);
-    expect(layer.title).toBe('Median');
+    expect(layer.name).toBe('Median');
     expect(layer.data as BarPoint[]).toEqual([
       { x: 'Nurse', y: 61 },
       { x: 'Teacher', y: 54 },

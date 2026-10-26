@@ -477,7 +477,7 @@ function finishSubplot(
 
   // Add legend labels when multiple layers are present, aligned to layers.
   if (layers.length > 1) {
-    subplot.legend = layers.map(l => l.title ?? `Series ${l.id}`);
+    subplot.legend = layers.map(l => l.name ?? `Series ${l.id}`);
   }
 
   return subplot;
@@ -565,6 +565,25 @@ function radialLineType(
     return TraceType.RADAR;
   }
   return undefined;
+}
+
+/**
+ * A series' name as the name of its layer, or `undefined` when it has none.
+ *
+ * Highcharts keeps a name given as a number, a year say, as that number and
+ * draws its digits in the legend, so it names the layer by them; anything else
+ * that is not text names nothing. The name has to be a string: MAIDR trims a
+ * layer's name as it reads the layer, and a number there would stop the chart
+ * from loading.
+ *
+ * @param series - The series
+ * @returns The name's text
+ */
+function seriesName(series: { name?: unknown } | undefined): string | undefined {
+  const name = series?.name;
+  if (typeof name === 'number')
+    return String(name);
+  return typeof name === 'string' && name.trim() !== '' ? name : undefined;
 }
 
 /**
@@ -854,18 +873,21 @@ function assignAxisBands(
 
 /**
  * MAIDR has no subplot-title field: the FIRST layer's `title` is the panel's
- * display name in subplot summaries. Panes have no native titles either, so
- * when the first layer ended up untitled (unnamed series), fall back to the
- * pane's own y-axis title.
+ * display name in subplot summaries. Panes have no native titles either, so a
+ * pane is named after its first layer's series -- the layer's `name` -- and,
+ * when that series is unnamed, after the pane's own y-axis title.
+ *
+ * Only in a chart of several panes: in a chart of one, a layer's title would
+ * be read as the chart's, which is the chart's own title.
  */
 function applyPaneTitleFallback(subplot: MaidrSubplot, group: HighchartsSeries[]): void {
   const firstLayer = subplot.layers[0];
   if (!firstLayer || firstLayer.title !== undefined) {
     return;
   }
-  const axisTitle = group[0]?.yAxis?.options?.title?.text;
-  if (axisTitle) {
-    firstLayer.title = axisTitle;
+  const paneTitle = firstLayer.name ?? group[0]?.yAxis?.options?.title?.text;
+  if (paneTitle) {
+    firstLayer.title = paneTitle;
   }
 }
 
@@ -953,7 +975,7 @@ function convertSingleBar(
   return {
     id: String(series.index),
     type: TraceType.BAR,
-    title: series.name || undefined,
+    name: seriesName(series),
     orientation,
     selectors,
     axes: barAxes(series, isHorizontal),
@@ -1269,7 +1291,6 @@ function convertStackedBar(
   return {
     id: String(first.index),
     type: traceType,
-    title: first.name || undefined,
     orientation,
     selectors,
     axes: barAxes(first, orientation === Orientation.HORIZONTAL),
@@ -1297,7 +1318,6 @@ function convertDodgedBar(
   return {
     id: String(first.index),
     type: TraceType.DODGED,
-    title: first.name || undefined,
     orientation,
     selectors,
     axes: barAxes(first, orientation === Orientation.HORIZONTAL),
@@ -1387,7 +1407,6 @@ function convertDivergingBar(
   return {
     id: String(first.index),
     type: TraceType.DIVERGING,
-    title: first.name || undefined,
     orientation,
     selectors,
     // Inert while `nameSegmentedCells` names every cell: `mapToSvgElements`
@@ -1974,15 +1993,15 @@ function convertLineSeries(
 
   const selectors = lineSelectors(containerId, seriesList.map(s => s.index));
 
-  // Use a combined title for multi-line layers so all series are represented.
-  const layerTitle = seriesList.length === 1
-    ? first.name || undefined
+  // A layer of several lines is named after all of them.
+  const layerName = seriesList.length === 1
+    ? seriesName(first)
     : seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined;
 
   return {
     id: seriesList.map(s => String(s.index)).join('-'),
     type: stepDirection ? TraceType.STEP : TraceType.LINE,
-    title: layerTitle,
+    name: layerName,
     selectors,
     axes: {
       x: getAxisLabel(first, 'x'),
@@ -2088,8 +2107,8 @@ function convertSurvivalSeries(
   return {
     id: arms.map(arm => String(arm.index)).join('-'),
     type: TraceType.SURVIVAL,
-    title: declaration.title ?? (armNames.join(', ') || undefined),
-    ...(declaration.name ? { name: declaration.name } : {}),
+    ...(declaration.title !== undefined ? { title: declaration.title } : {}),
+    name: declaration.name ?? (armNames.join(', ') || undefined),
     selectors: lineSelectors(containerId, arms.map(arm => arm.index)),
     axes: {
       x: getAxisLabel(series, 'x'),
@@ -2168,8 +2187,8 @@ function convertPrCurveSeries(
   return {
     id: curves.map(curve => String(curve.index)).join('-'),
     type: TraceType.PR_CURVE,
-    title: declaration.title ?? (names.join(', ') || undefined),
-    ...(declaration.name ? { name: declaration.name } : {}),
+    ...(declaration.title !== undefined ? { title: declaration.title } : {}),
+    name: declaration.name ?? (names.join(', ') || undefined),
     selectors: lineSelectors(containerId, curves.map(curve => curve.index)),
     axes: {
       x: getAxisLabel(series, 'x'),
@@ -2263,8 +2282,8 @@ function convertPercentileBandSeries(
   return {
     id: [series, ...bands.map(band => band.series)].map(one => String(one.index)).join('-'),
     type: TraceType.PERCENTILE_BAND,
-    title: declaration.title ?? series.name ?? undefined,
-    ...(declaration.name ? { name: declaration.name } : {}),
+    ...(declaration.title !== undefined ? { title: declaration.title } : {}),
+    name: declaration.name ?? seriesName(series),
     selectors: [
       ...bands.map(band => bandAreaSelector(containerId, band.series.index)),
       ...lineSelectors(containerId, [series.index]),
@@ -2676,7 +2695,7 @@ function convertBumpSeries(
     // table on an ordinary one, which draws it at the bottom. Said rather than
     // left to be measured from the highlight.
     firstPlace: isReversedAxis(first.yAxis) ? 'top' : 'bottom',
-    title: seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined,
+    name: seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined,
     // One path per competitor, as any line layer has.
     selectors: lineSelectors(containerId, indices),
     axes: {
@@ -2760,15 +2779,15 @@ function convertAreaSeries(
 
   const first = seriesList[0];
 
-  // Use a combined title for multi-band layers so all series are represented.
-  const layerTitle = seriesList.length === 1
-    ? first.name || undefined
+  // A layer of several bands is named after all of them.
+  const layerName = seriesList.length === 1
+    ? seriesName(first)
     : seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined;
 
   return {
     id: seriesList.map(s => String(s.index)).join('-'),
     type: traceType,
-    title: layerTitle,
+    name: layerName,
     // An area series still renders the `path.highcharts-graph` its top edge
     // traces, alongside the `path.highcharts-area` fill; `AreaTrace` inherits
     // `LineTrace`'s path parsing, so the graph is what it needs.
@@ -2819,14 +2838,14 @@ function convertRadialSeries(
   const first = seriesList[0];
   const indices = seriesList.map(s => s.index);
 
-  const layerTitle = seriesList.length === 1
-    ? first.name || undefined
+  const layerName = seriesList.length === 1
+    ? seriesName(first)
     : seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined;
 
   return {
     id: indices.map(String).join('-'),
     type: traceType,
-    title: layerTitle,
+    name: layerName,
     selectors: traceType === TraceType.POLAR_AREA
       ? polarAreaSelectors(containerId, indices)
       : lineSelectors(containerId, indices),
@@ -2910,14 +2929,14 @@ function convertParallelSeries(
   const first = seriesList[0];
   const indices = seriesList.map(s => s.index);
 
-  const layerTitle = seriesList.length === 1
-    ? first.name || undefined
+  const layerName = seriesList.length === 1
+    ? seriesName(first)
     : seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined;
 
   return {
     id: indices.map(String).join('-'),
     type: TraceType.PARALLEL,
-    title: layerTitle,
+    name: layerName,
     selectors: lineSelectors(containerId, indices),
     axes: {
       x: { label: PARALLEL_AXIS_AXIS },
@@ -2967,7 +2986,7 @@ function convertDotSeries(
   return {
     id: String(series.index),
     type: TraceType.DOT,
-    title: series.name || undefined,
+    name: seriesName(series),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     // The marks are ordinary scatter markers, hidden tracker twins included.
     selectors: scatterSelector(containerId, series.index),
@@ -3001,7 +3020,7 @@ function convertLollipopSeries(
   return {
     id: String(series.index),
     type: TraceType.LOLLIPOP,
-    title: series.name || undefined,
+    name: seriesName(series),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: lollipopSelector(containerId, series.index),
     axes: barAxes(series, isHorizontal),
@@ -3074,7 +3093,7 @@ function convertParetoSeries(
   return {
     id: String(series.index),
     type: TraceType.LINE,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: lineSelectors(containerId, [series.index]),
     axes: {
       x: getAxisLabel(series, 'x'),
@@ -3175,7 +3194,7 @@ function convertTimelineSeries(
   return {
     id: String(series.index),
     type: TraceType.SCATTER,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: scatterSelector(containerId, series.index),
     axes: {
       x: getAxisLabel(series, 'x'),
@@ -3250,7 +3269,7 @@ function convertBellCurveSeries(
   return {
     id: String(series.index),
     type: TraceType.SMOOTH,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: lineSelectors(containerId, [series.index]),
     axes: {
       x: getAxisLabel(series, 'x'),
@@ -3351,7 +3370,7 @@ function convertVariwideSeries(
   return {
     id: String(series.index),
     type: TraceType.MOSAIC,
-    title: series.name || undefined,
+    name: seriesName(series),
     orientation,
     selectors: barSelector(containerId, series.index),
     axes: barAxes(series, isHorizontal),
@@ -3394,7 +3413,7 @@ function convertFunnelSeries(
   return {
     id: String(series.index),
     type: TraceType.FUNNEL,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: funnelSelector(containerId, series.index),
     axes: {
       x: { label: FUNNEL_STAGE_AXIS },
@@ -3442,7 +3461,7 @@ function convertWordCloudSeries(
   return {
     id: String(series.index),
     type: TraceType.WORD_CLOUD,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: wordCloudSelector(containerId, series.index),
     axes: {
       x: { label: WORD_CLOUD_TERM_AXIS },
@@ -3495,7 +3514,7 @@ function convertFlowSeries(
   return {
     id: String(series.index),
     type: traceType,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: flowSelector(containerId, series.index),
     axes: {
       x: { label: FLOW_NODE_AXIS },
@@ -3539,7 +3558,7 @@ function convertNetworkSeries(
   return {
     id: String(series.index),
     type: TraceType.NETWORK,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: networkSelector(containerId, series.index),
     axes: {
       x: { label: NETWORK_NODE_AXIS },
@@ -3679,7 +3698,7 @@ function convertTreeSeries(
   return {
     id: String(series.index),
     type: traceType,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: treemapSelectors(containerId, series.index, data.length),
     axes: {
       x: { label: TREE_NODE_AXIS },
@@ -3768,7 +3787,7 @@ function convertOrganizationSeries(
     // is what the reader is told the chart is. An org chart announced as a
     // treemap names a painting nobody drew.
     type: TraceType.TREE,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: treemapSelectors(containerId, series.index, data.length),
     // No `y` axis. The chart has no second dimension to name, and
     // `TreemapTrace` never reads the label on a tree that declares no
@@ -3998,7 +4017,7 @@ function convertGaugeSeries(
   return {
     id: String(series.index),
     type: TraceType.GAUGE,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: gaugeSelectorFor(seriesType, containerId, series.index),
     axes: {
       x: { label: GAUGE_MEASURE_AXIS },
@@ -4114,7 +4133,7 @@ function convertWaterfallSeries(
   return {
     id: String(series.index),
     type: TraceType.WATERFALL,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: waterfallSelector(containerId, series.index),
     axes: {
       x: getAxisLabel(series, 'x'),
@@ -4251,7 +4270,7 @@ function convertErrorBarSeries(
   return {
     id: String(series.index),
     type: TraceType.ERROR_BAR,
-    title: series.name || parent?.name || undefined,
+    name: seriesName(series) ?? seriesName(parent),
     ...(isInvertedChart(chart)
       ? { orientation: Orientation.HORIZONTAL }
       : {}),
@@ -4308,7 +4327,7 @@ function convertRangeSeries(
   return {
     id: String(series.index),
     type: TraceType.ERROR_BAR,
-    title: series.name || undefined,
+    name: seriesName(series),
     ...(isInvertedChart(chart)
       ? { orientation: Orientation.HORIZONTAL }
       : {}),
@@ -4460,8 +4479,8 @@ function convertForestSeries(
   return {
     id: String(series.index),
     type: TraceType.FOREST,
-    title: declaration.title ?? (series.name || undefined),
-    ...(declaration.name ? { name: declaration.name } : {}),
+    ...(declaration.title !== undefined ? { title: declaration.title } : {}),
+    name: declaration.name ?? seriesName(series),
     ...(orientation ? { orientation } : {}),
     selectors: summary
       ? [marks, forestMarkSelector(summary, chart, containerId)]
@@ -4664,7 +4683,7 @@ function convertDumbbellSeries(
   return {
     id: String(series.index),
     type: TraceType.DUMBBELL,
-    title: series.name || undefined,
+    name: seriesName(series),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: dumbbellSelector(containerId, series.index),
     axes: barAxes(series, isHorizontal),
@@ -4910,7 +4929,7 @@ function convertGanttSeries(
   return {
     id: String(series.index),
     type: TraceType.GANTT,
-    title: series.name || undefined,
+    name: seriesName(series),
     // A gantt runs its bars along x with its lanes down y, which is the
     // opposite of MAIDR's default, so the axis labels have to be swapped back.
     orientation: Orientation.HORIZONTAL,
@@ -5004,7 +5023,7 @@ function convertScatterSeries(
   return {
     id: String(series.index),
     type: TraceType.SCATTER,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: scatterSelector(containerId, series.index),
     axes: {
       x: getAxisLabel(series, 'x'),
@@ -5164,7 +5183,7 @@ function convertSignificanceSeries(
   return {
     id: seriesList.map(s => String(s.index)).join('-'),
     type: declared.type === 'manhattan' ? TraceType.MANHATTAN : TraceType.VOLCANO,
-    title: seriesList.length === 1 ? first.name || undefined : undefined,
+    name: seriesList.length === 1 ? seriesName(first) : undefined,
     selectors: volcanoSelector(containerId, seriesList.map(s => s.index)),
     ...(thresholds ? { thresholdOptions: thresholds } : {}),
     axes: {
@@ -5209,7 +5228,7 @@ function convertPieSeries(
   return {
     id: String(series.index),
     type: TraceType.PIE,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: pieSelector(containerId, series.index),
     axes: {
       x: { label: PIE_LABEL_AXIS },
@@ -5275,7 +5294,7 @@ function convertVennSeries(
   return {
     id: String(series.index),
     type: TraceType.VENN,
-    title: series.name || undefined,
+    name: seriesName(series),
     ...(pairs ? { selectors: pieSelector(containerId, series.index) } : {}),
     data,
   };
@@ -5334,7 +5353,7 @@ function convertBoxSeries(
   return {
     id: String(series.index),
     type: TraceType.BOX,
-    title: series.name || undefined,
+    name: seriesName(series),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: boxplotSelectors(containerId, series.index, data.length),
     axes: barAxes(series, isHorizontal),
@@ -5631,7 +5650,7 @@ function convertHeatmapSeries(
   return {
     id: String(series.index),
     type: TraceType.HEATMAP,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: heatmapSelectors(containerId, series.index, rows, cols, topFirst, leftFirst),
     axes: {
       x: getAxisLabel(series, 'x'),
@@ -5772,7 +5791,7 @@ function convertHexbinSeries(
   return {
     id: String(series.index),
     type: TraceType.HEXBIN,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: hexbinSelectors(containerId, series.index, rows.flat().length),
     axes: {
       x: getAxisLabel(series, 'x'),
@@ -5890,7 +5909,7 @@ function convertMapPointSeries(
   return {
     id: String(series.index),
     type: TraceType.SCATTER,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: scatterSelector(containerId, series.index),
     axes: {
       x: { label: MAP_LONGITUDE_AXIS },
@@ -5985,8 +6004,8 @@ function convertChoroplethSeries(
   return {
     id: String(series.index),
     type: TraceType.CHOROPLETH,
-    title: declaration?.title ?? (series.name || undefined),
-    ...(declaration?.name ? { name: declaration.name } : {}),
+    ...(declaration?.title !== undefined ? { title: declaration.title } : {}),
+    name: declaration?.name ?? seriesName(series),
     selectors: choroplethSelectors(containerId, series.index, data.length),
     axes: {
       x: { label: CHOROPLETH_REGION_AXIS },
@@ -6202,7 +6221,7 @@ function convertHistogramSeries(
   return {
     id: String(series.index),
     type: TraceType.HISTOGRAM,
-    title: series.name || undefined,
+    name: seriesName(series),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: histogramSelector(containerId, series.index),
     // The value axis is `yAxis` in both orientations, so the labels are
@@ -6263,7 +6282,7 @@ function convertCandlestickSeries(
   return {
     id: String(series.index),
     type: TraceType.CANDLESTICK,
-    title: series.name || undefined,
+    name: seriesName(series),
     selectors: candlestickSelectors(containerId, series.index, data.length),
     axes: {
       x: getAxisLabel(series, 'x'),

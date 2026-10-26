@@ -94,7 +94,7 @@ describe('highcharts variwide', () => {
     const layer = highchartsToMaidr(variwideChart()).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.MOSAIC);
-    expect(layer.title).toBe('GDP');
+    expect(layer.name).toBe('GDP');
     expect(layer.orientation).toBe(Orientation.VERTICAL);
   });
 

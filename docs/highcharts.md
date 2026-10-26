@@ -63,6 +63,8 @@ The adapter pipeline runs in three short steps:
 2. **Locate** — Scoped CSS selectors are generated per chart container so MAIDR can highlight the correct SVG element for the active data point.
 3. **Sync (optional)** — `createHighchartsSync(chart)` watches the chart for the highlight MAIDR draws as the reader moves and points Highcharts' native `tooltip.refresh()` and `point.setState('hover')` at the same point, so the chart's own tooltip follows the reader.
 
+The chart's title is `chart.title`. A series' `name` names its layer, which Page Up and Page Down announce; it is never read as the chart's title.
+
 ## Installation
 
 ### CDN (script tags — works on `file://` and any web server)
@@ -331,7 +333,7 @@ const maidrData = maidrHighcharts.highchartsGridToMaidr(charts, {
 document.getElementById('wrapper').setAttribute('maidr-data', JSON.stringify(maidrData));
 ```
 
-Pass charts in visual reading order (top-left first). A 2D array (`Chart[][]`) maps rows 1:1 instead of using `layout`. Each chart's own title becomes its panel name. If a member chart itself contains multiple panes (stacked `yAxis` bands), the same pane detection as `highchartsToMaidr()` applies: each pane becomes its own cell, flattened into that chart's grid row (a console warning notes the flattening). See [highcharts-grid.html](examples/highcharts-grid.html) for a full example.
+Pass charts in visual reading order (top-left first). A 2D array (`Chart[][]`) maps rows 1:1 instead of using `layout`. Each chart's own title becomes its panel name, and a chart with no title is named after its first series. If a member chart itself contains multiple panes (stacked `yAxis` bands), the same pane detection as `highchartsToMaidr()` applies: each pane becomes its own cell, flattened into that chart's grid row (a console warning notes the flattening). See [highcharts-grid.html](examples/highcharts-grid.html) for a full example.
 
 ## API Reference
 

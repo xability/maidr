@@ -109,7 +109,7 @@ describe('highcharts pareto', () => {
     const layer = curve(paretoChart(false));
 
     expect(layer.type).toBe(TraceType.LINE);
-    expect(layer.title).toBe('Pareto');
+    expect(layer.name).toBe('Pareto');
   });
 
   it('carries the cumulative percentages, not a running total', () => {

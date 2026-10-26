@@ -85,7 +85,7 @@ describe('highcharts timeline', () => {
 
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.SCATTER);
-    expect(layers[0].title).toBe('Missions');
+    expect(layers[0].name).toBe('Missions');
   });
 
   it('names its chart a timeline, with a guide to one, rather than a scatter plot', () => {

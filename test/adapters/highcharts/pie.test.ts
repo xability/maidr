@@ -23,7 +23,7 @@ describe('highcharts pie series', () => {
     const layer = result.subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.PIE);
-    expect(layer.title).toBe('Browsers');
+    expect(layer.name).toBe('Browsers');
     // Highcharts draws the wedges in data order, so no reordering to undo.
     expect(layer.data as PiePoint[]).toEqual([
       { x: 'Chrome', y: 61.4 },

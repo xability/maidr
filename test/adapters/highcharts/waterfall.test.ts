@@ -32,7 +32,7 @@ describe('highcharts waterfall series', () => {
     const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.WATERFALL);
-    expect(layer.title).toBe('Cash');
+    expect(layer.name).toBe('Cash');
     // Highcharts declares only the contribution; the absolute positions the
     // bar floats between are accumulated here.
     expect(layer.data as WaterfallPoint[]).toEqual([
