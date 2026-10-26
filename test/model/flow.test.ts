@@ -565,6 +565,21 @@ describe('the description answers what tracing one ribbon cannot', () => {
     expect(stat('Total of all flows', circle)).toBe(6);
   });
 
+  test('a cyclic chart with a source is totalled by its ribbons too', () => {
+    // The source sends 5 into a ring that carries 3, 2 and 1 round it. The
+    // flows do not pass through once, so the source's 5 is not the total:
+    // that was the Highcharts dependency wheel's 63 of 235.
+    const tethered: FlowPoint[] = [
+      { source: 'Source', target: 'A', value: 5 },
+      { source: 'A', target: 'B', value: 3 },
+      { source: 'B', target: 'C', value: 2 },
+      { source: 'C', target: 'A', value: 1 },
+    ];
+
+    expect(stat('Total flow', tethered)).toBeUndefined();
+    expect(stat('Total of all flows', tethered)).toBe(11);
+  });
+
   test('names the two ends of the chart and the node the ribbons meet at', () => {
     // Coal and Gas feed it; Losses, Homes and Industry are where it stops.
     // The busiest node is what the pitch is scaled against and what a reader

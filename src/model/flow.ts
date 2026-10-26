@@ -1011,12 +1011,19 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     // construction -- and there the ribbons are disjoint, so their sum is the
     // total and the source reading is 0. Taking the source sum unconditionally
     // dropped the stat on the one layout whose ribbons are the whole chart.
-    const total = sources.length > 0
+    //
+    // Flows that form a cycle -- one stage -- do not pass through once from
+    // their sources even where there are sources: they go round. So the
+    // ribbons' sum is the total there too. Taken from the sources, a chord
+    // diagram with one node that only sends reported that node's outflow
+    // alone, 63 of the 235 its seven ribbons carry.
+    const throughSources = sources.length > 0 && this.stages.length > 1;
+    const total = throughSources
       ? sources.reduce((sum, node) => sum + node.outTotal, 0)
       : this.nodes.reduce((sum, node) => sum + node.outTotal, 0);
     if (total > 0) {
       stats.push({
-        label: t(sources.length > 0 ? 'model.statTotalFlow' : 'model.statTotalOfAllFlows'),
+        label: t(throughSources ? 'model.statTotalFlow' : 'model.statTotalOfAllFlows'),
         value: total,
       });
     }
