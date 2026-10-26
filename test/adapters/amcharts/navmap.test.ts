@@ -583,8 +583,8 @@ describe('buildNavigationMap (flow and network)', () => {
    *
    * The cross-links are read off the rows, which is where a force-directed
    * graph keeps everything that is not the tree — and these rows ARE the whole
-   * graph, since amCharts hands the walk one container root whose children are
-   * therefore all top level.
+   * graph: the root is a container the series hides with `topDepth: 1`, so its
+   * children are all top level and amCharts draws no line to it.
    */
   const PEOPLE: FakeNode = {
     category: 'Root',
@@ -761,7 +761,7 @@ describe('buildNavigationMap (flow and network)', () => {
     const series = fakeForceDirectedSeries(
       'People',
       PEOPLE,
-      { linkWithField: 'linkWith' },
+      { linkWithField: 'linkWith', topDepth: 1 },
       drawn,
     );
     const { navMap, layer } = panelFor(series);
@@ -789,7 +789,7 @@ describe('buildNavigationMap (flow and network)', () => {
     const series = fakeForceDirectedSeries(
       'People',
       PEOPLE,
-      { linkWithField: 'linkWith' },
+      { linkWithField: 'linkWith', topDepth: 1 },
       drawn,
     );
     const chart = fakeChart({ series: [series] });
@@ -816,7 +816,7 @@ describe('buildNavigationMap (flow and network)', () => {
     const series = fakeForceDirectedSeries(
       'People',
       PEOPLE,
-      { linkWithField: 'linkWith' },
+      { linkWithField: 'linkWith', topDepth: 1 },
       drawn,
     );
     const { navMap, layer } = panelFor(series);
