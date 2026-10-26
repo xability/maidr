@@ -150,6 +150,14 @@ describe('the text names the position and its rank', () => {
     expect(state.text.asides).toEqual([{ label: 'Observation', value: '3 of 12' }]);
   });
 
+  test('the state carries the rank for the position key, which the pan and braille cannot give', () => {
+    // The pan is the position on the axis and the braille cell the bin, so
+    // the observation's place in the walk travels on the state itself.
+    const state = stateAt(createLayer({ axes: { x: { label: 'Seconds', min: 0, max: 10 } } }), 2);
+
+    expect(state.rugPosition).toEqual({ index: 2, count: 12 });
+  });
+
   test('a horizontal rug reads its position off y and announces the y axis', () => {
     const state = stateAt(createLayer({
       orientation: Orientation.HORIZONTAL,

@@ -1,7 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, RugPoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, AxisType, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { t } from '@util/i18n';
@@ -243,6 +243,24 @@ export class RugTrace extends AbstractTrace {
     }
 
     return [this.order.map(index => elements[index])];
+  }
+
+  /**
+   * The trace state, with which observation the cursor is on alongside it.
+   *
+   * The position key read the pan, which follows where the tick is drawn, so
+   * the first of twelve ticks, at 1.2 on an axis running to 10, was
+   * "Position is 1.12 of 2". The braille cell is no better a source: it is
+   * the bin the tick falls in, and several ticks share one.
+   *
+   * @returns The trace state
+   */
+  public override get state(): TraceState {
+    const state = super.state;
+    if (state.empty) {
+      return state;
+    }
+    return { ...state, rugPosition: { index: this.col, count: this.positions.length } };
   }
 
   protected get audio(): AudioState {

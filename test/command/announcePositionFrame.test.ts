@@ -156,6 +156,29 @@ describe('a ROC curve', () => {
   });
 });
 
+describe('a rug', () => {
+  /**
+   * Four observations listed out of order on an axis from 0 to 10. They are
+   * walked ascending -- 1.2, 1.5, 2.2, 9.4 -- and two of them share the first
+   * 2.5-second bin of the braille strip with a third.
+   */
+  const LATENCY = {
+    id: 'rug',
+    type: TraceType.RUG,
+    axes: { x: { label: 'Seconds', min: 0, max: 10, tickStep: 2.5 } },
+    data: [{ x: 2.2 }, { x: 1.5 }, { x: 9.4 }, { x: 1.2 }],
+  } as unknown as MaidrLayer;
+
+  test('is at an observation of its observations, not at the fraction of the axis', () => {
+    // "Position is 1.12 of 2" before: the pan's 1.2 / 10 of the way along.
+    expect(announce(at(LATENCY, 0, 0))).toBe('Position is 1 of 4');
+    // The second and third share a braille cell; the position does not.
+    expect(announce(at(LATENCY, 0, 2))).toBe('Position is 3 of 4');
+    expect(announce(at(LATENCY, 0, 3))).toBe('Position is 4 of 4');
+    expect(announce(at(LATENCY, 0, 1), 'terse')).toBe('33%');
+  });
+});
+
 describe('a sankey', () => {
   /**
    * Mermaid's example: three sources, a node they feed, and three sinks.
