@@ -1487,6 +1487,32 @@ function rowsCarryFields(
 }
 
 /**
+ * The columns a layer reads from its rows under the names its encoding gives
+ * them.
+ *
+ * Every positional and colour channel bound to a field, unless it aggregates,
+ * bins or time-units the field: Vega-Lite writes those results to a column of
+ * another name (`sum_d`, `bin_maxbins_10_v`, `month_date`), so the rows need
+ * not carry the field's own. A nested field (`a.b`, `a[0]`) is left out too,
+ * since it names a path into a row rather than one of its keys.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns The columns the layer's rows have to carry
+ */
+function columnsReadAsIs(encoding: VegaLiteEncoding): string[] {
+  const columns: string[] = [];
+  for (const channel of [encoding.x, encoding.y, encoding.color, encoding.fill]) {
+    const field = channel?.field;
+    if (typeof field !== 'string' || field.length === 0 || /[.[\]\\]/.test(field))
+      continue;
+    if (channel?.aggregate != null || channel?.bin || (channel as { timeUnit?: unknown }).timeUnit != null)
+      continue;
+    columns.push(field);
+  }
+  return columns;
+}
+
+/**
  * Resolve the data array for a layer.
  *
  * Tries the compiled Vega view first (more accurate since it includes
@@ -3944,6 +3970,12 @@ function convertLayerSpec(
 
   // Faceted callers pre-filter the resolved dataset down to one panel's
   // rows and pass them here, bypassing dataset-name resolution.
+  //
+  // A concat or repeat child's mark datasets are scoped to its group, out of
+  // `view.data()`'s reach, so its rows are found by guessing pipeline names
+  // from its position, and a child whose sibling compiles to several tables
+  // -- a box plot's eight -- guesses one of the sibling's. Requiring the
+  // columns the child reads skips those.
   const rows = rowsOverride ?? resolveData(
     spec,
     index,
@@ -3951,7 +3983,7 @@ function convertLayerSpec(
     layered ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks` : undefined,
     folded && traceType === TraceType.PARALLEL
       ? [folded.keyColumn, folded.valueColumn]
-      : undefined,
+      : markGroupPrefix ? columnsReadAsIs(encoding) : undefined,
   );
 
   let data: MaidrLayer['data'];
