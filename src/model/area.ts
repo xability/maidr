@@ -1,4 +1,5 @@
 import type { LinePoint, MaidrLayer, StepDirection } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import { TraceType } from '@type/grammar';
@@ -193,6 +194,11 @@ function isMeasured(value: number): boolean {
  * or the already-accumulated edge, and asking every adapter to normalise that
  * would put the same arithmetic in each of them. Summing the series MAIDR was
  * given keeps one definition in one place.
+ *
+ * The same two magnitudes are why a stack is not walked as a line is. Up and
+ * Down step through the bands in stack order ({@link findVerticalTarget}),
+ * since a band's value says how thick it is and not where it is drawn, and
+ * two bands of one value are never taken to meet ({@link seriesCanMeet}).
  */
 export class AreaTrace extends LineTrace {
   private readonly variant: AreaVariant;
@@ -376,6 +382,85 @@ export class AreaTrace extends LineTrace {
       }
     }
     return totals;
+  }
+
+  /**
+   * The band stacked on top of the cursor's, or the one underneath it.
+   *
+   * A stacked layer lists its bands from the bottom of the stack up, as a
+   * stacked bar lists its segments, so the next series is the band drawn on
+   * top. A line moves to the series with the next higher value, because a
+   * line is drawn at its value; a band is drawn on top of the bands below it,
+   * and its value is its thickness. Read the line's way, Up from a bottom band
+   * thicker than the band above it said "No more data to display", Down went
+   * up the drawing, and which way a key went changed from one x to the next.
+   *
+   * A band with no point at this x is passed over; a gap at it is landed on
+   * and announced as missing, as Left and Right land on gaps. An unstacked
+   * area's bands are drawn at their values and move as a line's series do.
+   *
+   * @param direction - UPWARD for the band on top, DOWNWARD for the one underneath
+   * @returns The row and column to move to, or null past the top or bottom band
+   */
+  protected override findVerticalTarget(
+    direction: 'UPWARD' | 'DOWNWARD',
+  ): { row: number; col: number } | null {
+    if (this.variant === 'area') {
+      return super.findVerticalTarget(direction);
+    }
+    const current = this.points[this.row]?.[this.col];
+    if (current === undefined) {
+      return null;
+    }
+    const step = direction === 'UPWARD' ? 1 : -1;
+    for (let row = this.row + step; row >= 0 && row < this.points.length; row += step) {
+      const col = this.findColumnByXValue(row, current.x);
+      if (col !== -1) {
+        return { row, col };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Control + Up and Down go to the top and the bottom band at this x.
+   *
+   * The line's extremes are the highest and lowest values at the x, which on
+   * a stack name a band in the middle as often as not, and from that "top"
+   * band Up could still move. Left and right are the line's.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (this.variant === 'area' || (direction !== 'UPWARD' && direction !== 'DOWNWARD')) {
+      return super.moveToExtreme(direction);
+    }
+    if (this.isInitialEntry) {
+      this.enterTrace();
+    }
+    if (this.points[this.row]?.[this.col] === undefined) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    for (let target = this.findVerticalTarget(direction); target !== null; target = this.findVerticalTarget(direction)) {
+      this.row = target.row;
+      this.col = target.col;
+    }
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * Stacked bands never meet: each is drawn on top of the bands below it, so
+   * two of one value are one band on top of the other, and no band crosses
+   * another. An unstacked area's bands are drawn at their values and meet
+   * where lines would.
+   *
+   * @returns True only for an unstacked area
+   */
+  protected override get seriesCanMeet(): boolean {
+    return this.variant === 'area';
   }
 
   /**

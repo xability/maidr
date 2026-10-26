@@ -2634,6 +2634,9 @@ export enum TraceType {
    * such a layer as a {@link TraceType.LINE} announces one number where the
    * chart draws two, with nothing to say which one was heard — which is why
    * this is a type of its own rather than a line with a fill.
+   *
+   * The series are listed from the bottom of the stack up: the first is the
+   * bottom band, and Up moves to the next, the band drawn on top of it.
    */
   STACKED_AREA = 'stacked_area',
   STEP = 'step',

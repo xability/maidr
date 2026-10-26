@@ -978,13 +978,29 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
+   * Whether two series meet where their values are equal.
+   *
+   * True of lines, which are drawn at their own values: two lines with one
+   * value at an x share that point of the drawing, and two whose values pass
+   * each other cross. A subclass whose series are drawn somewhere other than
+   * at their values -- a stacked area's band sits on the bands below it --
+   * answers false, and then no point is announced or sounded as an
+   * intersection, and neither the extrema list nor the rotor offers one.
+   *
+   * @returns True when series meet where their values do
+   */
+  protected get seriesCanMeet(): boolean {
+    return true;
+  }
+
+  /**
    * Helper function to find all lines that intersect at the current (x, y) position
    * @returns Array of AudioState for all intersecting lines
    */
   private findIntersections(): AudioState[] {
     // A crossing requires at least two lines; single-line charts can never
     // produce one, so skip the O(points) scan entirely.
-    if (this.points.length < 2) {
+    if (this.points.length < 2 || !this.seriesCanMeet) {
       return [];
     }
 
@@ -2016,7 +2032,7 @@ export class LineTrace extends AbstractTrace {
     }
 
     // Only check for intersections if there are multiple lines
-    if (this.points.length <= 1) {
+    if (this.points.length <= 1 || !this.seriesCanMeet) {
       return [];
     }
 
@@ -2514,10 +2530,11 @@ export class LineTrace extends AbstractTrace {
    * Intersection navigation mode is available only when the plot has
    * multiple lines. `points` is a 2-D array whose outer dimension is the line
    * index, so `length > 1` means at least two lines exist — a prerequisite for
-   * any crossing between sampled series to be possible.
+   * any crossing between sampled series to be possible — and only where
+   * series meet at their values at all ({@link seriesCanMeet}).
    */
   public override supportsIntersectionMode(): boolean {
-    return this.points.length > 1;
+    return this.points.length > 1 && this.seriesCanMeet;
   }
 
   /**

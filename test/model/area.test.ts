@@ -1,5 +1,5 @@
 import type { LinePoint, MaidrLayer, StepDirection } from '@type/grammar';
-import type { NonEmptyTraceState } from '@type/state';
+import type { NonEmptyTraceState, TraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { AreaTrace } from '@model/area';
 import { TraceFactory } from '@model/factory';
@@ -37,6 +37,16 @@ const LATE_START: LinePoint[] = [
 ];
 
 /**
+ * A third, thin band, so the top and the bottom of a stack are not also the
+ * bands beside the cursor.
+ */
+const LICENCES: LinePoint[] = [
+  { x: 'Q1', y: 1, z: 'Licences' },
+  { x: 'Q2', y: 2, z: 'Licences' },
+  { x: 'Q3', y: 3, z: 'Licences' },
+];
+
+/**
  * Create a minimal area layer for model-only tests.
  * @param type The area variant to author
  * @param data Points, nested one array per series
@@ -66,6 +76,15 @@ function nonEmptyState(trace: AreaTrace): NonEmptyTraceState {
     throw new Error('Expected a non-empty trace state');
   }
   return state;
+}
+
+/**
+ * Which band the cursor is on, as the announcement names it.
+ * @param trace The trace to read
+ * @returns The band's name, or whatever stands in its place
+ */
+function bandAt(trace: AreaTrace): unknown {
+  return nonEmptyState(trace).text.z?.value;
 }
 
 /**
@@ -289,6 +308,158 @@ describe('stacked area', () => {
     expect(text.stack?.value).toBe(0);
     // 5 / 0 is Infinity; announcing "Infinity% of it" is worse than silence.
     expect(text.stack?.share).toBeUndefined();
+  });
+});
+
+describe('stacked area: up and down follow the stack', () => {
+  // The first series is the bottom band and each one after it is drawn on top
+  // of the one before, as a stacked bar's segments are. Ranked by their own
+  // values, as a line's series are, Up from the bottom band at Q1 -- 10 under
+  // 5 -- said "No more data to display" with a band drawn above it, Down went
+  // up the drawing to that band, and at Q3 -- 30 under 70 -- the same keys
+  // went the other way.
+
+  test('up moves to the band stacked on top, whatever the two values are', () => {
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    trace.moveOnce('UPWARD');
+
+    const moved = trace.moveOnce('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(bandAt(trace)).toBe('Services');
+    expect(trace.isMovable('UPWARD')).toBe(false);
+  });
+
+  test('down moves to the band underneath, and stops at the bottom band', () => {
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    trace.moveToIndex(1, 0);
+
+    const moved = trace.moveOnce('DOWNWARD');
+
+    expect(moved).toBe(true);
+    expect(bandAt(trace)).toBe('Subscriptions');
+    expect(trace.isMovable('DOWNWARD')).toBe(false);
+  });
+
+  test('moves the same way at every x', () => {
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+
+    const upFrom = (col: number): unknown => {
+      trace.moveToIndex(0, col);
+      trace.moveOnce('UPWARD');
+      return bandAt(trace);
+    };
+
+    expect([upFrom(0), upFrom(1), upFrom(2)]).toEqual(['Services', 'Services', 'Services']);
+  });
+
+  test('control and up reach the top band, control and down the bottom band', () => {
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, SERVICES, LICENCES]),
+    ) as AreaTrace;
+    trace.moveOnce('UPWARD');
+
+    trace.moveToExtreme('UPWARD');
+    const top = bandAt(trace);
+    trace.moveToExtreme('DOWNWARD');
+    const bottom = bandAt(trace);
+
+    expect(top).toBe('Licences');
+    expect(bottom).toBe('Subscriptions');
+  });
+
+  test('a 100% stacked area moves the same way', () => {
+    // Q2 is 60 under 40: Up has to reach the smaller share drawn above.
+    const normalized: LinePoint[][] = [
+      [{ x: 'Q1', y: 40, z: 'Desktop' }, { x: 'Q2', y: 60, z: 'Desktop' }],
+      [{ x: 'Q1', y: 60, z: 'Mobile' }, { x: 'Q2', y: 40, z: 'Mobile' }],
+    ];
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.NORMALIZED_AREA, normalized),
+    ) as AreaTrace;
+    trace.moveToIndex(0, 1);
+
+    const moved = trace.moveOnce('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(bandAt(trace)).toBe('Mobile');
+  });
+
+  test('an area whose bands overlap still moves by value', () => {
+    // Unstacked bands are drawn at their own values, as lines are, so the
+    // higher value is the one drawn higher.
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    trace.moveOnce('UPWARD');
+
+    expect(trace.isMovable('UPWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(bandAt(trace)).toBe('Services');
+  });
+});
+
+describe('stacked area: two bands of the same value are two bands', () => {
+  // At Q2 both bands are 20, but the lower one is drawn up to 20 and the upper
+  // one up to 40: they share no point of the drawing, and stacked bands never
+  // cross. Read as lines, the point was announced as "intersection at
+  // (Subscriptions, Services)" in place of the band's name.
+
+  test('names the band the cursor is on', () => {
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    moveToColumn(trace, 1);
+
+    const lower = bandAt(trace);
+    trace.moveOnce('UPWARD');
+    const upper = bandAt(trace);
+
+    expect(lower).toBe('Subscriptions');
+    expect(upper).toBe('Services');
+  });
+
+  test('plays the band\'s own tone rather than a chord', () => {
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    const sent: TraceState[] = [];
+    trace.addObserver({ update: state => sent.push(state as TraceState) });
+    trace.moveOnce('UPWARD');
+
+    trace.moveOnce('FORWARD');
+
+    const landed = sent.at(-1);
+    expect(landed?.empty).toBe(false);
+    expect(landed && !landed.empty ? landed.intersections ?? null : 'empty').toBeNull();
+  });
+
+  test('offers no crossing to go to, and no crossing mode', () => {
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    trace.moveOnce('UPWARD');
+
+    const crossings = trace.getExtremaTargets().filter(target => target.type === 'intersection');
+
+    expect(crossings).toEqual([]);
+    expect(trace.supportsIntersectionMode()).toBe(false);
+  });
+
+  test('an area whose bands overlap still meets where its values do', () => {
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    moveToColumn(trace, 1);
+
+    expect(bandAt(trace)).not.toBe('Subscriptions');
+    expect(trace.supportsIntersectionMode()).toBe(true);
   });
 });
 
