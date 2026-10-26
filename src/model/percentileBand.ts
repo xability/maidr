@@ -1,6 +1,6 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer, PercentileBandPoint } from '@type/grammar';
-import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
+import type { BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { defaultLabelFormat, FormatUtil } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
@@ -185,7 +185,11 @@ export class PercentileBandTrace extends LineTrace {
    */
   private readonly referenceBand: Band | null;
 
-  /** The range every quantile is pitched and brailled against. */
+  /**
+   * The range every quantile is brailled against. They are pitched against
+   * the same range, which is the one {@link LineTrace} pitches every series
+   * of a layer against.
+   */
   private readonly bandMin: number;
   private readonly bandMax: number;
 
@@ -366,11 +370,6 @@ export class PercentileBandTrace extends LineTrace {
       }
     }
     return null;
-  }
-
-  protected override get audio(): AudioState {
-    const base = super.audio;
-    return { ...base, freq: { ...base.freq, min: this.bandMin, max: this.bandMax } };
   }
 
   protected override get braille(): BrailleState {

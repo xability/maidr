@@ -118,8 +118,15 @@ export class LineTrace extends AbstractTrace {
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
 
+  /**
+   * Each series' own lowest and highest measured value, which `[` and `]`
+   * jump to within the series the cursor is on.
+   */
   protected readonly min: number[];
   protected readonly max: number[];
+
+  /** The lowest and highest measured value of the whole layer; see {@link valueRange}. */
+  private readonly layerRange: { readonly min: number; readonly max: number };
 
   // Track previous row for intersection label ordering
   private previousRow: number | null = null;
@@ -201,6 +208,10 @@ export class LineTrace extends AbstractTrace {
     // whole series rather than the one gap.
     this.min = this.lineValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
     this.max = this.lineValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
+    this.layerRange = {
+      min: MathUtil.safeMin(this.min),
+      max: MathUtil.safeMax(this.max),
+    };
 
     // `layer.selectors` is `string | string[] | ...` per the schema. When a
     // single-line binder (e.g. the D3 smooth/line binders) emits a bare
@@ -764,11 +775,33 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
+  /**
+   * The range every series is pitched against: the lowest and the highest
+   * measured value of the whole layer.
+   *
+   * One range for the layer, as a bar layer has one, because the series of a
+   * line chart are drawn against one value axis. Pitched each against its own
+   * range, every line's own lowest point played the bottom note and its own
+   * highest the top one, so a smaller value on one line could sound higher
+   * than a larger value on another, and unequal values on two lines played
+   * the same note.
+   *
+   * The tone at the cursor and the chord at a point several series share both
+   * read it, so a subclass heard on another register overrides this one
+   * getter and both follow.
+   *
+   * @returns The lowest and highest value of the register
+   */
+  protected get valueRange(): { readonly min: number; readonly max: number } {
+    return this.layerRange;
+  }
+
   protected get audio(): AudioState {
+    const { min, max } = this.valueRange;
     return {
       freq: {
-        min: this.min[this.row],
-        max: this.max[this.row],
+        min,
+        max,
         raw: this.lineValues[this.row][this.col],
       },
       panning: this.panningFor(this.row, this.col),
@@ -1024,14 +1057,19 @@ export class LineTrace extends AbstractTrace {
       return intersections;
     }
 
+    // Every tone of the chord on the register the cursor's own tone is heard
+    // on. Each series' own range made the shared value a different note per
+    // series, and the chord was then played at the note of whichever series
+    // came first.
+    const { min, max } = this.valueRange;
     for (let r = 0; r < this.points.length; r++) {
       const c = this.findColumnByPoint(r, currentX, currentY);
       if (c !== -1) {
         intersections.push(
           {
             freq: {
-              min: this.min[r],
-              max: this.max[r],
+              min,
+              max,
               raw: toBarValue(currentY),
             },
             // The cursor's own cell, not series `r`'s -- an intersection is

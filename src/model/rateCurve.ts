@@ -26,12 +26,11 @@ export type RateCurvePoint = LinePoint & {
  * highlighting come from {@link LineTrace}. What this class changes is what a
  * rate axis changes, and is the same whichever pair of rates is drawn:
  *
- * **The pitch is on the unit interval, for every curve.** A line scales each
- * series' pitch to its own range, so two classifiers -- one excellent, one
- * barely better than chance -- were given the same sweep from the lowest note
- * to the highest. Here the register is the rate itself, so curves are
+ * **The pitch is on the unit interval, for every curve.** A line's register
+ * is the range its own values span, so where a rate sounds depends on what
+ * else the chart holds. Here the register is the rate itself, so curves are
  * comparable by ear, and a reference drawn at a fixed rate (a baseline) is
- * heard at the same pitch on every curve.
+ * heard at the same pitch on every curve and every chart.
  *
  * **The pan follows the x rate.** A curve is sampled wherever its thresholds
  * fall, and they bunch where the curve bends, so panning by column index put
@@ -49,7 +48,7 @@ export abstract class RateCurveTrace extends LineTrace {
   /** The curves, as the producer listed them. */
   protected readonly curves: RateCurvePoint[][];
 
-  /** The register the pitch is read against; see {@link RateCurveTrace.audio}. */
+  /** The register the pitch is read against; see {@link RateCurveTrace.valueRange}. */
   protected readonly rateMin: number;
   protected readonly rateMax: number;
 
@@ -123,12 +122,15 @@ export abstract class RateCurveTrace extends LineTrace {
     return typeof threshold === 'number' && Number.isFinite(threshold) ? threshold : undefined;
   }
 
-  protected override get audio(): AudioState {
-    const base = super.audio;
-    return {
-      ...base,
-      freq: { ...base.freq, min: this.rateMin, max: this.rateMax },
-    };
+  /**
+   * The unit interval, grown to hold the data, as the register of every
+   * curve; the tone at the cursor and the chord at a point two curves share
+   * are both heard on it.
+   *
+   * @returns The lowest and highest rate of the register
+   */
+  protected override get valueRange(): { readonly min: number; readonly max: number } {
+    return { min: this.rateMin, max: this.rateMax };
   }
 
   /**

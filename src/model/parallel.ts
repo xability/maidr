@@ -270,10 +270,11 @@ export class ParallelTrace extends LineTrace {
   protected override get audio(): AudioState {
     const base = super.audio;
 
-    // `LineTrace` scales against the CURRENT ROW's extent, which is right for
-    // a series sampling one quantity and wrong here: a row spans every axis,
-    // so its extent is the range of a horsepower figure and a fuel-economy
-    // figure taken together, which is not a range of anything.
+    // `LineTrace` scales against the WHOLE LAYER's extent, which is right
+    // when every series samples one quantity on one axis and wrong here: the
+    // layer spans every axis, so its extent is the range of a horsepower
+    // figure and a fuel-economy figure taken together, which is not a range
+    // of anything.
     return {
       ...base,
       freq: {
