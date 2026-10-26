@@ -114,7 +114,8 @@ describe('plotly extractor', () => {
       const layer = subplot.layers[0];
       expect(layer.id).toBe('0');
       expect(layer.type).toBe(TraceType.BAR);
-      expect(layer.title).toBe('Tips');
+      expect(layer.name).toBe('Tips');
+      expect(layer.title).toBeUndefined();
       // Scoped to the trace's own `barlayer` group rather than to the panel,
       // so a second bar-layer trace on the same panel cannot be named too
       // (#993). A one-group panel like this one resolves the same either way.
@@ -122,6 +123,102 @@ describe('plotly extractor', () => {
         .toBe('.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) .point > path');
       expect(layer.axes?.x?.label).toBe('Day');
       expect(layer.axes?.y?.label).toBe('Count');
+    });
+  });
+
+  describe('layer names', () => {
+    it('names a trace in its layer\'s name and leaves the title to the chart', () => {
+      // MAIDR reads a layer's title as the chart's: the bar chart titled
+      // "Number of Tips by Day" was announced as "Title is Tips by Day".
+      const gd = createGraphDiv({
+        traces: [{ type: 'bar', x: ['Thu', 'Fri'], y: [62, 19], name: 'Tips by Day' }],
+        layout: {
+          title: { text: 'Number of Tips by Day' },
+          xaxis: { domain: [0, 1] },
+          yaxis: { domain: [0, 1] },
+        },
+      });
+
+      const maidr = extractPlotlyData(gd)!;
+      const layer = maidr.subplots[0][0].layers[0];
+
+      expect(maidr.title).toBe('Number of Tips by Day');
+      expect(layer.title).toBeUndefined();
+      expect(layer.name).toBe('Tips by Day');
+    });
+
+    it('takes no name from the one plotly gives an unnamed trace when no legend shows it', () => {
+      // `_fullData` names an unnamed trace "trace 0"; the trace the page
+      // wrote, kept as `_input`, has no name, and the legend is hidden.
+      const gd = createGraphDiv({
+        traces: [
+          scatterTrace({ name: 'trace 0', _input: {}, showlegend: true }),
+          scatterTrace({ name: 'Sales', _input: { name: 'Sales' }, showlegend: true }),
+        ],
+        layout: { title: { text: 'Activity' }, showlegend: false, xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots[0][0].layers;
+
+      expect(layers.map(layer => [layer.title, layer.name])).toEqual([
+        [undefined, undefined],
+        [undefined, 'Sales'],
+      ]);
+    });
+
+    it('names an unnamed trace by the name plotly\'s legend shows for it', () => {
+      // With two traces Plotly draws its legend, and the unnamed one is listed
+      // there as "trace 0": a layer switch says the name the chart shows.
+      const gd = createGraphDiv({
+        traces: [
+          scatterTrace({ name: 'trace 0', _input: {}, showlegend: true }),
+          scatterTrace({ name: 'Sales', _input: { name: 'Sales' }, showlegend: true }),
+        ],
+        layout: { title: { text: 'Activity' }, showlegend: true, xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots[0][0].layers;
+
+      expect(layers.map(layer => [layer.title, layer.name])).toEqual([
+        [undefined, 'trace 0'],
+        [undefined, 'Sales'],
+      ]);
+    });
+
+    it.each<[string, PlotlyTrace, PlotlyCalcData[][] | undefined]>([
+      ['a trace the legend leaves out', scatterTrace({ name: 'trace 0', _input: {}, showlegend: false }), undefined],
+      ['a pie, whose legend lists its slices', {
+        type: 'pie',
+        name: 'trace 0',
+        _input: {},
+        showlegend: true,
+        labels: ['Apples', 'Bananas'],
+        values: [30, 50],
+        domain: { x: [0, 1], y: [0, 1] },
+      }, [[{ label: 'Apples', v: 30 }, { label: 'Bananas', v: 50 }]]],
+    ])('leaves %s unnamed though the legend is shown', (_case, trace, calcdata) => {
+      const gd = createGraphDiv({
+        traces: [trace],
+        layout: { title: { text: 'Activity' }, showlegend: true, xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+        calcdata,
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots.flat().flatMap(subplot => subplot.layers);
+
+      expect(layers.map(layer => layer.name)).toEqual([undefined]);
+    });
+
+    it('names a trace by the text plotly made of a name written as a number', () => {
+      // The page wrote the number 2024; `_fullData` and the legend have the
+      // string "2024", which is what a layer switch should say.
+      const gd = createGraphDiv({
+        traces: [scatterTrace({ name: '2024', _input: { name: 2024 } })],
+        layout: { title: { text: 'Visits' }, xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      const layer = extractPlotlyData(gd)!.subplots[0][0].layers[0];
+
+      expect(layer.name).toBe('2024');
     });
   });
 
@@ -180,7 +277,7 @@ describe('plotly extractor', () => {
       const layer = onlyPieLayer(gd);
 
       expect(layer.type).toBe(TraceType.PIE);
-      expect(layer.title).toBe('Fruit sales');
+      expect(layer.name).toBe('Fruit sales');
       // Drawn order, not authored order: plotly sorts a pie largest-first, and
       // the wedge elements follow suit.
       expect(layer.data as PiePoint[]).toEqual([
@@ -649,6 +746,32 @@ describe('plotly extractor', () => {
       expect(maidr!.subplots).toHaveLength(2);
       expect(maidr!.subplots[0].map(s => s.layers[0].title)).toEqual(['A', 'B']);
       expect(maidr!.subplots[1].map(s => s.layers[0].title)).toEqual(['C']);
+    });
+
+    it('names a panel after its first trace, and no other layer of it', () => {
+      // MAIDR reads a subplot's name from its first layer's title. A second
+      // trace's name names its own layer, and plotly's "trace 2" for an
+      // unnamed trace names nothing.
+      const gd = createGraphDiv({
+        traces: [
+          scatterTrace({ name: 'A' }),
+          scatterTrace({ name: 'A2' }),
+          scatterTrace({ name: 'trace 2', _input: {}, xaxis: 'x2', yaxis: 'y2' }),
+          scatterTrace({ name: 'C', xaxis: 'x3', yaxis: 'y3' }),
+        ],
+        layout: twoByTwoLayout(),
+        bgRects: [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 0, y: 300 }],
+      });
+
+      const maidr = extractPlotlyData(gd)!;
+      const layers = maidr.subplots.flat().map(subplot =>
+        subplot.layers.map(layer => [layer.title, layer.name]));
+
+      expect(layers).toEqual([
+        [['A', 'A'], [undefined, 'A2']],
+        [[undefined, undefined]],
+        [['C', 'C']],
+      ]);
     });
 
     it('falls back to a single row when layout.grid contradicts the domains', () => {
@@ -2559,7 +2682,7 @@ describe('plotly extractor', () => {
       }));
 
       expect(layer.type).toBe(TraceType.FUNNEL);
-      expect(layer.title).toBe('Conversion');
+      expect(layer.name).toBe('Conversion');
       expect(layer.orientation).toBe(Orientation.HORIZONTAL);
       // The count sits on the axis it was drawn against, which is where
       // AbstractBarPlot reads a horizontal bar's value from.
@@ -2888,7 +3011,7 @@ describe('plotly extractor', () => {
       }));
 
       expect(layer.type).toBe(TraceType.WATERFALL);
-      expect(layer.title).toBe('Revenue');
+      expect(layer.name).toBe('Revenue');
       expect(layer.data).toEqual([
         { x: 'Opening', start: 0, end: 1000, delta: 1000, kind: 'total' },
         { x: 'Sales', start: 1000, end: 1400, delta: 400, kind: 'increase' },
@@ -3010,7 +3133,7 @@ describe('plotly extractor', () => {
       }));
 
       expect(layer.type).toBe(TraceType.ERROR_BAR);
-      expect(layer.title).toBe('Treatment');
+      expect(layer.name).toBe('Treatment');
       expect(layer.orientation).toBeUndefined();
       // Absolute bounds, not the offsets the trace declared.
       const data = layer.data as ErrorBarPoint[];
@@ -3686,7 +3809,7 @@ describe('plotly extractor', () => {
       });
 
       expect(layer.type).toBe(TraceType.POLAR_AREA);
-      expect(layer.title).toBe('Wind');
+      expect(layer.name).toBe('Wind');
       expect(layer.selectors).toEqual([
         '.polarlayer > g.polar2 > g.frontplot > g.barlayer > g.trace:nth-of-type(1) g.point > path',
       ]);

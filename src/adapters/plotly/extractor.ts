@@ -728,12 +728,34 @@ function buildSubplotGrid(
   if (!grid) {
     // Overlapping axis domains (inset/overlaid axes) or missing domain
     // info: not a grid — keep the flat single-row arrangement.
-    return [panels.map(panel => panel.subplot)];
+    const row = panels.map(panel => panel.subplot);
+    namePanelsByTrace(row);
+    return [row];
   }
 
   applyFacetTitles(grid, layout);
+  namePanelsByTrace(grid.flat().map(panel => panel.subplot));
   assignSubplotSelectors(grid, maidrId);
   return grid.map(row => row.map(panel => panel.subplot));
+}
+
+/**
+ * Names each panel no facet label named after its first trace.
+ *
+ * A plotly subplot has no title of its own, and MAIDR reads a subplot's name
+ * from its first layer's `title`, so a panel no annotation labels is named by
+ * its first trace's name there, as docs/plotly.md says ("Each panel
+ * announces its trace name"). Only in a figure of several panels: in a chart
+ * of one, a layer's title would be read as the chart's.
+ *
+ * @param subplots - The figure's panels
+ */
+function namePanelsByTrace(subplots: MaidrSubplot[]): void {
+  for (const subplot of subplots) {
+    const first = subplot.layers[0];
+    if (first.title === undefined && first.name !== undefined)
+      first.title = first.name;
+  }
 }
 
 /** The declarations a plotly trace can carry. */
@@ -1566,6 +1588,61 @@ function assignSubplotSelectors(grid: PanelEntry[][], maidrId: string): void {
 // Layer extraction per trace type
 // ---------------------------------------------------------------------------
 
+/** Trace types whose legend lists their slices rather than the trace. */
+const SLICE_LEGEND_TYPES = new Set(['pie', 'funnelarea']);
+
+/**
+ * The name a trace's layer is announced by, or `undefined` when the chart
+ * shows none.
+ *
+ * A trace's name says which layer it is, and goes in the layer's `name`,
+ * which a layer switch announces. It is never the layer's `title`: MAIDR
+ * reads that as the chart's, which is the layout's title.
+ *
+ * A name the page wrote is taken as it is. Plotly also names every unnamed
+ * trace itself -- "trace 0", "trace 1" -- and draws that name in its legend
+ * when the legend is shown and lists the trace: the layout's `showlegend`,
+ * which Plotly turns on by itself for two traces or more, and the trace's own.
+ * There the layer is named as the chart names it. Elsewhere -- one trace and
+ * no legend, a trace the legend leaves out, or a pie, whose legend lists its
+ * slices -- Plotly's name is drawn nowhere, and the layer is left unnamed, so
+ * it is announced by its plot type.
+ *
+ * @param trace - The trace, from `_fullData` or `gd.data`
+ * @param layout - The figure's full layout
+ * @returns The name
+ */
+function traceName(trace: PlotlyTrace, layout: PlotlyFullLayout | undefined): string | undefined {
+  const written = authoredName(trace);
+  if (written !== undefined)
+    return written;
+  const listed = layout?.showlegend === true
+    && trace.showlegend === true
+    && !SLICE_LEGEND_TYPES.has(trace.type ?? 'scatter');
+  return listed && typeof trace.name === 'string' && trace.name.trim() !== '' ? trace.name : undefined;
+}
+
+/**
+ * The trace's name as the page wrote it, or `undefined` when it wrote none.
+ *
+ * Plotly names every unnamed trace in `_fullData` itself, so a name counts as
+ * written only when the trace the page wrote (`_input`) carries one. A trace
+ * read from `gd.data` is the page's own already.
+ *
+ * `_input` only says whether the page wrote a name. The text is `trace.name`,
+ * the string Plotly made of it, which its legend shows: a name written as the
+ * number 2024 is "2024" there.
+ *
+ * @param trace - The trace, from `_fullData` or `gd.data`
+ * @returns The authored name
+ */
+function authoredName(trace: PlotlyTrace): string | undefined {
+  const written = trace._input ? trace._input.name : trace.name;
+  if (written === undefined || written === null || written === '')
+    return undefined;
+  return typeof trace.name === 'string' && trace.name.trim() !== '' ? trace.name : undefined;
+}
+
 function extractLayer(
   trace: PlotlyTrace,
   maidrType: TraceType,
@@ -1576,7 +1653,7 @@ function extractLayer(
   gd: PlotlyGraphDiv,
 ): MaidrLayer | null {
   const id = String(traceIndex);
-  const title = trace.name;
+  const name = traceName(trace, gd._fullLayout);
   const selectors = generatePlotlySelectors(maidrType, traceIndex, gd);
 
   const axes: MaidrLayer['axes'] = {};
@@ -1587,22 +1664,22 @@ function extractLayer(
 
   switch (maidrType) {
     case TraceType.SCATTER:
-      return extractScatterLayer(trace, id, title, selectors, axes, gd);
+      return extractScatterLayer(trace, id, name, selectors, axes, gd);
 
     case TraceType.BAR:
-      return extractBarLayer(trace, calcdata, TraceType.BAR, id, title, selectors, axes, undefined, gd._fullLayout);
+      return extractBarLayer(trace, calcdata, TraceType.BAR, id, name, selectors, axes, undefined, gd._fullLayout);
 
     // A dot plot is a bar chart drawn with dots, and MAIDR reads it as one.
     // Its calcdata is a scatter's and carries no bar size, so the marks are
     // the authored values — which is what the chart put on the axis.
     case TraceType.DOT:
-      return extractBarLayer(trace, [], TraceType.DOT, id, title, selectors, axes, dotCategoryAxis(trace) === 'y');
+      return extractBarLayer(trace, [], TraceType.DOT, id, name, selectors, axes, dotCategoryAxis(trace) === 'y');
 
     case TraceType.WORD_CLOUD:
-      return extractWordCloudLayer(trace, id, title, selectors);
+      return extractWordCloudLayer(trace, id, name, selectors);
 
     case TraceType.CHOROPLETH:
-      return extractChoroplethLayer(trace, calcdata, id, title, traceIndex, gd);
+      return extractChoroplethLayer(trace, calcdata, id, name, traceIndex, gd);
 
     // A funnel is a bar chart whose order means something: same points, same
     // orientation handling, and the retention between stages is derived by
@@ -1618,50 +1695,50 @@ function extractLayer(
         calcdata,
         TraceType.FUNNEL,
         id,
-        title,
+        name,
         selectors,
         funnelAxes(trace, axes),
       );
 
     case TraceType.WATERFALL:
-      return extractWaterfallLayer(trace, calcdata, id, title, selectors, axes);
+      return extractWaterfallLayer(trace, calcdata, id, name, selectors, axes);
 
     case TraceType.ERROR_BAR:
-      return extractErrorBarLayer(trace, calcdata, id, title, selectors, axes);
+      return extractErrorBarLayer(trace, calcdata, id, name, selectors, axes);
 
     case TraceType.HEATMAP:
-      return extractHeatmapLayer(trace, calcdata, id, title, selectors, axes, gd);
+      return extractHeatmapLayer(trace, calcdata, id, name, selectors, axes, gd);
 
     // `selectors` is not passed on: a contour needs one per level, and which
     // levels the field actually crosses is only known once they are walked.
     case TraceType.CONTOUR:
-      return extractContourLayer(trace, calcdata, id, title, axes, traceIndex, gd);
+      return extractContourLayer(trace, calcdata, id, name, axes, traceIndex, gd);
 
     case TraceType.HISTOGRAM:
-      return extractHistogramLayer(trace, calcdata, id, title, selectors, axes, traceIndex, gd);
+      return extractHistogramLayer(trace, calcdata, id, name, selectors, axes, traceIndex, gd);
 
     case TraceType.CANDLESTICK:
-      return extractCandlestickLayer(trace, id, title, selectors, axes);
+      return extractCandlestickLayer(trace, id, name, selectors, axes);
 
     // `axes` is deliberately not passed on to any of these: they are drawn on
     // panels with no axis ids, so it is always empty, and each names its own
     // two dimensions the way the pie does.
     case TraceType.PIE:
-      return extractPieLayer(trace, calcdata, id, title, selectors);
+      return extractPieLayer(trace, calcdata, id, name, selectors);
 
     case TraceType.SUNBURST:
     case TraceType.ICICLE:
     case TraceType.TREEMAP:
-      return extractHierarchyLayer(trace, maidrType, calcdata, id, title, selectors);
+      return extractHierarchyLayer(trace, maidrType, calcdata, id, name, selectors);
 
     case TraceType.SANKEY:
-      return extractSankeyLayer(trace, calcdata, id, title, selectors);
+      return extractSankeyLayer(trace, calcdata, id, name, selectors);
 
     case TraceType.GAUGE:
-      return extractGaugeLayer(trace, id, title, selectors);
+      return extractGaugeLayer(trace, id, name, selectors);
 
     case TraceType.PARALLEL:
-      return extractParallelLayer(trace, id, title);
+      return extractParallelLayer(trace, id, name);
 
     default:
       return null;
@@ -1675,7 +1752,7 @@ function extractLayer(
 function extractScatterLayer(
   trace: PlotlyTrace,
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
   gd: PlotlyGraphDiv,
@@ -1732,7 +1809,7 @@ function extractScatterLayer(
   return {
     id,
     type: TraceType.SCATTER,
-    title,
+    name,
     selectors,
     axes: enhancedAxes,
     data,
@@ -1928,7 +2005,7 @@ function extractBarLayer(
   calcdata: PlotlyCalcData[],
   type: TraceType.BAR | TraceType.FUNNEL | TraceType.DOT,
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
   horizontal?: boolean,
@@ -1981,7 +2058,7 @@ function extractBarLayer(
   return {
     id,
     type,
-    title,
+    name,
     selectors: orderedSelectors,
     axes,
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
@@ -2424,7 +2501,7 @@ const WORD_CLOUD_WEIGHT_AXIS = 'Weight';
 function extractWordCloudLayer(
   trace: PlotlyTrace,
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
 ): MaidrLayer | null {
   const weights = wordCloudWeights(trace);
@@ -2440,7 +2517,7 @@ function extractWordCloudLayer(
   return {
     id,
     type: TraceType.WORD_CLOUD,
-    title,
+    name,
     selectors,
     axes: {
       x: { label: WORD_CLOUD_TERM_AXIS },
@@ -2495,7 +2572,7 @@ function extractMultiLineLayer(
   variant?: LineVariant,
 ): MaidrLayer | null {
   const data: LinePoint[][] = [];
-  const legend: string[] = [];
+  const names: (string | undefined)[] = [];
 
   for (const { trace, values } of lineTraces) {
     const x = trace.x;
@@ -2522,7 +2599,7 @@ function extractMultiLineLayer(
     }
 
     data.push(series);
-    legend.push(seriesName);
+    names.push(traceName(trace, gd._fullLayout));
   }
 
   if (data.length === 0)
@@ -2553,10 +2630,14 @@ function extractMultiLineLayer(
   // (e.g. `.subplot.xy .trace.scatter .point`), so any trace index works here.
   const selectors = generatePlotlySelectors(type, lineTraces[0].globalIdx, gd);
 
+  // A layer of one line is named after its trace, as a trace of another type
+  // is; several lines are told apart by their `z`.
+  const name = names.length === 1 ? names[0] : undefined;
+
   return {
     id: String(lineTraces[0].globalIdx),
     type,
-    title: legend.length === 1 ? legend[0] : undefined,
+    ...(name ? { name } : {}),
     selectors,
     axes,
     ...(variant?.stepDirection ? { stepDirection: variant.stepDirection } : {}),
@@ -2647,7 +2728,8 @@ function extractDeclaredPrCurveLayer(
 
   // Read back to front on a reversed axis, for the reason the line layer is.
   const reversed = axisRunsBackwards(gd._fullLayout, curves[0].trace.xaxis ?? 'x');
-  const names = curves.map(entry => entry.trace.name).filter(Boolean);
+  const names = curves.map(entry => traceName(entry.trace, gd._fullLayout)).filter(Boolean);
+  const name = first.name ?? (names.length === 1 ? names[0] : undefined);
 
   const axes: MaidrLayer['axes'] = {};
   if (xLabel)
@@ -2658,8 +2740,8 @@ function extractDeclaredPrCurveLayer(
   return {
     id: String(curves[0].globalIdx),
     type: TraceType.PR_CURVE,
-    title: first.title ?? (names.length === 1 ? names[0] : undefined),
-    ...(first.name !== undefined ? { name: first.name } : {}),
+    ...(first.title !== undefined ? { title: first.title } : {}),
+    ...(name !== undefined ? { name } : {}),
     // The line's own selector: a curve is highlighted as its line would be.
     selectors: generatePlotlySelectors(TraceType.PR_CURVE, curves[0].globalIdx, gd),
     axes,
@@ -2829,12 +2911,13 @@ function extractDeclaredPercentileBands(
       axes.x = { label: xLabel };
     if (yLabel)
       axes.y = { label: yLabel };
+    const fanName = declaration.name ?? traceName(trace, gd._fullLayout);
 
     layers.push({
       id: String(median.globalIdx),
       type: TraceType.PERCENTILE_BAND,
-      title: declaration.title ?? trace.name,
-      ...(declaration.name !== undefined ? { name: declaration.name } : {}),
+      ...(declaration.title !== undefined ? { title: declaration.title } : {}),
+      ...(fanName !== undefined ? { name: fanName } : {}),
       ...(selectors ? { selectors } : {}),
       axes,
       data,
@@ -3005,7 +3088,7 @@ function extractPolarLayer(
   return {
     id: String(entries[0].globalIdx),
     type,
-    title: series.length === 1 ? series[0].trace.name : undefined,
+    name: series.length === 1 ? traceName(series[0].trace, layout) : undefined,
     selectors: polarSeriesSelectors(series, subplotId, type === TraceType.POLAR_AREA),
     axes: {
       x: { label: POLAR_SPOKE_AXIS },
@@ -3620,7 +3703,7 @@ function extractHeatmapLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
   gd: PlotlyGraphDiv,
@@ -3699,7 +3782,7 @@ function extractHeatmapLayer(
   return {
     id,
     type: TraceType.HEATMAP,
-    title,
+    name,
     selectors,
     axes: heatmapAxes,
     data,
@@ -3805,7 +3888,7 @@ function withoutFloatNoise(value: number): number {
  * @param trace      - The resolved plotly trace
  * @param calcdata   - Its calculated data, which is where a binned grid lives
  * @param id         - The layer id
- * @param title      - The trace name, when it has one
+ * @param name       - The trace name, when it has one
  * @param axes       - The panel's axis labels
  * @param traceIndex - The trace's index in `_fullData`, for the selectors
  * @param gd         - The plotly graph div
@@ -3815,7 +3898,7 @@ function extractContourLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   axes: MaidrLayer['axes'],
   traceIndex: number,
   gd: PlotlyGraphDiv,
@@ -3881,7 +3964,7 @@ function extractContourLayer(
   return {
     id,
     type: TraceType.CONTOUR,
-    title,
+    name,
     selectors: linesDrawn ? contourLevelSelectors(gd, traceIndex, levelIndices) : undefined,
     axes: contourAxes,
     data,
@@ -4393,7 +4476,7 @@ function extractChoroplethLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   traceIndex: number,
   gd: PlotlyGraphDiv,
 ): MaidrLayer | null {
@@ -4412,7 +4495,7 @@ function extractChoroplethLayer(
   return {
     id,
     type: TraceType.CHOROPLETH,
-    title,
+    name,
     selectors: choroplethRegionSelectors(gd, traceIndex, regions.map(region => region.index)),
     axes: {
       x: { label: CHOROPLETH_REGION_AXIS },
@@ -4490,7 +4573,7 @@ function extractPieLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
 ): MaidrLayer | null {
   const drawn = drawnPieSlices(calcdata);
@@ -4539,7 +4622,7 @@ function extractPieLayer(
   return {
     id,
     type: TraceType.PIE,
-    title,
+    name,
     selectors: inDrawnOrder ? selectors : undefined,
     axes: {
       x: { label: PIE_LABEL_AXIS },
@@ -4720,7 +4803,7 @@ function extractHierarchyLayer(
   type: TraceType.SUNBURST | TraceType.ICICLE | TraceType.TREEMAP,
   calcdata: PlotlyCalcData[],
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
 ): MaidrLayer | null {
   const drawn = drawnHierarchySectors(calcdata);
@@ -4737,7 +4820,7 @@ function extractHierarchyLayer(
   return {
     id,
     type,
-    title,
+    name,
     // The wedge contract a pie is under, applied to slices: the authored order
     // is not the drawn one, so a layer built from the trace's own arrays goes
     // out without selectors. No highlight at all beats one that lands on a
@@ -4860,7 +4943,7 @@ function extractSankeyLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
 ): MaidrLayer | null {
   const drawn = drawnFlows(calcdata, trace);
@@ -4871,7 +4954,7 @@ function extractSankeyLayer(
   return {
     id,
     type: TraceType.SANKEY,
-    title,
+    name,
     // Selectors only for the drawn set, for the reason a pie's are withheld:
     // the ribbons are matched to the flows by position, and a list rebuilt
     // from the trace's own arrays cannot promise plotly kept them all.
@@ -4949,7 +5032,7 @@ function gaugeBands(trace: PlotlyTrace): GaugeBand[] | undefined {
 function extractGaugeLayer(
   trace: PlotlyTrace,
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
 ): MaidrLayer | null {
   // Read as a number rather than coerced to one: an absent measure is the
@@ -4985,7 +5068,7 @@ function extractGaugeLayer(
   return {
     id,
     type: TraceType.GAUGE,
-    title,
+    name,
     selectors,
     axes: {
       x: { label: GAUGE_MEASURE_AXIS },
@@ -5024,7 +5107,7 @@ const PARALLEL_VALUE_AXIS = 'Value';
 function extractParallelLayer(
   trace: PlotlyTrace,
   id: string,
-  title: string | undefined,
+  name: string | undefined,
 ): MaidrLayer | null {
   // A hidden dimension is not an axis on the chart, so it is not a column.
   const dimensions = (trace.dimensions ?? []).filter(dimension => dimension.visible !== false);
@@ -5059,7 +5142,7 @@ function extractParallelLayer(
   return {
     id,
     type: TraceType.PARALLEL,
-    title,
+    name,
     axes: {
       x: { label: PARALLEL_VARIABLE_AXIS },
       y: { label: PARALLEL_VALUE_AXIS },
@@ -5076,7 +5159,7 @@ function extractHistogramLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
   traceIndex: number,
@@ -5136,7 +5219,7 @@ function extractHistogramLayer(
     return {
       id,
       type: TraceType.HISTOGRAM,
-      title,
+      name,
       selectors,
       axes,
       ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
@@ -5156,7 +5239,7 @@ function extractHistogramLayer(
 function extractCandlestickLayer(
   trace: PlotlyTrace,
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
 ): MaidrLayer | null {
@@ -5195,7 +5278,7 @@ function extractCandlestickLayer(
   return {
     id,
     type: TraceType.CANDLESTICK,
-    title,
+    name,
     selectors,
     axes,
     data,
@@ -5311,7 +5394,7 @@ function extractWaterfallLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
 ): MaidrLayer | null {
@@ -5344,7 +5427,7 @@ function extractWaterfallLayer(
   return {
     id,
     type: TraceType.WATERFALL,
-    title,
+    name,
     selectors,
     // `WaterfallTrace` names the step with the layer's x axis and the
     // contribution with its y axis whichever way plotly drew the bars — the
@@ -5490,7 +5573,7 @@ function extractErrorBarLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
   id: string,
-  title: string | undefined,
+  name: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
 ): MaidrLayer | null {
@@ -5534,7 +5617,7 @@ function extractErrorBarLayer(
   return {
     id,
     type: TraceType.ERROR_BAR,
-    title,
+    name,
     selectors,
     axes,
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),

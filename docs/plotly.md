@@ -56,6 +56,8 @@ MAIDR's Plotly adapter runs automatically on page load:
 
 For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches for new Plotly divs and initializes them as they appear.
 
+The chart's title is the layout's `title`. A trace's `name` names its layer, which Page Up and Page Down announce ("Layer 2 of 2: Trend"); the name Plotly gives an unnamed trace itself ("trace 0") is not used.
+
 ## Supported Chart Types
 
 ### Stable chart types
