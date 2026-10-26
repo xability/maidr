@@ -1,6 +1,5 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
-import type { TraceType } from '@type/grammar';
 import type { Observer } from '@type/observable';
 import type { NonEmptyTraceState, PlotState, TextState, TraceState } from '@type/state';
 import type { AxisType, FormatterService } from './formatter';
@@ -384,7 +383,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     }
     // `traceTypes` are the wire values ('point', 'stacked_bar'); the reader
     // hears each in words, as the entry instruction names it.
-    const types = traceTypes.map(type => plotTypeLabel(type as TraceType));
+    const types = traceTypes.map(type => plotTypeLabel(type));
     const details = types.length === 1
       ? t('text.figureSingleType', { type: types[0] })
       : t('text.figureMultiType', { types: types.join(Constant.COMMA_SPACE) });

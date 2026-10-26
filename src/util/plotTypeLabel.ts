@@ -77,9 +77,14 @@ const PLOT_TYPE_LABEL: Record<TraceType, MessageKey> = {
 /**
  * How a trace type announces itself in the entry instruction.
  *
+ * A value that is not a trace type is spoken as it is. Every trace is built
+ * from a known type, so this should not happen, but a lobby reading a panel's
+ * types from its state should not go silent if it ever does.
+ *
  * @param type - The layer's trace type
  * @returns The spoken plot type, e.g. `stacked bar` for {@link TraceType.STACKED}
  */
-export function plotTypeLabel(type: TraceType): string {
-  return t(PLOT_TYPE_LABEL[type]);
+export function plotTypeLabel(type: TraceType | string): string {
+  const key = PLOT_TYPE_LABEL[type as TraceType] as MessageKey | undefined;
+  return key === undefined ? type : t(key);
 }

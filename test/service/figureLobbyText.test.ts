@@ -107,4 +107,16 @@ describe('TextService figure-lobby navigation text', () => {
       value: 'Subplot 2 of 3: This is a multi-layered plot containing histogram, stacked bar plots. Press \'ENTER\' to select this subplot.',
     });
   });
+
+  test('verbose: a value that is not a trace type is named as it is', () => {
+    const text = new TextService(createMockNotificationService());
+    const onChange = jest.fn();
+    text.onChange(onChange);
+
+    text.update(figureState('unavailable', ['point', 'not_a_type']));
+
+    expect(onChange).toHaveBeenCalledWith({
+      value: 'Subplot 2 of 3: This is a multi-layered plot containing scatter, not_a_type plots. Press \'ENTER\' to select this subplot.',
+    });
+  });
 });
