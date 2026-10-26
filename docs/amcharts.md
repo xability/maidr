@@ -414,7 +414,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 
 #### Area / Stacked Area [experimental]
 
-An area chart is a `LineSeries` whose `fills` template has been made visible — amCharts has no area series — so that fill is what the adapter reads. A line with no visible fill stays a line. Add `stacked: true` for a stacked area, and `valueYShow: "valueYTotalPercent"` (with `calculateTotals: true` on the value axis) for a 100% stack. A runnable page is at [`examples/amcharts-area.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-area.html).
+An area chart is a `LineSeries` whose `fills` template has been made visible — amCharts has no area series — so that fill is what the adapter reads. A line with no visible fill stays a line. Add `stacked: true` for a stacked area, and `valueYShow: "valueYTotalPercent"` for a 100% stack, with `calculateTotals: true`, `min: 0`, `max: 100` and `strictMinMax: true` on the value axis: left to choose its own range, the axis can start above the bottom band, which is then not drawn at all. Set `valueYShow` only on a 100% stack, and leave it out elsewhere rather than passing `undefined`, which keeps amCharts from applying its default and makes the series throw. A runnable page is at [`examples/amcharts-area.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-area.html).
 
 ```js
 var series = chart.series.push(am5xy.LineSeries.new(root, {
