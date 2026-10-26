@@ -148,6 +148,54 @@ describe('highcharts survival declaration', () => {
     ]);
   });
 
+  it('says nothing about a merged arm that has no censored subjects', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // The example page's figure: only the treated curve declares, and names
+    // its censoring column; the control arm declares nothing and censors no
+    // one, so none of its rows carries the column.
+    const chart = fakeChart({
+      series: [
+        arm(0, 'Treated', [
+          { x: 0, y: 1, options: { censored: false } },
+          { x: 6, y: 0.82, options: { censored: true } },
+        ], declaring({ type: TraceType.SURVIVAL, censored: 'censored' })),
+        arm(1, 'Control', [{ x: 0, y: 1, options: {} }, { x: 6, y: 0.64, options: {} }]),
+      ],
+    });
+
+    const data = highchartsToMaidr(chart).subplots[0][0].layers[0].data as SurvivalPoint[][];
+
+    expect(data.map(curve => curve.map(point => point.censored))).toEqual([
+      [undefined, true],
+      [undefined, undefined],
+    ]);
+    // It used to warn that a declaration on series 1 ("Control") named a
+    // column no row carries, about a series that declares nothing at all.
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('reports a field name no arm carries once, on the declaring series', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const chart = fakeChart({
+      series: [
+        arm(0, 'Treated', [{ x: 0, y: 1, options: { censored: 0 } }], declaring({
+          type: TraceType.SURVIVAL,
+          censored: 'cens',
+        })),
+        arm(1, 'Control', [{ x: 0, y: 1, options: {} }]),
+      ],
+    });
+
+    highchartsToMaidr(chart);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(
+      'maidr declaration on series 0 ("Treated") names "cens" for censored, which no row carries',
+    ));
+    warn.mockRestore();
+  });
+
   it('keeps the arms apart when the declaration turns merging off', () => {
     const chart = fakeChart({
       series: [
