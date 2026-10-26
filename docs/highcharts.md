@@ -46,6 +46,8 @@ Render your chart with Highcharts, convert it with `maidrHighcharts.highchartsTo
 
 The adapter exposes a global `maidrHighcharts` object with `highchartsToMaidr()` and `createHighchartsSync()`. This works directly from `file://` URLs — no module server required.
 
+This binds a chart drawn while the page loads. A chart drawn later — after an awaited `fetch`, say — or drawn again is bound by dispatching `maidr:bindchart` as well; see [Charts drawn after the page loads](#charts-drawn-after-the-page-loads).
+
 Once the page loads, click on the chart (or Tab to it) and MAIDR activates with:
 
 - **Audio sonification** — tones representing data values
