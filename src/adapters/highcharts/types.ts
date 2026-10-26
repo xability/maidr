@@ -232,17 +232,17 @@ export interface HighchartsSeries {
   name: string;
   data: HighchartsPoint[];
   /**
+   * The SVG group the series draws its marks into. A line draws its path
+   * here, and MAIDR draws the dot for a line's point beside it.
+   */
+  group?: { element: SVGElement };
+  /**
    * The nodes of a node-and-link series, resolved by Highcharts from the
    * links. Absent on every other series type.
    */
   nodes?: HighchartsNode[];
   xAxis: HighchartsAxis;
   yAxis: HighchartsAxis;
-  /**
-   * The SVG group the series draws its marks into. A line draws its path
-   * here, and MAIDR draws the dot for a line's point beside it.
-   */
-  group?: { element: SVGElement };
   index: number;
   visible: boolean;
   /**
