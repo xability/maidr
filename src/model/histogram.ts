@@ -162,6 +162,11 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
    * elsewhere, would still split two widths either side of a rounding
    * boundary, and R's widths carry noise close to the twelfth figure.
    *
+   * It is also capped at a millionth of a width. Far from zero a billionth
+   * of an edge can be more than a bin is wide -- 1.7 seconds on an axis of
+   * epoch seconds -- and bins a quarter and a half second wide would have
+   * read as equal.
+   *
    * @param narrowest - The narrowest bin's width
    * @param widest - The widest bin's width
    * @param edges - Every bin edge the widths were taken from
@@ -169,7 +174,11 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
    */
   private static binsAreEqual(narrowest: number, widest: number, edges: number[]): boolean {
     const scale = MathUtil.safeMax(edges.map(Math.abs));
-    return Number.isFinite(scale) && widest - narrowest <= scale * 1e-9;
+    const tolerance = Math.min(
+      scale * 1e-9,
+      Math.min(Math.abs(narrowest), Math.abs(widest)) * 1e-6,
+    );
+    return Number.isFinite(tolerance) && widest - narrowest <= tolerance;
   }
 
   protected override get text(): TextState {

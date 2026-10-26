@@ -87,6 +87,16 @@ describe('the width of a histogram\'s bins', () => {
     expect(binWidth(histogram(bins))).toBe('1 to 4');
   });
 
+  test('still reads a range for unequal bins far from zero', () => {
+    // Epoch seconds: a billionth of the largest edge is 1.7 seconds, more
+    // than either bin is wide, so a tolerance taken from the edges alone
+    // would call a quarter-second bin and a half-second bin equal.
+    const start = 1.7e9;
+    const bins: [number, number, number][] = [[start, start + 0.25, 4], [start + 0.25, start + 0.75, 9]];
+
+    expect(binWidth(histogram(bins))).toBe('0.25 to 0.5');
+  });
+
   test('does not call bins equal that differ by less than the shown precision', () => {
     // 1 and 1.001 both print as 1, but they are not the same width: only
     // agreement down to float noise makes bins equal.
