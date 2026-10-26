@@ -3523,8 +3523,9 @@ function extractCandlestickLayers(
           high: point.h,
           low: point.l,
           close: point.c,
-          // Chart.js financial plugin does not include volume data; default to 0
-          volume: 0,
+          // No `volume`: the financial plugin draws none. A 0 here was
+          // tabulated as a Volume column of zeros, read as measured volume;
+          // left out, the description has no Volume column at all.
           trend: point.c > point.o ? 'Bull' : point.c < point.o ? 'Bear' : 'Neutral',
           volatility: point.h - point.l,
         });

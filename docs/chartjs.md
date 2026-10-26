@@ -486,7 +486,7 @@ Requires [`chartjs-chart-financial`](https://github.com/chartjs/chartjs-chart-fi
 </script>
 ```
 
-The MAIDR extractor derives `trend` from `close` vs `open` and `volatility` from `high - low`. Chart.js's financial plugin does not carry volume data, so the MAIDR payload records volume as `0`.
+The MAIDR extractor derives `trend` from `close` vs `open` and `volatility` from `high - low`. Chart.js's financial plugin does not carry volume data, so the MAIDR payload records no volume and the description's data table has no Volume column.
 
 #### Heatmap (Matrix)
 
