@@ -1,9 +1,8 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer, PercentileBandPoint } from '@type/grammar';
-import type { BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
+import type { DescriptionState, TextState, TraceState } from '@type/state';
 import { defaultLabelFormat, FormatUtil } from '@util/format';
 import { t } from '@util/i18n';
-import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
 import { isMeasured, toBarValue } from './bar';
@@ -186,14 +185,6 @@ export class PercentileBandTrace extends LineTrace {
   private readonly referenceBand: Band | null;
 
   /**
-   * The range every quantile is brailled against. They are pitched against
-   * the same range, which is the one {@link LineTrace} pitches every series
-   * of a layer against.
-   */
-  private readonly bandMin: number;
-  private readonly bandMax: number;
-
-  /**
    * Creates a new percentile band trace.
    *
    * @param layer - The MAIDR layer carrying one {@link PercentileBandPoint} per x
@@ -229,10 +220,6 @@ export class PercentileBandTrace extends LineTrace {
       }
     }
     this.referenceBand = reference;
-
-    const measured = this.lineValues.flat().filter(isMeasured);
-    this.bandMin = MathUtil.safeMin(measured);
-    this.bandMax = MathUtil.safeMax(measured);
   }
 
   public override dispose(): void {
@@ -370,18 +357,6 @@ export class PercentileBandTrace extends LineTrace {
       }
     }
     return null;
-  }
-
-  protected override get braille(): BrailleState {
-    return {
-      empty: false,
-      id: this.id,
-      values: this.lineValues,
-      min: this.lineValues.map(() => this.bandMin),
-      max: this.lineValues.map(() => this.bandMax),
-      row: this.row,
-      col: this.col,
-    };
   }
 
   /**

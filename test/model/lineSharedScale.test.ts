@@ -82,6 +82,24 @@ function placeOf(freq: AudioState['freq']): number {
   return (raw - freq.min) / (freq.max - freq.min);
 }
 
+/** Two classifiers' precision-recall curves, which meet at the baseline. */
+const PR_LAYER: MaidrLayer = {
+  id: 'pr',
+  type: TraceType.PR_CURVE,
+  axes: { x: { label: 'Recall' }, y: { label: 'Precision' } },
+  data: [
+    [{ x: 1, y: 0.3, z: 'Logistic' }, { x: 0.8, y: 0.7, z: 'Logistic' }, { x: 0, y: 1, z: 'Logistic' }],
+    [{ x: 1, y: 0.3, z: 'Forest' }, { x: 0.6, y: 0.56, z: 'Forest' }, { x: 0, y: 1, z: 'Forest' }],
+  ],
+};
+
+/** Three competitors' ranks over two periods. */
+const RANKS: LinePoint[][] = [
+  [{ x: 1, y: 1, z: 'Ash' }, { x: 2, y: 2, z: 'Ash' }],
+  [{ x: 1, y: 2, z: 'Birch' }, { x: 2, y: 3, z: 'Birch' }],
+  [{ x: 1, y: 3, z: 'Cyan' }, { x: 2, y: 1, z: 'Cyan' }],
+];
+
 /** Every type that pitches its series as a line does. */
 const LINE_FAMILY: TraceType[] = [
   TraceType.LINE,
@@ -118,7 +136,7 @@ describe('the series of a line-family layer share one register', () => {
     expect(sixteen).toBeLessThan(seventeen);
   });
 
-  test.each(LINE_FAMILY)('%s sounds one value at one pitch on every series', (type) => {
+  test.each(LINE_FAMILY)('%s plays only the layer\'s lowest value at the bottom note', (type) => {
     const trace = build(layer(type));
 
     // Series A's 10 and Series B's 5 are both their own series' lowest
@@ -131,12 +149,7 @@ describe('the series of a line-family layer share one register', () => {
   });
 
   test('a bump chart keeps its inverted register over the whole table', () => {
-    const ranks: LinePoint[][] = [
-      [{ x: 1, y: 1, z: 'Ash' }, { x: 2, y: 2, z: 'Ash' }],
-      [{ x: 1, y: 2, z: 'Birch' }, { x: 2, y: 3, z: 'Birch' }],
-      [{ x: 1, y: 3, z: 'Cyan' }, { x: 2, y: 1, z: 'Cyan' }],
-    ];
-    const trace = build(layer(TraceType.BUMP, ranks));
+    const trace = build(layer(TraceType.BUMP, RANKS));
 
     const { min, max } = stateAt(trace, 1, 0).audio.freq;
 
@@ -171,19 +184,11 @@ describe('the chord at a point several series share', () => {
     ]);
   });
 
-  test('sounds a precision-recall curve\'s shared point on the curve\'s own register', () => {
+  test('sounds a precision-recall curve\'s shared point on the unit interval its tones use', () => {
     // Both classifiers start at the baseline, a recall of 1 at a precision of
     // 0.3. Their tones are on the unit interval; the chord was on each
     // curve's own range, so it played the baseline as the bottom note.
-    const trace = build({
-      id: 'pr',
-      type: TraceType.PR_CURVE,
-      axes: { x: { label: 'Recall' }, y: { label: 'Precision' } },
-      data: [
-        [{ x: 1, y: 0.3, z: 'Logistic' }, { x: 0.8, y: 0.7, z: 'Logistic' }, { x: 0, y: 1, z: 'Logistic' }],
-        [{ x: 1, y: 0.3, z: 'Forest' }, { x: 0.6, y: 0.56, z: 'Forest' }, { x: 0, y: 1, z: 'Forest' }],
-      ],
-    });
+    const trace = build(PR_LAYER);
 
     const state = stateAt(trace, 0, 0);
 
@@ -192,5 +197,28 @@ describe('the chord at a point several series share', () => {
       { min: 0, max: 1, raw: 0.3 },
       { min: 0, max: 1, raw: 0.3 },
     ]);
+  });
+});
+
+describe('the series of a line-family layer share one braille range', () => {
+  test.each(LINE_FAMILY)('%s encodes every row against the layer\'s range', (type) => {
+    const { braille } = stateAt(build(layer(type)), 1, 1);
+
+    // Each row against its own range was [10, 5] to [25, 20].
+    expect(braille).toMatchObject({ min: [5, 5], max: [25, 25] });
+  });
+
+  test('a precision-recall curve encodes every row on the unit interval its pitch uses', () => {
+    const { braille } = stateAt(build(PR_LAYER), 0, 0);
+
+    expect(braille).toMatchObject({ min: [0, 0], max: [1, 1] });
+  });
+
+  test('a bump chart encodes the ranks of the whole table, as literal ranks', () => {
+    // The pitch is inverted so first place is the highest note; the braille
+    // stays literal, rank 1 the lowest dot, on every row alike.
+    const { braille } = stateAt(build(layer(TraceType.BUMP, RANKS)), 0, 0);
+
+    expect(braille).toMatchObject({ min: [1, 1, 1], max: [3, 3, 3] });
   });
 });

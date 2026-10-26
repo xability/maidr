@@ -837,12 +837,17 @@ export class LineTrace extends AbstractTrace {
   }
 
   protected get braille(): BrailleState {
+    // Every row against the range the pitch uses, so the same cell height is
+    // the same value on every series and a line drawn above another reads
+    // higher. Each row against its own range wrote lines of one shape as the
+    // same cells, whatever their values.
+    const { min, max } = this.valueRange;
     return {
       empty: false,
       id: this.id,
       values: this.lineValues,
-      min: this.min,
-      max: this.max,
+      min: this.lineValues.map(() => min),
+      max: this.lineValues.map(() => max),
       row: this.row,
       col: this.col,
     };

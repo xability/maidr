@@ -291,10 +291,10 @@ export class ParallelTrace extends LineTrace {
     }
 
     // The normalized grid, scaled 0 to 1 for every row, rather than the raw
-    // values. `LineBrailleEncoder` scales each row against that row's own
-    // extent, and a row here holds one observation across every axis -- so a
-    // car's economy would be scaled against its horsepower, and the cell
-    // heights would encode which axis happens to use bigger numbers.
+    // values. `LineTrace` hands the encoder the extent of the whole layer,
+    // and the layer here spans every axis -- so a car's economy would be
+    // scaled against horsepower figures, and the cell heights would encode
+    // which axis happens to use bigger numbers.
     //
     // Normalizing first makes each cell its value's position on its own axis,
     // which is what the pitch plays and what the chart draws. A row of the
