@@ -67,12 +67,12 @@ function createHeatChart(rows: Row[], id: string): {
   });
 
   let cursor = -1;
+  // No `getSeriesCount` / `getSeriesAt`: `anychart.heatMap()` has no series
+  // API, and a mock that offered one hid every stamper that asks for it.
   const chart = {
     title: () => 'Heat',
     container: () => container,
     getType: () => 'heat-map',
-    getSeriesCount: () => 0,
-    getSeriesAt: () => null,
     data: () => ({
       getIterator: () => ({
         reset: () => {
@@ -126,6 +126,26 @@ describe('an anychart heat map written column-major', () => {
 
     expect(cells.map(cell => cell.getAttribute(HEATMAP_ATTR)))
       .toEqual(['0-0', '1-0', '0-1', '1-1']);
+
+    cleanUp(container);
+  });
+});
+
+describe('an anychart heat map, which has no series API', () => {
+  it('runs only the heat map stamper, so binding one logs nothing', () => {
+    // The bar, line, scatter and box stampers each asked the chart for its
+    // series count, threw, and logged "Failed to stamp ... getSeriesCount is
+    // not a function" before the heat map stamper did the real work.
+    const { chart, container, cells } = createHeatChart([
+      { x: 'X1', y: 'Y1', heat: 1 },
+      { x: 'X2', y: 'Y1', heat: 2 },
+    ], 'heat-quiet');
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(cells.map(cell => cell.getAttribute(HEATMAP_ATTR))).toEqual(['0-0', '0-1']);
+    expect(warn).not.toHaveBeenCalled();
 
     cleanUp(container);
   });
