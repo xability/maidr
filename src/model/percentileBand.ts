@@ -517,6 +517,13 @@ export class PercentileBandTrace extends LineTrace {
    * earlier x. A band that never widens -- or never narrows -- says nothing
    * about it rather than naming a change of zero.
    *
+   * Widths and their changes are differences of the band's values and carry
+   * their float noise, so they are compared with a tolerance of a billionth
+   * of the largest value the band reaches. Compared exactly, a band 2.8
+   * wider every week "widened most" at whichever step had the largest error
+   * (2.8000000000000114 against 2.799999999999997), and a band of constant
+   * width widened most "by 2.22e-16".
+   *
    * @param band - The band to measure
    * @param valueAt - Formats a value at an x
    * @param xAt - Formats an x
@@ -531,8 +538,9 @@ export class PercentileBandTrace extends LineTrace {
     const widths = this.bandPoints.map((_point, col) => this.widthAt(band, col));
     const stats: DescriptionState['stats'] = [];
 
-    const widest = this.extremeColumn(widths, (a, b) => a > b);
-    const narrowest = this.extremeColumn(widths, (a, b) => a < b);
+    const tolerance = Math.max(Math.abs(this.bandMin), Math.abs(this.bandMax)) * 1e-9;
+    const widest = this.extremeColumn(widths, (a, b) => a > b + tolerance);
+    const narrowest = this.extremeColumn(widths, (a, b) => a < b - tolerance);
     if (widest === -1 || narrowest === -1) {
       return stats;
     }
@@ -548,10 +556,10 @@ export class PercentileBandTrace extends LineTrace {
       if (!isMeasured(change)) {
         continue;
       }
-      if (change > 0 && (widens === null || change > widens.change)) {
+      if (change > tolerance && (widens === null || change > widens.change + tolerance)) {
         widens = { col, change };
       }
-      if (change < 0 && (narrows === null || change < narrows.change)) {
+      if (change < -tolerance && (narrows === null || change < narrows.change - tolerance)) {
         narrows = { col, change };
       }
     }
