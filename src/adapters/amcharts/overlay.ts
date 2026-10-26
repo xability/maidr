@@ -181,6 +181,8 @@ function readRect(target: NavTarget): OverlayRect | null {
       return columnRect(target);
     case 'needle':
       return needleRect(target);
+    case 'stem':
+      return stemRect(target);
     case 'ribbon':
       return ribbonRect(target);
   }
@@ -399,6 +401,58 @@ function columnRect(target: NavItemTarget): OverlayRect | null {
   }
   const bounds = sprite.globalBounds?.();
   return bounds ? boundsToRect(bounds) : null;
+}
+
+/**
+ * Rectangle for a dumbbell or a lollipop: the stem amCharts draws as the data
+ * item's column, and the dots it draws as the data item's bullets, one at
+ * each end of a dumbbell's stem and one at the value end of a lollipop's.
+ *
+ * The stem alone used to be outlined, a box 2 or 3 px wide that left out the
+ * dots the reader sees, and nothing at all for a dumbbell pair whose two ends
+ * are equal: its stem is 0 px tall, the box collapsed in the clip, and Malta
+ * (76 to 76) on amcharts-floating-columns.html had no outline though a dot is
+ * drawn for it. The box is now the union of the stem's and the dots'. On a
+ * dumbbell that is both ends at once, which is where the outline stays while
+ * the announcement moves between them.
+ */
+function stemRect(target: NavItemTarget): OverlayRect | null {
+  const boxes: OverlayRect[] = [];
+  const stem = readColumnSprite(target);
+  const stemBox = stem ? spriteBoxRect(stem) : null;
+  if (stemBox) {
+    boxes.push(stemBox);
+  }
+  for (const bullet of target.dataItem.bullets ?? []) {
+    const dot = (bullet.get('sprite') ?? bullet.sprite) as AmSprite | undefined;
+    const dotBox = dot ? dotRect(dot) : null;
+    if (dotBox) {
+      boxes.push(dotBox);
+    }
+  }
+  if (boxes.length === 0) {
+    return null;
+  }
+
+  const left = Math.min(...boxes.map(box => box.left));
+  const top = Math.min(...boxes.map(box => box.top));
+  const right = Math.max(...boxes.map(box => box.left + box.width));
+  const bottom = Math.max(...boxes.map(box => box.top + box.height));
+  return { left, top, width: right - left, height: bottom - top };
+}
+
+/**
+ * The box a bullet's sprite is drawn in: the box it reports, else the one its
+ * own corners map to, or `null` when neither has area.
+ */
+function dotRect(dot: AmSprite): OverlayRect | null {
+  const bounds = dot.globalBounds?.();
+  const reported = bounds ? boundsToRect(bounds) : null;
+  if (reported && reported.width > 0 && reported.height > 0) {
+    return reported;
+  }
+  const box = spriteBoxRect(dot);
+  return box && box.width > 0 && box.height > 0 ? box : null;
 }
 
 /**
