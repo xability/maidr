@@ -7,7 +7,7 @@ import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation, TraceType } from '@type/grammar';
 import { isXValue } from '@type/navigation';
-import { defaultFormat } from '@util/format';
+import { defaultFormat, defaultLabelFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { moveToXValueInPoints } from '@util/navigation';
@@ -409,9 +409,16 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     // already builds exactly this pairing for the Go To Extrema dialog
     // (`getExtremaTargets`), so the summary was the one surface left telling a
     // reader that something peaks at 120 without saying where.
-    const nameAt = (col: number): string | number => {
+    //
+    // The bar is named as its axis reads it: through the format the layer
+    // declares for that axis, as the table and the announcements are, or
+    // rounded but not grouped in thousands, the way a line names a category.
+    // Printed raw, a lag of 4/12 read "0.333333333333333" and a day held in
+    // epoch milliseconds read "1772755200000" beside a table of dates.
+    const formatName = this.authoredFormat(isVertical ? 'x' : 'y') ?? defaultLabelFormat;
+    const nameAt = (col: number): string => {
       const point = this.points[0][col];
-      return point === undefined ? '' : (isVertical ? point.x : point.y);
+      return point === undefined ? '' : formatName(isVertical ? point.x : point.y);
     };
     const chartMax = MathUtil.safeMax(values.filter(isMeasured));
     const chartMin = MathUtil.safeMin(values.filter(isMeasured));
