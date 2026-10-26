@@ -63,6 +63,9 @@ export class ContourTrace extends LineTrace {
    */
   private readonly levelOrder: number[];
 
+  /** Every point of each declared level, over all the curves it is drawn as. */
+  private readonly levelPoints: Map<number, ContourPoint[]>;
+
   /**
    * Memoised {@link ContourTrace.spacingExtremes}. `undefined` means not yet
    * computed; `null` is a computed answer of "no gap is measurable".
@@ -81,6 +84,18 @@ export class ContourTrace extends LineTrace {
     this.levels = this.curves.map(curve => contourCurveLevel(curve));
     this.levelOrder = [...new Set(this.levels.filter(Number.isFinite))]
       .sort((a, b) => a - b);
+    this.levelPoints = new Map();
+    for (const [row, curve] of this.curves.entries()) {
+      const level = this.levels[row];
+      if (!Number.isFinite(level)) {
+        continue;
+      }
+      const points = this.levelPoints.get(level) ?? [];
+      for (const point of curve) {
+        points.push(point);
+      }
+      this.levelPoints.set(level, points);
+    }
   }
 
   /**
@@ -355,6 +370,53 @@ export class ContourTrace extends LineTrace {
       ?? t('model.fallbackNumbered', { noun: t('model.nounCurve'), index: row + 1 });
   }
 
+  /**
+   * The names the description lists the levels under: each declared level
+   * once, lowest first, then each curve declaring none, which nothing says
+   * shares a level with another.
+   *
+   * @returns One name per level
+   */
+  private levelNames(): string[] {
+    const names = this.levelOrder.map((level) => {
+      const row = this.levels.indexOf(level);
+      return this.groupNameAt(row);
+    });
+    for (const [row, level] of this.levels.entries()) {
+      if (!Number.isFinite(level)) {
+        names.push(this.groupNameAt(row));
+      }
+    }
+    return names;
+  }
+
+  /**
+   * How many points each level has, summed over the islands it is drawn as:
+   * one number when every level has as many, else the span from the fewest
+   * to the most, as the line layer states its series.
+   *
+   * @returns The count, or its span
+   */
+  private pointsPerLevel(): number | string {
+    const perLevel = new Map<number, number>();
+    const lengths: number[] = [];
+    for (const [row, curve] of this.curves.entries()) {
+      const level = this.levels[row];
+      if (Number.isFinite(level)) {
+        perLevel.set(level, (perLevel.get(level) ?? 0) + curve.length);
+      } else if (curve.length > 0) {
+        lengths.push(curve.length);
+      }
+    }
+    lengths.push(...perLevel.values());
+    if (lengths.length === 0) {
+      return 0;
+    }
+    const fewest = MathUtil.safeMin(lengths);
+    const most = MathUtil.safeMax(lengths);
+    return fewest === most ? most : t('model.spanRange', { min: fewest, max: most });
+  }
+
   protected override get text(): TextState {
     const base = super.text;
     const level = this.levels[this.row];
@@ -403,6 +465,15 @@ export class ContourTrace extends LineTrace {
    * neighbour is closer, because a reader looking at a point sees the gap on
    * both sides and takes the tighter one as the gradient there.
    *
+   * The neighbours are the next level up and the next level down, over every
+   * curve each is drawn as. They used to be the curves emitted just before and
+   * just after this one, which are the adjacent levels only when every level
+   * is one curve and the curves come in order. A level drawn as islands
+   * arrives as several curves in a row, so the gap was measured to another
+   * island of the reader's own level and announced as "to level 100" on the
+   * level-100 curve; a curve declaring no level has no adjacent level, and
+   * says nothing.
+   *
    * Measured to the nearest **sampled point** of the neighbouring curve
    * rather than to the nearest place on the segments between its samples.
    * That is an over-estimate bounded by the sampling interval, and it goes
@@ -427,14 +498,17 @@ export class ContourTrace extends LineTrace {
       return null;
     }
 
+    const at = this.levelOrder.indexOf(this.levels[row]);
+    if (at === -1) {
+      return null;
+    }
+
     let best: { distance: number; to: number } | null = null;
-    for (const neighbour of [row - 1, row + 1]) {
-      const curve = this.curves[neighbour];
-      const level = this.levels[neighbour];
-      if (curve === undefined || !Number.isFinite(level)) {
+    for (const level of [this.levelOrder[at - 1], this.levelOrder[at + 1]]) {
+      if (level === undefined) {
         continue;
       }
-      for (const point of curve) {
+      for (const point of this.levelPoints.get(level) ?? []) {
         const dx = Number(point.x) - x;
         const dy = Number(point.y) - y;
         if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
@@ -452,6 +526,7 @@ export class ContourTrace extends LineTrace {
   public override get description(): DescriptionState {
     const base = super.description;
     const declared = this.levels.filter(Number.isFinite);
+    const labels = this.seriesLabels;
 
     // Inherited, `Min value` and `Max value` are the line layer's min and max
     // of **y** -- the vertical extent of the drawn vertices. "What range does
@@ -460,7 +535,22 @@ export class ContourTrace extends LineTrace {
     // of levels, they answered it with the height of the plot: a field
     // running 0.1 to 0.3 was stated as 0 to 18. Named for the axis they
     // actually measure, they are a fact about the drawing and read as one.
+    //
+    // The count, the sizes and the names are the line layer's too, and it
+    // counts curves. A level drawn as islands is several curves carrying one
+    // number, so the volcano's five levels were "Number of levels: 9" and
+    // "Levels: 100, 100, 100, 120, ...". They are counted, sized and named
+    // per level here, as the entry instruction already counts them.
     const stats = base.stats.map((stat) => {
+      if (stat.label === labels.count) {
+        return { ...stat, value: contourLevelCount(this.curves) };
+      }
+      if (stat.label === labels.perSeries) {
+        return { ...stat, value: this.pointsPerLevel() };
+      }
+      if (stat.label === labels.names) {
+        return { ...stat, value: this.levelNames().join(', ') };
+      }
       if (stat.label === t('model.statMinValue')) {
         return { ...stat, label: t('model.statMinimumAxis', { axis: this.yAxis }) };
       }
@@ -480,45 +570,39 @@ export class ContourTrace extends LineTrace {
       stats.push({ label: t('model.statLevel'), value: declared[0] });
     }
 
-    if (declared.length > 1) {
+    const distinct = this.levelOrder;
+    if (distinct.length > 1) {
       // What the field spans, which is what the two relabelled stats sounded
-      // like they were saying. Withheld on a single curve, whose level is
-      // already stated above and is not a range.
+      // like they were saying. Withheld on a single level, whose value is
+      // already stated and is not a range.
       stats.push({
         label: t('model.statLevelRange'),
-        value: MathUtil.spannedOrMissing(
-          MathUtil.safeMin(declared),
-          MathUtil.safeMax(declared),
-        ),
+        value: MathUtil.spannedOrMissing(distinct[0], distinct[distinct.length - 1]),
       });
     }
 
     // Every curve, or none: a step measured across a curve whose level the
     // layer left out is the distance over two gaps announced as one, and the
     // whole point of naming the step is that a reader may rely on it.
-    if (declared.length > 1 && declared.length === this.levels.length) {
-      // Distinct and ascending, neither of which the payload guarantees. A
-      // level is routinely drawn as several islands -- the shape
-      // `mapToSvgElements` exists for -- and those arrive as several curves
-      // carrying the same number, which diffed in place gives a step of 0;
-      // nothing requires a producer to emit its curves in order either, and
-      // 0.2, 0.3, 0.1 diffed in place is a step that "varies" on a field
-      // whose levels are evenly spaced.
-      const distinct = [...new Set(declared)].sort((a, b) => a - b);
-      if (distinct.length > 1) {
-        const steps = distinct
-          .slice(1)
-          .map((level, i) => withoutFloatNoise(level - distinct[i]));
-        const uniform = steps.every(step => step === steps[0]);
-        if (uniform) {
-          // A uniform step is what lets a reader treat spacing as gradient
-          // directly: equal value between curves means the distance between
-          // them IS the slope. A varying step does not, so it is named as
-          // varying rather than averaged into a number that would mislead.
-          stats.push({ label: t('model.statLevelStep'), value: steps[0] });
-        } else {
-          stats.push({ label: t('model.statLevelStep'), value: t('model.contourStepVaries') });
-        }
+    //
+    // Over the distinct levels in ascending order, neither of which the
+    // payload guarantees: islands of one level diffed in place give a step of
+    // 0, and nothing requires a producer to emit its curves in order -- 0.2,
+    // 0.3, 0.1 diffed in place is a step that "varies" on a field whose levels
+    // are evenly spaced.
+    if (distinct.length > 1 && declared.length === this.levels.length) {
+      const steps = distinct
+        .slice(1)
+        .map((level, i) => withoutFloatNoise(level - distinct[i]));
+      const uniform = steps.every(step => step === steps[0]);
+      if (uniform) {
+        // A uniform step is what lets a reader treat spacing as gradient
+        // directly: equal value between curves means the distance between
+        // them IS the slope. A varying step does not, so it is named as
+        // varying rather than averaged into a number that would mislead.
+        stats.push({ label: t('model.statLevelStep'), value: steps[0] });
+      } else {
+        stats.push({ label: t('model.statLevelStep'), value: t('model.contourStepVaries') });
       }
     }
 

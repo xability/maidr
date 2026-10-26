@@ -281,6 +281,73 @@ describe('up and down move between levels', () => {
   });
 });
 
+/**
+ * Three levels, the lowest drawn as two islands, as a contour tracer emits a
+ * level that closes in two places: two curves in a row carrying one number.
+ * The second island lies nearer the first than the next level up does.
+ */
+const ISLANDS: ContourPoint[][] = [
+  [{ x: 0, y: 0, level: 100 }, { x: 1, y: 0, level: 100 }],
+  [{ x: 3, y: 0, level: 100 }],
+  [{ x: 0, y: 4, level: 120 }, { x: 1, y: 4, level: 120 }, { x: 3, y: 5, level: 120 }],
+  [{ x: 0, y: 6, level: 140 }],
+];
+
+describe('a level drawn as islands is one level', () => {
+  test('the description counts it once', () => {
+    // Counted as curves, this was "Number of levels: 4" over three levels.
+    expect(stat('Number of levels', ISLANDS)).toBe(3);
+  });
+
+  test('the description names it once, and the levels lowest first', () => {
+    const shuffled = [ISLANDS[3], ISLANDS[0], ISLANDS[2], ISLANDS[1]];
+
+    expect(stat('Levels', ISLANDS)).toBe('100, 120, 140');
+    expect(stat('Levels', shuffled)).toBe('100, 120, 140');
+  });
+
+  test('its points are counted over all its islands', () => {
+    // 100 has three points over two islands of two and one, and 120 three.
+    // Counted per curve, two levels of three points each read "1 to 3".
+    const twoLevels: ContourPoint[][] = [ISLANDS[0], ISLANDS[1], ISLANDS[2]];
+
+    expect(stat('Points per level', twoLevels)).toBe(3);
+    expect(stat('Points per level', ISLANDS)).toBe('1 to 3');
+  });
+
+  test('the spacing is measured to the next level, not to another island', () => {
+    // The second island of 100 is 3 away; level 120 is 4 away. Measured to
+    // the curve emitted next, this said "3 to level 100" -- a gap inside one
+    // level, announced as the gradient.
+    expect(nonEmptyState(contour(0, 0, ISLANDS)).text.asides)
+      .toEqual([{ label: 'Spacing', value: '4 to level 120' }]);
+  });
+
+  test('the widest separation is between two levels', () => {
+    // The island at (3, 0) is 2 from its own level's other island and 4.47
+    // from level 120, the nearest point of which is (1, 4).
+    expect(stat('Widest separation between levels', ISLANDS)).toBe('4.47 at X 3, Y 0');
+    expect(stat('Closest approach between levels', ISLANDS)).toBe('2 at X 0, Y 4');
+  });
+
+  test('one level drawn as islands has no range and no step', () => {
+    const one: ContourPoint[][] = [ISLANDS[0], ISLANDS[1]];
+
+    expect(stat('Number of levels', one)).toBe(1);
+    expect(stat('Levels', one)).toBe('100');
+    expect(stat('Level range', one)).toBeUndefined();
+    expect(stat('Level step', one)).toBeUndefined();
+  });
+
+  test('a curve declaring no level is listed as a level of its own', () => {
+    const bare: ContourPoint[][] = [ISLANDS[0], [{ x: 5, y: 5 }], ISLANDS[1]];
+
+    expect(stat('Number of levels', bare)).toBe(2);
+    expect(stat('Levels', bare)).toBe('100, Curve 2');
+    expect(nonEmptyState(contour(1, 0, bare)).text.asides).toBeUndefined();
+  });
+});
+
 describe('the description answers what a curve cannot', () => {
   test('counts and names the levels', () => {
     expect(stat('Number of levels')).toBe(3);
