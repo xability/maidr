@@ -157,6 +157,7 @@ export const model = {
   'model.instructionSubplot': 'Ceci est un graphique maidr contenant {size} couches, et\n        ceci est la couche {index} sur {size} : graphique de type {plotType}. {clickPrompt}\n        Utilisez les flèches pour parcourir les points de données. Appuyez sur B pour le braille, T pour le texte,\n        S pour la sonification et R pour le mode révision.',
   'model.instructionTrace': 'Ceci est un graphique maidr de type : {displayType}{groupCount}. {clickPrompt} Utilisez les flèches pour parcourir les points de données. Appuyez sur B pour le braille, T pour le texte, S pour la sonification et R pour le mode révision.',
   'model.instructionGroupCount': ' avec {count} groupes',
+  'model.instructionLevelCount': ' avec {count} niveaux',
   'model.levelFigure': 'figure',
   'model.levelSubplot': 'sous-graphique',
   'model.levelTrace': 'tracé',

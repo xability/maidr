@@ -66,7 +66,7 @@ async function tabIntoBarChart(page: Page): Promise<void> {
   await page.goto('examples/powerbi-bar.html');
   await page.keyboard.press('Tab');
   await expect(page.locator('[data-maidr-powerbi] [role="application"]')).toBeFocused();
-  await waitForText(page, 'maidr plot of type: vertical dodged_bar');
+  await waitForText(page, 'maidr plot of type: vertical dodged bar');
 }
 
 test.describe('Power BI adapter: chart mode (powerbi-bar.html)', () => {

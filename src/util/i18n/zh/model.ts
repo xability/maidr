@@ -155,6 +155,7 @@ export const model = {
   'model.instructionSubplot': '这是一个包含 {size} 个图层的 maidr 图表，\n        当前是第 {index} 个图层，共 {size} 个：{plotType}图。{clickPrompt}\n        使用方向键浏览数据点。按 B 切换盲文，按 T 切换文本，\n        按 S 切换声音化，按 R 切换查看模式。',
   'model.instructionTrace': '这是一个 maidr 图表，类型为：{displayType}图{groupCount}。{clickPrompt} 使用方向键浏览数据点。按 B 切换盲文，按 T 切换文本，按 S 切换声音化，按 R 切换查看模式。',
   'model.instructionGroupCount': '，包含 {count} 个组',
+  'model.instructionLevelCount': '，包含 {count} 个级别',
   'model.levelFigure': '图形',
   'model.levelSubplot': '子图',
   'model.levelTrace': '图层',

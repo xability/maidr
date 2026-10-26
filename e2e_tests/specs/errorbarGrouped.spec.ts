@@ -11,7 +11,7 @@ import { normalizeText } from '../utils/text';
  *
  * They are separate layers, so the reader moves between them rather than
  * arrowing. What makes that readable is each layer saying which group it is:
- * without a name both announce "error_bar plot" and the reader hears two sets
+ * without a name both announce "error bar plot" and the reader hears two sets
  * of numbers with nothing to attach them to.
  */
 
@@ -92,9 +92,9 @@ test.describe('Grouped error bar', () => {
 
     const announcement = normalizeText(await plot.getInstructionText());
 
-    // The group, not "error_bar plot".
+    // The group, not "error bar plot".
     expect(announcement).toContain('Female');
-    expect(announcement).not.toContain('error_bar plot');
+    expect(announcement).not.toContain('error bar plot');
   });
 
   test('should land on the same category in the other layer', async ({ page }) => {

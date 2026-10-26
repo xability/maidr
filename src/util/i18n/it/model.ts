@@ -156,6 +156,7 @@ export const model = {
   'model.instructionSubplot': 'Questo è un grafico maidr che contiene {size} livelli, e\n        questo è il livello {index} di {size}: grafico {plotType}. {clickPrompt}\n        Usare le frecce per spostarsi tra i punti dati. Premere B per il braille, T per il testo,\n        S per la sonificazione e R per la modalità revisione.',
   'model.instructionTrace': 'Questo è un grafico maidr {displayType}{groupCount}. {clickPrompt} Usare le frecce per spostarsi tra i punti dati. Premere B per il braille, T per il testo, S per la sonificazione e R per la modalità revisione.',
   'model.instructionGroupCount': ' con {count} gruppi',
+  'model.instructionLevelCount': ' con {count} livelli',
   'model.levelFigure': 'la figura',
   'model.levelSubplot': 'il sottografico',
   'model.levelTrace': 'la traccia',

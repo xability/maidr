@@ -154,6 +154,7 @@ export const model = {
   'model.instructionSubplot': 'यह एक maidr प्लॉट है जिसमें {size} लेयर हैं, और यह {size} में से लेयर {index} है: {plotType} प्लॉट। {clickPrompt} डेटा बिंदुओं में चलने के लिए तीर कुंजियाँ दबाएँ। ब्रेल के लिए B, टेक्स्ट के लिए T, सोनिफिकेशन के लिए S और समीक्षा मोड के लिए R दबाएँ।',
   'model.instructionTrace': 'यह {displayType} प्रकार का maidr प्लॉट है{groupCount}। {clickPrompt} डेटा बिंदुओं में चलने के लिए तीर कुंजियाँ दबाएँ। ब्रेल के लिए B, टेक्स्ट के लिए T, सोनिफिकेशन के लिए S और समीक्षा मोड के लिए R दबाएँ।',
   'model.instructionGroupCount': ', {count} समूहों के साथ',
+  'model.instructionLevelCount': ', {count} स्तरों के साथ',
   'model.levelFigure': 'फ़िगर',
   'model.levelSubplot': 'सबप्लॉट',
   'model.levelTrace': 'ट्रेस',

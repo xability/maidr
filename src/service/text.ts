@@ -9,6 +9,7 @@ import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
 import { t } from '@util/i18n';
+import { plotTypeLabel } from '@util/plotTypeLabel';
 
 /**
  * Enumeration of available text output modes.
@@ -380,9 +381,12 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (this.mode === TextMode.TERSE) {
       return this.terseSubplotLabel(index, subplotTitle);
     }
-    const details = traceTypes.length === 1
-      ? t('text.figureSingleType', { type: traceTypes[0] })
-      : t('text.figureMultiType', { types: traceTypes.join(Constant.COMMA_SPACE) });
+    // `traceTypes` are the wire values ('point', 'stacked_bar'); the reader
+    // hears each in words, as the entry instruction names it.
+    const types = traceTypes.map(type => plotTypeLabel(type));
+    const details = types.length === 1
+      ? t('text.figureSingleType', { type: types[0] })
+      : t('text.figureMultiType', { types: types.join(Constant.COMMA_SPACE) });
     // Verbose: the full framing, now naming the panel by its authored title
     // (when present) alongside the position.
     return t('text.figureLobbyDetails', {

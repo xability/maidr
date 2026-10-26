@@ -158,6 +158,7 @@ export const model = {
   'model.instructionSubplot': 'Dies ist ein maidr-Diagramm mit {size} Ebenen, und\n        dies ist Ebene {index} von {size}: Diagramm vom Typ {plotType}. {clickPrompt}\n        Verwenden Sie die Pfeiltasten, um durch die Datenpunkte zu navigieren. Drücken Sie B für Braille, T für Text,\n        S für Sonifikation und R für den Überprüfungsmodus.',
   'model.instructionTrace': 'Dies ist ein maidr-Diagramm vom Typ {displayType}{groupCount}. {clickPrompt} Verwenden Sie die Pfeiltasten, um durch die Datenpunkte zu navigieren. Drücken Sie B für Braille, T für Text, S für Sonifikation und R für den Überprüfungsmodus.',
   'model.instructionGroupCount': ' mit {count} Gruppen',
+  'model.instructionLevelCount': ' mit {count} Levels',
   'model.levelFigure': 'Abbildung',
   'model.levelSubplot': 'Teildiagramm',
   'model.levelTrace': 'Ebene',

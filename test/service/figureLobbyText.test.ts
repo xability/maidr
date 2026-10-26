@@ -18,13 +18,13 @@ function createMockNotificationService(): NotificationService {
  * A non-empty multi-panel figure state whose focused subplot carries the
  * given title (pass the model default 'unavailable' or '' for "no title").
  */
-function figureState(subplotTitle: string): PlotState {
+function figureState(subplotTitle: string, traceTypes: string[] = ['bar']): PlotState {
   return {
     empty: false,
     type: 'figure',
     index: 2,
     size: 3,
-    traceTypes: ['bar'],
+    traceTypes,
     subplot: {
       empty: false,
       type: 'subplot',
@@ -89,6 +89,34 @@ describe('TextService figure-lobby navigation text', () => {
 
     expect(onChange).toHaveBeenCalledWith({
       value: 'Subplot 2 of 3: This is a bar plot. Press \'ENTER\' to select this subplot.',
+    });
+  });
+
+  test('verbose: names each type in words, not by its wire value', () => {
+    const text = new TextService(createMockNotificationService());
+    const onChange = jest.fn();
+    text.onChange(onChange);
+
+    text.update(figureState('unavailable', ['point']));
+    text.update(figureState('unavailable', ['hist', 'stacked_bar']));
+
+    expect(onChange).toHaveBeenNthCalledWith(1, {
+      value: 'Subplot 2 of 3: This is a scatter plot. Press \'ENTER\' to select this subplot.',
+    });
+    expect(onChange).toHaveBeenNthCalledWith(2, {
+      value: 'Subplot 2 of 3: This is a multi-layered plot containing histogram, stacked bar plots. Press \'ENTER\' to select this subplot.',
+    });
+  });
+
+  test('verbose: a value that is not a trace type is named as it is', () => {
+    const text = new TextService(createMockNotificationService());
+    const onChange = jest.fn();
+    text.onChange(onChange);
+
+    text.update(figureState('unavailable', ['point', 'not_a_type']));
+
+    expect(onChange).toHaveBeenCalledWith({
+      value: 'Subplot 2 of 3: This is a multi-layered plot containing scatter, not_a_type plots. Press \'ENTER\' to select this subplot.',
     });
   });
 });

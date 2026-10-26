@@ -67,7 +67,7 @@ test.describe('Office adapter: the PowerPoint task pane (office-taskpane.html)',
       'Slide 3 (hidden): Spending',
     ]);
     await expect(page.locator('#taskpane [data-maidr-office-progress]')).toHaveText('Charts read: 3.');
-    await tabIntoFigure(page, 'maidr plot of type: vertical dodged_bar');
+    await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
 
     await page.keyboard.press('ArrowRight');
     await waitForText(page, 'Quarter is Q1, Sales ($) is 120, Level is North');
@@ -128,7 +128,7 @@ test.describe('Office adapter: the PowerPoint task pane (office-taskpane.html)',
 
     await page.locator('#taskpane').getByRole('button', { name: 'Read again' }).click();
     await expect(page.locator('#taskpane [data-maidr-office-progress]')).toHaveText('Charts read: 3.');
-    await tabIntoFigure(page, 'maidr plot of type: vertical dodged_bar');
+    await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
     await page.keyboard.press('ArrowRight');
 
     await waitForText(page, 'Quarter is Q1, Sales ($) is 125, Level is North');
@@ -160,7 +160,7 @@ test.describe('Office adapter: the Word task pane (office-taskpane.html?host=Wor
 
     await page.locator('#edit-sales').click();
     await expect(picker(page)).toHaveValue('1');
-    await tabIntoFigure(page, 'maidr plot of type: vertical dodged_bar');
+    await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
     await page.keyboard.press('ArrowRight');
 
     await waitForText(page, 'Quarter is Q1, Sales ($) is 125, Level is North');

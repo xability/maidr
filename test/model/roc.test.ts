@@ -98,10 +98,10 @@ describe('roc registration', () => {
 
   test('announces itself as the chart it is', () => {
     expect(roc().description.chartType).toBe('ROC Curve');
-    expect(stateOf(roc()).plotType).toBe('roc');
+    expect(stateOf(roc()).plotType).toBe('ROC');
     // Whether it holds one curve or several: the line says "line" or
     // "multiline", and neither tells a reader what the axes are.
-    expect(stateOf(roc(0, 0, [LOGISTIC])).plotType).toBe('roc');
+    expect(stateOf(roc(0, 0, [LOGISTIC])).plotType).toBe('ROC');
   });
 
   test('an empty layer answers with the empty state rather than throwing', () => {

@@ -87,7 +87,7 @@ test.describe('Rug plot', () => {
 
   test('should announce itself as a vertical rug', async ({ page }) => {
     // The type is what tells a reader that the pitch is the position on the
-    // axis; announced as a point plot, the same chart would leave them
+    // axis; announced as a scatter plot, the same chart would leave them
     // wondering why the pitch moves with x.
     const plot = new RugPlotPage(page);
     await plot.activateMaidr();
@@ -95,7 +95,7 @@ test.describe('Rug plot', () => {
     const instruction = normalizeText(await plot.getInstructionText());
 
     expect(instruction).toContain('type: vertical rug');
-    expect(instruction).not.toContain('type: point');
+    expect(instruction).not.toContain('type: scatter');
   });
 
   test('should walk the observations from the lowest position up', async ({ page }) => {
