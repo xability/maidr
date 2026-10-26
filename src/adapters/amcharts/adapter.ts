@@ -237,8 +237,9 @@ export function convertCharts(
         continue;
       }
       // MaidrSubplot has no title field; the FIRST layer's title is the
-      // panel's display name in subplot summaries.
-      const panelTitle = readChartTitle(chart);
+      // panel's display name in subplot summaries: the chart's own title,
+      // else its first series' name.
+      const panelTitle = readChartTitle(chart) ?? layers[0].name;
       if (panelTitle) {
         layers[0] = { ...layers[0], title: panelTitle };
       }
@@ -431,7 +432,7 @@ function buildChartLayers(
         const data = extractVennPoints(series);
         if (data.length === 0)
           break;
-        layers.push({ id: layerId(series), type: TraceType.VENN, title: seriesName(series), data });
+        layers.push({ id: layerId(series), type: TraceType.VENN, name: seriesName(series), data });
         break;
       }
       case 'sankey':
@@ -609,9 +610,11 @@ function buildDeclaredLayer(
 ): MaidrLayer | null {
   const declaration = declared.declaration;
   const axes = { x: { label: xLabel }, y: { label: yLabel } };
+  // A title only when the block gives one: MAIDR reads a layer's title as the
+  // chart's. The series' own name says which layer this is.
   const named = {
     id: layerId(declared.series),
-    ...(declaration.name ? { name: declaration.name } : {}),
+    ...(declaration.title !== undefined ? { title: declaration.title } : {}),
   };
 
   switch (declaration.type) {
@@ -630,7 +633,7 @@ function buildDeclaredLayer(
       return {
         ...named,
         type: TraceType.ALLUVIAL,
-        title: declaration.title ?? seriesName(declared.series),
+        name: declaration.name ?? seriesName(declared.series),
         axes: flowAxes(options),
         data,
       };
@@ -647,7 +650,7 @@ function buildDeclaredLayer(
       return {
         ...named,
         type: TraceType.CHOROPLETH,
-        title: declaration.title ?? seriesName(declared.series),
+        name: declaration.name ?? seriesName(declared.series),
         axes: choroplethAxes(options),
         data,
       };
@@ -665,7 +668,7 @@ function buildDeclaredLayer(
       return {
         ...named,
         type: TraceType.SURVIVAL,
-        title: declaration.title ?? armTitle(arms),
+        name: declaration.name ?? armNames(arms),
         ...(selectors.length > 0 ? { selectors } : {}),
         ...(declaration.stepDirection ? { stepDirection: declaration.stepDirection } : {}),
         axes,
@@ -687,7 +690,7 @@ function buildDeclaredLayer(
       return {
         ...named,
         type: TraceType.PR_CURVE,
-        title: declaration.title ?? armTitle(curves),
+        name: declaration.name ?? armNames(curves),
         ...(selectors.length > 0 ? { selectors } : {}),
         axes,
         data,
@@ -705,7 +708,7 @@ function buildDeclaredLayer(
       return {
         ...named,
         type: TraceType.PERCENTILE_BAND,
-        title: declaration.title ?? seriesName(declared.series),
+        name: declaration.name ?? seriesName(declared.series),
         axes,
         data,
       };
@@ -718,7 +721,7 @@ function buildDeclaredLayer(
       return {
         ...named,
         type: TraceType.ERROR_BAR,
-        title: declaration.title ?? seriesName(declared.series),
+        name: declaration.name ?? seriesName(declared.series),
         ...declaredMarkSelector(declared.series, containerEl),
         ...declaredOrientation(declared),
         axes,
@@ -734,7 +737,7 @@ function buildDeclaredLayer(
       return {
         ...named,
         type: TraceType.FOREST,
-        title: declaration.title ?? seriesName(declared.series),
+        name: declaration.name ?? seriesName(declared.series),
         ...declaredMarkSelector(declared.series, containerEl),
         ...declaredOrientation(declared),
         ...(forestOptions ? { forestOptions } : {}),
@@ -752,7 +755,7 @@ function buildDeclaredLayer(
       return {
         ...named,
         type: declaration.type,
-        title: declaration.title ?? seriesName(declared.series),
+        name: declaration.name ?? cloudName(declared),
         ...cloudSelector(declared, containerEl),
         ...(thresholdOptions ? { thresholdOptions } : {}),
         axes,
@@ -769,7 +772,7 @@ function buildDeclaredLayer(
       return {
         ...named,
         type: TraceType.SCATTER,
-        title: declaration.title ?? seriesName(declared.series),
+        name: declaration.name ?? cloudName(declared),
         ...cloudSelector(declared, containerEl),
         axes,
         data,
@@ -779,7 +782,7 @@ function buildDeclaredLayer(
 }
 
 /** What a survival layer is called: every arm that has a name, in draw order. */
-function armTitle(arms: AmXYSeries[]): string | undefined {
+function armNames(arms: AmXYSeries[]): string | undefined {
   const names = arms
     .map(series => seriesName(series))
     .filter((name): name is string => name !== undefined);
@@ -801,6 +804,15 @@ function declaredMarkSelector(
     ? buildColumnSelector(series, containerEl)
     : buildLineSelector(series, containerEl);
   return selector ? { selectors: selector } : {};
+}
+
+/**
+ * What a cloud is called: its series' name, when it is one series. A cloud
+ * merged from several -- a Manhattan plot's chromosomes -- is not called by
+ * the one that declared it.
+ */
+function cloudName(declared: AmDeclaredLayer): string | undefined {
+  return declared.arms.length === 0 ? seriesName(declared.series) : undefined;
 }
 
 /** The selector for a cloud, whose marks are the bullets of every merged arm. */
@@ -847,7 +859,7 @@ function buildBarLayer(
   return {
     id: layerId(series),
     type,
-    title: seriesName(series),
+    name: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
@@ -937,7 +949,7 @@ function buildWaterfallLayer(
   return {
     id: layerId(series),
     type: TraceType.WATERFALL,
-    title: seriesName(series),
+    name: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
     data,
@@ -964,7 +976,7 @@ function buildCandlestickLayer(
   return {
     id: layerId(series),
     type: TraceType.CANDLESTICK,
-    title: seriesName(series),
+    name: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
     data,
@@ -992,7 +1004,7 @@ function buildDumbbellLayer(
   return {
     id: layerId(series),
     type: TraceType.DUMBBELL,
-    title: seriesName(series),
+    name: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
     data: {
@@ -1023,7 +1035,7 @@ function buildGanttLayer(
   return {
     id: layerId(series),
     type: TraceType.GANTT,
-    title: seriesName(series),
+    name: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     orientation: Orientation.HORIZONTAL,
     axes: { x: { label: xLabel }, y: { label: yLabel } },
@@ -1071,7 +1083,7 @@ function buildHierarchyLayer(
   return {
     id: layerId(series),
     type: HIERARCHY_TRACE_TYPES[kind],
-    title: seriesName(series),
+    name: seriesName(series),
     axes: {
       x: { label: options?.axisLabels?.x ?? HIERARCHY_NODE_AXIS },
       y: { label: options?.axisLabels?.y ?? HIERARCHY_VALUE_AXIS },
@@ -1123,7 +1135,7 @@ function buildFlowLayer(
   return {
     id: layerId(series),
     type,
-    ...(seriesName(series) ? { title: seriesName(series) } : {}),
+    ...(seriesName(series) ? { name: seriesName(series) } : {}),
     axes: flowAxes(options),
     data,
   };
@@ -1162,7 +1174,7 @@ function buildChoroplethLayer(
   return {
     id: layerId(series),
     type: TraceType.CHOROPLETH,
-    ...(seriesName(series) ? { title: seriesName(series) } : {}),
+    ...(seriesName(series) ? { name: seriesName(series) } : {}),
     axes: choroplethAxes(options),
     data,
   };
@@ -1191,7 +1203,7 @@ function buildNetworkLayer(
   return {
     id: layerId(series),
     type: TraceType.NETWORK,
-    ...(seriesName(series) ? { title: seriesName(series) } : {}),
+    ...(seriesName(series) ? { name: seriesName(series) } : {}),
     axes: {
       x: { label: options?.axisLabels?.x ?? NETWORK_NODE_AXIS },
       y: { label: options?.axisLabels?.y ?? NETWORK_LINK_AXIS },
@@ -1262,7 +1274,7 @@ function buildHistogramLayer(
   return {
     id: layerId(series),
     type: TraceType.HISTOGRAM,
-    title: seriesName(series),
+    name: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
     data,
@@ -1302,7 +1314,7 @@ function buildPieLayer(
   return {
     id: layerId(series),
     type: TraceType.PIE,
-    title: seriesName(series),
+    name: seriesName(series),
     axes: {
       x: { label: options?.axisLabels?.x ?? PIE_LABEL_AXIS },
       y: { label: options?.axisLabels?.y ?? PIE_VALUE_AXIS },
@@ -1339,7 +1351,7 @@ function buildFunnelLayer(
   return {
     id: layerId(series),
     type: TraceType.FUNNEL,
-    title: seriesName(series),
+    name: seriesName(series),
     ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     // `axes.x` names whichever axis the point's `x` lies on, so the pair is
     // written in the order the payload puts them. The caller's own labels are
@@ -1412,7 +1424,7 @@ function buildWordCloudLayer(
   return {
     id: layerId(series),
     type: TraceType.WORD_CLOUD,
-    title: seriesName(series),
+    name: seriesName(series),
     axes: {
       x: { label: options?.axisLabels?.x ?? WORD_CLOUD_TERM_AXIS },
       y: { label: options?.axisLabels?.y ?? WORD_CLOUD_WEIGHT_AXIS },
@@ -1469,7 +1481,7 @@ const MERGED_ID_PREFIX: Record<MergedTraceType, string> = {
 interface MergedSeries {
   /** One entry per series, in chart order. */
   data: LinePoint[][];
-  /** Names of the series that have one, joined into the layer title. */
+  /** Names of the series that have one, joined into the layer's name. */
   names: string[];
   /** Highlight selectors, for the series whose path could be resolved. */
   selectors?: string[];
@@ -1523,13 +1535,13 @@ function buildLineLayer(
   yLabel: string,
   drawn: Pick<MaidrLayer, 'firstPlace'> = {},
 ): MaidrLayer {
-  const title = merged.names.length > 0 ? merged.names.join(', ') : undefined;
+  const name = merged.names.length > 0 ? merged.names.join(', ') : undefined;
   const selectors = merged.selectors;
 
   return {
     id: `${MERGED_ID_PREFIX[type]}-${uid()}`,
     type,
-    ...(title ? { title } : {}),
+    ...(name ? { name } : {}),
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
     data: merged.data,
@@ -1789,6 +1801,11 @@ function readChartTitle(chart: AmChart): string | undefined {
   return undefined;
 }
 
+/**
+ * A series' name, which names its layer and is announced by a layer switch.
+ * Never a layer's `title`: MAIDR reads that as the chart's, which is the
+ * chart's own title label or the `title` option.
+ */
 function seriesName(series: AmXYSeries): string | undefined {
   const name = series.get('name');
   return typeof name === 'string' && name.length > 0 ? name : undefined;

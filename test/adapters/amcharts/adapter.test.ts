@@ -109,6 +109,31 @@ describe('findXYCharts', () => {
 });
 
 describe('fromAmCharts (single chart)', () => {
+  it('names a series in its layer\'s name and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: the chart titled "Number
+    // of Tips by Day" was announced as "Title is Tips Count".
+    const chart = fakeChart({
+      series: [fakeBarSeries('Tips Count', BAR_DATA)],
+      title: 'Number of Tips by Day',
+    });
+
+    const result = fromAmCharts(fakeRoot([chart]));
+    const layer = result.subplots[0][0].layers[0];
+
+    expect(result.title).toBe('Number of Tips by Day');
+    expect(layer.title).toBeUndefined();
+    expect(layer.name).toBe('Tips Count');
+  });
+
+  it('gives an untitled chart no title from its series', () => {
+    const chart = fakeChart({ series: [fakeBarSeries('Tips Count', BAR_DATA)] });
+
+    const result = fromAmCharts(fakeRoot([chart]));
+
+    expect(result.title).toBeUndefined();
+    expect(result.subplots[0][0].layers[0].title).toBeUndefined();
+  });
+
   it('produces the original 1x1 grid with a bar layer', () => {
     const chart = fakeChart({
       series: [fakeBarSeries('Tips', BAR_DATA)],
@@ -127,7 +152,7 @@ describe('fromAmCharts (single chart)', () => {
 
     const layer = result.subplots[0][0].layers[0];
     expect(layer.type).toBe(TraceType.BAR);
-    expect(layer.title).toBe('Tips');
+    expect(layer.name).toBe('Tips');
     expect(layer.axes).toEqual({ x: { label: 'Day' }, y: { label: 'Count' } });
     expect(layer.data as BarPoint[]).toEqual([
       { x: 'Sat', y: 87 },
@@ -169,7 +194,7 @@ describe('fromAmCharts (single chart)', () => {
 
     const layer = result.subplots[0][0].layers[0];
     expect(layer.type).toBe(TraceType.STEP);
-    expect(layer.title).toBe('Stage');
+    expect(layer.name).toBe('Stage');
     // amCharts reports no convention, so MAIDR names none rather than guessing.
     expect(layer.stepDirection).toBeUndefined();
     expect(layer.data).toEqual([[
@@ -189,7 +214,7 @@ describe('fromAmCharts (single chart)', () => {
     const result = fromAmCharts(fakeRoot([chart]));
 
     const layers = result.subplots[0][0].layers;
-    expect(layers.map(layer => [layer.type, layer.title])).toEqual([
+    expect(layers.map(layer => [layer.type, layer.name])).toEqual([
       [TraceType.LINE, 'Trend'],
       [TraceType.STEP, 'Stage'],
     ]);
@@ -271,7 +296,7 @@ describe('fromAmCharts (pie chart)', () => {
 
     const layer = result.subplots[0][0].layers[0];
     expect(layer.type).toBe(TraceType.PIE);
-    expect(layer.title).toBe('Fruit');
+    expect(layer.name).toBe('Fruit');
     // A pie is bound to no axis, so the dimensions are named for what they hold.
     expect(layer.axes).toEqual({ x: { label: 'Label' }, y: { label: 'Value' } });
     expect(layer.data as PiePoint[]).toEqual([
@@ -348,7 +373,7 @@ describe('fromAmCharts (area chart)', () => {
     const layer = layerOf(fakeAreaSeries('Sales', BAND_A));
 
     expect(layer.type).toBe(TraceType.AREA);
-    expect(layer.title).toBe('Sales');
+    expect(layer.name).toBe('Sales');
     expect(layer.data as LinePoint[][]).toEqual([[
       { x: '2020', y: 10, z: 'Sales' },
       { x: '2021', y: 14, z: 'Sales' },
@@ -376,7 +401,7 @@ describe('fromAmCharts (area chart)', () => {
     );
 
     expect(layer.type).toBe(TraceType.STACKED_AREA);
-    expect(layer.title).toBe('Sales, Expenses');
+    expect(layer.name).toBe('Sales, Expenses');
     expect((layer.data as LinePoint[][]).map(band => band.map(point => point.y)))
       .toEqual([[10, 14], [4, 6]]);
   });
@@ -410,7 +435,7 @@ describe('fromAmCharts (area chart)', () => {
 
     const layers = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers;
 
-    expect(layers.map(layer => [layer.type, layer.title])).toEqual([
+    expect(layers.map(layer => [layer.type, layer.name])).toEqual([
       [TraceType.LINE, 'Trend'],
       [TraceType.AREA, 'Band'],
     ]);
@@ -447,7 +472,7 @@ describe('fromAmCharts (bump chart)', () => {
     ]);
 
     expect(layer.type).toBe(TraceType.BUMP);
-    expect(layer.title).toBe('Ash, Birch, Cedar');
+    expect(layer.name).toBe('Ash, Birch, Cedar');
     expect(layer.axes).toEqual({ x: { label: 'Round' }, y: { label: 'Rank' } });
     expect((layer.data as LinePoint[][])[0]).toEqual([
       { x: 'R1', y: 1, z: 'Ash' },
@@ -605,7 +630,7 @@ describe('fromAmCharts (radar chart)', () => {
     const layer = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.RADAR);
-    expect(layer.title).toBe('Model A, Model B');
+    expect(layer.name).toBe('Model A, Model B');
     expect(layer.axes).toEqual({ x: { label: 'Attribute' }, y: { label: 'Score' } });
     // One row per series, one column per spoke, in spoke order.
     expect(layer.data as LinePoint[][]).toEqual([
@@ -631,7 +656,7 @@ describe('fromAmCharts (radar chart)', () => {
     const layer = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.POLAR_AREA);
-    expect(layer.title).toBe('Rainfall');
+    expect(layer.name).toBe('Rainfall');
     expect((layer.data as LinePoint[][])[0].map(point => point.y)).toEqual([8, 4, 6]);
   });
 
@@ -674,7 +699,7 @@ describe('fromAmCharts (sliced chart)', () => {
     expect(result.title).toBe('Checkout funnel');
     const layer = result.subplots[0][0].layers[0];
     expect(layer.type).toBe(TraceType.FUNNEL);
-    expect(layer.title).toBe('Checkout');
+    expect(layer.name).toBe('Checkout');
     // A `FunnelSeries` in its default `orientation: 'vertical'` stacks its
     // stages down the page and encodes the value as each band's WIDTH --
     // measured in Chromium through the series' own API, uniform heights of
@@ -794,7 +819,7 @@ describe('fromAmCharts (waterfall and dumbbell)', () => {
     const layer = layerOf(fakeFloatingColumnSeries('Budget', BRIDGE));
 
     expect(layer.type).toBe(TraceType.WATERFALL);
-    expect(layer.title).toBe('Budget');
+    expect(layer.name).toBe('Budget');
     expect(layer.data as WaterfallPoint[]).toEqual([
       { x: 'Opening', start: 0, end: 1200, delta: 1200, kind: 'total' },
       { x: 'Marketing', start: 1200, end: 950, delta: -250, kind: 'decrease' },
@@ -957,7 +982,7 @@ describe('fromAmCharts (hierarchy)', () => {
     const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.TREEMAP);
-    expect(layer.title).toBe('Population');
+    expect(layer.name).toBe('Population');
     // A tree is bound to no axis, so the dimensions name what they hold.
     expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Value' } });
     // Depth-first, so each level comes out in its left-to-right order -- and
@@ -1029,7 +1054,7 @@ describe('fromAmCharts (sunburst)', () => {
     const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.SUNBURST);
-    expect(layer.title).toBe('Population');
+    expect(layer.name).toBe('Population');
     // A tree is bound to no axis, so the dimensions name what they hold.
     expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Value' } });
     // The same walk the treemap and the icicle emit: one tree, three marks.
@@ -1074,7 +1099,7 @@ describe('fromAmCharts (flow: sankey, chord, arc diagram)', () => {
     const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.SANKEY);
-    expect(layer.title).toBe('Energy');
+    expect(layer.name).toBe('Energy');
     // A flow is bound to no axis, so the dimensions name what they hold.
     expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Weight' } });
     expect(layer.data as FlowPoint[]).toEqual([
@@ -1200,7 +1225,7 @@ describe('fromAmCharts (network)', () => {
     const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.NETWORK);
-    expect(layer.title).toBe('People');
+    expect(layer.name).toBe('People');
     expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Links' } });
     expect(layer.data as NetworkPoint[]).toEqual([
       { source: 'Ada', target: 'Alan' },
@@ -1421,7 +1446,7 @@ describe('fromAmCharts (choropleth)', () => {
       .layers[0];
 
     expect(layer.type).toBe(TraceType.CHOROPLETH);
-    expect(layer.title).toBe('Rate');
+    expect(layer.name).toBe('Rate');
     // A map is bound to no axis: the value runs along a colour ramp and the
     // regions along nothing at all.
     expect(layer.axes).toEqual({ x: { label: 'Region' }, y: { label: 'Value' } });
@@ -1726,7 +1751,7 @@ describe('fromAmCharts (dot plot and lollipop)', () => {
     const layer = layerOf(fakeDotSeries('Response time', POINTS));
 
     expect(layer.type).toBe(TraceType.DOT);
-    expect(layer.title).toBe('Response time');
+    expect(layer.name).toBe('Response time');
     // A category and a value, exactly as a bar chart carries them -- the mark
     // is what differs, not what a reader navigates.
     expect(layer.data as BarPoint[]).toEqual([
@@ -1831,7 +1856,7 @@ describe('fromAmCharts (word cloud)', () => {
       .layers[0];
 
     expect(layer.type).toBe(TraceType.WORD_CLOUD);
-    expect(layer.title).toBe('Terms');
+    expect(layer.name).toBe('Terms');
     // Bound to no axis: the dimensions name what they hold, since a cloud's
     // layout is chosen to pack glyphs and encodes nothing.
     expect(layer.axes).toEqual({ x: { label: 'Term' }, y: { label: 'Weight' } });
@@ -1942,6 +1967,16 @@ describe('fromAmCharts (multi-panel)', () => {
     );
     // Bottom row (C, D) is data row 0 (matplotlib convention: UPWARD = row+1).
     expect(titles).toEqual([['C', 'D'], ['A', 'B']]);
+  });
+
+  it('names a panel whose chart has no title after its first series', () => {
+    const titled = fakeChart({ series: [fakeBarSeries('Revenue', BAR_DATA)], title: 'Monthly Revenue' });
+    const untitled = fakeChart({ series: [fakeBarSeries('Growth', BAR_DATA)] });
+
+    const result = fromAmCharts(fakeRoot([titled, untitled]));
+
+    expect(result.subplots[0].map(subplot => subplot.layers[0].title)).toEqual(['Monthly Revenue', 'Growth']);
+    expect(result.subplots[0].map(subplot => subplot.layers[0].name)).toEqual(['Revenue', 'Growth']);
   });
 
   it('falls back to a single row in insertion order without geometry', () => {
