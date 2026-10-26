@@ -95,4 +95,14 @@ describe('a scatter read by rows', () => {
 
     expect(spoken).toBe('x is 0.0, y is 1.235');
   });
+
+  test('leaves one point of a column in intersection mode, x first, as it was', () => {
+    const trace = new ScatterTrace(LAYER);
+    trace.moveOnce('FORWARD');
+    trace.setIntersectionMode(true);
+
+    const spoken = textService().format(trace.state);
+
+    expect(spoken).toBe('x is 0.0, y is 1.235');
+  });
 });

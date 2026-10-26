@@ -1125,7 +1125,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           value: stack[idx] === undefined ? '' : named(stack[idx], stackLabels[idx]),
         },
         z,
-        // y comes first here, so it is formatted as y; see the ROW branch below.
+        // A row is read y first, so the y is formatted as y and the x as x.
         mainAxis: 'y',
         crossAxis: 'x',
       }, stackName);
