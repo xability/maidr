@@ -225,14 +225,49 @@ describe('horizontal orientation', () => {
     expect(dataTable.rows[0]).toEqual(['control', 4.2, 3.8, 4.6]);
   });
 
+  /**
+   * Five samples of three sections: a grid that is not square, so a count
+   * read on the wrong axis cannot pass for the right one.
+   */
+  const FIVE: ErrorBarPoint[] = [
+    ...MEANS,
+    { x: 'placebo', y: 3.9, yMin: 3.1, yMax: 4.4 },
+    { x: 'washout', y: 4.4, yMin: 4.1, yMax: 5.0 },
+  ];
+
+  /**
+   * Build a horizontally drawn trace of five samples at a position.
+   * @param row Section row to land on
+   * @param col Sample column to land on
+   * @returns The positioned trace
+   */
+  function sideways(row: number, col: number): ErrorBarTrace {
+    const trace = TraceFactory.create({
+      ...createLayer(FIVE),
+      orientation: Orientation.HORIZONTAL,
+    }) as ErrorBarTrace;
+    trace.moveToIndex(row, col);
+    return trace;
+  }
+
   test('pans by where the point sits on screen', () => {
     // The grid stays sections-by-samples whichever way the chart is drawn, so
     // panning is where the swap has to happen: on a horizontal chart the
-    // samples run down the page rather than across it.
-    const { audio } = nonEmptyState(horizontal(0, 2));
+    // samples run down the page and the sections across it. The counts swap
+    // with the indices.
+    const { audio } = nonEmptyState(sideways(0, 2));
 
-    expect(audio.panning.x).toBe(0);
-    expect(audio.panning.y).toBe(2);
+    expect(audio.panning).toEqual({ x: 0, y: 2, rows: 5, cols: 3 });
+  });
+
+  test('pans the bounds of an interval from one side to the other', () => {
+    // Read against the number of samples, the sections of five samples
+    // panned hard left, half left and centre, and nothing to the right.
+    const lower = nonEmptyState(sideways(0, 1)).audio.panning;
+    const upper = nonEmptyState(sideways(2, 1)).audio.panning;
+
+    expect(lower.x).toBe(0);
+    expect(upper.x).toBe(upper.cols - 1);
   });
 
   test('keeps the grid shape, so autoplay stays paced by direction', () => {
@@ -240,11 +275,9 @@ describe('horizontal orientation', () => {
     // down walk the sections in both orientations, and `AutoplayState` is
     // keyed by direction, so a transposed grid would mis-pace autoplay and
     // mis-clamp the movement bounds.
-    const vertical = nonEmptyState(at(MEANS, 0, 2)).audio.panning;
-    const flipped = nonEmptyState(horizontal(0, 2)).audio.panning;
+    const flipped = nonEmptyState(sideways(0, 2)).autoplay;
 
-    expect(flipped.rows).toBe(vertical.rows);
-    expect(flipped.cols).toBe(vertical.cols);
+    expect(flipped).toEqual({ UPWARD: 3, DOWNWARD: 3, FORWARD: 5, BACKWARD: 5 });
   });
 
   test('reads the same magnitudes as the vertical chart', () => {
