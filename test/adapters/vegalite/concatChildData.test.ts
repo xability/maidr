@@ -151,3 +151,30 @@ describe('an hconcat whose children each compile to one table', () => {
     expect((maidr.subplots[0][1].layers[0].data as BarPoint[]).map(bar => bar.y)).toEqual([10, 20]);
   });
 });
+
+describe('an hconcat child no compiled table carries the columns of', () => {
+  it('falls back to the child\'s own inline rows, as an unresolved layer always has', () => {
+    const spec = {
+      hconcat: [
+        {
+          data: { values: [{ a: 'A', b: 1 }, { a: 'B', b: 2 }] },
+          mark: 'bar',
+          encoding: { x: { field: 'a', type: 'nominal' }, y: { field: 'b', type: 'quantitative' } },
+        },
+        {
+          data: { values: [{ c: 'X', d: 10 }, { c: 'Y', d: 20 }] },
+          mark: 'bar',
+          encoding: { x: { field: 'c', type: 'nominal' }, y: { field: 'd', type: 'quantitative' } },
+        },
+      ],
+    } as unknown as VegaLiteSpec;
+    // Only the first child's table is reachable.
+    const view = viewWith({ data_0: [{ a: 'A', b: 1 }, { a: 'B', b: 2 }] });
+
+    const maidr = vegaLiteToMaidr(spec, view);
+
+    // Before the fix the guesses fell through to `data_0`, the first child's
+    // table, and the second panel was read from it as bars named "".
+    expect(maidr.subplots[0][1].layers[0].data).toEqual([{ x: 'X', y: 10 }, { x: 'Y', y: 20 }]);
+  });
+});

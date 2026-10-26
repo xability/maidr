@@ -1496,6 +1496,10 @@ function rowsCarryFields(
  * not carry the field's own. A nested field (`a.b`, `a[0]`) is left out too,
  * since it names a path into a row rather than one of its keys.
  *
+ * The columns only have to tell a child's own table from a sibling's, which
+ * the fields it is drawn by do; the channels that size, shape or offset its
+ * marks are not needed for that and are not required.
+ *
  * @param encoding - The layer's encoding, merged with any parent's
  * @returns The columns the layer's rows have to carry
  */
@@ -1505,7 +1509,7 @@ function columnsReadAsIs(encoding: VegaLiteEncoding): string[] {
     const field = channel?.field;
     if (typeof field !== 'string' || field.length === 0 || /[.[\]\\]/.test(field))
       continue;
-    if (channel?.aggregate != null || channel?.bin || (channel as { timeUnit?: unknown }).timeUnit != null)
+    if (channel?.aggregate != null || channel?.bin || channel?.timeUnit != null)
       continue;
     columns.push(field);
   }
