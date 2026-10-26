@@ -52,6 +52,11 @@ class RugPlotPage extends BasePage {
     const textarea = await this.waitForElement(this.selectors.braille);
     return (await textarea.inputValue()).replace(/\n$/, '');
   }
+
+  /** Presses P, which announces where the cursor is. */
+  public async announcePosition(): Promise<void> {
+    await this.pressKeyAwaitingAnnouncement('p', 'announce position');
+  }
 }
 
 test.describe('Rug plot', () => {
@@ -119,5 +124,19 @@ test.describe('Rug plot', () => {
 
     expect(braille).toMatch(BRAILLE_CELL);
     expect(braille).toHaveLength(4);
+  });
+
+  test('should place the reader at an observation of the twelve on P', async ({ page }) => {
+    // The pan follows where the tick is drawn, and P read it: the first tick,
+    // at 1.2 on an axis to 10, was "Position is 1.12 of 2".
+    const plot = new RugPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    await plot.announcePosition();
+
+    const position = normalizeText(await plot.getInstructionText());
+
+    expect(position).toBe('Position is 2 of 12');
   });
 });

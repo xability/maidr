@@ -914,7 +914,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    * so do the traces that pan by where a point is drawn rather than by its
    * index: a radar by angle, a gantt by time, a sequence diagram by the lane
    * a message arrives at, a ROC curve by its x. A flow trace reads its
-   * transposed braille grid, whose rows are its stages.
+   * transposed braille grid, whose rows are its stages. A rug pans by where
+   * its tick is drawn and brailles the ticks per bin, so it says which
+   * observation the cursor is on in its state, and that is read instead.
    *
    * @param state - The active trace state
    * @returns The zero-based column and row, with their counts
@@ -922,6 +924,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
   private navigationPosition(
     state: NonEmptyTraceState,
   ): { x: number; y: number; rows: number; cols: number } {
+    if (state.rugPosition !== undefined) {
+      return { x: state.rugPosition.index, y: 0, rows: 1, cols: state.rugPosition.count };
+    }
     if (GRID_FRAME_TRACES.has(state.traceType) && isGridBrailleState(state.braille)) {
       return {
         x: state.braille.col,

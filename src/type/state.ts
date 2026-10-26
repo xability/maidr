@@ -141,6 +141,14 @@ export type TraceState
        * `parent` is the parent's name, absent at the top level.
        */
       treePosition?: { index: number; count: number; level: number; levels: number; parent?: string };
+      /**
+       * Which observation of a rug the cursor is on, of how many, in the
+       * order the arrow keys walk them: ascending along the axis. Present
+       * only for a rug, whose pan follows where the tick is drawn and whose
+       * braille grid counts the ticks in each bin, so neither says which
+       * observation the reader is on. `index` is zero-based.
+       */
+      rugPosition?: { index: number; count: number };
     };
 
 /**
