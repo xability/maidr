@@ -91,13 +91,13 @@ test.describe('ROC curve', () => {
     }
   });
 
-  test('should announce itself as a roc curve rather than a line', async ({ page }) => {
+  test('should announce itself as a ROC curve rather than a line', async ({ page }) => {
     const plot = new RocCurvePage(page);
     await plot.activateMaidr();
 
     const instruction = normalizeText(await plot.getInstructionText());
 
-    expect(instruction).toContain('roc');
+    expect(instruction).toContain('ROC');
     expect(instruction).not.toContain('multiline');
   });
 
