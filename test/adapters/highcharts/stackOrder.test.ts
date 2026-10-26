@@ -69,6 +69,31 @@ describe('a stacked Highcharts column group', () => {
     expect(rowNames(layer)).toEqual(['Product C', 'Product B', 'Product A']);
   });
 
+  it('runs out from the baseline on both sides when some segments are negative', () => {
+    // Highcharts stacks negative values down from the baseline, and stacks
+    // each side from the last series declared outwards.
+    const xAxis = fakeAxis({ categories: ['Q1'] });
+    const yAxis = fakeAxis();
+    const chart = fakeChart({
+      type: 'column',
+      renderToId: 'signed-chart',
+      plotOptions: { column: { stacking: 'normal' } },
+      series: [
+        fakeSeries({ index: 0, name: 'Gains A', xAxis, yAxis, data: categoryPoints([5], ['Q1']) }),
+        fakeSeries({ index: 1, name: 'Losses B', xAxis, yAxis, data: categoryPoints([-3], ['Q1']) }),
+        fakeSeries({ index: 2, name: 'Gains C', xAxis, yAxis, data: categoryPoints([4], ['Q1']) }),
+        fakeSeries({ index: 3, name: 'Losses D', xAxis, yAxis, data: categoryPoints([-2], ['Q1']) }),
+      ],
+    });
+
+    const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
+
+    // Gains C stands on the baseline with Gains A above it; Losses D hangs
+    // from the baseline with Losses B below it.
+    expect(layer.type).toBe(TraceType.STACKED);
+    expect(rowNames(layer)).toEqual(['Losses D', 'Gains C', 'Losses B', 'Gains A']);
+  });
+
   it('keeps the declared order on a chart that stacks the first series at the base', () => {
     const layer = stackedLayer('normal', fakeAxis({ options: { reversedStacks: false } }));
 
