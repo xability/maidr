@@ -603,7 +603,8 @@ var stems = chart.series.push(am5xy.ColumnSeries.new(root, {
 }));
 stems.columns.template.setAll({ width: 2 });
 stems.bullets.push(function () {
-  return am5.Bullet.new(root, { sprite: am5.Circle.new(root, { radius: 6, fill: stems.get("fill") }) });
+  // locationY: 1 puts the dot at the value; a column's bullet sits halfway along it by default.
+  return am5.Bullet.new(root, { locationY: 1, sprite: am5.Circle.new(root, { radius: 6, fill: stems.get("fill") }) });
 });
 ```
 
