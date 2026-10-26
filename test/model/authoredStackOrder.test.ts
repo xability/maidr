@@ -23,6 +23,14 @@ import { TraceType } from '@type/grammar';
  * So each example is walked the way a reader walks it, up each column, and
  * where every highlighted segment is drawn is read back. Only `<rect>` marks
  * are measured, because a rect's `y` is where it is drawn.
+ *
+ * What it can read is narrow, and an example outside it is skipped without a
+ * word: a spec written inline as `maidr='...'`, in single quotes, whose
+ * stacked layer names its marks with a `rect` selector. Today that is
+ * `normalized-barplot.html` alone. `stacked-barplot.html` and
+ * `stacked_bar.html` carry their specs in `maidr-data` and draw `<path>`s,
+ * which jsdom cannot place, and `d3-bindstacked.html` builds its spec at run
+ * time. The first case below fails if the one page it reads drops out.
  */
 
 const STACKED = new Set<string>([
@@ -93,7 +101,7 @@ function authoredStacks(): AuthoredStack[] {
       }
       for (const layer of layersOf(spec)) {
         if (STACKED.has(layer.type) && typeof layer.selectors === 'string'
-          && /(?:^|[\s>])rect\b/.test(layer.selectors)) {
+          && /(?:^|[\s>])rect(?![\w-])/.test(layer.selectors)) {
           found.push({ page, html, layer });
         }
       }
@@ -148,7 +156,9 @@ describe('an authored stacked bar example lists its series from the bottom up', 
   it('finds the stacked examples to check', () => {
     // If this reaches zero the check below passes vacuously, which is how a
     // guard stops guarding without anything failing.
-    expect(authoredStacks().length).toBeGreaterThan(0);
+    const pages = authoredStacks().map(stack => stack.page.slice(EXAMPLES.length + 1));
+
+    expect(pages).toContain('normalized-barplot.html');
   });
 
   it('draws each next series above the one before, in every column', () => {
