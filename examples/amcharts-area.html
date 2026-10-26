@@ -104,17 +104,22 @@
         );
 
         function addBand(name, field) {
-          var series = chart.series.push(
-            am5xy.LineSeries.new(root, {
-              name: name,
-              xAxis: xAxis,
-              yAxis: yAxis,
-              valueYField: field,
-              categoryXField: "quarter",
-              stacked: mode !== "plain",
-              valueYShow: mode === "normalized" ? "valueYTotalPercent" : undefined,
-            })
-          );
+          var settings = {
+            name: name,
+            xAxis: xAxis,
+            yAxis: yAxis,
+            valueYField: field,
+            categoryXField: "quarter",
+            stacked: mode !== "plain",
+          };
+          // Only the 100% stack names `valueYShow`. Leave the key out rather
+          // than setting it to `undefined`: amCharts applies its own default
+          // only to a key that is absent, and with `undefined` in its place
+          // the series throws while it is drawn and no chart appears.
+          if (mode === "normalized") {
+            settings.valueYShow = "valueYTotalPercent";
+          }
+          var series = chart.series.push(am5xy.LineSeries.new(root, settings));
           // THIS is what makes it an area rather than a line, for amCharts and
           // for MAIDR alike.
           series.fills.template.setAll({ visible: true, fillOpacity: 0.4 });
