@@ -622,9 +622,17 @@ chart.destroy();
 sync.dispose();
 ```
 
-### Re-rendering charts
+### Charts drawn after the page loads
 
-If you call `chart.update()` or `chart.addSeries()`, re-run `maidrHighcharts.highchartsToMaidr()` and update the `maidr-data` attribute so MAIDR sees the new state. Reload `maidr.js` only on first mount.
+MAIDR reads `maidr-data` attributes once, when the page has loaded. A chart drawn later — after an awaited `fetch`, as a map's topology usually is — or drawn again with `chart.update()` or `chart.addSeries()`, is bound by setting the attribute and dispatching `maidr:bindchart` on the element:
+
+```js
+const container = document.getElementById('chart');
+container.setAttribute('maidr-data', JSON.stringify(maidrHighcharts.highchartsToMaidr(chart, { id: 'chart' })));
+container.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true }));
+```
+
+Setting the attribute alone after that point leaves the chart unbound, or bound to the data it had before. [highcharts-choropleth.html](examples/highcharts-choropleth.html) binds this way. Load `maidr.js` once, before the chart is bound.
 
 ## Keyboard Controls
 
