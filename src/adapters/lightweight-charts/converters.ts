@@ -306,28 +306,31 @@ function readsPrCurve(
 
 /**
  * Builds one layer from a series' points.
+ *
+ * The series' `title` option names the layer, which a layer switch
+ * announces. It is not the layer's `title`: MAIDR reads that as the chart's,
+ * which the `title` option given to the adapter is.
  */
 function toLayer(
   reading: SeriesReading,
-  seriesType: string,
   options: LwcSeriesOptions,
   chartOptions: LightweightChartsOptions,
 ): MaidrLayer {
-  const title = options.title?.trim() || undefined;
+  const name = options.title?.trim() || undefined;
   const yLabel = valueLabel(reading.kind, options, chartOptions);
   const format = formatOf(options);
   const axes = {
     x: { label: chartOptions.axes?.x ?? 'Time' },
     y: format ? { label: yLabel, format } : { label: yLabel },
   };
-  const layerTitle = title ?? `${seriesType} series`;
+  const named = name ? { name } : {};
 
   switch (reading.kind) {
     case 'candlestick':
       return {
         id: reading.layerId,
         type: TraceType.CANDLESTICK,
-        title: layerTitle,
+        ...named,
         axes,
         data: reading.points as CandlestickPoint[],
       };
@@ -335,7 +338,7 @@ function toLayer(
       return {
         id: reading.layerId,
         type: TraceType.LINE,
-        title: layerTitle,
+        ...named,
         axes,
         data: [reading.points as LinePoint[]],
       };
@@ -343,7 +346,7 @@ function toLayer(
       return {
         id: reading.layerId,
         type: TraceType.PR_CURVE,
-        title: layerTitle,
+        ...named,
         axes,
         data: [reading.points as PrCurvePoint[]],
       };
@@ -351,10 +354,33 @@ function toLayer(
       return {
         id: reading.layerId,
         type: TraceType.BAR,
-        title: layerTitle,
+        ...named,
         axes,
         data: reading.points as BarPoint[],
       };
+  }
+}
+
+/**
+ * Names each pane of a chart of several after its first series.
+ *
+ * A pane has no title of its own, and MAIDR reads a subplot's name from its
+ * first layer's `title`, so the pane's first series' name goes there: the
+ * figure then reads "Subplot 2 of 2, ACME" as the reader moves between panes.
+ * A chart of one pane is left alone, since there a layer's title would be read
+ * as the chart's.
+ *
+ * @param subplots - The figure's subplots, one pane to a row
+ */
+function namePanes(subplots: MaidrSubplot[][]): void {
+  if (subplots.length < 2) {
+    return;
+  }
+  for (const row of subplots) {
+    const first = row[0].layers[0];
+    if (first.name !== undefined) {
+      first.title = first.name;
+    }
   }
 }
 
@@ -417,7 +443,7 @@ export function readLightweightChart(
     for (const item of data) {
       everyTime.push(item.time);
     }
-    return [{ series, index, seriesType, kind, seriesOptions, data }];
+    return [{ series, index, kind, seriesOptions, data }];
   }));
 
   const label = options.formatTime ?? defaultTimeFormatter(everyTime);
@@ -458,12 +484,14 @@ export function readLightweightChart(
         total: points.length,
       };
       readings.push(reading);
-      layers.push(toLayer(reading, candidate.seriesType, candidate.seriesOptions, options));
+      layers.push(toLayer(reading, candidate.seriesOptions, options));
     }
     if (layers.length > 0) {
       subplots.push([{ layers }]);
     }
   });
+
+  namePanes(subplots);
 
   if (subplots.length === 0) {
     throw new Error(
