@@ -951,7 +951,9 @@ export abstract class Svg {
    * copied over itself in whichever of `colors` contrasts more with the
    * highlight, where the label itself falls below 4.5:1 on it; the label is
    * left as the chart and high contrast painted it, and the copies go with
-   * the highlight. A label already readable on the highlight is left alone --
+   * the highlight. An outline the label draws round its glyphs is drawn in
+   * the other of `colors`, so the glyphs stand out from it as they did from
+   * the label's own. A label already readable on the highlight is left alone --
    * the dark label on a light mark's darker shade, which stops at 3:1 for it
    * -- and so is everything that is not text over the filled shape: a label
    * beside it or drawn under it, one on a shape drawn over the mark, as a
@@ -1025,6 +1027,15 @@ export abstract class Svg {
         && !isCovered(label, x, y);
     });
 
+    // The outline a label draws round its glyphs -- Highcharts' text-outline
+    // span, or a stroke painted under the text -- is redrawn in the other
+    // colour. Left in its own, a white outline round the white glyphs of a
+    // copy filled the letters in, and the label was a white smear.
+    const outline = colors.reduce(
+      (chosen, color) => (this.contrastBetween(color, best) > this.contrastBetween(chosen, best) ? color : chosen),
+      best,
+    );
+
     return labels.map((label) => {
       const copy = this.markOwned(label.cloneNode(true) as SVGElement);
       for (const node of [copy, ...Array.from(copy.querySelectorAll('[id]'))]) {
@@ -1032,12 +1043,46 @@ export abstract class Svg {
       }
       copy.setAttribute('aria-hidden', 'true');
       copy.style.pointerEvents = 'none';
-      for (const glyphs of [copy, ...Array.from(copy.querySelectorAll<SVGElement>('tspan, textPath'))]) {
+      // The copy's spans are the label's own, in the same order.
+      const drawn = [label, ...Array.from(label.querySelectorAll<SVGElement>('tspan, textPath'))];
+      [copy, ...Array.from(copy.querySelectorAll<SVGElement>('tspan, textPath'))].forEach((glyphs, at) => {
         glyphs.style.setProperty(Constant.FILL, best, 'important');
-      }
+        if (this.drawsOutline(drawn[at])) {
+          glyphs.style.setProperty(Constant.STROKE, outline, 'important');
+        }
+      });
       label.insertAdjacentElement(Constant.AFTER_END, copy);
       return copy;
     });
+  }
+
+  /**
+   * Whether text draws a stroke round its glyphs.
+   *
+   * The stroke is not parsed as a colour: Chromium reports the white of
+   * Highcharts' text outline as `color(srgb 1 1 1)`, which no parser here
+   * reads, and an outline read as unpainted was left white.
+   *
+   * @param text - A text element or span, in the document
+   * @returns True for a stroke that is painted and of some width
+   */
+  private static drawsOutline(text: SVGElement): boolean {
+    const ink = window.getComputedStyle(text);
+    return ink.stroke !== ''
+      && this.isPainted(ink.stroke, ink.strokeOpacity)
+      && Number.parseFloat(ink.strokeWidth) !== 0;
+  }
+
+  /**
+   * The WCAG contrast between two colours.
+   * @param a - One colour
+   * @param b - The other
+   * @returns The ratio, or 0 when either is not a colour
+   */
+  private static contrastBetween(a: string, b: string): number {
+    const first = Color.parse(a);
+    const second = Color.parse(b);
+    return first === null || second === null ? 0 : Color.getContrastRatio(first, second);
   }
 
   /**
