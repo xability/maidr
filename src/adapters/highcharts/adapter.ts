@@ -4676,6 +4676,11 @@ interface GanttTimeScale {
  * the same number keep their places along the axis, so the panning that
  * places each task where the chart draws it is unchanged.
  *
+ * The format rounds that product. A time that is not a whole number of units,
+ * such as 08:40 on a schedule read in days, is a fraction no binary number
+ * states exactly, so the product can fall short of it by a fraction of a
+ * millisecond; `Date` drops the fraction, and 08:40 was written as 08:39.
+ *
  * That format is a function body MAIDR compiles. A page whose Content Security
  * Policy forbids compiling one would read the restated positions as bare
  * numbers, so there they stay in milliseconds and are written through the
@@ -4718,7 +4723,7 @@ function ganttTimeScale(chart: HighchartsChart, points: GanttPoint[]): GanttTime
     ms: scale.ms,
     unit: scale.unit,
     format: {
-      function: `return new Date(value * ${scale.ms}).toLocaleString('en-US', ${JSON.stringify(dateOptions)});`,
+      function: `return new Date(Math.round(value * ${scale.ms})).toLocaleString('en-US', ${JSON.stringify(dateOptions)});`,
     },
   };
 }

@@ -1,7 +1,9 @@
 import type { HighchartsChart, HighchartsPoint } from '@adapters/highcharts/types';
+import type { GanttTrace } from '@model/gantt';
 import type { GanttData, MaidrLayer } from '@type/grammar';
 import { highchartsToMaidr } from '@adapters/highcharts/adapter';
 import { describe, expect, it, jest } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { FormatUtil } from '@util/format';
 import { fakeAxis, fakeChart, fakeSeries } from './helpers';
 
@@ -14,6 +16,7 @@ import { fakeAxis, fakeChart, fakeSeries } from './helpers';
 
 const DAY = 24 * 36e5;
 const HOUR = 36e5;
+const MINUTE = 6e4;
 const START = Date.UTC(2024, 0, 1);
 
 /**
@@ -82,6 +85,26 @@ describe('a highcharts gantt chart on a datetime axis', () => {
     expect(data.unit).toBe('hours');
     expect(data.points[0][0].end - data.points[0][0].start).toBe(3);
     expect(written(layer, data.points[0][0].start)).toBe('Jan 1, 2024, 09:00 AM');
+  });
+
+  it('reads a task that is not a whole number of days as the fraction it is, its times to the minute', () => {
+    // 08:40 is 0.3611… of a day, which no binary fraction states exactly:
+    // multiplied back, the position fell short of the instant by a fraction
+    // of a millisecond, a Date drops the fraction, and the task was written
+    // as starting at 08:39.
+    const layer = highchartsToMaidr(schedule([
+      { name: 'Wireframes', x: START + 8 * HOUR + 40 * MINUTE, x2: START + DAY + 20 * HOUR + 40 * MINUTE },
+    ])).subplots[0][0].layers[0];
+    const [task] = (layer.data as GanttData).points[0];
+    const state = (TraceFactory.create(layer) as GanttTrace).state;
+    if (state.empty) {
+      throw new Error('the gantt layer reads as empty');
+    }
+
+    expect((layer.data as GanttData).unit).toBe('days');
+    expect(state.text.z?.value).toBe('1.5 days');
+    expect(written(layer, task.start)).toBe('Jan 1, 2024, 08:40 AM');
+    expect(written(layer, task.end)).toBe('Jan 2, 2024, 08:40 PM');
   });
 
   it('writes the dates in the time zone the chart draws them in', () => {
