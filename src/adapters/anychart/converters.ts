@@ -5604,6 +5604,7 @@ function buildSankeyLayer(
   rows: Array<Record<string, unknown>>,
   selectors: string | string[] | undefined,
   panel?: PanelContext,
+  chart?: AnyChartInstance,
 ): MaidrLayer {
   const data: FlowPoint[] = rows
     .filter(isDrawnFlow)
@@ -5618,12 +5619,67 @@ function buildSankeyLayer(
   const defaultSelectors = data.map(
     (_, i) => `${scope}[${SANKEY_ATTR}="${stamp}0-${i}"]`,
   );
+  const columns = chart ? readDrawnSankeyColumns(chart, data) : undefined;
   return {
     id: '0',
     type: TraceType.SANKEY,
     selectors: selectors ?? defaultSelectors,
+    ...(columns ? { flowOptions: { columns } } : {}),
     data,
   };
+}
+
+/**
+ * The columns a drawn sankey put its nodes in, left to right, each naming its
+ * nodes top to bottom.
+ *
+ * AnyChart lays a sankey out as d3-sankey's `justify` alignment does: every
+ * node nothing leaves is drawn in the last column, and each column is reordered
+ * over 32 passes that shorten the ribbons. Neither follows from the data
+ * alone, and MAIDR's own reading of the flows — a node one column past its
+ * furthest feeder — put the example's Losses, fed only by Coal, in the middle
+ * column beside Electricity and Heat, where AnyChart draws it in the last. So
+ * the columns are read off the drawing: each node's label is drawn centred on
+ * the node and names it, so the labels' centres place the nodes.
+ *
+ * @param chart - The sankey, drawn
+ * @param flows - Its flows, which between them name every node
+ * @returns The columns, or `undefined` when some node's label is not found
+ *   exactly once — the chart is not drawn yet, or its labels are off or
+ *   reformatted — and MAIDR derives the columns itself
+ */
+function readDrawnSankeyColumns(
+  chart: AnyChartInstance,
+  flows: FlowPoint[],
+): string[][] | undefined {
+  const svg = resolveContainerElement(chart)?.querySelector('svg');
+  if (!svg)
+    return undefined;
+
+  const names = new Set(flows.flatMap(flow => [String(flow.source), String(flow.target)]));
+  const nodes: Array<{ name: string; x: number; y: number }> = [];
+  for (const text of Array.from(svg.querySelectorAll<SVGElement>('text'))) {
+    const name = (text.textContent ?? '').trim();
+    if (!names.has(name))
+      continue;
+    const box = readDrawnBox(text);
+    if (!box || nodes.some(node => node.name === name))
+      return undefined;
+    nodes.push({ name, x: box.left + box.width / 2, y: box.top + box.height / 2 });
+  }
+  if (nodes.length !== names.size)
+    return undefined;
+
+  nodes.sort((a, b) => a.x - b.x);
+  const columns: Array<typeof nodes> = [];
+  for (const node of nodes) {
+    const column = columns[columns.length - 1];
+    if (column && Math.abs(node.x - column[0].x) <= DRAWN_BOX_TOLERANCE_PX)
+      column.push(node);
+    else
+      columns.push([node]);
+  }
+  return columns.map(column => column.sort((a, b) => a.y - b.y).map(node => node.name));
 }
 
 /**
@@ -6408,7 +6464,7 @@ function buildSubplot(
     const rows = readChartRows(chart).filter(isDrawnFlow);
     if (rows.length === 0)
       return null;
-    const layer = buildSankeyLayer(rows, chartLevelSelector, panel);
+    const layer = buildSankeyLayer(rows, chartLevelSelector, panel, chart);
     attachAxes(layer, SANKEY_AXIS_FALLBACKS);
     return finalize([layer]);
   }

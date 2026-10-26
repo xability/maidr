@@ -19,8 +19,8 @@
     <script>
       document.addEventListener('DOMContentLoaded', function () {
         // A sankey names both ends of every flow, so the nodes never appear in
-        // the data — MAIDR derives them from the edges exactly as the chart
-        // does, and assigns each one its column from the same information.
+        // the data — MAIDR derives them from the edges, and reads each one's
+        // column from where the chart draws its label.
         const chart = anychart.sankey([
           { from: 'Coal', to: 'Electricity', weight: 34 },
           { from: 'Coal', to: 'Heat', weight: 14 },
