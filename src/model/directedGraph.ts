@@ -16,6 +16,7 @@ import type {
   TextAside,
   TextState,
   TraceEmptyState,
+  TraceState,
 } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { centrality, withinCentralityBudget } from '@util/graphCentrality';
@@ -841,6 +842,38 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   /** The item the cursor is on, when it is on one. */
   private get current(): GraphItem | null {
     return this.levels[this.row]?.[this.col] ?? null;
+  }
+
+  /**
+   * The state, with where the item sits among the items of its scope and at
+   * which depth of nesting, the place a tree gives its node.
+   *
+   * The position key read the pan, whose column is the item's place in its
+   * scope and whose row its depth, and announced them as a column and a row:
+   * the first step of Mermaid's flowchart example was "column 1 of 4, row 1
+   * of 2", a column and a row the drawing does not have. Placed as a tree's
+   * node is, it is "Level 1 of 2, Position is 1 of 4", and an item inside a
+   * scope names the scope.
+   *
+   * @returns The trace state
+   */
+  public override get state(): TraceState {
+    const state = super.state;
+    const item = this.current;
+    if (state.empty || item === null) {
+      return state;
+    }
+    const siblings = item.parent?.children ?? this.roots;
+    return {
+      ...state,
+      treePosition: {
+        index: Math.max(0, siblings.indexOf(item)),
+        count: siblings.length,
+        level: item.depth,
+        levels: this.levels.length,
+        ...(item.parent === null ? {} : { parent: item.parent.name }),
+      },
+    };
   }
 
   /**
