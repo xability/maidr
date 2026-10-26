@@ -1,6 +1,8 @@
 import type { HighchartsChart, HighchartsPoint, HighchartsSeries } from '@adapters/highcharts/types';
 import { createHighchartsSync } from '@adapters/highcharts/sync';
 import { describe, expect, it, jest } from '@jest/globals';
+import { Constant } from '@util/constant';
+import { Svg } from '@util/svg';
 import { JSDOM } from 'jsdom';
 import { fakeChart, fakeSeries } from './helpers';
 
@@ -14,7 +16,11 @@ import { fakeChart, fakeSeries } from './helpers';
  *
  * MAIDR draws its highlight into the chart as a copy of the mark the reader is
  * on, with an id starting `maidr-highlight`; these cases draw such copies the
- * way it does and check what the chart's own tooltip does.
+ * way it does and check what the chart's own tooltip does. They name the
+ * copies with core's own `Constant.MAIDR_HIGHLIGHT` and `Svg.markOwned`, which
+ * the adapter bundle matches by their literals, so a rename in core fails
+ * here rather than leaving the sync watching for something MAIDR no longer
+ * draws.
  */
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -112,12 +118,11 @@ let drawnCount = 0;
  * @returns The highlight
  */
 function highlight(mark: Element): Element {
-  const hidden = mark.cloneNode(true) as Element;
-  hidden.setAttribute('data-maidr-owned', 'true');
+  const hidden = Svg.markOwned(mark.cloneNode(true) as SVGElement);
   hidden.setAttribute('visibility', 'hidden');
   mark.after(hidden);
   const copy = hidden.cloneNode(true) as Element;
-  copy.id = `maidr-highlight-${drawnCount++}`;
+  copy.id = `${Constant.MAIDR_HIGHLIGHT}-${drawnCount++}`;
   copy.setAttribute('visibility', 'visible');
   hidden.after(copy);
   return copy;
@@ -224,7 +229,7 @@ describe('createHighchartsSync', () => {
     createHighchartsSync(drawn.chart);
 
     const over = svg(drawn.document, 'rect', { x: 10, y: 40, width: 20, height: 60 });
-    over.id = 'maidr-highlight-over';
+    over.id = `${Constant.MAIDR_HIGHLIGHT}-over`;
     drawn.group.appendChild(over);
     await settle();
 
@@ -268,7 +273,7 @@ describe('createHighchartsSync', () => {
 
     // MAIDR draws its dots into the line's group, from the path's vertices,
     // and marks them as its own.
-    const dot = svg(drawn.document, 'circle', { 'cx': 60, 'cy': 30, 'r': 4, 'data-maidr-owned': 'true' });
+    const dot = Svg.markOwned(svg(drawn.document, 'circle', { cx: 60, cy: 30, r: 4 }));
     drawn.group.appendChild(dot);
     highlight(dot);
     await settle();
@@ -285,13 +290,12 @@ describe('createHighchartsSync', () => {
     })));
     createHighchartsSync(drawn.chart);
     const marker = drawn.points[1].graphic?.element as SVGElement;
-    const hidden = marker.cloneNode(true) as Element;
-    hidden.setAttribute('data-maidr-owned', 'true');
+    const hidden = Svg.markOwned(marker.cloneNode(true) as SVGElement);
     marker.after(hidden);
 
     marker.setAttribute('d', 'M 60 50 A 6 6 0 1 1 60 50.1 Z');
     const copy = hidden.cloneNode(true) as Element;
-    copy.id = 'maidr-highlight-hovered';
+    copy.id = `${Constant.MAIDR_HIGHLIGHT}-hovered`;
     hidden.after(copy);
     await settle();
 
@@ -299,7 +303,7 @@ describe('createHighchartsSync', () => {
     expect(drawn.refresh.mock.calls[0][0]).toBe(drawn.points[1]);
   });
 
-  it('stops following MAIDR once disposed', async () => {
+  it('hides the tooltip and stops following MAIDR once disposed', async () => {
     const drawn = drawChart(bars);
     const sync = createHighchartsSync(drawn.chart);
 
@@ -307,6 +311,20 @@ describe('createHighchartsSync', () => {
     highlight(drawn.points[1].graphic?.element as SVGElement);
     await settle();
 
+    expect(drawn.hide).toHaveBeenCalledTimes(1);
     expect(drawn.refresh).not.toHaveBeenCalled();
+  });
+
+  it('still shows the point the page names on a chart it cannot watch', () => {
+    // A document made with createHTMLDocument has no window, so no
+    // MutationObserver to watch the chart with.
+    const drawn = drawChart(bars);
+    drawn.chart.container = drawn.document.implementation.createHTMLDocument('').createElement('div');
+    const sync = createHighchartsSync(drawn.chart);
+
+    sync.highlightPoint(0, 2);
+
+    expect(drawn.refresh).toHaveBeenCalledWith(drawn.points[2]);
+    expect(drawn.points[2].setState).toHaveBeenLastCalledWith('hover');
   });
 });
