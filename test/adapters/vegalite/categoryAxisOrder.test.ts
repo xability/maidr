@@ -223,16 +223,19 @@ describe('a vega-lite dumbbell', () => {
   /**
    * The dumbbell as Vega draws it: each connector in a path group of its own,
    * in the rows' order, and the dots in one group drawn after them.
+   * @param upright - Whether the countries run along x, each connector upright
    * @returns The view, the groups' parent and the dot group
    */
-  function rendered(): { view: VegaView; content: Element; dots: Element } {
+  function rendered(upright = false): { view: VegaView; content: Element; dots: Element } {
     const { container, svg } = canvas();
     const content = group(svg);
     for (const country of ['Chile', 'Mexico', 'Canada']) {
       const pathgroup = group(content, 'mark-group role-scope layer_0_pathgroup');
       pathgroup.setAttribute('data-country', country);
       const marks = group(group(pathgroup), 'mark-line role-mark layer_0_marks');
-      drawn(marks, 'path', { x: 70, y: drawnAt[country], width: 100, height: 0 });
+      drawn(marks, 'path', upright
+        ? { x: drawnAt[country], y: 70, width: 0, height: 100 }
+        : { x: 70, y: drawnAt[country], width: 100, height: 0 });
     }
     const dots = group(content, 'mark-symbol role-mark layer_1_marks');
     return { view: viewOf(container), content, dots };
@@ -247,6 +250,21 @@ describe('a vega-lite dumbbell', () => {
     expect((layer.data as DumbbellData).points.map(point => point.x)).toEqual(['Canada', 'Chile', 'Mexico']);
     expect([...content.children].filter(child => child.hasAttribute('data-country'))
       .map(child => child.getAttribute('data-country'))).toEqual(['Canada', 'Chile', 'Mexico']);
+  });
+
+  it('is read left to right when the countries run along x', () => {
+    const { view } = rendered(true);
+    const upright = {
+      ...spec,
+      encoding: {
+        x: { field: 'country', type: 'nominal' },
+        y: { field: 'life', type: 'quantitative' },
+      },
+    } as unknown as VegaLiteSpec;
+
+    const layer = boundLayer(view, upright);
+
+    expect((layer.data as DumbbellData).points.map(point => point.x)).toEqual(['Canada', 'Chile', 'Mexico']);
   });
 
   it('keeps the connectors where they are drawn, under the dots', () => {

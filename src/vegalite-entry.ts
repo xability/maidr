@@ -140,19 +140,20 @@ function categoryPoints(layer: MaidrLayer): unknown[] | null {
  * moved marks over them.
  *
  * @param elements - The marks, in the desired order
+ * @returns Whether the marks could be put in that order
  */
-function reorderMarks(elements: SVGGraphicsElement[]): void {
+function reorderMarks(elements: SVGGraphicsElement[]): boolean {
   const parent = elements[0]?.parentElement;
   if (elements.every(element => element.parentElement === parent)) {
     reappendInOrder(elements);
-    return;
+    return true;
   }
 
   let common: Element | null = parent ?? null;
   while (common && !elements.every(element => common?.contains(element)))
     common = common.parentElement;
   if (!common)
-    return;
+    return false;
   const groups = elements.map((element) => {
     let node: Element = element;
     while (node.parentElement && node.parentElement !== common)
@@ -161,13 +162,14 @@ function reorderMarks(elements: SVGGraphicsElement[]): void {
   });
   // Two marks in one group cannot be reordered by moving the group.
   if (new Set(groups).size !== groups.length)
-    return;
+    return false;
 
   const lastDrawn = groups.reduce((last, group) =>
     (last.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING ? group : last));
   const anchor = lastDrawn.nextSibling;
   for (const group of groups)
     common.insertBefore(group, anchor);
+  return true;
 }
 
 /**
@@ -257,15 +259,22 @@ function sortCategoryMarksByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]
       + `${isHorizontal ? 'visual y' : 'visual x'} to align highlight + data with rendered order`,
     );
 
-    // 1. Replace the layer's points with the visual-order points.
+    // 1. Reorder the elements. Moving a node keeps it, so listeners/refs
+    //    are preserved. Marks that cannot be moved apart keep the order
+    //    they were paired in, and so do the points.
+    if (!reorderMarks(pairs.map(p => p.element))) {
+      debugLog(
+        `${layer.type} layer "${layer.id}": marks share a group, so they and `
+        + 'their points stay in the order they were drawn',
+      );
+      continue;
+    }
+
+    // 2. Replace the layer's points with the visual-order points.
     const sorted = pairs.map(p => p.point);
     layer.data = layer.type === TraceType.DUMBBELL
       ? { ...(layer.data as DumbbellData), points: sorted as DumbbellData['points'] }
       : sorted as MaidrLayer['data'];
-
-    // 2. Reorder the elements to match. Moving a node keeps it, so
-    //    listeners/refs are preserved.
-    reorderMarks(pairs.map(p => p.element));
   }
 }
 
