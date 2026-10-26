@@ -1192,6 +1192,11 @@ function nameSegmentedCells(
  * upside down, Up moving to the segment drawn below. A chart that turns
  * `reversedStacks` off stacks in declared order, and is read in it.
  *
+ * The first series' y axis decides for the whole group. Highcharts keeps a
+ * stack per y axis, so series that stack together share one; a group gathered
+ * from two axes is not one stack, and no order read from either axis would
+ * make it one.
+ *
  * @param seriesList - The group's series, in declared order
  * @returns The same series, baseline first
  */
