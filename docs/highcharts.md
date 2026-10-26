@@ -46,7 +46,7 @@ Render your chart with Highcharts, convert it with `maidrHighcharts.highchartsTo
 
 The adapter exposes a global `maidrHighcharts` object with `highchartsToMaidr()` and `createHighchartsSync()`. This works directly from `file://` URLs — no module server required.
 
-This binds a chart drawn while the page loads. A chart drawn later — after an awaited `fetch`, say — or drawn again is bound by dispatching `maidr:bindchart` as well; see [Charts drawn after the page loads](#charts-drawn-after-the-page-loads).
+This binds a chart drawn while the page loads. A chart drawn later — after an awaited `fetch`, say — is bound by dispatching `maidr:bindchart` as well, and a bound chart drawn again is handed its new data with `window.maidrLive.setData()`; see [Charts drawn after the page loads](#charts-drawn-after-the-page-loads).
 
 Once the page loads, click on the chart (or Tab to it) and MAIDR activates with:
 
@@ -626,7 +626,7 @@ sync.dispose();
 
 ### Charts drawn after the page loads
 
-MAIDR reads `maidr-data` attributes once, when the page has loaded. A chart drawn later — after an awaited `fetch`, as a map's topology usually is — or drawn again with `chart.update()` or `chart.addSeries()`, is bound by setting the attribute and dispatching `maidr:bindchart` on the element:
+MAIDR reads `maidr-data` attributes once, when the page has loaded, and setting one after that changes nothing it reads. A chart drawn later — after an awaited `fetch`, as a map's topology usually is — is bound by setting the attribute and dispatching `maidr:bindchart` on the element, as [highcharts-choropleth.html](examples/highcharts-choropleth.html) does:
 
 ```js
 const container = document.getElementById('chart');
@@ -634,7 +634,13 @@ container.setAttribute('maidr-data', JSON.stringify(maidrHighcharts.highchartsTo
 container.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true }));
 ```
 
-Setting the attribute alone after that point leaves the chart unbound, or bound to the data it had before. [highcharts-choropleth.html](examples/highcharts-choropleth.html) binds this way. Load `maidr.js` once, before the chart is bound.
+A chart MAIDR has bound that is drawn again, with `chart.update()` or `chart.addSeries()`, is handed its new data under the same `id` with `window.maidrLive.setData()` (see [Live data](LIVE_DATA.md)). Dispatching `maidr:bindchart` again would work too, but it mounts MAIDR afresh and takes a reader who is in the chart out of it. Mark the data `live: true` and the change reaches a reader who is in the chart at once, keeping their place when the chart keeps the same panels and layers; without it, MAIDR reads the new data the next time they enter the chart:
+
+```js
+window.maidrLive.setData({ ...maidrHighcharts.highchartsToMaidr(chart, { id: 'chart' }), live: true });
+```
+
+Load `maidr.js` once, before the chart is bound.
 
 ## Keyboard Controls
 
