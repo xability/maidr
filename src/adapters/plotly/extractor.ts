@@ -3358,9 +3358,11 @@ const RIDGELINE_DENSITY_AXIS = 'Density';
  * recipe draws no inner box, so the quartile summary the violin pair opens
  * with would describe marks that are not on the chart.
  *
- * Curves are emitted top first. `RidgelineTrace` reverses nothing, and plotly
- * stacks its categories upwards from the bottom of the position axis, so a
- * horizontal ridgeline's own order is the reverse of the reading one.
+ * Curves are emitted in the order plotly lays them along the position axis,
+ * from its start: bottom first on a ridgeline drawn on its side, as plotly's
+ * recipe draws one. `RidgelineTrace` moves Up to the next curve in the
+ * payload, so Up moves up the page. A reversed position axis lays the first
+ * curve at its far end, and is read the other way round.
  */
 function extractRidgelineLayer(
   violinTraces: TraceEntry[],
@@ -3370,12 +3372,13 @@ function extractRidgelineLayer(
   yLabel: string | undefined,
 ): MaidrLayer | null {
   const isHorizontal = violinTraces[0].trace.orientation === 'h';
-  const posAxis = getAxis(layout, isHorizontal ? group.yAxisId : group.xAxisId);
+  const posAxisId = isHorizontal ? group.yAxisId : group.xAxisId;
+  const posAxis = getAxis(layout, posAxisId);
 
   const violins = collectViolins(violinTraces, group, posAxis);
   if (violins.length === 0)
     return null;
-  if (isHorizontal)
+  if (axisRunsBackwards(layout, posAxisId))
     violins.reverse();
 
   const data: ViolinKdePoint[][] = violins.map(({ label, cd }) =>

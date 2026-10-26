@@ -3951,10 +3951,13 @@ describe('plotly extractor', () => {
       yaxis: { domain: [0, 1], title: { text: 'Group' }, _categories: ['A', 'B'] },
     };
 
-    function ridgeLayers(traces: PlotlyTrace[] = ridgeTraces()): MaidrLayer[] {
+    function ridgeLayers(
+      traces: PlotlyTrace[] = ridgeTraces(),
+      layout: PlotlyFullLayout = RIDGE_LAYOUT,
+    ): MaidrLayer[] {
       const gd = createGraphDiv({
         traces,
-        layout: RIDGE_LAYOUT,
+        layout,
         calcdata: [[ridgeCalc(0)], [ridgeCalc(1)]],
       });
       const maidr = extractPlotlyData(gd);
@@ -3969,13 +3972,24 @@ describe('plotly extractor', () => {
       expect(layers[0].type).toBe(TraceType.RIDGELINE);
     });
 
-    it('reads plotly\'s density samples, curves top first', () => {
+    it('reads plotly\'s density samples, curves bottom first', () => {
       const data = ridgeLayers()[0].data as ViolinKdePoint[][];
 
-      // The last trace is drawn at the top of a horizontal position axis, and
-      // the ridgeline trace reverses nothing of its own.
+      // Plotly stacks the traces up a horizontal position axis, the first at
+      // the bottom, and the ridgeline trace moves Up to the next curve.
+      expect(data.map(curve => curve[0].x)).toEqual(['A', 'B']);
+      expect(data[1][1]).toEqual({ x: 'B', y: 3, density: 0.4 });
+    });
+
+    it('reads a reversed position axis bottom first too', () => {
+      const data = ridgeLayers(ridgeTraces(), {
+        ...RIDGE_LAYOUT,
+        yaxis: { ...RIDGE_LAYOUT.yaxis, range: [1.5, -0.5] },
+      })[0].data as ViolinKdePoint[][];
+
+      // A reversed axis draws the first trace at the top, so the last one is
+      // the curve at the bottom.
       expect(data.map(curve => curve[0].x)).toEqual(['B', 'A']);
-      expect(data[0][1]).toEqual({ x: 'B', y: 3, density: 0.4 });
     });
 
     it('names the value axis and the density, one selector per curve', () => {
@@ -3984,8 +3998,8 @@ describe('plotly extractor', () => {
       expect(layer.axes?.x?.label).toBe('Score');
       expect(layer.axes?.z?.label).toBe('Density');
       expect(layer.selectors).toEqual([
-        '.subplot.xy .violinlayer > g:nth-child(2) > path.violin:nth-child(1)',
         '.subplot.xy .violinlayer > g:nth-child(1) > path.violin:nth-child(1)',
+        '.subplot.xy .violinlayer > g:nth-child(2) > path.violin:nth-child(1)',
       ]);
     });
 
