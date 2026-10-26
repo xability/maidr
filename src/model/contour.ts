@@ -2,7 +2,7 @@ import type { ContourPoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import { contourCurveLevel, contourLevelCount } from '@util/contourLevel';
-import { defaultFormat } from '@util/format';
+import { defaultFormat, defaultLabelFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -356,13 +356,21 @@ export class ContourTrace extends LineTrace {
    * the order the producer happened to emit the curves in, and a reader given
    * it in a column headed `Level` would reasonably take it for one.
    *
+   * Rounded as the announcement rounds it. A producer computing its levels
+   * hands over floats -- matplotlib's 0.15 step reaches 0.45 as
+   * 0.45000000000000007 -- and in full they were listed beside a `Level
+   * range` and a `Level step` the description had rounded, while every point
+   * of the curve announced `Level is 0.45`.
+   *
    * @param row - Which curve
    * @returns Its level, or the best name available for a curve declaring none
    */
   protected override groupNameAt(row: number): string {
     const level = this.levels[row];
     if (Number.isFinite(level)) {
-      return String(level);
+      // Not grouped in thousands, as an authored numeric name is not: the
+      // names are listed with commas between them.
+      return defaultLabelFormat(level);
     }
     // No level: an authored name if the layer carried one, and otherwise a
     // noun that at least does not read as a level.

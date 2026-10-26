@@ -503,6 +503,31 @@ describe('the description speaks of levels, not lines', () => {
     expect(rows.map(row => row[2])).not.toContain('Line 1');
   });
 
+  test('a level computed as a float is listed as it is announced', () => {
+    // matplotlib steps its levels by adding, so 0.15 reaches 0.3 as
+    // 0.30000000000000004, which is what the producer hands over. Every point
+    // of that curve announces `Level is 0.3`.
+    const step = 0.1 + 0.05;
+    const computed: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: step }],
+      [{ x: 0, y: 1, level: 0.1 + 0.2 }],
+      [{ x: 0, y: 2, level: 3 * step }],
+    ];
+
+    expect(stat('Levels', computed)).toBe('0.15, 0.3, 0.45');
+    expect(description(computed).dataTable.rows.map(row => row[2]))
+      .toEqual(['0.15', '0.3', '0.45']);
+  });
+
+  test('levels are listed without the thousands commas the list separates them with', () => {
+    const high: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 10000 }],
+      [{ x: 0, y: 1, level: 20000 }],
+    ];
+
+    expect(stat('Levels', high)).toBe('10000, 20000');
+  });
+
   test('a curve with no level is not given one', () => {
     // `Line 2` in a column headed `Level` reads as a level. So does anything
     // else invented for it -- the honest answer names the curve and says
