@@ -59,8 +59,8 @@ describe('convertRechartsToMaidr', () => {
       const layers = result.subplots[0][0].layers;
 
       expect(layers).toHaveLength(2);
-      expect(layers[0].title).toBe('s1');
-      expect(layers[1].title).toBe('s2');
+      expect(layers[0].name).toBe('s1');
+      expect(layers[1].name).toBe('s2');
 
       // Multi-series selectors are undefined (CSS unreliable)
       expect(layers[0].selectors).toBeUndefined();
@@ -2355,9 +2355,36 @@ describe('convertRechartsToMaidr', () => {
 
       expect(layers).toHaveLength(2);
       expect(layers[0].type).toBe(TraceType.BAR);
-      expect(layers[0].title).toBe('Revenue');
+      expect(layers[0].name).toBe('Revenue');
       expect(layers[1].type).toBe(TraceType.LINE);
-      expect(layers[1].title).toBe('Trend');
+      expect(layers[1].name).toBe('Trend');
+    });
+
+    it('names each layer in its name and leaves the title to the chart', () => {
+      // MAIDR reads a layer's title as the chart's: a chart titled "Revenue
+      // and Trend by Month" was announced as "Title is Revenue".
+      const config: RechartsAdapterConfig = {
+        id: 'composed-titled',
+        title: 'Revenue and Trend by Month',
+        data: [
+          { month: 'Jan', revenue: 100, trend: 95 },
+          { month: 'Feb', revenue: 150, trend: 140 },
+        ],
+        xKey: 'month',
+        layers: [
+          { yKey: 'revenue', chartType: 'bar', name: 'Revenue' },
+          { yKey: 'trend', chartType: 'line', name: 'Trend' },
+        ],
+      };
+
+      const result = convertRechartsToMaidr(config);
+      const layers = result.subplots[0][0].layers;
+
+      expect(result.title).toBe('Revenue and Trend by Month');
+      expect(layers.map(layer => [layer.name, layer.title])).toEqual([
+        ['Revenue', undefined],
+        ['Trend', undefined],
+      ]);
     });
 
     it('wraps an area layer\'s selector in an array, as it does a line\'s', () => {

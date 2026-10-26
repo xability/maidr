@@ -230,13 +230,17 @@ function buildPanelSubplot(
   };
 
   const panelScope = panel.panelSelector ?? getPanelClassSelector(row, col);
-  const layers = buildLayers(merged, panelScope).map((layer, layerIndex) => ({
-    ...layer,
-    // Layer ids must be unique across the WHOLE figure, not per subplot.
-    id: `${row}_${col}_${layer.id}`,
-    // The first layer's title doubles as the panel display name.
-    title: layerIndex === 0 && panel.title !== undefined ? panel.title : layer.title,
-  }));
+  const layers = buildLayers(merged, panelScope).map((layer, layerIndex) => {
+    // The first layer's title doubles as the panel display name: the panel's
+    // own title, else its first series' name.
+    const panelTitle = layerIndex === 0 ? panel.title ?? layer.name : undefined;
+    return {
+      ...layer,
+      // Layer ids must be unique across the WHOLE figure, not per subplot.
+      id: `${row}_${col}_${layer.id}`,
+      ...(panelTitle !== undefined ? { title: panelTitle } : {}),
+    };
+  });
 
   return {
     layers,
@@ -444,7 +448,9 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
     return {
       id: String(index),
       type: maidrType,
-      title: hasMultipleSeries ? (fillKeys?.[index] ?? yKey) : undefined,
+      // A series' name tells the layers apart on a layer switch. It is not
+      // the layer's `title`, which MAIDR reads as the chart's.
+      name: hasMultipleSeries ? (fillKeys?.[index] ?? yKey) : undefined,
       ...layerOptions(chartType, config),
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: turned ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
@@ -1473,7 +1479,7 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
     return {
       id: String(index),
       type: maidrType,
-      title: name,
+      name,
       ...layerOptions(chartType, config, layerConfig.stepDirection),
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: turned ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),

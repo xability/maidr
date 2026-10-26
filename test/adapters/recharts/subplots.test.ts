@@ -140,6 +140,24 @@ describe('recharts subplot mode', () => {
       expect(new Set(allIds).size).toBe(allIds.length);
     });
 
+    it('names a panel with no title after its first series', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'facet-untitled',
+        xKey: 'quarter',
+        subplots: [[{
+          data: eastData,
+          layers: [
+            { yKey: 'revenue', chartType: 'bar', name: 'Revenue' },
+            { yKey: 'revenue', chartType: 'line', name: 'Trend' },
+          ],
+        }]],
+      };
+
+      const layers = convertRechartsToMaidr(config).subplots[0][0].layers;
+
+      expect(layers.map(layer => layer.title)).toEqual(['Revenue', undefined]);
+    });
+
     it('puts the panel title on the first layer only', () => {
       const config: RechartsAdapterConfig = {
         id: 'facet',
@@ -158,7 +176,8 @@ describe('recharts subplot mode', () => {
       const layers = result.subplots[0][0].layers;
 
       expect(layers[0].title).toBe('East');
-      expect(layers[1].title).toBe('Trend');
+      expect(layers[1].title).toBeUndefined();
+      expect(layers.map(layer => layer.name)).toEqual(['Revenue', 'Trend']);
     });
 
     it('merges top-level defaults into each panel', () => {

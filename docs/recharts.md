@@ -133,6 +133,8 @@ Use `layers` when your chart mixes different chart types (e.g., bar + line):
 </MaidrRecharts>
 ```
 
+Each layer's `name` is what Page Up and Page Down announce on reaching it ("Layer 2 of 2: Trend"). The chart's title is the `title` prop.
+
 ### Subplot Mode (Multi-Panel)
 
 Use `subplots` when your figure is a grid of small multiples (faceted charts). See [Multi-Panel (Faceted) Charts](#multi-panel-faceted-charts) below.
