@@ -82,7 +82,7 @@ function ganttData(chart: AnyChartInstance): GanttData {
  */
 function createRenderedGantt(
   id: string,
-  layers: Array<Array<{ left: number; width: number }>>,
+  layers: Array<Array<{ left: number; width: number; top?: number; height?: number }>>,
 ): { container: HTMLElement; paths: SVGElement[][] } {
   const container = document.createElement('div');
   container.id = id;
@@ -102,9 +102,9 @@ function createRenderedGantt(
       Object.defineProperty(path, 'getBBox', {
         value: () => ({
           x: shape.left,
-          y: i * 20,
+          y: shape.top ?? i * 20,
           width: shape.width,
-          height: 12,
+          height: shape.height ?? 12,
         }),
       });
       layer.appendChild(path);
@@ -392,6 +392,53 @@ describe('bindAnyChart (gantt stamping)', () => {
     expect(paths.flat().every(p => !p.hasAttribute('data-maidr-anychart-task-bar')))
       .toBe(true);
     expect(warn.mock.calls.flat().join(' ')).toContain('task bars');
+
+    cleanUp(container);
+  });
+
+  it('tells the bars from the progress drawn inside them', () => {
+    // A summary row, three tasks and a milestone, as `examples/anychart/gantt.html`
+    // draws them: all five intervals in one layer, row by row, followed by a
+    // progress fill inside the summary bar and two of the task bars. Counted
+    // with the fills, the layer held eight shapes for five intervals and the
+    // chart had no highlight at all.
+    const { container, paths } = createRenderedGantt('gantt-progress', [
+      // The backdrop and the header behind the timeline.
+      [{ left: 0, width: 820, top: 0, height: 420 }],
+      [
+        { left: 247, width: 573, top: 0, height: 23 },
+        { left: 247, width: 573, top: 23, height: 24 },
+        { left: 247, width: 573, top: 47, height: 23 },
+      ],
+      [
+        { left: 253.5, width: 204, top: 74.5, height: 9.8 },
+        { left: 253.5, width: 102, top: 95.5, height: 14 },
+        { left: 355.5, width: 102, top: 116.5, height: 14 },
+        { left: 457.5, width: 306, top: 137.5, height: 14 },
+        { left: 808.5, width: 14, top: 158.5, height: 14 },
+        // Progress at 50%, 100% and 0%.
+        { left: 253.5, width: 102, top: 74.5, height: 7 },
+        { left: 253.5, width: 102, top: 95.5, height: 14 },
+        { left: 355.5, width: 0, top: 116.5, height: 14 },
+      ],
+    ]);
+    const plan: TaskSpec[] = [
+      {
+        name: 'Design',
+        meta: { autoStart: Date.UTC(2024, 0, 8), autoEnd: Date.UTC(2024, 1, 5) },
+        children: [
+          { name: 'User research', actualStart: Date.UTC(2024, 0, 8), actualEnd: Date.UTC(2024, 0, 22) },
+          { name: 'Wireframes', actualStart: Date.UTC(2024, 0, 22), actualEnd: Date.UTC(2024, 1, 5) },
+        ],
+      },
+      { name: 'Build', actualStart: Date.UTC(2024, 1, 5), actualEnd: Date.UTC(2024, 2, 18) },
+      { name: 'Launch', actualStart: Date.UTC(2024, 2, 25) },
+    ];
+
+    bindAnyChart(createGanttChart(plan, { container }));
+
+    expect(paths[2].map(p => p.getAttribute('data-maidr-anychart-task-bar')))
+      .toEqual(['0-0', '1-0', '2-0', '3-0', '4-0', null, null, null]);
 
     cleanUp(container);
   });
