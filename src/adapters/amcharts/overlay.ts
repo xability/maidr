@@ -421,8 +421,9 @@ function spriteBoxRect(sprite: AmSprite): OverlayRect | null {
  * navigation has moved, which is the point of the highlight.
  *
  * Measured from the wedge's settings rather than its `globalBounds()`, which a
- * `Slice` reports as a degenerate point at its own centre (#774) — a rect from
- * that collapses to nothing, and the caller then drew no highlight at all.
+ * pie's `Slice` reports as a degenerate point at its own centre (#774) — a
+ * rect from that collapses to nothing, and the caller then drew no highlight
+ * at all. See {@link sliceExtent} for a wedge amCharts does measure.
  *
  * A pie keeps its wedge on the data item's `slice`; a polar column series keeps
  * the same `Slice` on `graphics`, where a plain column series keeps its

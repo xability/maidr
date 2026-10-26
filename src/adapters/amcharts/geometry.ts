@@ -8,7 +8,7 @@
  * mirrors their on-screen arrangement (vertical/horizontal/Grid layouts).
  */
 
-import type { AmBounds, AmChart, AmSprite } from './types';
+import type { AmBounds, AmChart, AmPoint, AmSprite } from './types';
 
 /**
  * Read the plot-area bounds (CSS px, root-relative) used to clip highlights.
@@ -109,34 +109,34 @@ export function sliceExtent(slice: AmSprite): AmBounds | null {
 }
 
 /**
- * The bounding box of one pie wedge, computed from what a `Slice` reports.
+ * The bounding box of one wedge, computed from what a `Slice` reports.
  *
- * A `Slice` paints through a draw callback rather than through primitives that
- * feed amCharts' bounds accumulator, so `globalBounds()` answers a *degenerate
- * box at the wedge's own centre* — `left === right`, `top === bottom`, and
- * `width()`/`height()` both zero. Verified against amcharts5 5.20.1: measured
- * after `datavalidated`, again after a resize, always a point. Every highlight
- * derived from it collapsed and the overlay drew nothing at all (#774).
+ * A pie's `Slice` is not measured — the percent theme turns its `isMeasured`
+ * off — so `globalBounds()` answers a *degenerate box at the wedge's own
+ * centre*: `left === right`, `top === bottom`, and `width()`/`height()` both
+ * zero (amcharts5 5.20.1, after `datavalidated` and after a resize alike).
+ * Every highlight derived from it collapsed and the overlay drew nothing at
+ * all (#774).
  *
- * The centre it reports is correct, though, and the wedge's extent is in its
- * settings, so the box is recoverable: walk the wedge's corners — both arc
- * ends at each radius — and add every cardinal angle the sweep crosses, which
- * is where the arc, not its endpoints, reaches furthest out. A wedge with no
- * inner radius includes its centre, which the inner-radius corners supply at
- * radius zero.
+ * The wedge's extent is in its settings, so the box is recoverable: walk the
+ * wedge's corners — both arc ends at each radius — and add every cardinal
+ * angle the sweep crosses, which is where the arc, not its endpoints, reaches
+ * furthest out. A wedge with no inner radius includes its centre, which the
+ * inner-radius corners supply at radius zero. The centre is found by
+ * {@link wedgeCentre}.
  *
- * @param slice - The `Slice` sprite behind one pie data item
+ * @param slice - The `Slice` sprite behind one pie, polar or sunburst data item
  * @returns Its box in root-relative CSS px, or `null` when the sprite reports
  *   no usable centre or radius (an XY chart's sprites, or a pie asked before
  *   its first layout).
  */
 export function wedgeBounds(slice: AmSprite): AmBounds | null {
-  const box = slice.globalBounds?.();
-  if (!box || ![box.left, box.right, box.top, box.bottom].every(Number.isFinite)) {
+  const centre = wedgeCentre(slice);
+  if (!centre) {
     return null;
   }
-  const cx = (box.left + box.right) / 2;
-  const cy = (box.top + box.bottom) / 2;
+  const cx = centre.x;
+  const cy = centre.y;
 
   const radius = numberSetting(slice, 'radius');
   if (radius === null || radius <= 0) {
@@ -195,6 +195,36 @@ export function wedgeBounds(slice: AmSprite): AmBounds | null {
     right: Math.max(...xs),
     bottom: Math.max(...ys),
   };
+}
+
+/**
+ * Where a wedge's arc is centred, in root-relative CSS px.
+ *
+ * A `Slice` draws its arc round its own origin, so `toGlobal({ x: 0, y: 0 })`
+ * is the centre, its shift and its parents' transforms included. The middle of
+ * `globalBounds()` is the centre only for a slice amCharts does not measure,
+ * whose box is a point there — a pie's. A polar area's column and a
+ * sunburst's node are measured, and report the box the wedge is drawn in, so
+ * a box centred there lay outward of the wedge: on the polar area, Feb's
+ * outline covered its outer half, Jan's tip and empty space, and the
+ * sunburst's Africa outlined its children.
+ *
+ * A sprite with no `toGlobal` keeps the old reading only while its box is a
+ * point, where that reading is right; one reporting a real box gives no
+ * centre, and the caller then takes the box it reports.
+ */
+function wedgeCentre(slice: AmSprite): AmPoint | null {
+  if (slice.toGlobal) {
+    const origin = slice.toGlobal({ x: 0, y: 0 });
+    return Number.isFinite(origin.x) && Number.isFinite(origin.y) ? origin : null;
+  }
+  const box = slice.globalBounds?.();
+  if (!box || ![box.left, box.right, box.top, box.bottom].every(Number.isFinite)) {
+    return null;
+  }
+  return box.left === box.right && box.top === box.bottom
+    ? { x: box.left, y: box.top }
+    : null;
 }
 
 /**

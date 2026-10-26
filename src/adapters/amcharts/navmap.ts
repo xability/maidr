@@ -412,9 +412,8 @@ function buildGanttResolver(series: AmXYSeries | undefined): Resolver {
  *
  * What is not the same is the mark. A treemap block and an icicle bar are
  * rectangles, which the overlay measures as it measures a column; a sunburst
- * node is a `Slice`, which reports a degenerate box at its own centre and has
- * to be measured from its radius and sweep instead. Hence the `kind` — the one
- * thing the caller has to say.
+ * node is a `Slice`, a wedge measured from its radius and sweep round its own
+ * origin. Hence the `kind` — the one thing the caller has to say.
  */
 function buildHierarchyResolver(
   series: AmXYSeries | undefined,
