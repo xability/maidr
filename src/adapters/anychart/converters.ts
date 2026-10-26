@@ -3025,13 +3025,43 @@ function stampPieAttributes(
 // ---------------------------------------------------------------------------
 
 /**
- * Whether a path is a filled data mark rather than one of the shapes AnyChart
- * draws over or around one.
+ * The opacity below which a shape paints nothing a reader can see.
  *
- * Two decoys share a data mark's layer and its `ac_path_` id: the stroke-only
- * twin AnyChart draws for every mark (`fill="none"`), and the hover / selection
- * indicator it lays on top of the mark under the pointer, which is the same
- * shape at a reduced `fill-opacity`. A data mark sets neither.
+ * AnyChart draws some shapes only to catch the pointer, at an opacity next to
+ * zero: a tag cloud writes every word a second time at an `opacity` of one
+ * millionth, and a gantt fills the handles between its columns at a
+ * `fill-opacity` of one hundred thousandth. Nothing it means to be seen is that
+ * faint. A mark may still be partly transparent — AnyChart's own theme fills a
+ * range column, a marimekko tile and a tag cloud's words at 0.85, and hovering
+ * a waterfall bar, a range column or a tile redraws that same shape at 0.65
+ * rather than laying another over it — so being partly transparent says
+ * nothing about whether a shape is data.
+ */
+const MIN_VISIBLE_OPACITY = 0.01;
+
+/**
+ * Whether an element's own `opacity` or `fill-opacity` leaves it all but
+ * invisible: one of the pointer-catching shapes {@link MIN_VISIBLE_OPACITY}
+ * describes rather than a mark.
+ *
+ * @param element - The shape or text to test
+ * @returns True when either attribute is below {@link MIN_VISIBLE_OPACITY}
+ */
+function isNearlyInvisible(element: Element): boolean {
+  return ['opacity', 'fill-opacity'].some((name) => {
+    const value = element.getAttribute(name);
+    return value !== null && Number.parseFloat(value) < MIN_VISIBLE_OPACITY;
+  });
+}
+
+/**
+ * Whether a path is a filled data mark rather than one of the shapes AnyChart
+ * draws with or around one.
+ *
+ * Two kinds of decoy carry the same `ac_path_` id as a data mark: the
+ * stroke-only twin AnyChart draws for every mark (`fill="none"`), and the
+ * near-invisible shapes it draws to catch the pointer. A partly transparent
+ * fill is still a mark: see {@link MIN_VISIBLE_OPACITY}.
  */
 function isFilledDataPath(path: SVGElement): boolean {
   if (path.closest('defs, clipPath'))
@@ -3039,8 +3069,26 @@ function isFilledDataPath(path: SVGElement): boolean {
   const fill = path.getAttribute('fill');
   if (fill === null || fill === 'none' || fill === 'transparent')
     return false;
-  const fillOpacity = path.getAttribute('fill-opacity');
-  return fillOpacity === null || Number.parseFloat(fillOpacity) >= 1;
+  return !isNearlyInvisible(path);
+}
+
+/**
+ * The filled data paths a layer holds itself rather than through a layer
+ * nested inside it.
+ *
+ * AnyChart nests its layers: the whole chart is drawn inside one root layer,
+ * and each legend item inside the legend's. Counted with their descendants,
+ * the root layer — background, marks and legend icons together — always held
+ * the most filled paths.
+ *
+ * @param layer - The `ac_layer_*` group, or the SVG itself when it has none
+ * @returns Its own filled `ac_path_*` paths, in document order
+ */
+function ownFilledDataPaths(layer: Element): SVGElement[] {
+  return Array.from(
+    layer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
+  ).filter(path =>
+    path.closest('g[id^="ac_layer_"], svg') === layer && isFilledDataPath(path));
 }
 
 /**
@@ -3058,7 +3106,9 @@ function isFilledDataPath(path: SVGElement): boolean {
  * own layer holding that item's one icon, so a legend contributes as many
  * one-path layers as there are stages and never a layer of N — the same
  * property the pie lookup notes when it says legend markers "live in their
- * own, smaller layer".
+ * own, smaller layer". A layer is scored by the paths it holds itself (see
+ * {@link ownFilledDataPaths}): scored with its descendants, the chart's root
+ * layer won, and the chart's white background was stamped as the first stage.
  *
  * Returns the parent SVG itself when the SVG has no AnyChart layer structure
  * at all, so the caller falls back to whole-SVG querying. When layers *are*
@@ -3072,9 +3122,7 @@ function findFilledMarkLayer(svg: SVGElement): Element | null {
   let bestLayer: Element | null = null;
   let bestCount = 0;
   for (const layer of Array.from(layers)) {
-    const segments = Array.from(
-      layer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-    ).filter(isFilledDataPath);
+    const segments = ownFilledDataPaths(layer);
     if (segments.length > bestCount) {
       bestCount = segments.length;
       bestLayer = layer;
@@ -3096,9 +3144,10 @@ function findFilledMarkLayer(svg: SVGElement): Element | null {
  * stages in, so segment k is stage k.
  *
  * That mapping only holds while the segment candidates and the emitted stages
- * are the same set, so any disagreement between the two counts is reported: it
- * means one of the DOM assumptions above no longer describes what AnyChart
- * drew, and every stamp from that point on may name the wrong stage.
+ * are the same set, so nothing is stamped unless the two counts agree: a
+ * disagreement means one of the DOM assumptions above no longer describes what
+ * AnyChart drew, and stamping the first N anyway put each stage's highlight on
+ * the segment above it.
  *
  * On any other chart type this is a no-op.
  */
@@ -3125,25 +3174,22 @@ function stampFunnelAttributes(
     return;
   }
 
-  const candidates = Array.from(
-    segmentLayer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-  ).filter(path =>
+  const candidates = ownFilledDataPaths(segmentLayer).filter(path =>
     // Idempotency — skip segments stamped on a prior bind.
-    !path.hasAttribute(FUNNEL_ATTR) && isFilledDataPath(path));
+    !path.hasAttribute(FUNNEL_ATTR));
 
   if (candidates.length !== stageCount) {
     console.warn(
       `[maidr/anychart] Expected ${stageCount} funnel segments but found `
-      + `${candidates.length} after filtering. Highlighting may be incomplete `
-      + 'or land on the wrong stage; pass an explicit `selectors` entry to '
-      + 'override.',
+      + `${candidates.length} after filtering. Highlighting is disabled for `
+      + 'this chart; pass an explicit `selectors` entry to override.',
     );
+    return;
   }
 
-  const stampCount = Math.min(stageCount, candidates.length);
-  for (let i = 0; i < stampCount; i++) {
-    candidates[i].setAttribute(FUNNEL_ATTR, `${stampPrefix}0-${i}`);
-  }
+  candidates.forEach((segment, i) => {
+    segment.setAttribute(FUNNEL_ATTR, `${stampPrefix}0-${i}`);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -3162,10 +3208,13 @@ function stampFunnelAttributes(
  * written in has no relation to the data order — and a cloud whose terms were
  * paired by position would announce one word while highlighting another.
  *
- * A word carries its own identity instead. Each term is rendered as a single
+ * A word carries its own identity instead. Each term is drawn as one visible
  * `<text>` element holding exactly that term, so the pairing is a text match
- * and needs no ordering assumption at all. A term that does not match exactly
- * one element is a term this function cannot place, and since
+ * and needs no ordering assumption at all. AnyChart writes every word a second
+ * time, in a layer of its own at an `opacity` of one millionth, to catch the
+ * pointer; that copy is passed over (see {@link MIN_VISIBLE_OPACITY}), or every
+ * term would match two elements. A term that does not match exactly one
+ * visible element is a term this function cannot place, and since
  * `WordCloudTrace` drops the highlight for a partial resolution anyway,
  * nothing is stamped in that case — a half-stamped cloud would cost the same
  * highlight while looking, in the DOM, like it had worked.
@@ -3191,7 +3240,7 @@ function stampWordCloudAttributes(
   // tick labels, the chart title — simply never match a term.
   const byText = new Map<string, SVGElement[]>();
   for (const text of Array.from(svg.querySelectorAll<SVGElement>('text'))) {
-    if (text.hasAttribute(WORD_CLOUD_ATTR))
+    if (text.hasAttribute(WORD_CLOUD_ATTR) || isNearlyInvisible(text))
       continue;
     const label = (text.textContent ?? '').trim();
     const drawn = byText.get(label);
@@ -3271,9 +3320,9 @@ function isCurvedPath(path: SVGElement): boolean {
  * Locate the SVG `<g>` layer holding a sankey's ribbons.
  *
  * Same density lookup as {@link findFilledMarkLayer}, with the curve test in
- * place of the funnel's fill test: a ribbon is drawn at `fill-opacity` 0.3 by
- * AnyChart's own theme, so the "filled data path" filter every other mark
- * family uses would reject every ribbon on the chart.
+ * place of the funnel's fill test: a ribbon's layer also holds the node
+ * rectangles, which are filled too, so only its shape tells a ribbon apart (see
+ * {@link isCurvedPath}).
  *
  * Returns the parent SVG itself when the SVG has no AnyChart layer structure at
  * all, so the caller falls back to whole-SVG querying, and `null` when layers
@@ -3411,11 +3460,9 @@ function stampWaterfallAttributes(
     return;
   }
 
-  const candidates = Array.from(
-    barLayer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-  ).filter(path =>
+  const candidates = ownFilledDataPaths(barLayer).filter(path =>
     // Idempotency — skip bars stamped on a prior bind.
-    !path.hasAttribute(WATERFALL_ATTR) && isFilledDataPath(path));
+    !path.hasAttribute(WATERFALL_ATTR));
 
   if (candidates.length !== stepCount) {
     console.warn(
@@ -3439,12 +3486,12 @@ function stampWaterfallAttributes(
  * Every filled data path in the SVG, in document order.
  *
  * The single-layer lookups cannot serve a marimekko: its tiles are spread over
- * one layer per series, and the reading needs all of them at once. What makes
- * the wider search safe here is the exact-count check in
- * {@link stampMosaicAttributes} — a marimekko draws no legend by default, its
- * grid lines and axis strokes are unfilled, and its plot background is a
- * `<rect>` rather than an `ac_path_`, so any extra filled path this collects is
- * a shape the count will notice.
+ * one layer per series, and the reading needs all of them at once. The chart's
+ * own background is among what this collects — AnyChart draws it as a filled
+ * `ac_path_` the size of the chart, in a layer of its own — so every caller
+ * narrows the set again: to the plot area ({@link collectPlotAreaDataPaths}), to
+ * the one layer holding the expected count (the sunburst and the gantt), or to
+ * the drawn bounds of each region (the choropleth).
  */
 function collectFilledDataPaths(svg: SVGElement): SVGElement[] {
   // Scoped to the layers when there are any, and to the whole SVG when the
@@ -3457,6 +3504,25 @@ function collectFilledDataPaths(svg: SVGElement): SVGElement[] {
     ? scoped
     : svg.querySelectorAll<SVGElement>('path[id^="ac_path_"]');
   return Array.from(paths).filter(isFilledDataPath);
+}
+
+/**
+ * Every filled data path drawn into a layer clipped to the plot area, in
+ * document order.
+ *
+ * A Cartesian series' marks are the only filled paths there: AnyChart clips
+ * each series' layer to the plot area, and draws the chart's background, title
+ * and legend into layers it leaves unclipped — the property
+ * {@link findCandlestickPathLayer} picks a candle layer by. Without it the
+ * background was one more tile or range bar than the chart drew, and the count
+ * check took the highlight off the whole chart.
+ *
+ * @param svg - The chart's rendered `<svg>` root
+ * @returns The filled paths whose own layer carries a `clip-path`
+ */
+function collectPlotAreaDataPaths(svg: SVGElement): SVGElement[] {
+  return collectFilledDataPaths(svg).filter(path =>
+    path.closest('g[id^="ac_layer_"]')?.hasAttribute('clip-path') ?? false);
 }
 
 /**
@@ -3501,7 +3567,7 @@ function stampMosaicAttributes(
   if (drawn.length === 0)
     return;
 
-  const candidates = collectFilledDataPaths(svg).filter(
+  const candidates = collectPlotAreaDataPaths(svg).filter(
     // Idempotency — skip tiles stamped on a prior bind.
     path => !path.hasAttribute(MOSAIC_ATTR),
   );
@@ -3705,7 +3771,7 @@ function stampDumbbellAttributes(
   if (drawn.length === 0)
     return;
 
-  const candidates = collectFilledDataPaths(svg).filter(
+  const candidates = collectPlotAreaDataPaths(svg).filter(
     // Idempotency — skip bars stamped on a prior bind.
     path => !path.hasAttribute(DUMBBELL_ATTR),
   );
