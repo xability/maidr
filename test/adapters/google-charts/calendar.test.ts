@@ -231,7 +231,10 @@ describe('createMaidrFromGoogleChart with a Calendar', () => {
       makeCalendarContainer(DAYS_2012 + DAYS_2013),
     );
 
-    expect(layers.map(layer => layer.title)).toEqual(['2012', '2013']);
+    // In the name, which a layer switch announces; as the title it was read
+    // as the chart's ("Title is 2013").
+    expect(layers.map(layer => layer.name)).toEqual(['2012', '2013']);
+    expect(layers.map(layer => layer.title)).toEqual([undefined, undefined]);
     // Stacking them into one seven-row grid would put two different days in
     // one cell: the package restarts its week columns each January.
     expect(valueAt(layers[0], 1, 52)).toBe(50);
@@ -244,7 +247,7 @@ describe('createMaidrFromGoogleChart with a Calendar', () => {
       makeCalendarContainer(DAYS_2012 + DAYS_2013 + 365),
     );
 
-    expect(layers.map(layer => layer.title)).toEqual(['2012', '2013', '2014']);
+    expect(layers.map(layer => layer.name)).toEqual(['2012', '2013', '2014']);
     expect(grid(layers[1]).points.flat().every(cell => cell === null)).toBe(true);
   });
 
