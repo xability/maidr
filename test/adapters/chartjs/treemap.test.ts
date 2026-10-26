@@ -84,7 +84,7 @@ describe('chart.js treemap', () => {
     const { layer } = treemapLayer(treemapChart(twoLevelDataset()));
 
     expect(layer.type).toBe(TraceType.TREEMAP);
-    expect(layer.title).toBe('Population');
+    expect(layer.name).toBe('Population');
   });
 
   it('names each node and gives it the ancestry the dataset declares', () => {

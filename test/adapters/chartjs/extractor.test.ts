@@ -45,6 +45,56 @@ describe('chart.js extractor', () => {
       expect(layerDatasetIndices.get('0')).toEqual([0]);
     });
 
+    it('names a dataset in its layer\'s name and leaves the title to the chart', () => {
+      // MAIDR reads a layer's title as the chart's: the pie titled "Fruit
+      // Sales" was announced as "Title is Units Sold".
+      const chart = createChart({
+        type: 'pie',
+        data: {
+          labels: ['Apples', 'Bananas'],
+          datasets: [{ label: 'Units Sold', data: [30, 50] }],
+        },
+        options: { plugins: { title: { display: true, text: 'Fruit Sales' } } },
+      });
+
+      const { maidr } = extractChartData(chart);
+      const layer = maidr.subplots[0][0].layers[0];
+
+      expect(maidr.title).toBe('Fruit Sales');
+      expect(layer.title).toBeUndefined();
+      expect(layer.name).toBe('Units Sold');
+    });
+
+    it.each<[string, ChartJsData, ChartJsOptions, TraceType | undefined]>([
+      ['bar', { labels: ['A', 'B'], datasets: [{ label: 'Cash flow', data: [1, 2] }] }, {}, undefined],
+      [
+        'dumbbell',
+        { labels: ['Japan', 'Spain'], datasets: [{ label: 'Cash flow', data: [[79, 84], [77, 83]] }] },
+        { indexAxis: 'y' },
+        TraceType.DUMBBELL,
+      ],
+      [
+        'waterfall',
+        { labels: ['Open', 'Sales', 'Close'], datasets: [{ label: 'Cash flow', data: [[0, 100], [100, 150], [0, 150]] }] },
+        {},
+        undefined,
+      ],
+    ])('names a %s dataset in its layer\'s name', (type, data, options, traceType) => {
+      const chart = createChart({
+        type: 'bar',
+        data,
+        options: { ...options, plugins: { title: { display: true, text: 'Quarterly Cash Flow' } } },
+      });
+
+      const { maidr } = extractChartData(chart, traceType ? { traceType } : undefined);
+      const layer = maidr.subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(type);
+      expect(maidr.title).toBe('Quarterly Cash Flow');
+      expect(layer.title).toBeUndefined();
+      expect(layer.name).toBe('Cash flow');
+    });
+
     it('keeps a classic dual-axis chart (no stack option) as ONE subplot', () => {
       const chart = createChart({
         type: 'line',
@@ -658,7 +708,7 @@ describe('chart.js extractor', () => {
 
       const layer = maidr.subplots[0][0].layers[0];
       expect(layer.type).toBe(TraceType.PIE);
-      expect(layer.title).toBe('Units');
+      expect(layer.name).toBe('Units');
       // Flat, never nested, and with no producer-authored percentage.
       expect(layer.data).toEqual([
         { x: 'Apples', y: 30 },
@@ -733,8 +783,27 @@ describe('chart.js extractor', () => {
       // the two must not be merged into one pie.
       const layers = maidr.subplots[0][0].layers;
       expect(layers.map(l => l.id)).toEqual(['0', '1']);
-      expect(layers.map(l => l.title)).toEqual(['Inner', 'Outer']);
+      expect(layers.map(l => l.name)).toEqual(['Inner', 'Outer']);
       expect(layerDatasetIndices.get('1')).toEqual([1]);
+    });
+
+    it('names a ring labelled with a number by its digits, and an unlabelled one not at all', () => {
+      // A layer's name has to be a string: MAIDR trims it as it reads the
+      // layer, so the number 2024 would stop the chart from loading.
+      const chart = createChart({
+        type: 'doughnut',
+        data: {
+          labels: ['Apples', 'Bananas'],
+          datasets: [
+            { label: 2024 as unknown as string, data: [30, 50] },
+            { label: '', data: [20, 40] },
+          ],
+        },
+      });
+
+      const layers = extractChartData(chart).maidr.subplots[0][0].layers;
+
+      expect(layers.map(layer => layer.name)).toEqual(['2024', undefined]);
     });
   });
 

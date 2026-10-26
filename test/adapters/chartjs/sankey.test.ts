@@ -75,7 +75,7 @@ describe('chart.js sankey', () => {
     const { layer } = sankeyLayer(sankeyChart(energyDataset()));
 
     expect(layer.type).toBe(TraceType.SANKEY);
-    expect(layer.title).toBe('Energy');
+    expect(layer.name).toBe('Energy');
   });
 
   it('reads each flow as the edge it draws, in the order it was declared', () => {

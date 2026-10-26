@@ -61,7 +61,7 @@ No changes to your Chart.js code are required.
 MAIDR's Chart.js adapter is a standard Chart.js plugin:
 
 1. **Registration** — `Chart.register(maidrChartjs.maidrPlugin)` installs the plugin globally for every chart on the page
-2. **Extraction** — on each chart's `afterInit` hook, the extractor reads `chart.config.type`, `chart.data`, and `chart.options` and produces MAIDR's accessibility schema
+2. **Extraction** — on each chart's `afterInit` hook, the extractor reads `chart.config.type`, `chart.data`, and `chart.options` and produces MAIDR's accessibility schema. The chart's title is `plugins.title`'s text; a dataset's `label` names its layer, which Page Up and Page Down announce.
 3. **Activation** — a React root is mounted into a wrapper around the canvas, rendering the MAIDR component with full keyboard navigation, audio, text, and braille support. The chart keeps the size of the box it sits in, and MAIDR's text, braille and review fields go below it. A box that holds only the canvas, as Chart.js recommends, keeps its height, which Chart.js sizes the chart from, and its bottom margin grows by as much as the fields run past it, so they do not spill over what follows. The box's own margin is put back when the chart is destroyed.
 4. **Highlight overlay** — because Chart.js renders into a single `<canvas>`, MAIDR draws an absolute-positioned DOM rectangle on top of the canvas at the active element's geometry, kept in sync on resize
 

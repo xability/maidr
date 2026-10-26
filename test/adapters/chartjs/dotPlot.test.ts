@@ -122,7 +122,10 @@ describe('chart.js dot plot extraction', () => {
     const layers = layersOf(chart);
 
     expect(layers.map(layer => layer.type)).toEqual([TraceType.DOT, TraceType.DOT]);
-    expect(layers.map(layer => layer.title)).toEqual(['2020', '2024']);
+    // Named, so a layer switch says which year it lands on; neither year is
+    // the chart's title, which a layer title would be read as.
+    expect(layers.map(layer => layer.name)).toEqual(['2020', '2024']);
+    expect(layers.map(layer => layer.title)).toEqual([undefined, undefined]);
   });
 
   it('routes each series highlight to its own dataset', () => {
