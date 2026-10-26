@@ -1407,17 +1407,20 @@ function collectLineMarkerCandidates(
  *
  * Strategy:
  *   1. For each line-like series, determine the expected `pointCount`.
- *   2. Run {@link collectLineMarkerCandidates} once over the SVG and sort
- *      candidates left-to-right (matching data-point order).
- *   3. Hand the candidates out in series order, each line-like series taking
- *      the next `pointCount` of them and leaving the cursor where it stopped.
- *      A series this loop skips — the bars of a combined chart, one that
- *      cannot name its type — consumes nothing, and a series shorter than its
- *      neighbour does not shift the ones after it.
- *   4. Multi-series charts also emit a one-time warning recommending an
- *      explicit `selectors` entry, because precise per-series attribution
- *      requires matching point coordinates against axis scale transforms
- *      (out of scope here).
+ *   2. Run {@link collectLineMarkerCandidates} once over the SVG and group the
+ *      candidates by the `ac_layer_` they sit in: AnyChart draws each series'
+ *      markers into a layer of its own, and lays those layers out in series
+ *      order. Within a layer the markers are sorted left-to-right (matching
+ *      data-point order).
+ *   3. Hand the groups out in series order, each line-like series taking the
+ *      next one. A series this loop skips — the bars of a combined chart, one
+ *      that cannot name its type — takes none.
+ *
+ * Splitting one left-to-right list into runs of `pointCount` instead gave a
+ * series whatever markers came first along x, whichever series drew them: on
+ * a stacked area of three bands the first band took the three markers above
+ * its first year and one above the next, so "Desktop, 2021" outlined Mobile's
+ * 2019 marker.
  *
  * The stamp is idempotent — re-running on a chart that has already been
  * stamped is a no-op.
@@ -1434,17 +1437,14 @@ function stampLineAttributes(
   const svgRect = svg.getBoundingClientRect();
   const svgArea = svgRect.width * svgRect.height;
 
-  // Collect candidates once over the whole SVG; both single- and multi-
-  // series paths operate on the same sorted list below.
-  const candidates = collectLineMarkerCandidates(svg, svgArea);
-  candidates.sort((a, b) => a.x - b.x);
+  // One group of candidates per layer, in the order the layers are drawn,
+  // each sorted left to right.
+  const groups = groupByLayer(collectLineMarkerCandidates(svg, svgArea))
+    .map(group => group.sort((a, b) => a.x - b.x));
 
-  let multiSeriesWarned = false;
-  // How many candidates the series before this one took. A running cursor
-  // rather than `s * pointCount`: `s` counts the series this loop skipped —
-  // the bars of a combined chart, a series that cannot name its type — none
-  // of which consumed a candidate, and `pointCount` is this series' length,
-  // which is a stride only while every series is the same length.
+  // How many groups the series before this one took. A running cursor rather
+  // than `s`: `s` counts the series this loop skipped — the bars of a combined
+  // chart, a series that cannot name its type — none of which drew a marker.
   let consumed = 0;
 
   for (let s = 0; s < seriesCount; s++) {
@@ -1465,35 +1465,42 @@ function stampLineAttributes(
     if (pointCount === 0)
       continue;
 
-    if (seriesCount > 1 && !multiSeriesWarned) {
-      console.warn(
-        '[maidr/anychart] Multi-series line highlighting uses an offset-'
-        + 'based partition of marker candidates and may misattribute points '
-        + 'across series with overlapping geometry. For precise highlighting, '
-        + 'pass an explicit `selectors` entry to bindAnyChart().',
-      );
-      multiSeriesWarned = true;
-    }
-
-    const stampStart = consumed;
-    const stampEnd = Math.min(consumed + pointCount, candidates.length);
-    consumed = stampEnd;
-
-    if (stampEnd - stampStart < pointCount) {
+    const markers = groups[consumed++] ?? [];
+    if (markers.length !== pointCount) {
       console.warn(
         `[maidr/anychart] Expected ${pointCount} line-marker shapes for `
-        + `series ${s} but found ${Math.max(0, stampEnd - stampStart)}. `
+        + `series ${s} but found ${markers.length}. `
         + 'Highlighting may be incomplete; ensure markers are enabled on the '
         + 'series or pass an explicit `selectors` entry to override.',
       );
     }
 
-    for (let i = stampStart; i < stampEnd; i++) {
-      const el = candidates[i].el;
+    markers.slice(0, pointCount).forEach(({ el }, i) => {
       if (!el.hasAttribute(LINE_ATTR))
-        el.setAttribute(LINE_ATTR, `${stampPrefix}${s}-${i - stampStart}`);
-    }
+        el.setAttribute(LINE_ATTR, `${stampPrefix}${s}-${i}`);
+    });
   }
+}
+
+/**
+ * Split shapes into one group per `ac_layer_` they sit in, keeping the order
+ * the layers are drawn in. A shape outside every layer joins the group of the
+ * others like it, so an SVG with no layer structure is one group.
+ *
+ * @param candidates - Shapes in document order
+ * @returns The groups, in the document order of each one's first shape
+ */
+function groupByLayer<T extends { el: SVGElement }>(candidates: T[]): T[][] {
+  const groups = new Map<Element | null, T[]>();
+  for (const candidate of candidates) {
+    const layer = candidate.el.closest('g[id^="ac_layer_"]');
+    const group = groups.get(layer);
+    if (group)
+      group.push(candidate);
+    else
+      groups.set(layer, [candidate]);
+  }
+  return Array.from(groups.values());
 }
 
 /**

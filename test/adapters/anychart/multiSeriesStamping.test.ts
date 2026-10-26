@@ -3,14 +3,16 @@
  *
  * `stampLineAttributes` and `stampScatterAttributes` collect every marker-sized
  * shape in the SVG geometrically — AnyChart 8.x gives them no class to aim at —
- * and then split that one flat list between the series. The split is where the
- * pairing between what is announced and what is outlined is decided, and it
- * fails silently: the announcements come from the series' own rows and stay
- * correct whatever the split does.
+ * and then split them between the series: the line stamper by the layer each
+ * series draws its markers into, the scatter stamper along one flat list. The
+ * split is where the pairing between what is announced and what is outlined is
+ * decided, and it fails silently: the announcements come from the series' own
+ * rows and stay correct whatever the split does.
  *
- * Two shapes of chart are exercised here, because they break the split in
+ * Three shapes of chart are exercised here, because they break the split in
  * different directions: a combined chart whose first series is not line-like
- * at all, and two line series of unequal length.
+ * at all, two line series of unequal length, and bands of a stacked area whose
+ * markers share every x position.
  */
 
 import type {
@@ -81,20 +83,26 @@ function createChart(series: AnyChartSeries[], container: HTMLElement): AnyChart
  * must reject on size.
  *
  * jsdom implements no `getBBox`, so each shape is given the box the geometric
- * filter reads. The markers are appended in a scrambled order on purpose: the
- * stampers sort their candidates by x, so DOM order must not decide anything.
+ * filter reads. AnyChart draws each line series' markers into a layer of its
+ * own, so `layerSizes` splits the markers, in order, into one layer per series;
+ * left out, they share one layer.
  */
 function createRenderedChart(
   id: string,
   markerXs: number[],
   barWidths: number[] = [],
+  layerSizes: number[] = [markerXs.length],
 ): { container: HTMLElement; markers: SVGElement[] } {
   const container = document.createElement('div');
   container.id = id;
   const svg = document.createElementNS(SVG_NS, 'svg');
-  const layer = document.createElementNS(SVG_NS, 'g');
-  layer.id = 'ac_layer_1';
-  svg.appendChild(layer);
+  const layers = layerSizes.map((_, i) => {
+    const layer = document.createElementNS(SVG_NS, 'g');
+    layer.id = `ac_layer_${i + 1}`;
+    svg.appendChild(layer);
+    return layer;
+  });
+  const layer = layers[0];
   container.appendChild(svg);
   document.body.appendChild(container);
 
@@ -112,12 +120,14 @@ function createRenderedChart(
     layer.appendChild(rect);
   });
 
+  // The layer each marker goes into: the first `layerSizes[0]` into the first.
+  const layerOf = layerSizes.flatMap((size, i) => Array.from({ length: size }, () => layers[i]));
   const markers = markerXs.map((x, i) => {
     const path = document.createElementNS(SVG_NS, 'path');
     path.id = `ac_path_marker_${i}`;
     path.setAttribute('fill', '#64b5f6');
     box(path, x, 6, 6);
-    layer.appendChild(path);
+    (layerOf[i] ?? layer).appendChild(path);
     return path as unknown as SVGElement;
   });
 
@@ -162,13 +172,12 @@ describe('bindAnyChart (multi-series line stamping)', () => {
   });
 
   it('gives each of two unequal line series its own marks', () => {
-    // Three points then five. The second series must start where the first
-    // stopped; striding by its own length instead starts it two marks late,
-    // so its first point is announced against another series' mark and its
-    // last two marks are never reachable at all.
+    // Three points then five, each series' markers in a layer of its own.
     const { container, markers } = createRenderedChart(
       'unequal',
       [10, 20, 30, 40, 50, 60, 70, 80],
+      [],
+      [3, 5],
     );
     const chart = createChart(
       [createSeries('line', 3, 'A'), createSeries('line', 5, 'B')],
@@ -179,6 +188,44 @@ describe('bindAnyChart (multi-series line stamping)', () => {
 
     expect(stamps(markers, LINE_ATTR))
       .toEqual(['0-0', '0-1', '0-2', '1-0', '1-1', '1-2', '1-3', '1-4']);
+
+    cleanUp(container);
+  });
+
+  it('gives each band of a stacked area the markers drawn in its own layer', () => {
+    // Three bands over the same four years, as `examples/anychart/area.html`
+    // draws them: every year has a marker from each band at the same x. Split
+    // into runs of four along x, the first band took all three 2019 markers
+    // and Desktop's 2020 one, so "Desktop, 2021" outlined Mobile's 2019
+    // marker.
+    const years = [141, 295, 449, 603];
+    const { container, markers } = createRenderedChart(
+      'stacked',
+      [...years, ...years, ...years],
+      [],
+      [4, 4, 4],
+    );
+    const chart = createChart(
+      [createSeries('area', 4, 'Desktop'), createSeries('area', 4, 'Mobile'), createSeries('area', 4, 'Tablet')],
+      container,
+    );
+
+    bindAnyChart(chart);
+
+    expect(stamps(markers, LINE_ATTR)).toEqual([
+      '0-0',
+      '0-1',
+      '0-2',
+      '0-3',
+      '1-0',
+      '1-1',
+      '1-2',
+      '1-3',
+      '2-0',
+      '2-1',
+      '2-2',
+      '2-3',
+    ]);
 
     cleanUp(container);
   });
