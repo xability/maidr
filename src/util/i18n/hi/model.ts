@@ -487,6 +487,8 @@ export const model = {
   'model.statNumberOfSegments': 'खंडों की संख्या',
   'model.statLargestBarTotal': 'सबसे बड़ा बार कुल',
   'model.statSmallestBarTotal': 'सबसे छोटा बार कुल',
+  'model.statLargestCategorySum': 'सबसे बड़ा श्रेणी योग',
+  'model.statSmallestCategorySum': 'सबसे छोटा श्रेणी योग',
   'model.statSegmentsWithNoValue': 'बिना मान वाले खंड',
   // Mosaic plot.
   'model.asideShareOfAll': 'सबका हिस्सा',

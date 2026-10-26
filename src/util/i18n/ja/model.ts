@@ -494,6 +494,8 @@ export const model = {
   'model.statNumberOfSegments': 'セグメントの数',
   'model.statLargestBarTotal': '最大の棒の合計',
   'model.statSmallestBarTotal': '最小の棒の合計',
+  'model.statLargestCategorySum': '最大のカテゴリ合計',
+  'model.statSmallestCategorySum': '最小のカテゴリ合計',
   'model.statSegmentsWithNoValue': '値のないセグメント',
   // Mosaic plot.
   'model.asideShareOfAll': '全体に占める割合',

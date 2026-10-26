@@ -494,6 +494,8 @@ export const model = {
   'model.statNumberOfSegments': 'Numero di segmenti',
   'model.statLargestBarTotal': 'Totale della barra più grande',
   'model.statSmallestBarTotal': 'Totale della barra più piccola',
+  'model.statLargestCategorySum': 'Somma di categoria massima',
+  'model.statSmallestCategorySum': 'Somma di categoria minima',
   'model.statSegmentsWithNoValue': 'Segmenti senza valore',
   // Mosaic plot.
   'model.asideShareOfAll': 'Quota sul totale',

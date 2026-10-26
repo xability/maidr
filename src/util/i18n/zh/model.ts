@@ -490,6 +490,8 @@ export const model = {
   'model.statNumberOfSegments': '分段数量',
   'model.statLargestBarTotal': '最大条形总计',
   'model.statSmallestBarTotal': '最小条形总计',
+  'model.statLargestCategorySum': '最大类别总和',
+  'model.statSmallestCategorySum': '最小类别总和',
   'model.statSegmentsWithNoValue': '无值的分段',
   // Mosaic plot.
   'model.asideShareOfAll': '占全体比例',

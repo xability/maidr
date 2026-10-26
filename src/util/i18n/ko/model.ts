@@ -494,6 +494,8 @@ export const model = {
   'model.statNumberOfSegments': '구간 개수',
   'model.statLargestBarTotal': '가장 큰 막대 합계',
   'model.statSmallestBarTotal': '가장 작은 막대 합계',
+  'model.statLargestCategorySum': '가장 큰 범주 합',
+  'model.statSmallestCategorySum': '가장 작은 범주 합',
   'model.statSegmentsWithNoValue': '값이 없는 구간',
   // Mosaic plot.
   'model.asideShareOfAll': '전체 대비 비율',
