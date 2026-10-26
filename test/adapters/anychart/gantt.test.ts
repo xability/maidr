@@ -171,6 +171,17 @@ describe('anyChartToMaidr (gantt)', () => {
     expect(layer.axes?.y?.label).toBe('Task');
   });
 
+  it('says the first row is drawn at the top', () => {
+    // So Up and Down follow the rows even where the bars cannot be told apart
+    // and there is no highlight to measure their order from.
+    const chart = createGanttChart([
+      { name: 'Research', actualStart: Date.UTC(2024, 0, 1), actualEnd: Date.UTC(2024, 0, 15) },
+      { name: 'Write', actualStart: Date.UTC(2024, 0, 15), actualEnd: Date.UTC(2024, 1, 5) },
+    ]);
+
+    expect(ganttData(chart).firstLane).toBe('top');
+  });
+
   it('reads a schedule shorter than two days in hours', () => {
     const chart = createGanttChart([
       {

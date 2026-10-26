@@ -716,7 +716,9 @@ export interface GanttData {
    *
    * Either end may come first. On a chart whose bars run left to right, Up
    * and Down follow the drawing: when the first lane is drawn above the last,
-   * Down moves to the next lane, and when it is drawn below, Up does.
+   * Down moves to the next lane, and when it is drawn below, Up does. Which
+   * it is is measured from the highlight, or read from
+   * {@link GanttData.firstLane} where there is nothing to measure.
    *
    * Nested rather than flat so a lane with no intervals still exists: an empty
    * row is a real statement about a schedule -- nothing is booked -- and a
@@ -768,6 +770,18 @@ export interface GanttData {
    * the lanes share one axis, as a schedule's do.
    */
   wrap?: number;
+  /**
+   * Which end of the chart the first lane is drawn at, for a schedule whose
+   * bars run left to right and whose drawing MAIDR cannot measure: one drawn
+   * to a canvas, or one whose bars no highlight resolved. `'top'` when the
+   * first lane is drawn at the top, as most schedules are; `'bottom'` when
+   * it is drawn at the bottom.
+   *
+   * Where MAIDR can measure the drawing it does, and this is not read.
+   * Omitted where nothing can be measured, the first lane is taken to be at
+   * the bottom, as row 0 of a grid is, and Up moves to the next lane.
+   */
+  firstLane?: 'top' | 'bottom';
 }
 
 /**

@@ -5935,6 +5935,10 @@ function buildGanttLayer(
     points,
     lanes: lanes.map(lane => lane.name),
     unit: scale.unit,
+    // The rows are drawn from the top, in this order. Said outright for the
+    // schedule whose bars cannot be told apart, which then has no highlight
+    // to measure the order from.
+    firstLane: 'top',
   };
 
   const scope = panelScope(panel);

@@ -144,6 +144,12 @@ export class GanttTrace extends AbstractTrace {
   private lanesRunDown: boolean | null = null;
 
   /**
+   * Where the producer says the first lane is drawn, for a schedule with
+   * nothing to measure ({@link GanttData.firstLane}).
+   */
+  private readonly firstLane?: 'top' | 'bottom';
+
+  /**
    * Creates a new gantt trace.
    *
    * @param layer - The MAIDR layer carrying the interval data
@@ -156,6 +162,7 @@ export class GanttTrace extends AbstractTrace {
     this.unit = data.unit?.trim() || undefined;
     this.inclusive = data.inclusive === true;
     this.laneNames = data.lanes ?? [];
+    this.firstLane = data.firstLane;
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     this.lengths = this.lanes.map(lane => lane.map(point => lengthOf(point, this.inclusive)));
@@ -769,7 +776,9 @@ export class GanttTrace extends AbstractTrace {
    * Vega-Lite -- and there Up walked down the drawing, and Down from the first
    * lane said "No more data to display" with two lanes below it. The order is
    * measured, as a figure measures its rows of panels, rather than
-   * declared, so neither kind of producer has to say which it is.
+   * declared, so neither kind of producer has to say which it is. Only a
+   * schedule with nothing to measure -- drawn to a canvas -- says it, in
+   * {@link GanttData.firstLane}.
    *
    * @param direction - The key's direction
    * @returns Whether the cursor moved
@@ -823,8 +832,13 @@ export class GanttTrace extends AbstractTrace {
    * laid out yet, from the hidden copies the highlight already holds: they
    * keep the geometry of the marks they copy. Only a schedule whose bars run
    * left to right stacks its lanes vertically; one drawn the default way up
-   * lays them side by side, and a chart without a highlight has nothing to
-   * measure. Both keep the grid's own rule.
+   * lays them side by side and keeps the grid's own rule.
+   *
+   * A chart without a highlight has nothing to measure: a canvas, which
+   * Chart.js and amCharts draw to, or bars no highlight resolved. There the
+   * producer's {@link GanttData.firstLane} is taken, and without one the
+   * grid's rule. Chart.js draws a schedule's first lane at the top, and
+   * before it could say so, Up there walked down the drawing.
    *
    * @returns True when Up and Down have to be swapped
    */
@@ -832,10 +846,14 @@ export class GanttTrace extends AbstractTrace {
     if (this.lanesRunDown !== null) {
       return this.lanesRunDown;
     }
-    const elements = this.highlightValues;
-    if (this.orientation !== Orientation.HORIZONTAL || elements === null) {
+    if (this.orientation !== Orientation.HORIZONTAL) {
       this.lanesRunDown = false;
       return false;
+    }
+    const elements = this.highlightValues;
+    if (elements === null) {
+      this.lanesRunDown = this.firstLane === 'top';
+      return this.lanesRunDown;
     }
 
     let first = -1;
