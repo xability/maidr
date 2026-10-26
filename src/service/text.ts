@@ -8,6 +8,7 @@ import { focusedSubplotTitle } from '@model/plot';
 import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
+import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { plotTypeLabel } from '@util/plotTypeLabel';
 
@@ -80,7 +81,11 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   /**
    * Formats a single value using the formatter service if available.
-   * Falls back to String() conversion if no formatter is configured.
+   * Falls back to the default format -- two decimals, the rounding an axis
+   * without a format gets -- when there is no formatter or the state names no
+   * layer. A layer authored without an `id` is the case that reaches it:
+   * `examples/multi-panel.html` announced "Values is 9.09032520665641" where
+   * the dialog's table read 9.09.
    *
    * A gap arrives here as whatever sentinel the wire carried: the `null` a
    * producer emits for a slot it has no measurement for, or the `NaN` the bar
@@ -109,7 +114,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (this.formatter && this.currentLayerId) {
       return this.formatter.formatSingleValue(value, this.currentLayerId, axis);
     }
-    return String(value);
+    return defaultFormat(value);
   }
 
   /**
