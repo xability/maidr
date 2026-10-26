@@ -662,7 +662,7 @@ var series = root.container.children.push(am5hierarchy.ForceDirected.new(root, {
 }));
 ```
 
-The container root is dropped, as it is for a treemap. A `linkWith` entry naming something the walk never saw is skipped rather than turned into a node: amCharts draws no link for it either, and inventing the node would announce a participant the chart does not have. A pair that names itself from both ends yields one link, because a link is undirected. **Nothing about the layout is read** — where the force solver dropped a node is a fact about its seed rather than about the data, and MAIDR's network point has nowhere to put a position for exactly that reason.
+The tree is read as amCharts draws it, which the series' `topDepth` decides. At its default of 0 the root of the data is drawn as a node like any other, linked to each of its children, and is read as one; set `topDepth: 1`, as a chart with a synthetic container root usually does, and amCharts draws neither the root nor its links, and neither is read. A `linkWith` entry naming something the walk never saw is skipped rather than turned into a node: amCharts draws no link for it either, and inventing the node would announce a participant the chart does not have. A pair that names itself from both ends yields one link, because a link is undirected. **Nothing about the layout is read** — where the force solver dropped a node is a fact about its seed rather than about the data, and MAIDR's network point has nowhere to put a position for exactly that reason.
 
 ##### Flow and network highlighting
 

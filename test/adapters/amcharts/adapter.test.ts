@@ -1216,11 +1216,11 @@ describe('fromAmCharts (network)', () => {
     expect(found[0].series.values).toEqual([series]);
   });
 
-  it('reads the tree as links: one per parent-child edge, root dropped', () => {
+  it('reads the tree as links: one per parent-child edge, root hidden by topDepth', () => {
     // A force-directed graph is a HIERARCHY series in amCharts, not a link
-    // list, so the edges are the tree's own and the container root is not one
-    // of the participants.
-    const series = fakeForceDirectedSeries('People', TREE);
+    // list, so the edges are the tree's own. `topDepth: 1` is how a chart
+    // hides a container root, and amCharts then draws neither it nor its links.
+    const series = fakeForceDirectedSeries('People', TREE, { topDepth: 1 });
 
     const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
 
@@ -1233,11 +1233,49 @@ describe('fromAmCharts (network)', () => {
     ]);
   });
 
+  it('reads the root as the node amCharts draws it as, with a line to each child', () => {
+    // examples/amcharts-flow.html sets no `topDepth`, and amCharts' default of
+    // 0 draws the root, Computing, linked to Ada, Edsger and Barbara. Dropped
+    // as a treemap's container is, the reader was told of 5 people with 2
+    // links each where the chart draws 6 nodes and 8 lines.
+    const series = fakeForceDirectedSeries('People', {
+      category: 'Computing',
+      children: [
+        {
+          category: 'Ada',
+          row: { name: 'Ada', linkWith: ['Grace'] },
+          children: [
+            { category: 'Alan', row: { name: 'Alan' } },
+            { category: 'Grace', row: { name: 'Grace' } },
+          ],
+        },
+        { category: 'Edsger', row: { name: 'Edsger', linkWith: ['Alan'] } },
+        { category: 'Barbara', row: { name: 'Barbara', linkWith: ['Grace', 'Edsger'] } },
+      ],
+    }, { linkWithField: 'linkWith', idField: 'name' });
+
+    const data = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data as NetworkPoint[];
+
+    expect(data).toEqual([
+      { source: 'Computing', target: 'Ada' },
+      { source: 'Ada', target: 'Alan' },
+      { source: 'Ada', target: 'Grace' },
+      { source: 'Computing', target: 'Edsger' },
+      { source: 'Computing', target: 'Barbara' },
+      { source: 'Edsger', target: 'Alan' },
+      { source: 'Barbara', target: 'Grace' },
+      { source: 'Barbara', target: 'Edsger' },
+    ]);
+  });
+
   it('adds the cross-links a row names, and skips one naming no node', () => {
     // `linkWith` is the only place a force-directed graph's non-tree edges
     // live. An entry the walk never saw names nothing amCharts drew either, so
     // inventing the node would announce a participant the chart does not have.
-    const series = fakeForceDirectedSeries('People', TREE, { linkWithField: 'linkWith' });
+    const series = fakeForceDirectedSeries('People', TREE, {
+      linkWithField: 'linkWith',
+      topDepth: 1,
+    });
 
     expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data).toEqual([
       { source: 'Ada', target: 'Alan' },
@@ -1256,7 +1294,7 @@ describe('fromAmCharts (network)', () => {
         { category: 'Ada Lovelace', row: { key: 'ada', linkWith: ['grace'] } },
         { category: 'Grace Hopper', row: { key: 'grace' } },
       ],
-    }, { linkWithField: 'linkWith', idField: 'key' });
+    }, { linkWithField: 'linkWith', idField: 'key', topDepth: 1 });
 
     expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
       .toEqual([{ source: 'Ada Lovelace', target: 'Grace Hopper' }]);
@@ -1270,7 +1308,7 @@ describe('fromAmCharts (network)', () => {
         { category: 'Ada', row: { linkWith: ['Grace'] } },
         { category: 'Grace', row: { linkWith: ['Ada'] } },
       ],
-    }, { linkWithField: 'linkWith' });
+    }, { linkWithField: 'linkWith', topDepth: 1 });
 
     expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
       .toEqual([{ source: 'Ada', target: 'Grace' }]);
