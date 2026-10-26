@@ -10,6 +10,7 @@ import type {
   TraceState,
 } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
+import { AreaTrace } from '@model/area';
 import { NetworkTrace } from '@model/network';
 import { RadarTrace } from '@model/radar';
 import { ScatterTrace } from '@model/scatter';
@@ -1922,6 +1923,84 @@ describe('a radar\'s series read last first, so Up moves the caret up a line', (
   test('single-line and multiline displays list the series in the same order', () => {
     for (const type of [TraceType.RADAR, TraceType.POLAR_AREA]) {
       const trace = grades(type);
+
+      expect(linesOf(trace.state, 1)).toEqual(linesOf(trace.state, 3));
+      trace.dispose();
+    }
+  });
+});
+
+describe('a stacked area\'s bands read top band first, so Up moves the caret up a line', () => {
+  // Up is the band stacked on top, the next series, as on a radar. Written
+  // series 0 first, the on-screen field put the bottom band on its top line,
+  // so Up moved the caret down a line; a multiline display already wrote the
+  // bands top first.
+
+  /**
+   * Two revenue bands, Subscriptions at the bottom of the stack.
+   * @param type - Stacked or 100% stacked area
+   * @returns The trace, on the bottom band's first point
+   */
+  function revenue(type: TraceType = TraceType.STACKED_AREA): AreaTrace {
+    const years = ['2019', '2020', '2021', '2022'];
+    const trace = new AreaTrace({
+      id: 'revenue',
+      type,
+      axes: { x: { label: 'Year' }, y: { label: 'Revenue' } },
+      data: [
+        years.map((x, at) => ({ x, y: [10, 20, 30, 45][at], z: 'Subscriptions' })),
+        years.map((x, at) => ({ x, y: [5, 20, 70, 25][at], z: 'Services' })),
+      ],
+    });
+    trace.moveToIndex(0, 0);
+    return trace;
+  }
+
+  /**
+   * The braille a display of some lines shows for a state, as its lines.
+   * @param state - The trace state to show
+   * @param lines - How many lines the display has
+   * @returns The value's lines, trailing blanks dropped
+   */
+  function linesOf(state: TraceState, lines: number): string[] {
+    const { service } = createMultilineBrailleService(8, lines);
+    let value = '';
+    service.onChange((event) => {
+      value = event.value;
+    });
+    service.toggle(state);
+    service.dispose();
+    return lines === 1
+      ? value.split('\n').filter(line => line !== '').map(line => line.trimEnd())
+      : (value.match(/.{8}/gu) ?? []).map(line => line.trimEnd()).filter(line => line !== '');
+  }
+
+  test('the top band is on the top line, and Up moves the caret up to it', () => {
+    const trace = revenue();
+    const { service } = createBrailleService(32);
+    let last = { value: '', index: -1 };
+    service.onChange((event) => {
+      last = { value: event.value, index: event.index };
+    });
+    service.toggle(trace.state);
+    const firstLine = last.value.split('\n')[0];
+    const onBottomBand = last.index;
+
+    trace.moveOnce('UPWARD');
+    service.update(trace.state);
+    const onTopBand = last.index;
+
+    expect(trace.row).toBe(1);
+    expect(firstLine).toHaveLength(4);
+    expect(onTopBand).toBeLessThan(firstLine.length);
+    expect(onBottomBand).toBeGreaterThan(firstLine.length);
+    service.dispose();
+    trace.dispose();
+  });
+
+  test('single-line and multiline displays list the bands in the same order', () => {
+    for (const type of [TraceType.STACKED_AREA, TraceType.NORMALIZED_AREA]) {
+      const trace = revenue(type);
 
       expect(linesOf(trace.state, 1)).toEqual(linesOf(trace.state, 3));
       trace.dispose();
