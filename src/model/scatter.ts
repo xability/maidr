@@ -499,7 +499,21 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     const allSvgClones = selector ? Svg.selectAllElements(selector) : [];
     this.svgClones = allSvgClones;
 
-    [this.highlightXValues, this.highlightYValues] = this.groupSvgElements(allSvgClones);
+    // A column's or row's marks are the marks of the points in it, each mark
+    // paired with the point at its index, as point, intersection and grid
+    // navigation pair them, whenever the selector matches one mark per point.
+    // Grouping the marks by where they are drawn instead outlined the mirror
+    // row on every chart whose y grows upward, as r-maidr draws them, made
+    // one group of two values drawn at one pixel, and made several of one
+    // value drawn a hair apart or jittered. Marks that do not pair with the
+    // points one to one are still grouped by where they are drawn.
+    [this.highlightXValues, this.highlightYValues]
+      = allSvgClones.length > 0 && allSvgClones.length === data.length
+        ? [
+            this.xPointIndices.map(column => column.map(index => allSvgClones[index])),
+            this.yPointIndices.map(row => row.map(index => allSvgClones[index])),
+          ]
+        : this.groupSvgElements(allSvgClones);
     // Left for the first hover to measure. `highlightCentersDirty` starts
     // true, so findNearestPoint builds them the same way it does after a
     // scroll.
@@ -3177,6 +3191,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   /**
    * Groups pre-selected SVG elements by their X and Y coordinates.
+   *
+   * Used only for marks that do not pair with the points one to one, where
+   * nothing says which mark is which point. The rows are ordered largest `y`
+   * first, which is lowest on the page only where y grows downward.
    * @param elements - Array of SVG element clones (already selected from the DOM)
    * @returns Tuple of SVG element arrays grouped by X and Y, or null arrays if empty
    */

@@ -15,11 +15,16 @@ import { TraceType } from '@type/grammar';
  * scatter and every other point had no marker at all.
  */
 
+// One point more than the four circles drawn. Circles that pair with the
+// points one to one take their columns from the points' own values; where a
+// circle is drawn, the reading this file pins, is what groups those that do
+// not.
 const POINTS: ScatterPoint[] = [
   { x: 1, y: 1 },
   { x: 1, y: 2 },
   { x: 2, y: 3 },
   { x: 3, y: 4 },
+  { x: 4, y: 5 },
 ];
 
 function layer(): MaidrLayer {
