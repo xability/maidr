@@ -3021,14 +3021,15 @@ function getGaugeAxes(pluginOptions?: MaidrPluginOptions): MaidrLayer['axes'] {
  * object the page wrote. MAIDR copies its data with `structuredClone` when it
  * starts, which cannot copy a Proxy, so a band passed on as it came stopped
  * the gauge from starting at all. Reading the two fields out gives plain
- * objects. They are the fields {@link GaugeBand} declares; a field added to
- * it has to be copied here as well, or it is dropped.
+ * objects. They are the fields {@link GaugeBand} declares, and `satisfies`
+ * holds the copy to them: a field added to `GaugeBand` fails to compile here
+ * until it is copied too, rather than being dropped.
  *
  * @param bands - The bands from `options.plugins.maidr`
  * @returns The same bands as plain objects
  */
 function copyGaugeBands(bands: readonly GaugeBand[]): GaugeBand[] {
-  return bands.map(({ to, label }) => ({ to, label }));
+  return bands.map(({ to, label }) => ({ to, label }) satisfies Required<GaugeBand>);
 }
 
 /**
