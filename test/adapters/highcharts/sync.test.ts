@@ -216,6 +216,22 @@ describe('createHighchartsSync', () => {
     expect(drawn.hide).toHaveBeenCalledTimes(1);
   });
 
+  it('hides the tooltip, rather than name one of them, when two points are drawn with the highlighted shape', async () => {
+    // Columns of one size at one place in two series that do not stack. MAIDR
+    // draws this highlight straight over the mark, with no copy of its own
+    // beside it, so only the shape says which point it is on.
+    const drawn = drawChart(document => [0, 1].map(() => svg(document, 'rect', { x: 10, y: 40, width: 20, height: 60 })));
+    createHighchartsSync(drawn.chart);
+
+    const over = svg(drawn.document, 'rect', { x: 10, y: 40, width: 20, height: 60 });
+    over.id = 'maidr-highlight-over';
+    drawn.group.appendChild(over);
+    await settle();
+
+    expect(drawn.refresh).not.toHaveBeenCalled();
+    expect(drawn.hide).toHaveBeenCalledTimes(1);
+  });
+
   it('hides the tooltip while MAIDR is on several marks at once', async () => {
     const drawn = drawChart(bars);
     createHighchartsSync(drawn.chart);

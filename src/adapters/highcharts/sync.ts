@@ -260,22 +260,22 @@ function pointBeside(chart: HighchartsChart, highlight: Element): HighchartsPoin
  * straight over the chart's own mark rather than beside a copy of it: a
  * heatmap cell, or a mark made of several shapes.
  *
+ * Two points drawn alike -- columns of one size at one place in two series
+ * that do not stack -- are a shape no one tooltip can name, so neither is
+ * returned.
+ *
  * @param chart - The chart
  * @param highlight - The highlight MAIDR drew
  * @returns The point, or null when no one point draws that shape
  */
 function pointShaped(chart: HighchartsChart, highlight: Element): HighchartsPoint | null {
   const shape = shapeOf(highlight);
-  for (const series of chart.series) {
-    for (const point of series.data) {
-      const graphic = point.graphic?.element;
-      if (graphic !== undefined && (shapeOf(graphic) === shape
-        || Array.from(graphic.querySelectorAll('*')).some(part => shapeOf(part) === shape))) {
-        return point;
-      }
-    }
-  }
-  return null;
+  const drawing = chart.series.flatMap(series => series.data).filter((point) => {
+    const graphic = point.graphic?.element;
+    return graphic !== undefined && (shapeOf(graphic) === shape
+      || Array.from(graphic.querySelectorAll('*')).some(part => shapeOf(part) === shape));
+  });
+  return drawing.length === 1 ? drawing[0] : null;
 }
 
 /**
