@@ -34,9 +34,13 @@ function drawnAxis(title?: string, ticks: string[] = []): AmAxis {
   } as unknown as AmAxis;
 }
 
-/** A bar chart whose axes are the given ones. */
-function chartWithAxes(xAxis: AmAxis, yAxis: AmAxis): AmChart {
-  const chart = fakeChart({ series: [fakeBarSeries('Budget', BAR_DATA)] });
+/** A bar chart whose axes are the given ones, placed at `bounds` if given. */
+function chartWithAxes(
+  xAxis: AmAxis,
+  yAxis: AmAxis,
+  bounds?: { left: number; top: number; right: number; bottom: number },
+): AmChart {
+  const chart = fakeChart({ series: [fakeBarSeries('Budget', BAR_DATA)], bounds });
   chart.xAxes = { values: [xAxis] };
   chart.yAxes = { values: [yAxis] };
   return chart;
@@ -67,6 +71,41 @@ describe('amCharts axis titles', () => {
 
     expect(layer.axes?.x?.label).toBe('Step');
     expect(['0', '500', '1,000']).not.toContain(layer.axes?.y?.label);
+  });
+
+  it('names no axis the chart draws no title for', () => {
+    // The two-panel example on examples/amcharts.html draws no axis titles and
+    // passes no `axisLabels`, and was read as "x is Jan, y is 120", "X label
+    // is x". A blank label is how a layer says it has no name for an axis.
+    const chart = chartWithAxes(drawnAxis(undefined, ['Opening']), drawnAxis());
+
+    const layer = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers[0];
+
+    expect(layer.axes?.x?.label ?? '').toBe('');
+    expect(layer.axes?.y?.label ?? '').toBe('');
+  });
+
+  it('names each panel\'s axes from the titles that panel draws', () => {
+    // `axisLabels` is one setting for the whole figure, so two panels with
+    // different value axes can only be told apart by what each one draws.
+    const top = chartWithAxes(
+      drawnAxis('Month'),
+      drawnAxis('Revenue'),
+      { left: 40, top: 0, right: 600, bottom: 180 },
+    );
+    const bottom = chartWithAxes(
+      drawnAxis('Month'),
+      drawnAxis('Growth rate'),
+      { left: 40, top: 200, right: 600, bottom: 380 },
+    );
+
+    const { subplots } = fromAmCharts(fakeRoot([top, bottom]));
+
+    // Rows are emitted bottom panel first.
+    expect(subplots.map(row => row[0].layers[0].axes)).toEqual([
+      { x: { label: 'Month' }, y: { label: 'Growth rate' } },
+      { x: { label: 'Month' }, y: { label: 'Revenue' } },
+    ]);
   });
 
   it('lets the axisLabels option override a drawn title', () => {
