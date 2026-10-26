@@ -55,4 +55,14 @@ describe('highcharts candlestick volume', () => {
 
     expect(read.map(candle => candle.volume)).toEqual([1200, 0]);
   });
+
+  it('keeps the volume on the candles that declare one and leaves it off the rest', () => {
+    const read = candles([
+      { x: 0, open: 150, high: 153, low: 149, close: 152.5, options: { volume: 1200 } },
+      { x: 1, open: 152.5, high: 154, low: 151, close: 151, options: {} },
+    ]);
+
+    expect(read.map(candle => candle.volume)).toEqual([1200, undefined]);
+    expect('volume' in read[1]).toBe(false);
+  });
 });

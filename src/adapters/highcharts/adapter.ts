@@ -5895,10 +5895,8 @@ function convertCandlestickSeries(
         trend = close > open ? 'Bull' : close < open ? 'Bear' : 'Neutral';
       }
 
-      // A candle declared without a volume carries none, rather than a zero:
-      // `Candlestick` leaves the Volume column out of the data table only
-      // when no candle has one, and a zero on every row told the reader the
-      // chart had recorded no trading at all.
+      // Absent rather than 0 when undeclared, so `Candlestick` can leave the
+      // Volume column out of a chart that records none.
       const volume = p.options?.volume;
 
       return {
