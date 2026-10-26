@@ -1817,6 +1817,32 @@ function sortStackedBandsByDrawnOrder(svg: SVGSVGElement, layers: MaidrLayer[]):
 }
 
 /**
+ * Give one side of a box's drawn outliers the values the data holds.
+ *
+ * The converter takes a box's outliers from the observations themselves, so
+ * they are exact; the values estimated from where each symbol is drawn are
+ * not, and are rounded on top. When the two lists agree in length, the drawn
+ * symbols -- already in ascending order of position -- take the observed
+ * values in ascending order. Otherwise the estimates stand, since they are
+ * the only values paired with a symbol.
+ *
+ * @param drawn - The symbols on one side of a box, in ascending order
+ * @param observed - The converter's outliers on the same side, if any
+ */
+function adoptObservedOutliers(
+  drawn: Array<{ value: number }>,
+  observed: number[] | undefined,
+): void {
+  if (!observed || observed.length !== drawn.length) {
+    return;
+  }
+  const ascending = [...observed].sort((a, b) => a - b);
+  drawn.forEach((outlier, k) => {
+    outlier.value = ascending[k];
+  });
+}
+
+/**
  * For BOX layers, replace the placeholder single-string selector
  * (`"g.mark-rect.role-mark.{marks} path"`) with a properly typed
  * `BoxSelector[]` (one entry per box group), populate outlier
@@ -1854,10 +1880,12 @@ function sortStackedBandsByDrawnOrder(svg: SVGSVGElement, layers: MaidrLayer[]):
  *    "min" side).
  * 5. For each outlier, assign to the nearest group; classify upper
  *    vs lower by comparing its cy/cx to the rect centre.
- * 6. Compute outlier values via linear interpolation between the
- *    `min` rule's far-end pixel anchor (= `BoxPoint.min`) and the
- *    `max` rule's far-end anchor (= `BoxPoint.max`). Rounded to
- *    integer.
+ * 6. Give each outlier the converter's value for it, in ascending
+ *    order of position; where the converter's list does not match the
+ *    drawn symbols in length, estimate it by linear interpolation
+ *    between the `min` rule's far-end pixel anchor (= `BoxPoint.min`)
+ *    and the `max` rule's far-end anchor (= `BoxPoint.max`), rounded
+ *    to an integer.
  * 7. Re-append elements in deterministic group-major order and stamp
  *    `data-maidr-box-index` / `data-maidr-box-part` attributes on
  *    each sub-mark (rect, rules, tick, outliers).
@@ -1872,9 +1900,8 @@ function sortStackedBandsByDrawnOrder(svg: SVGSVGElement, layers: MaidrLayer[]):
  * -------
  * - Assumes the y-scale is linear (true for the typical box plot;
  *   logs and bails on degenerate cases like zero IQR).
- * - Outlier values are interpolated from pixels, not from Vega's
- *   internal stat dataset, so they may differ by ±1 unit due to
- *   rounding. That's acceptable for sonification + announce.
+ * - An outlier value estimated from pixels (step 6) may differ by ±1
+ *   unit due to rounding.
  * - Bails (with a diag log) on any structural surprise (count
  *   mismatch, unparseable selector); the layer remains in its
  *   current (already-broken) state — never worse.
@@ -2149,22 +2176,15 @@ function buildBoxPlotSelectorsFromDom(
         ? ot.cy > g.rect.cy
         : ot.cx < g.rect.cx;
 
-      // 6. Compute outlier value via linear interpolation between
-      //    the min/max rule far-end pixel anchors.
+      // 6. Estimate the outlier's value via linear interpolation
+      //    between the min/max rule far-end pixel anchors.
       //
-      //    Known limitation: this assumes the Y axis (or X for
-      //    horizontal boxplots) uses a LINEAR scale. For log / sqrt /
-      //    pow / time scales the announced outlier value will be
-      //    systematically biased — the fix is to read outliers from
-      //    `view.data(...)` on the compiled boxplot summary dataset
-      //    (which contains the exact quantitative values) instead of
-      //    deriving them from pixel positions. That requires
-      //    discovering the per-layer boxplot dataset name (which
-      //    varies by spec layering and Vega-Lite version) and is
-      //    tracked as a follow-up. Likewise, `Math.round` here biases
-      //    toward integer outlier values; for fractional-data specs
-      //    consumers should expect ±1-unit imprecision until the
-      //    follow-up lands.
+      //    The estimate stands only where the converter has no outlier
+      //    list of the same length to pair with the symbols
+      //    (`adoptObservedOutliers`): it assumes the Y axis (or X for
+      //    horizontal boxplots) uses a LINEAR scale, so for log / sqrt /
+      //    pow / time scales it is biased, and `Math.round` takes it to
+      //    a whole number.
       const minAnchor = isVertical ? g.minRule.rect.bottom : g.minRule.rect.left;
       const maxAnchor = isVertical ? g.maxRule.rect.top : g.maxRule.rect.right;
       const span = minAnchor - maxAnchor;
@@ -2187,10 +2207,16 @@ function buildBoxPlotSelectorsFromDom(
 
     // Sort outliers ascending so DOM order matches data array order
     // (lower outliers go from most-extreme-low to least-extreme;
-    // upper outliers go from least-extreme-high to most-extreme).
+    // upper outliers go from least-extreme-high to most-extreme). By
+    // position rather than by the rounded estimate, which ties values
+    // closer together than a unit.
+    const along = (o: { info: ElInfo }): number => (isVertical ? -o.info.cy : o.info.cx);
     for (const g of groups) {
-      g.lowerOutliers.sort((a, b) => a.value - b.value);
-      g.upperOutliers.sort((a, b) => a.value - b.value);
+      g.lowerOutliers.sort((a, b) => along(a) - along(b));
+      g.upperOutliers.sort((a, b) => along(a) - along(b));
+      const dp = data[g.dataIndex];
+      adoptObservedOutliers(g.lowerOutliers, dp.lowerOutliers);
+      adoptObservedOutliers(g.upperOutliers, dp.upperOutliers);
     }
 
     // 7. Re-append nodes in deterministic group-major order and stamp

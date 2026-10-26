@@ -1,4 +1,8 @@
 /**
+ * @jest-environment jsdom
+ */
+
+/**
  * A Vega-Lite box plot announces the statistics the chart draws.
  *
  * Vega-Lite compiles `mark: 'boxplot'` into several tables, and for the
@@ -11,6 +15,10 @@
  * read as if it held every statistic: every median 0, the whisker ends equal
  * to the quartiles, and every value outside the box an outlier.
  *
+ * The outliers were then replaced at bind time by values interpolated from
+ * the symbols' pixel positions and rounded to whole numbers, so iris'
+ * outliers 1.0 and 1.1 were announced as 1 and 1.
+ *
  * Datasets below are laid out the way vega-lite 5.23 compiles an Altair box
  * plot (measured on py-maidr's example_altair_box page):
  *
@@ -21,9 +29,16 @@
  *   data_6       lower_box_v, upper_box_v, mid_box_v, min_v, max_v
  */
 import type { VegaLiteSpec, VegaView } from '@adapters/vegalite/types';
-import type { BoxPoint } from '@type/grammar';
+import type { BoxPoint, Maidr } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
-import { describe, expect, it } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { initMaidrOnElement } from '@util/initMaidr';
+import { bindVegaLite } from '../../../src/vegalite-entry';
+
+jest.mock('@util/initMaidr', () => ({ initMaidrOnElement: jest.fn() }));
+const initMock = initMaidrOnElement as unknown as jest.Mock;
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /**
  * Two groups with a fractional outlier each. By hand (linear interpolation
@@ -115,5 +130,144 @@ describe('a vega-lite box plot with a table carrying every statistic', () => {
     expect(maidr.subplots[0][0].layers[0].data).toEqual([
       { z: 'a', lowerOutliers: [], min: 10, q1: 27.5, q2: 45, q3: 62.5, max: 200.4, upperOutliers: [] },
     ]);
+  });
+});
+
+/** Pixel y of a value: a linear scale, 220 at 0, one pixel per unit. */
+const y = (v: number): number => 220 - v;
+
+/** Where an element is drawn. */
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Append an SVG element with a stubbed layout.
+ * @param parent - Where to append
+ * @param tag    - The element's tag
+ * @param box    - Its measured box
+ * @param label  - Its aria-label, if any
+ * @returns The element
+ */
+function drawn(
+  parent: Element,
+  tag: string,
+  box: Box,
+  label?: string,
+): SVGGraphicsElement {
+  const el = document.createElementNS(SVG_NS, tag) as SVGGraphicsElement;
+  if (label)
+    el.setAttribute('aria-label', label);
+  el.getBoundingClientRect = (): DOMRect => ({
+    ...box,
+    top: box.y,
+    left: box.x,
+    right: box.x + box.width,
+    bottom: box.y + box.height,
+  }) as DOMRect;
+  parent.appendChild(el);
+  return el;
+}
+
+/**
+ * A mark group of the given classes, appended to the SVG.
+ * @param svg     - The chart's SVG
+ * @param classes - The group's classes
+ * @returns The group
+ */
+function group(svg: Element, classes: string): Element {
+  const g = document.createElementNS(SVG_NS, 'g');
+  g.setAttribute('class', classes);
+  svg.appendChild(g);
+  return g;
+}
+
+/**
+ * The rendered box plot of `RAW`, drawn as vega-lite draws a boxplot: an
+ * outlier group, two whisker groups, the boxes and the medians.
+ * @returns The view to bind
+ */
+function renderedBoxPlot(): VegaView {
+  const container = document.createElement('div');
+  container.id = 'chart';
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  container.appendChild(svg);
+  document.body.appendChild(container);
+
+  const symbols = group(svg, 'mark-symbol role-mark layer_0_layer_0_marks');
+  const lowerRules = group(svg, 'mark-rule role-mark layer_0_layer_1_layer_0_marks');
+  const upperRules = group(svg, 'mark-rule role-mark layer_0_layer_1_layer_1_marks');
+  const boxes = group(svg, 'mark-rect role-mark layer_1_layer_0_marks');
+  const medians = group(svg, 'mark-rect role-mark layer_1_layer_1_marks');
+
+  for (const [i, p] of EXPECTED.entries()) {
+    const cx = 50 + i * 100;
+    drawn(boxes, 'path', { x: cx - 10, y: y(p.q3), width: 20, height: p.q3 - p.q1 }, `g: ${p.z}`);
+    drawn(medians, 'path', { x: cx - 10, y: y(p.q2) - 0.5, width: 20, height: 1 });
+    drawn(lowerRules, 'line', { x: cx, y: y(p.q1), width: 0, height: p.q1 - p.min });
+    drawn(upperRules, 'line', { x: cx, y: y(p.max), width: 0, height: p.max - p.q3 });
+    for (const v of [...p.lowerOutliers, ...p.upperOutliers])
+      drawn(symbols, 'path', { x: cx - 2.5, y: y(v) - 2.5, width: 5, height: 5 });
+  }
+
+  const view = {
+    container: () => container,
+    data: (name: string) => {
+      throw new Error(`no dataset ${name}`);
+    },
+    runAsync: async (): Promise<unknown> => view,
+    scale: () => undefined,
+  } as unknown as VegaView;
+  return view;
+}
+
+describe('binding a vega-lite box plot with fractional outliers', () => {
+  beforeEach(() => {
+    initMock.mockClear();
+    document.body.innerHTML = '';
+  });
+
+  it('announces each outlier at its value, not rounded from where it is drawn', () => {
+    const spec = {
+      data: { values: RAW },
+      mark: 'boxplot',
+      encoding: {
+        x: { field: 'g', type: 'nominal' },
+        y: { field: 'v', type: 'quantitative' },
+      },
+    } as unknown as VegaLiteSpec;
+
+    bindVegaLite(renderedBoxPlot(), spec);
+    const maidr = initMock.mock.calls[0]?.[0] as Maidr;
+    const boxes = maidr.subplots[0][0].layers[0].data as BoxPoint[];
+
+    // Before the fix: [200] and [-10].
+    expect(boxes.map(p => p.upperOutliers)).toEqual([[200.4], []]);
+    expect(boxes.map(p => p.lowerOutliers)).toEqual([[], [-10.3]]);
+  });
+
+  it('still outlines each outlier it announces', () => {
+    const spec = {
+      data: { values: RAW },
+      mark: 'boxplot',
+      encoding: {
+        x: { field: 'g', type: 'nominal' },
+        y: { field: 'v', type: 'quantitative' },
+      },
+    } as unknown as VegaLiteSpec;
+
+    const view = renderedBoxPlot();
+    bindVegaLite(view, spec);
+    const maidr = initMock.mock.calls[0]?.[0] as Maidr;
+    const selectors = maidr.subplots[0][0].layers[0].selectors as Array<{ upperOutliers: string[]; lowerOutliers: string[] }>;
+    const container = view.container() as HTMLElement;
+
+    const upper = container.querySelector(selectors[0].upperOutliers[0]);
+    const lower = container.querySelector(selectors[1].lowerOutliers[0]);
+    expect(upper?.getBoundingClientRect().y).toBeCloseTo(y(200.4) - 2.5);
+    expect(lower?.getBoundingClientRect().y).toBeCloseTo(y(-10.3) - 2.5);
   });
 });
