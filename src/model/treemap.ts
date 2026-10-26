@@ -8,7 +8,7 @@ import type {
   ObjectMeasure,
   ObjectSortOption,
 } from '@type/objectList';
-import type { AudioState, BrailleState, DescriptionState, TextAside, TextState, TraceEmptyState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, HighlightState, TextAside, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
@@ -1335,8 +1335,9 @@ export class TreemapTrace extends AbstractTrace {
    *
    * A selector list is in the order the nodes were declared, so it is indexed
    * by `source` rather than by address -- a node the layer derived from a
-   * path was never drawn and has nothing to highlight, and gets a hidden
-   * placeholder so the shape still matches the cursor's.
+   * path has no selector of its own, and gets a hidden placeholder so the
+   * shape still matches the cursor's; {@link highlight} outlines the nodes
+   * below it instead.
    *
    * Withdrawn entirely on a count mismatch, the way {@link BoxenTrace} does:
    * a list that has slipped by one highlights a neighbouring rectangle for
@@ -1375,6 +1376,47 @@ export class TreemapTrace extends AbstractTrace {
           : flat[node.source];
         return element ?? Svg.createEmptyElement();
       }));
+  }
+
+  /**
+   * On a node the layer derived from its children's paths, the nodes below
+   * it that the chart drew.
+   *
+   * A derived node was never declared, so no selector names it, and its own
+   * cell is a hidden placeholder: on a layer that lists only its leaves, the
+   * top level of the tree -- where the reader enters -- outlined nothing at
+   * all. What the chart draws of such a node is the block of its descendants,
+   * so they are outlined instead, as a closed scope of a directed graph
+   * outlines its members. A declared node outlines its own shape, as before.
+   *
+   * @returns The highlight at the cursor
+   */
+  protected override get highlight(): HighlightState {
+    const values = this.highlightValues;
+    const node = this.current;
+    if (values === null || this.isInitialEntry || node === null || node.source !== null) {
+      return super.highlight;
+    }
+    const elements = this.drawnBelow(node).map(drawn => values[drawn.depth][drawn.index]);
+    return elements.length > 0 ? { empty: false, elements } : super.highlight;
+  }
+
+  /**
+   * The declared nodes nearest below a node on each of its branches: a
+   * declared child stands for its own subtree, whose shape it encloses, and
+   * a derived one is looked through to its children.
+   *
+   * @param node - The node to look below
+   * @returns The declared nodes, in tree order
+   */
+  private drawnBelow(node: TreeNode): TreeNode[] {
+    return node.children.flatMap((address) => {
+      const child = this.nodes[address.row]?.[address.col] ?? null;
+      if (child === null) {
+        return [];
+      }
+      return child.source === null ? this.drawnBelow(child) : [child];
+    });
   }
 
   protected findNearestPoint(): NearestPoint | null {
