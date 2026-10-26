@@ -970,11 +970,36 @@ describe('buildNavigationMap (choropleth)', () => {
       .toEqual({ left: 20, top: 0, width: 8, height: 8 });
   });
 
-  it('clears rather than outlining a polygon that reports no box with area', () => {
-    // An am5 `Graphics` painted through a draw callback can report a
-    // degenerate point (the `Slice` problem of #774), and a region has no
-    // radius or sweep to be measured from instead. A one-pixel mark at the
-    // wrong place says less than nothing.
+  it('outlines a region amCharts reports no box for, from the geometry it draws', () => {
+    // A real map polygon is never measured -- the map theme turns its
+    // `isMeasured` off -- so it reports a point at its origin and no size,
+    // and every region of a real map used to clear the overlay. It draws its
+    // geometry through the series' path, so the path's bounds are its box.
+    const geometry = { type: 'Polygon', coordinates: [] };
+    const polygon = {
+      className: 'MapPolygon',
+      globalBounds: () => ({ left: 0, top: 0, right: 0, bottom: 0 }),
+      width: () => 0,
+      height: () => 0,
+      get: (key: string) => (key === 'geometry' ? geometry : undefined),
+      toGlobal: (point: { x: number; y: number }) => ({ x: point.x + 100, y: point.y + 40 }),
+    };
+    const series = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', value: 38.9, polygon },
+    ]);
+    (series as AmXYSeries & { geoPath: unknown }).geoPath = () => ({
+      bounds: (object: unknown) => (object === geometry ? [[76, 124], [160, 255]] : [[0, 0], [0, 0]]),
+    });
+    const { navMap, layer } = navMapFor(series);
+
+    const [target] = navMap.resolve(layer.id, 0, 0);
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 176, top: 164, width: 84, height: 131 });
+  });
+
+  it('clears rather than outlining a polygon it cannot measure either way', () => {
+    // No box with area and no geometry to measure instead: a one-pixel mark
+    // at the wrong place says less than nothing.
     const flat = fakeMapPolygon({ box: { left: 30, top: 30, right: 30, bottom: 30 } });
     const series = fakeMapPolygonSeries('Rate', [
       { name: 'Nevada', value: 38.9, polygon: flat },

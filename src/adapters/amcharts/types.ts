@@ -143,6 +143,13 @@ export interface AmXYSeries extends AmEntity {
    * how `findNetworkLink` tells them apart.
    */
   links?: AmListLike<AmSprite>;
+  /**
+   * The d3 path an am5map series draws its regions with: the map chart's
+   * `geoPath`, bound to its projection. A map polygon reports no box of its
+   * own (see {@link AmSprite.globalBounds}), so the box its region is drawn in
+   * is measured from its geometry through this.
+   */
+  geoPath?: () => AmGeoPath | undefined;
   /** Converts a series-local point to root-container coordinates. */
   toGlobal?: (point: AmPoint) => AmPoint;
   /**
@@ -154,6 +161,15 @@ export interface AmXYSeries extends AmEntity {
   width?: () => number;
   height?: () => number;
   globalBounds?: () => AmBounds;
+}
+
+/**
+ * The part of a d3 `GeoPath` the adapter uses: `bounds(object)`, the
+ * `[[left, top], [right, bottom]]` box the object is drawn in, in projected
+ * pixels.
+ */
+export interface AmGeoPath {
+  bounds: (object: unknown) => [[number, number], [number, number]];
 }
 
 /**
@@ -211,13 +227,18 @@ export interface AmSprite {
   /**
    * Global bounding box in CSS px.
    *
-   * Reliable for a sprite drawn from primitives. A `Slice` is not one: it
-   * paints through a draw callback, so nothing feeds the bounds accumulator
-   * and it reports a degenerate box at its own centre. Read a wedge's extent
-   * from its settings instead — see `wedgeBounds`.
+   * Only as good as amCharts' measuring, which it does only for a sprite whose
+   * `isMeasured` setting is on. One its theme turns off reports a degenerate
+   * box at its own origin, whatever it draws: a pie's `Slice`, a map's
+   * `MapPolygon` and a hierarchy's `HierarchyLink` among them (amcharts5
+   * 5.20.1 and 5.21.4). Such a mark is measured from what it draws instead —
+   * a wedge from its settings (`wedgeBounds`), a region from its geometry.
    */
   globalBounds?: () => AmBounds;
-  /** Settings accessor; a `Slice` carries radius / startAngle / arc here. */
+  /**
+   * Settings accessor; a `Slice` carries radius / startAngle / arc here, and
+   * a `MapPolygon` its GeoJSON `geometry`.
+   */
   get?: (key: string) => unknown;
 }
 

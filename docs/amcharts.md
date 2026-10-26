@@ -714,7 +714,7 @@ A pair that resolves to neither is **omitted**, never converted. A projected or 
 
 `neighbors` is not emitted at all. Adjacency is not recoverable from rendered geometry, and centroids do not answer it either — two regions can have near centroids and no shared border. The trace keeps its spatial walk and is told nothing about borders rather than something guessed, so the "bordering regions" rotor is simply empty on an amCharts map.
 
-**Highlighting** outlines the drawn polygon's axis-aligned box. That is coarse for a long thin country, but it hugs the shape and says which way navigation moved, which is what the overlay is for — the same call the word cloud's rotated glyphs make. A polygon that reports no box with area clears the overlay rather than drawing a hairline somewhere plausible.
+**Highlighting** outlines the drawn polygon's axis-aligned box. That is coarse for a long thin country, but it hugs the shape and says which way navigation moved, which is what the overlay is for — the same call the word cloud's rotated glyphs make. amCharts reports no box for a map polygon — its map theme turns the polygon's `isMeasured` off, so `globalBounds()` answers a point — so the box is measured from the region's own geometry, through the map's projection and its current pan and zoom: the box amCharts' own keyboard focus outlines a region with. A polygon that can be measured neither way clears the overlay rather than drawing a hairline somewhere plausible.
 
 #### Bump (Rank Over Time) [experimental]
 

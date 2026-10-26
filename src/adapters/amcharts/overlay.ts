@@ -18,7 +18,7 @@
  */
 
 import type { NavItemTarget, NavRibbonTarget, NavTarget } from './navmap';
-import type { AmBounds, AmPoint, AmSprite } from './types';
+import type { AmBounds, AmPoint, AmSprite, AmXYSeries } from './types';
 import { OVERLAY_ATTRIBUTES, writeOverlayRegions } from '@util/overlayRegions';
 import { sliceExtent } from './geometry';
 
@@ -239,18 +239,21 @@ function hasExtent(box: OverlayRect): boolean {
  * Rectangle for a map region — the polygon an am5map `MapPolygonSeries` drew,
  * which it keeps on the data item's `mapPolygon`.
  *
- * Measured from the reported bounds first, for the reason a word cloud's glyph
- * is: a region is an irregular shape at whatever angle the projection put it,
- * and its local width and height describe a box it does not fill. The
- * axis-aligned box `globalBounds()` maps is the honest outline for one — coarse
- * for a long thin country, but it hugs the shape and says which way navigation
- * moved, which is what the highlight is for.
+ * The outline is an axis-aligned box around the shape — coarse for a long thin
+ * country, but it hugs the shape and says which way navigation moved, which
+ * is what the highlight is for. A reported box with area is taken as it is,
+ * for the reason a word cloud's glyph is.
  *
- * A polygon reporting no box with area answers `null` rather than a hairline:
- * an am5 `Graphics` painted through a draw callback can report a degenerate
- * point (the `Slice` problem of #774), and there is no radius or sweep to
- * measure a region from instead. The overlay then clears, which says nothing
- * rather than pointing a one-pixel mark at the wrong place.
+ * amCharts does not measure a map polygon, though: its theme sets the
+ * polygon's `isMeasured` off, so `globalBounds()` answers a point at the
+ * polygon's origin and its width and height are 0, whatever it draws
+ * (amcharts5 5.20.1 and 5.21.4 alike). Read that way, every region of a real
+ * map cleared the overlay. The box is then taken from what the polygon draws —
+ * see {@link projectedRegionRect}.
+ *
+ * A polygon that can be measured neither way answers `null` rather than a
+ * hairline, and the overlay clears, which says nothing rather than pointing a
+ * one-pixel mark at the wrong place.
  */
 function regionRect(target: NavItemTarget): OverlayRect | null {
   const polygon = target.dataItem.get('mapPolygon') as AmSprite | undefined;
@@ -266,8 +269,68 @@ function regionRect(target: NavItemTarget): OverlayRect | null {
     }
   }
 
+  const drawn = projectedRegionRect(target.series, polygon);
+  if (drawn) {
+    return drawn;
+  }
+
   const box = spriteBoxRect(polygon);
   return box && box.width > 0 && box.height > 0 ? box : null;
+}
+
+/**
+ * The box a map polygon draws its region in, from the region's geometry.
+ *
+ * A polygon draws its GeoJSON `geometry` through the series' `geoPath()` — the
+ * map's d3 path, bound to its projection — into its own display, so the same
+ * path's `bounds()` is the box it draws in, in the polygon's own coordinates.
+ * Mapping that box's corners through `toGlobal` carries in whatever pan and
+ * zoom the map is at. Measured on amcharts5 5.21.4, this is the box amCharts'
+ * own keyboard focus outlines a region with.
+ *
+ * @returns The box, or `null` when the series has no path or the polygon no
+ *   geometry to measure
+ */
+function projectedRegionRect(series: AmXYSeries, polygon: AmSprite): OverlayRect | null {
+  const path = series.geoPath?.();
+  const geometry = polygon.get?.('geometry');
+  if (!path || geometry == null) {
+    return null;
+  }
+
+  const [[left, top], [right, bottom]] = path.bounds(geometry);
+  if (![left, top, right, bottom].every(Number.isFinite)) {
+    return null;
+  }
+  const box = toGlobalRect(polygon, { left, top, right, bottom });
+  return box && box.width > 0 && box.height > 0 ? box : null;
+}
+
+/**
+ * A box in a sprite's own coordinates, mapped to root-container CSS px.
+ *
+ * All four corners are mapped and the result is their axis-aligned box, so a
+ * sprite turned by any of its ancestors still gets the box it is drawn in.
+ */
+function toGlobalRect(sprite: AmSprite, local: AmBounds): OverlayRect | null {
+  if (!sprite.toGlobal) {
+    return null;
+  }
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const [x, y] of [
+    [local.left, local.top],
+    [local.right, local.top],
+    [local.right, local.bottom],
+    [local.left, local.bottom],
+  ]) {
+    const point = sprite.toGlobal({ x, y });
+    xs.push(point.x);
+    ys.push(point.y);
+  }
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
 }
 
 /**
