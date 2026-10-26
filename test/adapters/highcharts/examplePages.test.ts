@@ -30,4 +30,16 @@ describe('the highcharts example pages', () => {
 
     expect(unbound).toEqual([]);
   });
+
+  it('draw a polar chart with its first category at 12 o\'clock, where MAIDR puts it', () => {
+    // MAIDR places spoke k at k/n of the way round from 12 o'clock. Without
+    // `pointPlacement: 'on'` Highcharts draws every spoke half a category on,
+    // so each one's stereo position disagreed with where it is drawn.
+    const offset = PAGES
+      .filter(page => /polar:\s*true/.test(page.html))
+      .filter(page => !/pointPlacement:\s*'on'/.test(page.html))
+      .map(page => page.name);
+
+    expect(offset).toEqual([]);
+  });
 });
