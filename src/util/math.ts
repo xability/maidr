@@ -1,3 +1,4 @@
+import type { FormatFunction } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 
@@ -39,12 +40,14 @@ export abstract class MathUtil {
    *
    * @param min - The axis minimum
    * @param max - The axis maximum
+   * @param format - How each end reads: the default rounding, or the axis's
+   *   own format where the layer declares one
    * @returns `constant <value>` when the axis never moves, `<min> to <max>` otherwise
    */
-  static spanned(min: number, max: number): string {
+  static spanned(min: number, max: number, format: FormatFunction = defaultFormat): string {
     return min === max
-      ? t('model.spanConstant', { value: defaultFormat(min) })
-      : t('model.spanRange', { min: defaultFormat(min), max: defaultFormat(max) });
+      ? t('model.spanConstant', { value: format(min) })
+      : t('model.spanRange', { min: format(min), max: format(max) });
   }
 
   /**
@@ -157,11 +160,12 @@ export abstract class MathUtil {
    *
    * @param min - The axis minimum
    * @param max - The axis maximum
+   * @param format - How each end reads, as {@link spanned} takes it
    * @returns The span, or `missing` when there is no finite extent
    */
-  static spannedOrMissing(min: number, max: number): string {
+  static spannedOrMissing(min: number, max: number, format: FormatFunction = defaultFormat): string {
     return Number.isFinite(min) && Number.isFinite(max)
-      ? MathUtil.spanned(min, max)
+      ? MathUtil.spanned(min, max, format)
       : t('common.missing');
   }
 

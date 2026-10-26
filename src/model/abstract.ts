@@ -1,6 +1,6 @@
 import type { Disposable } from '@type/disposable';
 import type { ExtremaTarget } from '@type/extrema';
-import type { MaidrLayer } from '@type/grammar';
+import type { FormatFunction, MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { ChartObjectList } from '@type/objectList';
@@ -8,6 +8,7 @@ import type { Observable, Observer } from '@type/observable';
 import type {
   AudioState,
   AutoplayState,
+  AxisType,
   BrailleState,
   ChartGuide,
   DescriptionState,
@@ -20,6 +21,7 @@ import type {
 import type { Trace } from './plot';
 import { Orientation, TraceType } from '@type/grammar';
 import { chartTypeLabel, ownTypeGuide, ownTypeLabel } from '@util/chartTypeLabel';
+import { FormatUtil } from '@util/format';
 import { t } from '@util/i18n';
 import {
   extractXValueFromPoints,
@@ -544,6 +546,27 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   /** The z axis's name, or a generic one. See {@link xAxis}. */
   protected get z(): string {
     return named(this.layer.axes?.z?.label, t('model.defaultZAxis'));
+  }
+
+  /**
+   * The format the layer's author declared for an axis, or null when they
+   * declared none.
+   *
+   * For a number the description states rather than tabulates. The table
+   * reads each column through the axis's declared format, and so does every
+   * announcement, but a stat printed the raw number: a margin drawn as a
+   * percentage was "Min value: 0.12" over a table and a cursor saying 12%.
+   * Null rather than the default format when nothing was declared, so a chart
+   * nobody formatted reads as it did, which is the rule the table follows.
+   *
+   * @param axis - The axis whose format to read
+   * @returns The format, or null when the layer declared none
+   */
+  protected authoredFormat(axis: AxisType): FormatFunction | null {
+    const format = this.layer.axes?.[axis]?.format;
+    return format === undefined
+      ? null
+      : FormatUtil.wrapFormat(FormatUtil.resolveFormat(format));
   }
 
   /**
