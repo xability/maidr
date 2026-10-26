@@ -4693,15 +4693,20 @@ function ganttTimeScale(chart: HighchartsChart, points: GanttPoint[]): GanttTime
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    ...(stamps.every(stamp => isMidnight(stamp, timeZone)) ? {} : { hour: '2-digit', minute: '2-digit' }),
+    ...(allAtMidnight(stamps, timeZone) ? {} : { hour: '2-digit', minute: '2-digit' }),
     ...(timeZone === undefined ? {} : { timeZone }),
   };
 
-  const lengths = points
-    .map(point => point.end - point.start)
-    .filter(length => Number.isFinite(length) && length > 0);
-  const shortest = lengths.length > 0 ? Math.min(...lengths) : 0;
-  const scale = GANTT_UNITS.find(candidate => shortest >= candidate.ms);
+  // Reduced rather than spread into Math.min, which a long enough schedule
+  // would overflow. Milestones last no time and are left out, or every
+  // schedule with one would be read in milliseconds.
+  const shortest = points.reduce((least, point) => {
+    const length = point.end - point.start;
+    return Number.isFinite(length) && length > 0 ? Math.min(least, length) : least;
+  }, Number.POSITIVE_INFINITY);
+  const scale = Number.isFinite(shortest)
+    ? GANTT_UNITS.find(candidate => shortest >= candidate.ms)
+    : undefined;
   if (scale === undefined || !canCompileFormat()) {
     return {
       ms: 1,
@@ -4741,29 +4746,30 @@ function chartTimeZone(chart: HighchartsChart): string | undefined {
 }
 
 /**
- * Whether an instant falls on midnight where the chart draws it, so a date
- * alone names it.
+ * Whether every instant falls on midnight where the chart draws it, so a date
+ * alone names each one.
  *
- * @param stamp - Milliseconds since 1970
+ * @param stamps - Milliseconds since 1970
  * @param timeZone - The zone the chart draws dates in, undefined for local
- * @returns True at midnight
+ * @returns True when each is at midnight
  */
-function isMidnight(stamp: number, timeZone: string | undefined): boolean {
+function allAtMidnight(stamps: number[], timeZone: string | undefined): boolean {
+  let clock: Intl.DateTimeFormat;
   try {
-    const parts = new Intl.DateTimeFormat('en-US', {
+    clock = new Intl.DateTimeFormat('en-US', {
       hour: 'numeric',
       minute: 'numeric',
       second: 'numeric',
       hourCycle: 'h23',
       timeZone,
-    }).formatToParts(new Date(stamp));
-    return parts
-      .filter(part => part.type === 'hour' || part.type === 'minute' || part.type === 'second')
-      .every(part => Number(part.value) === 0);
+    });
   } catch {
     // A zone this browser cannot name: say the time rather than drop it.
     return false;
   }
+  return stamps.filter(Number.isFinite).every(stamp => clock.formatToParts(new Date(stamp))
+    .filter(part => part.type === 'hour' || part.type === 'minute' || part.type === 'second')
+    .every(part => Number(part.value) === 0));
 }
 
 /** What {@link canCompileFormat} found, once it has asked. */
