@@ -1048,8 +1048,10 @@ function sortHeatmapCellsByVisualOrder(
     }));
 
     // 2. Name the drawn rows and columns from the rows Vega bound to the
-    //    cells. Without a binding the converter's grid stands: it is
-    //    already in the order of the compiled scales.
+    //    cells. Vega's SVG renderer binds every mark, so this falls
+    //    through only for a DOM it did not draw; the converter's grid
+    //    then stands, in the order of the compiled scales' domains, which
+    //    is the drawn order unless a scale is reversed.
     const xField = axisField(cells, data.x, cell => cell.col);
     const yField = axisField(cells, data.y, cell => cell.row);
     if (xField !== undefined && yField !== undefined) {

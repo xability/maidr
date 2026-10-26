@@ -66,6 +66,8 @@ interface Drawing {
   domains: Record<string, string[]>;
   /** Whether Vega's item binding is present on the marks. */
   bound?: boolean;
+  /** Indices of rows whose mark carries no binding, when only some do. */
+  unbound?: number[];
 }
 
 /**
@@ -84,7 +86,7 @@ function chart(rows: Row[], drawing: Drawing, x = 'day', y = 'hour'): VegaView {
   const marks = document.createElementNS(SVG_NS, 'g');
   marks.setAttribute('class', 'mark-rect role-mark marks');
 
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
     const path = document.createElementNS(SVG_NS, 'path');
     path.setAttribute('aria-label', `${row[x]} ${row[y]}`);
     const left = drawing.columns.indexOf(String(row[x])) * CELL;
@@ -99,7 +101,7 @@ function chart(rows: Row[], drawing: Drawing, x = 'day', y = 'hour'): VegaView {
       right: left + CELL,
       bottom: top + CELL,
     }) as DOMRect;
-    if (drawing.bound !== false) {
+    if (drawing.bound !== false && !drawing.unbound?.includes(index)) {
       (path as unknown as { __data__: unknown }).__data__ = { datum: row };
     }
     marks.appendChild(path);
@@ -237,6 +239,26 @@ describe('a vega-lite heatmap whose rows are not listed in the drawn order', () 
     expect(valueAt(data, 'q', 'p')).toBe(3);
     expect(valueAt(data, 'p', 'q')).toBe(2);
   });
+
+  it('matches numeric labels to the numbers the rows carry', () => {
+    // The payload's labels are strings; the bound rows hold the numbers.
+    const hours: Row[] = [
+      { hour: 1, day: 'Mon', value: 2 },
+      { hour: 0, day: 'Mon', value: 1 },
+      { hour: 1, day: 'Tue', value: 4 },
+      { hour: 0, day: 'Tue', value: 3 },
+    ];
+    const drawing: Drawing = {
+      columns: ['0', '1'],
+      rows: ['Mon', 'Tue'],
+      domains: { x: ['0', '1'], y: ['Mon', 'Tue'] },
+    };
+
+    const { data } = bind(hours, drawing, 'hour', 'day');
+
+    expect(data.x).toEqual(['0', '1']);
+    expect(data.points).toEqual([[1, 2], [3, 4]]);
+  });
 });
 
 describe('a vega-lite heatmap whose marks carry no bound row', () => {
@@ -256,5 +278,19 @@ describe('a vega-lite heatmap whose marks carry no bound row', () => {
     expect(data.y).toEqual(['Afternoon', 'Evening', 'Morning']);
     expect(data.points).toEqual([[8, 6], [3, 4], [5, 7]]);
     expect(dom[0]).toBe('Mon Afternoon');
+  });
+
+  it('keeps the converter\'s grid when only some marks carry a row', () => {
+    // A field one cell cannot vouch for names nothing, so no axis is
+    // recognised and the cells are not relabelled from a partial reading.
+    const { data } = bind(ROWS, {
+      columns: ['Mon', 'Tue'],
+      rows: ['Afternoon', 'Evening', 'Morning'],
+      domains: { x: ['Mon', 'Tue'], y: ['Afternoon', 'Evening', 'Morning'] },
+      unbound: [4],
+    });
+
+    expect(data.y).toEqual(['Afternoon', 'Evening', 'Morning']);
+    expect(data.points).toEqual([[8, 6], [3, 4], [5, 7]]);
   });
 });
