@@ -198,9 +198,35 @@ describe('fromAmCharts (single chart)', () => {
     // amCharts reports no convention, so MAIDR names none rather than guessing.
     expect(layer.stepDirection).toBeUndefined();
     expect(layer.data).toEqual([[
-      { x: 'Sat', y: 87, z: 'Stage' },
-      { x: 'Sun', y: 76, z: 'Stage' },
+      { x: 'Sat', y: 87 },
+      { x: 'Sun', y: 76 },
     ]]);
+  });
+
+  it('leaves the group off the points of a chart that draws one line', () => {
+    // The two-panel example's growth panel: one series named "Growth" and no
+    // legend. Every point used to carry the name as `z`, which MAIDR reads
+    // out as "Group is Growth" on each move.
+    const chart = fakeChart({ series: [fakeLineSeries('Growth', BAR_DATA)] });
+
+    const layer = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.LINE);
+    expect(layer.data).toEqual([[
+      { x: 'Sat', y: 87 },
+      { x: 'Sun', y: 76 },
+    ]]);
+  });
+
+  it('keeps each line\'s name on its points when there are several to tell apart', () => {
+    const chart = fakeChart({
+      series: [fakeLineSeries('Trend', BAR_DATA), fakeLineSeries('Target', BAR_DATA)],
+    });
+
+    const layer = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers[0];
+
+    expect((layer.data as LinePoint[][]).map(line => line.map(point => point.z)))
+      .toEqual([['Trend', 'Trend'], ['Target', 'Target']]);
   });
 
   it('keeps step series out of the line layer when a chart has both', () => {
@@ -375,8 +401,8 @@ describe('fromAmCharts (area chart)', () => {
     expect(layer.type).toBe(TraceType.AREA);
     expect(layer.name).toBe('Sales');
     expect(layer.data as LinePoint[][]).toEqual([[
-      { x: '2020', y: 10, z: 'Sales' },
-      { x: '2021', y: 14, z: 'Sales' },
+      { x: '2020', y: 10 },
+      { x: '2021', y: 14 },
     ]]);
   });
 

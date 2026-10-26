@@ -346,7 +346,7 @@ chart.series.push(am5xy.ColumnSeries.new(root, {
 
 #### Multi-series Line
 
-Each `LineSeries` becomes one line; the binder merges them into a single multi-line layer using the series names as group labels.
+Each `LineSeries` becomes one line; the binder merges them into a single multi-line layer using the series names as group labels. A chart drawing a single line has nothing to tell apart, so its points carry no group and are announced by their two values alone; the same holds for a lone step, area, radar or polar-area series.
 
 ```js
 chart.series.push(am5xy.LineSeries.new(root, {
