@@ -26,6 +26,7 @@ import type {
 } from '../../type/declaration';
 import type {
   AxisConfig,
+  AxisFormat,
   BarPoint,
   BoxPoint,
   CandlestickPoint,
@@ -1805,7 +1806,7 @@ function convertSeries(
     // already carries — so both read as the same schedule of intervals.
     case 'gantt':
     case 'xrange':
-      return convertGanttSeries(series, containerId);
+      return convertGanttSeries(series, chart, containerId);
     case 'boxplot':
       return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
@@ -4613,14 +4614,159 @@ function convertDumbbellSeries(
 }
 
 /**
- * What MAIDR calls a unit of a datetime axis.
- *
- * A Highcharts datetime axis counts milliseconds, and an interval's length is
- * a difference along it, so that is the unit — announced rather than converted
- * because `start` and `end` have to stay in the axis' own numbers for the
- * panning to place them where the chart draws them.
+ * The units a datetime schedule is announced in, coarsest first, with the
+ * milliseconds in one of each.
+ */
+const GANTT_UNITS: { unit: string; ms: number }[] = [
+  { unit: 'days', ms: 86_400_000 },
+  { unit: 'hours', ms: 3_600_000 },
+  { unit: 'minutes', ms: 60_000 },
+  { unit: 'seconds', ms: 1000 },
+];
+
+/**
+ * The unit of a datetime axis itself: Highcharts counts milliseconds. A
+ * schedule stays in it when nothing on it lasts a second, or when the page
+ * cannot compile the format that would read a coarser unit back as dates.
  */
 const GANTT_DATETIME_UNIT = 'ms';
+
+/** How a datetime schedule is read; see {@link ganttTimeScale}. */
+interface GanttTimeScale {
+  /** The milliseconds in one unit of the positions emitted. */
+  ms: number;
+  /** What one of those units is called. */
+  unit: string;
+  /** The time axis' format, which writes a position as the date it names. */
+  format: AxisFormat;
+}
+
+/**
+ * How a datetime schedule is read: the unit its positions and lengths are
+ * stated in, and the format that writes a position as the date it names.
+ *
+ * A Highcharts datetime axis counts milliseconds since 1970, and a task
+ * announced as running from 1,704,067,200,000 to 1,704,412,800,000 for
+ * 345,600,000 ms has not been announced. So the positions are restated in the
+ * coarsest unit the shortest task fills, and the length reads "4 days"; the
+ * format multiplies a position back into milliseconds and writes the date, in
+ * the time zone the chart draws its dates in. A start and an end divided by
+ * the same number keep their places along the axis, so the panning that
+ * places each task where the chart draws it is unchanged.
+ *
+ * That format is a function body MAIDR compiles. A page whose Content Security
+ * Policy forbids compiling one would read the restated positions as bare
+ * numbers, so there they stay in milliseconds and are written through the
+ * eval-free date format: the dates still read, and only the lengths stay in
+ * milliseconds.
+ *
+ * @param chart - The chart, for the time zone it draws dates in
+ * @param points - The schedule's intervals, in milliseconds
+ * @returns How to read them
+ */
+function ganttTimeScale(chart: HighchartsChart, points: GanttPoint[]): GanttTimeScale {
+  const timeZone = chartTimeZone(chart);
+  const stamps = points.flatMap(point => [point.start, point.end]);
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    ...(stamps.every(stamp => isMidnight(stamp, timeZone)) ? {} : { hour: '2-digit', minute: '2-digit' }),
+    ...(timeZone === undefined ? {} : { timeZone }),
+  };
+
+  const lengths = points
+    .map(point => point.end - point.start)
+    .filter(length => Number.isFinite(length) && length > 0);
+  const shortest = lengths.length > 0 ? Math.min(...lengths) : 0;
+  const scale = GANTT_UNITS.find(candidate => shortest >= candidate.ms);
+  if (scale === undefined || !canCompileFormat()) {
+    return {
+      ms: 1,
+      unit: GANTT_DATETIME_UNIT,
+      format: { type: 'date', dateOptions },
+    };
+  }
+  return {
+    ms: scale.ms,
+    unit: scale.unit,
+    format: {
+      function: `return new Date(value * ${scale.ms}).toLocaleString('en-US', ${JSON.stringify(dateOptions)});`,
+    },
+  };
+}
+
+/**
+ * The time zone a chart draws its dates in, or undefined for the browser's
+ * own.
+ *
+ * Highcharts 12 and later resolve it onto `chart.time.timezone`, leaving it
+ * undefined for the browser's zone; earlier versions say so with `useUTC`.
+ * Both default to UTC, which is what a chart that carries no `time` gets.
+ *
+ * @param chart - The chart
+ * @returns An IANA zone name, or undefined
+ */
+function chartTimeZone(chart: HighchartsChart): string | undefined {
+  const time = chart.time;
+  if (time === undefined) {
+    return 'UTC';
+  }
+  if ('timezone' in time) {
+    return typeof time.timezone === 'string' ? time.timezone : undefined;
+  }
+  return time.useUTC === false ? undefined : 'UTC';
+}
+
+/**
+ * Whether an instant falls on midnight where the chart draws it, so a date
+ * alone names it.
+ *
+ * @param stamp - Milliseconds since 1970
+ * @param timeZone - The zone the chart draws dates in, undefined for local
+ * @returns True at midnight
+ */
+function isMidnight(stamp: number, timeZone: string | undefined): boolean {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hourCycle: 'h23',
+      timeZone,
+    }).formatToParts(new Date(stamp));
+    return parts
+      .filter(part => part.type === 'hour' || part.type === 'minute' || part.type === 'second')
+      .every(part => Number(part.value) === 0);
+  } catch {
+    // A zone this browser cannot name: say the time rather than drop it.
+    return false;
+  }
+}
+
+/** What {@link canCompileFormat} found, once it has asked. */
+let formatsCompile: boolean | undefined;
+
+/**
+ * Whether the page lets MAIDR compile a format function -- a Content Security
+ * Policy without `unsafe-eval` does not.
+ *
+ * Asked once per page: under such a policy every attempt reports a violation,
+ * and a chart converted again on each redraw would report one every time.
+ *
+ * @returns True when `new Function` works
+ */
+function canCompileFormat(): boolean {
+  if (formatsCompile === undefined) {
+    try {
+      // eslint-disable-next-line no-new-func
+      formatsCompile = new Function('return true')() === true;
+    } catch {
+      formatsCompile = false;
+    }
+  }
+  return formatsCompile;
+}
 
 /**
  * Converts a `gantt` or `xrange` series into a gantt layer.
@@ -4643,6 +4789,7 @@ const GANTT_DATETIME_UNIT = 'ms';
  */
 function convertGanttSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
   const categories = series.yAxis?.categories ?? [];
@@ -4666,15 +4813,26 @@ function convertGanttSeries(
     (_, lane) => categories[lane] ?? lane,
   );
 
+  const points = laneSources.map((lane, index) => lane.map(point => ({
+    x: lanes[index],
+    start: point.x,
+    end: point.x2 ?? point.x,
+    ...(point.name ? { label: point.name } : {}),
+  } satisfies GanttPoint)));
+  const time = isDatetimeAxis(series.xAxis)
+    ? ganttTimeScale(chart, points.flat())
+    : undefined;
+
   const data: GanttData = {
-    points: laneSources.map((lane, index) => lane.map(point => ({
-      x: lanes[index],
-      start: point.x,
-      end: point.x2 ?? point.x,
-      ...(point.name ? { label: point.name } : {}),
-    } satisfies GanttPoint))),
+    points: time === undefined
+      ? points
+      : points.map(lane => lane.map(point => ({
+          ...point,
+          start: point.start / time.ms,
+          end: point.end / time.ms,
+        }))),
     lanes,
-    ...(isDatetimeAxis(series.xAxis) ? { unit: GANTT_DATETIME_UNIT } : {}),
+    ...(time === undefined ? {} : { unit: time.unit }),
   };
 
   stampGanttIndices(laneSources);
@@ -4688,7 +4846,10 @@ function convertGanttSeries(
     orientation: Orientation.HORIZONTAL,
     selectors: ganttSelectors(containerId, series.index, laneSources.flat().length),
     axes: {
-      x: getAxisLabel(series, 'x'),
+      x: {
+        ...getAxisLabel(series, 'x'),
+        ...(time === undefined ? {} : { format: time.format }),
+      },
       y: getAxisLabel(series, 'y'),
     },
     data,
