@@ -631,7 +631,7 @@ export const model = {
   'model.statPeakOfEachGroup': 'हर समूह का शिखर',
   'model.statPeaksSpan': 'शिखरों का विस्तार',
   'model.statTallestRidge': 'सबसे ऊँची रिज',
-  'model.ridgelinePeakDensity': '{group}, शिखर घनत्व {density}',
+  'model.ridgelinePeakDensity': '{group}, अधिकतम {label} {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': 'दूरी',
   'model.contourSpacingValue': 'स्तर {level} तक {distance}',

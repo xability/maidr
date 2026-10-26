@@ -638,7 +638,7 @@ export const model = {
   'model.statPeakOfEachGroup': '各グループのピーク',
   'model.statPeaksSpan': 'ピークの範囲',
   'model.statTallestRidge': '最も高い尾根',
-  'model.ridgelinePeakDensity': '{group}、ピーク密度 {density}',
+  'model.ridgelinePeakDensity': '{group}、{label}の最大値 {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': '間隔',
   'model.contourSpacingValue': 'レベル{level}まで{distance}',

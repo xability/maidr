@@ -638,7 +638,7 @@ export const model = {
   'model.statPeakOfEachGroup': 'Pic de chaque groupe',
   'model.statPeaksSpan': 'Étendue des pics',
   'model.statTallestRidge': 'Crête la plus haute',
-  'model.ridgelinePeakDensity': '{group}, densité maximale {density}',
+  'model.ridgelinePeakDensity': '{group}, maximum de {label} {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': 'Espacement',
   'model.contourSpacingValue': '{distance} jusqu\'au niveau {level}',

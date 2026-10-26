@@ -634,7 +634,7 @@ export const model = {
   'model.statPeakOfEachGroup': '各组的峰值',
   'model.statPeaksSpan': '峰值范围',
   'model.statTallestRidge': '最高的山脊',
-  'model.ridgelinePeakDensity': '{group}，峰值密度 {density}',
+  'model.ridgelinePeakDensity': '{group}，最大 {label} {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': '间距',
   'model.contourSpacingValue': '距级别 {level} {distance}',

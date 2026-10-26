@@ -646,7 +646,7 @@ export const model = {
   'model.statPeakOfEachGroup': 'Peak of each group',
   'model.statPeaksSpan': 'Peaks span',
   'model.statTallestRidge': 'Tallest ridge',
-  'model.ridgelinePeakDensity': '{group}, peak density {density}',
+  'model.ridgelinePeakDensity': '{group}, peak {label} {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': 'Spacing',
   'model.contourSpacingValue': '{distance} to level {level}',

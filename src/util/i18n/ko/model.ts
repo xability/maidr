@@ -638,7 +638,7 @@ export const model = {
   'model.statPeakOfEachGroup': '그룹별 최빈 위치',
   'model.statPeaksSpan': '최빈 위치 범위',
   'model.statTallestRidge': '가장 높은 능선',
-  'model.ridgelinePeakDensity': '{group}, 최대 밀도 {density}',
+  'model.ridgelinePeakDensity': '{group}, {label} 최댓값 {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': '간격',
   'model.contourSpacingValue': '{level} 수준까지 {distance}',
