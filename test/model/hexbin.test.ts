@@ -167,6 +167,17 @@ describe('the pitch is the count across the whole lattice', () => {
   });
 });
 
+describe('the braille is the count across the whole lattice', () => {
+  test('the range is the one the pitch uses, as the numbers the heatmap encoder reads', () => {
+    // Handed one range per row, the encoder's thresholds were `NaN` and every
+    // occupied bin was written as the top glyph.
+    const { audio, braille } = nonEmptyState(hexbin());
+
+    expect(braille).toMatchObject({ min: 0, max: 12 });
+    expect(braille).toMatchObject({ min: audio.freq.min, max: audio.freq.max });
+  });
+});
+
 describe('the description says what the cloud looks like', () => {
   const read = (label: string): unknown =>
     hexbin().description.stats.find(stat => stat.label === label)?.value;

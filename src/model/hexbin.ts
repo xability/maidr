@@ -351,12 +351,16 @@ export class HexbinTrace extends AbstractTrace {
     // display is a line of cells and half a cell of offset has nowhere to go
     // in it, while the density pattern the chart is drawn for survives
     // intact.
+    //
+    // One range for the lattice, as numbers, which is what the heatmap
+    // encoder reads: handed one per row, its thresholds came out `NaN` and
+    // every occupied bin was written as the top glyph, whatever its count.
     return {
       empty: false,
       id: this.id,
       values: this.counts,
-      min: this.counts.map(() => this.min),
-      max: this.counts.map(() => this.max),
+      min: this.min,
+      max: this.max,
       row: this.row,
       col: this.col,
     };
