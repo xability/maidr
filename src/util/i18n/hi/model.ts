@@ -386,6 +386,8 @@ export const model = {
   'model.asideChange': 'बदलाव',
   'model.statRanksShown': 'दिखाई गई रैंक',
   'model.statRankChanges': 'रैंक बदलाव',
+  'model.extremaBestRank': 'सबसे अच्छी रैंक',
+  'model.extremaWorstRank': 'सबसे खराब रैंक',
   'model.statLedAtTheStart': 'शुरुआत में आगे',
   'model.statLedAtTheEnd': 'अंत में आगे',
   'model.statClimbedFurthest': 'सबसे अधिक चढ़ा',

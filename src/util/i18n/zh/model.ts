@@ -389,6 +389,8 @@ export const model = {
   'model.asideChange': '变化',
   'model.statRanksShown': '显示的排名',
   'model.statRankChanges': '排名变化',
+  'model.extremaBestRank': '最佳排名',
+  'model.extremaWorstRank': '最差排名',
   'model.statLedAtTheStart': '起始时领先',
   'model.statLedAtTheEnd': '结束时领先',
   'model.statClimbedFurthest': '上升最多',

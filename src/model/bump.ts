@@ -1,9 +1,12 @@
 import type { RotorFilterUnit } from '@model/abstract';
+import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
 import type { BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { isMeasured } from './bar';
+import { extremumAt } from './extremaTarget';
 import { LineTrace } from './line';
 
 /**
@@ -50,6 +53,11 @@ function rankRotorUnits(): readonly RotorFilterUnit[] {
  * A *slope graph* of values is not this: two points per series on a value axis
  * is a line layer with two samples, which the line trace already reads
  * correctly. What makes this a type of its own is the rank.
+ *
+ * The same inversion runs through the keys. First place is drawn at the top,
+ * so Up moves to the next better place rather than the next larger number
+ * ({@link findVerticalTarget}), and `]` goes to the best place, the highest
+ * note ({@link getExtremaTargets}).
  */
 export class BumpTrace extends LineTrace {
   /** Best (numerically smallest) and worst rank anywhere in the chart. */
@@ -71,6 +79,12 @@ export class BumpTrace extends LineTrace {
 
   /** Cached rotor units; see the constructor for why they are precomputed. */
   private readonly rotorUnits: readonly RotorFilterUnit[];
+
+  /**
+   * Whether first place is drawn at the top, as a bump chart is drawn, rather
+   * than at the bottom ({@link MaidrLayer.firstPlace}).
+   */
+  private readonly firstPlaceOnTop: boolean;
 
   /**
    * Creates a new bump trace.
@@ -120,6 +134,8 @@ export class BumpTrace extends LineTrace {
       row.some(move => move !== undefined && move !== 0))
       ? rankRotorUnits()
       : [];
+
+    this.firstPlaceOnTop = layer.firstPlace !== 'bottom';
   }
 
   /**
@@ -398,6 +414,98 @@ export class BumpTrace extends LineTrace {
     }
 
     return { ...base, plotType: this.spokenPlotType(t('model.plotTypeBump')) };
+  }
+
+  /**
+   * Up and Down follow the table as it is drawn.
+   *
+   * A line moves Up to the next larger value, because a line draws its larger
+   * values higher. A bump chart draws first place -- the smallest number -- at
+   * the top, so read the line's way Up went to the next place down the table,
+   * the reader and the highlight moved down the page, and Down from first
+   * place said "No more data to display". Where first place is drawn at the
+   * top, the key's direction is turned round before the line answers it; a
+   * chart drawn the other way up keeps the line's.
+   *
+   * @param direction - UPWARD for the place drawn above, DOWNWARD for the place drawn below
+   * @returns The row and column to move to, or null past the top or bottom place
+   */
+  protected override findVerticalTarget(
+    direction: 'UPWARD' | 'DOWNWARD',
+  ): { row: number; col: number } | null {
+    return super.findVerticalTarget(this.valueDirection(direction));
+  }
+
+  /**
+   * Control + Up and Down go to the place drawn at the top and at the bottom,
+   * by the same rule as {@link findVerticalTarget}: on a chart with first
+   * place at the top, Control + Up is first place rather than last.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
+      return super.moveToExtreme(direction);
+    }
+    return super.moveToExtreme(this.valueDirection(direction));
+  }
+
+  /**
+   * Which way through the ranks a vertical key goes.
+   *
+   * @param direction - The key's direction
+   * @returns The direction in rank numbers: UPWARD for larger ones
+   */
+  private valueDirection(direction: 'UPWARD' | 'DOWNWARD'): 'UPWARD' | 'DOWNWARD' {
+    if (!this.firstPlaceOnTop) {
+      return direction;
+    }
+    return direction === 'UPWARD' ? 'DOWNWARD' : 'UPWARD';
+  }
+
+  /**
+   * The best and the worst place the current competitor held, for `]`, `[`
+   * and the Go To dialog, and the crossings the line offers.
+   *
+   * A line's maximum is its largest value, which on a rank axis is the worst
+   * place: the lowest note, and on a chart with first place at the top the
+   * one drawn lowest. So `]` landed on last place and `[` on first. The
+   * pitch makes first place the highest note whichever way the chart is
+   * drawn, and so does this: the best place is the maximum, the worst the
+   * minimum, and every period the competitor held either is offered.
+   *
+   * @returns The best places, the worst places, then the crossings
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const crossings = super.getExtremaTargets().filter(target => target.type === 'intersection');
+    const ranks = this.lineValues[this.row] ?? [];
+    const measured = ranks.filter(isMeasured);
+    if (measured.length === 0) {
+      return crossings;
+    }
+
+    const heldAt = (rank: number, type: 'max' | 'min', name: string): ExtremaTarget[] =>
+      ranks.flatMap((held, col) => {
+        const point = this.points[this.row][col];
+        return held === rank && point !== undefined
+          ? [{
+              ...extremumAt(name, point.x),
+              value: rank,
+              pointIndex: col,
+              segment: 'line',
+              type,
+              navigationType: 'point' as const,
+              xValue: point.x,
+            }]
+          : [];
+      });
+
+    return [
+      ...heldAt(MathUtil.safeMin(measured), 'max', t('model.extremaBestRank')),
+      ...heldAt(MathUtil.safeMax(measured), 'min', t('model.extremaWorstRank')),
+      ...crossings,
+    ];
   }
 
   /**

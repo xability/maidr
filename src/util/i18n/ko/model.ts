@@ -393,6 +393,8 @@ export const model = {
   'model.asideChange': '변화',
   'model.statRanksShown': '표시된 순위',
   'model.statRankChanges': '순위 변동 횟수',
+  'model.extremaBestRank': '최고 순위',
+  'model.extremaWorstRank': '최저 순위',
   'model.statLedAtTheStart': '시작 시 선두',
   'model.statLedAtTheEnd': '종료 시 선두',
   'model.statClimbedFurthest': '가장 많이 상승',

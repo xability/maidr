@@ -486,7 +486,14 @@ function buildChartLayers(
   // Merge each bucket of point series into a single layer of its own type.
   // The area bucket is the one that has to name its stacking, read from the
   // same per-series settings the bar path reads.
-  pushMerged(layers, merged.line, lineTraceType(lineSeriesList, options), xLabel, yLabel);
+  // A rank table on an inversed axis draws first place at the top, as a bump
+  // chart is drawn. One declared with `bump: true` on an ordinary axis draws
+  // it at the bottom, and there Up has to move to the worse place above it.
+  const lineType = lineTraceType(lineSeriesList, options);
+  const firstPlace = lineType === TraceType.BUMP && !hasRankAxis(lineSeriesList)
+    ? { firstPlace: 'bottom' as const }
+    : {};
+  pushMerged(layers, merged.line, lineType, xLabel, yLabel, firstPlace);
   pushMerged(layers, merged.step, TraceType.STEP, xLabel, yLabel);
   pushMerged(layers, merged.area, areaTraceType(areaSeriesList), xLabel, yLabel);
   pushMerged(layers, merged.radar, TraceType.RADAR, xLabel, yLabel);
@@ -515,9 +522,10 @@ function pushMerged(
   type: MergedTraceType,
   xLabel: string,
   yLabel: string,
+  drawn: Pick<MaidrLayer, 'firstPlace'> = {},
 ): void {
   if (merged.data.length > 0) {
-    layers.push(buildLineLayer(merged, type, xLabel, yLabel));
+    layers.push(buildLineLayer(merged, type, xLabel, yLabel, drawn));
   }
 }
 
@@ -1499,12 +1507,20 @@ function collectSeries(
  * positions the staircase from the axis cell rather than reporting a
  * convention, so naming one here would be a guess. MAIDR then stays silent
  * about it rather than describing a chart amCharts did not draw.
+ *
+ * @param merged - The merged series
+ * @param type - The trace type the layer reports
+ * @param xLabel - The x axis label
+ * @param yLabel - The y axis label
+ * @param drawn - Where a bump chart draws first place, when not at the top
+ * @returns The layer
  */
 function buildLineLayer(
   merged: MergedSeries,
   type: MergedTraceType,
   xLabel: string,
   yLabel: string,
+  drawn: Pick<MaidrLayer, 'firstPlace'> = {},
 ): MaidrLayer {
   const title = merged.names.length > 0 ? merged.names.join(', ') : undefined;
   const selectors = merged.selectors;
@@ -1516,6 +1532,7 @@ function buildLineLayer(
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
     data: merged.data,
+    ...drawn,
   };
 }
 

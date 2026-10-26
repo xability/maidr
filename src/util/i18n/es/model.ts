@@ -393,6 +393,8 @@ export const model = {
   'model.asideChange': 'Cambio',
   'model.statRanksShown': 'Posiciones mostradas',
   'model.statRankChanges': 'Cambios de posición',
+  'model.extremaBestRank': 'Mejor posición',
+  'model.extremaWorstRank': 'Peor posición',
   'model.statLedAtTheStart': 'Líder al inicio',
   'model.statLedAtTheEnd': 'Líder al final',
   'model.statClimbedFurthest': 'Mayor ascenso',

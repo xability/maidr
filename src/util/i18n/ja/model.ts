@@ -393,6 +393,8 @@ export const model = {
   'model.asideChange': '変化',
   'model.statRanksShown': '表示される順位',
   'model.statRankChanges': '順位の変動',
+  'model.extremaBestRank': '最高順位',
+  'model.extremaWorstRank': '最低順位',
   'model.statLedAtTheStart': '開始時の首位',
   'model.statLedAtTheEnd': '終了時の首位',
   'model.statClimbedFurthest': '最も上昇',

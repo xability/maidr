@@ -114,6 +114,20 @@ test.describe('Bump chart', () => {
     expect(announcement).toContain('Places lost is 1');
   });
 
+  test('should move down the table with Down, as it is drawn', async ({ page }) => {
+    // First place is drawn at the top. Read as a line, Down from Ash in first
+    // place said "No more data to display" and Up went down the page.
+    const plot = new BumpPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
+
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('Rank is 2');
+    expect(announcement).toContain('Birch');
+  });
+
   test('should render one braille row per competitor', async ({ page }) => {
     // Braille is the modality that fails silently for a new trace type: an
     // unregistered encoder leaves the display blank while text and audio keep

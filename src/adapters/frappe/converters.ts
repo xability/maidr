@@ -526,6 +526,9 @@ function buildLineLayer(
     selectors,
     axes: buildAxes(options),
     data: lines,
+    // Frappe cannot reverse an axis, so a rank table it draws has first place
+    // at the bottom, and Up has to move to the worse place drawn above it.
+    ...(type === TraceType.BUMP ? { firstPlace: 'bottom' as const } : {}),
   };
 }
 

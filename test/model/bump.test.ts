@@ -399,3 +399,108 @@ describe('the description says who moved', () => {
     expect(labels).not.toContain('Number of lines');
   });
 });
+
+/**
+ * The competitor the cursor is on.
+ * @param trace The trace to read
+ * @returns The competitor's name
+ */
+function competitor(trace: BumpTrace): unknown {
+  return nonEmptyState(trace).text.z?.value;
+}
+
+describe('up and down follow the table as it is drawn', () => {
+  // A bump chart draws first place at the top. Read as a line, Up went to the
+  // larger rank number -- the next place down the table -- so the reader and
+  // the highlight moved down the page, Down from first place said "No more
+  // data to display", and Control + Up landed on last place.
+
+  test('up moves to the competitor one place better, drawn above', () => {
+    const trace = bump(1, 0);
+
+    const moved = trace.moveOnce('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(competitor(trace)).toBe('Ash');
+  });
+
+  test('up from first place is the boundary, and down moves to second place', () => {
+    const trace = bump(0, 0);
+
+    expect(trace.isMovable('UPWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(competitor(trace)).toBe('Birch');
+  });
+
+  test('control and up reach first place, control and down last place', () => {
+    const trace = bump(1, 0);
+
+    trace.moveToExtreme('UPWARD');
+    const top = competitor(trace);
+    trace.moveToExtreme('DOWNWARD');
+    const bottom = competitor(trace);
+
+    expect(top).toBe('Ash');
+    expect(bottom).toBe('Cyan');
+  });
+
+  test('a chart that draws first place at the bottom keeps up for the place drawn above', () => {
+    // Frappe cannot reverse an axis, and an amCharts bump chart can be drawn
+    // the ordinary way up; there the worse place is the one drawn above.
+    const trace = TraceFactory.create({ ...createLayer(), firstPlace: 'bottom' }) as BumpTrace;
+    trace.moveToIndex(1, 0);
+
+    trace.moveOnce('UPWARD');
+    const above = competitor(trace);
+    trace.moveToExtreme('UPWARD');
+    const top = competitor(trace);
+
+    expect(above).toBe('Cedar');
+    expect(top).toBe('Cyan');
+  });
+});
+
+describe('the bracket keys go to the best and the worst place', () => {
+  // The pitch makes first place the highest note, but `]` (Go to Maximum)
+  // took the largest rank number -- the worst place, the lowest note -- and
+  // `[` first place, the highest.
+
+  test('] goes to a competitor\'s best place and [ to its worst', () => {
+    const trace = bump(0, 2);
+
+    const targets = trace.getExtremaTargets();
+    const best = targets.filter(target => target.type === 'max');
+    const worst = targets.filter(target => target.type === 'min');
+
+    expect(best.map(target => [target.pointIndex, target.value])).toEqual([[0, 1]]);
+    expect(worst.map(target => [target.pointIndex, target.value])).toEqual([[3, 4]]);
+  });
+
+  test('the extrema list names them as places', () => {
+    const trace = bump(0, 2);
+
+    const names = trace.getExtremaTargets()
+      .filter(target => target.type !== 'intersection')
+      .map(target => target.display?.name);
+
+    expect(names).toEqual(['Best rank', 'Worst rank']);
+  });
+
+  test('every round a competitor held its best place is offered', () => {
+    // Birch is second in R1, R3 and R4.
+    const trace = bump(1, 1);
+
+    const best = trace.getExtremaTargets().filter(target => target.type === 'max');
+
+    expect(best.map(target => target.pointIndex)).toEqual([0, 2, 3]);
+  });
+
+  test('are the same whichever way up the chart is drawn, as the pitch is', () => {
+    const trace = TraceFactory.create({ ...createLayer(), firstPlace: 'bottom' }) as BumpTrace;
+    trace.moveToIndex(0, 2);
+
+    const best = trace.getExtremaTargets().filter(target => target.type === 'max');
+
+    expect(best.map(target => target.value)).toEqual([1]);
+  });
+});
