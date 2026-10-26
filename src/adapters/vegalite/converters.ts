@@ -1598,18 +1598,19 @@ function resolveData(
     // Vega-generated names we don't know about (e.g. `bin_maxbins_10_value`,
     // `data_3`, internal aggregation outputs for histograms).
     //
-    // Known limitation: this fallback returns the FIRST matching dataset
-    // without verifying that its rows expose the encoded fields. For
-    // single-source specs (the common case) the only non-empty dataset
-    // is the user's data, and the fallback is correct. For specs with
-    // multiple stages (joins, lookups, filtered branches, separate
-    // datasets per layer) this can pick an upstream/intermediate
-    // dataset and silently produce mismatched announcements. We
-    // intentionally do NOT filter by encoding field names because Vega
-    // legitimately renames fields after binning (e.g. `value` →
-    // `bin_maxbins_10_value`); a stricter check would break
-    // histograms. A field-aware redesign that recognises bin/aggregate
-    // transforms is tracked as a follow-up.
+    // Known limitation: this fallback returns the FIRST matching dataset,
+    // and verifies its rows expose the encoded fields only when the
+    // caller names the fields it needs (`requiredFields`: a parallel
+    // coordinates fold, a concat or repeat child). For single-source
+    // specs (the common case) the only non-empty dataset is the user's
+    // data, and the fallback is correct. For specs with multiple stages
+    // (joins, lookups, filtered branches, separate datasets per layer)
+    // this can pick an upstream/intermediate dataset and silently
+    // produce mismatched announcements. We do NOT filter by every
+    // encoding field name, because Vega legitimately renames fields
+    // after binning (e.g. `value` → `bin_maxbins_10_value`); a stricter
+    // check would break histograms. A field-aware redesign that
+    // recognises bin/aggregate transforms is tracked as a follow-up.
     for (const name of getViewDatasetNames(view)) {
       // Skip the names we already tried above.
       if (datasetNames.includes(name))
