@@ -170,6 +170,14 @@ export interface AnyChartScale {
   stackMode?: () => string;
 
   /**
+   * `'direct'` by default, `'reverse'` when the series are stacked the other
+   * way round. Read on a marimekko's y scale, together with
+   * {@link AnyChartScale.inverted}, to tell which series is drawn at the
+   * bottom of each column.
+   */
+  stackDirection?: () => string;
+
+  /**
    * The scale's own kind: `'ordinal'`, `'linear'`, `'log'`, `'date-time'`.
    *
    * Read on the X scale only, and only to answer one question: whether the

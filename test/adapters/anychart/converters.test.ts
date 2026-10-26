@@ -1781,20 +1781,58 @@ describe('anyChartToMaidr (marimekko chart)', () => {
 
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.MOSAIC);
+    // Bottom row first: AnyChart draws the first series, Survived, at the top
+    // of each column, and the trace reads row 0 as the bottom tile.
     expect(layers[0].data as MosaicPoint[][]).toEqual([
-      [
-        { x: 'First', y: 20, z: 'Survived', width: 0.3 },
-        { x: 'Third', y: 25, z: 'Survived', width: 0.7 },
-      ],
       [
         { x: 'First', y: 10, z: 'Died', width: 0.3 },
         { x: 'Third', y: 45, z: 'Died', width: 0.7 },
       ],
+      [
+        { x: 'First', y: 20, z: 'Survived', width: 0.3 },
+        { x: 'Third', y: 25, z: 'Survived', width: 0.7 },
+      ],
     ]);
-    expect(layers[0].selectors).toBe('[data-maidr-anychart-tile]');
-    // Series-major, which is both what the stamper writes and what the
-    // segmented trace reads.
-    expect(layers[0].domMapping).toEqual({ order: 'row' });
+    // Each cell names its own tile: the tiles sit in the DOM top series first,
+    // so counting them off would put Survived's outline on Died's cells.
+    expect(layers[0].selectors).toEqual([
+      ['[data-maidr-anychart-tile="1-0"]', '[data-maidr-anychart-tile="1-1"]'],
+      ['[data-maidr-anychart-tile="0-0"]', '[data-maidr-anychart-tile="0-1"]'],
+    ]);
+  });
+
+  it('reads the first series as the bottom row when the chart draws it there', () => {
+    // An inverted y scale, or `stackDirection('reverse')`, puts the first
+    // series at the foot of each column instead.
+    for (const scale of [{ inverted: () => true }, { stackDirection: () => 'reverse' }]) {
+      const chart = {
+        ...createMosaicChart('Survival', [
+          ['Survived', [['First', 20]]],
+          ['Died', [['First', 10]]],
+        ]),
+        yScale: () => scale,
+      };
+
+      const data = anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as MosaicPoint[][];
+
+      expect(data.map(row => row[0].z)).toEqual(['Survived', 'Died']);
+    }
+  });
+
+  it('keeps a caller\'s own selector, with the rows in the order its tiles are drawn', () => {
+    // The selector's tiles are paired with the rows in document order, which
+    // is series order: turned round, Died would be paired with Survived's
+    // tiles.
+    const chart = createMosaicChart('Survival', [
+      ['Survived', [['First', 20]]],
+      ['Died', [['First', 10]]],
+    ]);
+
+    const layer = anyChartToMaidr(chart, { selectors: ['.tile'] })!.subplots[0][0].layers[0];
+
+    expect(layer.selectors).toBe('.tile');
+    expect(layer.domMapping).toEqual({ order: 'row' });
+    expect((layer.data as MosaicPoint[][]).map(row => row[0].z)).toEqual(['Survived', 'Died']);
   });
 
   it('squares off a category a series does not carry', () => {
@@ -1806,9 +1844,11 @@ describe('anyChartToMaidr (marimekko chart)', () => {
       ['Died', [['Third', 50]]],
     ]);
 
-    const data = anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as MosaicPoint[][];
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
 
-    expect(data[1][0]).toEqual({ x: 'First', y: 0, z: 'Died', width: 0.2 });
+    expect((layer.data as MosaicPoint[][])[0][0]).toEqual({ x: 'First', y: 0, z: 'Died', width: 0.2 });
+    // No tile is drawn for it, so it names none.
+    expect((layer.selectors as (string | null)[][])[0][0]).toBeNull();
   });
 
   it('routes barmekko and mekko through the same path', () => {

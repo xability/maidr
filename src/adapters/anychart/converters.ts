@@ -5908,6 +5908,29 @@ function readMosaicTable(
 }
 
 /**
+ * Whether a marimekko draws its first series at the top of each column.
+ *
+ * Measured on AnyChart 8.13: `mekko()`, `mosaic()` and `barmekko()` all do,
+ * and an inverted y scale or `yScale().stackDirection('reverse')` each puts
+ * the first series at the bottom instead.
+ *
+ * @param chart - The marimekko
+ * @returns True when the first series is the top tile of a column
+ */
+function stacksFirstSeriesOnTop(chart: AnyChartInstance): boolean {
+  let inverted = false;
+  let reversed = false;
+  try {
+    const scale = chart.yScale?.();
+    inverted = scale?.inverted?.() === true;
+    reversed = scale?.stackDirection?.() === 'reverse';
+  } catch {
+    // A chart that does not answer is on AnyChart's own defaults.
+  }
+  return inverted === reversed;
+}
+
+/**
  * Build ONE mosaic layer from every marimekko series on a chart.
  *
  * A marimekko is a stacked bar chart whose bar WIDTHS also carry data, and the
@@ -5924,13 +5947,23 @@ function readMosaicTable(
  * contingency table, but AnyChart takes any measure at all, and declaring one
  * would put "Count 42.5" in the announcement for a chart of revenue.
  *
+ * The rows run from the bottom of a column up. `MosaicTrace` reads row 0 as
+ * the bottom tile and Up as the next row, while AnyChart stacks a marimekko's
+ * series from the top down unless its y scale says otherwise (see
+ * {@link stacksFirstSeriesOnTop}). Emitted in series order, Up moved down the
+ * drawing and the reader started on the top tile. A layer given the caller's
+ * own selector keeps series order, which is the order that selector's tiles
+ * are paired with the rows in.
+ *
  * @param entries - The chart's marimekko series, with their chart-wide indices
+ * @param chart - The chart they belong to, consulted for its y scale
  * @param selectors - Caller-supplied selector override, when there is one
  * @param panel - The owning panel, in multi-panel mode
  * @returns The single MAIDR layer holding the whole table
  */
 function buildMosaicLayer(
   entries: Array<{ series: AnyChartSeries; index: number }>,
+  chart: AnyChartInstance,
   selectors: string | string[] | undefined,
   panel?: PanelContext,
 ): MaidrLayer {
@@ -5939,28 +5972,50 @@ function buildMosaicLayer(
     table.values.reduce((total, row) => total + (Number.isFinite(row[c]) ? row[c] : 0), 0));
   const grandTotal = columnTotals.reduce((total, column) => total + column, 0);
 
-  const data: MosaicPoint[][] = table.values.map((row, s) =>
-    row.map((value, c) => ({
+  const rowOf = (s: number): MosaicPoint[] =>
+    table.values[s].map((value, c) => ({
       x: table.categories[c],
       y: value,
       z: table.names[s] ?? `Series ${s + 1}`,
       // A grand total of zero has no shares to report, and 0/0 would announce
       // every column as NaN% of the chart.
       ...(grandTotal > 0 ? { width: columnTotals[c] / grandTotal } : {}),
-    })));
+    }));
+  const seriesOrder = table.values.map((_, s) => s);
 
-  const defaultSelector = `${panelScope(panel)}[${MOSAIC_ATTR}]`;
+  if (selectors !== undefined) {
+    // A caller's selector is resolved in document order and paired with the
+    // rows one row after another, and AnyChart draws the tiles a series at a
+    // time, first series first. So the rows stay in series order here: turned
+    // round, the bottom row would be paired with the top series' tiles.
+    return {
+      id: String(entries[0].index),
+      type: TraceType.MOSAIC,
+      selectors,
+      data: seriesOrder.map(rowOf),
+      domMapping: { order: 'row' },
+    };
+  }
+
+  // The series in the order their tiles sit up a column.
+  const bottomUp = stacksFirstSeriesOnTop(chart) ? seriesOrder.reverse() : seriesOrder;
+  const data = bottomUp.map(rowOf);
+
+  // One selector per cell, naming the tile `stampMosaicAttributes` stamped
+  // with that cell's series and category: the tiles sit in the DOM top series
+  // first, the opposite of the rows, so they are named rather than counted
+  // off. A cell with no positive value has no tile.
+  const scope = panelScope(panel);
+  const stamp = panelStampPrefix(panel);
+  const grid = bottomUp.map(s =>
+    table.values[s].map((value, c) => (Number.isFinite(value) && value > 0
+      ? `${scope}[${MOSAIC_ATTR}="${stamp}${s}-${c}"]`
+      : null)));
   return {
     id: String(entries[0].index),
     type: TraceType.MOSAIC,
-    selectors: selectors ?? defaultSelector,
+    selectors: grid,
     data,
-    // `stampMosaicAttributes` walks the tiles series-major, which is the order
-    // AnyChart renders them in. `SegmentedTrace` defaults its path branch to
-    // the same reading, but says so here rather than relying on the default:
-    // the two have to agree, and a hint is where that agreement is written
-    // down.
-    domMapping: { order: 'row' },
   };
 }
 
@@ -6673,7 +6728,7 @@ function buildSubplot(
     const mosaicSelector = hasSelectorOverrides
       ? resolveSelector(mosaics[0].index, TraceType.BAR, options, panel)
       : undefined;
-    const layer = buildMosaicLayer(mosaics, mosaicSelector, panel);
+    const layer = buildMosaicLayer(mosaics, chart, mosaicSelector, panel);
     // A table with no column is not a chart to bind.
     if ((layer.data as MosaicPoint[][])[0]?.length > 0) {
       attachAxes(layer);
