@@ -128,6 +128,25 @@ async function settle(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 0));
 }
 
+/**
+ * Destroys a point the way a Highcharts redraw does: its own properties are
+ * deleted, `series` among them, and `setState`, which Highcharts keeps on the
+ * prototype, then throws for want of the series.
+ *
+ * @param point - The point
+ */
+function destroy(point: HighchartsPoint): void {
+  for (const key of Object.keys(point)) {
+    delete (point as unknown as Record<string, unknown>)[key];
+  }
+  Object.setPrototypeOf(point, {
+    setState(): void {
+      throw new TypeError('Cannot read properties of undefined (reading \'chart\')');
+    },
+  });
+  point.destroyed = true;
+}
+
 describe('createHighchartsSync', () => {
   it('shows the tooltip of the point MAIDR is on, and moves it as MAIDR moves', async () => {
     const drawn = drawChart(bars);
@@ -146,6 +165,25 @@ describe('createHighchartsSync', () => {
     expect(drawn.points[1].setState).toHaveBeenNthCalledWith(1, 'hover');
     expect(drawn.points[1].setState).toHaveBeenLastCalledWith('');
     expect(drawn.points[2].setState).toHaveBeenLastCalledWith('hover');
+  });
+
+  it('moves on from a point a redraw has destroyed since it was shown', async () => {
+    // Setting the destroyed point's state threw out of the observer, so the
+    // point MAIDR moved to was never shown and the tooltip stayed behind.
+    const drawn = drawChart(bars);
+    createHighchartsSync(drawn.chart);
+    const marks = drawn.points.map(point => point.graphic?.element as SVGElement);
+    const next = drawn.points[1];
+
+    const first = highlight(marks[0]);
+    await settle();
+    destroy(drawn.points[0]);
+    first.remove();
+    highlight(marks[1]);
+    await settle();
+
+    expect(drawn.refresh).toHaveBeenLastCalledWith(next);
+    expect(next.setState).toHaveBeenLastCalledWith('hover');
   });
 
   it('hides the tooltip when MAIDR takes its highlight away', async () => {

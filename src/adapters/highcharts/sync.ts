@@ -93,10 +93,21 @@ const VERTEX_TOLERANCE_PX = 2;
 export function createHighchartsSync(chart: HighchartsChart): HighchartsSync {
   let activePoint: HighchartsPoint | null = null;
 
+  /**
+   * Returns a point the sync highlighted to its normal state, unless a
+   * redraw has destroyed it since: the point is no longer drawn, and setting
+   * its state would throw out of the observer and leave the tooltip behind.
+   */
+  function release(point: HighchartsPoint): void {
+    if (point.destroyed !== true) {
+      point.setState?.('');
+    }
+  }
+
   function show(point: HighchartsPoint): void {
     // Clear previous highlight.
     if (activePoint && activePoint !== point) {
-      activePoint.setState?.('');
+      release(activePoint);
     }
 
     // Highlight the new point.
@@ -114,7 +125,7 @@ export function createHighchartsSync(chart: HighchartsChart): HighchartsSync {
 
   function clearHighlight(): void {
     if (activePoint) {
-      activePoint.setState?.('');
+      release(activePoint);
       activePoint = null;
     }
     chart.tooltip?.hide();

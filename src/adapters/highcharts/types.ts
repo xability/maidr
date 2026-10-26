@@ -429,6 +429,12 @@ export interface HighchartsPoint {
   series: HighchartsSeries;
   index: number;
   setState?: (state: string) => void;
+  /**
+   * Set once Highcharts has destroyed the point, as a redraw does to the
+   * points it replaces: it deletes the point's own properties, `series` among
+   * them, and `setState`, which stays on the prototype, then throws.
+   */
+  destroyed?: boolean;
 }
 
 /**
