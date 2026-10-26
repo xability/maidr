@@ -88,6 +88,34 @@ describe('highcharts timeline', () => {
     expect(layers[0].title).toBe('Missions');
   });
 
+  it('names its chart a timeline, with a guide to one, rather than a scatter plot', () => {
+    const layer = highchartsToMaidr(timelineChart()).subplots[0][0].layers[0];
+
+    // Without it the reader was told the chart was a scatter plot "used to
+    // see whether two measures are related", of a chart measuring nothing.
+    expect(layer.typeLabel).toBe('Timeline');
+    expect(layer.typeGuide).toEqual({
+      definition: expect.stringContaining('events in the order they happened'),
+      purpose: expect.any(String),
+      appearance: expect.any(String),
+    });
+  });
+
+  it('leaves the axes the chart hides unnamed', () => {
+    // Highcharts still gives the hidden y axis its default title, "Values".
+    const chart = fakeChart({
+      series: [fakeSeries({
+        index: 0,
+        type: 'timeline',
+        xAxis: fakeAxis({ options: { visible: false } }),
+        yAxis: fakeAxis({ options: { visible: false, title: { text: 'Values' } } }),
+        data: EVENTS.map((point, i) => ({ x: i, y: 1, ...point })),
+      })],
+    });
+
+    expect(highchartsToMaidr(chart).subplots[0][0].layers[0].axes).toEqual({ x: {}, y: {} });
+  });
+
   it('names each event with the whole of the box the chart draws', () => {
     // Both lines. `name` alone would drop the date on an undated timeline,
     // which is every timeline whose x axis is hidden — the ordinary case.

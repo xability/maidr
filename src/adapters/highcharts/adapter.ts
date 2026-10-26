@@ -60,6 +60,7 @@ import type {
   SurvivalPoint,
   ThresholdOptions,
   TreemapPoint,
+  TypeGuide,
   VennPoint,
   VolcanoPoint,
   WaterfallKind,
@@ -3071,6 +3072,22 @@ function timelineEventLabel(point: HighchartsPoint): string | undefined {
   return unique.length > 0 ? unique.join(', ') : undefined;
 }
 
+/** What a timeline is called wherever MAIDR names the chart's type. */
+const TIMELINE_TYPE_LABEL = 'Timeline';
+
+/**
+ * The description's guide to a timeline, in place of the scatter plot's.
+ *
+ * Written for the chart Highcharts draws rather than taken from MAIDR's own
+ * timeline diagram, whose guide describes events grouped under periods: a
+ * Highcharts timeline is one row of events, with no periods at all.
+ */
+const TIMELINE_TYPE_GUIDE: TypeGuide = {
+  definition: 'A timeline shows events in the order they happened, as points along a line.',
+  purpose: 'It is used to tell the story of something at a glance, such as the milestones of space exploration.',
+  appearance: 'Each event is a dot on a line, with a box beside it giving its name and often its date. The boxes alternate between the two sides of the line.',
+};
+
 /**
  * Converts a `timeline` series into a labelled scatter layer.
  *
@@ -3128,6 +3145,11 @@ function convertTimelineSeries(
       y: getAxisLabel(series, 'y'),
     },
     data,
+    // Read as a scatter, and named as the chart it is: without these the
+    // reader was told it was a scatter plot, "used to see whether two
+    // measures are related", of a chart that measures nothing.
+    typeLabel: TIMELINE_TYPE_LABEL,
+    typeGuide: TIMELINE_TYPE_GUIDE,
   };
 }
 
