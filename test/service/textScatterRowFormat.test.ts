@@ -2,6 +2,7 @@ import type { NotificationService } from '@service/notification';
 import type { Maidr, MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ScatterTrace } from '@model/scatter';
+import { VolcanoTrace } from '@model/volcano';
 import { FormatterService } from '@service/formatter';
 import { TextService } from '@service/text';
 import { TraceType } from '@type/grammar';
@@ -40,9 +41,13 @@ const LAYER: MaidrLayer = {
   ],
 };
 
-/** The text service, formatting with the layer's own axis formats. */
-function textService(): TextService {
-  const figure = { id: 'figure', subplots: [[{ layers: [LAYER] }]] } as unknown as Maidr;
+/**
+ * The text service, formatting with the layer's own axis formats.
+ * @param layer - The layer whose formats to use.
+ * @returns The service.
+ */
+function textService(layer: MaidrLayer = LAYER): TextService {
+  const figure = { id: 'figure', subplots: [[{ layers: [layer] }]] } as unknown as Maidr;
   return new TextService(createMockNotificationService(), new FormatterService(figure));
 }
 
@@ -86,6 +91,20 @@ describe('a scatter read by rows', () => {
 
     expect(spoken).toBe('y is 1.235, x is 1.0');
   });
+
+  test.each([TraceType.VOLCANO, TraceType.MANHATTAN])(
+    'does the same on a %s layer, which reads rows as a scatter does',
+    (type) => {
+      const layer = { ...LAYER, type };
+      const trace = new VolcanoTrace(layer);
+      trace.moveOnce('FORWARD');
+      trace.moveOnce('UPWARD');
+
+      const spoken = textService(layer).format(trace.state);
+
+      expect(spoken).toBe('y is 1.235, x are 0.0, 1.0');
+    },
+  );
 
   test('leaves a column, x first, as it was', () => {
     const trace = new ScatterTrace(LAYER);
