@@ -78,6 +78,10 @@ function layerFor(
   stacking?: string,
 ): MaidrLayer {
   const xAxis = fakeAxis({ categories: CATEGORIES, reversed });
+  // Stacked in declared order, so each row of a stacked group is the series
+  // declared at that index. Which way Highcharts stacks by default is
+  // `stackOrder.test.ts`' subject, not this file's.
+  const yAxis = fakeAxis({ options: { reversedStacks: false } });
   const chart = fakeChart({
     type,
     renderToId: CONTAINER,
@@ -86,6 +90,7 @@ function layerFor(
       index,
       type,
       xAxis,
+      yAxis,
       data: points(values),
     })),
   });

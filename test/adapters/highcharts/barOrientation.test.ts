@@ -46,7 +46,7 @@ import type { BarPoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
 import { highchartsToMaidr } from '@adapters/highcharts/adapter';
 import { describe, expect, it } from '@jest/globals';
 import { Orientation } from '@type/grammar';
-import { categoryPoints, fakeChart, fakeSeries } from './helpers';
+import { categoryPoints, fakeAxis, fakeChart, fakeSeries } from './helpers';
 
 const CATEGORIES = ['alpha', 'bravo', 'charlie'];
 
@@ -84,6 +84,9 @@ function segmentedLayer(
   inverted?: boolean,
   stacking?: string,
 ): MaidrLayer {
+  // Stacked in declared order, so the first row is the first series. Which
+  // way Highcharts stacks by default is `stackOrder.test.ts`' subject.
+  const yAxis = fakeAxis({ options: { reversedStacks: false } });
   const chart = fakeChart({
     type,
     inverted,
@@ -91,6 +94,7 @@ function segmentedLayer(
     series: [10, 1].map((scale, index) => fakeSeries({
       index,
       type,
+      yAxis,
       data: categoryPoints([10, 20, 30].map(v => v * scale / 10), CATEGORIES),
     })),
   });

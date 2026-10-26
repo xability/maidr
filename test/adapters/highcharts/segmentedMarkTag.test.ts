@@ -62,6 +62,10 @@ const OWN_BAR = [
  */
 function layerFor(values: number[][]): MaidrLayer {
   const xAxis = fakeAxis({ categories: CATEGORIES, reversed: false });
+  // Stacked in declared order, so each row is the series declared at that
+  // index. Which way Highcharts stacks by default is `stackOrder.test.ts`'
+  // subject, not this file's.
+  const yAxis = fakeAxis({ options: { reversedStacks: false } });
   const chart = fakeChart({
     type: 'column',
     renderToId: CONTAINER,
@@ -70,6 +74,7 @@ function layerFor(values: number[][]): MaidrLayer {
       index,
       type: 'column',
       xAxis,
+      yAxis,
       data: row.map((y, i) => ({ x: i, y, category: CATEGORIES[i] })),
     })),
   });
