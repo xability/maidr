@@ -42,7 +42,7 @@ import type {
   VegaLiteToMaidrOptions,
   VegaView,
 } from './adapters/vegalite/types';
-import type { BoxPoint, BoxSelector, HeatmapData, LinePoint, Maidr, MaidrLayer } from './type/grammar';
+import type { BoxPoint, BoxSelector, DumbbellData, HeatmapData, LinePoint, Maidr, MaidrLayer } from './type/grammar';
 import { cssEscape, ensureContainerId } from './adapters/shared/selectorUtil';
 import { vegaLiteToMaidr } from './adapters/vegalite/converters';
 import { buildCellDomMap, scopeSelector, stampFacetCells } from './adapters/vegalite/facets';
@@ -97,39 +97,114 @@ function reappendInOrder(elements: SVGGraphicsElement[]): void {
 }
 
 /**
- * For simple bar charts Vega-Lite emits the bars in **data order**, but
- * lays them out visually in **scale-domain order** (alphabetical by
- * default for nominal axes). MAIDR's `BarTrace` highlights the i-th
- * `<path>` returned by `querySelectorAll(selector)` for the i-th data
- * point, and announces `data[i]` for that same point — so both arrays
- * must agree with the visual order.
+ * Layer types drawn as one mark per category, which
+ * {@link sortCategoryMarksByVisualOrder} puts in the order they are drawn.
+ *
+ * A dot plot is a bar chart drawn with a point, an error bar draws one whip
+ * per sample and a dumbbell one connector per row, and each pairs its points
+ * with those marks in document order, as a bar does.
+ */
+const ONE_MARK_PER_CATEGORY = new Set<TraceType>([
+  TraceType.BAR,
+  TraceType.DOT,
+  TraceType.ERROR_BAR,
+  TraceType.DUMBBELL,
+]);
+
+/**
+ * A one-mark-per-category layer's points, as a list the pass can sort: a
+ * dumbbell's live under `points`, every other type's are the data itself.
+ *
+ * @param layer - The layer
+ * @returns The points, or `null` when the data is not one flat list
+ */
+function categoryPoints(layer: MaidrLayer): unknown[] | null {
+  if (layer.type === TraceType.DUMBBELL) {
+    const points = (layer.data as DumbbellData | undefined)?.points;
+    return Array.isArray(points) ? points : null;
+  }
+  // A grouped error bar (`ErrorBarPoint[][]`) has no one mark per point.
+  return Array.isArray(layer.data) && !layer.data.some(Array.isArray) ? layer.data : null;
+}
+
+/**
+ * Put rendered marks in a new document order without moving them out of
+ * their place in the drawing.
+ *
+ * Marks that are siblings in one mark group are re-appended there, as
+ * {@link reappendInOrder} does. A `line` split by `detail` -- a dumbbell's
+ * connectors -- draws each path in a group of its own, so there the groups
+ * are what is reordered: the children of the marks' nearest common ancestor.
+ * They are put back where they stood rather than appended, since that
+ * ancestor also holds the chart's other layers, and appending would draw the
+ * moved marks over them.
+ *
+ * @param elements - The marks, in the desired order
+ */
+function reorderMarks(elements: SVGGraphicsElement[]): void {
+  const parent = elements[0]?.parentElement;
+  if (elements.every(element => element.parentElement === parent)) {
+    reappendInOrder(elements);
+    return;
+  }
+
+  let common: Element | null = parent ?? null;
+  while (common && !elements.every(element => common?.contains(element)))
+    common = common.parentElement;
+  if (!common)
+    return;
+  const groups = elements.map((element) => {
+    let node: Element = element;
+    while (node.parentElement && node.parentElement !== common)
+      node = node.parentElement;
+    return node;
+  });
+  // Two marks in one group cannot be reordered by moving the group.
+  if (new Set(groups).size !== groups.length)
+    return;
+
+  const lastDrawn = groups.reduce((last, group) =>
+    (last.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING ? group : last));
+  const anchor = lastDrawn.nextSibling;
+  for (const group of groups)
+    common.insertBefore(group, anchor);
+}
+
+/**
+ * For layers drawn as one mark per category, Vega-Lite emits the marks
+ * in **data order**, but lays them out visually in **scale-domain order**
+ * (alphabetical by default for nominal axes). MAIDR's `BarTrace` and its
+ * siblings highlight the i-th element returned by
+ * `querySelectorAll(selector)` for the i-th data point, and announce
+ * `data[i]` for that same point — so both arrays must agree with the
+ * visual order.
  *
  * Before this step:
  *   - `layer.data[i]`     is the i-th row from the spec dataset (data flow order)
- *   - `querySelectorAll[i]` is the i-th `<path>` in the SVG (also data flow order)
+ *   - `querySelectorAll[i]` is the i-th mark in the SVG (also data flow order)
  *   ⇒ data[i] ↔ DOM[i] (paired correctly), but neither reflects the
  *     visual left-to-right order the user sees.
  *
  * We pair each DOM element with its data point, sort the pairs by the
- * element's `getBoundingClientRect()` position (x for vertical bars,
- * y for horizontal), then:
- *   1. Re-append the elements in sorted order so `querySelectorAll`
- *      returns visual order.
- *   2. Replace `layer.data` with the sorted data so the announcement
- *      and audio for the i-th bar match what the user sees.
+ * element's `getBoundingClientRect()` position (x for vertical layers,
+ * y for horizontal ones, top first), then:
+ *   1. Reorder the elements so `querySelectorAll` returns visual order.
+ *   2. Replace the layer's points with the sorted points so the
+ *      announcement and audio for the i-th mark match what the user sees.
  *
- * Vega positions bars via `transform` attributes, so re-appending only
+ * Vega positions marks via `transform` attributes, so reordering only
  * changes DOM order — the visual layout is untouched. Segmented layers
  * (stacked / dodged / normalised) use `layer.domMapping` instead and
  * must NOT be re-ordered here.
  */
-function sortSimpleBarsByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): void {
+function sortCategoryMarksByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): void {
   for (const layer of layers) {
-    if (layer.type !== TraceType.BAR)
+    if (!ONE_MARK_PER_CATEGORY.has(layer.type))
       continue;
     if (typeof layer.selectors !== 'string')
       continue;
-    if (!Array.isArray(layer.data))
+    const data = categoryPoints(layer);
+    if (!data)
       continue;
 
     const selector = layer.selectors;
@@ -139,10 +214,9 @@ function sortSimpleBarsByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): 
 
     // Bail out if DOM/data lengths don't match — pairing would be
     // unsafe and the bug they describe is bigger than this step can fix.
-    const data = layer.data as unknown[];
     if (elements.length !== data.length) {
       debugLog(
-        `bar layer "${layer.id}": skipping visual-order sort (DOM has `
+        `${layer.type} layer "${layer.id}": skipping visual-order sort (DOM has `
         + `${elements.length} elements but data has ${data.length} entries)`,
       );
       continue;
@@ -152,7 +226,7 @@ function sortSimpleBarsByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): 
     // hidden tab, print stylesheet etc.) every bounding rect is zero
     // and the sort below would be non-deterministic.
     if (!isLaidOutForSort(elements[0])) {
-      debugLog(`bar layer "${layer.id}": skipping visual-order sort (chart not laid out)`);
+      debugLog(`${layer.type} layer "${layer.id}": skipping visual-order sort (chart not laid out)`);
       continue;
     }
 
@@ -174,23 +248,24 @@ function sortSimpleBarsByVisualOrder(svg: SVGSVGElement, layers: MaidrLayer[]): 
     // No-op when already sorted.
     const alreadySorted = pairs.every((p, i) => p.element === elements[i]);
     if (alreadySorted) {
-      debugLog(`bar layer "${layer.id}": DOM order already matches visual order`);
+      debugLog(`${layer.type} layer "${layer.id}": DOM order already matches visual order`);
       continue;
     }
 
     debugLog(
-      `bar layer "${layer.id}": re-sorting ${pairs.length} bars by `
+      `${layer.type} layer "${layer.id}": re-sorting ${pairs.length} marks by `
       + `${isHorizontal ? 'visual y' : 'visual x'} to align highlight + data with rendered order`,
     );
 
-    // 1. Replace the layer's data with the visual-order data.
-    //    BarPoint[] is the only shape `data` holds for BAR layers.
-    layer.data = pairs.map(p => p.point) as MaidrLayer['data'];
+    // 1. Replace the layer's points with the visual-order points.
+    const sorted = pairs.map(p => p.point);
+    layer.data = layer.type === TraceType.DUMBBELL
+      ? { ...(layer.data as DumbbellData), points: sorted as DumbbellData['points'] }
+      : sorted as MaidrLayer['data'];
 
-    // 2. Re-append elements in sorted order. appendChild moves the node
-    //    in place; it doesn't clone, so listeners/refs are preserved.
-    //    Group by parent first so cross-group ordering isn't disturbed.
-    reappendInOrder(pairs.map(p => p.element));
+    // 2. Reorder the elements to match. Moving a node keeps it, so
+    //    listeners/refs are preserved.
+    reorderMarks(pairs.map(p => p.element));
   }
 }
 
@@ -506,7 +581,7 @@ function reorderSegmentedSeriesByVisualBottom(
  *
  * Vega sorts a nominal domain rather than keeping the rows' own order. That is
  * the same fact `orderedHeatmapAxis` documents for the heatmap (#977) and
- * {@link sortSimpleBarsByVisualOrder} fixes for a plain bar, and neither
+ * {@link sortCategoryMarksByVisualOrder} fixes for a plain bar, and neither
  * reaches a segmented layer — whose two existing passes reorder *series* and
  * never columns. So every stacked, dodged and normalised bar announced its
  * categories in whatever order the rows happened to be listed in, which is the
@@ -766,7 +841,7 @@ function reorderDodgedBarsByVisualPosition(
 /**
  * For HISTOGRAM layers, pair each data bin with its corresponding DOM
  * element and sort by visual x-position (or y for horizontal). This
- * mirrors {@link sortSimpleBarsByVisualOrder} but applies to histograms
+ * mirrors {@link sortCategoryMarksByVisualOrder} but applies to histograms
  * specifically, since the post-binning Vega dataset row order is not
  * guaranteed to match the rendered left-to-right bin order — Vega's
  * binning transform sorts by `bin_start` but other transforms
@@ -1084,7 +1159,9 @@ function readXAxisLabelsInVisualOrder(root: Element): string[] {
  * reach it, which left an area, a staircase and a bump chart in the rows'
  * order while their paths ran in the axis' -- and the highlight comes from
  * that path, so the two were mis-paired rather than merely read backwards
- * (#1042).
+ * (#1042). Parallel coordinates share the geometry, one polyline per
+ * observation across axes Vega-Lite sorts like any nominal x, and were read
+ * in the fold's order.
  */
 const LINE_SHAPED = new Set<TraceType>([
   TraceType.LINE,
@@ -1093,6 +1170,7 @@ const LINE_SHAPED = new Set<TraceType>([
   TraceType.STACKED_AREA,
   TraceType.NORMALIZED_AREA,
   TraceType.BUMP,
+  TraceType.PARALLEL,
 ]);
 
 /**
@@ -1101,11 +1179,13 @@ const LINE_SHAPED = new Set<TraceType>([
  * `AreaTrace` derives the running total at column `c` by summing `data[s][c]`
  * over the bands, so the columns of every series have to name the same
  * category. That makes the permutation all-or-nothing for these -- see
- * {@link sortLinesByVisualOrder}.
+ * {@link sortLinesByVisualOrder}. A parallel coordinates plot reads the order
+ * of its axes off its observations, so they too have to keep one order.
  */
 const READ_BY_COLUMN = new Set<TraceType>([
   TraceType.STACKED_AREA,
   TraceType.NORMALIZED_AREA,
+  TraceType.PARALLEL,
 ]);
 
 /**
@@ -1868,10 +1948,11 @@ export function bindVegaLite(
   // per-cell axis label reads). Empty for single-panel and concat charts.
   const cellDomMap = buildCellDomMap(svg as SVGSVGElement, maidr);
 
-  // Align the simple-bar SVG DOM order with the visual order so MAIDR's
-  // index-based highlight lands on the right bar. Segmented layers are
+  // Align the DOM order of layers drawn as one mark per category (bars,
+  // dot plots, error bars, dumbbells) with the visual order so MAIDR's
+  // index-based highlight lands on the right mark. Segmented layers are
   // handled by the dom-mapping step below instead of re-ordering the DOM.
-  sortSimpleBarsByVisualOrder(svg as SVGSVGElement, layers);
+  sortCategoryMarksByVisualOrder(svg as SVGSVGElement, layers);
 
   // For segmented (stacked / dodged / normalised) layers, detect the
   // actual DOM emission order from the rendered SVG and populate
