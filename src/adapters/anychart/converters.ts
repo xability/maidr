@@ -6026,14 +6026,18 @@ function buildGanttLayer(
     // The positions stay readable as dates even though the lengths are now
     // counted in units: without this an end announces as the unit count it
     // is, which says how far along the axis a task sits and not when it runs.
+    // Formatted in UTC, the zone AnyChart draws its timeline in unless the
+    // page sets another with `anychart.format.outputTimezone()`. Formatted in
+    // the reader's own zone, a schedule of UTC midnights was announced a day
+    // early everywhere west of Greenwich.
     axes: {
       x: {
         format: {
           function: `return new Date(value * ${scale.perUnit}).${
             scale.perUnit === MS_PER_HOUR
-              ? 'toLocaleString()'
-              : 'toLocaleDateString()'
-          }`,
+              ? 'toLocaleString'
+              : 'toLocaleDateString'
+          }(undefined, { timeZone: 'UTC' })`,
         },
       },
     },

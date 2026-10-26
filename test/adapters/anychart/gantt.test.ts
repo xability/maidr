@@ -2,7 +2,7 @@ import type {
   AnyChartInstance,
   AnyChartTreeItem,
 } from '@adapters/anychart/types';
-import type { GanttData } from '@type/grammar';
+import type { GanttData, MaidrLayer } from '@type/grammar';
 import { anyChartToMaidr, bindAnyChart } from '@adapters/anychart/converters';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Orientation, TraceType } from '@type/grammar';
@@ -73,6 +73,40 @@ function createGanttChart(
 function ganttData(chart: AnyChartInstance): GanttData {
   const maidr = anyChartToMaidr(chart);
   return maidr!.subplots[0][0].layers[0].data as GanttData;
+}
+
+/**
+ * A `Date` as a browser in New York has it: its locale methods use that zone
+ * unless they are given another. Jest hands each test file its own copy of
+ * `process.env`, so setting `TZ` there never reaches the clock.
+ */
+class NewYorkDate extends Date {
+  override toLocaleDateString(
+    locales?: Intl.LocalesArgument,
+    options?: Intl.DateTimeFormatOptions,
+  ): string {
+    return super.toLocaleDateString(locales, { timeZone: 'America/New_York', ...options });
+  }
+
+  override toLocaleString(
+    locales?: Intl.LocalesArgument,
+    options?: Intl.DateTimeFormatOptions,
+  ): string {
+    return super.toLocaleString(locales, { timeZone: 'America/New_York', ...options });
+  }
+}
+
+/**
+ * The x axis formatter a layer emits, compiled as core compiles it and run for
+ * a reader in New York.
+ */
+function xFormatInNewYork(layer: MaidrLayer): (value: number) => string {
+  const body = layer.axes?.x?.format?.function;
+  if (body === undefined)
+    throw new Error('the layer emits no x axis formatter');
+  // eslint-disable-next-line no-new-func
+  const format = new Function('Date', 'value', body) as (date: new (time: number) => Date, value: number) => string;
+  return value => format(NewYorkDate, value);
 }
 
 /**
@@ -166,7 +200,7 @@ describe('anyChartToMaidr (gantt)', () => {
     // nine-digit figure.
     expect(data.unit).toBe('days');
     expect(layer.axes?.x?.format?.function)
-      .toBe(`return new Date(value * ${MS_PER_DAY}).toLocaleDateString()`);
+      .toBe(`return new Date(value * ${MS_PER_DAY}).toLocaleDateString(undefined, { timeZone: 'UTC' })`);
     expect(layer.axes?.x?.label).toBe('Date');
     expect(layer.axes?.y?.label).toBe('Task');
   });
@@ -180,6 +214,37 @@ describe('anyChartToMaidr (gantt)', () => {
     ]);
 
     expect(ganttData(chart).firstLane).toBe('top');
+  });
+
+  it('announces the dates the chart draws to a reader west of UTC', () => {
+    // AnyChart draws its timeline in UTC, and a plan written with `Date.UTC`
+    // holds UTC midnights. Formatted in the reader's own zone, every start and
+    // end was announced a day early in the Americas.
+    const days = anyChartToMaidr(createGanttChart([
+      {
+        name: 'Design',
+        actualStart: Date.UTC(2024, 0, 8),
+        actualEnd: Date.UTC(2024, 1, 5),
+      },
+    ]))!.subplots[0][0].layers[0];
+    const hours = anyChartToMaidr(createGanttChart([
+      {
+        name: 'Deploy',
+        actualStart: Date.UTC(2024, 0, 8, 0),
+        actualEnd: Date.UTC(2024, 0, 8, 2),
+      },
+    ]))!.subplots[0][0].layers[0];
+    const start = new Date(Date.UTC(2024, 0, 8));
+
+    const day = xFormatInNewYork(days)(Date.UTC(2024, 0, 8) / MS_PER_DAY);
+    const hour = xFormatInNewYork(hours)(Date.UTC(2024, 0, 8, 0) / MS_PER_HOUR);
+
+    // In New York that instant is the evening of January 7th.
+    expect(new NewYorkDate(start).toLocaleDateString())
+      .not
+      .toBe(start.toLocaleDateString(undefined, { timeZone: 'UTC' }));
+    expect(day).toBe(start.toLocaleDateString(undefined, { timeZone: 'UTC' }));
+    expect(hour).toBe(start.toLocaleString(undefined, { timeZone: 'UTC' }));
   });
 
   it('reads a schedule shorter than two days in hours', () => {
