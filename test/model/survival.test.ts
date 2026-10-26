@@ -288,6 +288,18 @@ describe('the description reports what the figure is quoted by', () => {
     expect(survival(0, 0, uneven).description.stats.find(stat => stat.label === 'Separation at the end of shared follow-up')?.value).toBe('0.25 at 7, Treatment above Control');
   });
 
+  test('rounds the gap the way the rest of the dialog rounds', () => {
+    // survfit's estimates arrive at full precision, so their difference is a
+    // fifteen-digit number. Composed into the stat's text, it passed the
+    // dialog's rounding by and read "0.0475005732199 at 965".
+    const fitted: SurvivalPoint[][] = [
+      [{ x: 0, y: 1, z: 'sex=1' }, { x: 965, y: 0.0506329113924051, z: 'sex=1' }],
+      [{ x: 0, y: 1, z: 'sex=2' }, { x: 965, y: 0.0981334846123102, z: 'sex=2' }],
+    ];
+
+    expect(survival(0, 0, fitted).description.stats.find(stat => stat.label === 'Separation at the end of shared follow-up')?.value).toBe('0.05 at 965, sex=2 above sex=1');
+  });
+
   test('says nothing when the times cannot be ordered', () => {
     // A categorical x has no "end of follow-up" to read at, and guessing one
     // would announce a gap measured somewhere the reader cannot name.
