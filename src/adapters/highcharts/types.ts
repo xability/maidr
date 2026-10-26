@@ -238,6 +238,11 @@ export interface HighchartsSeries {
   nodes?: HighchartsNode[];
   xAxis: HighchartsAxis;
   yAxis: HighchartsAxis;
+  /**
+   * The colour axis a heatmap or a map shades its cells by, when the chart
+   * has one. Its title, when drawn, names what the colours measure.
+   */
+  colorAxis?: HighchartsAxis;
   index: number;
   visible: boolean;
   /**

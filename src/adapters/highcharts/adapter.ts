@@ -5395,6 +5395,7 @@ function convertHeatmapSeries(
   // mapping independent of Highcharts' DOM insertion order (which may be
   // row- or column-major depending on how `series.data` was provided).
   stampHeatmapIndices(series);
+  const valueLabel = cellValueLabel(series);
 
   return {
     id: String(series.index),
@@ -5404,9 +5405,30 @@ function convertHeatmapSeries(
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
+      ...(valueLabel === undefined ? {} : { z: { label: valueLabel } }),
     },
     data,
   };
+}
+
+/**
+ * What a heatmap's cell values are called: the title of the colour axis that
+ * shades them, or else the series' name, which heads the tooltip Highcharts
+ * shows for every cell.
+ *
+ * Without one MAIDR names the values with its generic "Level", so a chart
+ * whose cells measure activity announced "Level is 60" where its tooltip says
+ * "Activity".
+ *
+ * @param series - The heatmap series
+ * @returns The name, or undefined when the chart gives none
+ */
+function cellValueLabel(series: HighchartsSeries): string | undefined {
+  const title = series.colorAxis?.options?.title?.text;
+  if (typeof title === 'string' && title.trim() !== '') {
+    return title;
+  }
+  return series.name?.trim() ? series.name : undefined;
 }
 
 /**
