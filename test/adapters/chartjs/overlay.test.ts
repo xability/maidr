@@ -142,6 +142,21 @@ describe('chart.js highlight overlay', () => {
 
       expect(shape).toEqual({ kind: 'rect', left: 80, top: 80, width: 40, height: 220 });
     });
+
+    it('outlines nothing for a box with no finite summary', () => {
+      // A degenerate box, as the plugin leaves one it could not summarise.
+      const shape = elementToOverlayShape(element({
+        x: 100,
+        y: Number.NaN,
+        base: 400,
+        width: 40,
+        height: Number.NaN,
+        median: Number.NaN,
+        outliers: [],
+      }));
+
+      expect(shape).toBeNull();
+    });
   });
 
   describe('drawing', () => {

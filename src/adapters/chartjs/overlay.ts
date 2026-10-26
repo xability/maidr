@@ -368,6 +368,9 @@ function distributionRect(
     ...(el.outliers ?? []),
     ...(el.coords ?? []).map(coord => coord.v),
   ].filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  // A box with no finite summary has nothing drawn to outline.
+  if (along.length === 0)
+    return null;
   const start = Math.min(...along);
   const end = Math.max(...along);
 
