@@ -231,6 +231,7 @@ export const model = {
   'model.statModalBin': 'सबसे भरा बिन',
   'model.statBinWidth': 'बिन चौड़ाई',
   'model.statModalBinValue': '{range}, {count}',
+  'model.modalBinJoin': ' और ',
   'model.tableBinMin': 'बिन न्यूनतम',
   'model.tableBinMax': 'बिन अधिकतम',
   // Pie chart labels.

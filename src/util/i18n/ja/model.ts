@@ -237,6 +237,7 @@ export const model = {
   'model.statModalBin': '最頻ビン',
   'model.statBinWidth': 'ビンの幅',
   'model.statModalBinValue': '{range}、{count}',
+  'model.modalBinJoin': 'と',
   'model.tableBinMin': 'ビンの下限',
   'model.tableBinMax': 'ビンの上限',
   // Pie chart labels.

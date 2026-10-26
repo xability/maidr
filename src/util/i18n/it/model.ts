@@ -237,6 +237,7 @@ export const model = {
   'model.statModalBin': 'Classe modale',
   'model.statBinWidth': 'Ampiezza delle classi',
   'model.statModalBinValue': '{range}, {count}',
+  'model.modalBinJoin': ' e ',
   'model.tableBinMin': 'Minimo della classe',
   'model.tableBinMax': 'Massimo della classe',
   // Pie chart labels.

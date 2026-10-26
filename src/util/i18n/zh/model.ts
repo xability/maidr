@@ -234,6 +234,7 @@ export const model = {
   'model.statModalBin': '众数分箱',
   'model.statBinWidth': '分箱宽度',
   'model.statModalBinValue': '{range}，{count}',
+  'model.modalBinJoin': ' 和 ',
   'model.tableBinMin': '分箱下限',
   'model.tableBinMax': '分箱上限',
   // Pie chart labels.
