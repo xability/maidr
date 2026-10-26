@@ -48,6 +48,11 @@ class ForestPlotPage extends BasePage {
     const textarea = await this.waitForElement(this.selectors.braille);
     return (await textarea.inputValue()).replace(/\n$/, '');
   }
+
+  /** Presses P, which announces where the cursor is. */
+  public async announcePosition(): Promise<void> {
+    await this.pressKeyAwaitingAnnouncement('p', 'announce position');
+  }
 }
 
 test.describe('Forest plot', () => {
@@ -124,5 +129,20 @@ test.describe('Forest plot', () => {
     for (const row of rows) {
       expect(row).toMatch(BRAILLE_CELL);
     }
+  });
+
+  test('should place the reader at a study and a section of its interval on P', async ({ page }) => {
+    // The columns are the studies Left and Right walk, the rows the bound,
+    // estimate and bound Up and Down walk -- as on an upright chart. Read
+    // from the pan, which turns on its side for this drawing, the first
+    // study's estimate was "column 2 of 5, row 1 of 3".
+    const plot = new ForestPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.announcePosition();
+
+    const position = normalizeText(await plot.getInstructionText());
+
+    expect(position).toBe('Position is column 1 of 5, row 2 of 3');
   });
 });
