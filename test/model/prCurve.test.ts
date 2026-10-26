@@ -170,6 +170,24 @@ describe('each point says its threshold and where it stands against the baseline
     ]);
   });
 
+  test('a threshold reads with the digits that tell it from its neighbours', () => {
+    // TensorBoard's thresholds are 1/126 apart. At two decimals 114/126 and
+    // 113/126 both read 0.9, and with recall and precision also rounding
+    // alike the two points were announced word for word the same.
+    const dense: PrCurvePoint[] = [115, 114, 113, 112].map((step, index) => ({
+      x: 0.2677 + index * 0.0079,
+      y: 1,
+      threshold: step / 126,
+      z: 'good',
+    }));
+    const threshold = (col: number): unknown => stateOf(pr(0, col, [dense])).text.asides?.[0];
+
+    expect(threshold(1)).toEqual({ label: 'Threshold', value: '0.905' });
+    expect(threshold(2)).toEqual({ label: 'Threshold', value: '0.897' });
+    // Already apart from its one neighbour at two decimals, so read as before.
+    expect(threshold(0)).toEqual({ label: 'Threshold', value: '0.91' });
+  });
+
   test('a gap is announced as missing and carries no baseline', () => {
     const gapped: PrCurvePoint[] = [
       { x: 1, y: 0.3, prevalence: 0.3 },
