@@ -411,6 +411,24 @@ describe('the modalities read the tree by depth', () => {
     expect(freq).toEqual({ min: 52, max: 1400, raw: 67 });
   });
 
+  test('a lone root is heard and read at the top of its level, not the bottom', () => {
+    // Plotly draws its hierarchies from one root. Alone on its level, the
+    // root had an empty range to be scaled against, so the largest value on
+    // the chart played the lowest note and read the lowest dot, while its
+    // largest child played the highest.
+    const trace = treemap([
+      { x: 'World', y: 4000 },
+      { x: 'Asia', y: 3131, path: ['World'] },
+      { x: 'Europe', y: 744, path: ['World'] },
+      { x: 'Oceania', y: 125, path: ['World'] },
+    ]);
+
+    const { audio, braille } = nonEmptyState(trace);
+
+    expect(audio.freq).toEqual({ min: 0, max: 4000, raw: 4000 });
+    expect(braille).toMatchObject({ min: [0, 125], max: [4000, 3131] });
+  });
+
   test('braille gives one row per level', () => {
     const braille = nonEmptyState(treemap()).braille;
     if (braille.empty) {
