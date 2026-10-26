@@ -201,15 +201,20 @@ function readRect(target: NavTarget): OverlayRect | null {
  * overlay draws rectangles onto a canvas that has no path to outline, and a box
  * hugging the active ribbon still says which way navigation moved.
  *
- * A sprite reporting no extent in either direction answers `null` rather than a
- * mark at its centre: an am5 `Graphics` painted through a draw callback can
- * report a degenerate point (#774), and a link carries no radius or sweep to be
- * measured from instead.
+ * A force-directed network's line is not measured at all — the hierarchy
+ * theme turns a link's `isMeasured` off, so it reports a point at its origin
+ * and no size — and every line of a real network cleared the overlay. It is
+ * measured instead between the two nodes it joins, which the navigation map
+ * hands over as `ends` (see {@link endsRect}).
+ *
+ * A sprite measurable no way at all answers `null` rather than a mark at its
+ * centre, and the overlay clears.
  */
 function ribbonRect(target: NavRibbonTarget): OverlayRect | null {
   const bounds = target.sprite.globalBounds?.();
   const reported = bounds ? boundsToRect(bounds) : null;
-  const box = reported && hasExtent(reported) ? reported : spriteBoxRect(target.sprite);
+  const own = reported && hasExtent(reported) ? reported : spriteBoxRect(target.sprite);
+  const box = own && hasExtent(own) ? own : endsRect(target.ends);
   if (!box || !hasExtent(box)) {
     return null;
   }
@@ -222,6 +227,37 @@ function ribbonRect(target: NavRibbonTarget): OverlayRect | null {
     width: Math.max(box.width, RIBBON_MIN_THICKNESS),
     height: Math.max(box.height, RIBBON_MIN_THICKNESS),
   };
+}
+
+/**
+ * The box of a line drawn between two nodes, from the nodes' centres.
+ *
+ * A `HierarchyLink` draws a straight line from one node's position to the
+ * other's, and a node is laid out round its own origin, so the two origins
+ * mapped through `toGlobal` are the line's two ends.
+ *
+ * @returns The box, or `null` without two nodes to measure
+ */
+function endsRect(ends: NavRibbonTarget['ends']): OverlayRect | null {
+  if (!ends) {
+    return null;
+  }
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const node of ends) {
+    if (!node.toGlobal) {
+      return null;
+    }
+    const centre = node.toGlobal({ x: 0, y: 0 });
+    xs.push(centre.x);
+    ys.push(centre.y);
+  }
+  if (![...xs, ...ys].every(Number.isFinite)) {
+    return null;
+  }
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
 }
 
 /**

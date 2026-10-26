@@ -675,7 +675,7 @@ They are in the first group now: `FlowTrace` and `NetworkTrace` publish the mark
 
 The published set is the same an SVG renderer outlines for the same trace at the same cursor position, so a chart read on amCharts and a chart read on Vega-Lite light up the same ribbons. For a flow it is exactly **one** band, the one the step just travelled along, or the node's widest after a step that travelled none: a node in a sankey touches every flow on either side of it, and outlining all of them would have been the wider, wrong-looking-right answer. For a network it is every line to the node, so the node is where they meet: a line has two ends, and one line alone was the same outline on both of them.
 
-The outline is the ribbon's axis-aligned box — coarse for a long curved band, but it hugs the mark and says which way navigation moved. A link drawn perfectly straight reports a box with no thickness and is padded to a hairline rather than dropped. A build that hands back no geometry at all, or a pair no drawn line joins, clears the overlay instead of outlining something nearby.
+The outline is the ribbon's axis-aligned box — coarse for a long curved band, but it hugs the mark and says which way navigation moved. A network's lines report no box at all — the hierarchy theme turns a link's `isMeasured` off, so amCharts never measures one — and each is measured instead between the centres of the two nodes it joins. A link drawn perfectly straight has a box with no thickness and is padded to a hairline rather than dropped. A build that hands back no geometry at all, or a pair no drawn line joins, clears the overlay instead of outlining something nearby.
 
 #### Choropleth [experimental]
 

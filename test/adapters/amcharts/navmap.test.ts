@@ -808,6 +808,34 @@ describe('buildNavigationMap (flow and network)', () => {
     expect(targets.map(spriteOf)).toEqual([drawn[2], drawn[1], drawn[3]]);
   });
 
+  it('outlines a network line amCharts reports no box for, between its nodes', () => {
+    // A real `HierarchyLink` is never measured -- the hierarchy theme turns
+    // its `isMeasured` off -- so it reports a point at the origin and no
+    // size, and every line of a real network used to clear the overlay. It
+    // draws a straight line between its two nodes, so they bound it.
+    const drawn = [fakeHierarchyLink({
+      source: 'Ada',
+      target: 'Edsger',
+      box: { left: 0, top: 0, right: 0, bottom: 0 },
+      at: { source: { x: 292, y: 179 }, target: { x: 465, y: 294 } },
+    })];
+    // `topDepth: 1` hides the container root, as a chart of these people
+    // would: the root is a holder for the rows, not a person.
+    const series = fakeForceDirectedSeries(
+      'People',
+      PEOPLE,
+      { linkWithField: 'linkWith', topDepth: 1 },
+      drawn,
+    );
+    const { navMap, layer } = panelFor(series);
+
+    // Ada-Edsger is the first link the walk emits.
+    const [target] = navMap.resolve(layer.id, -1, -1, [0]);
+    expect(spriteOf(target)).toBe(drawn[0]);
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 292, top: 179, width: 173, height: 115 });
+  });
+
   it('clears when the graph has changed under a network layer', () => {
     // The re-extraction is the network's alignment guard: names alone would
     // happily match an index against a layer built from a different graph, and

@@ -232,7 +232,8 @@ export interface AmSprite {
    * box at its own origin, whatever it draws: a pie's `Slice`, a map's
    * `MapPolygon` and a hierarchy's `HierarchyLink` among them (amcharts5
    * 5.20.1 and 5.21.4). Such a mark is measured from what it draws instead —
-   * a wedge from its settings (`wedgeBounds`), a region from its geometry.
+   * a wedge from its settings (`wedgeBounds`), a region from its geometry, a
+   * network line from the two nodes it joins.
    */
   globalBounds?: () => AmBounds;
   /**
