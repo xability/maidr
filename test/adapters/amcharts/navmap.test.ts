@@ -394,11 +394,38 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     }]);
 
     const [target] = navMap.resolve('dial', 0, 0);
-    expect(target.kind).toBe('column');
+    expect(target.kind).toBe('needle');
     expect(itemOf(target).get('graphics')).toBe(hand);
-    // The overlay reads the hand's own laid-out box, not the whole dial.
+    // A hand reporting no box is measured by its own laid-out box, not the
+    // whole dial.
     expect(dataItemToOverlayRect(target, null))
       .toEqual({ left: 40, top: 60, width: 12, height: 80 });
+  });
+
+  it('outlines the needle by the box it reports, from the pin to the tip', () => {
+    // A ClockHand is a container turned to the reading, with the hand drawn
+    // out from its origin. Its own corners, the way a column is measured,
+    // made a box hanging below and right of the pivot on amcharts-gauge.html,
+    // over the red band, while the needle pointed up and right at 73. The box
+    // amCharts reports is the needle's.
+    const hand = {
+      className: 'ClockHand',
+      globalBounds: () => ({ left: 310, top: 160, right: 470, bottom: 295 }),
+      width: () => 90,
+      height: () => 110,
+      toGlobal: (point: { x: number; y: number }) => ({ x: 318 + point.x, y: 285 + point.y }),
+      get: () => undefined,
+    };
+    const chart = fakeGaugeChart({ value: 73, hand });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'dial', type: TraceType.GAUGE, data: [] }],
+      groups: emptyGroups(),
+    }]);
+
+    const [target] = navMap.resolve('dial', 0, 0);
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 310, top: 160, width: 160, height: 135 });
   });
 
   it('clears rather than boxing the dial when the hand reports no geometry', () => {
