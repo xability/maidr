@@ -206,7 +206,7 @@ export class DivergingTrace extends SegmentedTrace {
     // The bar's own size. A reader hearing "-1,240,000" has to strip a sign
     // that says which side they are on, which the label beside it already
     // said.
-    return { ...sized(base), z: { label: this.z, value: side } };
+    return { ...sized(base), z: { label: this.seriesLabel, value: side } };
   }
 
   /**

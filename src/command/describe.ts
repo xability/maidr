@@ -1179,21 +1179,29 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
   /**
    * Announces position for segmented bar charts (stacked, normalized, dodged).
-   * Shows column position and level information.
+   * Shows column position and the series the cursor is in.
+   *
+   * The series is named by the label every move names it by, which the trace
+   * resolves: the layer's z label, or its own word for a series. A fixed
+   * "Level" here called it something else on every chart -- "Grade is A" on
+   * each move, then "Level is A" on P.
    */
   private announceSegmentedBarPosition(state: NonEmptyTraceState, x: number, cols: number): void {
-    const level = String(state.text.z?.value ?? '');
+    const series = state.text.z;
+    const level = String(series?.value ?? '');
     const position = x + 1;
     const total = cols;
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
       this.textViewModel.update(`${percent}%, ${level}`);
+    } else if (series === undefined) {
+      this.textViewModel.update(t('text.positionIs', { position, total }));
     } else {
       this.textViewModel.update(t('text.positionOfTotalWith', {
         position,
         total,
-        detail: t('text.labelIsValue', { label: t('text.level'), value: level }),
+        detail: t('text.labelIsValue', { label: series.label, value: level }),
       }));
     }
   }

@@ -379,6 +379,17 @@ test.describe('Dodged Barplot', () => {
       const firstDataPointValue = getDodgedBarplotDisplayValue(dodgedBarplotLayer, 0);
       expect(currentDataPoint).toContain(firstDataPointValue);
     });
+
+    test('should name the series by the z label on P, as the moves do', async ({ page }) => {
+      // Each move said "Cats is Below"; P said "Level is Below".
+      const dodgedBarplotPage = await setupDodgedBarplotPage(page);
+
+      await dodgedBarplotPage.moveToNextDataPoint();
+      await dodgedBarplotPage.announcePosition();
+      const position = await dodgedBarplotPage.getInstructionText();
+
+      expect(position).toBe('Position is 1 of 3, Cats is Below');
+    });
   });
 
   test.describe('Autoplay Controls', () => {

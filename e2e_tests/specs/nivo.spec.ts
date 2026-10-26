@@ -80,9 +80,9 @@ const CASES: Case[] = [
     example: 'Stacked Bar',
     id: 'nivo-stacked',
     steps: [
-      { key: 'ArrowRight', says: 'Quarter is Q1, Revenue ($) is 2400, Level is Product A', mark: 'bar.item.Product A.0' },
-      { key: 'ArrowUp', says: 'Quarter is Q1, Revenue ($) is 1800, Level is Product B', mark: 'bar.item.Product B.0' },
-      { key: 'ArrowRight', says: 'Quarter is Q2, Revenue ($) is 2700, Level is Product B', mark: 'bar.item.Product B.1' },
+      { key: 'ArrowRight', says: 'Quarter is Q1, Revenue ($) is 2400, Series is Product A', mark: 'bar.item.Product A.0' },
+      { key: 'ArrowUp', says: 'Quarter is Q1, Revenue ($) is 1800, Series is Product B', mark: 'bar.item.Product B.0' },
+      { key: 'ArrowRight', says: 'Quarter is Q2, Revenue ($) is 2700, Series is Product B', mark: 'bar.item.Product B.1' },
     ],
   },
   {

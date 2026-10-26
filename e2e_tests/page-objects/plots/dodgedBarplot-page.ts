@@ -85,6 +85,18 @@ export class DodgedBarplotPage extends BasePage {
   }
 
   /**
+   * Presses P, which announces where the cursor is.
+   * @throws DodgedBarplotError if the key press fails
+   */
+  public async announcePosition(): Promise<void> {
+    try {
+      await this.pressKeyAwaitingAnnouncement('p', 'announce position');
+    } catch (error) {
+      throw new DodgedBarplotError('Failed to announce the position', { cause: error });
+    }
+  }
+
+  /**
    * Checks if text mode is active
    * @param textMode - The text mode to check
    * @returns Promise resolving to true if text mode is active, false otherwise

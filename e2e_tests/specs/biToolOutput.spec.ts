@@ -43,12 +43,12 @@ const FIXTURES: ReadonlyArray<Fixture> = [
   { name: 'metabase-bar', check: 'ranks', first: /Doohickey, Count is 42\b/ },
   { name: 'metabase-line', check: 'moves', first: /2025-04-01, Count is 1\b/ },
   { name: 'metabase-area', check: 'moves', first: /2025-04-01, Count is 1\b/ },
-  { name: 'metabase-stacked', check: 'ranks', first: /2025, CNT is 210, Level is 43:CNT:Widget/, value: /CNT is ([\d,.]+)/ },
-  { name: 'metabase-multi-series', check: 'ranks', first: /Doohickey, SUM_TOTAL is 297,270\.99, Level is 44:SUM_TOTAL/, value: /SUM_TOTAL is ([\d,.]+)/ },
+  { name: 'metabase-stacked', check: 'ranks', first: /2025, CNT is 210, Series is 43:CNT:Widget/, value: /CNT is ([\d,.]+)/ },
+  { name: 'metabase-multi-series', check: 'ranks', first: /Doohickey, SUM_TOTAL is 297,270\.99, Series is 44:SUM_TOTAL/, value: /SUM_TOTAL is ([\d,.]+)/ },
   { name: 'metabase-scatter', check: 'moves', first: /PRICE is 15\.69, RATING is 4\b/ },
   { name: 'metabase-pie', check: 'outlined', first: /Widget, Value is 54\b/ },
   { name: 'metabase-combo', check: 'ranks', first: /Doohickey, SUM_TOTAL is 297,270\.99/, value: /SUM_TOTAL is ([\d,.]+)/ },
-  { name: 'metabase-stack-totals', check: 'ranks', first: /2025, CNT is 210, Level is 58:CNT:Widget/, value: /CNT is ([\d,.]+)/ },
+  { name: 'metabase-stack-totals', check: 'ranks', first: /2025, CNT is 210, Series is 58:CNT:Widget/, value: /CNT is ([\d,.]+)/ },
   { name: 'metabase-trend-line', check: 'moves', first: /2025-04-01, Count is 1\b/ },
   // Its steps are a custom series whose `renderItem` a captured option cannot
   // carry, so the fixture draws no bars to outline; see the README.

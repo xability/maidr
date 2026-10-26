@@ -644,12 +644,14 @@ function barTraceState(orientation: Orientation, bar: number): PlotState {
  * @param orientation Which way the bars run
  * @param level Zero-based index of the stack level the cursor is on
  * @param category Zero-based index of the category the cursor is on
+ * @param zLabel What the layer calls its series, when it says
  * @returns The trace's state with the cursor there
  */
 function stackedTraceState(
   orientation: Orientation,
   level: number,
   category: number,
+  zLabel?: string,
 ): PlotState {
   // Four categories against two levels (three rows, once the summary row is
   // added), so a level index or level count read as a category shows up.
@@ -660,7 +662,11 @@ function stackedTraceState(
     type: TraceType.STACKED,
     title: 'Stacked',
     orientation,
-    axes: { x: { label: 'Category' }, y: { label: 'Count' } },
+    axes: {
+      x: { label: 'Category' },
+      y: { label: 'Count' },
+      ...(zLabel === undefined ? {} : { z: { label: zLabel } }),
+    },
     data: levels.map((z, row) =>
       categories.map((category, col) => {
         const magnitude = row * 10 + col + 1;
@@ -717,7 +723,7 @@ describe('AnnouncePositionCommand on horizontal bar charts', () => {
     command.execute();
 
     expect(textViewModel.update).toHaveBeenCalledWith(
-      'Position is 3 of 4, Level is Low',
+      'Position is 3 of 4, Series is Low',
     );
   });
 
@@ -729,7 +735,21 @@ describe('AnnouncePositionCommand on horizontal bar charts', () => {
     command.execute();
 
     expect(textViewModel.update).toHaveBeenCalledWith(
-      'Position is 3 of 4, Level is Low',
+      'Position is 3 of 4, Series is Low',
+    );
+  });
+
+  test('names the series by the layer\'s z label, as every move does', () => {
+    // "Level is Low" before, whatever the layer called its series: each
+    // move said "Grade is Low" and P said "Level is Low".
+    const { command, textViewModel } = createCommand(
+      stackedTraceState(Orientation.VERTICAL, 0, 2, 'Grade'),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 3 of 4, Grade is Low',
     );
   });
 });
