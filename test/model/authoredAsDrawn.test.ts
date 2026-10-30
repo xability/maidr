@@ -221,4 +221,14 @@ describe('an authored example declares what it draws', () => {
     expect(draws(html, '2019 Car')).toBe(true);
     expect(label).toBe('Mode');
   });
+
+  it('names the choropleth, which draws no title, for the example rate it shades', () => {
+    // The values are made up for the example, so the title says so rather
+    // than naming a statistic they are not; it had been a placeholder,
+    // "Something per thousand, by state", read in the chart's name.
+    const [layer] = layersOf(specOf(read('choropleth.html')));
+
+    expect(layer.title).toBe('Example rate per 1,000 residents, by western state');
+    expect(layer.axes?.y?.label).toBe('Rate per 1,000 residents');
+  });
 });
