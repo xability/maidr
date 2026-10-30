@@ -1998,6 +1998,51 @@ describe('a stacked area\'s bands read top band first, so Up moves the caret up 
     trace.dispose();
   });
 
+  test('the caret lands on the point under the cursor past a gap and a late start', () => {
+    // Services has no reading in 2020 and Licences starts in 2021, so the
+    // three lines differ in length and one cell stands for a gap.
+    const years = ['2019', '2020', '2021', '2022'];
+    const trace = new AreaTrace({
+      id: 'revenue',
+      type: TraceType.STACKED_AREA,
+      axes: { x: { label: 'Year' }, y: { label: 'Revenue' } },
+      data: [
+        years.map((x, at) => ({ x, y: [10, 20, 30, 45][at], z: 'Subscriptions' })),
+        years.map((x, at) => ({ x, y: [5, null, 70, 25][at], z: 'Services' })),
+        [{ x: '2021', y: 3, z: 'Licences' }, { x: '2022', y: 4, z: 'Licences' }],
+      ],
+    });
+    trace.moveToIndex(0, 1);
+    const { service } = createBrailleService(32);
+    let last = { value: '', index: -1 };
+    service.onChange((event) => {
+      last = { value: event.value, index: event.index };
+    });
+    const caretAfter = (move: () => void): number => {
+      move();
+      service.update(trace.state);
+      return last.index;
+    };
+
+    service.toggle(trace.state);
+    const [licences, services] = last.value.split('\n');
+    const onSubscriptions2020 = last.index;
+    const onGap = caretAfter(() => trace.moveOnce('UPWARD'));
+    const pastTop = trace.moveOnce('UPWARD');
+    const onServices2021 = caretAfter(() => trace.moveOnce('FORWARD'));
+    const onLicences2021 = caretAfter(() => trace.moveOnce('UPWARD'));
+
+    // Licences, then Services, then Subscriptions, a newline after each.
+    expect([licences.length, services.length]).toEqual([2, 4]);
+    expect(onSubscriptions2020).toBe(2 + 1 + 4 + 1 + 1);
+    expect(onGap).toBe(2 + 1 + 1);
+    expect(pastTop).toBe(false);
+    expect(onServices2021).toBe(2 + 1 + 2);
+    expect(onLicences2021).toBe(0);
+    service.dispose();
+    trace.dispose();
+  });
+
   test('single-line and multiline displays list the bands in the same order', () => {
     for (const type of [TraceType.STACKED_AREA, TraceType.NORMALIZED_AREA]) {
       const trace = revenue(type);

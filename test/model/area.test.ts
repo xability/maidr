@@ -374,6 +374,27 @@ describe('stacked area: up and down follow the stack', () => {
     expect(bottom).toBe('Subscriptions');
   });
 
+  test('passes over a band that does not reach this x', () => {
+    // Services starts a quarter late: at Q1 the band drawn on top of
+    // Subscriptions is Licences, and at Q2 it is Services again.
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, LATE_START, LICENCES]),
+    ) as AreaTrace;
+    trace.moveToIndex(0, 0);
+
+    const upAtQ1 = trace.moveOnce('UPWARD');
+    const overQ1 = bandAt(trace);
+    const downAtQ1 = trace.moveOnce('DOWNWARD');
+    const underQ1 = bandAt(trace);
+    trace.moveToIndex(0, 1);
+    trace.moveOnce('UPWARD');
+    const overQ2 = bandAt(trace);
+
+    expect([upAtQ1, overQ1]).toEqual([true, 'Licences']);
+    expect([downAtQ1, underQ1]).toEqual([true, 'Subscriptions']);
+    expect(overQ2).toBe('Services');
+  });
+
   test('a 100% stacked area moves the same way', () => {
     // Q2 is 60 under 40: Up has to reach the smaller share drawn above.
     const normalized: LinePoint[][] = [
