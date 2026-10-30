@@ -52,6 +52,16 @@ class BumpPlotPage extends BasePage {
     const textarea = await this.waitForElement(this.selectors.braille);
     return (await textarea.inputValue()).trim();
   }
+
+  /** Moves to the place drawn at the top, with Control (Command) and Up. */
+  public async moveToTopPlace(): Promise<void> {
+    await this.moveToDataPoint(TestConstants.UP_ARROW_KEY, 'move to the place drawn at the top', true);
+  }
+
+  /** Moves to the place drawn at the bottom, with Control (Command) and Down. */
+  public async moveToBottomPlace(): Promise<void> {
+    await this.moveToDataPoint(TestConstants.DOWN_ARROW_KEY, 'move to the place drawn at the bottom', true);
+  }
 }
 
 test.describe('Bump chart', () => {
@@ -116,7 +126,9 @@ test.describe('Bump chart', () => {
 
   test('should move down the table with Down, as it is drawn', async ({ page }) => {
     // First place is drawn at the top. Read as a line, Down from Ash in first
-    // place said "No more data to display" and Up went down the page.
+    // place said "No more data to display" and Up went down the page. The
+    // layer does not say where first place is, so this is read from where
+    // the chart draws it.
     const plot = new BumpPlotPage(page);
     await plot.activateMaidr();
     await plot.moveToNextDataPoint();
@@ -126,6 +138,42 @@ test.describe('Bump chart', () => {
 
     expect(announcement).toContain('Rank is 2');
     expect(announcement).toContain('Birch');
+  });
+
+  test('should reach last place with Control and Down, and first place with Control and Up', async ({ page }) => {
+    // Read as a line, Control + Up went to last place and Control + Down to
+    // first.
+    const plot = new BumpPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToBottomPlace();
+    const bottom = normalizeText(await plot.getInstructionText());
+    await plot.moveToTopPlace();
+    const top = normalizeText(await plot.getInstructionText());
+
+    expect(bottom).toContain('Rank is 4');
+    expect(bottom).toContain('Cyan');
+    expect(top).toContain('Rank is 1');
+    expect(top).toContain('Ash');
+  });
+
+  test('should go to the best place held with ] and the worst with [', async ({ page }) => {
+    // Read as a line, ] took the largest rank number -- the worst place, the
+    // lowest note -- and [ the best. Cedar is first in R2 and last in R3.
+    const plot = new BumpPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
+    await plot.moveToDataPointBelow();
+    await plot.goToMaximumValue();
+    const best = normalizeText(await plot.getInstructionText());
+    await plot.goToMinimumValue();
+    const worst = normalizeText(await plot.getInstructionText());
+
+    expect(best).toContain('R2');
+    expect(best).toContain('Rank is 1');
+    expect(worst).toContain('R3');
+    expect(worst).toContain('Rank is 4');
   });
 
   test('should render one braille row per competitor', async ({ page }) => {

@@ -745,7 +745,7 @@ maidrAmCharts.bindAmCharts(root, { bump: true });
 maidrAmCharts.bindAmCharts(root, { bump: false });
 ```
 
-`true` stands in for the inversed axis and no more: the values still have to read as a ranking, because the option applies to every panel of the figure and must not invert the pitch of a plain line chart in the next one. It does not turn the chart over either: a bump chart on an ordinary axis draws first place at the bottom, and the adapter says so (`firstPlace: "bottom"`), so Up and Down still follow the drawing there. `false` suppresses the reading outright. A *slope graph* of values is not a bump chart — it is a line layer with two samples, which the line trace already reads correctly.
+`true` stands in for the inversed axis and no more: the values still have to read as a ranking, because the option applies to every panel of the figure and must not invert the pitch of a plain line chart in the next one. It does not turn the chart over either: a bump chart on an ordinary axis draws first place at the bottom, and the adapter says so (`firstPlace: "bottom"`), so Up and Down still follow the drawing there. On an inversed axis it says `firstPlace: "top"`: amCharts draws to a canvas, which MAIDR cannot measure to find where first place is. `false` suppresses the reading outright. A *slope graph* of values is not a bump chart — it is a line layer with two samples, which the line trace already reads correctly.
 
 ## Keyboard Controls
 

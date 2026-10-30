@@ -677,12 +677,16 @@ The data property is defined as a list of objects where each object is a record 
     //`y` the competitor's RANK in that period, 1 for first place. Emit the
     //true ranks: MAIDR makes first place the highest note itself.
     //
-    //`firstPlace` is a layer-level property saying where the chart draws
-    //first place: "top" (the default), as a bump chart is drawn with its rank
+    //`firstPlace` is an optional layer-level property saying where the chart
+    //draws first place: "top", as a bump chart is usually drawn with its rank
     //axis running down the page, or "bottom", on a chart drawn the ordinary
     //way up. Up and Down follow the drawing, so on the usual chart Up moves to
     //the competitor one place better and Control + Up to first place; `]`
-    //goes to a competitor's best place and `[` to its worst either way.
+    //goes to a competitor's best place and `[` to its worst either way. Left
+    //out, MAIDR reads where first place is drawn from the highlighted marks;
+    //with nothing to measure (a canvas, no highlight), Up moves to the next
+    //larger rank number, as on a line. Say it when the drawing cannot be
+    //measured.
     maidr = {
       "type": "bump",
       "firstPlace": "top",

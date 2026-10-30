@@ -2251,8 +2251,8 @@ export interface MaidrLayer {
   stepDirection?: StepDirection;
   /**
    * Where a {@link TraceType.BUMP} layer draws first place: `'top'`, as a
-   * bump chart is drawn, with its rank axis running down the page, or
-   * `'bottom'`, on a chart whose rank axis runs up it. Defaults to `'top'`.
+   * bump chart is usually drawn, with its rank axis running down the page, or
+   * `'bottom'`, on a chart whose rank axis runs up it.
    *
    * Up and Down follow the drawing. With first place at the top, Up moves to
    * the competitor one place better, drawn above, and Control + Up to first
@@ -2261,9 +2261,13 @@ export interface MaidrLayer {
    * place is the highest note either way, and `]` goes to a competitor's best
    * place.
    *
-   * Read by `BumpTrace` and ignored by every other type. Say `'bottom'` for a
-   * chart drawn the ordinary way up -- Frappe cannot reverse an axis, so its
-   * bump charts are all drawn that way.
+   * Optional. Left out, MAIDR reads where first place is drawn from the marks
+   * the highlight resolves, and where it has nothing to measure -- a chart
+   * drawn to a canvas, or no highlight -- Up moves to the next larger rank
+   * number, as on a line. Say it where the drawing cannot be measured: the
+   * Chart.js and amCharts adapters do, and Frappe, which cannot reverse an
+   * axis, says `'bottom'`. Read by `BumpTrace` and ignored by every other
+   * type.
    *
    * @example
    * // a bump chart whose rank axis runs up the page

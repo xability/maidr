@@ -489,9 +489,10 @@ function buildChartLayers(
   // A rank table on an inversed axis draws first place at the top, as a bump
   // chart is drawn. One declared with `bump: true` on an ordinary axis draws
   // it at the bottom, and there Up has to move to the worse place above it.
+  // Said either way: MAIDR cannot measure a canvas to find out.
   const lineType = lineTraceType(lineSeriesList, options);
-  const firstPlace = lineType === TraceType.BUMP && !hasRankAxis(lineSeriesList)
-    ? { firstPlace: 'bottom' as const }
+  const firstPlace = lineType === TraceType.BUMP
+    ? { firstPlace: hasRankAxis(lineSeriesList) ? 'top' as const : 'bottom' as const }
     : {};
   pushMerged(layers, merged.line, lineType, xLabel, yLabel, firstPlace);
   pushMerged(layers, merged.step, TraceType.STEP, xLabel, yLabel);

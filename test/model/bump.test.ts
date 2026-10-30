@@ -82,6 +82,20 @@ function bump(row = 0, col = 0, data: LinePoint[][] = TABLE): BumpTrace {
 }
 
 /**
+ * Build a bump trace that says first place is drawn at the top, positioned on
+ * one round of one competitor.
+ * @param row Which competitor
+ * @param col Which round
+ * @param data The competitors the layer carries
+ * @returns The positioned trace
+ */
+function topFirst(row = 0, col = 0, data: LinePoint[][] = TABLE): BumpTrace {
+  const trace = TraceFactory.create({ ...createLayer(data), firstPlace: 'top' }) as BumpTrace;
+  trace.moveToIndex(row, col);
+  return trace;
+}
+
+/**
  * The pitch the audio service will compute, from 0 (lowest) to 1 (highest).
  *
  * The service interpolates `raw` between `min` and `max`, and this chart hands
@@ -410,13 +424,15 @@ function competitor(trace: BumpTrace): unknown {
 }
 
 describe('up and down follow the table as it is drawn', () => {
-  // A bump chart draws first place at the top. Read as a line, Up went to the
-  // larger rank number -- the next place down the table -- so the reader and
-  // the highlight moved down the page, Down from first place said "No more
-  // data to display", and Control + Up landed on last place.
+  // A bump chart usually draws first place at the top. Read as a line, Up
+  // went to the larger rank number -- the next place down the table -- so the
+  // reader and the highlight moved down the page, Down from first place said
+  // "No more data to display", and Control + Up landed on last place. These
+  // layers say where first place is; `bumpDrawnOrder.test.ts` reads it from
+  // the drawing.
 
   test('up moves to the competitor one place better, drawn above', () => {
-    const trace = bump(1, 0);
+    const trace = topFirst(1, 0);
 
     const moved = trace.moveOnce('UPWARD');
 
@@ -425,7 +441,7 @@ describe('up and down follow the table as it is drawn', () => {
   });
 
   test('up from first place is the boundary, and down moves to second place', () => {
-    const trace = bump(0, 0);
+    const trace = topFirst(0, 0);
 
     expect(trace.isMovable('UPWARD')).toBe(false);
     expect(trace.moveOnce('DOWNWARD')).toBe(true);
@@ -433,7 +449,7 @@ describe('up and down follow the table as it is drawn', () => {
   });
 
   test('control and up reach first place, control and down last place', () => {
-    const trace = bump(1, 0);
+    const trace = topFirst(1, 0);
 
     trace.moveToExtreme('UPWARD');
     const top = competitor(trace);
@@ -457,6 +473,53 @@ describe('up and down follow the table as it is drawn', () => {
 
     expect(above).toBe('Cedar');
     expect(top).toBe('Cyan');
+  });
+
+  test('a layer that says nothing, with nothing to measure, keeps the line\'s rule', () => {
+    // No highlight here, and no `firstPlace`: Up moves to the next larger
+    // rank number, as it did before the keys followed the drawing, so a
+    // chart drawn the ordinary way up is not turned over.
+    const trace = bump(0, 0);
+
+    const moved = trace.moveOnce('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(competitor(trace)).toBe('Birch');
+  });
+});
+
+describe('a tie is walked one competitor at a time', () => {
+  // Birch and Cedar share second place in R1. The line walks a tie in series
+  // order going up its values, and turning the key round turns that order
+  // round too: Down enters the tie at Birch and Up at Cedar, and each is
+  // reached once either way.
+  const TIED: LinePoint[][] = [
+    [{ x: 'R1', y: 1, z: 'Ash' }],
+    [{ x: 'R1', y: 2, z: 'Birch' }],
+    [{ x: 'R1', y: 2, z: 'Cedar' }],
+    [{ x: 'R1', y: 4, z: 'Cyan' }],
+  ];
+
+  /**
+   * The competitors a key reaches, one press at a time, until it stops.
+   * @param trace The trace to move
+   * @param direction The key
+   * @returns The rows reached, in order
+   */
+  function walk(trace: BumpTrace, direction: 'UPWARD' | 'DOWNWARD'): number[] {
+    const rows: number[] = [];
+    for (let press = 0; press < TIED.length && trace.moveOnce(direction); press++) {
+      rows.push(trace.row);
+    }
+    return rows;
+  }
+
+  test('down from first place reaches both tied competitors, then last place', () => {
+    expect(walk(topFirst(0, 0, TIED), 'DOWNWARD')).toEqual([1, 2, 3]);
+  });
+
+  test('up from last place reaches them the other way round', () => {
+    expect(walk(topFirst(3, 0, TIED), 'UPWARD')).toEqual([2, 1, 0]);
   });
 });
 

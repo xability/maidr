@@ -26,6 +26,26 @@ function rankRotorUnits(): readonly RotorFilterUnit[] {
 }
 
 /**
+ * How far down the page the centre of the marker the highlight holds for a
+ * point is drawn.
+ *
+ * @param cell - The highlight's marker, or markers, for one point
+ * @returns The centre's distance from the top of the viewport; null when the
+ *   point has no marker, and NaN when the chart is not laid out yet
+ */
+function markerCentreY(cell: SVGElement[] | SVGElement | undefined): number | null {
+  const marker = Array.isArray(cell) ? cell[0] : cell;
+  if (marker === undefined) {
+    return null;
+  }
+  const box = marker.getBoundingClientRect();
+  if (box.top === 0 && box.width === 0 && box.height === 0) {
+    return Number.NaN;
+  }
+  return box.top + box.height / 2;
+}
+
+/**
  * Trace implementation for bump charts -- rank over time, one line per
  * competitor.
  *
@@ -54,10 +74,12 @@ function rankRotorUnits(): readonly RotorFilterUnit[] {
  * is a line layer with two samples, which the line trace already reads
  * correctly. What makes this a type of its own is the rank.
  *
- * The same inversion runs through the keys. First place is drawn at the top,
- * so Up moves to the next better place rather than the next larger number
- * ({@link findVerticalTarget}), and `]` goes to the best place, the highest
- * note ({@link getExtremaTargets}).
+ * The same inversion runs through the keys. Where first place is drawn at the
+ * top, Up moves to the next better place rather than the next larger number
+ * ({@link findVerticalTarget}); which end it is drawn at is declared by the
+ * producer or read from the drawing ({@link firstPlaceOnTop}). And `]` goes to
+ * the best place, the highest note, however the chart is drawn
+ * ({@link getExtremaTargets}).
  */
 export class BumpTrace extends LineTrace {
   /** Best (numerically smallest) and worst rank anywhere in the chart. */
@@ -81,10 +103,16 @@ export class BumpTrace extends LineTrace {
   private readonly rotorUnits: readonly RotorFilterUnit[];
 
   /**
-   * Whether first place is drawn at the top, as a bump chart is drawn, rather
-   * than at the bottom ({@link MaidrLayer.firstPlace}).
+   * Where the producer says first place is drawn, if it says
+   * ({@link MaidrLayer.firstPlace}).
    */
-  private readonly firstPlaceOnTop: boolean;
+  private readonly declaredFirstPlace?: 'top' | 'bottom';
+
+  /**
+   * Whether first place was measured to be drawn at the top, once measured;
+   * `null` until then. See {@link firstPlaceOnTop}.
+   */
+  private measuredFirstPlaceOnTop: boolean | null = null;
 
   /**
    * Creates a new bump trace.
@@ -135,7 +163,7 @@ export class BumpTrace extends LineTrace {
       ? rankRotorUnits()
       : [];
 
-    this.firstPlaceOnTop = layer.firstPlace !== 'bottom';
+    this.declaredFirstPlace = layer.firstPlace;
   }
 
   /**
@@ -420,12 +448,13 @@ export class BumpTrace extends LineTrace {
    * Up and Down follow the table as it is drawn.
    *
    * A line moves Up to the next larger value, because a line draws its larger
-   * values higher. A bump chart draws first place -- the smallest number -- at
-   * the top, so read the line's way Up went to the next place down the table,
-   * the reader and the highlight moved down the page, and Down from first
-   * place said "No more data to display". Where first place is drawn at the
-   * top, the key's direction is turned round before the line answers it; a
-   * chart drawn the other way up keeps the line's.
+   * values higher. A bump chart usually draws first place -- the smallest
+   * number -- at the top, so read the line's way Up went to the next place
+   * down the table, the reader and the highlight moved down the page, and
+   * Down from first place said "No more data to display". Where first place
+   * is drawn at the top ({@link firstPlaceOnTop}), the key's direction is
+   * turned round before the line answers it; a chart drawn the other way up
+   * keeps the line's.
    *
    * @param direction - UPWARD for the place drawn above, DOWNWARD for the place drawn below
    * @returns The row and column to move to, or null past the top or bottom place
@@ -458,10 +487,75 @@ export class BumpTrace extends LineTrace {
    * @returns The direction in rank numbers: UPWARD for larger ones
    */
   private valueDirection(direction: 'UPWARD' | 'DOWNWARD'): 'UPWARD' | 'DOWNWARD' {
-    if (!this.firstPlaceOnTop) {
+    if (!this.firstPlaceOnTop()) {
       return direction;
     }
     return direction === 'UPWARD' ? 'DOWNWARD' : 'UPWARD';
+  }
+
+  /**
+   * Whether first place is drawn at the top of the chart.
+   *
+   * What the producer declares in {@link MaidrLayer.firstPlace}, when it
+   * does. Otherwise it is read from the drawing, the way `GanttTrace` reads
+   * which end its first lane is at: the markers the highlight holds sit on
+   * the points, so within one competitor's line, its best place drawn above
+   * its worst means first place is at the top. Summed over every line whose
+   * place changes, so one line does not decide it alone.
+   *
+   * With nothing to measure -- no highlight, a chart drawn to a canvas, a
+   * highlight that outlines a whole line, lines whose places never change --
+   * the line's own rule is kept, Up moving to the next larger number, as it
+   * always has. Measured when first asked rather than at construction, when
+   * the chart may not be laid out yet; until it is, the line's rule answers,
+   * and the next key measures again.
+   *
+   * @returns True when Up and Down have to be turned round
+   */
+  private firstPlaceOnTop(): boolean {
+    if (this.declaredFirstPlace !== undefined) {
+      return this.declaredFirstPlace === 'top';
+    }
+    if (this.measuredFirstPlaceOnTop !== null) {
+      return this.measuredFirstPlaceOnTop;
+    }
+
+    const markers = this.highlightValues ?? [];
+    // How far below each line's best place its worst place is drawn, summed.
+    // Screen y grows down the page.
+    let lean = 0;
+    for (let row = 0; row < markers.length; row++) {
+      const ranks = this.lineValues[row] ?? [];
+      let best = -1;
+      let worst = -1;
+      ranks.forEach((rank, col) => {
+        if (!isMeasured(rank) || markers[row][col] === undefined) {
+          return;
+        }
+        if (best === -1 || rank < ranks[best]) {
+          best = col;
+        }
+        if (worst === -1 || rank > ranks[worst]) {
+          worst = col;
+        }
+      });
+      if (best === -1 || ranks[best] === ranks[worst]) {
+        continue;
+      }
+      const ofBest = markerCentreY(markers[row][best]);
+      const ofWorst = markerCentreY(markers[row][worst]);
+      if (ofBest === null || ofWorst === null) {
+        continue;
+      }
+      if (Number.isNaN(ofBest) || Number.isNaN(ofWorst)) {
+        // Not laid out yet: answer as the line would, and measure again on
+        // the next key rather than keep an answer read from nothing.
+        return false;
+      }
+      lean += ofWorst - ofBest;
+    }
+    this.measuredFirstPlaceOnTop = lean > 0;
+    return this.measuredFirstPlaceOnTop;
   }
 
   /**

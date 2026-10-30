@@ -370,13 +370,15 @@ warning tone, rather than by a generic name such as "Y label is Y".
 
 ## Bump Chart Controls
 
-A bump chart draws first place at the top, so Up moves to the competitor one
-place better in the same period, drawn above the one you are on, and Down one
-place worse. Control + Up (Command + Up on a Mac) goes to first place and
-Control + Down to last. On a chart drawn the other way up, with first place at
-the bottom, Up and Down still move the way the chart is drawn. Whichever way it
-is drawn, first place is the highest note, ] (Go to Maximum Value) goes to the
-best place the competitor held and [ to the worst.
+A bump chart usually draws first place at the top, so Up moves to the
+competitor one place better in the same period, drawn above the one you are on,
+and Down one place worse. Control + Up (Command + Up on a Mac) goes to first
+place and Control + Down to last. On a chart drawn the other way up, with first
+place at the bottom, Up and Down still move the way the chart is drawn. Where
+MAIDR cannot tell how the chart is drawn, Up moves to the next larger rank
+number, as on a line chart. Whichever way it is drawn, first place is the
+highest note, ] (Go to Maximum Value) goes to the best place the competitor
+held and [ to the worst.
 
 ## Violin Plot Controls
 
