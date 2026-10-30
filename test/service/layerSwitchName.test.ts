@@ -78,7 +78,7 @@ describe('a layer switch onto a scatter', () => {
     trace.moveOnce('FORWARD'); // Hot Water and Tea share their evolution.
 
     expect(switchOnto(trace)).toBe(
-      'Layer 1 of 2: Components at Evolution is 0.8, Visibility is 0.52, 0.6',
+      'Layer 1 of 2: Components at Evolution is 0.8, Visibility are 0.52, 0.6',
     );
   });
 
