@@ -229,7 +229,7 @@ The adapter reads the chart that was drawn. Plot labels every mark it renders �
 
 That is why the adapter needs no configuration and works on charts written before MAIDR was in the picture, including ones you did not author.
 
-A chart it binds is padded by 6px inside its own size (`padding: 6px; box-sizing: border-box` on the `<svg>`). MAIDR's focus ring is drawn 5px into the chart while it has focus, and Plot draws its axis titles, such as "↑ Visitors" and "Day", a few pixels inside the edge of the `<svg>`, where the ring would cover them. A padding you set on the `<svg>` yourself is left alone, and a chart converted with `autoApply: false` is not touched.
+A chart it binds is padded by 6px inside its own size (`padding: 6px; box-sizing: border-box` on the `<svg>`). MAIDR's focus ring is drawn 5px into the chart while it has focus, and Plot draws its axis titles, such as "↑ Visitors" and "Day", a few pixels inside the edge of the `<svg>`, where the ring would cover them. A padding you give the `<svg>` yourself, on it or in a stylesheet, is left alone, and a chart converted with `autoApply: false` is not touched.
 
 ## What it reads
 

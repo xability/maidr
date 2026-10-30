@@ -14,14 +14,37 @@
  * railroad's rule names do, is painted a pixel past the box it is laid out
  * in -- Firefox reports it there -- and at 5px that pixel sat under the band.
  *
- * A padding of the drawing's own is left as it is.
+ * A padding of the drawing's own, written on it or given by a stylesheet of
+ * the page, is left as it is: the 6px is written on the drawing, where it
+ * would override the stylesheet's.
  *
  * @param svg - The drawing
  */
 export function leaveRoomForFocusRing(svg: SVGSVGElement): void {
-  if (svg.style.padding !== '') {
+  if (hasOwnPadding(svg)) {
     return;
   }
   svg.style.padding = '6px';
   svg.style.boxSizing = 'border-box';
+}
+
+/**
+ * Whether a drawing has a padding of its own.
+ *
+ * A stylesheet reaches the drawing only once it is in a page, so one not yet
+ * placed has only what is written on it.
+ *
+ * @param svg - The drawing
+ * @returns True when any side of it is padded
+ */
+function hasOwnPadding(svg: SVGSVGElement): boolean {
+  if (svg.style.padding !== '') {
+    return true;
+  }
+  const view = svg.ownerDocument.defaultView;
+  if (!svg.isConnected || view === null) {
+    return false;
+  }
+  const { paddingTop, paddingRight, paddingBottom, paddingLeft } = view.getComputedStyle(svg);
+  return [paddingTop, paddingRight, paddingBottom, paddingLeft].some(side => Number.parseFloat(side) > 0);
 }
