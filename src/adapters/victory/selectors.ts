@@ -68,11 +68,10 @@ function victoryAttr(panelIndex: number | null, suffix: string): string {
  * svgs than expected (e.g. a Victory version drops the role), all svgs are
  * used as a fallback.
  *
- * MAIDR-owned hidden clones are excluded up front: while the figure is
- * focused, the core inserts a `data-maidr-owned` clone right after each
- * panel svg (with `role="img"` preserved), and counting those would bind
- * every panel after the first to the previous panel's clone during a
- * focused re-tag pass.
+ * MAIDR-owned elements are excluded up front: a copy MAIDR makes keeps
+ * `role="img"` and every tag, and counting one would bind a panel to it
+ * during a focused re-tag pass. (The core no longer copies a panel svg for
+ * its outline, but a copy of anything that contains one would still count.)
  */
 export function resolvePanelSvgs(container: HTMLElement, expectedCount: number): SVGElement[] {
   const all = Array.from(container.querySelectorAll('svg')).filter(svg => !isMaidrOwned(svg));

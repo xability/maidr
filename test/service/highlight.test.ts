@@ -3,14 +3,17 @@
  */
 
 /**
- * The panel outline `HighlightService` draws reads two things from the page:
- * how many panels the chart has, which decides whether a panel is outlined at
- * all, and py-maidr's figure background, which the outline's colour is
- * measured against when a panel is transparent. Both used to be read from
- * the whole page, so on a page of several charts a single-panel chart counted
- * its neighbours' panels, and a figure measured its outline against the first
- * chart's background. Each chart is read inside the elements it is drawn in
- * now, the same ones its layout counts panels in.
+ * The panel outline `HighlightService` draws reads py-maidr's figure
+ * background from the page, which the outline's colour is measured against
+ * when a panel is transparent. It used to be read from the whole page, so a
+ * figure measured its outline against the first chart's background. Each
+ * chart is read inside the elements it is drawn in now.
+ *
+ * The panel itself is whatever the model names: a shape is stroked, as a
+ * matplotlib axes' background patch always was, and anything else gets a box
+ * drawn round it. The service used to outline a panel only where the chart
+ * had more than one matplotlib axes group, so the lobby of every other
+ * producer's figure showed nothing.
  *
  * In high contrast every mark is painted from the reader's palette, so the
  * highlight is drawn in the reader's highlight colour as it is: a colour
@@ -80,10 +83,10 @@ function addChart(name: string, panels: number, background: string): HTMLElement
 
 /**
  * The state of a subplot whose outline is the given panel.
- * @param panel - The panel's group
+ * @param panel - The panel, or the background shape it is outlined along
  * @returns The state
  */
-function onPanel(panel: SVGElement): SubplotState {
+function onPanel(panel: Element): SubplotState {
   return {
     empty: false,
     type: 'subplot',
@@ -95,39 +98,54 @@ function onPanel(panel: SVGElement): SubplotState {
 }
 
 /**
- * Moves onto the first panel of a chart and reads the outline drawn there.
+ * Moves onto the first panel of a chart, its background shape, and reads the
+ * outline drawn there.
  * @param plot - The chart's plot element
  * @param overlays - The chart's layers drawn outside its plot element
  * @returns The outline's stroke, or null when the panel is not outlined
  */
 function outlineOfFirstPanel(plot: HTMLElement, overlays: Element[] = []): string | null {
   const service = new HighlightService(settingsStub(), () => [plot, ...overlays]);
-  const panel = plot.querySelector('g[id^="axes_"]') as SVGElement;
+  const background = plot.querySelector('g[id^="axes_"] path') as SVGElement;
 
-  service.update(onPanel(panel));
+  service.update(onPanel(background));
 
-  const background = panel.querySelector('path') as SVGElement;
   const stroke = background.hasAttribute('data-maidr-orig-stroke') ? background.getAttribute('stroke') : null;
   service.dispose();
   return stroke;
+}
+
+/**
+ * Gives an element a box on the page, which jsdom, laying nothing out, does
+ * not.
+ * @param element - The element
+ * @param box - Its box
+ * @param box.left - Its left edge
+ * @param box.top - Its top edge
+ * @param box.width - Its width
+ * @param box.height - Its height
+ */
+function placeAt(element: Element, box: { left: number; top: number; width: number; height: number }): void {
+  Object.defineProperty(element, 'getBoundingClientRect', {
+    value: () => ({ ...box, x: box.left, y: box.top, right: box.left + box.width, bottom: box.top + box.height }),
+    configurable: true,
+  });
+}
+
+/**
+ * The boxes MAIDR has drawn round panels on the page.
+ * @returns Them, in document order
+ */
+function panelBoxes(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>('div[data-maidr-owned]'));
 }
 
 afterEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('HighlightService beside another chart', () => {
-  it('should not outline the only panel of a chart that follows another', () => {
-    addChart('mA', 1, '#ffffff');
-    const plot = addChart('mB', 1, '#ffffff');
-
-    const stroke = outlineOfFirstPanel(plot);
-
-    expect(stroke).toBeNull();
-  });
-
-  it('should outline a panel of a chart that has two', () => {
-    addChart('mA', 1, '#ffffff');
+describe('HighlightService outlining a panel', () => {
+  it('should stroke a panel\'s background shape', () => {
     const plot = addChart('mB', 2, '#ffffff');
 
     const stroke = outlineOfFirstPanel(plot);
@@ -147,15 +165,81 @@ describe('HighlightService beside another chart', () => {
     expect(beside).toBe(alone);
   });
 
-  it('should count the panels in every element the chart is drawn in', () => {
-    const plot = addChart('mB', 1, '#ffffff');
-    const overlay = document.createElementNS(SVG_NAMESPACE, 'svg');
-    overlay.innerHTML = '<g id="axes_2-mB"><path style="fill: none"/></g>';
-    document.body.appendChild(overlay);
+  it('should draw a box round a panel with no background of its own', () => {
+    // A D3 panel's group holds its bars and nothing behind them; stroking
+    // its first rect outlined the first bar.
+    document.body.innerHTML = `<div id="plot"><svg xmlns="${SVG_NAMESPACE}">`
+      + `<g class="panel"><rect class="bar" style="fill: #1f77b4"/></g></svg></div>`;
+    const plot = document.getElementById('plot') as HTMLElement;
+    const panel = plot.querySelector('g.panel') as SVGElement;
+    placeAt(panel, { left: 40, top: 30, width: 200, height: 120 });
+    const service = new HighlightService(settingsStub(), () => [plot]);
 
-    const stroke = outlineOfFirstPanel(plot, [overlay]);
+    service.update(onPanel(panel));
 
-    expect(stroke).not.toBeNull();
+    const [box] = panelBoxes();
+    expect(box).toBeDefined();
+    expect(box.parentElement).toBe(plot);
+    // Outside the panel by its 4px border and a 2px gap, so the border
+    // covers none of the marks drawn at the panel's edge.
+    expect([box.style.left, box.style.top, box.style.width, box.style.height]).toEqual(['34px', '24px', '212px', '132px']);
+    expect(box.style.pointerEvents).toBe('none');
+    expect(box.getAttribute('aria-hidden')).toBe('true');
+    // The chart's own marks are left as they were drawn.
+    expect(panel.querySelector('rect')?.hasAttribute('stroke')).toBe(false);
+    service.dispose();
+  });
+
+  it('should draw a box round a panel named by an HTML element laid over a canvas', () => {
+    document.body.innerHTML = '<div id="plot"><canvas></canvas><div id="panel-1" style="visibility: hidden"></div></div>';
+    const plot = document.getElementById('plot') as HTMLElement;
+    const panel = document.getElementById('panel-1') as HTMLElement;
+    placeAt(panel, { left: 10, top: 20, width: 300, height: 150 });
+    const service = new HighlightService(settingsStub(), () => [plot]);
+
+    service.update(onPanel(panel));
+
+    expect(panelBoxes()).toHaveLength(1);
+    expect(panelBoxes()[0].style.width).toBe('312px');
+    service.dispose();
+  });
+
+  it('should take the box away when the reader moves to the next panel, and when the panel is left', () => {
+    document.body.innerHTML = `<div id="plot"><svg xmlns="${SVG_NAMESPACE}"><g id="p1"></g><g id="p2"></g></svg></div>`;
+    const plot = document.getElementById('plot') as HTMLElement;
+    const [first, second] = ['p1', 'p2'].map(id => document.getElementById(id) as unknown as SVGElement);
+    placeAt(first, { left: 0, top: 0, width: 100, height: 100 });
+    placeAt(second, { left: 0, top: 120, width: 100, height: 100 });
+    const service = new HighlightService(settingsStub(), () => [plot]);
+
+    service.update(onPanel(first));
+    service.update(onPanel(second));
+
+    expect(panelBoxes()).toHaveLength(1);
+    expect(panelBoxes()[0].style.top).toBe('114px');
+
+    service.dispose();
+
+    expect(panelBoxes()).toHaveLength(0);
+  });
+
+  it('should clear the outline when a state names no panel', () => {
+    const plot = addChart('mB', 2, '#ffffff');
+    const background = plot.querySelector('g[id^="axes_"] path') as SVGElement;
+    const service = new HighlightService(settingsStub(), () => [plot]);
+    service.update(onPanel(background));
+
+    service.update({
+      empty: false,
+      type: 'subplot',
+      size: 1,
+      index: 1,
+      trace: {} as TraceState,
+      highlight: { empty: true, type: 'trace', audio: { x: 0, y: 0, rows: 1, cols: 1 } },
+    });
+
+    expect(background.hasAttribute('data-maidr-orig-stroke')).toBe(false);
+    service.dispose();
   });
 });
 
@@ -278,9 +362,8 @@ describe('HighlightService redraw', () => {
   it('should outline a panel again against the figure background as it is now', () => {
     const plot = addChart('a', 2, 'rgb(255, 255, 255)');
     const service = new HighlightService(settingsStub(), () => [plot]);
-    const panel = plot.querySelector('g[id^="axes_"]') as SVGElement;
-    service.update(onPanel(panel));
-    const outline = panel.querySelector('path') as SVGElement;
+    const outline = plot.querySelector('g[id^="axes_"] path') as SVGElement;
+    service.update(onPanel(outline));
     const onWhite = outline.getAttribute('stroke');
 
     (plot.querySelector('g[id^="maidr-"] > path') as SVGElement).style.fill = 'rgb(0, 0, 0)';
