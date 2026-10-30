@@ -110,7 +110,7 @@ describe('victory stacked area', () => {
 });
 
 describe('victory error bar', () => {
-  it('tags exactly one whisker per sample', () => {
+  it('tags exactly one group of lines per sample', () => {
     const { doc, layers } = renderAndTag(createElement(
       VictoryChart,
       null,
@@ -125,8 +125,11 @@ describe('victory error bar', () => {
 
     expect(layers[0].type).toBe(TraceType.ERROR_BAR);
     // One element per sample is the trace's contract; any other count and it
-    // discards the highlight for the whole layer.
-    expect(doc.querySelectorAll(layers[0].selectors as string)).toHaveLength(3);
+    // discards the highlight for the whole layer. Each is the `<g>` Victory
+    // draws the sample's four lines in.
+    const samples = Array.from(doc.querySelectorAll(layers[0].selectors as string));
+    expect(samples.map(sample => [sample.tagName.toLowerCase(), sample.querySelectorAll('line').length]))
+      .toEqual([['g', 4], ['g', 4], ['g', 4]]);
   });
 
   it('puts an asymmetric bound on the side victory drew it', () => {
@@ -167,22 +170,63 @@ describe('victory error bar', () => {
       .toBeCloseTo(pxPerUnit * (estimate(0) - (points[0].yMin ?? Number.NaN)), 6);
   });
 
+  it('outlines the whole interval at the estimate and at both bounds', () => {
+    // The example page's first two samples.
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryErrorBar, {
+        data: [
+          { x: 'Control', y: 4.2, errorY: 0.6 },
+          { x: 'Low dose', y: 5.1, errorY: 0.9 },
+        ],
+      }),
+    ));
+
+    // What the reader is shown at each sample's lower bound, estimate and
+    // upper bound, through the trace itself.
+    const outlined = withPageDocument(doc.body, () => {
+      const trace = TraceFactory.create(layers[0]);
+      const spans = [0, 1].map(sample => [0, 1, 2].map((section) => {
+        trace.moveToIndex(section, sample);
+        const { state } = trace;
+        const element = state.empty || state.type !== 'trace' || state.highlight.empty
+          ? null
+          : state.highlight.elements;
+        return verticalSpan(Array.isArray(element) ? element[0] : element);
+      }));
+      trace.dispose();
+      return spans;
+    });
+
+    // Victory draws each sample as one group of lines, the whiskers on either
+    // side of the estimate and a cap at each end, and every section of that
+    // sample outlines all of it.
+    const drawn = Array.from(doc.querySelectorAll('line[data-type^="cross-"]'))
+      .filter((_, i) => i % 2 === 0)
+      .map(cross => verticalSpan(cross.parentElement));
+    expect(outlined).toEqual(drawn.map(span => [span, span, span]));
+  });
+
+  /** The top and bottom of every line an element is or holds. */
+  function verticalSpan(element: Element | null): { top: number; bottom: number } {
+    const lines = element?.tagName.toLowerCase() === 'line'
+      ? [element]
+      : Array.from(element?.querySelectorAll('line') ?? []);
+    const ys = lines.flatMap(line => [Number(line.getAttribute('y1')), Number(line.getAttribute('y2'))]);
+    return { top: Math.min(...ys), bottom: Math.max(...ys) };
+  }
+
   /**
-   * The screen-space span of one whisker, read off the four lines Victory
-   * renders per sample. Its `data-type` names ignore the y axis pointing down
-   * — `border-bottom` is the upper cap — so the sides are taken by geometry.
+   * The screen-space span of one sample's whisker, read off the four lines
+   * Victory renders for it. Its `data-type` names ignore the y axis pointing
+   * down — `border-bottom` is the upper cap — so the sides are taken by
+   * geometry; both whiskers start at the estimate.
    */
-  function whiskerExtent(cross: Element): { centre: number; top: number; bottom: number } {
-    const lines = Array.from((cross.parentElement as Element).querySelectorAll('line'));
-    const ys = lines.flatMap(line => [
-      Number(line.getAttribute('y1')),
-      Number(line.getAttribute('y2')),
-    ]);
-    return {
-      centre: Number(cross.getAttribute('y1')),
-      top: Math.min(...ys),
-      bottom: Math.max(...ys),
-    };
+  function whiskerExtent(sample: Element): { centre: number; top: number; bottom: number } {
+    const cross = sample.querySelector('line[data-type^="cross-"]') as Element;
+    const { top, bottom } = verticalSpan(sample);
+    return { centre: Number(cross.getAttribute('y1')), top, bottom };
   }
 });
 
