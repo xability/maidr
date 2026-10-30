@@ -342,4 +342,29 @@ describe('a tag cloud, whose every word AnyChart writes twice', () => {
 
     cleanUp(container);
   });
+
+  it('outlines a term written with capitals, which AnyChart draws in lower case', () => {
+    // Measured on AnyChart 8.13: "Screen Reader", "MAIDR" and "Über" are
+    // drawn as "screen reader", "maidr" and "über". Matched exactly, no term
+    // with a capital found its word, and the whole cloud lost its highlight.
+    const { container, chartGroup } = renderChart('cloud-capitals');
+    const shown = element('g', { id: 'ac_layer_words' }, chartGroup);
+    const wordText = ['maidr', 'über', 'screen reader'].map((word, i) => {
+      const text = element('text', { 'id': `ac_simple-text_word_${i}`, 'fill': '#64b5f6', 'fill-opacity': '0.85' }, shown);
+      text.textContent = word;
+      return text;
+    });
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'Screen Reader', value: 80 },
+      { x: 'MAIDR', value: 50 },
+      { x: 'Über', value: 20 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-1', '0-2', '0-0']);
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
 });
