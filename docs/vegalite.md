@@ -323,7 +323,8 @@ const spec = {
   },
   mark: 'line',
   encoding: {
-    x: { field: 'month', type: 'ordinal',     title: 'Month' },
+    // `sort: null` keeps the rows' order; Vega-Lite sorts an ordinal axis.
+    x: { field: 'month', type: 'ordinal',     title: 'Month', sort: null },
     y: { field: 'temp',  type: 'quantitative', title: 'Temperature (F)' },
   },
 };
