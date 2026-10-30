@@ -158,14 +158,19 @@ describe('an authored example declares what it draws', () => {
   // The title the chart draws above its axes, and the one every layer of it
   // carries: a layer's `title` names the chart, so a figure's layers all carry
   // the same one (docs/SCHEMA.md). `stacked_bar.html` already did, and is here
-  // so the pair of stacked examples cannot drift apart again.
+  // so the pair of stacked examples cannot drift apart again. A title of two
+  // lines is drawn as two texts, one per line.
   it.each([
     ['boxplot-horizontal.html', 'Horizontal Box Plot Example'],
     ['boxplot-vertical.html', 'Vertical Box Plot Example'],
     ['candlestick_multilayer.html', 'Stock Price with Volume'],
     ['dodged-barplot.html', 'Seaborn Dodged Bar Plot: Penguin Weight Counts'],
     ['errorbar-grouped.html', 'Average Total Bill by Day and Sex'],
+    ['heatmap.html', 'Heatmap of Model Scores by Task'],
+    ['histogram.html', 'Histogram of Petal Lengths in Iris Dataset'],
+    ['lineplot.html', 'Total Passengers per Year\nFrom the Flights Dataset'],
     ['multilayer_plot.html', 'Multilayer Plot Example'],
+    ['smooth_plot.html', 'KDE Plot of Random Data'],
     ['stacked-barplot.html', 'Passenger Count by Class and Survival Status on the Titanic'],
     ['stacked_bar.html', 'Passenger Count by Class and Survival Status on the Titanic'],
     ['vertical-candlestick.html', 'Stock Price AAPL'],
@@ -174,7 +179,7 @@ describe('an authored example declares what it draws', () => {
 
     const titles = layersOf(specOf(html)).map(layer => layer.title);
 
-    expect(draws(html, title)).toBe(true);
+    expect(title.split('\n').every(line => draws(html, line))).toBe(true);
     expect(titles).toEqual(titles.map(() => title));
   });
 
