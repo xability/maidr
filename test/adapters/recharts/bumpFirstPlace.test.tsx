@@ -136,11 +136,19 @@ describe('a Recharts bump chart', () => {
     expect(walk(layer, ['DOWNWARD'])).toEqual(['edge']);
   });
 
-  it('says first place is at the bottom under an ordinary rank axis, which draws rank 1 lowest', () => {
+  it('says nothing under an ordinary rank axis, where Up moves to the next larger rank number', () => {
     const layer = bumpLayer(chart({ allowDecimals: false }));
 
-    expect(layer.firstPlace).toBe('bottom');
+    expect(layer.firstPlace).toBeUndefined();
     expect(walk(layer, ['DOWNWARD', 'DOWNWARD'])).toEqual(['everton 2', 'chelsea 1']);
+  });
+
+  it('says nothing under an axis turned by its domain, which only the drawing tells', () => {
+    // Not `reversed`, and still not the ordinary way up: said to be 'bottom',
+    // it would override the core's own reading of the highlighted dots.
+    const layer = bumpLayer(chart({ domain: [3, 1] }));
+
+    expect(layer.firstPlace).toBeUndefined();
   });
 
   it('keeps a first place the chart declares', () => {
@@ -166,6 +174,20 @@ describe('a Recharts bump chart', () => {
     }));
 
     expect(seen.at(-1)?.subplots[0][0].layers[0].firstPlace).toBeUndefined();
+  });
+});
+
+describe('a composed chart of bump layers', () => {
+  it('carries the first place it declares onto each bump layer', () => {
+    const maidr = convertRechartsToMaidr({
+      id: 'composed',
+      data: RANKS,
+      xKey: 'matchday',
+      firstPlace: 'top',
+      layers: CLUBS.map(yKey => ({ chartType: 'bump' as const, yKey })),
+    });
+
+    expect(maidr.subplots[0][0].layers.map(layer => layer.firstPlace)).toEqual(['top', 'top', 'top']);
   });
 });
 
@@ -195,6 +217,17 @@ describe('firstPlaceFor', () => {
     });
 
     expect(firstPlaceFor(nested)).toBe('top');
+  });
+
+  it('reads only the first rank axis of a chart that draws two', () => {
+    const secondReversed = createElement(
+      LineChart,
+      { width: 400, height: 300, data: RANKS },
+      createElement(YAxis, { yAxisId: 'other' }),
+      createElement(YAxis, { yAxisId: 'rank', reversed: true, orientation: 'right' }),
+    );
+
+    expect(firstPlaceFor(secondReversed)).toBeUndefined();
   });
 
   it('reads the first rank axis of a chart that draws two', () => {

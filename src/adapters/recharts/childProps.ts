@@ -331,35 +331,40 @@ export function areaDataKeyFor(children: ReactNode): string | undefined {
 }
 
 /**
- * Where a bump chart draws first place, read off its rank axis.
+ * Where a bump chart draws first place, when its rank axis says so.
  *
  * A bump chart is a `<LineChart>` of ranks, and Recharts draws an ordinary
  * `<YAxis>` with its smallest number at the bottom. Rank 1 goes at the top
  * by `<YAxis reversed>`, which is how a bump chart is usually drawn, and how
- * the Recharts example draws it. The layer said neither, and with no
+ * the Recharts example draws it. The layer said nothing, and with no
  * highlight to measure the drawing by, Up moved to the next larger rank
  * number: down the page, to the place one worse.
  *
- * Depth-first for the same reason the other walks are, and stops at the
- * first `<YAxis>`. A tree with none answers `undefined`, which leaves the
- * core to read the drawing rather than be told on a guess.
+ * Only `reversed` is read, on the first `<YAxis>`, found depth-first as the
+ * other walks find their element. An axis without it may still be turned
+ * another way, by its `domain` or a scale of its own, which the core can
+ * measure from the highlighted dots where it has them and this cannot, so
+ * it answers `undefined` and leaves the core to read the drawing. A chart
+ * whose rank axis is not its first `<YAxis>`, or is turned some other way,
+ * says where first place is through the config's `firstPlace`.
  *
  * @param children - The chart subtree this component was given
- * @returns `'top'` under a reversed `<YAxis>`, `'bottom'` under any other,
- *   `undefined` when there is none
+ * @returns `'top'` when the first `<YAxis>` is reversed, otherwise `undefined`
  */
-export function firstPlaceFor(children: ReactNode): 'top' | 'bottom' | undefined {
-  let found: 'top' | 'bottom' | undefined;
+export function firstPlaceFor(children: ReactNode): 'top' | undefined {
+  let found: 'top' | undefined;
+  let done = false;
 
   const walk = (nodes: ReactNode): void => {
-    if (found !== undefined)
+    if (done)
       return;
     Children.forEach(nodes, (child) => {
-      if (found !== undefined || !isValidElement(child))
+      if (done || !isValidElement(child))
         return;
       const props = child.props as { reversed?: unknown; children?: ReactNode };
       if (displayNameOf(child.type) === 'YAxis') {
-        found = props.reversed === true ? 'top' : 'bottom';
+        done = true;
+        found = props.reversed === true ? 'top' : undefined;
         return;
       }
       walk(props.children);

@@ -751,7 +751,7 @@ const data = [
 
 > **Warning:** MAIDR inverts the pitch for a bump chart so rank 1 is the highest note, and announces the places gained or lost since the previous period. Declaring a chart of *values* as `'bump'` therefore sonifies it upside down — every rise heard as a fall. The adapter cannot tell the two apart, so this one is on you.
 
-Up and Down move to the place drawn above and below. `<MaidrRecharts>` reads where first place is drawn off the chart's `<YAxis>`: at the top under `<YAxis reversed>`, at the bottom under an ordinary one, which draws rank 1 lowest. Through `useRechartsAdapter`, say it yourself with `firstPlace: 'top'` or `'bottom'`.
+Up and Down move to the place drawn above and below. `<MaidrRecharts>` reads the chart's first `<YAxis>`: under `<YAxis reversed>` it says first place is at the top (`firstPlace: 'top'`). Under any other axis it says nothing, and MAIDR reads where first place is from the highlighted dots, or, with none to read, moves Up to the next larger rank number, which is where an ordinary axis draws it. Give `firstPlace: 'top'` or `'bottom'` yourself when the rank axis is turned another way, by its `domain` or a scale of its own, or is not the chart's first `<YAxis>`; through `useRechartsAdapter` it is always yours to give.
 
 #### Survival Curve [experimental]
 
