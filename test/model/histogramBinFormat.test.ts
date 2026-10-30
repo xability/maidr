@@ -90,6 +90,22 @@ describe('the bin width of a histogram over dates', () => {
     expect(statsOf(layer(14))).toContainEqual({ label: 'Bin width', value: 'constant 2 weeks' });
   });
 
+  test('reads bins of different widths as a range of spans', () => {
+    // A one-day bin, then a two-day one.
+    const edges = [JAN1, JAN1 + DAY, JAN1 + 3 * DAY];
+    const data: HistogramPoint[] = [4, 9].map((count, index) => (
+      { x: (edges[index] + edges[index + 1]) / 2, y: count, xMin: edges[index], xMax: edges[index + 1], yMin: 0, yMax: count }
+    ));
+    const stats = statsOf({
+      id: 'days',
+      type: TraceType.HISTOGRAM,
+      axes: { x: { label: 'Day', format: { type: 'date' } }, y: { label: 'Orders' } },
+      data,
+    });
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: '1 day to 2 days' });
+  });
+
   test('reads it on the y axis of a histogram drawn sideways', () => {
     const data: HistogramPoint[] = binsOf(1).map(([low, high, count]) => (
       { x: count, y: (low + high) / 2, xMin: 0, xMax: count, yMin: low, yMax: high }
