@@ -4547,36 +4547,48 @@ function convertRidgelineLayer(
     [groupField, density.valueColumn, density.densityColumn],
   );
 
-  // The rendered cell order, which is the order the one selector below
-  // resolves its elements in — so the groups have to be built in it, or
-  // every curve highlights its neighbour. `resolveDomainKeys` without a
-  // dataset name sorts the distinct values, which is what Vega's default
-  // facet sort lays out; see `resolveFacetCellKeys` for why the
+  // The rendered cell order, top first -- the order Vega lays the cells out
+  // in, and so the order their elements come in. `resolveDomainKeys`
+  // without a dataset name sorts the distinct values, which is what Vega's
+  // default facet sort lays out; see `resolveFacetCellKeys` for why the
   // `row_domain` dataset is the wrong answer here.
-  const groups = (resolveFacetCellKeys(view, groupField)
+  const drawn = (resolveFacetCellKeys(view, groupField)
     ?? resolveDomainKeys(groupField, rows, view))
-    .map(key => rows
-      .filter(row => String(row[groupField]) === key)
-      .map((row): ViolinKdePoint => ({
-        x: key,
-        y: Number(row[density.valueColumn] ?? 0),
-        density: Number(row[density.densityColumn] ?? 0),
-      })))
+    .map((key, cell) => ({
+      cell,
+      points: rows
+        .filter(row => String(row[groupField]) === key)
+        .map((row): ViolinKdePoint => ({
+          x: key,
+          y: Number(row[density.valueColumn] ?? 0),
+          density: Number(row[density.densityColumn] ?? 0),
+        })),
+    }))
     // A domain value the data never fills renders no cell at all, so it
     // has no element for the pairing and no samples to navigate.
-    .filter(group => group.length > 0);
-  if (groups.length < 2)
+    .filter(group => group.points.length > 0);
+  if (drawn.length < 2)
     return null;
+
+  // `RidgelineTrace` reads its first group as the lowest ridge -- Up steps to
+  // the next one listed, as the core example lists its cohorts bottom up --
+  // so the groups are listed bottom first, each paired with its own cell,
+  // which Vega draws as the cell group's n-th child, top first. Listed top
+  // first, Up moved down the page and Down up it.
+  const groups = [...drawn].reverse();
+  const area = buildSelector('area', 0, false, 'child_');
+  const selectors = groups.map(group =>
+    scopeSelector(area, `g.mark-group.role-scope.cell > g:nth-child(${group.cell + 1})`));
 
   return {
     id: '0',
     type: TraceType.RIDGELINE,
     // Vega draws each cell's area as a single `<path>` under the shared
-    // `child_marks` class, so one selector reaches every ridge in cell
-    // order — one element per group, which is what `RidgelineTrace` pairs
-    // its curves with. No `data-maidr-cell` scoping: this layer is the
-    // whole chart rather than one panel of it.
-    selectors: buildSelector('area', 0, false, 'child_'),
+    // `child_marks` class, one element per group, which is what
+    // `RidgelineTrace` pairs its curves with -- in the order of this list.
+    // No `data-maidr-cell` scoping: this layer is the whole chart rather
+    // than one panel of it.
+    selectors,
     // `RidgelineTrace` reads `x` as the value axis and `z` as the name of
     // the dimension the groups vary along; the density is announced
     // against the latter.
@@ -4585,7 +4597,7 @@ function convertRidgelineLayer(
       y: getAxisConfig(descriptor.rowChannel),
       z: getAxisConfig(descriptor.rowChannel),
     },
-    data: groups,
+    data: groups.map(group => group.points),
   };
 }
 
