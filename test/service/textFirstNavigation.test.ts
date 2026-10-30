@@ -104,6 +104,18 @@ function createNoMoreLayersState(): PlotState {
   } as PlotState;
 }
 
+/**
+ * Builds the empty figure state the figure pushes from notifyOutOfBounds():
+ * an arrow past the edge of a multi-panel chart's grid of subplots.
+ * @returns An out-of-bounds figure-type PlotState.
+ */
+function createNoMoreSubplotsState(): PlotState {
+  return {
+    empty: true,
+    type: 'figure',
+  };
+}
+
 describe('textService first-navigation announcement gate', () => {
   test('fires first_navigation on the first trace-level navigation', () => {
     const text = new TextService(createMockNotificationService());
@@ -155,6 +167,32 @@ describe('textService first-navigation announcement gate', () => {
 
     expect(listener).toHaveBeenCalledTimes(1);
     expect(listener).toHaveBeenCalledWith({ type: 'first_navigation' });
+  });
+
+  test('fires first_navigation for the first layer edge a key press meets', () => {
+    // Page Down past the first layer can be the first key pressed on a chart
+    // that opens on a layer with no data.
+    const events: string[] = [];
+    const notification = { notify: (text: string) => events.push(text) } as unknown as NotificationService;
+    const text = new TextService(notification);
+    text.onNavigation(event => events.push(event.type));
+
+    text.update(createNoMoreLayersState());
+    text.update(createNoMoreLayersState());
+
+    expect(events).toEqual(['first_navigation', 'No additional layer', 'No additional layer']);
+  });
+
+  test('fires first_navigation for the first subplot edge a key press meets', () => {
+    const text = new TextService(createMockNotificationService());
+    const events: string[] = [];
+    text.onNavigation(event => events.push(event.type));
+    text.onChange(event => events.push(event.value));
+
+    text.update(createNoMoreSubplotsState());
+    text.update(createNoMoreSubplotsState());
+
+    expect(events).toEqual(['first_navigation', 'No more subplots to display', 'No more subplots to display']);
   });
 
   test('does not fire first_navigation for an edge met while text mode is off', () => {
