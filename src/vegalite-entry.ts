@@ -1464,6 +1464,87 @@ function distinguishSeriesSelectors(
 }
 
 /**
+ * The layer types whose bands are stacked on one another, read as listed from
+ * the bottom of the stack up.
+ */
+const STACKED_BANDS = new Set<TraceType>([
+  TraceType.STACKED_AREA,
+  TraceType.NORMALIZED_AREA,
+]);
+
+/**
+ * For stacked area layers, list the bands from the bottom of the stack up,
+ * as the chart draws them.
+ *
+ * MAIDR reads a stacked area's bands as listed from the bottom of the stack
+ * up: `AreaTrace` sums a column's values down the listed bands for each
+ * band's running total, and Up moves to the band listed next. The converter
+ * lists the bands in the order their rows first appear, while Vega-Lite
+ * stacks a vertical stack's bands in descending order of the field that
+ * splits them, unless an `order` channel says otherwise -- so rows listing
+ * Zeta, Alpha, Mid were read in that order under a stack drawn Zeta, Mid,
+ * Alpha from the bottom.
+ *
+ * The bands are put in the order they are drawn: bottom first for a vertical
+ * stack, left first for a horizontal one, read from where each band's path
+ * sits. A band's centre is below the centre of every band stacked on it,
+ * since bands do not cross. Each band takes with it the selector of its own
+ * that {@link distinguishSeriesSelectors} gives it, so its highlight stays on
+ * its path.
+ *
+ * Left alone when a band has no path of its own -- the paths do not come one
+ * per band, as when an `order` channel splits every band into a path per
+ * row -- and when the chart is not laid out.
+ *
+ * @param svg - The chart's SVG
+ * @param layers - Every layer of the chart
+ */
+function sortStackedBandsByDrawnOrder(svg: SVGSVGElement, layers: MaidrLayer[]): void {
+  for (const layer of layers) {
+    if (!STACKED_BANDS.has(layer.type))
+      continue;
+    const bands = layer.data;
+    const selectors = layer.selectors as unknown;
+    if (!Array.isArray(bands) || bands.length < 2 || !Array.isArray(selectors)
+      || selectors.length !== bands.length) {
+      continue;
+    }
+
+    const own = selectors.filter((selector): selector is string => typeof selector === 'string');
+    const paths = own.map((selector) => {
+      const matches = svg.querySelectorAll<SVGGraphicsElement>(selector);
+      return matches.length === 1 ? matches[0] : undefined;
+    });
+    if (own.length !== bands.length || paths.includes(undefined)) {
+      debugLog(`${layer.type} layer "${layer.id}": a band has no path of its own, so the bands keep their order`);
+      continue;
+    }
+    const drawn = paths as SVGGraphicsElement[];
+    if (!isLaidOutForSort(drawn[0])) {
+      debugLog(`${layer.type} layer "${layer.id}": skipping band reorder (chart not laid out)`);
+      continue;
+    }
+
+    const centres = drawn.map((path) => {
+      const rect = path.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    });
+    const spread = (values: number[]): number => Math.max(...values) - Math.min(...values);
+    const vertical = spread(centres.map(c => c.y)) >= spread(centres.map(c => c.x));
+    // The page's y grows downward, so the bottom band has the largest.
+    const order = drawn
+      .map((_, band) => band)
+      .sort((a, b) => vertical ? centres[b].y - centres[a].y : centres[a].x - centres[b].x);
+    if (order.every((band, at) => band === at))
+      continue;
+
+    layer.data = order.map(band => bands[band]) as MaidrLayer['data'];
+    layer.selectors = order.map(band => own[band]);
+    debugLog(`${layer.type} layer "${layer.id}": listed the bands from the bottom of the stack up`);
+  }
+}
+
+/**
  * For BOX layers, replace the placeholder single-string selector
  * (`"g.mark-rect.role-mark.{marks} path"`) with a properly typed
  * `BoxSelector[]` (one entry per box group), populate outlier
@@ -2147,6 +2228,10 @@ export function bindVegaLite(
   // repeat per series with one per series, so a chart with as many series as
   // points per series is not highlighted a point at a time.
   distinguishSeriesSelectors(svg as SVGSVGElement, layers, containerScope);
+
+  // For stacked area layers, list the bands from the bottom of the stack up,
+  // as they are drawn, each band taking its own selector with it.
+  sortStackedBandsByDrawnOrder(svg as SVGSVGElement, layers);
 
   // For BOX layers, build the per-group BoxSelector[] from the
   // rendered DOM and populate outlier values. Fixes "highlight
