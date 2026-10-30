@@ -3301,8 +3301,12 @@ function stampFunnelAttributes(
  * paired by position would announce one word while highlighting another.
  *
  * A word carries its own identity instead. Each term is drawn as one visible
- * `<text>` element holding exactly that term, so the pairing is a text match
- * and needs no ordering assumption at all. AnyChart writes every word a second
+ * `<text>` element holding that term, so the pairing is a text match and needs
+ * no ordering assumption at all. The match ignores case: measured on AnyChart
+ * 8.13, a cloud draws every word in lower case, "Screen Reader" as "screen
+ * reader", and matched exactly, a term written with a capital found no word.
+ * Two terms that differ only in case are drawn alike, match two words each,
+ * and are not placed. AnyChart writes every word a second
  * time, in a layer of its own at an `opacity` of one millionth, to catch the
  * pointer; that copy is passed over (see {@link MIN_VISIBLE_OPACITY}), or every
  * term would match two elements. A term that does not match exactly one
@@ -3334,7 +3338,7 @@ function stampWordCloudAttributes(
   for (const text of Array.from(svg.querySelectorAll<SVGElement>('text'))) {
     if (text.hasAttribute(WORD_CLOUD_ATTR) || isNearlyInvisible(text))
       continue;
-    const label = (text.textContent ?? '').trim();
+    const label = (text.textContent ?? '').trim().toLowerCase();
     const drawn = byText.get(label);
     if (drawn)
       drawn.push(text);
@@ -3344,7 +3348,7 @@ function stampWordCloudAttributes(
 
   const glyphs: SVGElement[] = [];
   for (const term of terms) {
-    const matches = byText.get(term) ?? [];
+    const matches = byText.get(term.toLowerCase()) ?? [];
     if (matches.length !== 1) {
       console.warn(
         `[maidr/anychart] Expected exactly one rendered word for the term `
