@@ -324,6 +324,26 @@ describe('every move says how the node is connected', () => {
 
     expect(aside(trace, 'Role')).toBe('graph output');
   });
+
+  test('a closed scope no edge leaves is a graph output only when one is inside it', () => {
+    // Mermaid's architecture example: the gateway feeds the server in the API
+    // group, and the database and the storage beside it are joined by a line,
+    // declared as an edge each way. No node in the group is a graph output,
+    // and the description names none, but the group was announced as one.
+    const architecture: DirectedGraphPoint[] = [
+      { id: 'gateway', label: 'Gateway' },
+      { id: 'server', label: 'Server', path: ['API'], inputs: ['gateway'] },
+      { id: 'db', label: 'Database', path: ['API'], inputs: ['server', 'disk'], inputEdges: [null, 'line'] },
+      { id: 'disk', label: 'Storage', path: ['API'], inputs: ['db'], inputEdges: ['line'] },
+    ];
+    const trace = graph(architecture);
+    trace.moveOnce('FORWARD');
+
+    expect(at(trace)).toBe('API');
+    expect(aside(trace, 'Connections')).toBe('1 input, 0 outputs');
+    expect(aside(trace, 'Role')).toBeUndefined();
+    expect(stat('Graph outputs', architecture)).toBeUndefined();
+  });
 });
 
 describe('the rotor follows the edges in their direction', () => {

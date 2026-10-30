@@ -556,6 +556,22 @@ describe('the filters', () => {
     expect(arranged(list, 'chart', 'not-connected')).toEqual(['e']);
   });
 
+  test('a scope is listed as a graph output only when one is inside it', () => {
+    // Mermaid's architecture example: no edge leaves the API group, but the
+    // line joining its database and its storage, declared as an edge each
+    // way, leaves no node in it without an output.
+    const list = listOf(fresh([
+      { id: 'gateway', label: 'Gateway' },
+      { id: 'server', label: 'Server', path: ['API'], inputs: ['gateway'] },
+      { id: 'db', label: 'Database', path: ['API'], inputs: ['server', 'disk'], inputEdges: [null, 'line'] },
+      { id: 'disk', label: 'Storage', path: ['API'], inputs: ['db'], inputEdges: ['line'] },
+    ]));
+    const api = list.objects.find(object => object.label === 'API');
+
+    expect(filterLabels(list)).not.toContain('Graph outputs');
+    expect(api?.detail).not.toContain('graph output');
+  });
+
   test('a merge-and-branch point is in both lists', () => {
     const hub: DirectedGraphPoint[] = [
       { id: 'x' },
