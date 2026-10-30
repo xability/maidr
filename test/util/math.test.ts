@@ -35,6 +35,27 @@ describe('MathUtil.nearlyEqual', () => {
     expect(MathUtil.nearlyEqual(3_000_000_000, 3_000_000_001)).toBe(true);
     expect(MathUtil.nearlyEqual(3_000, 3_001)).toBe(false);
   });
+
+  it('measures numbers smaller than 1 against 1', () => {
+    expect(MathUtil.nearlyEqual(1e-12, 5e-11)).toBe(true);
+  });
+});
+
+describe('MathUtil.nearlyEqualRelative', () => {
+  it('treats numbers equal on paper as equal, whatever their last bit', () => {
+    expect(MathUtil.nearlyEqualRelative(0.1 + 0.2, 0.3)).toBe(true);
+    expect(MathUtil.nearlyEqualRelative((22.15 - 10.4) / (33.9 - 10.4), 50 / 100)).toBe(true);
+  });
+
+  it('tells small numbers apart however small they are', () => {
+    expect(MathUtil.nearlyEqualRelative(1e-12, 5e-11)).toBe(false);
+    expect(MathUtil.nearlyEqualRelative(9.4e-28, 0)).toBe(false);
+  });
+
+  it('scales the margin with the numbers compared', () => {
+    expect(MathUtil.nearlyEqualRelative(3_000_000_000, 3_000_000_001)).toBe(true);
+    expect(MathUtil.nearlyEqualRelative(3_000, 3_001)).toBe(false);
+  });
 });
 
 describe('MathUtil.interpolate', () => {
