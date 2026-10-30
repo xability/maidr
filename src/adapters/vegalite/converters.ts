@@ -753,16 +753,24 @@ function buildMaidr(
 /**
  * The text a title is drawn with, as a reader hears it: a string as written,
  * a multi-line title -- an array of lines -- with its lines joined by a
- * space, an empty line left out.
+ * space. A line drawn blank, empty or only whitespace, is left out, and an
+ * all-blank title reads as no text.
  *
  * @param text - A title, a title's `text` or `subtitle`, or a header title
  * @returns The text, or `undefined` for anything else, such as an expression
  */
 function titleText(text: unknown): string | undefined {
   if (typeof text === 'string')
-    return text;
-  if (Array.isArray(text))
-    return text.filter((line): line is string => typeof line === 'string' && line !== '').join(' ');
+    return text.trim();
+  if (Array.isArray(text)) {
+    // A line is a string, as Vega-Lite's `isText` reads one; anything else
+    // in the array has no text to read.
+    return text
+      .filter((line): line is string => typeof line === 'string')
+      .map(line => line.trim())
+      .filter(line => line !== '')
+      .join(' ');
+  }
   return undefined;
 }
 

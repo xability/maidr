@@ -143,6 +143,22 @@ describe('a vega-lite title with no text', () => {
     expect(titles(bars(['Yield', '', 'by site'])).title).toBe('Yield by site');
   });
 
+  it('leaves a line of whitespace out the same way', () => {
+    expect(titles(bars(['Yield', '  ', 'by site'])).title).toBe('Yield by site');
+  });
+
+  it('reads a blank title of its own with the subtitle drawn under it', () => {
+    // vega-lite 5.23 draws `{ text: [''], subtitle: 'Sub' }` as a blank title
+    // with its subtitle, and not the layer's title.
+    const spec = { title: { text: [''], subtitle: 'Sub' }, layer: [bars('Layer title')] };
+
+    expect(titles(spec)).toEqual({ title: 'Vega-Lite Chart', subtitle: 'Sub' });
+  });
+
+  it('reads a title of whitespace as a blank title of its own', () => {
+    expect(titles({ title: ' ', layer: [bars('Layer title')] }).title).toBe('Vega-Lite Chart');
+  });
+
   it('still lets a titled composite\'s own title and subtitle win', () => {
     const spec = {
       title: { text: 'Own title', subtitle: 'Own subtitle' },
