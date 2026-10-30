@@ -1849,24 +1849,27 @@ export function toMaidrLayer(
     // `x` or `y` -- and the labels do not move on their own either: the swap
     // above is gated on this same key, so without it the pair stayed put and
     // `BoxTrace`'s upright branch read the group off `axes.x`, which still
-    // held it. The labels were therefore right before this and are right
-    // after; what the key buys is the two things that were wrong -- the chart
-    // announced itself as a vertical box plot, and left and right walked
-    // across groups that are stacked down the page rather than along the
-    // measurement axis they are drawn on. Measured in Chromium on the
-    // `Box Plot (horizontal)` example, before and after:
+    // held it. What the key buys is that the chart is announced as the
+    // horizontal box plot it is, and left and right walk one group's
+    // sections along the measurement axis they are drawn on.
     //
-    //   before   "vertical box"     right: A -> B (across the groups)
-    //   after    "horizontal box"   right: C's minimum, quartiles ... ; up: C -> B
-    case 'box':
+    // The boxes are listed in reverse for it. `BoxTrace` reads a horizontal
+    // layer top first and turns it round, so that its first row is the box
+    // drawn lowest and Up moves up the page; Victory draws the first datum
+    // lowest. Listed in data order, the reader started on the top box and Up
+    // moved down the chart. The selectors, which the tagger names in data
+    // order, are turned round with them.
+    case 'box': {
+      const boxes = selector as BoxSelector[] | undefined;
       return {
         id: layer.id,
         type: TraceType.BOX,
         ...(layer.orientation ? { orientation: layer.orientation } : {}),
         axes,
-        selectors: selector as BoxSelector[] | undefined,
-        data: data.points,
+        selectors: horizontal && boxes ? [...boxes].reverse() : boxes,
+        data: horizontal ? [...data.points].reverse() : data.points,
       };
+    }
 
     case 'candlestick':
       return {

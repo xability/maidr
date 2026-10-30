@@ -193,6 +193,16 @@ describe('victory horizontal box plot', () => {
       expect(parts.every(part => Math.abs(part.middle - parts[0].middle) < 1e-6)).toBe(true);
     }
   });
+
+  it('starts on the box drawn lowest and reads up the chart', () => {
+    const readings = readBoxes();
+
+    expect(readings.map(reading => reading.group)).toEqual(['A', 'B', 'C']);
+    // Screen y grows downward, so each next box sits higher up the page.
+    const heights = readings.map(reading => across(reading.outlines.q2).middle);
+    expect(heights[0]).toBeGreaterThan(heights[1]);
+    expect(heights[1]).toBeGreaterThan(heights[2]);
+  });
 });
 
 describe('victory error bar', () => {

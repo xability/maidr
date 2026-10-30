@@ -22,6 +22,10 @@
  *   before   "vertical box plot"     right -> Group is A, then Group is B
  *   after    "horizontal box plot"   right -> C's sections; up -> B, then A
  *
+ * (Up then ran down the page, from C at the top. The boxes have since been
+ * listed the other way round, so the reader starts on A, drawn lowest, and
+ * Up moves up the chart to B and C.)
+ *
  * Both readings name the group against `Group` and the measurement against
  * `Value`. What the key fixes is that the first announces a chart drawn the
  * other way round, and walks left and right across groups that are stacked
@@ -126,13 +130,15 @@ describe('a Victory box plot', () => {
     expect(layer.axes).toEqual({ x: { label: 'Value' }, y: { label: 'Group' } });
   });
 
-  it('leaves the summaries themselves alone', () => {
+  it('leaves the summaries themselves alone, listed from the top box down', () => {
     // A `BoxPoint` has no `x`/`y` pair to exchange, so the five numbers are
-    // the same whichever way the chart is drawn.
+    // the same whichever way the chart is drawn. A horizontal layer is read
+    // top first, and Victory draws the first group lowest, so the boxes are
+    // listed the other way round.
     const sideways = layerFor(createElement(VictoryBoxPlot, { data: SAMPLES }), true);
     const upright = layerFor(createElement(VictoryBoxPlot, { data: SAMPLES }));
 
-    expect(sideways.data as BoxPoint[]).toEqual(upright.data as BoxPoint[]);
+    expect(sideways.data as BoxPoint[]).toEqual([...(upright.data as BoxPoint[])].reverse());
   });
 });
 
