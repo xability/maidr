@@ -79,10 +79,12 @@
       const result = maidrD3.bindD3Funnel(svgElement, {
         selector: 'rect.stage',
         title: 'Checkout Funnel',
-        axes: { x: 'Stage', y: 'People' },
-        // `stage` / `count` would also be inferred from the datum's keys.
-        x: 'stage',
-        y: 'count',
+        // The stages run down the page and each count is a bar's width, so the
+        // funnel is horizontal: `x` reads the count and `y` the stage.
+        orientation: 'horz',
+        axes: { x: 'People', y: 'Stage' },
+        x: 'count',
+        y: 'stage',
       });
       // The binder auto-applies `maidr-data` to the SVG.
       void result;

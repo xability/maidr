@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import * as maidrD3 from '@adapters/d3';
 import { afterEach, beforeAll, describe, expect, it } from '@jest/globals';
+import { Orientation } from '@type/grammar';
 
 /**
  * The D3 example pages, run: each page's own script draws its chart with the
@@ -119,6 +120,24 @@ describe('the d3 example pages', () => {
       expect(region.lat).toBeLessThan(49);
       expect(region.lon).toBeGreaterThan(-125);
       expect(region.lon).toBeLessThan(-109);
+    }
+  });
+
+  it('bind the funnel horizontal, its counts drawn as the bars\' widths', () => {
+    // `orientation` names the way the magnitude runs, and the funnel's stages
+    // run down the page, each count a bar's width.
+    const spec = runPage('d3-bindfunnel.html');
+    const layer = onlyLayer(spec);
+    const bars = [...document.querySelectorAll('rect.stage')];
+    const points = layer.data as { x: number; y: string }[];
+
+    const scale = Number(bars[0].getAttribute('width')) / points[0].x;
+
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect(points.map(point => point.y)).toEqual(['Visited', 'Signed up', 'Viewed cart', 'Purchased']);
+    expect(layer.axes?.x?.label).toBe('People');
+    for (const [index, bar] of bars.entries()) {
+      expect(Number(bar.getAttribute('width'))).toBeCloseTo(points[index].x * scale, 6);
     }
   });
 });

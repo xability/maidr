@@ -142,6 +142,13 @@ export function bindD3Lollipop(svg: Element, config: D3BarConfig): D3BinderResul
  * `selector` matches one element per stage, whichever mark you drew it with:
  * a trapezoid `<path>`, a centred `<rect>`, or a `<g>` per stage.
  *
+ * A funnel drawn the usual way, its stages down the page and each count a
+ * band's width, is horizontal: `orientation` names the way the magnitude runs.
+ * Pass `orientation: Orientation.HORIZONTAL` with `x` reading the count and
+ * `y` the stage, both named, since the accessors inferred from the datum's
+ * keys put the stage in `x`. Stages side by side, each count a height, are
+ * the default vertical funnel.
+ *
  * @param svg - The SVG element (or container) containing the D3 funnel chart.
  * @param config - Configuration specifying the selector and data accessors.
  * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
@@ -151,9 +158,10 @@ export function bindD3Lollipop(svg: Element, config: D3BarConfig): D3BinderResul
  * bindD3Funnel(svgElement, {
  *   selector: 'path.stage',
  *   title: 'Checkout Funnel',
- *   axes: { x: 'Stage', y: 'People' },
- *   x: 'stage',
- *   y: 'count',
+ *   orientation: Orientation.HORIZONTAL,
+ *   axes: { x: 'People', y: 'Stage' },
+ *   x: 'count',
+ *   y: 'stage',
  * });
  * ```
  */
