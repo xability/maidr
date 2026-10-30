@@ -27,9 +27,10 @@ const EXAMPLE = path.join(ROOT, 'examples', 'nivo', 'dist', 'index.html');
 /**
  * The Nivo mark an outline must sit on: its `data-testid`, or — for marks
  * Nivo stamps with none — a CSS selector and which of its matches, counting
- * the chart's own elements only.
+ * the chart's own elements only. With `edge`, the outline sits on that side
+ * of the mark as it is drawn, as a box's quartile line does.
  */
-type Mark = string | { selector: string; nth?: number };
+type Mark = string | { selector: string; nth?: number; edge?: 'left' | 'right' };
 
 /** One arrow key and what it should produce. */
 interface Step {
@@ -114,8 +115,8 @@ const CASES: Case[] = [
     ],
   },
   {
-    // Drawn as a vertical box rotated by -90°. Q1 and Q3 outline the box as
-    // drawn, not its unrotated edges.
+    // Drawn as a vertical box rotated by -90°. Q1 and Q3 outline the left and
+    // right edges of the box as drawn, as on an upright horizontal box.
     example: 'Box Plot',
     id: 'nivo-boxplot-horizontal',
     steps: [
@@ -123,9 +124,9 @@ const CASES: Case[] = [
       // Nivo's default whiskers end at the 10th and 90th percentiles, and are
       // named so rather than as a minimum and maximum.
       { key: 'ArrowRight', says: '10th percentile', mark: { selector: '[data-key="boxplot.0.0"] > line', nth: 2 } },
-      { key: 'ArrowRight', says: '25%', mark: { selector: '[data-key="boxplot.0.0"] > rect' } },
+      { key: 'ArrowRight', says: '25%', mark: { selector: '[data-key="boxplot.0.0"] > rect', edge: 'left' } },
       { key: 'ArrowRight', says: '50%', mark: { selector: '[data-key="boxplot.0.0"] > line', nth: 0 } },
-      { key: 'ArrowRight', says: '75%', mark: { selector: '[data-key="boxplot.0.0"] > rect' } },
+      { key: 'ArrowRight', says: '75%', mark: { selector: '[data-key="boxplot.0.0"] > rect', edge: 'right' } },
       { key: 'ArrowRight', says: '90th percentile', mark: { selector: '[data-key="boxplot.0.0"] > line', nth: 4 } },
     ],
   },
@@ -144,7 +145,8 @@ const CASES: Case[] = [
 interface Box { x: number; y: number; width: number; height: number }
 
 /**
- * Where MAIDR's visible outline is, and where the named Nivo mark is.
+ * Where MAIDR's visible outline is, and where the named Nivo mark is: the
+ * whole mark, or the side its `edge` names, as a line of no width.
  *
  * Each is the box of the shape it draws, stroke left out. The outline is
  * stroked where the mark is not, and Firefox's `getBoundingClientRect`
@@ -157,11 +159,11 @@ interface Box { x: number; y: number; width: number; height: number }
  * @returns The two boxes; either is null when there is nothing to measure
  */
 async function measure(page: Page, id: string, mark: Mark): Promise<{ outline: Box | null; target: Box | null }> {
-  const { selector, nth } = typeof mark === 'string'
-    ? { selector: '[data-testid]', nth: undefined }
-    : { selector: mark.selector, nth: mark.nth ?? 0 };
+  const { selector, nth, edge } = typeof mark === 'string'
+    ? { selector: '[data-testid]', nth: undefined, edge: undefined }
+    : { selector: mark.selector, nth: mark.nth ?? 0, edge: mark.edge };
   const testId = typeof mark === 'string' ? mark : null;
-  return page.evaluate(({ id, selector, nth, testId }) => {
+  return page.evaluate(({ id, selector, nth, edge, testId }) => {
     const figure = document.getElementById(`maidr-figure-${id}`);
     const box = (element: Element | null | undefined): Box | null => {
       if (!element)
@@ -196,8 +198,12 @@ async function measure(page: Page, id: string, mark: Mark): Promise<{ outline: B
     const target = testId === null
       ? own[nth ?? 0]
       : own.find(e => e.getAttribute('data-testid') === testId);
-    return { outline: box(outline), target: box(target) };
-  }, { id, selector, nth, testId });
+    const drawn = box(target);
+    const side = drawn === null || edge === undefined
+      ? drawn
+      : { ...drawn, x: edge === 'left' ? drawn.x : drawn.x + drawn.width, width: 0 };
+    return { outline: box(outline), target: side };
+  }, { id, selector, nth, edge, testId });
 }
 
 /**
