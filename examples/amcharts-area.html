@@ -92,29 +92,39 @@
         );
         xAxis.children.push(am5.Label.new(root, { text: "Quarter", x: am5.p50, centerX: am5.p50 }));
 
-        var yAxis = chart.yAxes.push(
-          am5xy.ValueAxis.new(root, {
-            // A 100% stack needs the axis to compute the totals it is a share of.
-            calculateTotals: mode === "normalized",
-            renderer: am5xy.AxisRendererY.new(root, {}),
-          })
-        );
+        var yAxisSettings = { renderer: am5xy.AxisRendererY.new(root, {}) };
+        if (mode === "normalized") {
+          // A 100% stack needs the axis to compute the totals each band is a
+          // share of, and to run from 0 to 100, as amCharts' own 100% charts
+          // do. Left to choose its own range, the axis starts above the
+          // bottom band, which is then not drawn at all.
+          yAxisSettings.calculateTotals = true;
+          yAxisSettings.min = 0;
+          yAxisSettings.max = 100;
+          yAxisSettings.strictMinMax = true;
+        }
+        var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, yAxisSettings));
         yAxis.children.unshift(
           am5.Label.new(root, { text: "Visits", rotation: -90, y: am5.p50, centerX: am5.p50 })
         );
 
         function addBand(name, field) {
-          var series = chart.series.push(
-            am5xy.LineSeries.new(root, {
-              name: name,
-              xAxis: xAxis,
-              yAxis: yAxis,
-              valueYField: field,
-              categoryXField: "quarter",
-              stacked: mode !== "plain",
-              valueYShow: mode === "normalized" ? "valueYTotalPercent" : undefined,
-            })
-          );
+          var settings = {
+            name: name,
+            xAxis: xAxis,
+            yAxis: yAxis,
+            valueYField: field,
+            categoryXField: "quarter",
+            stacked: mode !== "plain",
+          };
+          // Only the 100% stack names `valueYShow`. Leave the key out rather
+          // than setting it to `undefined`: amCharts applies its own default
+          // only to a key that is absent, and with `undefined` in its place
+          // the series throws while it is drawn and no chart appears.
+          if (mode === "normalized") {
+            settings.valueYShow = "valueYTotalPercent";
+          }
+          var series = chart.series.push(am5xy.LineSeries.new(root, settings));
           // THIS is what makes it an area rather than a line, for amCharts and
           // for MAIDR alike.
           series.fills.template.setAll({ visible: true, fillOpacity: 0.4 });
