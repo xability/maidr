@@ -68,6 +68,7 @@ import {
   contourLevelSelectors,
   errorBarAxis,
   generatePlotlySelectors,
+  lineSelectors,
   polarSeriesSelectors,
   subplotCssPrefix,
 } from './selectors';
@@ -2584,6 +2585,8 @@ function extractMultiLineLayer(
   gd: PlotlyGraphDiv,
   variant?: LineVariant,
 ): MaidrLayer | null {
+  // The traces read, one per series, which the selectors are paired with.
+  const drawn: PlotlyTrace[] = [];
   const data: LinePoint[][] = [];
   const names: (string | undefined)[] = [];
 
@@ -2592,6 +2595,7 @@ function extractMultiLineLayer(
     const y = values ?? trace.y;
     if (!x || !y)
       continue;
+    drawn.push(trace);
 
     const len = Math.min(x.length, y.length);
     const series: LinePoint[] = [];
@@ -2644,9 +2648,7 @@ function extractMultiLineLayer(
 
   const type = variant?.type ?? TraceType.LINE;
 
-  // All line traces in the same subplot share the same unscoped selector
-  // (e.g. `.subplot.xy .trace.scatter .point`), so any trace index works here.
-  const selectors = generatePlotlySelectors(type, lineTraces[0].globalIdx, gd);
+  const selectors = lineSelectors(drawn);
 
   // A layer of one line is named after its trace, as a trace of another type
   // is; several lines are told apart by their `z`.
@@ -2761,7 +2763,7 @@ function extractDeclaredPrCurveLayer(
     ...(first.title !== undefined ? { title: first.title } : {}),
     ...(name !== undefined ? { name } : {}),
     // The line's own selector: a curve is highlighted as its line would be.
-    selectors: generatePlotlySelectors(TraceType.PR_CURVE, curves[0].globalIdx, gd),
+    selectors: lineSelectors(curves.map(entry => entry.trace)),
     axes,
     ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     data: reversed ? data.map(curve => [...curve].reverse()) : data,

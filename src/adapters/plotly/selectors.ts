@@ -102,18 +102,19 @@ export function generatePlotlySelectors(
     case TraceType.MOSAIC:
       return undefined;
 
-    // A step trace is a scatter trace plotly drew as a staircase, and an area
-    // is one it filled in underneath, so their markers — when they have any —
-    // are the same `.point` elements.
-    // A precision-recall curve is a line plotly drew like any other, so it is
-    // highlighted through the same markers.
+    // A line-shaped layer is a series per trace and pairs one selector with
+    // each series, so its selector is a list over the traces it covers, and
+    // only the extractor knows which those are: it builds the list with
+    // `lineSelectors` and never asks here. One selector for the whole panel,
+    // which is what this answered, could not be paired with a layer of two
+    // lines at all.
     case TraceType.LINE:
     case TraceType.PR_CURVE:
     case TraceType.STEP:
     case TraceType.AREA:
     case TraceType.STACKED_AREA:
     case TraceType.NORMALIZED_AREA:
-      return lineSelector(prefix, traceData?.mode);
+      return undefined;
 
     // Funnel and waterfall are bar-like: plotly draws both through the bar
     // renderer, down to the `trace bars` group class, and only the layer they
@@ -189,20 +190,58 @@ export function subplotCssPrefix(xaxis?: string, yaxis?: string): string {
   return `.subplot.${x}${y} `;
 }
 
+/** Staircases whose risers stand midway between their samples. */
+const MIDWAY_STEPS = new Set(['hvh', 'vhv']);
+
 /**
- * Line selector: returns a selector only when markers are present.
+ * Line selectors: one per series of a line, step, area or precision-recall
+ * layer, naming the marks plotly drew for that series' trace.
  *
- * `mode: 'lines'` produces a single `<path class="js-line">` per series
- * with no individual point elements — per-point highlighting is not
- * possible. When markers exist (`mode` includes `'markers'`), plotly
- * renders `<path class="point">` elements that can be highlighted.
+ * `LineTrace` pairs selector *i* with series *i*, so each trace is named by
+ * its own uid ({@link scatterTraceScope}); the group order inside
+ * `.scatterlayer` is the fill order, not the trace order.
+ *
+ * The marks are the trace's markers, one `.point` per sample, when every
+ * trace of the layer draws them. Otherwise they are each trace's line: plotly
+ * draws `mode: 'lines'` — the default way to draw a line or an area — as a
+ * `path.js-line` per unbroken run of samples, with no element per sample, and
+ * `LineTrace` puts a marker on each sample along it. A layer is read one way
+ * or the other, never some series by markers and the rest by lines:
+ * `LineTrace` resolves markers for the whole layer as soon as one series
+ * has them, and a series it then finds none for is left unhighlighted. A
+ * trace that draws no line has an empty `path.js-line`, so only its own
+ * series goes unhighlighted.
+ *
+ * A `scattergl` trace is painted to a canvas and has no element to name, and
+ * a uid that is not a usable class name names nothing either; both withdraw
+ * the whole list, since a list missing one entry pairs every series after it
+ * with the wrong trace.
+ *
+ * So does a line drawn as a staircase whose risers stand midway between the
+ * samples (`hvh`, `vhv`), when it is read off its path. Plotly draws the step
+ * between two samples of one value there as a riser of no height, which the
+ * step model reads as part of the run beside it, so it finds fewer steps than
+ * samples and marks each sample at a neighbour's place. No highlight is drawn
+ * rather than that one.
+ *
+ * @param traces - The layer's traces, one per series, in series order
+ * @returns One selector per trace, or undefined when one cannot be named
  */
-function lineSelector(prefix: string, mode?: string): string | undefined {
-  if (mode?.includes('markers')) {
-    return `${prefix}.trace.scatter .point`;
+export function lineSelectors(traces: readonly PlotlyTrace[]): string[] | undefined {
+  if (traces.some(trace => trace.type === 'scattergl')) {
+    return undefined;
   }
-  // Lines-only mode: no per-point SVG elements to highlight.
-  return undefined;
+  const marks = traces.every(trace => trace.mode?.includes('markers'))
+    ? '.point'
+    : 'path.js-line';
+  if (marks === 'path.js-line' && traces.some(trace => MIDWAY_STEPS.has(trace.line?.shape ?? ''))) {
+    return undefined;
+  }
+  const selectors = traces.map(trace =>
+    scatterTraceScope(subplotCssPrefix(trace.xaxis, trace.yaxis), trace, marks));
+  return selectors.every((selector): selector is string => selector !== undefined)
+    ? selectors
+    : undefined;
 }
 
 /**
