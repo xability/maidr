@@ -92,6 +92,35 @@ describe('binding a chart', () => {
 
       expect(result?.maidr).toBeTruthy();
       expect(svg.hasAttribute('maidr-data')).toBe(false);
+      expect((svg as SVGSVGElement).style.padding).toBe('');
+    } finally {
+      restore();
+    }
+  });
+
+  it('pads the chart inside its own size, so the focus ring covers none of what Plot draws', () => {
+    // Plot draws its axis titles a few pixels inside the svg's edge; MAIDR's
+    // ring is drawn 5px into the chart while it has focus, and covered them.
+    const { dom, svg, element } = mountFixture('bar');
+    const restore = useDom(dom);
+    try {
+      bindObservablePlot(element);
+
+      expect((svg as SVGSVGElement).style.padding).toBe('6px');
+      expect((svg as SVGSVGElement).style.boxSizing).toBe('border-box');
+    } finally {
+      restore();
+    }
+  });
+
+  it('keeps a padding the chart has of its own', () => {
+    const { dom, svg, element } = mountFixture('bar');
+    (svg as SVGSVGElement).style.padding = '12px';
+    const restore = useDom(dom);
+    try {
+      bindObservablePlot(element);
+
+      expect((svg as SVGSVGElement).style.padding).toBe('12px');
     } finally {
       restore();
     }

@@ -24,6 +24,7 @@ import type {
   ObservablePlotResult,
   ObservableWatchOptions,
 } from './types';
+import { leaveRoomForFocusRing } from '../shared/focusRing';
 import { observablePlotToMaidr } from './converters';
 import { isObservablePlot, resolveSvg } from './introspect';
 
@@ -152,6 +153,9 @@ export function bindObservablePlot(
   if (options.autoApply === false)
     return result;
 
+  // Plot draws its axis titles a few pixels inside the svg's edge, under the
+  // ring MAIDR draws round the chart while it has focus.
+  leaveRoomForFocusRing(svg);
   svg.setAttribute('maidr-data', JSON.stringify(maidr));
   // Dispatched on the element so it bubbles to the runtime's listener — which
   // needs the element to be in the document. A chart bound before it is
