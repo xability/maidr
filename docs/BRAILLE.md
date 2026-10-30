@@ -1163,7 +1163,10 @@ says which parts belong to which whole.
 ### Volcano and Manhattan [experimental]
 
 The scatter encoding, unchanged — these are scatters, and their points carry
-nothing a scatter's cells cannot.
+nothing a scatter's cells cannot. As on a scatter, the points are represented
+only in grid navigation, so the display needs the layer's axes to declare a
+`min`, `max` and `tickStep` on both axes; without them `B` answers that
+braille is not supported for the chart.
 
 **The threshold has no representation, and cannot have one.** It is a *line on
 the value axis*, not a magnitude, and a braille cell says how large something
