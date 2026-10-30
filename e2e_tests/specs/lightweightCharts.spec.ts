@@ -107,6 +107,45 @@ test.describe('Lightweight Charts adapter', () => {
     expect(second?.x ?? 0).toBeGreaterThan(first?.x ?? 0);
   });
 
+  test('keeps the candle outlined through the description dialog, for Space to replay', async ({ page }) => {
+    await open(page, 'lightweight-charts.html');
+    await enterPricePane(page, '#price-chart', 'ACME');
+    await page.keyboard.press('ArrowRight');
+    await waitForText(page, 'Date is 2025-01-02, close ACME is 98.08');
+    const moved = await highlight(page);
+
+    await page.keyboard.press('d');
+    await page.locator('[role="dialog"]').waitFor();
+    await page.keyboard.press('Escape');
+    await page.locator('[role="dialog"]').waitFor({ state: 'hidden' });
+    await page.keyboard.press('Space');
+    await waitForText(page, 'Date is 2025-01-02, close ACME is 98.08');
+    await page.waitForTimeout(300); // settle: an absent box cannot be polled
+
+    expect(moved).not.toBeNull();
+    expect(await highlight(page)).toEqual(moved);
+  });
+
+  test('outlines the candle the description dialog\'s tabs leave the reader on', async ({ page }) => {
+    await open(page, 'lightweight-charts.html');
+    await enterPricePane(page, '#price-chart', 'ACME');
+
+    // The tabs carry the reader to the moving average, whose first day is
+    // the 11th, and back to that day's candle.
+    await page.keyboard.press('d');
+    const dialog = page.locator('[role="dialog"]');
+    await dialog.waitFor();
+    await dialog.locator('[role="tab"]').nth(1).click();
+    await dialog.locator('[role="tab"]').nth(0).click();
+    await page.keyboard.press('Escape');
+    await waitForText(page, 'Layer 1 of 2');
+    await page.keyboard.press('Space');
+    await waitForText(page, 'Date is 2025-01-11, close ACME is 108.89');
+    await page.waitForTimeout(300); // settle: an absent box cannot be polled
+
+    expect(await highlight(page)).not.toBeNull();
+  });
+
   test('switches to the moving-average layer with PageUp', async ({ page }) => {
     await open(page, 'lightweight-charts.html');
     await enterPricePane(page, '#price-chart', 'ACME');

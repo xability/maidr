@@ -473,17 +473,29 @@ export function bindLightweightChart(
   // highlight does when MAIDR's controller is disposed. The reader's bar is
   // forgotten too, or the next tick, scroll or resize would draw it again;
   // MAIDR reports it afresh on the first move after focus returns.
-  const handleFocusOut = (event: FocusEvent): void => {
-    const next = event.relatedTarget as Node | null;
-    if (next && rendered.container.contains(next)) {
-      return;
+  //
+  // Asked once focus has landed, as the Chart.js and uPlot binders ask it.
+  // Closing MAIDR's description dialog takes the focused tab out of the page
+  // before MAIDR puts focus back on the chart, so focus leaves for nowhere on
+  // the way: read off the event, that was the reader leaving, and they came
+  // back to a chart with no highlight, which Space and P did not redraw.
+  let focusTimer: ReturnType<typeof setTimeout> | null = null;
+  const handleFocusOut = (): void => {
+    if (focusTimer !== null) {
+      clearTimeout(focusTimer);
     }
-    active = null;
-    if (frame !== null) {
-      cancelAnimationFrame(frame);
-      frame = null;
-    }
-    draw();
+    focusTimer = setTimeout(() => {
+      focusTimer = null;
+      if (disposed || rendered.container.contains(document.activeElement)) {
+        return;
+      }
+      active = null;
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+        frame = null;
+      }
+      draw();
+    }, 0);
   };
   rendered.container.addEventListener('focusout', handleFocusOut);
 
@@ -508,6 +520,9 @@ export function bindLightweightChart(
       resizeObserver?.disconnect();
       if (frame !== null) {
         cancelAnimationFrame(frame);
+      }
+      if (focusTimer !== null) {
+        clearTimeout(focusTimer);
       }
       rendered.container.removeEventListener('focusout', handleFocusOut);
       void overlayPromise.then(ov => ov?.dispose());
