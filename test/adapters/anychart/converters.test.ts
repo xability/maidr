@@ -1980,6 +1980,30 @@ describe('bindAnyChart (radar stamping)', () => {
     container.closest('[data-maidr-anychart-host]')?.remove();
   });
 
+  it('stamps a mark drawn partly transparent like any other', () => {
+    // Hovering a mark redraws that same shape at a lower opacity, and a theme
+    // may fill markers below 1. Taken for a hover overlay, the mark was left
+    // out and the count check withdrew the highlight from every spoke.
+    const container = createContainerWithSvg('radar-translucent');
+    const marks = appendRadarMarks(container, 3);
+    marks[1].setAttribute('fill-opacity', '0.65');
+    const chart = createRadialChart(
+      'Skills',
+      'line',
+      [['Speed', 7], ['Power', 4], ['Range', 9]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(marks.map(m => m.getAttribute('data-maidr-anychart-spoke')))
+      .toEqual(['0-0', '0-1', '0-2']);
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
   it('stamps nothing for a multi-series radar and says why', () => {
     // AnyChart draws the second series' markers as diamonds, in a layer of
     // their own: there is no shape test that finds both series and no ordering
