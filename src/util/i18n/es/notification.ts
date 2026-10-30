@@ -22,6 +22,7 @@ export const notification = {
   'notification.brailleIsOff': 'Braille desactivado',
   'notification.brailleNoInfo': 'No hay información para braille',
   'notification.brailleNotSupported': 'El braille no es compatible con el tipo de gráfico: {type}',
+  'notification.brailleInGridNavigation': 'En este gráfico, el braille se muestra en la navegación por cuadrícula. Presione Alt Mayús flecha arriba hasta que se anuncie la navegación por cuadrícula y luego presione B.',
   'notification.brailleDisplay': 'Pantalla braille',
 
   // Monitor mode on live charts.

@@ -20,6 +20,7 @@ export const notification = {
   'notification.brailleIsOff': '盲文已关闭',
   'notification.brailleNoInfo': '没有可用于盲文的信息',
   'notification.brailleNotSupported': '图表类型 {type} 不支持盲文',
+  'notification.brailleInGridNavigation': '此图表的盲文显示在网格导航中。按 Alt Shift 上箭头，直到读出“网格导航”，然后按 B。',
   'notification.brailleDisplay': '盲文显示器',
 
   // Monitor mode on live charts.

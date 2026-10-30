@@ -2247,3 +2247,61 @@ describe('a network\'s groups read last first, so Up moves the caret up a line',
     service.dispose();
   });
 });
+
+describe('B on a scatter brailled only in grid navigation', () => {
+  /**
+   * A scatter over a 2 x 2 grid, its axes declaring one or none.
+   * @param withGrid - Whether the axes declare a range and a step
+   * @returns The trace, on its first point
+   */
+  function scatter(withGrid: boolean): ScatterTrace {
+    const trace = new ScatterTrace({
+      id: 'scatter-braille-where',
+      type: TraceType.SCATTER,
+      axes: withGrid
+        ? { x: { label: 'X', min: 0, max: 4, tickStep: 2 }, y: { label: 'Y', min: 0, max: 4, tickStep: 2 } }
+        : { x: { label: 'X' }, y: { label: 'Y' } },
+      data: [{ x: 1, y: 1 }, { x: 3, y: 3 }],
+    });
+    trace.moveOnce('FORWARD');
+    return trace;
+  }
+
+  /**
+   * Presses B on a trace's state.
+   * @param trace - The trace the reader is on
+   * @returns What the reader was told
+   */
+  function pressB(trace: ScatterTrace): string[] {
+    const notify = jest.fn<(message: string) => void>();
+    const service = new BrailleService(
+      { moveToIndex: jest.fn() } as unknown as Context,
+      { notify } as unknown as NotificationService,
+      { toggleFocus: jest.fn() } as unknown as DisplayService,
+      createStaticSettingsMock(32),
+    );
+    service.toggle(trace.state);
+    service.dispose();
+    return notify.mock.calls.map(([message]) => message);
+  }
+
+  test('says braille is shown in grid navigation, and how to reach it', () => {
+    const trace = scatter(true);
+
+    const told = pressB(trace);
+
+    expect(told).toEqual([
+      'Braille for this chart is shown in grid navigation. Press Alt Shift Up until grid navigation is announced, then press B.',
+    ]);
+    trace.dispose();
+  });
+
+  test('still says braille is not supported where there is no grid', () => {
+    const trace = scatter(false);
+
+    const told = pressB(trace);
+
+    expect(told).toEqual(['Braille is not supported for plot type: point']);
+    trace.dispose();
+  });
+});

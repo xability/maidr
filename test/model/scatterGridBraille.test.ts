@@ -116,3 +116,29 @@ describe('a grid-mode scatter reports its cell counts', () => {
     }
   });
 });
+
+describe('outside grid navigation, a scatter says where its braille is', () => {
+  it('marks its empty braille as shown in grid navigation when its axes declare a grid', () => {
+    // Its points are brailled cell by cell in grid navigation and nowhere
+    // else, and B answered "Braille is not supported for plot type: point".
+    const trace = new ScatterTrace(gridLayer());
+    trace.moveOnce('FORWARD');
+
+    const braille = brailleOf(trace);
+
+    expect(braille.empty).toBe(true);
+    expect(braille.empty && braille.inGridNavigation).toBe(true);
+  });
+
+  it('leaves the mark off a scatter whose axes declare no grid', () => {
+    const layer = gridLayer();
+    layer.axes = { x: { label: 'X' }, y: { label: 'Y' } };
+    const trace = new ScatterTrace(layer);
+    trace.moveOnce('FORWARD');
+
+    const braille = brailleOf(trace);
+
+    expect(braille.empty).toBe(true);
+    expect(braille.empty && braille.inGridNavigation).toBeFalsy();
+  });
+});

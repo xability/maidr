@@ -20,6 +20,7 @@ export const notification = {
   'notification.brailleIsOff': '点字 オフ',
   'notification.brailleNoInfo': '点字で表示できる情報がありません',
   'notification.brailleNotSupported': 'グラフの種類 {type} では点字はサポートされていません',
+  'notification.brailleInGridNavigation': 'このグラフの点字はグリッドのナビゲーションで表示されます。グリッドのナビゲーションと読み上げられるまで Alt Shift 上矢印キーを押し、次に B キーを押してください。',
   'notification.brailleDisplay': '点字ディスプレイ',
 
   // Monitor mode on live charts.

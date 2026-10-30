@@ -17,6 +17,7 @@ export const notification = {
   'notification.brailleIsOff': 'Braille disattivato',
   'notification.brailleNoInfo': 'Nessuna informazione per il braille',
   'notification.brailleNotSupported': 'Il braille non è supportato per il tipo di grafico: {type}',
+  'notification.brailleInGridNavigation': 'Per questo grafico il braille è mostrato nella navigazione a griglia. Premere Alt Maiusc freccia su finché non viene annunciata la navigazione a griglia, poi premere B.',
   'notification.brailleDisplay': 'Display braille',
 
   'notification.monitoringLiveOnly': 'Il monitoraggio è disponibile solo per i grafici in tempo reale',

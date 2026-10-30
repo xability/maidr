@@ -17,6 +17,7 @@ export const notification = {
   'notification.brailleIsOff': 'ब्रेल बंद है',
   'notification.brailleNoInfo': 'ब्रेल के लिए कोई जानकारी नहीं',
   'notification.brailleNotSupported': 'इस प्लॉट प्रकार के लिए ब्रेल समर्थित नहीं है: {type}',
+  'notification.brailleInGridNavigation': 'इस चार्ट का ब्रेल ग्रिड नेविगेशन में दिखाया जाता है। ग्रिड नेविगेशन की घोषणा होने तक Alt Shift ऊपर तीर दबाएँ, फिर B दबाएँ।',
   'notification.brailleDisplay': 'ब्रेल डिस्प्ले',
 
   'notification.monitoringLiveOnly': 'मॉनिटरिंग केवल लाइव चार्ट के लिए उपलब्ध है',

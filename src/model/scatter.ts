@@ -802,12 +802,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     if (this.isInIntersectionMode) {
       // Intersection mode focuses a single point — same braille story as
       // POINT_MODE, no meaningful 2-D surface to render.
-      return this.outOfBoundsState;
+      return this.brailleOutsideGrid;
     }
     if (this.isInPointMode) {
       // Point mode renders one datapoint at a time; braille has no meaningful
       // surface for that, so fall through to the empty state.
-      return this.outOfBoundsState;
+      return this.brailleOutsideGrid;
     }
     // Grid mode: return 2D grid of point counts for braille display
     if (this.isInGridMode && this.gridCells) {
@@ -824,7 +824,19 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
 
     // Normal row/col mode: braille not supported (return empty state)
-    return this.outOfBoundsState;
+    return this.brailleOutsideGrid;
+  }
+
+  /**
+   * The braille state anywhere but grid navigation: empty, and marked as
+   * shown in grid navigation when the axes declare a grid. Told only that the
+   * chart has no braille, a reader would not look for it in the one mode that
+   * has it.
+   */
+  private get brailleOutsideGrid(): TraceEmptyState {
+    return this.supportsGridMode()
+      ? { ...this.outOfBoundsState, inGridNavigation: true }
+      : this.outOfBoundsState;
   }
 
   /**

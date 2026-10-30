@@ -1721,8 +1721,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
     }
 
     if (state.braille.empty) {
-      const notSupported = t('notification.brailleNotSupported', { type: state.braille.traceType });
-      this.notification.notify(notSupported);
+      // A scatter with a grid has braille, in grid navigation only, and a
+      // reader told it has none would not go looking for it there.
+      const message = state.braille.inGridNavigation
+        ? t('notification.brailleInGridNavigation')
+        : t('notification.brailleNotSupported', { type: state.braille.traceType });
+      this.notification.notify(message);
       return;
     }
 

@@ -81,6 +81,12 @@ export interface TraceEmptyState {
   xAxis?: string;
   /** The y axis label the layer authored, or empty, as in a populated state. */
   yAxis?: string;
+  /**
+   * Set on a braille state that is empty only outside grid navigation: a
+   * scatter whose axes declare a grid shows its points in braille cell by
+   * cell there, and nowhere else.
+   */
+  inGridNavigation?: boolean;
 }
 
 /**
