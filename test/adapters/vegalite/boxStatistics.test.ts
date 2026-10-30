@@ -160,6 +160,9 @@ describe('a vega-lite box plot with a table carrying every statistic', () => {
 /** Pixel y of a value: a linear scale, 220 at 0, one pixel per unit. */
 const y = (v: number): number => 220 - v;
 
+/** Pixel x of a value, for a box plot drawn along x: 20 at 0, one per unit. */
+const x = (v: number): number => 20 + v;
+
 /** Where an element is drawn. */
 interface Box {
   x: number;
@@ -209,12 +212,36 @@ function group(svg: Element, classes: string): Element {
   return g;
 }
 
+/** How the box plot of `RAW` is drawn. */
+interface Drawing {
+  /** Boxes along x, one per row of the y axis, rather than up the y axis. */
+  horizontal?: boolean;
+  /** Symbols drawn above box a's upper whisker that its rows do not hold. */
+  extraUpper?: number[];
+}
+
+/**
+ * The box plot spec over `RAW`.
+ * @param horizontal - Whether the values run along x
+ * @returns The spec
+ */
+function boxSpec(horizontal = false): VegaLiteSpec {
+  const value = { field: 'v', type: 'quantitative' };
+  const category = { field: 'g', type: 'nominal' };
+  return {
+    data: { values: RAW },
+    mark: 'boxplot',
+    encoding: horizontal ? { x: value, y: category } : { x: category, y: value },
+  } as unknown as VegaLiteSpec;
+}
+
 /**
  * The rendered box plot of `RAW`, drawn as vega-lite draws a boxplot: an
  * outlier group, two whisker groups, the boxes and the medians.
+ * @param drawing - How it is drawn
  * @returns The view to bind
  */
-function renderedBoxPlot(): VegaView {
+function renderedBoxPlot(drawing: Drawing = {}): VegaView {
   const container = document.createElement('div');
   container.id = 'chart';
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -228,13 +255,23 @@ function renderedBoxPlot(): VegaView {
   const medians = group(svg, 'mark-rect role-mark layer_1_layer_1_marks');
 
   for (const [i, p] of EXPECTED.entries()) {
-    const cx = 50 + i * 100;
-    drawn(boxes, 'path', { x: cx - 10, y: y(p.q3), width: 20, height: p.q3 - p.q1 }, `g: ${p.z}`);
-    drawn(medians, 'path', { x: cx - 10, y: y(p.q2) - 0.5, width: 20, height: 1 });
-    drawn(lowerRules, 'line', { x: cx, y: y(p.q1), width: 0, height: p.q1 - p.min });
-    drawn(upperRules, 'line', { x: cx, y: y(p.max), width: 0, height: p.max - p.q3 });
-    for (const v of [...p.lowerOutliers, ...p.upperOutliers])
-      drawn(symbols, 'path', { x: cx - 2.5, y: y(v) - 2.5, width: 5, height: 5 });
+    const across = 50 + i * 100;
+    const outliers = [...p.lowerOutliers, ...p.upperOutliers, ...(i === 0 ? drawing.extraUpper ?? [] : [])];
+    if (drawing.horizontal) {
+      drawn(boxes, 'path', { x: x(p.q1), y: across - 10, width: p.q3 - p.q1, height: 20 }, `g: ${p.z}`);
+      drawn(medians, 'path', { x: x(p.q2) - 0.5, y: across - 10, width: 1, height: 20 });
+      drawn(lowerRules, 'line', { x: x(p.min), y: across, width: p.q1 - p.min, height: 0 });
+      drawn(upperRules, 'line', { x: x(p.q3), y: across, width: p.max - p.q3, height: 0 });
+      for (const v of outliers)
+        drawn(symbols, 'path', { x: x(v) - 2.5, y: across - 2.5, width: 5, height: 5 });
+      continue;
+    }
+    drawn(boxes, 'path', { x: across - 10, y: y(p.q3), width: 20, height: p.q3 - p.q1 }, `g: ${p.z}`);
+    drawn(medians, 'path', { x: across - 10, y: y(p.q2) - 0.5, width: 20, height: 1 });
+    drawn(lowerRules, 'line', { x: across, y: y(p.q1), width: 0, height: p.q1 - p.min });
+    drawn(upperRules, 'line', { x: across, y: y(p.max), width: 0, height: p.max - p.q3 });
+    for (const v of outliers)
+      drawn(symbols, 'path', { x: across - 2.5, y: y(v) - 2.5, width: 5, height: 5 });
   }
 
   const view = {
@@ -255,16 +292,7 @@ describe('binding a vega-lite box plot with fractional outliers', () => {
   });
 
   it('announces each outlier at its value, not rounded from where it is drawn', () => {
-    const spec = {
-      data: { values: RAW },
-      mark: 'boxplot',
-      encoding: {
-        x: { field: 'g', type: 'nominal' },
-        y: { field: 'v', type: 'quantitative' },
-      },
-    } as unknown as VegaLiteSpec;
-
-    bindVegaLite(renderedBoxPlot(), spec);
+    bindVegaLite(renderedBoxPlot(), boxSpec());
     const maidr = initMock.mock.calls[0]?.[0] as Maidr;
     const boxes = maidr.subplots[0][0].layers[0].data as BoxPoint[];
 
@@ -274,17 +302,8 @@ describe('binding a vega-lite box plot with fractional outliers', () => {
   });
 
   it('still outlines each outlier it announces', () => {
-    const spec = {
-      data: { values: RAW },
-      mark: 'boxplot',
-      encoding: {
-        x: { field: 'g', type: 'nominal' },
-        y: { field: 'v', type: 'quantitative' },
-      },
-    } as unknown as VegaLiteSpec;
-
     const view = renderedBoxPlot();
-    bindVegaLite(view, spec);
+    bindVegaLite(view, boxSpec());
     const maidr = initMock.mock.calls[0]?.[0] as Maidr;
     const selectors = maidr.subplots[0][0].layers[0].selectors as Array<{ upperOutliers: string[]; lowerOutliers: string[] }>;
     const container = view.container() as HTMLElement;
@@ -293,5 +312,24 @@ describe('binding a vega-lite box plot with fractional outliers', () => {
     const lower = container.querySelector(selectors[1].lowerOutliers[0]);
     expect(upper?.getBoundingClientRect().y).toBeCloseTo(y(200.4) - 2.5);
     expect(lower?.getBoundingClientRect().y).toBeCloseTo(y(-10.3) - 2.5);
+  });
+
+  it('announces them at their values when the boxes are drawn along x', () => {
+    bindVegaLite(renderedBoxPlot({ horizontal: true }), boxSpec(true));
+    const maidr = initMock.mock.calls[0]?.[0] as Maidr;
+    const boxes = maidr.subplots[0][0].layers[0].data as BoxPoint[];
+
+    expect(boxes.map(p => p.upperOutliers)).toEqual([[200.4], []]);
+    expect(boxes.map(p => p.lowerOutliers)).toEqual([[], [-10.3]]);
+  });
+
+  it('keeps the drawn estimates when the rows hold a different number of outliers', () => {
+    // A symbol the rows do not account for: no observed value can be said to
+    // be that symbol's, so each keeps the value read off its position.
+    bindVegaLite(renderedBoxPlot({ extraUpper: [150.6] }), boxSpec());
+    const maidr = initMock.mock.calls[0]?.[0] as Maidr;
+    const boxes = maidr.subplots[0][0].layers[0].data as BoxPoint[];
+
+    expect(boxes[0].upperOutliers).toEqual([151, 200]);
   });
 });
