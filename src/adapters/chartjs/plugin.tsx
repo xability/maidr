@@ -69,6 +69,8 @@ interface MaidrChartBinding {
   lastActive: NavEvent | null;
   /** Stops clearing the highlight when focus leaves the chart. */
   stopWatchingFocus: () => void;
+  /** Stops keeping room below the canvas's box, and gives it its own margin back. */
+  restoreBox: () => void;
 }
 
 const chartBindings = new WeakMap<ChartJsChart, MaidrChartBinding>();
@@ -292,6 +294,45 @@ interface RenderResult {
   container: HTMLElement;
   /** Resolves once the host wrapper is attached to the DOM. */
   hostPromise: Promise<HTMLDivElement | null>;
+  /** Gives the canvas's box back the margin {@link keepRoomBelowBox} changed. */
+  restoreBox: () => void;
+}
+
+/**
+ * Keeps room below the canvas's own box for MAIDR's text, braille and review
+ * fields.
+ *
+ * Chart.js sizes a responsive chart from the canvas's parent and asks for a
+ * parent "dedicated to the chart canvas only", which pages give a fixed
+ * height. MAIDR's figure is mounted inside that box: the chart keeps the
+ * box's measured size and the fields go below it, so they overflowed the box
+ * and were drawn over whatever followed on the page. The box's height is left
+ * as it is, because Chart.js watches the box and resizes the chart to it.
+ * Instead its bottom margin grows by however far the figure runs past it, on
+ * top of the margin the page gave it, and follows the fields as braille or
+ * review opens and closes.
+ *
+ * @param box - The canvas's own box
+ * @param figure - MAIDR's figure, mounted inside the box
+ * @returns Stops, and gives the box its own margin back
+ */
+function keepRoomBelowBox(box: HTMLElement, figure: Element): () => void {
+  if (typeof ResizeObserver === 'undefined')
+    return () => {};
+
+  const inline = box.style.marginBottom;
+  const pageMargin = Number.parseFloat(getComputedStyle(box).marginBottom) || 0;
+  const update = (): void => {
+    const below = figure.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom;
+    box.style.marginBottom = below > 0 ? `${pageMargin + below}px` : inline;
+  };
+  const observer = new ResizeObserver(update);
+  observer.observe(figure);
+  observer.observe(box);
+  return () => {
+    observer.disconnect();
+    box.style.marginBottom = inline;
+  };
 }
 
 function renderMaidr(
@@ -310,6 +351,12 @@ function renderMaidr(
   const { width, height } = parent.getBoundingClientRect();
   const hostWidth = width > 0 ? width : (canvas.clientWidth || 600);
   const hostHeight = height > 0 ? height : (canvas.clientHeight || 400);
+
+  // A box that holds only the canvas is the chart's own, and gets room kept
+  // below it once MAIDR's figure is in it. Anything else, or the page's
+  // body, is left as the page laid it out.
+  const ownBox = parent.children.length === 1 && parent !== document.body;
+  let stopKeepingRoom = (): void => {};
 
   // Create a transparent container that wraps the canvas
   const container = document.createElement('div');
@@ -333,6 +380,9 @@ function renderMaidr(
   const handleHost = (host: HTMLDivElement | null): void => {
     if (host && !hostResolved) {
       hostResolved = true;
+      const figure = host.closest('figure');
+      if (ownBox && figure)
+        stopKeepingRoom = keepRoomBelowBox(parent, figure);
       resolveHost(host);
     }
   };
@@ -349,7 +399,7 @@ function renderMaidr(
     </MaidrComponent>,
   );
 
-  return { root, container, hostPromise };
+  return { root, container, hostPromise, restoreBox: () => stopKeepingRoom() };
 }
 
 // ---------------------------------------------------------------------------
@@ -461,6 +511,7 @@ function initMaidrForChart(chart: ChartJsChart): void {
       () => overlay,
       () => recordActive(null),
     ),
+    restoreBox: result.restoreBox,
   });
 }
 
@@ -518,6 +569,7 @@ function destroyMaidrForChart(chart: ChartJsChart): void {
   binding.root.unmount();
   binding.container.parentElement?.insertBefore(canvas, binding.container);
   binding.container.remove();
+  binding.restoreBox();
   chartBindings.delete(chart);
 }
 
