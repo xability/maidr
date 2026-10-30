@@ -20,6 +20,7 @@ export const notification = {
   'notification.brailleIsOff': '점자 꺼짐',
   'notification.brailleNoInfo': '점자로 나타낼 정보가 없습니다',
   'notification.brailleNotSupported': '{type} 그래프 유형은 점자를 지원하지 않습니다',
+  'notification.brailleInGridNavigation': '이 차트의 점자는 격자 탐색에서 표시됩니다. 격자 탐색이 안내될 때까지 Alt Shift 위쪽 화살표 키를 누른 다음 B 키를 누르세요.',
   'notification.brailleDisplay': '점자 디스플레이',
 
   // Monitor mode on live charts.

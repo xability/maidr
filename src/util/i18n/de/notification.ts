@@ -21,6 +21,7 @@ export const notification = {
   'notification.brailleIsOff': 'Braille ist aus',
   'notification.brailleNoInfo': 'Keine Informationen für Braille',
   'notification.brailleNotSupported': 'Braille wird für den Diagrammtyp {type} nicht unterstützt',
+  'notification.brailleInGridNavigation': 'Braille wird für dieses Diagramm in der Rasternavigation angezeigt. Drücken Sie Alt Umschalt Pfeil nach oben, bis Rasternavigation angesagt wird, und dann B.',
   'notification.brailleDisplay': 'Braillezeile',
 
   // Monitor mode on live charts.

@@ -9,6 +9,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { BrailleState, TraceState } from '@type/state';
 import { describe, expect, it } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { ScatterTrace } from '@model/scatter';
 import { TraceType } from '@type/grammar';
 
@@ -114,5 +115,52 @@ describe('a grid-mode scatter reports its cell counts', () => {
       expect(after.values).not.toBe(before.values);
       expect(after.values).toEqual([[0, 0], [0, 0]]);
     }
+  });
+});
+
+describe('outside grid navigation, a scatter says where its braille is', () => {
+  it('marks its empty braille as shown in grid navigation when its axes declare a grid', () => {
+    // Its points are brailled cell by cell in grid navigation and nowhere
+    // else, and B answered "Braille is not supported for plot type: point".
+    const trace = new ScatterTrace(gridLayer());
+    trace.moveOnce('FORWARD');
+
+    const braille = brailleOf(trace);
+
+    expect(braille.empty).toBe(true);
+    expect(braille.empty && braille.inGridNavigation).toBe(true);
+  });
+
+  it.each([
+    ['in point navigation', TraceType.SCATTER, (trace: ScatterTrace): void => trace.setPointMode(true)],
+    ['in intersection navigation', TraceType.SCATTER, (trace: ScatterTrace): void => trace.setIntersectionMode(true)],
+    ['on a volcano plot', TraceType.VOLCANO, (): void => {}],
+    ['on a Manhattan plot', TraceType.MANHATTAN, (): void => {}],
+  ])('marks it %s too', (_where, type, enter) => {
+    const trace = TraceFactory.create({ ...gridLayer(), type }) as ScatterTrace;
+    trace.moveOnce('FORWARD');
+    enter(trace);
+
+    const braille = brailleOf(trace);
+
+    expect(braille.empty).toBe(true);
+    expect(braille.empty && braille.inGridNavigation).toBe(true);
+    trace.dispose();
+  });
+
+  it('leaves the mark off a scatter whose axes declare no grid, even asked for grid navigation', () => {
+    // Its grid cells are fixed when the trace is built, and grid navigation
+    // refuses to start without them, so this scatter is never in it.
+    const layer = gridLayer();
+    layer.axes = { x: { label: 'X' }, y: { label: 'Y' } };
+    const trace = new ScatterTrace(layer);
+    trace.moveOnce('FORWARD');
+    trace.setGridMode(true);
+
+    const braille = brailleOf(trace);
+
+    expect(trace.isGridModeActive()).toBe(false);
+    expect(braille.empty).toBe(true);
+    expect(braille.empty && braille.inGridNavigation).toBeFalsy();
   });
 });

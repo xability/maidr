@@ -20,6 +20,7 @@ export const notification = {
   'notification.brailleIsOff': 'Braille is off',
   'notification.brailleNoInfo': 'No info for braille',
   'notification.brailleNotSupported': 'Braille is not supported for plot type: {type}',
+  'notification.brailleInGridNavigation': 'Braille for this chart is shown in grid navigation. Press Alt Shift Up until grid navigation is announced, then press B.',
   'notification.brailleDisplay': 'Braille display',
 
   // Monitor mode on live charts.
