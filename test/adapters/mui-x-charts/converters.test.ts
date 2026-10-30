@@ -539,6 +539,27 @@ describe('second-pass kinds', () => {
     expect(layer.axes).toEqual({ x: { label: 'Metric' }, y: { label: 'Value' } });
   });
 
+  it('names no series on the spokes of a lone radar series the chart gives no label', () => {
+    // MUI draws an unlabelled series in no legend and names it in no tooltip,
+    // so "Series 1" would be a name nothing on the chart carries.
+    const [layer] = convertMuiChart('radar', {
+      series: [{ data: [80, 65] }],
+      radar: { max: 100, metrics: ['Speed', 'Power'] },
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([[{ x: 'Speed', y: 80 }, { x: 'Power', y: 65 }]]);
+  });
+
+  it('keeps the name of a labelled radar series, and the names that tell several apart', () => {
+    const radar = { metrics: ['Speed'] };
+
+    const [labelled] = convertMuiChart('radar', { series: [{ data: [80], label: 'Alex' }], radar }, SCOPE).layers;
+    const [several] = convertMuiChart('radar', { series: [{ data: [80] }, { data: [60] }], radar }, SCOPE).layers;
+
+    expect(labelled.data).toEqual([[{ x: 'Speed', y: 80, z: 'Alex' }]]);
+    expect(several.data).toEqual([[{ x: 'Speed', y: 80, z: 'Series 1' }], [{ x: 'Speed', y: 60, z: 'Series 2' }]]);
+  });
+
   it('reads nothing from a gauge with no value', () => {
     expect(convertMuiChart('gauge', { value: null }, SCOPE).layers).toEqual([]);
   });
