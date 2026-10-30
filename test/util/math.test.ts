@@ -188,6 +188,15 @@ describe('MathUtil.sharePercentages', () => {
     expect(MathUtil.sharePercentages([0, 4, 3, 4])).toEqual([0, 36, 28, 36]);
   });
 
+  it('never reads a smaller count as the larger share', () => {
+    // 27.4% twice, 27.1% and 18.1%, with one unit to spare. The two equal
+    // counts cannot share it, and handed on to the 271 it read 28% beside
+    // their 27%.
+    const shares = MathUtil.sharePercentages([274, 274, 271, 181]);
+
+    expect(shares).toEqual([27, 27, 27, 19]);
+  });
+
   it('leaves the total short of a hundred rather than split equal counts', () => {
     // Three equal thirds have no whole-percent shares that are equal and add
     // up to 100.

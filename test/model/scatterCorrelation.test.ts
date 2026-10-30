@@ -277,6 +277,26 @@ describe('a scatter says where its cloud sits, not only which way it tilts', () 
       .toBe('1 upper right 0%, 2 upper left 36%, 3 lower left 28%, 4 lower right 36%');
   });
 
+  test('never reads a quarter holding fewer points as the larger share', () => {
+    // A thousand points: 274 in each upper quarter, 271 in the lower left and
+    // 181 in the lower right. The upper quarters could not share the one
+    // spare unit, and the lower left took it, so the headline named the upper
+    // quarters at 27% over a breakdown that read the lower left at 28%.
+    const at = (x: number, y: number, count: number): ScatterPoint[] =>
+      Array.from({ length: count }, () => ({ x, y }));
+    const trace = traceOf([
+      ...at(10, 10, 274),
+      ...at(0, 10, 274),
+      ...at(0, 0, 271),
+      ...at(10, 0, 181),
+    ]);
+
+    expect(statOf(trace, 'Most points'))
+      .toBe('27% in the upper right (quadrant 1) and the upper left (quadrant 2)');
+    expect(statOf(trace, 'Points by quadrant'))
+      .toBe('1 upper right 27%, 2 upper left 27%, 3 lower left 27%, 4 lower right 19%');
+  });
+
   test('cuts at the middle of the extent when they do not', () => {
     // Most scatters hold no negative value at all, so origin quadrants would
     // put every point in the first and say nothing.

@@ -258,17 +258,22 @@ export abstract class MathUtil {
    * eleven came out 37% and 36%, and the summary named one quadrant as
    * holding the most. Each set of equal counts, largest fraction first, takes
    * a unit apiece only when the units left cover all of it, and a set that
-   * would be split is passed over for the next. When no set fits -- three
-   * equal thirds -- the shares add up to less than 100 rather than read two
-   * equal counts as different.
+   * would be split is passed over for the next. The next takes it only when
+   * that leaves its share no higher than any larger count's: a set passed
+   * over keeps its floor, and handing its unit on to a smaller count with the
+   * same floor read 271 points of a thousand as 28% beside 274 at 27%. When
+   * no set fits -- three equal thirds -- the shares add up to less than 100
+   * rather than read two equal counts as different, or a smaller count as the
+   * larger share.
    *
    * An empty set of counts, or one summing to zero, comes back as zeroes:
    * there is no share of nothing, and the caller decides whether to say so.
    *
    * @param counts - The counts to apportion. Negative entries are not expected
    *   and are counted as given.
-   * @returns One whole percentage per count, equal for equal counts, summing
-   *   to 100 unless equal counts make that impossible.
+   * @returns One whole percentage per count, equal for equal counts and never
+   *   larger for a smaller count, summing to 100 unless equal counts make that
+   *   impossible.
    */
   static sharePercentages(counts: readonly number[]): number[] {
     const total = counts.reduce((sum, count) => sum + count, 0);
@@ -289,13 +294,15 @@ export abstract class MathUtil {
       .map((count) => {
         const indices = counts.flatMap((other, index) => (other === count ? [index] : []));
         const share = exact[indices[0]];
-        return { indices, remainder: share - Math.floor(share) };
+        return { count, indices, remainder: share - Math.floor(share) };
       })
       .filter(set => set.remainder > 0)
       .sort((a, b) => b.remainder - a.remainder || a.indices[0] - b.indices[0]);
 
-    for (const { indices } of sets) {
-      if (indices.length > remaining) {
+    for (const { count, indices } of sets) {
+      const raised = shares[indices[0]] + 1;
+      const overtakes = counts.some((other, index) => other > count && shares[index] < raised);
+      if (indices.length > remaining || overtakes) {
         continue;
       }
       for (const index of indices) {
