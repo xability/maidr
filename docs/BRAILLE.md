@@ -186,6 +186,12 @@ data values are encoded as Braille characters based on their relative magnitude 
 Low values are denoted by Braille characters that have dots only along the bottom,
 while high values are indicated by characters that have dots higher up.
 
+Every series is encoded against the same range: the lowest and the highest
+value of the whole plot, which is also the range the pitch is scaled against.
+The same cell height is the same value on every line, so a line drawn above
+another reads higher, and a line that stays in one band of the axis stays in
+the cells for that band rather than filling all four heights.
+
 #### Multiline Displays
 
 In multiline braille displays, all data series are represented simultaneously. Horizontally, the height of the braille encoding from left to right represents the value of the series for a particular point. Vertically, each line of the braille display corresponds to a different series in the plot, allowing users to perceive the distribution of values across all series at once.
@@ -196,14 +202,15 @@ In single-line braille displays, the user can navigate vertically with the up an
 
 A step plot's braille is the line plot encoding above, unchanged: each data
 point becomes one Braille character whose dot height is its numeric `y` relative
-to the row's own range. The staircase corners the chart draws are not encoded —
+to the range of the whole plot, every series against the same range (for a
+single series, its own). The staircase corners the chart draws are not encoded —
 braille represents the samples, not the rendered geometry — so a run of equal
 levels reads as a run of identical characters and a transition reads as a change
 in dot height.
 
 #### Known limitation: ordinal levels collapse
 
-The line encoder quarters each row's range into **four** buckets:
+The line encoder quarters the plot's range into **four** buckets:
 
 - ⣀ represents values from 0% to 25%
 - ⠤ represents values from 25% to 50%
@@ -326,7 +333,7 @@ several groups' tails can be compared with one sweep.
 
 ### Precision-recall curve [experimental]
 
-A precision-recall curve is a multi-line layer -- one curve per classifier, class or run, one point per decision threshold -- and its braille is a line plot's: each Braille character is the precision at that threshold, encoded by its magnitude within the curve. The recall is not on the display; it is what the pitch's stereo position and the text carry, and so is the baseline the curve is read against.
+A precision-recall curve is a multi-line layer -- one curve per classifier, class or run, one point per decision threshold -- and its braille is a line plot's: each Braille character is the precision at that threshold, encoded by its magnitude on the unit interval, the register the pitch uses, so every curve is encoded against the same range and two curves can be compared cell by cell. The recall is not on the display; it is what the pitch's stereo position and the text carry, and so is the baseline the curve is read against.
 
 #### Multiline Displays
 
@@ -334,7 +341,7 @@ As for a line plot: each line of a multiline display is one curve, and a single-
 
 ### ROC curve [experimental]
 
-A ROC curve is a multi-line layer -- one curve per classifier, one point per decision threshold -- and its braille is a line plot's: each Braille character is the true positive rate at that operating point, encoded by its magnitude within the curve. The false positive rate is not on the display; it is what the pitch's stereo position and the text carry.
+A ROC curve is a multi-line layer -- one curve per classifier, one point per decision threshold -- and its braille is a line plot's: each Braille character is the true positive rate at that operating point, encoded by its magnitude on the unit interval, the register the pitch uses, so every curve is encoded against the same range and two curves can be compared cell by cell. The false positive rate is not on the display; it is what the pitch's stereo position and the text carry.
 
 #### Multiline Displays
 
@@ -342,7 +349,7 @@ As for a line plot: each line of a multiline display is one classifier's curve, 
 
 ### Percentile band (fan chart) [experimental]
 
-A percentile band is read as a multi-line layer with one line per quantile -- the minimum, each percentile and the maximum, lowest first -- and its braille is a line plot's: each Braille character is that quantile's value at one x. Unlike a line plot, every row is encoded against the range of the whole band rather than its own, so the same cell height means the same value on every row and the rows can be compared: a wide band reads as rows far apart, a narrow one as rows close together.
+A percentile band is read as a multi-line layer with one line per quantile -- the minimum, each percentile and the maximum, lowest first -- and its braille is a line plot's: each Braille character is that quantile's value at one x. As on a line plot, every row is encoded against the range of the whole band, so the same cell height means the same value on every row and the rows can be compared: a wide band reads as rows far apart, a narrow one as rows close together.
 
 #### Multiline Displays
 
@@ -391,7 +398,7 @@ band stacked on top and the cursor up a line.
 
 An error bar layer becomes one braille row per magnitude it draws — the lower
 bounds, the estimates, the upper bounds — each scaled against its own row's
-range, exactly as a multi-series line plot is.
+range.
 
 Rows are ordered bottom to top, so moving down the display moves down the
 value axis. A layer whose data carries no lower bound has no lower row: an
@@ -479,11 +486,10 @@ measure appears on the first line and the remaining lines are unused.
 A dumbbell's braille is **two rows** — the starting values and the finishing
 ones — one cell per category, with each row scaled against **its own** range.
 
-That per-row scaling is the same treatment a multi-line plot gets, and it is
-what makes the two rows comparable as *shapes*: the point of the chart is
-whether the second row's profile sits differently from the first, and a single
-shared range would flatten both toward the middle of the combined spread when
-the two ends occupy different parts of the value axis.
+That per-row scaling is what makes the two rows comparable as *shapes*: the
+point of the chart is whether the second row's profile sits differently from
+the first, and a single shared range would flatten both toward the middle of
+the combined spread when the two ends occupy different parts of the value axis.
 
 The rows keep the chart's own order — start first, then end — rather than being
 sorted by magnitude. A dumbbell normally contains rises and falls at once, so
@@ -504,7 +510,8 @@ compared with one sweep rather than by toggling between rows.
 ### Radar and polar area [experimental]
 
 A radar's braille is the multi-line encoding: **one row per series**, one cell
-per spoke, each row scaled against its own range. Up and Down move between
+per spoke, every row scaled against the range of the whole chart, so the same
+cell height is the same value on every series. Up and Down move between
 those rows in the order the series are declared, Up to the next; a line chart
 moves to the next higher or lower value instead, but a radar's values do not
 rise up the screen.
@@ -613,13 +620,13 @@ multiline display.
 One row per observation, one cell per axis, each row scaled from 0 to 1.
 
 The scaling is the whole point, and it happens **before** the encoder sees the
-data. Every other multi-row trace hands the encoder raw values and lets it
-scale each row against that row's own extent, which is right when a row is one
-quantity sampled repeatedly. A parallel coordinates row is not: it holds one
-observation across every variable, so scaling it row-wise would compare a car's
-fuel economy against its own kerb weight, and the cell heights would encode
-which variable happens to use bigger numbers rather than anything about the
-car.
+data. A line chart hands the encoder raw values and scales every row against
+the extent of the whole chart, which is right when every row is one quantity
+sampled repeatedly on one axis. A parallel coordinates row is not: it holds
+one observation across every variable, so scaling raw values would compare a
+car's fuel economy against its own kerb weight, and the cell heights would
+encode which variable happens to use bigger numbers rather than anything about
+the car.
 
 So the trace normalizes first. Each cell is its value's position **on its own
 axis**, which is exactly what the pitch plays and what the chart draws. A row
@@ -647,8 +654,9 @@ toggling between rows.
 
 ### Bump chart [experimental]
 
-One row per competitor, one cell per period, each row scaled against its own
-range — the line encoding unchanged.
+One row per competitor, one cell per period, every row scaled against the
+range of ranks in the whole table — the line encoding unchanged — so the same
+cell height is the same rank on every row.
 
 **The cells rise with the rank number, not with the position.** A row that
 climbs the display is a competitor sliding *down* the table, because rank 1 is
@@ -779,7 +787,9 @@ rows of the comparison are under the hand at once.
 ### Kaplan-Meier survival curve [experimental]
 
 One row per arm, one cell per time, the line encoding — which is what a step
-chart's braille already is, and a survival curve is a step chart.
+chart's braille already is, and a survival curve is a step chart. Every arm is
+encoded against the same range, so the same cell height is the same survival
+probability on every row.
 
 The shape is the reading. A curve that falls early and steeply is a row of
 cells dropping away fast; a curve that holds is a run at the same height; and
@@ -890,8 +900,10 @@ sees at a glance.
 One row per level, one cell per point along its curve — the line encoding,
 because a contour *is* one line per level.
 
-Each row is scaled against its own curve, as a line's rows are, so the shape of
-each iso-value curve is legible on its own terms.
+Every row is scaled against the range of the whole field, as a line's rows are,
+so a curve drawn higher on the chart sits higher on the display and two curves
+can be compared cell by cell. A small curve keeps to the cells of the band it
+is drawn in rather than spanning all four heights.
 
 **The level has no representation, and giving it one would destroy the row.**
 The level is constant along a curve — that is what makes it a contour — so

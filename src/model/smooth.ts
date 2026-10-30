@@ -93,10 +93,13 @@ export class SmoothTrace extends LineTrace {
     // beside it the missing neighbour is held at the current sample.
     const safe = (v: number): number => (Number.isFinite(v) ? v : curr);
 
+    // On the layer's range, as a line's tones are, so two fitted curves on one
+    // value axis are comparable by ear.
+    const { min, max } = this.valueRange;
     return {
       freq: {
-        min: this.min[this.row],
-        max: this.max[this.row],
+        min,
+        max,
         raw: Number.isFinite(curr) ? [safe(prev), curr, safe(next)] : curr,
       },
       panning: {

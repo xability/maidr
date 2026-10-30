@@ -1,6 +1,6 @@
 import type { RotorFilterUnit } from '@model/abstract';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
-import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
+import type { BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { isMeasured } from './bar';
@@ -122,21 +122,48 @@ export class BumpTrace extends LineTrace {
       : [];
   }
 
-  protected override get audio(): AudioState {
-    const base = super.audio;
+  /**
+   * The register every rank is heard on: the whole table's ranks, handed to
+   * the service the other way round so `interpolate` maps the best rank to
+   * the top of the register.
+   *
+   * `LineTrace` would give the leader the lowest note it has, which is the
+   * reading a reader would have to consciously invert on every single move.
+   * Scaled across the whole chart rather than per row: every competitor is
+   * ranked in the same table, so their positions are comparable. The tone at
+   * the cursor and the chord at a period two competitors share both read
+   * this, so they are inverted alike; the braille is not (see `braille`).
+   *
+   * @returns The worst rank as the bottom of the register, the best as the top
+   */
+  protected override get valueRange(): { readonly min: number; readonly max: number } {
+    return { min: this.worstRank, max: this.bestRank };
+  }
 
-    // Handed to the service the other way round, so `interpolate` maps the
-    // best rank to the top of the register. `LineTrace` would give the leader
-    // the lowest note it has, which is the reading a reader would have to
-    // consciously invert on every single move.
-    //
-    // Scaled across the whole chart rather than per row: every competitor is
-    // ranked in the same table, so their positions are comparable, and
-    // per-row bounds would make each competitor's own best period the highest
-    // note whether that was first place or eleventh.
+  /**
+   * The ranks as they are, against the whole table's range the right way up:
+   * rank 1 is the lowest dot (docs/BRAILLE.md, "Bump chart"). The encoder maps
+   * a value to a dot height, and handed the inverted register it would place
+   * every cell outside the range it is given.
+   *
+   * Built on the line's state, so every other field follows it. `values` is
+   * restated, as `ParallelTrace` does, because `super.braille` is typed as
+   * every braille state: with only `min` and `max` replaced, a box plot's
+   * `values` would stay in the type of the result, and it would match none.
+   *
+   * @returns The braille state, scaled from the best rank to the worst
+   */
+  protected override get braille(): BrailleState {
+    const base = super.braille;
+    if (base.empty) {
+      return base;
+    }
+
     return {
       ...base,
-      freq: { ...base.freq, min: this.worstRank, max: this.bestRank },
+      values: this.lineValues,
+      min: this.lineValues.map(() => this.bestRank),
+      max: this.lineValues.map(() => this.worstRank),
     };
   }
 

@@ -270,10 +270,11 @@ export class ParallelTrace extends LineTrace {
   protected override get audio(): AudioState {
     const base = super.audio;
 
-    // `LineTrace` scales against the CURRENT ROW's extent, which is right for
-    // a series sampling one quantity and wrong here: a row spans every axis,
-    // so its extent is the range of a horsepower figure and a fuel-economy
-    // figure taken together, which is not a range of anything.
+    // `LineTrace` scales against the WHOLE LAYER's extent, which is right
+    // when every series samples one quantity on one axis and wrong here: the
+    // layer spans every axis, so its extent is the range of a horsepower
+    // figure and a fuel-economy figure taken together, which is not a range
+    // of anything.
     return {
       ...base,
       freq: {
@@ -290,10 +291,10 @@ export class ParallelTrace extends LineTrace {
     }
 
     // The normalized grid, scaled 0 to 1 for every row, rather than the raw
-    // values. `LineBrailleEncoder` scales each row against that row's own
-    // extent, and a row here holds one observation across every axis -- so a
-    // car's economy would be scaled against its horsepower, and the cell
-    // heights would encode which axis happens to use bigger numbers.
+    // values. `LineTrace` hands the encoder the extent of the whole layer,
+    // and the layer here spans every axis -- so a car's economy would be
+    // scaled against horsepower figures, and the cell heights would encode
+    // which axis happens to use bigger numbers.
     //
     // Normalizing first makes each cell its value's position on its own axis,
     // which is what the pitch plays and what the chart draws. A row of the
