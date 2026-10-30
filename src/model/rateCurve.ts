@@ -236,8 +236,10 @@ export abstract class RateCurveTrace extends LineTrace {
    * points, which is what the chart draws. Where a curve runs vertically at
    * that x it has a range of y, and a cursor inside the range is level with
    * it. Curves level with the cursor are stacked in series order, the first
-   * curve on top, so a point every curve shares is still a place to move
-   * between curves.
+   * curve on top ({@link RateCurveTrace.laterSeriesAbove}), so a point every
+   * curve shares is still a place to move between curves. The rates are
+   * compared as the line compares its values ({@link LineTrace.nearestInColumn}),
+   * so two that differ by float noise are level.
    *
    * The landing point is the target curve's sample nearest in x, and nearest
    * in y among samples tied in x, since the interpolated value is not a point
@@ -255,7 +257,7 @@ export abstract class RateCurveTrace extends LineTrace {
       return null;
     }
 
-    let best: { row: number; distance: number } | null = null;
+    const candidates: { row: number; y: number }[] = [];
     for (let row = 0; row < this.curves.length; row++) {
       if (row === this.row) {
         continue;
@@ -264,29 +266,26 @@ export abstract class RateCurveTrace extends LineTrace {
       if (span === null) {
         continue;
       }
-      // Level with the cursor when the cursor's rate is inside the curve's
-      // range at this x; otherwise the gap to the nearer end.
-      const delta = y < span.lo ? span.lo - y : y > span.hi ? span.hi - y : 0;
-      const liesThatWay = direction === 'UPWARD'
-        ? delta > 0 || (delta === 0 && row < this.row)
-        : delta < 0 || (delta === 0 && row > this.row);
-      if (!liesThatWay) {
-        continue;
-      }
-      const distance = Math.abs(delta);
-      const closer = best === null
-        || distance < best.distance
-        || (distance === best.distance
-          && Math.abs(row - this.row) < Math.abs(best.row - this.row));
-      if (closer) {
-        best = { row, distance };
-      }
+      // The curve's rate at this x nearest the cursor's: the cursor's own
+      // inside a vertical run, otherwise the run's nearer end.
+      candidates.push({ row, y: MathUtil.clamp(y, span.lo, span.hi) });
     }
 
+    const best = this.nearestInColumn(direction, y, candidates);
     if (best === null) {
       return null;
     }
     return { row: best.row, col: this.nearestColumn(best.row, x, y) };
+  }
+
+  /**
+   * Curves level with each other are stacked with the first curve on top,
+   * the order {@link RateCurveTrace.findVerticalTarget} walks them in.
+   *
+   * @returns False: the earlier of two level curves is the higher one
+   */
+  protected override get laterSeriesAbove(): boolean {
+    return false;
   }
 
   /**

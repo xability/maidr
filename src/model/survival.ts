@@ -310,31 +310,20 @@ export class SurvivalTrace extends StepTrace {
       return super.findVerticalTarget(direction);
     }
 
-    let best: { row: number; col: number; distance: number } | null = null;
+    const candidates: { row: number; col: number; y: number }[] = [];
     for (let row = 0; row < this.survivalPoints.length; row++) {
       if (row === this.row) {
         continue;
       }
       const col = SurvivalTrace.stepAt(this.survivalPoints[row], time);
-      if (col === null) {
-        continue;
-      }
-      const y = this.survivalPoints[row][col].y as number;
-      const liesThatWay = direction === 'UPWARD'
-        ? y > cursor || (y === cursor && row > this.row)
-        : y < cursor || (y === cursor && row < this.row);
-      if (!liesThatWay) {
-        continue;
-      }
-      // Among arms equally far, the one nearest in series order: the
-      // earliest going up, the latest going down, as the line breaks it.
-      const distance = Math.abs(y - cursor);
-      if (best === null || distance < best.distance
-        || (distance === best.distance && direction === 'DOWNWARD')) {
-        best = { row, col, distance };
+      if (col !== null) {
+        candidates.push({ row, col, y: this.survivalPoints[row][col].y as number });
       }
     }
 
+    // Compared as the line compares its series, so two estimates that differ
+    // by float noise are level and walked in series order.
+    const best = this.nearestInColumn(direction, cursor, candidates);
     return best === null ? null : { row: best.row, col: best.col };
   }
 

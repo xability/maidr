@@ -362,6 +362,26 @@ export abstract class MathUtil {
   }
 
   /**
+   * Whether two numbers are the same but for float noise, measured against
+   * their own size alone: they differ by no more than a billionth of the
+   * larger of them.
+   *
+   * {@link MathUtil.nearlyEqual} measures numbers smaller than 1 against 1,
+   * so any two within a billionth of 0 are equal by it, and data that is
+   * small in its own units (p-values, concentrations of 1e-12 to 1e-10)
+   * would be one value throughout. With no such floor a value keeps its
+   * place however small it is: 1e-12 is below 5e-11, and 9.4e-28 above 0.
+   * 0.1 + 0.2 and 0.3 are still equal.
+   *
+   * @param a - One number
+   * @param b - The other
+   * @returns True when the two differ by no more than a billionth of the larger
+   */
+  static nearlyEqualRelative(a: number, b: number): boolean {
+    return a === b || Math.abs(a - b) <= 1e-9 * Math.max(Math.abs(a), Math.abs(b));
+  }
+
+  /**
    * Clamps a value into the inclusive `[min, max]` range.
    * @param value - The value to clamp
    * @param min - Lower bound (inclusive)

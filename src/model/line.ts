@@ -729,34 +729,30 @@ export class LineTrace extends AbstractTrace {
     for (let c = 0; c < maxCols; c++) {
       // Gaps take no part in the ranking: there is no magnitude to rank them
       // by, and one reported as the column's top or bottom would send a
-      // reader to a point that is not there. `>=` for the highest and `<`
-      // for the lowest, so ties read as they did when the column was
-      // ordered and its two ends taken -- the last of the joint highest,
-      // the first of the joint lowest.
-      let topRow = -1;
-      let bottomRow = -1;
-      let highest = 0;
-      let lowest = 0;
+      // reader to a point that is not there. The highest and the lowest in
+      // the order Up and Down walk ({@link LineTrace.liesBelow}), so that
+      // Control + Up and Down land where those stop.
+      let highest: { row: number; y: number } | null = null;
+      let lowest: { row: number; y: number } | null = null;
       for (let r = 0; r < rowCount; r++) {
-        const y = this.points[r][c]?.y;
-        if (y === undefined || y === null) {
+        const y = this.lineValues[r][c];
+        if (y === undefined || !isMeasured(y)) {
           continue;
         }
-        if (topRow === -1 || y >= highest) {
-          topRow = r;
-          highest = y;
+        const here = { row: r, y };
+        if (highest === null || this.liesBelow(highest, here)) {
+          highest = here;
         }
-        if (bottomRow === -1 || y < lowest) {
-          bottomRow = r;
-          lowest = y;
+        if (lowest === null || this.liesBelow(here, lowest)) {
+          lowest = here;
         }
       }
-      if (topRow === -1) {
+      if (highest === null || lowest === null) {
         continue;
       }
 
-      const bottom = { row: bottomRow, col: c };
-      const top = { row: topRow, col: c };
+      const bottom = { row: lowest.row, col: c };
+      const top = { row: highest.row, col: c };
       for (let r = 0; r < rowCount; r++) {
         const y = this.points[r][c]?.y;
         const node = graph[r][c];
@@ -1203,9 +1199,8 @@ export class LineTrace extends AbstractTrace {
 
   /**
    * Finds a line with the same X value but Y value in the desired direction
-   * Uses strict equality (===) for X value matching. A line with the same Y
-   * value counts as above when it comes later in series order and below
-   * when it comes earlier.
+   * Uses strict equality (===) for X value matching; the Y values are
+   * compared as {@link LineTrace.nearestInColumn} compares them.
    * @param direction The direction to search (UPWARD for higher Y values, DOWNWARD for lower Y values)
    * @returns The row index of the target line, or null if no suitable line is found
    */
@@ -1213,68 +1208,124 @@ export class LineTrace extends AbstractTrace {
     direction: 'UPWARD' | 'DOWNWARD',
   ): number | null {
     const current = this.points[this.row]?.[this.col];
-    if (current === undefined) {
+    const cursorY = this.lineValues[this.row]?.[this.col];
+    // Neither end of the comparison can be a gap. "The nearest line above
+    // this one" is a question about two magnitudes, and a sample with no
+    // reading is not above or below anything.
+    if (current === undefined || cursorY === undefined || !isMeasured(cursorY)) {
       return null;
     }
-    const currentX = current.x;
 
-    let bestRow: number | null = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-
-    // Check all lines for points with the same X value
+    const candidates: { row: number; y: number }[] = [];
     for (let row = 0; row < this.points.length; row++) {
-      // Skip current row
       if (row === this.row) {
         continue;
       }
-
-      // Find the point in this line with the EXACT same X value (strict equality)
-      const matchingPointIndex = this.findColumnByXValue(row, currentX);
-
-      if (matchingPointIndex === -1) {
-        // No point with this exact X value in this line - skip navigation to this line
-        continue;
-      }
-
-      const lineY = this.points[row][matchingPointIndex].y;
-      const cursorY = this.points[this.row][this.col].y;
-
-      // Neither end of the comparison can be a gap. "The nearest line above
-      // this one" is a question about two magnitudes, and a sample with no
-      // reading is not above or below anything -- `null > n` is false and
-      // `null < n` is true, so leaving it in would make every gap look like a
-      // candidate in one direction and rank it at distance `n` from nothing.
-      if (lineY === null || cursorY === null) {
-        continue;
-      }
-
-      // A series level with the cursor is stacked by series order, the
-      // later series above, as the column's top and bottom already read a
-      // tie -- the last of the joint highest, the first of the joint lowest.
-      // Refusing a tie made a point two series share a dead end for Up and
-      // Down, although another series sits at that very cell.
-      const isValidDirection = direction === 'UPWARD'
-        ? lineY > cursorY || (lineY === cursorY && row > this.row)
-        : lineY < cursorY || (lineY === cursorY && row < this.row);
-      const distance = Math.abs(lineY - cursorY);
-
-      if (!isValidDirection) {
-        continue;
-      }
-
-      // Update best candidate if this is closer. Among series equally far --
-      // themselves tied -- the one nearest the cursor in that order: the
-      // earliest going up, the latest going down, so a tie is entered at its
-      // near end and walked one series at a time instead of skipped.
-      const closer = distance < bestDistance
-        || (distance === bestDistance && direction === 'DOWNWARD');
-      if (closer) {
-        bestDistance = distance;
-        bestRow = row;
+      // Only a line with a point at exactly this x is a neighbour.
+      const col = this.findColumnByXValue(row, current.x);
+      const y = col === -1 ? Number.NaN : this.lineValues[row][col];
+      if (isMeasured(y)) {
+        candidates.push({ row, y });
       }
     }
 
-    return bestRow;
+    return this.nearestInColumn(direction, cursorY, candidates)?.row ?? null;
+  }
+
+  /**
+   * Whether series stacked level with each other put the later one above.
+   *
+   * True of a line, whose column reads a tie as the last of the joint
+   * highest and the first of the joint lowest. A subclass that stacks a tie
+   * the other way round answers false. Read while the graph is built in the
+   * constructor, so an override returns a constant.
+   *
+   * @returns True when the later of two level series is the higher one
+   */
+  protected get laterSeriesAbove(): boolean {
+    return true;
+  }
+
+  /**
+   * Whether one series lies below another in a column: its value is lower,
+   * or the two are level and the series order stacks it below
+   * ({@link LineTrace.laterSeriesAbove}).
+   *
+   * The one order Up and Down walk and Control + Up and Down jump to the
+   * ends of. Level series are stacked rather than refused: refusing a tie
+   * made a point two series share a dead end for Up and Down, although
+   * another series sits at that very cell.
+   *
+   * Values the same but for float noise are level
+   * (`MathUtil.nearlyEqualRelative`). Values computed two ways carry that
+   * noise, and compared exactly a tie the chart draws as one point became an
+   * order of its own: 0.1 + 0.2 stood above 0.3. The margin is a billionth
+   * of the values' own size, so small values keep their order however small
+   * they are: a series at 1e-12 lies below one at 5e-11, and a KDE's tail of
+   * 9.4e-28 above a curve that is 0 there.
+   *
+   * Being level is not transitive: a can be level with b, and b with c,
+   * while a lies below c. Values that close read the same, so at worst the
+   * order the series are scanned in decides which of them is the top or the
+   * nearest.
+   *
+   * @param a - One series, by row and its value in the column
+   * @param a.row - Its row
+   * @param a.y - Its value
+   * @param b - The other
+   * @param b.row - Its row
+   * @param b.y - Its value
+   * @returns True when `a` is below `b`
+   */
+  protected liesBelow(a: { row: number; y: number }, b: { row: number; y: number }): boolean {
+    if (!MathUtil.nearlyEqualRelative(a.y, b.y)) {
+      return a.y < b.y;
+    }
+    return this.laterSeriesAbove ? a.row < b.row : a.row > b.row;
+  }
+
+  /**
+   * Of the other series in the cursor's column, the nearest above or below
+   * the cursor in the order {@link LineTrace.liesBelow} reads.
+   *
+   * The values are compared with each other, never through their distance to
+   * the cursor: a difference rounds to the nearest double, and two candidates
+   * whose distances rounded alike were taken as tied and one of them was
+   * passed over. At -6.57 on the Altair KDE example the distances from 0.012
+   * to 9.4e-28 and to 0 are one double, so Down from 0.012 took the later
+   * curve, at 0, as the nearer and never reached the one at 9.4e-28. A
+   * candidate level with the cursor is placed at the cursor's own value, so
+   * the series order alone decides between the series of a tie and the tie
+   * is walked one series at a time.
+   *
+   * @param direction - UPWARD for the nearest series above, DOWNWARD for the nearest below
+   * @param cursorY - The value at the cursor
+   * @param candidates - The other series, each with its value in this column
+   * @returns The nearest candidate that way, or null when there is none
+   */
+  protected nearestInColumn<T extends { row: number; y: number }>(
+    direction: 'UPWARD' | 'DOWNWARD',
+    cursorY: number,
+    candidates: readonly T[],
+  ): T | null {
+    const cursor = { row: this.row, y: cursorY };
+    let best: { candidate: T; at: { row: number; y: number } } | null = null;
+    for (const candidate of candidates) {
+      const level = MathUtil.nearlyEqualRelative(candidate.y, cursorY);
+      const at = { row: candidate.row, y: level ? cursorY : candidate.y };
+      const liesThatWay = direction === 'UPWARD'
+        ? this.liesBelow(cursor, at)
+        : this.liesBelow(at, cursor);
+      if (!liesThatWay) {
+        continue;
+      }
+      const nearer = best === null
+        || (direction === 'UPWARD' ? this.liesBelow(at, best.at) : this.liesBelow(best.at, at));
+      if (nearer) {
+        best = { candidate, at };
+      }
+    }
+    return best?.candidate ?? null;
   }
 
   /**
