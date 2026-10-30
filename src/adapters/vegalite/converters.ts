@@ -1517,22 +1517,6 @@ function columnsReadAsIs(encoding: VegaLiteEncoding): string[] {
 }
 
 /**
- * Resolve the data array for a layer.
- *
- * Tries the compiled Vega view first (more accurate since it includes
- * aggregations, filters, and other transforms), then falls back to the
- * spec's inline data.
- *
- * `requiredFields` narrows the guesses to datasets that actually carry the
- * columns the layer reads. The name guessing below is ordered by layer
- * index, which is wrong whenever a spec's pipelines do not line up with its
- * layers — the gallery's parallel coordinates chart is layer 1 and its rows
- * are in `data_0`, while `data_1` holds the axis rules' row counts, so the
- * unfiltered guess hands the polylines a two-column table of tallies. A
- * caller that knows which columns must be present says so; every other
- * caller keeps the previous first-non-empty behaviour.
- */
-/**
  * Give each layer of a layered spec its parent's data, where it has none.
  *
  * Vega-Lite's own resolution rule: a layer uses its own `data` when it
@@ -1556,6 +1540,22 @@ function inheritData(
     layer.data == null ? { ...layer, data: parentData } : layer);
 }
 
+/**
+ * Resolve the data array for a layer.
+ *
+ * Tries the compiled Vega view first (more accurate since it includes
+ * aggregations, filters, and other transforms), then falls back to the
+ * spec's inline data.
+ *
+ * `requiredFields` narrows the guesses to datasets that actually carry the
+ * columns the layer reads. The name guessing below is ordered by layer
+ * index, which is wrong whenever a spec's pipelines do not line up with its
+ * layers — the gallery's parallel coordinates chart is layer 1 and its rows
+ * are in `data_0`, while `data_1` holds the axis rules' row counts, so the
+ * unfiltered guess hands the polylines a two-column table of tallies. A
+ * caller that knows which columns must be present says so; every other
+ * caller keeps the previous first-non-empty behaviour.
+ */
 function resolveData(
   spec: VegaLiteSpec,
   layerIndex: number,
