@@ -692,13 +692,20 @@ function convertLine(
 
   const points = (entry: SeriesEntry, stacked: boolean): LinePoint[] => {
     const length = rawX ? Math.min(rawX.length, entry.values.length) : entry.values.length;
+    // Each point names its line, which is how a reader tells several lines
+    // apart. A lone line drawn with no label, as a sparkline's is, has no name
+    // anywhere on the chart, and the "Series 1" standing in for one was read
+    // out as a group on every point.
+    const group = all.length > 1 || drawnLabel(entry.series) !== undefined
+      ? { z: entry.label }
+      : {};
     return Array.from({ length }, (_, i) => {
       const value = entry.values[i];
       return {
         x: rawX ? formatAxisValue(rawX[i], xAxis) : i,
         // A stack adds a missing value in as nothing; a lone line has a gap.
         y: stacked ? (value ?? 0) : value,
-        z: entry.label,
+        ...group,
       };
     });
   };
