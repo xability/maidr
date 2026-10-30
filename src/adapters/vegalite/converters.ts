@@ -1487,21 +1487,35 @@ function rowsCarryFields(
 }
 
 /**
- * Resolve the data array for a layer.
+ * The columns a layer reads from its rows under the names its encoding gives
+ * them.
  *
- * Tries the compiled Vega view first (more accurate since it includes
- * aggregations, filters, and other transforms), then falls back to the
- * spec's inline data.
+ * Every positional and colour channel bound to a field, unless it aggregates,
+ * bins or time-units the field: Vega-Lite writes those results to a column of
+ * another name (`sum_d`, `bin_maxbins_10_v`, `month_date`), so the rows need
+ * not carry the field's own. A nested field (`a.b`, `a[0]`) is left out too,
+ * since it names a path into a row rather than one of its keys.
  *
- * `requiredFields` narrows the guesses to datasets that actually carry the
- * columns the layer reads. The name guessing below is ordered by layer
- * index, which is wrong whenever a spec's pipelines do not line up with its
- * layers — the gallery's parallel coordinates chart is layer 1 and its rows
- * are in `data_0`, while `data_1` holds the axis rules' row counts, so the
- * unfiltered guess hands the polylines a two-column table of tallies. A
- * caller that knows which columns must be present says so; every other
- * caller keeps the previous first-non-empty behaviour.
+ * The columns only have to tell a child's own table from a sibling's, which
+ * the fields it is drawn by do; the channels that size, shape or offset its
+ * marks are not needed for that and are not required.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns The columns the layer's rows have to carry
  */
+function columnsReadAsIs(encoding: VegaLiteEncoding): string[] {
+  const columns: string[] = [];
+  for (const channel of [encoding.x, encoding.y, encoding.color, encoding.fill]) {
+    const field = channel?.field;
+    if (typeof field !== 'string' || field.length === 0 || /[.[\]\\]/.test(field))
+      continue;
+    if (channel?.aggregate != null || channel?.bin || channel?.timeUnit != null)
+      continue;
+    columns.push(field);
+  }
+  return columns;
+}
+
 /**
  * Give each layer of a layered spec its parent's data, where it has none.
  *
@@ -1526,6 +1540,22 @@ function inheritData(
     layer.data == null ? { ...layer, data: parentData } : layer);
 }
 
+/**
+ * Resolve the data array for a layer.
+ *
+ * Tries the compiled Vega view first (more accurate since it includes
+ * aggregations, filters, and other transforms), then falls back to the
+ * spec's inline data.
+ *
+ * `requiredFields` narrows the guesses to datasets that actually carry the
+ * columns the layer reads. The name guessing below is ordered by layer
+ * index, which is wrong whenever a spec's pipelines do not line up with its
+ * layers — the gallery's parallel coordinates chart is layer 1 and its rows
+ * are in `data_0`, while `data_1` holds the axis rules' row counts, so the
+ * unfiltered guess hands the polylines a two-column table of tallies. A
+ * caller that knows which columns must be present says so; every other
+ * caller keeps the previous first-non-empty behaviour.
+ */
 function resolveData(
   spec: VegaLiteSpec,
   layerIndex: number,
@@ -1568,18 +1598,19 @@ function resolveData(
     // Vega-generated names we don't know about (e.g. `bin_maxbins_10_value`,
     // `data_3`, internal aggregation outputs for histograms).
     //
-    // Known limitation: this fallback returns the FIRST matching dataset
-    // without verifying that its rows expose the encoded fields. For
-    // single-source specs (the common case) the only non-empty dataset
-    // is the user's data, and the fallback is correct. For specs with
-    // multiple stages (joins, lookups, filtered branches, separate
-    // datasets per layer) this can pick an upstream/intermediate
-    // dataset and silently produce mismatched announcements. We
-    // intentionally do NOT filter by encoding field names because Vega
-    // legitimately renames fields after binning (e.g. `value` →
-    // `bin_maxbins_10_value`); a stricter check would break
-    // histograms. A field-aware redesign that recognises bin/aggregate
-    // transforms is tracked as a follow-up.
+    // Known limitation: this fallback returns the FIRST matching dataset,
+    // and verifies its rows expose the encoded fields only when the
+    // caller names the fields it needs (`requiredFields`: a parallel
+    // coordinates fold, a concat or repeat child). For single-source
+    // specs (the common case) the only non-empty dataset is the user's
+    // data, and the fallback is correct. For specs with multiple stages
+    // (joins, lookups, filtered branches, separate datasets per layer)
+    // this can pick an upstream/intermediate dataset and silently
+    // produce mismatched announcements. We do NOT filter by every
+    // encoding field name, because Vega legitimately renames fields
+    // after binning (e.g. `value` → `bin_maxbins_10_value`); a stricter
+    // check would break histograms. A field-aware redesign that
+    // recognises bin/aggregate transforms is tracked as a follow-up.
     for (const name of getViewDatasetNames(view)) {
       // Skip the names we already tried above.
       if (datasetNames.includes(name))
@@ -3944,6 +3975,12 @@ function convertLayerSpec(
 
   // Faceted callers pre-filter the resolved dataset down to one panel's
   // rows and pass them here, bypassing dataset-name resolution.
+  //
+  // A concat or repeat child's mark datasets are scoped to its group, out of
+  // `view.data()`'s reach, so its rows are found by guessing pipeline names
+  // from its position, and a child whose sibling compiles to several tables
+  // -- a box plot's eight -- guesses one of the sibling's. Requiring the
+  // columns the child reads skips those.
   const rows = rowsOverride ?? resolveData(
     spec,
     index,
@@ -3951,7 +3988,7 @@ function convertLayerSpec(
     layered ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks` : undefined,
     folded && traceType === TraceType.PARALLEL
       ? [folded.keyColumn, folded.valueColumn]
-      : undefined,
+      : markGroupPrefix ? columnsReadAsIs(encoding) : undefined,
   );
 
   let data: MaidrLayer['data'];

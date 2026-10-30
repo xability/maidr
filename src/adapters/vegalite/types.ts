@@ -257,6 +257,12 @@ export interface VegaLiteChannelDef {
   axis?: { title?: string } | null;
   bin?: boolean | Record<string, unknown>;
   stack?: boolean | string | null;
+  /**
+   * A time unit the field is truncated to (`month`, `yearmonth`, or a time
+   * unit params object), whose result Vega-Lite writes to a column of its
+   * own name (`month_date`).
+   */
+  timeUnit?: string | Record<string, unknown>;
 }
 
 /**
