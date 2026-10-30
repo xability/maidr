@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import type { ScatterTrace } from '@model/scatter';
 import type {
   BarPoint,
   BoxenPoint,
@@ -14,6 +15,7 @@ import type {
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 
 /**
  * An authored example's data is what its marks draw.
@@ -192,5 +194,20 @@ describe('an authored example\'s data is what its marks draw', () => {
 
     expect(labels).toHaveLength(bands.length);
     expect(misplaced).toEqual([]);
+  });
+
+  it('gives the Manhattan plot the grid its braille display is drawn on', () => {
+    // A scatter's points are brailled only in grid navigation, which needs
+    // both axes' range and step; without them B answered "Braille is not
+    // supported for plot type: manhattan".
+    const [layer] = loadLayers('manhattan.html');
+    const trace = TraceFactory.create(layer) as ScatterTrace;
+
+    trace.setGridMode(true);
+    const state = trace.state;
+
+    expect(trace.supportsGridMode()).toBe(true);
+    expect(state.empty || state.braille.empty).toBe(false);
+    trace.dispose();
   });
 });
