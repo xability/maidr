@@ -575,6 +575,10 @@ The data property is defined as a list of objects where each object is a record 
    }
 
     //histogram
+    //
+    //A binned axis that declares `"format": { "type": "date" }` carries epoch
+    //milliseconds: the edges are read as dates, and `Bin width` as a span of
+    //time ("1 day", "2 weeks") rather than as a count of milliseconds.
     maidr = {
       "data":[
               {
