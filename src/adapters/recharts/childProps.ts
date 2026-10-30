@@ -1,10 +1,10 @@
 /**
  * Reading what a Recharts chart is drawn like out of the elements it was given.
  *
- * Two things live here, and both are things Recharts states on a child element
- * and the converter -- which is handed a config, not a React tree -- cannot
- * otherwise see: which end the categories start from, and which way a step
- * curve's riser goes.
+ * Everything here is something Recharts states on a child element and the
+ * converter -- which is handed a config, not a React tree -- cannot otherwise
+ * see: which end the categories start from, which way a step curve's riser
+ * goes, where a pie starts, and which series draw their dots.
  *
  * Lives apart from {@link MaidrRecharts} because these are pure functions over
  * React elements and nothing else -- importing the component to reach them
@@ -13,7 +13,7 @@
  */
 import type { StepDirection } from '@type/grammar';
 import type { ReactNode } from 'react';
-import type { RechartsPieAngles, RechartsSubplotConfig } from './types';
+import type { RechartsChartType, RechartsPieAngles, RechartsSubplotConfig } from './types';
 import { Orientation } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
@@ -212,6 +212,72 @@ export function pieAnglesFor(children: ReactNode): RechartsPieAngles | undefined
           ...(typeof props.startAngle === 'number' ? { startAngle: props.startAngle } : {}),
           ...(typeof props.endAngle === 'number' ? { endAngle: props.endAngle } : {}),
         };
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
+}
+
+/**
+ * The component that draws each series of a line-family chart type, and
+ * whether it draws its dots when `dot` is not set: a `<Line>` does, an
+ * `<Area>` and a `<Radar>` do not.
+ */
+const SERIES_COMPONENT: Partial<Record<RechartsChartType, { name: string; dotsByDefault: boolean }>> = {
+  line: { name: 'Line', dotsByDefault: true },
+  step: { name: 'Line', dotsByDefault: true },
+  bump: { name: 'Line', dotsByDefault: true },
+  survival: { name: 'Line', dotsByDefault: true },
+  pr_curve: { name: 'Line', dotsByDefault: true },
+  area: { name: 'Area', dotsByDefault: false },
+  stacked_area: { name: 'Area', dotsByDefault: false },
+  normalized_area: { name: 'Area', dotsByDefault: false },
+  radar: { name: 'Radar', dotsByDefault: false },
+};
+
+/**
+ * The series of a line-family chart that draw their dots, by `dataKey`, in
+ * the order the chart draws them.
+ *
+ * Recharts writes nothing on a series' dots that says which series they
+ * belong to, so a chart of several series names each series' dots by their
+ * place among the series that draw dots (`seriesDotSelectors`). A series
+ * drawn without dots -- `dot={false}`, an `<Area>` or `<Radar>` left at its
+ * default, or `hide` -- has no place, and leaving it out keeps every series
+ * after it at its own. A series whose `dataKey` is not a string still draws
+ * its dots, so it holds its place as `null`.
+ *
+ * Depth-first in the order the elements are written, which is the order
+ * Recharts draws the series in, and every series is collected rather than the
+ * first. Anything that is not a series element of the chart type is walked
+ * through, as the other walks do.
+ *
+ * @param children - The chart subtree this component was given
+ * @param chartType - The chart type, which decides the series component
+ * @returns The series that draw dots, or `undefined` for a type that draws none
+ */
+export function dotSeriesFor(
+  children: ReactNode,
+  chartType: RechartsChartType | undefined,
+): (string | null)[] | undefined {
+  const component = chartType === undefined ? undefined : SERIES_COMPONENT[chartType];
+  if (component === undefined)
+    return undefined;
+  const found: (string | null)[] = [];
+
+  const walk = (nodes: ReactNode): void => {
+    Children.forEach(nodes, (child) => {
+      if (!isValidElement(child))
+        return;
+      const props = child.props as { dataKey?: unknown; dot?: unknown; hide?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === component.name) {
+        const drawsDots = props.dot === undefined ? component.dotsByDefault : Boolean(props.dot);
+        if (props.hide !== true && drawsDots)
+          found.push(typeof props.dataKey === 'string' ? props.dataKey : null);
         return;
       }
       walk(props.children);

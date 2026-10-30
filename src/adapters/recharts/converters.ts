@@ -65,7 +65,7 @@ import { clockFromCounterclockwiseOf3, pieGeometry } from '@adapters/shared/pieG
 import { cssEscape } from '@adapters/shared/selectorUtil';
 import { resolveFieldRef, validateDeclaration } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
-import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors } from './selectors';
+import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors, seriesDotSelectors } from './selectors';
 
 /**
  * What a layer carries when its marks run opposite to its payload.
@@ -357,7 +357,7 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
   // or several. The censoring marks and the confidence band ride on the
   // points, and the plain line builders have nowhere to put them.
   if (chartType === 'survival') {
-    return [buildSurvivalLayer(data, xKey, yKeys, chartType, xLabel, yLabel, fillKeys, config.survivalConfig, selectorOverride, config.id, panelScope)];
+    return [buildSurvivalLayer(data, xKey, yKeys, chartType, xLabel, yLabel, fillKeys, config.survivalConfig, selectorOverride, config.id, panelScope, config.dotSeries)];
   }
 
   // A precision-recall figure is one layer of curves, read against each
@@ -369,7 +369,9 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
     return [{
       id: '0',
       type: TraceType.PR_CURVE,
-      selectors: selector ? yKeys.map(() => selector) : undefined,
+      selectors: selector
+        ? yKeys.map(() => selector)
+        : seriesDotSelectors(chartType, yKeys, config.dotSeries, config.id, panelScope),
       axes: { x: { label: xLabel }, y: { label: yLabel } },
       data: yKeys.map((yKey, curve) => convertToPrCurveRow(
         data,
@@ -418,6 +420,9 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       yLabel,
       selectorOverride,
       reversesLinePoints(config, chartType, selectorOverride),
+      config.dotSeries,
+      config.id,
+      panelScope,
     )];
   }
 
@@ -633,6 +638,9 @@ function buildMultiSeriesLineLayer(
   yLabel?: string,
   selectorOverride?: string,
   reversed = false,
+  dotSeries?: (string | null)[],
+  chartId?: string,
+  panelScope?: string,
 ): MaidrLayer {
   const written: LinePoint[][] = yKeys.map(yKey =>
     data.map(item => ({
@@ -644,11 +652,12 @@ function buildMultiSeriesLineLayer(
   // Every series of one chart shares its axis, so they turn round together.
   const lineData = reversed ? reversedLineSeries(written) : written;
 
-  // Multi-series: CSS selectors are unreliable, so omit them unless the
-  // consumer provides a selectorOverride with custom class names.
+  // One class selector matches every series' dots at once, so each series'
+  // dots are named by their place among the series that draw dots. A
+  // selectorOverride is the consumer's own, and is used as given.
   const selectors = selectorOverride
     ? yKeys.map(() => selectorOverride)
-    : undefined;
+    : seriesDotSelectors(chartType, yKeys, dotSeries, chartId, panelScope);
 
   return {
     id: '0',
@@ -658,9 +667,8 @@ function buildMultiSeriesLineLayer(
       x: { label: xLabel },
       y: { label: yLabel },
     },
-    // Inert while `selectors` is undefined -- there is nothing resolved to
-    // pair -- and carried anyway, so the two halves stay one statement
-    // should this builder ever name its marks.
+    // The dots of a reversed axis come out in data order, so the trace pairs
+    // them with the turned payload from the far end.
     ...(reversed ? REVERSED_POINTS : {}),
     data: lineData,
   };
@@ -687,6 +695,7 @@ function buildSurvivalLayer(
   selectorOverride?: string,
   chartId?: string,
   panelScope?: string,
+  dotSeries?: (string | null)[],
 ): MaidrLayer {
   const hasMultipleArms = yKeys.length > 1;
   const survivalData: SurvivalPoint[][] = yKeys.map((yKey, arm) =>
@@ -702,9 +711,9 @@ function buildSurvivalLayer(
     ),
   );
 
-  // Same honest degrade as the other multi-series line families: CSS cannot
-  // tell one <Line> from another, so highlighting is off unless the consumer
-  // named the arms with their own classes.
+  // One class selector matches every arm's dots at once, so several arms are
+  // named by their places among the series that draw dots, as the other line
+  // families are, unless the consumer named them with their own classes.
   const selector = selectorOverride
     ?? getRechartsSelector(chartType, hasMultipleArms ? 0 : undefined, chartId, panelScope);
 
@@ -712,7 +721,9 @@ function buildSurvivalLayer(
     id: '0',
     type: TraceType.SURVIVAL,
     // A SurvivalTrace is a LineTrace: one selector per arm, never a bare string.
-    selectors: selector ? yKeys.map(() => selector) : undefined,
+    selectors: selector
+      ? yKeys.map(() => selector)
+      : seriesDotSelectors(chartType, yKeys, dotSeries, chartId, panelScope),
     stepDirection: survivalConfig?.stepDirection ?? 'hv',
     axes: {
       x: { label: xLabel },

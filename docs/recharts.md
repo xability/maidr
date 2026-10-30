@@ -342,6 +342,8 @@ const data = [
 
 > **Tip:** Always include `dot` on the `<Line>` component. MAIDR uses the rendered dot elements for visual highlighting during keyboard navigation.
 
+On a chart of several series — lines, areas, radars, bump and survival charts — Recharts draws every series' dots in one layer, with nothing on them that says which series they belong to, so MAIDR names each series' dots by their place among the series drawn with dots, read off the `dataKey` and `dot` of each `<Line>`, `<Area>` or `<Radar>` in `children`. The highlight then marks the dot of the point being read. Every series in `yKeys` needs its dots and a `dataKey` written as a string; a chart where one is drawn without dots is left without a highlight rather than outlining another series' dots. This needs Recharts 3.4 or later, which draws the dots in that one layer; through `useRechartsAdapter`, pass the dot-drawing series' `dataKey`s, in the order they are drawn, as `dotSeries`.
+
 #### Step Chart
 
 A `<Line>` or `<Area>` drawn with `type="stepAfter"`, `"stepBefore"` or
@@ -809,7 +811,7 @@ A precision-recall curve is a `<Line>` of precision against recall: `xKey` is th
 </MaidrRecharts>
 ```
 
-`prevalence` — the share of positives, which sets the chance baseline — and `ap`, the average precision as the producer computed it, are fractions from 0 to 1; a percentage is refused with a warning rather than rescaled, and a curve given none says none. A row missing either rate is skipped. A lone curve highlights through its line dots; several degrade the way every multi-series line does.
+`prevalence` — the share of positives, which sets the chance baseline — and `ap`, the average precision as the producer computed it, are fractions from 0 to 1; a percentage is refused with a warning rather than rescaled, and a curve given none says none. A row missing either rate is skipped. Each curve highlights through its own line dots, as the lines of a multi-series line chart do.
 
 #### Percentile Band [experimental]
 

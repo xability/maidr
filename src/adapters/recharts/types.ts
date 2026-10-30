@@ -1227,6 +1227,25 @@ export interface RechartsAdapterConfig {
    */
   pieAngles?: RechartsPieAngles;
 
+  /**
+   * The series of a line-family chart that draw their dots, by `dataKey`, in
+   * the order the chart draws them; `null` for one whose `dataKey` is not a
+   * string.
+   *
+   * Recharts writes nothing on a series' dots that says which series they
+   * belong to, so on a chart of several series -- lines, areas, radars, bump
+   * and survival charts and precision-recall curves -- each series' dots are
+   * named by their place among the series that draw dots, and the highlight
+   * marks the dot of the point being read. A series drawn without dots has no
+   * place, which is why this lists the ones that do.
+   *
+   * Read off the `<Line>`, `<Area>` or `<Radar>` elements in `children` by
+   * {@link MaidrRecharts} when not given, in simple mode; through
+   * {@link useRechartsAdapter} it is yours to state. Left out, or naming a
+   * series twice or not at all, a chart of several series is not highlighted.
+   */
+  dotSeries?: (string | null)[];
+
   /** Key in data objects for x-axis values. */
   xKey: string;
 

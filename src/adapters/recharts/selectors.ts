@@ -215,11 +215,14 @@
  * For **single-series** charts the class selector is unambiguous and
  * highlighting works out of the box.
  *
- * For **multi-series** charts the adapter returns `undefined` for selectors,
+ * For **multi-series** charts {@link getRechartsSelector} returns `undefined`,
  * which disables visual highlighting while preserving audio, text, and braille.
- * To enable highlighting for multi-series charts, add a custom `className` to
- * each Recharts component (e.g. `<Bar className="revenue" />`) and pass the
- * resulting selector via the `selectorOverride` config option.
+ * Two families are named another way: a segmented bar walks one selector
+ * series by series, and a line-family chart names each series' dots by their
+ * place among the other series' ({@link seriesDotSelectors}). For any other
+ * multi-series chart, add a custom `className` to each Recharts component
+ * (e.g. `<Bar className="revenue" />`) and pass the resulting selector via the
+ * `selectorOverride` config option.
  */
 
 import type { RechartsChartType } from './types';
@@ -329,9 +332,20 @@ export function getRechartsSelector(
   if (base === undefined) {
     return base;
   }
-  // Scope to the chart's own `<Maidr>` article, so the selector names this
-  // chart alone wherever it is read, then to the panel's own container: the
-  // panels share the chart, so only that keeps them from cross-highlighting.
+  return scoped(base, chartId, panelScope);
+}
+
+/**
+ * A selector scoped to the chart's own `<Maidr>` article, so it names this
+ * chart alone wherever it is read, then to the panel's own container: the
+ * panels share the chart, so only that keeps them from cross-highlighting.
+ *
+ * @param selector - The unscoped selector
+ * @param chartId - The `<Maidr>` config id, when known
+ * @param panelScope - A selector matching the panel's container, in subplot mode
+ * @returns The scoped selector
+ */
+function scoped(selector: string, chartId?: string, panelScope?: string): string {
   const scopes: string[] = [];
   if (chartId !== undefined) {
     scopes.push(`#maidr-article-${cssEscape(chartId)}`);
@@ -340,9 +354,95 @@ export function getRechartsSelector(
     scopes.push(panelScope);
   }
   if (scopes.length === 0) {
-    return base;
+    return selector;
   }
-  return `${scopes.join(' ')} ${base}`;
+  return `${scopes.join(' ')} ${selector}`;
+}
+
+/** The group Recharts draws one series' dots in, and the dot, per chart type. */
+const SERIES_DOTS: Partial<Record<RechartsChartType, { group: string; dot: string }>> = {
+  line: { group: 'g.recharts-line-dots', dot: '.recharts-line-dot' },
+  step: { group: 'g.recharts-line-dots', dot: '.recharts-line-dot' },
+  bump: { group: 'g.recharts-line-dots', dot: '.recharts-line-dot' },
+  survival: { group: 'g.recharts-line-dots', dot: '.recharts-line-dot' },
+  pr_curve: { group: 'g.recharts-line-dots', dot: '.recharts-line-dot' },
+  area: { group: 'g.recharts-area-dots', dot: '.recharts-area-dot' },
+  stacked_area: { group: 'g.recharts-area-dots', dot: '.recharts-area-dot' },
+  normalized_area: { group: 'g.recharts-area-dots', dot: '.recharts-area-dot' },
+  radar: { group: 'g.recharts-radar-dots', dot: '.recharts-radar-dot' },
+};
+
+/**
+ * The element of `group` with exactly `index` siblings of `group` before it.
+ *
+ * `G ~ G` is a `G` with a `G` somewhere before it among its siblings, so the
+ * chain of `index + 1` names one with at least `index` before it, and the
+ * `:not()` of the next chain takes away those with more. Written this way,
+ * rather than as `:nth-child(n of G)`, because jsdom and the engines released
+ * before 2023 reject that form outright, and a selector an engine rejects
+ * throws while the chart is being built.
+ *
+ * @param group - The selector every counted sibling matches
+ * @param index - How many of them come first, from 0
+ * @returns The selector
+ */
+function nthOfGroup(group: string, index: number): string {
+  const chain = (count: number): string => Array.from({ length: count }, () => group).join(' ~ ');
+  return `${chain(index + 1)}:not(${chain(index + 2)})`;
+}
+
+/**
+ * One selector per series of a line-family chart, each naming that series'
+ * own dots.
+ *
+ * Recharts 3 draws every series' dots into one layer above the chart -- the
+ * `g.recharts-zIndex-layer_600` it keeps for points -- one group per series,
+ * in the order the series are drawn, and nothing on a group or a dot says
+ * which series it belongs to. The class selector a single series uses matches
+ * every series' dots at once, which the core cannot pair with any one series,
+ * so a chart of several series had no highlight at all. Each group is named
+ * here by its place among the groups of its class instead, which counts the
+ * series' dots alone, whatever else that layer holds.
+ *
+ * `dotSeries` is where each series' dots are: the series that draw them, in
+ * the order they are drawn. A series that draws none has no group, and every
+ * group after it moves up one place, so a series missing from it, or named
+ * twice in `yKeys`, leaves the layer unhighlighted rather than outlining
+ * another series' dots.
+ *
+ * Measured on Recharts 3.8.1. Recharts 2 and the 3.x releases before 3.4
+ * draw a series' dots inside that series' own group, where no group has
+ * another beside it; the selectors match nothing there, and the chart keeps
+ * its audio, text and braille without a highlight, as before.
+ *
+ * @param chartType - The chart type, which decides the dots' classes
+ * @param yKeys - The series, in the payload's order
+ * @param dotSeries - The `dataKey` of each series that draws dots, in the
+ *                    order they are drawn (the config's `dotSeries`)
+ * @param chartId - When set, scopes the selectors to the chart's article
+ * @param panelScope - When set, additionally scopes them to one panel
+ * @returns One selector per series, or `undefined` when they cannot be told apart
+ */
+export function seriesDotSelectors(
+  chartType: RechartsChartType,
+  yKeys: readonly string[],
+  dotSeries: readonly (string | null)[] | undefined,
+  chartId?: string,
+  panelScope?: string,
+): string[] | undefined {
+  const classes = SERIES_DOTS[chartType];
+  if (classes === undefined || dotSeries === undefined) {
+    return undefined;
+  }
+  const places = yKeys.map(yKey => dotSeries.indexOf(yKey));
+  if (places.includes(-1) || new Set(places).size !== places.length) {
+    return undefined;
+  }
+  return places.map(place => scoped(
+    `g[class*="recharts-zIndex-layer_"] > ${nthOfGroup(classes.group, place)} ${classes.dot}`,
+    chartId,
+    panelScope,
+  ));
 }
 
 /**

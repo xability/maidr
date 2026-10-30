@@ -59,8 +59,9 @@ import { convertRechartsToMaidr } from './converters';
  * or set `panelSelector` on each panel config to your own unique selector.
  *
  * It reads nothing out of your chart's own elements either, which
- * `<MaidrRecharts>` does: `stepDirection`, `categoryAxisReversed` and
- * `categoryAxisReversedPerPanel` are derived there from the `<Line>` and the
+ * `<MaidrRecharts>` does: `stepDirection`, `categoryAxisReversed`,
+ * `categoryAxisReversedPerPanel`, `pieAngles` and `dotSeries` are derived
+ * there from the `<Line>`, `<Area>`, `<Radar>`, `<Pie>` and
  * `<XAxis reversed>` inside its children. Through this hook they are yours to
  * state, and every field of the config is forwarded — a field left out of the
  * rebuilt object below is one silently discarded from a caller's config.
@@ -80,6 +81,7 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
     categoryAxisReversedPerPanel,
     stepDirection,
     pieAngles,
+    dotSeries,
     xKey,
     yKeys,
     layers,
@@ -119,6 +121,7 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       categoryAxisReversedPerPanel,
       stepDirection,
       pieAngles,
+      dotSeries,
       xKey,
       yKeys,
       layers,
@@ -145,6 +148,6 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       boxenConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, categoryAxisReversed, categoryAxisReversedPerPanel, stepDirection, pieAngles, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, categoryAxisReversed, categoryAxisReversedPerPanel, stepDirection, pieAngles, dotSeries, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
   );
 }
