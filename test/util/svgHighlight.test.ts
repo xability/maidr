@@ -347,7 +347,13 @@ describe('createHighlightElement on a mark too small to see', () => {
    * @param tag - The mark's element
    * @param attributes - Its geometry
    * @param box - Its box in its own user units, as `getBBox` reports it
-   * @param screen - Its width and height on the page
+   * @param box.x - The box's left edge
+   * @param box.y - The box's top edge
+   * @param box.width - The box's width
+   * @param box.height - The box's height
+   * @param screen - Its size on the page
+   * @param screen.width - Its width on the page
+   * @param screen.height - Its height on the page
    * @returns The mark
    */
   function measuredMark(
@@ -418,6 +424,23 @@ describe('createHighlightElement on a mark too small to see', () => {
     const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
 
     expect(highlight.tagName.toLowerCase()).toBe(tag);
+  });
+
+  it.each([
+    { what: 'that is hidden itself', group: '', mark: 'display: none' },
+    { what: 'in a group that is hidden', group: 'display: none', mark: '' },
+  ])('copies a mark $what, which measures as nothing, rather than drawing a marker for it', ({ group, mark: hidden }) => {
+    // A mark that is not drawn reports an empty box, which passes for one too
+    // small to see; a marker for it would be drawn, visible, at that box.
+    document.body.innerHTML = `<svg xmlns="${SVG_NAMESPACE}"><g style="${group}">`
+      + `<path d="M 209.5 302.99 L 209.5 303.09" style="stroke: #000000; ${hidden}"></path></g></svg>`;
+    const mark = document.querySelector('path') as SVGElement;
+    Object.defineProperty(mark, 'getBBox', { value: () => ({ x: 0, y: 0, width: 0, height: 0 }) });
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.tagName.toLowerCase()).toBe('path');
+    expect(document.querySelector('circle')).toBeNull();
   });
 });
 

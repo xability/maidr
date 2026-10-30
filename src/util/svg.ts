@@ -723,7 +723,7 @@ export abstract class Svg {
     // A mark too small to see gets a circle marker instead of a copy.
     try {
       const bbox = (element as SVGGraphicsElement).getBBox();
-      if (this.isTooSmallToSee(element, bbox)) {
+      if (this.isTooSmallToSee(element, bbox) && this.isRendered(element)) {
         const style = window.getComputedStyle(element);
         const strokeWidth = Number.parseFloat(style.strokeWidth || '2');
         const radius = Math.max(strokeWidth * 1.5, 4);
@@ -818,6 +818,12 @@ export abstract class Svg {
   private static readonly AREA_SHAPES: ReadonlySet<string> = new Set(['rect', 'circle', 'ellipse']);
 
   /**
+   * The size on the page, in CSS pixels, under which a mark that is that
+   * small both ways is too small to see.
+   */
+  private static readonly MIN_VISIBLE_PX = 1;
+
+  /**
    * Whether a mark is too small to see, so that a copy of it would be too.
    *
    * A point drawn as a zero-length path, such as a violin's median, has no
@@ -840,7 +846,28 @@ export abstract class Svg {
       return true;
     }
     const box = element.getBoundingClientRect();
-    return box.width < 1 && box.height < 1;
+    return box.width < this.MIN_VISIBLE_PX && box.height < this.MIN_VISIBLE_PX;
+  }
+
+  /**
+   * Whether a mark is drawn at all: neither it nor anything it is drawn in is
+   * `display: none`.
+   *
+   * A mark that is not drawn measures as nothing -- an empty box on the page,
+   * and `getBBox` reporting zeros or throwing -- so it would pass for one too
+   * small to see, and the marker standing in for it would be drawn, visible,
+   * at that empty box. Its copy is not drawn either, as it never was.
+   *
+   * @param element - The mark, in the document
+   * @returns False when it or an element it is in has `display: none`
+   */
+  private static isRendered(element: Element): boolean {
+    for (let node: Element | null = element; node !== null; node = node.parentElement) {
+      if (window.getComputedStyle(node).display === 'none') {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
