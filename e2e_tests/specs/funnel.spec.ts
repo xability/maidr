@@ -84,9 +84,11 @@ test.describe('Funnel', () => {
   });
 
   test('should carry the stages in the order they are walked', () => {
-    const stages = maidrData.subplots[0][0].layers[0].data as { x: string; y: number }[];
+    // The stages run down the page and each count is a bar's width, so the
+    // layer is horizontal and names its stages in `y`.
+    const stages = maidrData.subplots[0][0].layers[0].data as { x: number; y: string }[];
 
-    expect(stages.map(stage => stage.x))
+    expect(stages.map(stage => stage.y))
       .toEqual(['Visited', 'Signed up', 'Viewed cart', 'Purchased']);
   });
 

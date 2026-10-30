@@ -6,6 +6,7 @@ import type { Maidr, MaidrLayer } from '@type/grammar';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
+import { Orientation } from '@type/grammar';
 
 /**
  * An authored example names its chart, its axes and its series with the words
@@ -230,5 +231,28 @@ describe('an authored example declares what it draws', () => {
 
     expect(layer.title).toBe('Example rate per 1,000 residents, by western state');
     expect(layer.axes?.y?.label).toBe('Rate per 1,000 residents');
+  });
+
+  it('declares the funnel in the direction its counts are drawn', () => {
+    // `orientation` names the way the magnitude runs. The funnel's stages run
+    // down the page and each count is a bar's width, so it is horizontal and
+    // its `x` is the count: every width is the same multiple of its count,
+    // give or take the pixel the narrowest bar is rounded to.
+    const html = read('funnel.html');
+    const [layer] = layersOf(specOf(html));
+    document.body.innerHTML = html;
+    const bars = [...document.querySelectorAll(layer.selectors as string)];
+    const points = layer.data as { x: number | string; y: number | string }[];
+
+    const horizontal = layer.orientation === Orientation.HORIZONTAL;
+    const counts = points.map(point => Number(horizontal ? point.x : point.y));
+    const drawn = bars.map(bar => Number(bar.getAttribute(horizontal ? 'width' : 'height')));
+    const scale = drawn[0] / counts[0];
+
+    expect(horizontal).toBe(true);
+    expect(bars).toHaveLength(counts.length);
+    for (const [index, count] of counts.entries()) {
+      expect(Math.abs(drawn[index] - count * scale)).toBeLessThanOrEqual(1);
+    }
   });
 });
