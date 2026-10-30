@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { HexbinPoint, MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
@@ -8,6 +9,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -42,7 +44,11 @@ import { MovableGrid } from './movable';
  * to or compare with anything.
  */
 export class HexbinTrace extends AbstractTrace {
-  protected readonly supportsExtrema = false;
+  /**
+   * `]` and `[` go to the densest and the sparsest occupied bin, and the Go
+   * To dialog lists them: see {@link HexbinTrace.getExtremaTargets}.
+   */
+  protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
 
   private readonly bins: HexbinPoint[][];
@@ -578,5 +584,54 @@ export class HexbinTrace extends AbstractTrace {
     this.highlightCenters = null;
 
     super.dispose();
+  }
+
+  /**
+   * The densest and the sparsest occupied bins, for `]`, `[` and the Go To
+   * dialog: the bins holding the description's `Max count` and `Min count`.
+   * An empty bin holds no point, and the description's minimum is taken over
+   * the occupied bins, so `[` is too. Every bin holding an extreme is
+   * offered, row by row, so a tie is walked. Each is named by its centre, as
+   * the announcement places a bin.
+   *
+   * @returns The targets, or none for a lattice with no occupied bin
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const occupied = this.counts.flat().filter(count => Number.isFinite(count) && count > 0);
+    if (occupied.length === 0) {
+      return [];
+    }
+    const at = (count: number, type: 'max' | 'min'): ExtremaTarget[] =>
+      this.bins.flatMap((bins, row) => bins.flatMap((bin, col) => (
+        this.counts[row][col] !== count
+          ? []
+          : [{
+              ...extremumAt(
+                t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+                defaultFormat(bin.x),
+                defaultFormat(bin.y),
+              ),
+              value: count,
+              pointIndex: col,
+              segment: String(row),
+              type,
+              groupIndex: row,
+              categoryIndex: col,
+              navigationType: 'group' as const,
+            }]
+      )));
+    return [...at(MathUtil.safeMax(occupied), 'max'), ...at(MathUtil.safeMin(occupied), 'min')];
+  }
+
+  /**
+   * Moves to the bin a target names. A jump, so the x a vertical walk was
+   * holding is let go, as {@link HexbinTrace.moveToIndex} lets it go.
+   *
+   * @param target - A target from {@link HexbinTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 }

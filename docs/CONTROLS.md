@@ -83,8 +83,10 @@ the description names. On a treemap, sunburst, icicle, circle packing or tree
 diagram, ] goes to the largest leaf and [ to the smallest, named by their
 paths: a branch's value is its children's total, so the largest node of all
 would always be a top-level one. A tree whose nodes carry no values has nothing
-to go to. Where several regions or leaves hold the value, a further press goes
-to the next of them.
+to go to. On a hexbin plot, ] goes to the bin holding the most points and [ to
+the occupied bin holding the fewest, the counts the description gives; an empty
+bin is not one. Where several regions, leaves or bins hold the value, a further
+press goes to the next of them.
 
 On a ROC curve, ] goes to the best operating point, the point furthest above
 the chance diagonal, and on a precision-recall curve to the point with the best
