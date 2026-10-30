@@ -451,6 +451,19 @@ describe('highlight', () => {
     expect(markedAt(trace)).toEqual([across(0), up(0.4)]);
   });
 
+  test('keeps its bands and the median\'s line among the chart\'s own elements the layer reads, which high contrast paints as marks', () => {
+    // The markers are no copies of the band, so pairing each with the
+    // element before it, as a copy is paired, found no original for them.
+    const { bands, median } = drawBands();
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+
+    const originals = trace.getAllOriginalElements();
+
+    for (const element of [...bands, median]) {
+      expect(originals).toContain(element);
+    }
+  });
+
   test('takes its markers away when it is disposed, and leaves the chart\'s own bands', () => {
     const { bands } = drawBands();
     // A copy: disposing a trace empties the points it was built from, which

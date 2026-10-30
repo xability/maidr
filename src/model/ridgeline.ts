@@ -15,6 +15,9 @@ interface Mode {
   density: number;
 }
 
+/** The ridge each sample's marker stands for. */
+const MARKED_BY = new WeakMap<SVGElement, SVGElement>();
+
 /**
  * Trace implementation for ridgeline (joy) plots.
  *
@@ -179,7 +182,21 @@ export class RidgelineTrace extends AbstractTrace {
       }
       centres.push({ cx: x, cy: ends.top });
     }
-    return Svg.createCircleElements(centres, ridge);
+    const markers = Svg.createCircleElements(centres, ridge);
+    markers.forEach(marker => MARKED_BY.set(marker, ridge));
+    return markers;
+  }
+
+  /**
+   * The ridge a sample's marker stands for, so that high contrast paints the
+   * ridge as a mark: the markers are no copies of it, and the pairing of a
+   * copy with the element before it finds none.
+   *
+   * @param marker - A marker in this trace's highlight values
+   * @returns The ridge, or null for anything else
+   */
+  protected override originalMarkedBy(marker: SVGElement): SVGElement | null {
+    return MARKED_BY.get(marker) ?? null;
   }
 
   protected get values(): number[][] {

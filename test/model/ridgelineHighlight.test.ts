@@ -119,6 +119,18 @@ describe('a ridgeline\'s highlight', () => {
     expect(markedAt(trace)).toEqual([across(1), top(1, 1)]);
   });
 
+  test('keeps its ridges among the chart\'s own elements the layer reads, which high contrast paints as marks', () => {
+    // The markers are no copies of the ridge, so pairing each with the
+    // element before it, as a copy is paired, found no original for them.
+    const trace = ridgeline();
+
+    const originals = trace.getAllOriginalElements();
+
+    for (const ridge of document.querySelectorAll('.ridge')) {
+      expect(originals).toContain(ridge);
+    }
+  });
+
   test('outlines a curve it cannot read whole at every sample, as before', () => {
     const trace = ridgeline('rect');
     trace.moveOnce('FORWARD');

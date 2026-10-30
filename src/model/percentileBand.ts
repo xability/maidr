@@ -167,6 +167,13 @@ function sharePercent(share: number): string {
 }
 
 /**
+ * The band or line each quantile marker stands for. Kept outside the trace,
+ * because the markers are made while the parent's constructor runs, before
+ * the trace's own fields exist.
+ */
+const MARKED_BY = new WeakMap<SVGElement, SVGElement>();
+
+/**
  * Trace implementation for a percentile band, or fan chart: the
  * distribution of a quantity at each x, drawn as nested shaded bands around
  * its median.
@@ -809,11 +816,24 @@ export class PercentileBandTrace extends LineTrace {
       return y === null || !isMeasured(this.lineValues[row][col]) ? [] : [{ col, cx: x, cy: y }];
     });
     const circles = Svg.createCircleElements(placed, element);
+    circles.forEach(circle => MARKED_BY.set(circle, element));
     const cells: SVGElement[][] = xs.map(() => []);
     placed.forEach((place, at) => {
       cells[place.col] = [circles[at]];
     });
     return cells;
+  }
+
+  /**
+   * The band or line a marker of a quantile stands for, so that high
+   * contrast paints it as a mark: the markers are no copies of it, and the
+   * pairing of a copy with the element before it finds none.
+   *
+   * @param marker - A marker in this trace's highlight values
+   * @returns The band or line, or null for anything else
+   */
+  protected override originalMarkedBy(marker: SVGElement): SVGElement | null {
+    return MARKED_BY.get(marker) ?? null;
   }
 
   /**

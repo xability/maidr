@@ -738,6 +738,18 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * The chart's own element a marker this trace drew stands for, where the
+   * trace marks a point with a dot of its own rather than with a copy of the
+   * mark. None by default.
+   *
+   * @param _marker - A marker in this trace's highlight values
+   * @returns The element the marker stands for, or null
+   */
+  protected originalMarkedBy(_marker: SVGElement): SVGElement | null {
+    return null;
+  }
+
+  /**
    * Get all original (visible) SVG elements for this trace.
    * These are the actual rendered elements, not the hidden clones used for highlighting.
    * Used by HighlightService for high contrast mode color changes.
@@ -762,6 +774,15 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
           // MAIDR-made clone from the chart's own element.
           if (!Svg.isOwned(element)) {
             elements.push(element);
+            continue;
+          }
+
+          // A dot MAIDR drew to mark a point on a mark is no copy of it, so
+          // the sibling pairing below finds nothing for it; the trace that
+          // drew it knows the mark it stands for.
+          const marked = this.originalMarkedBy(element);
+          if (marked !== null) {
+            elements.push(marked);
             continue;
           }
 
