@@ -249,6 +249,9 @@ function tagDiscreteElements(
   if (matched.length !== layer.dataCount) {
     return undefined;
   }
+  if (layer.data.kind === 'segmented' && !stackPairsWithBars(layer.data.points, matched.length)) {
+    return undefined;
+  }
 
   for (const el of matched) {
     // A reversed layer names its marks one by one below, and the shared
@@ -291,12 +294,34 @@ function tagDiscreteElements(
   // declared, but `VictoryStack` paints them the other way round. The shared
   // attribute is walked series by series in document order, which paired
   // every series with another series' segments of the same bars, so each
-  // segment is named in a grid instead.
+  // segment is named in a grid instead. (Stacks are not in
+  // `REVERSIBLE_KINDS`, so no stack reaches the reversed branch above.)
   if (layer.data.kind === 'segmented') {
     return tagStackSegments(matched, layer.data.points, attrName, scope);
   }
 
   return `${scope}[${attrName}]`;
+}
+
+/**
+ * Whether a stack's bars pair one to one with its points.
+ *
+ * `VictoryStack` fills every series out to the categories of all of them,
+ * drawing a bar of no height for each category a series lacks (victory-stack
+ * `fillData`). A stack whose series do not hold the same categories in the
+ * same order therefore draws bars that are no point of the layer, and no
+ * position pairs the bars with the points: such a stack is left without a
+ * highlight rather than outlined on other segments.
+ *
+ * @param series - The layer's points, one row per series
+ * @param bars   - How many bars were matched for the layer
+ * @returns True when every series has one bar per category, in step
+ */
+function stackPairsWithBars(series: SegmentedPoint[][], bars: number): boolean {
+  const categories = (series[0] ?? []).map(point => String(point.x));
+  return bars === series.length * categories.length
+    && series.every(row => row.length === categories.length
+      && row.every((point, col) => String(point.x) === categories[col]));
 }
 
 /**
