@@ -13,9 +13,10 @@
     <p>
       A Highcharts sankey diagram made accessible by the MAIDR Highcharts
       adapter. Click on the chart and use the arrow keys to walk the graph:
-      Left and Right move between nodes at the same stage, Up and Down follow a
-      flow to the node at its other end. The nodes are derived from the links,
-      so nothing has to be declared twice.
+      Right follows the largest flow out of a node to the next stage, Left the
+      largest flow into it from the stage before, and Up and Down move between
+      the nodes stacked at the same stage. The nodes are derived from the
+      links, so nothing has to be declared twice.
     </p>
 
     <div id="sankey-chart" style="width: 800px; height: 500px"></div>

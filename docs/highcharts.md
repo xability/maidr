@@ -46,6 +46,8 @@ Render your chart with Highcharts, convert it with `maidrHighcharts.highchartsTo
 
 The adapter exposes a global `maidrHighcharts` object with `highchartsToMaidr()` and `createHighchartsSync()`. This works directly from `file://` URLs — no module server required.
 
+This binds a chart drawn while the page loads. A chart drawn later — after an awaited `fetch`, say — is bound by dispatching `maidr:bindchart` as well, and a bound chart drawn again is handed its new data with `window.maidrLive.setData()`; see [Charts drawn after the page loads](#charts-drawn-after-the-page-loads).
+
 Once the page loads, click on the chart (or Tab to it) and MAIDR activates with:
 
 - **Audio sonification** — tones representing data values
@@ -211,7 +213,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 
 > **Gantt note:** MAIDR nests a gantt's intervals by lane, because a lane with nothing booked is a real statement about a schedule and only a nested list can make it. Highcharts draws the intervals in `series.data` order, which interleaves lanes freely, so the adapter regroups them and stamps `data-maidr-task-index` onto each rendered interval in the regrouped order — MAIDR slices its selector list lane by lane, so document order cannot be indexed into. The lanes come from the y axis' categories, which a Gantt chart's tree grid axis builds from the tasks and an xrange declares outright. A milestone becomes a zero-length interval at its own instant, which is what the diamond shows. A Highcharts datetime axis counts milliseconds, so `ms` is the announced unit: `start` and `end` stay in the axis' own numbers, since that is what places them where the chart draws them.
 
-> **Polar note:** `chart.polar` and `chart.parallelCoordinates` are chart-wide drawing modes rather than series types — a radar's spokes are still `line` series and a wind rose's wedges still `column` ones — so the adapter reads the flags before it groups the series, or the spokes would be merged into an ordinary line or bar layer announcing the wrong chart. Under a polar chart an `area` series is one more outline around the spokes rather than a band with a baseline to stack on, so it joins the radar layer instead of an area one. A radar's outline is a single closed path whose last vertex repeats its first; MAIDR trims the repeat, so highlighting is spoke-aligned without any extra configuration. A parallel coordinates chart that is also polar — a star plot — is read as parallel coordinates: every column is still a different quantity, which is what decides how it has to be pitched. Highcharts draws the per-variable names as the x axis' categories rather than as axis titles, so that is where the adapter reads them, falling back to `yAxis[i].title.text` for a chart that titled them instead.
+> **Polar note:** `chart.polar` and `chart.parallelCoordinates` are chart-wide drawing modes rather than series types — a radar's spokes are still `line` series and a wind rose's wedges still `column` ones — so the adapter reads the flags before it groups the series, or the spokes would be merged into an ordinary line or bar layer announcing the wrong chart. Under a polar chart an `area` series is one more outline around the spokes rather than a band with a baseline to stack on, so it joins the radar layer instead of an area one. A radar's outline is a single closed path whose last vertex repeats its first; MAIDR trims the repeat, so highlighting is spoke-aligned without any extra configuration. MAIDR pans spoke *k* of *n* to *k*/*n* of the way round from 12 o'clock, so draw a polar chart's series with `pointPlacement: 'on'`, as Highcharts' own spider web and wind rose demos do: it puts the first category at 12 o'clock, where without it Highcharts draws every spoke half a category further round and each one sounds where it is not drawn. A parallel coordinates chart that is also polar — a star plot — is read as parallel coordinates: every column is still a different quantity, which is what decides how it has to be pitched. Highcharts draws the per-variable names as the x axis' categories rather than as axis titles, so that is where the adapter reads them, falling back to `yAxis[i].title.text` for a chart that titled them instead.
 
 > **Diverging note:** Highcharts has no diverging series type, so the chart is recognised from its data: exactly two stacked series, one entirely at or below zero and the other entirely at or above it. That is a narrow shape — a genuine stack puts its segments on the same side of the baseline so they accumulate — and the reading it selects is the safer one where the two overlap, since a segmented layer pitches a signed value directly and would make a two-million cohort drawn to the left sound smaller than a ten-thousand cohort drawn to the right. The values keep their sign; the trace pitches the magnitude and names the side.
 
@@ -622,9 +624,23 @@ chart.destroy();
 sync.dispose();
 ```
 
-### Re-rendering charts
+### Charts drawn after the page loads
 
-If you call `chart.update()` or `chart.addSeries()`, re-run `maidrHighcharts.highchartsToMaidr()` and update the `maidr-data` attribute so MAIDR sees the new state. Reload `maidr.js` only on first mount.
+MAIDR reads `maidr-data` attributes once, when the page has loaded, and setting one after that changes nothing it reads. A chart drawn later — after an awaited `fetch`, as a map's topology usually is — is bound by setting the attribute and dispatching `maidr:bindchart` on the element, as [highcharts-choropleth.html](examples/highcharts-choropleth.html) does:
+
+```js
+const container = document.getElementById('chart');
+container.setAttribute('maidr-data', JSON.stringify(maidrHighcharts.highchartsToMaidr(chart, { id: 'chart' })));
+container.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true }));
+```
+
+A chart MAIDR has bound that is drawn again, with `chart.update()` or `chart.addSeries()`, is handed its new data under the same `id` with `window.maidrLive.setData()` (see [Live data](LIVE_DATA.md)). Dispatching `maidr:bindchart` again would work too, but it mounts MAIDR afresh and takes a reader who is in the chart out of it. Mark the data `live: true` and the change reaches a reader who is in the chart at once, keeping their place when the chart keeps the same panels and layers; without it, MAIDR reads the new data the next time they enter the chart:
+
+```js
+window.maidrLive.setData({ ...maidrHighcharts.highchartsToMaidr(chart, { id: 'chart' }), live: true });
+```
+
+Load `maidr.js` once, before the chart is bound.
 
 ## Keyboard Controls
 

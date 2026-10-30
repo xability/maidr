@@ -57,9 +57,12 @@
         });
 
         const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'choropleth-chart' });
-        document
-          .getElementById('choropleth-chart')
-          .setAttribute('maidr-data', JSON.stringify(maidrData));
+        const container = document.getElementById('choropleth-chart');
+        container.setAttribute('maidr-data', JSON.stringify(maidrData));
+        // The map is drawn after the topology arrives, by which time MAIDR has
+        // already read the page's maidr-data attributes, so it is told to
+        // bind this one.
+        container.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true }));
         maidrHighcharts.createHighchartsSync(chart);
       })();
     </script>

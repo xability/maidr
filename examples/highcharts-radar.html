@@ -35,6 +35,10 @@
           tickmarkPlacement: 'on',
         },
         yAxis: { title: { text: 'USD' } },
+        // Without it Highcharts draws each spoke half a category round from
+        // its tick, so Sales would sit at about 30 degrees rather than at the
+        // top, where its stereo position puts it.
+        plotOptions: { series: { pointPlacement: 'on' } },
         series: [
           { name: 'Allocated Budget', data: [43000, 19000, 60000, 35000, 17000, 10000] },
           { name: 'Actual Spending', data: [50000, 39000, 42000, 31000, 26000, 14000] },
@@ -47,6 +51,8 @@
         legend: { enabled: false },
         xAxis: { categories: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], tickmarkPlacement: 'on' },
         yAxis: { title: { text: 'Frequency (%)' } },
+        // Centres each wedge on its direction, so N points straight up.
+        plotOptions: { series: { pointPlacement: 'on' } },
         series: [{
           name: 'Frequency',
           data: [3.2, 5.1, 9.4, 12.8, 7.6, 4.3, 2.9, 1.8],
