@@ -15,6 +15,7 @@ import type {
   BoxPoint,
   BoxSelector,
   CandlestickPoint,
+  CandlestickSelector,
   ChoroplethPoint,
   ContourPoint,
   ErrorBarPoint,
@@ -44,6 +45,7 @@ import type {
   WordCloudPoint,
 } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
+import type { BoxPart } from './split';
 import type {
   PlotlyAnnotation,
   PlotlyAxis,
@@ -64,6 +66,7 @@ import {
   barGroupSelector,
   barPointSelector,
   boxLayerNthChild,
+  candlestickGroupSelector,
   choroplethRegionSelectors,
   contourLevelSelectors,
   errorBarAxis,
@@ -72,6 +75,7 @@ import {
   polarSeriesSelectors,
   subplotCssPrefix,
 } from './selectors';
+import { boxPartSelector, splitBoxes } from './split';
 
 // Monotonic counter for generating unique IDs when the graph div has no id.
 let plotlyIdCounter = 0;
@@ -1061,7 +1065,7 @@ function buildSubplotLayers(
       if (layer)
         layers.push(layer);
     } else {
-      layers.push(...extractViolinLayers(violinTraces, group, layout, xLabel, yLabel));
+      layers.push(...extractViolinLayers(violinTraces, group, layout, xLabel, yLabel, gd));
     }
   }
 
@@ -1732,7 +1736,7 @@ function extractLayer(
       return extractHistogramLayer(trace, calcdata, id, name, selectors, axes, traceIndex, gd);
 
     case TraceType.CANDLESTICK:
-      return extractCandlestickLayer(trace, id, name, selectors, axes);
+      return extractCandlestickLayer(trace, id, name, selectors, axes, gd, traceIndex);
 
     // `axes` is deliberately not passed on to any of these: they are drawn on
     // panels with no axis ids, so it is always empty, and each names its own
@@ -3168,9 +3172,15 @@ function extractMultiBoxLayer(
 
     data.push(boxPoint);
 
-    // Build structured selector for this box.
-    const boxSel = `${prefix}.boxlayer > g:nth-child(${nthChild}) > path.box`;
-    const pointsBase = `${prefix}.boxlayer > g:nth-child(${nthChild}) .points`;
+    // Plotly draws the box -- median, body, whiskers and caps -- as one path,
+    // so each statistic names the part of it `splitBoxes` draws on its own.
+    // The body (`iq`) is no statistic a reader lands on, and names plotly's
+    // whole box, the shape the box is read as. The box is the trace's first:
+    // only its first calc entry is read.
+    const traceGroup = `${prefix}.boxlayer > g:nth-child(${nthChild})`;
+    splitBoxesIn(gd, traceGroup);
+    const part = (statistic: BoxPart): string => boxPartSelector(traceGroup, 0, statistic);
+    const pointsBase = `${traceGroup} .points`;
 
     const lowerCount = boxPoint.lowerOutliers.length;
     const upperCount = boxPoint.upperOutliers.length;
@@ -3196,12 +3206,12 @@ function extractMultiBoxLayer(
 
     boxSelectors.push({
       lowerOutliers: lowerOutliersSel,
-      min: boxSel,
-      iq: boxSel,
-      q2: boxSel,
-      max: boxSel,
-      q1: boxSel,
-      q3: boxSel,
+      min: part('min'),
+      iq: `${traceGroup} > path.box`,
+      q2: part('q2'),
+      max: part('max'),
+      q1: part('q1'),
+      q3: part('q3'),
       upperOutliers: upperOutliersSel,
     });
   }
@@ -3223,6 +3233,20 @@ function extractMultiBoxLayer(
     axes,
     data,
   };
+}
+
+/**
+ * Splits the boxes plotly drew in one trace's group into the parts the box
+ * selectors name (see `split.ts`). A chart with nothing drawn yet has no group,
+ * and its selectors resolve to nothing, as they did to no box before.
+ *
+ * @param gd    - The plotly graph div
+ * @param group - The selector of the trace's group
+ */
+function splitBoxesIn(gd: PlotlyGraphDiv, group: string): void {
+  const element = gd.querySelector(group);
+  if (element)
+    splitBoxes(element);
 }
 
 /**
@@ -3300,6 +3324,10 @@ interface ViolinEntry {
   kdeSelector: string;
   /** Selector for the inner box `path.box`, which matches only if drawn. */
   boxSelector: string;
+  /** Selector for the trace's group, which holds the parts of its inner boxes. */
+  traceGroup: string;
+  /** The violin's position among its trace's inner boxes. */
+  boxIndex: number;
   /** Whether this violin's trace draws that inner box. */
   hasBox: boolean;
   /** Selector for the mean line, when plotly draws one. */
@@ -3321,6 +3349,7 @@ function extractViolinLayers(
   layout: PlotlyFullLayout,
   xLabel: string | undefined,
   yLabel: string | undefined,
+  gd: PlotlyGraphDiv,
 ): MaidrLayer[] {
   const isHorizontal = violinTraces[0].trace.orientation === 'h';
   const posAxis = getAxis(layout, isHorizontal ? group.yAxisId : group.xAxisId);
@@ -3329,6 +3358,12 @@ function extractViolinLayers(
   const violins = collectViolins(violinTraces, group, posAxis);
   if (violins.length === 0)
     return [];
+
+  // Plotly draws an inner box as one path, as it does a box; see
+  // `extractMultiBoxLayer`.
+  const boxedGroups = new Set(violins.filter(violin => violin.hasBox).map(violin => violin.traceGroup));
+  for (const traceGroup of boxedGroups)
+    splitBoxesIn(gd, traceGroup);
 
   // The core reverses the rows of a horizontal violin plot into visual order,
   // so emit them reversed to keep plotly's own bottom-to-top order afterwards.
@@ -3472,8 +3507,12 @@ function collectViolins(
         kdeSelector: `${traceGroup} > path.violin:nth-child(${i + 1})`,
         // Written whether or not this trace draws the box: the position it
         // would occupy holds no `path.box` otherwise, so the selector simply
-        // finds nothing and leaves the violins that do have one alone.
+        // finds nothing and leaves the violins that do have one alone. The
+        // same holds for the parts `splitBoxes` draws of it, at the box's own
+        // index, since plotly draws a box per calc entry.
         boxSelector: `${traceGroup} > path.box:nth-child(${count + i + 1})`,
+        traceGroup,
+        boxIndex: i,
         hasBox,
         // Plotly renders the mean inside the box as `path.mean`, and as
         // `path.meanline` when there is no box to draw it in.
@@ -3590,13 +3629,17 @@ function buildViolinBoxSelectors(violins: ViolinEntry[]): BoxSelector[] | undefi
   if (!violins.some(violin => violin.hasBox))
     return undefined;
 
+  // Plotly draws the whole inner box -- whiskers, body and median -- as one
+  // path. The quartiles are read off the edges of the `iq` element, so it
+  // names the body `splitBoxes` drew on its own, and the median names its
+  // line. The minimum and maximum still name the whole box: a violin whose
+  // two extremes name one element is marked at that element's two ends,
+  // which are the whiskers' ends.
   return violins.map(violin => ({
     lowerOutliers: [],
-    // Plotly draws the whole box — whiskers, quartile box and median — as a
-    // single path, so every section highlights the same element.
     min: violin.boxSelector,
-    iq: violin.boxSelector,
-    q2: violin.boxSelector,
+    iq: boxPartSelector(violin.traceGroup, violin.boxIndex, 'iq'),
+    q2: boxPartSelector(violin.traceGroup, violin.boxIndex, 'q2'),
     max: violin.boxSelector,
     upperOutliers: [],
     ...(violin.meanSelector ? { mean: violin.meanSelector } : {}),
@@ -5270,6 +5313,8 @@ function extractCandlestickLayer(
   name: string | undefined,
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
 ): MaidrLayer | null {
   const { open, high, low, close, x } = trace;
   if (!open || !high || !low || !close)
@@ -5277,6 +5322,9 @@ function extractCandlestickLayer(
 
   const len = Math.min(open.length, high.length, low.length, close.length);
   const data: CandlestickPoint[] = [];
+  // Where each candle read is among the candles plotly drew: one per sample,
+  // an unreadable one included.
+  const drawn: number[] = [];
 
   for (let i = 0; i < len; i++) {
     const o = Number(open[i]);
@@ -5298,6 +5346,7 @@ function extractCandlestickLayer(
       trend,
       volatility: h - l,
     });
+    drawn.push(i);
   }
 
   if (data.length === 0)
@@ -5307,9 +5356,37 @@ function extractCandlestickLayer(
     id,
     type: TraceType.CANDLESTICK,
     name,
-    selectors,
+    selectors: trace.type === 'candlestick' ? candleParts(gd, traceIndex, drawn) : selectors,
     axes,
     data,
+  };
+}
+
+/**
+ * Names each candle's body and wicks, for the candles read.
+ *
+ * Plotly draws a candle as it draws a box -- the body from the open to the
+ * close, and a whisker either side of it for the wicks -- in one path, which
+ * every price highlighted whole. The parts `splitBoxes` draws let the open
+ * and close be outlined at the body's edges, and the high and low at their
+ * wicks.
+ *
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The trace's index in `_fullData`
+ * @param drawn      - Each candle's position among the trace's candles
+ * @returns The candles' parts, one selector per candle read
+ */
+function candleParts(
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
+  drawn: number[],
+): CandlestickSelector {
+  const group = candlestickGroupSelector(gd, traceIndex);
+  splitBoxesIn(gd, group);
+  return {
+    body: drawn.map(index => boxPartSelector(group, index, 'iq')),
+    wickHigh: drawn.map(index => boxPartSelector(group, index, 'max')),
+    wickLow: drawn.map(index => boxPartSelector(group, index, 'min')),
   };
 }
 

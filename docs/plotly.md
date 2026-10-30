@@ -481,6 +481,15 @@ Give the samples on `x` instead and plotly draws the boxes on their side;
 MAIDR announces a horizontal box plot and reads the group off the y axis, which
 is where it is drawn. The five numbers themselves do not move.
 
+Plotly draws a box's median, body, whiskers and caps as one path, so MAIDR
+draws each part again, hidden, beside the chart's own marks, and outlines the
+part being read: the minimum and maximum at their caps (their whiskers where no
+caps are drawn), the quartiles at the edges of the body and the median at its
+line. A violin's inner box is drawn the same way: its quartiles and median are
+outlined the same way, and its minimum and maximum marked at the ends of its
+whiskers. So is a candle, whose open and close are outlined at the edges of its
+body and its high and low at its wicks.
+
 #### Violin Plot
 
 A violin becomes two layers in one subplot: the quartile summary (`violin_box`)

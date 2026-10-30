@@ -625,16 +625,18 @@ const trackedElements = new Set<Element>();
 
 /**
  * Stores a MutationObserver reference on a DOM element so it can be
- * disconnected later (e.g. when the Controller disposes).
+ * disconnected later (e.g. when the Controller disposes). Storing the same
+ * observer on the same element again stores it once.
  */
-function storeMutationObserver(el: Element, observer: MutationObserver): void {
+export function storeMutationObserver(el: Element, observer: MutationObserver): void {
   // Release observers whose element has left the DOM so the strong
   // `trackedElements` Set doesn't pin detached nodes against GC across SPA
   // re-renders (these observers are page-lifetime, not per-focus-session).
   pruneDisconnectedObservers();
 
   const stored = observerRegistry.get(el) ?? [];
-  stored.push(observer);
+  if (!stored.includes(observer))
+    stored.push(observer);
   observerRegistry.set(el, stored);
   trackedElements.add(el);
 }

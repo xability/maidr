@@ -754,10 +754,11 @@ export class BoxTrace extends AbstractTrace {
       const max = this.cloneElementOrEmpty(original.max);
       const q2 = this.cloneElementOrEmpty(original.q2);
 
-      // Use direct Q1/Q3 selectors if provided (Plotly: highlight entire box).
-      // Otherwise, take the Q1/Q3 edges derived from iq in Phase 1.5
-      // (matplotlib/seaborn) and insert them here, after this box's clones,
-      // where deriving them one at a time used to insert them.
+      // Use direct Q1/Q3 selectors if provided (the Plotly adapter names the
+      // edges it draws of each box). Otherwise, take the Q1/Q3 edges derived
+      // from iq in Phase 1.5 (matplotlib/seaborn) and insert them here, after
+      // this box's clones, where deriving them one at a time used to insert
+      // them.
       const derived = derivedEdges.get(boxIdx);
       let q1: SVGElement;
       let q3: SVGElement;
