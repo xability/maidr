@@ -57,6 +57,25 @@ test.describe('Chord diagram', () => {
     expect(announcement).toContain('Americas');
   });
 
+  test('should jump to the busiest region and to the quietest', async ({ page }) => {
+    // 71 passes through Asia and 49 through Africa, the most and the least
+    // through any region. ] and [ used to say there was no maximum or minimum
+    // value to go to in this layer.
+    const plot = new ChordPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+
+    await plot.goToMaximumValue();
+    const busiest = normalizeText(await plot.getInstructionText());
+    await plot.goToMinimumValue();
+    const quietest = normalizeText(await plot.getInstructionText());
+
+    expect(busiest).toContain('Asia');
+    expect(busiest).toContain('71');
+    expect(quietest).toContain('Africa');
+    expect(quietest).toContain('49');
+  });
+
   test('should say there is no start to jump back to either', async ({ page }) => {
     const plot = new ChordPage(page);
     await plot.activateMaidr();

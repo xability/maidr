@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { FlowOptions, FlowPoint, MaidrLayer } from '@type/grammar';
 import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
@@ -23,6 +24,7 @@ import {
 } from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGraph } from './movable';
 
 /** The two rotor units' keys, which the trace recognises a move request by. */
@@ -182,13 +184,11 @@ function asPercent(fraction: number): string {
  */
 export class FlowTrace extends AbstractTrace implements PointCloudHighlightable {
   /**
-   * No go-to-extrema dialog. Every node is one arrow from its neighbours and
-   * the largest flows are named in the description; leaving this true without
-   * overriding `getExtremaTargets` is the keyboard trap `extremaContract`
-   * exists to prevent. Unrelated to `moveToExtreme`, which follows the
-   * dominant path to its end and works either way.
+   * `]` and `[` go to the busiest and the quietest node, and the Go To dialog
+   * lists them: see {@link FlowTrace.getExtremaTargets}. Unrelated to
+   * `moveToExtreme`, which follows the dominant path to its end.
    */
-  protected readonly supportsExtrema = false;
+  protected readonly supportsExtrema = true;
   protected readonly movable: MovableGraph;
 
   /** Every node, in declared order. */
@@ -1336,5 +1336,60 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     // cursor sits on nodes rather than on the ribbons the pointer would be
     // over. There is nothing here the pointer helpers can measure against.
     return null;
+  }
+
+  /**
+   * The busiest and the quietest nodes, for `]`, `[` and the Go To dialog.
+   *
+   * A node's value is its throughput, what every move announces and the
+   * pitch plays, and the busiest is the one the description names. Every
+   * node holding an extreme is offered, stage by stage and down each stage,
+   * so a tie is walked. A throughput is a sum of flows, so two that are equal
+   * on paper can differ in the last bit; they are compared as equal, here
+   * and by the service that walks them, through `rankValue`.
+   *
+   * @returns The targets, or none for a chart with no node
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const measured = [...this.nodes]
+      .sort((a, b) => a.stage - b.stage || a.index - b.index)
+      .map(node => ({ node, throughput: this.throughputOf(node) }))
+      .filter(({ throughput }) => Number.isFinite(throughput));
+    if (measured.length === 0) {
+      return [];
+    }
+
+    const throughputs = measured.map(({ throughput }) => throughput);
+    const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => measured
+      .filter(({ throughput }) => MathUtil.nearlyEqual(throughput, extreme))
+      .map(({ node, throughput }) => ({
+        ...extremumAt(
+          t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+          node.name,
+        ),
+        value: throughput,
+        rankValue: throughput,
+        pointIndex: node.stage,
+        segment: node.name,
+        type,
+        groupIndex: node.index,
+        categoryIndex: node.stage,
+        navigationType: 'group',
+      }));
+    return [
+      ...at(MathUtil.safeMax(throughputs), 'max'),
+      ...at(MathUtil.safeMin(throughputs), 'min'),
+    ];
+  }
+
+  /**
+   * Moves to the node a target names, as any jump does.
+   *
+   * @param target - A target from {@link FlowTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 }

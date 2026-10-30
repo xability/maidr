@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, NetworkPoint } from '@type/grammar';
 import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
@@ -24,6 +25,7 @@ import {
 } from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGraph } from './movable';
 
 /** The rotor unit's key, which the trace recognises a move request by. */
@@ -144,10 +146,10 @@ interface NetworkNode {
  */
 export class NetworkTrace extends AbstractTrace implements PointCloudHighlightable {
   /**
-   * No go-to-extrema dialog. The arrows already reach every node, and the
-   * most connected are named in the description; see `extremaContract`.
+   * `]` and `[` go to the most and the least connected node, and the Go To
+   * dialog lists them: see {@link NetworkTrace.getExtremaTargets}.
    */
-  protected readonly supportsExtrema = false;
+  protected readonly supportsExtrema = true;
   protected readonly movable: MovableGraph;
 
   /** Every node, in declared order. */
@@ -1076,5 +1078,53 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     // is where anything is drawn -- and where a force-directed node lands is
     // a fact about the solver rather than about the data.
     return null;
+  }
+
+  /**
+   * The most and the least connected nodes, for `]`, `[` and the Go To
+   * dialog.
+   *
+   * A node's value is its degree, the number of links every move announces
+   * and the pitch plays, and the most connected is the hub the description
+   * names. Every node holding an extreme is offered, group by group in the
+   * order the arrows walk them, so a tie is walked; a node linked only to
+   * itself has a degree of 0, as everywhere else on this chart.
+   *
+   * @returns The targets, or none for a chart with no node
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    if (this.nodes.length === 0) {
+      return [];
+    }
+    const at = (degree: number, type: 'max' | 'min'): ExtremaTarget[] =>
+      this.grid.flatMap((group, component) => group.flatMap((node, index) => (
+        node === null || node.links.length !== degree
+          ? []
+          : [{
+              ...extremumAt(
+                t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+                node.name,
+              ),
+              value: degree,
+              pointIndex: index,
+              segment: node.name,
+              type,
+              groupIndex: component,
+              categoryIndex: index,
+              navigationType: 'group' as const,
+            }]
+      )));
+    return [...at(this.maxDegree, 'max'), ...at(this.minDegree, 'min')];
+  }
+
+  /**
+   * Moves to the node a target names, as any jump does.
+   *
+   * @param target - A target from {@link NetworkTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 }
