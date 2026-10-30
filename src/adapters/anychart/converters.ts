@@ -5774,6 +5774,7 @@ function buildSankeyLayer(
   rows: Array<Record<string, unknown>>,
   selectors: string | string[] | undefined,
   panel?: PanelContext,
+  chart?: AnyChartInstance,
 ): MaidrLayer {
   const data: FlowPoint[] = rows
     .filter(isDrawnFlow)
@@ -5788,12 +5789,106 @@ function buildSankeyLayer(
   const defaultSelectors = data.map(
     (_, i) => `${scope}[${SANKEY_ATTR}="${stamp}0-${i}"]`,
   );
+  const columns = chart ? readDrawnSankeyColumns(chart, data) : undefined;
   return {
     id: '0',
     type: TraceType.SANKEY,
     selectors: selectors ?? defaultSelectors,
+    ...(columns ? { flowOptions: { columns } } : {}),
     data,
   };
+}
+
+/**
+ * The columns a drawn sankey put its nodes in, left to right, each naming its
+ * nodes top to bottom.
+ *
+ * AnyChart lays a sankey out as d3-sankey's `justify` alignment does: every
+ * node nothing leaves is drawn in the last column, and each column is reordered
+ * over 32 passes that shorten the ribbons. Neither follows from the data
+ * alone, and MAIDR's own reading of the flows — a node one column past its
+ * furthest feeder — put the example's Losses, fed only by Coal, in the middle
+ * column beside Electricity and Heat, where AnyChart draws it in the last. So
+ * the columns are read off the drawing: each node's label is drawn centred on
+ * the node and names it, so the labels' centres place the nodes. What they
+ * give is then checked against the flows (see {@link columnsFitFlows}).
+ *
+ * @param chart - The sankey, drawn
+ * @param flows - Its flows, which between them name every node
+ * @returns The columns, or `undefined` when some node's label is not found
+ *   exactly once — the chart is not drawn yet, its labels are off or
+ *   reformatted, or another text on the chart reads the same — or when the
+ *   columns the labels give cannot be the chart's, and MAIDR derives the
+ *   columns itself
+ */
+function readDrawnSankeyColumns(
+  chart: AnyChartInstance,
+  flows: FlowPoint[],
+): string[][] | undefined {
+  const svg = resolveContainerElement(chart)?.querySelector('svg');
+  if (!svg)
+    return undefined;
+
+  const names = new Set(flows.flatMap(flow => [String(flow.source), String(flow.target)]));
+  const nodes: Array<{ name: string; x: number; y: number }> = [];
+  for (const text of Array.from(svg.querySelectorAll<SVGElement>('text'))) {
+    const name = (text.textContent ?? '').trim();
+    if (!names.has(name))
+      continue;
+    const box = readDrawnBox(text);
+    if (!box || nodes.some(node => node.name === name))
+      return undefined;
+    nodes.push({ name, x: box.left + box.width / 2, y: box.top + box.height / 2 });
+  }
+  if (nodes.length !== names.size)
+    return undefined;
+
+  nodes.sort((a, b) => a.x - b.x);
+  const columns: Array<typeof nodes> = [];
+  for (const node of nodes) {
+    const column = columns[columns.length - 1];
+    if (column && Math.abs(node.x - column[0].x) <= DRAWN_BOX_TOLERANCE_PX)
+      column.push(node);
+    else
+      columns.push([node]);
+  }
+  const drawn = columns.map(column => column.sort((a, b) => a.y - b.y).map(node => node.name));
+  return columnsFitFlows(drawn, flows) ? drawn : undefined;
+}
+
+/**
+ * Whether columns read off a sankey's labels can be the ones it drew.
+ *
+ * A sankey draws each node at least one column past every node feeding it and
+ * leaves no column empty between the first and the last, so every flow runs
+ * from one column to a later one, and there are as many columns as the longest
+ * chain of flows has nodes. Labels moved off the middle of their nodes, which
+ * split a column by the widths of its labels, or measured in a transformed
+ * group, give columns that fail one of the two.
+ *
+ * @param columns - The columns, left to right
+ * @param flows - The flows between their nodes
+ * @returns True when the columns agree with the flows
+ */
+function columnsFitFlows(columns: string[][], flows: FlowPoint[]): boolean {
+  const columnOf = new Map<string, number>();
+  columns.forEach((column, c) => column.forEach(name => columnOf.set(name, c)));
+  const runsRight = flows.every(flow =>
+    (columnOf.get(String(flow.source)) ?? Number.POSITIVE_INFINITY)
+    < (columnOf.get(String(flow.target)) ?? Number.NEGATIVE_INFINITY));
+  if (!runsRight)
+    return false;
+
+  // Every flow runs right, so a node's feeders all sit in earlier columns and
+  // the longest chain to it is known by the time it is reached.
+  const chain = new Map<string, number>();
+  for (const name of columns.flat()) {
+    const fed = flows
+      .filter(flow => String(flow.target) === name)
+      .map(flow => chain.get(String(flow.source)) ?? 0);
+    chain.set(name, 1 + Math.max(0, ...fed));
+  }
+  return columns.length === Math.max(...chain.values());
 }
 
 /**
@@ -6578,7 +6673,7 @@ function buildSubplot(
     const rows = readChartRows(chart).filter(isDrawnFlow);
     if (rows.length === 0)
       return null;
-    const layer = buildSankeyLayer(rows, chartLevelSelector, panel);
+    const layer = buildSankeyLayer(rows, chartLevelSelector, panel, chart);
     attachAxes(layer, SANKEY_AXIS_FALLBACKS);
     return finalize([layer]);
   }
