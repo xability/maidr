@@ -119,6 +119,8 @@ export function extractChartData(
   onNavigate?: NavigateCallback,
 ): ChartJsExtraction {
   const chartType = chart.config.type;
+  const title = pluginOptions?.title ?? getChartTitle(chart);
+  const titled = title !== undefined ? { title } : {};
 
   const layout = detectStackedPanels(chart);
   const paneled = layout === null
@@ -129,7 +131,7 @@ export function extractChartData(
     return {
       maidr: {
         id: `maidr-chartjs-${chart.canvas.id || 'chart'}-${nextId++}`,
-        title: pluginOptions?.title ?? getChartTitle(chart),
+        ...titled,
         subplots: paneled.subplots,
         ...(onNavigate ? { onNavigate } : {}),
       },
@@ -143,7 +145,7 @@ export function extractChartData(
   return {
     maidr: {
       id: `maidr-chartjs-${chart.canvas.id || 'chart'}-${nextId++}`,
-      title: pluginOptions?.title ?? getChartTitle(chart),
+      ...titled,
       subplots: [[{ layers }]],
       ...(onNavigate ? { onNavigate } : {}),
     },
@@ -511,12 +513,23 @@ function singleSubplotDatasetIndices(
 // Title & axis helpers
 // ---------------------------------------------------------------------------
 
-function getChartTitle(chart: ChartJsChart): string {
+/**
+ * The chart's title: `plugins.title`'s text, or `undefined` for a chart that
+ * has none.
+ *
+ * An untitled chart is left without a title, as every other adapter leaves
+ * one, so MAIDR says there is none ("No title available"). A placeholder
+ * such as "Chart" would be read as the chart's title: "Title is Chart".
+ *
+ * @param chart - The chart
+ * @returns The title's text, its lines joined by spaces
+ */
+function getChartTitle(chart: ChartJsChart): string | undefined {
   const titlePlugin = chart.options.plugins?.title as
     | { text?: string | string[] }
     | undefined;
   if (!titlePlugin?.text)
-    return 'Chart';
+    return undefined;
   return Array.isArray(titlePlugin.text) ? titlePlugin.text.join(' ') : titlePlugin.text;
 }
 

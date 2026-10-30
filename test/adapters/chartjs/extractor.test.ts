@@ -65,6 +65,35 @@ describe('chart.js extractor', () => {
       expect(layer.name).toBe('Units Sold');
     });
 
+    it.each([
+      ['no title plugin', {}],
+      ['an empty title', { plugins: { title: { display: true, text: '' } } }],
+    ] as [string, ChartJsOptions][])('leaves the title out of a chart with %s', (_case, options) => {
+      // The adapter called such a chart "Chart", which MAIDR read as its
+      // title: "Title is Chart". With no title, `l t` says none is available,
+      // as it does for an untitled chart from any other adapter.
+      const chart = createChart({
+        type: 'bar',
+        data: { labels: ['A', 'B'], datasets: [{ label: 'Sales', data: [1, 2] }] },
+        options,
+      });
+
+      const { maidr } = extractChartData(chart);
+
+      expect(maidr).not.toHaveProperty('title');
+    });
+
+    it('keeps the title the plugin options give a chart with no title plugin', () => {
+      const chart = createChart({
+        type: 'bar',
+        data: { labels: ['A', 'B'], datasets: [{ label: 'Sales', data: [1, 2] }] },
+      });
+
+      const { maidr } = extractChartData(chart, { title: 'Quarterly sales' });
+
+      expect(maidr.title).toBe('Quarterly sales');
+    });
+
     it.each<[string, ChartJsData, ChartJsOptions, TraceType | undefined]>([
       ['bar', { labels: ['A', 'B'], datasets: [{ label: 'Cash flow', data: [1, 2] }] }, {}, undefined],
       [
@@ -316,6 +345,14 @@ describe('chart.js extractor', () => {
       expect(maidr.subplots).toHaveLength(2);
       expect(maidr.subplots[0]).toHaveLength(1);
       expect(maidr.subplots[1]).toHaveLength(1);
+    });
+
+    it('leaves the figure title out when the chart has none, and still names each panel', () => {
+      const { maidr } = extractChartData(stackedLineChart());
+
+      expect(maidr).not.toHaveProperty('title');
+      expect(maidr.subplots.flat().map(subplot => subplot.layers[0].title).sort())
+        .toEqual(['Price ($)', 'Volume']);
     });
 
     it('gives every layer a figure-unique id and maps it to its datasets', () => {
