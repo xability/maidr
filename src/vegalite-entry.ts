@@ -42,7 +42,7 @@ import type {
   VegaLiteToMaidrOptions,
   VegaView,
 } from './adapters/vegalite/types';
-import type { BoxPoint, BoxSelector, DumbbellData, HeatmapData, LinePoint, Maidr, MaidrLayer } from './type/grammar';
+import type { BoxPoint, BoxSelector, DumbbellData, HeatmapData, HistogramPoint, LinePoint, Maidr, MaidrLayer } from './type/grammar';
 import { cssEscape, ensureContainerId } from './adapters/shared/selectorUtil';
 import { vegaLiteToMaidr } from './adapters/vegalite/converters';
 import { buildCellDomMap, scopeSelector, stampFacetCells } from './adapters/vegalite/facets';
@@ -849,6 +849,91 @@ function reorderDodgedBarsByVisualPosition(
 }
 
 /**
+ * How many decimals a number is written with: 2 for `2.25`, 7 for `1e-7`, 0
+ * for `1500` or `1e21`.
+ *
+ * @param value - The number
+ * @returns Its decimal places, as `String` writes it
+ */
+function decimalsOf(value: number): number {
+  const [mantissa, exponent = '0'] = String(value).split('e');
+  const fraction = mantissa.split('.')[1]?.length ?? 0;
+  return Math.min(Math.max(fraction - Number(exponent), 0), 100);
+}
+
+/**
+ * A histogram's bins, in the order they are drawn, with the empty bins
+ * Vega-Lite leaves out put back as bins of 0.
+ *
+ * Vega-Lite counts a bin with an aggregate, which has no row -- and so no
+ * bar -- for a bin no value falls in. Read from those rows, a histogram with
+ * a gap lost it: Altair's iris petal lengths, binned by 0.5 from 1 to 7, were
+ * read as 10 bins, "1.5 through 2" followed by "3 through 3.5", and the gap
+ * the chart shows between the two clusters was in neither the count, the
+ * sound nor the braille.
+ *
+ * Every bin has the width of the bin step, so a gap between one bin's end and
+ * the next one's start is a whole number of steps, each an empty bin.
+ * `Histogram` pairs its bars with the bins that are not empty, in order, so
+ * the drawn bars stay paired with their own bins. Nothing is added when the
+ * bins do not share one width, when a drawn bin already counts 0 (a bar that
+ * pairing would pass over), or when a gap is not a whole number of steps.
+ *
+ * @param bins - The bins, in drawn order: ascending left to right, or, along
+ *   y, descending from the top
+ * @param isHorizontal - Whether the bins run along y
+ * @returns The bins with the empty ones in place, or `bins` itself
+ */
+function withEmptyBins(bins: HistogramPoint[], isHorizontal: boolean): HistogramPoint[] {
+  if (bins.length < 2) {
+    return bins;
+  }
+  const start = (bin: HistogramPoint): number => Number(isHorizontal ? bin.yMin : bin.xMin);
+  const end = (bin: HistogramPoint): number => Number(isHorizontal ? bin.yMax : bin.xMax);
+  const count = (bin: HistogramPoint): number => Number(isHorizontal ? bin.x : bin.y);
+
+  const step = end(bins[0]) - start(bins[0]);
+  const slack = Math.abs(step) * 1e-6;
+  if (!(step > 0)
+    || bins.some(bin => Math.abs(end(bin) - start(bin) - step) > slack || count(bin) === 0)) {
+    return bins;
+  }
+
+  // An edge computed by adding steps picks up float noise (`0.1 + 0.2`), so
+  // it is written to as many decimals as the most precise edge Vega-Lite
+  // wrote, and reads as theirs do: '2-2.5' beside '1.5-2'.
+  const decimals = Math.max(...bins.flatMap(bin => [start(bin), end(bin)]).map(decimalsOf));
+  const edge = (value: number): number => Number(value.toFixed(decimals));
+  const empty = (from: number): HistogramPoint => {
+    const lo = edge(from);
+    const hi = edge(from + step);
+    return isHorizontal
+      ? { x: 0, y: `${lo}-${hi}`, xMin: 0, xMax: 0, yMin: lo, yMax: hi }
+      : { x: `${lo}-${hi}`, y: 0, xMin: lo, xMax: hi, yMin: 0, yMax: 0 };
+  };
+
+  const filled: HistogramPoint[] = [bins[0]];
+  for (let i = 1; i < bins.length; i++) {
+    const previous = bins[i - 1];
+    const next = bins[i];
+    const rising = start(next) >= end(previous) - slack;
+    if (!rising && end(next) > start(previous) + slack) {
+      return bins;
+    }
+    const gap = rising ? start(next) - end(previous) : start(previous) - end(next);
+    const missing = Math.round(gap / step);
+    if (Math.abs(gap - missing * step) > slack) {
+      return bins;
+    }
+    for (let k = 0; k < missing; k++) {
+      filled.push(empty(rising ? end(previous) + k * step : start(previous) - (k + 1) * step));
+    }
+    filled.push(next);
+  }
+  return filled;
+}
+
+/**
  * For HISTOGRAM layers, pair each data bin with its corresponding DOM
  * element and sort by visual x-position (or y for horizontal). This
  * mirrors {@link sortCategoryMarksByVisualOrder} but applies to histograms
@@ -915,17 +1000,19 @@ function sortHistogramBinsByVisualOrder(
       return isHorizontal ? ra.y - rb.y : ra.x - rb.x;
     });
 
+    // 1. Replace `layer.data` with the visual-order sequence, the bins Vega
+    //    drew no bar for put back in it.
     const alreadySorted = pairs.every((p, i) => p.element === elements[i]);
-    if (alreadySorted) {
-      continue;
+    const bins = withEmptyBins(pairs.map(p => p.point as HistogramPoint), isHorizontal);
+    if (!alreadySorted || bins.length !== pairs.length) {
+      layer.data = bins as MaidrLayer['data'];
     }
-
-    // 1. Replace `layer.data` with the visual-order sequence.
-    layer.data = pairs.map(p => p.point) as MaidrLayer['data'];
 
     // 2. Re-append DOM elements in sorted order so `querySelectorAll`
     //    later returns them in the same sequence as `layer.data`.
-    reappendInOrder(pairs.map(p => p.element));
+    if (!alreadySorted) {
+      reappendInOrder(pairs.map(p => p.element));
+    }
   }
 }
 
