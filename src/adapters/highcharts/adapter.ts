@@ -2672,6 +2672,10 @@ function convertBumpSeries(
   return {
     id: indices.map(String).join('-'),
     type: TraceType.BUMP,
+    // A reversed axis draws first place at the top; `bump: true` can read a
+    // table on an ordinary one, which draws it at the bottom. Said rather than
+    // left to be measured from the highlight.
+    firstPlace: isReversedAxis(first.yAxis) ? 'top' : 'bottom',
     title: seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined,
     // One path per competitor, as any line layer has.
     selectors: lineSelectors(containerId, indices),
