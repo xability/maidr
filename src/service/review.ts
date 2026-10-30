@@ -63,7 +63,11 @@ export class ReviewService implements Observer<PlotState>, Disposable {
       return;
     }
 
-    const review = this.text.format(state);
+    // One line: review mode shows the text in a single-line input, and a
+    // browser drops the line breaks from an input's value without the space
+    // they stand for -- a category drawn on two lines, "Adelie" over "Mean =
+    // 3700.66g", read as "AdelieMean = 3700.66g".
+    const review = this.text.format(state).replace(/\s*\n\s*/g, ' ');
     if (review) {
       this.onChangeEmitter.fire({ value: review });
     }
