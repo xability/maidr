@@ -91,6 +91,17 @@ implements Observer<HighlightStateUnion>, Disposable {
   private settingsDisposable: Disposable | null = null;
 
   /**
+   * Watches the outlined panels and the chart for a change of size, so that a
+   * box drawn round a panel is drawn again where the panel now is. A box is
+   * placed from where its panel is when it is drawn, so a chart laid out
+   * again at another size -- a responsive chart in a resized window, or a
+   * page zoomed -- left the box where the panel had been until the reader's
+   * next move in the lobby, and for as long as they stayed in the panel.
+   * Null where the browser has no `ResizeObserver`.
+   */
+  private readonly panelResizes: ResizeObserver | null;
+
+  /**
    * Creates a new HighlightService instance.
    *
    * @param settings - The settings service used to retrieve highlight color preferences
@@ -102,6 +113,9 @@ implements Observer<HighlightStateUnion>, Disposable {
 
     this.highlightedElements = new Map();
     this.highlightedSubplots = new Set();
+    this.panelResizes = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(() => this.redrawPanelOutlines());
     const initialSettings = settings.loadSettings();
     this.currentHighlightColor = initialSettings.general.highlightColor;
     this.highContrastMode = initialSettings.general.highContrastMode;
@@ -227,6 +241,15 @@ implements Observer<HighlightStateUnion>, Disposable {
       }
     }
 
+    this.redrawPanelOutlines();
+  }
+
+  /**
+   * Outlines each outlined panel again, where it is now, in the highlight
+   * colour as it is set now. A panel no longer on the page keeps its outline
+   * until the next move, as a copy of a mark does in {@link redraw}.
+   */
+  private redrawPanelOutlines(): void {
     const figureBackground = this.figureBackground();
     for (const element of this.highlightedSubplots) {
       if (element.isConnected) {
@@ -369,7 +392,9 @@ implements Observer<HighlightStateUnion>, Disposable {
         figureBgElement,
       );
       this.highlightedSubplots.add(element);
+      this.panelResizes?.observe(element);
     }
+    this.chartRoots().forEach(root => this.panelResizes?.observe(root));
   }
 
   /**
@@ -475,6 +500,7 @@ implements Observer<HighlightStateUnion>, Disposable {
    * Removes all subplot-level highlight styling and clears the tracking set.
    */
   private unhighlightSubplotElements(): void {
+    this.panelResizes?.disconnect();
     this.highlightedSubplots.forEach((element) => {
       Svg.removePanelOutline(element);
     });
