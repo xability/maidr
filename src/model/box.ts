@@ -672,9 +672,16 @@ export class BoxTrace extends AbstractTrace {
       if ((original.q1Direct && original.q3Direct) || !original.iq) {
         return;
       }
-      const [q1Edge, q3Edge]: [Edge, Edge] = isVertical
-        ? (isIqrReversed ? ['top', 'bottom'] : ['bottom', 'top'])
-        : ['left', 'right'];
+      // A box drawn turned a quarter has its edges taken from where they are
+      // drawn: Nivo draws a horizontal box as a vertical one inside a group
+      // rotated by -90°, and its own left and right edges, taken for Q1 and
+      // Q3, were drawn along the box's length.
+      const turned = Svg.quarterTurnedEdges(original.iq);
+      const [q1Edge, q3Edge]: [Edge, Edge] = turned !== null
+        ? (isVertical ? [turned.bottom, turned.top] : [turned.left, turned.right])
+        : isVertical
+          ? (isIqrReversed ? ['top', 'bottom'] : ['bottom', 'top'])
+          : ['left', 'right'];
       edgeRequests.push(
         { box: original.iq, edge: q1Edge },
         { box: original.iq, edge: q3Edge },

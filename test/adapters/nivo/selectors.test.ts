@@ -89,8 +89,8 @@ describe('stampedSelectors', () => {
   });
 
   it('names a box\'s whisker caps when Nivo draws them, and its stems when not', () => {
-    const [capped] = stampedSelectors({ kind: 'boxes', keys: ['boxplot.0.0'], whiskerCaps: true, horizontal: false }, SCOPE) as BoxSelector[];
-    const [bare] = stampedSelectors({ kind: 'boxes', keys: ['boxplot.0.0'], whiskerCaps: false, horizontal: false }, SCOPE) as BoxSelector[];
+    const [capped] = stampedSelectors({ kind: 'boxes', keys: ['boxplot.0.0'], whiskerCaps: true }, SCOPE) as BoxSelector[];
+    const [bare] = stampedSelectors({ kind: 'boxes', keys: ['boxplot.0.0'], whiskerCaps: false }, SCOPE) as BoxSelector[];
     const box = '#chart [data-key="boxplot\\.0\\.0"]';
 
     expect(capped).toEqual({
@@ -104,23 +104,20 @@ describe('stampedSelectors', () => {
     expect([bare.min, bare.max]).toEqual([`${box} > line:nth-of-type(2)`, `${box} > line:nth-of-type(3)`]);
   });
 
-  it('names a horizontal box\'s body for Q1 and Q3, so the core does not derive them from its unrotated edges', () => {
-    const [vertical] = stampedSelectors({ kind: 'boxes', keys: ['boxplot.0.0'], whiskerCaps: true, horizontal: false }, SCOPE) as BoxSelector[];
-    const [horizontal] = stampedSelectors({ kind: 'boxes', keys: ['boxplot.0.0'], whiskerCaps: true, horizontal: true }, SCOPE) as BoxSelector[];
-    const body = '#chart [data-key="boxplot\\.0\\.0"] > rect';
-
-    expect(vertical.q1).toBeUndefined();
-    expect(vertical.q3).toBeUndefined();
-    expect([horizontal.iq, horizontal.q1, horizontal.q3]).toEqual([body, body, body]);
-  });
-
-  it('marks a horizontal box plot\'s boxes as drawn rotated', () => {
+  it('names the same parts of a horizontal box as of a vertical one, leaving its quartile edges to the core', () => {
+    // Nivo draws a horizontal box turned a quarter, and the core now takes
+    // the edges the turn lays across the chart; naming the body for Q1 and
+    // Q3, as this did, outlined the whole box for both.
     const data = [{ group: 'a', value: 1 }, { group: 'a', value: 2 }];
     const [horizontal] = extractNivoLayers('boxplot', { data, layout: 'horizontal' });
     const [vertical] = extractNivoLayers('boxplot', { data });
 
-    expect(horizontal.marks).toMatchObject({ kind: 'boxes', horizontal: true });
-    expect(vertical.marks).toMatchObject({ kind: 'boxes', horizontal: false });
+    const [turned] = stampedSelectors(horizontal.marks, SCOPE) as BoxSelector[];
+    const [upright] = stampedSelectors(vertical.marks, SCOPE) as BoxSelector[];
+
+    expect(turned).toEqual(upright);
+    expect(turned.q1).toBeUndefined();
+    expect(turned.q3).toBeUndefined();
   });
 
   it('leaves line and scatter marks to tagging', () => {

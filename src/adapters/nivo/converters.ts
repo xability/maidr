@@ -726,7 +726,6 @@ function boxLayers(props: Props): NivoLayerInfo[] {
         kind: 'boxes',
         keys,
         whiskerCaps: typeof props.whiskerEndSize !== 'number' || props.whiskerEndSize > 0,
-        horizontal,
       },
     });
   }
