@@ -1668,11 +1668,12 @@ function convertToScatterPoints(
 /**
  * Converts data to VolcanoPoint[] format — a scatter plus what the point is.
  *
- * On a Manhattan plot `xKey` should name the position that gets ANNOUNCED,
- * which is rarely the one that gets plotted: the drawn x is usually a
- * cumulative genomic offset running across every chromosome, and "position
- * 1,431,900,204" answers nothing. Point it at the per-chromosome position and
- * declare the chromosome as `groupKey`.
+ * On a Manhattan plot `xKey` names the position the chart PLOTS, usually a
+ * cumulative genomic offset running across every chromosome, with the
+ * chromosome declared as `groupKey`. The core walks the points left to right
+ * by `x`, pairs each with its mark in that order and pans it by it, so a
+ * per-chromosome position, which starts again at every chromosome, walked the
+ * reader back and forth across the genome with the outline on other points.
  */
 function convertToVolcanoPoints(
   data: Record<string, unknown>[],
