@@ -644,6 +644,7 @@ export const model = {
   'model.tableDensity': 'घनत्व',
   'model.tableWidth': 'चौड़ाई',
   'model.asideWidth': 'चौड़ाई',
+  'model.asideDensity': 'घनत्व',
   'model.statGroups': 'समूह',
   'model.statSamplesPerGroup': 'प्रति समूह नमूने',
   'model.statPeakOfEachGroup': 'हर समूह का शिखर',

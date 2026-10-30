@@ -661,6 +661,7 @@ export const model = {
   'model.tableDensity': 'Density',
   'model.tableWidth': 'Width',
   'model.asideWidth': 'width',
+  'model.asideDensity': 'density',
   'model.statGroups': 'Groups',
   'model.statSamplesPerGroup': 'Samples per group',
   'model.statPeakOfEachGroup': 'Peak of each group',
