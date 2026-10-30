@@ -1,9 +1,14 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { TextState } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import type { Locale } from '@util/i18n/locale';
+import { afterEach, describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { LineTrace } from '@model/line';
 import { TraceType } from '@type/grammar';
+import { setLocale } from '@util/i18n';
+// The Korean and Hindi dictionaries are locale packs, not part of the core.
+import '../../src/locale/hi';
+import '../../src/locale/ko';
 
 /**
  * Two lines that meet at their first point, neither of them named.
@@ -176,5 +181,32 @@ describe('the intersection targets in the go-to-extrema dialog', () => {
     trace.moveToIndex(0, 0);
 
     expect(otherLines(trace)).toEqual(['Treated']);
+  });
+});
+
+describe('a language whose message puts the lines before the word', () => {
+  afterEach(() => {
+    // The locale is process-wide: switch it back for the tests after this one.
+    setLocale('en');
+  });
+
+  // Korean and Hindi say "(lines) intersection point", so the name of the
+  // line the cursor is on comes straight before the list. Unbracketed, the
+  // name and the list ran together: "1, 1, 3, 5 교차 지점".
+  test.each<[Locale, string]>([
+    ['ko', '1, (1, 3, 5) 교차 지점'],
+    ['hi', '1, (1, 3, 5) पर प्रतिच्छेदन'],
+  ])('%s sets the line apart from the lines it meets', (locale, expected) => {
+    setLocale(locale);
+    const trace = new LineTrace(layer([
+      [{ x: 118, y: 30, z: '3' }, { x: 484, y: 51, z: '3' }],
+      [{ x: 118, y: 30, z: '1' }, { x: 484, y: 58, z: '1' }],
+      [{ x: 118, y: 30, z: '5' }, { x: 484, y: 49, z: '5' }],
+    ]));
+    trace.moveToIndex(0, 0);
+
+    trace.moveOnce('UPWARD');
+
+    expect(textOf(trace).z?.value).toBe(expected);
   });
 });
