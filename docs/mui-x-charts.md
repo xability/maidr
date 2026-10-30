@@ -70,7 +70,7 @@ The kind of chart is read from the component's name (`BarChart`, `LineChart`, `S
 | Stacked bar chart | `BarChart` | ✅ | Series sharing a `stack` id. |
 | Normalized bar | `BarChart` | ✅ | A stack whose `stackOffset` is `'expand'`. |
 | Horizontal bar | `BarChart` | ✅ | `layout="horizontal"`; the categories are read from the y axis. |
-| Line chart | `LineChart` | ✅ | Every series is one line of a multi-line layer. A `null` value is a gap. |
+| Line chart | `LineChart` | ✅ | Every series is one line of a multi-line layer. A `null` value is a gap. Each point names its series by its `label`, or as `Series 1`, `Series 2` and so on when there are several; a lone line without a `label`, like a sparkline's, names none. |
 | Step chart | `LineChart` | ✅ | Series with `curve: 'stepAfter'`, `'stepBefore'` or `'step'`. |
 | Scatter plot | `ScatterChart` | ✅ | One layer per series; switch layers with Page Up / Page Down. A point outside an explicit axis `min`/`max` is not drawn, and is left out. |
 | Pie / doughnut | `PieChart` | ⚠️ | A doughnut is the same component with an `innerRadius`. Several series (nested rings) become one layer per ring. See the notes below for sorted and partial pies. |

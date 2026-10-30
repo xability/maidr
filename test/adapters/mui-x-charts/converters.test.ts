@@ -285,6 +285,23 @@ describe('line charts', () => {
     expect(layer.selectors).toEqual(['#c path.MuiLineChart-line[data-series="auto-generated-id-0"]']);
   });
 
+  it('names no group on the points of a lone series the chart gives no label', () => {
+    // A sparkline's one line: MUI draws it with no label and no legend, so
+    // "Series 1" would be a name nothing on the chart carries.
+    const [layer] = convertMuiChart('sparkline', { data: [3, 7, 4] }, SCOPE).layers;
+
+    expect(layer.data).toEqual([[{ x: 0, y: 3 }, { x: 1, y: 7 }, { x: 2, y: 4 }]]);
+  });
+
+  it('keeps the names that tell several unlabelled series apart', () => {
+    const [layer] = convertMuiChart('line', {
+      series: [{ data: [1, 2] }, { data: [3, 4] }],
+    }, SCOPE).layers;
+
+    expect((layer.data as LinePoint[][]).map(line => line.map(point => point.z)))
+      .toEqual([['Series 1', 'Series 1'], ['Series 2', 'Series 2']]);
+  });
+
   it('reads a line of precision against recall as a precision-recall curve', () => {
     const props = {
       xAxis: [{ data: [0, 0.5, 1], label: 'Recall' }],
