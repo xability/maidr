@@ -17,7 +17,11 @@
 import type { VegaLiteSpec, VegaView } from '@adapters/vegalite/types';
 import type { BarPoint, BoxPoint } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
-import { describe, expect, it } from '@jest/globals';
+import { afterAll, describe, expect, it, jest } from '@jest/globals';
+
+// The resolver warns on purpose when a child's rows cannot be found.
+const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+afterAll(() => warn.mockRestore());
 
 const SCORES = [
   { group: 'A', score: 60 },
@@ -176,5 +180,33 @@ describe('an hconcat child no compiled table carries the columns of', () => {
     // Before the fix the guesses fell through to `data_0`, the first child's
     // table, and the second panel was read from it as bars named "".
     expect(maidr.subplots[0][1].layers[0].data).toEqual([{ x: 'X', y: 10 }, { x: 'Y', y: 20 }]);
+  });
+});
+
+describe('an hconcat child whose named data no compiled table carries', () => {
+  it('still says its rows could not be resolved', () => {
+    warn.mockClear();
+    const spec = {
+      hconcat: [
+        {
+          data: { values: [{ a: 'A', b: 1 }] },
+          mark: 'bar',
+          encoding: { x: { field: 'a', type: 'nominal' }, y: { field: 'b', type: 'quantitative' } },
+        },
+        {
+          data: { name: 'ratings' },
+          mark: 'bar',
+          encoding: { x: { field: 'c', type: 'nominal' }, y: { field: 'd', type: 'quantitative' } },
+        },
+      ],
+    } as unknown as VegaLiteSpec;
+
+    const maidr = vegaLiteToMaidr(spec, viewWith({ data_0: [{ a: 'A', b: 1 }] }));
+
+    // No inline rows to fall back to: nothing is read, and the warning that
+    // always marked an unresolved layer is given rather than another
+    // child's table read in its place.
+    expect(maidr.subplots[0][1]?.layers[0]?.data ?? []).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Could not resolve dataset for layer index 1'));
   });
 });
