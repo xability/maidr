@@ -129,4 +129,14 @@ describe('a ridgeline\'s highlight', () => {
     expect(first.empty ? null : first.elements).toBe(second.empty ? undefined : second.elements);
     expect(first.empty ? '' : [first.elements].flat()[0].tagName.toLowerCase()).toBe('rect');
   });
+
+  test.each(['path', 'rect'] as const)('takes its markers or copies away when it is disposed, drawn as a %s', (tag) => {
+    const trace = ridgeline(tag);
+    expect(document.querySelectorAll('[data-maidr-owned]').length).toBeGreaterThan(0);
+
+    trace.dispose();
+
+    expect(document.querySelectorAll('[data-maidr-owned]')).toHaveLength(0);
+    expect(document.querySelectorAll('.ridge')).toHaveLength(DENSITIES.length);
+  });
 });

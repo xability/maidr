@@ -360,27 +360,38 @@ describe('highlight', () => {
   const down = (value: number): number => 200 - 50 * value;
 
   /**
+   * Where a value is drawn in a chart flipped upright, as gridSVG draws R's
+   * charts: its y runs up the page, so a higher value has a larger y.
+   */
+  const up = (value: number): number => 200 + 50 * value;
+
+  /**
    * One quantile's points, left to right.
    * @param level - The quantile's index in {@link LEVELS}
+   * @param toY - Where a value is drawn
    * @returns Each step's point, as `x,y`
    */
-  function quantilePoints(level: number): string[] {
-    return STEPS.map(point => `${across(Number(point.x))},${down(Number(point.quantiles[level].value))}`);
+  function quantilePoints(level: number, toY: (value: number) => number = down): string[] {
+    return STEPS.map(point => `${across(Number(point.x))},${toY(Number(point.quantiles[level].value))}`);
   }
 
   /**
    * Draw four nested band polygons and a median line, the way a fan chart is
    * drawn: each band out along its lower bound and back along its upper one.
    * @param tag - What each band is drawn as
+   * @param toY - Where a value is drawn
    * @returns The bands, outermost first, and the median line
    */
-  function drawBands(tag: 'polygon' | 'rect' = 'polygon'): { bands: Element[]; median: Element } {
+  function drawBands(
+    tag: 'polygon' | 'rect' = 'polygon',
+    toY: (value: number) => number = down,
+  ): { bands: Element[]; median: Element } {
     const bands = [0, 1, 2, 3].map(k =>
-      `<${tag} points="${[...quantilePoints(k), ...quantilePoints(8 - k).reverse()].join(' ')}"></${tag}>`);
+      `<${tag} points="${[...quantilePoints(k, toY), ...quantilePoints(8 - k, toY).reverse()].join(' ')}"></${tag}>`);
     document.body.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
         <g id="bands">${bands.join('')}</g>
-        <polyline id="median" fill="none" points="${quantilePoints(4).join(' ')}" />
+        <polyline id="median" fill="none" points="${quantilePoints(4, toY).join(' ')}" />
       </svg>`;
     return {
       bands: [...document.querySelectorAll('#bands > *')],
@@ -416,6 +427,40 @@ describe('highlight', () => {
     trace.moveOnce('FORWARD');
 
     expect(markedAt(trace)).toEqual([across(100), down(-0.31)]);
+  });
+
+  test('a bound is marked on its own edge in a chart flipped upright, as gridSVG draws R\'s', () => {
+    // gridSVG draws a chart in a group flipped with scale(1, -1), so a lower
+    // bound is the smaller y in the band's own units, not the larger.
+    const { bands, median } = drawBands('polygon', up);
+    for (const element of [...bands, median]) {
+      Object.defineProperty(element, 'getScreenCTM', { value: () => ({ a: 1, b: 0, c: 0, d: -1, e: 0, f: 400 }) });
+    }
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+
+    expect(markedAt(trace)).toEqual([across(0), up(-0.4)]);
+
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+
+    expect(markedAt(trace)).toEqual([across(0), up(0.4)]);
+  });
+
+  test('takes its markers away when it is disposed, and leaves the chart\'s own bands', () => {
+    const { bands } = drawBands();
+    // A copy: disposing a trace empties the points it was built from, which
+    // the controller hands it as a copy of its own.
+    const trace = band(JSON.parse(JSON.stringify(STEPS)) as PercentileBandPoint[], { selectors: [...BAND_SELECTORS, '#median'] });
+    expect(document.querySelectorAll('[data-maidr-owned]').length).toBeGreaterThan(0);
+
+    trace.dispose();
+
+    expect(document.querySelectorAll('[data-maidr-owned]')).toHaveLength(0);
+    expect(bands.every(element => element.isConnected)).toBe(true);
   });
 
   test('an upper bound is marked on the band\'s upper edge', () => {

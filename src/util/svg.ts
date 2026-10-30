@@ -89,8 +89,10 @@ export abstract class Svg {
    *
    * An outline drawn through every point has a vertex at each one's x, and
    * those are the places, in order. Otherwise -- a renderer that dropped the
-   * vertices a straight run did not need -- the points are spread over the
-   * outline's extent by their own x, or evenly where an x is not a number.
+   * vertices a straight run did not need, or drew a curve through more -- the
+   * points are spread over the outline's extent by their own x, which is
+   * where a linear axis draws them, or evenly where an x is not a number,
+   * which is a guess, and says so with a warning.
    *
    * @param outline - The outline, from {@link outlineOf}
    * @param keys - Each point's x, in the order the points are drawn
@@ -1834,7 +1836,32 @@ function columnsAlong(outline: ShapeOutline, keys: readonly (number | string)[])
     && keys.every(key => typeof key === 'number' && Number.isFinite(key))) {
     return keys.map(key => min + ((Number(key) - first) / (last - first)) * span);
   }
+  warnSpreadEvenly(distinct.length, keys.length);
   return keys.map((_, i) => (keys.length > 1 ? min + (i / (keys.length - 1)) * span : min + span / 2));
+}
+
+/** The shapes, as `columns:points`, {@link warnSpreadEvenly} has told of. */
+const spreadEvenly = new Set<string>();
+
+/**
+ * Tells a producer, once per shape of outline, that a band's or a ridge's
+ * markers are spread evenly along it: its x positions are not one per point,
+ * and the points' own x are not numbers, so where each is drawn is a guess.
+ *
+ * @param columns - How many distinct x the outline has
+ * @param points - How many points are marked along it
+ */
+function warnSpreadEvenly(columns: number, points: number): void {
+  const key = `${columns}:${points}`;
+  if (spreadEvenly.has(key)) {
+    return;
+  }
+  spreadEvenly.add(key);
+  console.warn(
+    `[MAIDR] An outline drawn at ${columns} distinct x positions marks ${points} points whose x are not `
+    + 'numbers, so its markers are spread evenly along it and may not stand at the points they mark. '
+    + 'Draw the outline with a vertex at each point.',
+  );
 }
 
 /** The element MAIDR wraps every chart it reads in. */
