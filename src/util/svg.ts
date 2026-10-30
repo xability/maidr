@@ -705,6 +705,10 @@ export abstract class Svg {
    * does, is outlined through those shapes instead of painted whole (see
    * {@link outlineShapes}).
    *
+   * A line, a polyline, and a path drawn by its stroke alone (see
+   * {@link isDrawnByStroke}) are drawn as lines: stroked in the highlight
+   * colour, wider than drawn, and filled only where the chart fills them.
+   *
    * @param element - The SVG element to highlight
    * @param fallbackColor - Color to use if original color cannot be determined
    * @param options - How the colour is chosen
@@ -762,7 +766,8 @@ export abstract class Svg {
     }
 
     const tag = element.tagName.toLowerCase();
-    const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE;
+    const drawnByStroke = this.isDrawnByStroke(element, computed);
+    const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE || drawnByStroke;
     const originalColor = isLineElement
       ? computed.getPropertyValue(Constant.STROKE)
       : computed.getPropertyValue(Constant.FILL);
@@ -776,10 +781,17 @@ export abstract class Svg {
     const stroke = !isLineElement && this.hasOwnEdge(computed)
       ? computed.getPropertyValue(Constant.STROKE)
       : color;
+    // A line is filled only where the chart fills it. A fill on an unfilled
+    // line covers the region between the line and the chord joining its ends,
+    // which the chart never drew.
+    const fill = isLineElement
+      && (drawnByStroke || !this.isPainted(computed.fill, computed.fillOpacity))
+      ? 'none'
+      : color;
 
     clone.setAttribute(Constant.STROKE, stroke);
-    clone.setAttribute(Constant.FILL, color);
-    clone.style.fill = color;
+    clone.setAttribute(Constant.FILL, fill);
+    clone.style.fill = fill;
     clone.style.stroke = stroke;
 
     if (isLineElement) {
@@ -1166,6 +1178,37 @@ export abstract class Svg {
   }
 
   /**
+   * Whether a path is drawn by its stroke alone, so that only a stroke can
+   * highlight it, as a line's does.
+   *
+   * Two kinds of path are. One whose fill covers nothing, every run of it
+   * straight: Plotly draws an error bar as three strokes and leaves its fill
+   * at the default black, and its clone, with the fill recoloured and its own
+   * stroke kept, was the bar exactly as drawn. And an unfilled path left
+   * open, an arc or a line, which a fill closes with a straight chord: a
+   * gauge's arc, a donut's ring and a percentile band's median were filled
+   * across the hole, or between the line and the chord joining its ends. An
+   * unfilled shape that closes on itself, such as a hollow marker, is still
+   * filled: its fill is the shape its stroke draws.
+   *
+   * @param element - The path, in the document
+   * @param style - Its computed style
+   * @returns False for anything that is not a path, for a path with no
+   *   subpath, and for one whose stroke draws nothing
+   */
+  private static isDrawnByStroke(element: SVGElement, style: CSSStyleDeclaration): boolean {
+    if (element.tagName.toLowerCase() !== 'path'
+      || !this.isPainted(style.stroke, style.strokeOpacity)
+      || Number.parseFloat(style.strokeWidth) === 0) {
+      return false;
+    }
+    const runs = subpathRuns(element.getAttribute(Constant.D) ?? '');
+    return runs.length > 0
+      && (runs.every(run => !run.bends)
+        || (!this.isPainted(style.fill, style.fillOpacity) && runs.some(run => run.bends && !run.closed)));
+  }
+
+  /**
    * Whether a filled mark draws a visible edge in a colour other than its fill.
    * @param style - The mark's computed style
    * @returns False for an unfilled mark, an edge drawn in the fill's own
@@ -1492,6 +1535,129 @@ function pathVertices(pathD: string): PathVertex[] {
   }
 
   return coordinates;
+}
+
+/** One subpath of a path, as its fill sees it. */
+interface SubpathRun {
+  /** Whether it ends in a closepath, so that its stroke bounds its fill. */
+  closed: boolean;
+  /**
+   * Whether it encloses anything: a curve, an arc, or a vertex off the line
+   * through the others. A straight run's fill covers nothing.
+   */
+  bends: boolean;
+}
+
+/**
+ * How far a vertex may lie off the line through its subpath, in the path's
+ * user units, and still be on it: enough for the rounding of relative
+ * commands, and far below anything a fill could show.
+ */
+const COLLINEAR_TOLERANCE = 1e-6;
+
+/**
+ * The subpaths an SVG path `d` attribute draws, each as its fill sees it.
+ *
+ * Walked as {@link pathVertices} walks it. An arc is known to bend, but its
+ * endpoint is not read, for the reason {@link SVG_PATH_COMMAND_REGEX} gives.
+ *
+ * @param pathD - The `d` attribute of the rendered path
+ * @returns One entry per subpath, in drawing order
+ */
+function subpathRuns(pathD: string): SubpathRun[] {
+  const subpaths: (SubpathRun & { points: PathVertex[] })[] = [];
+  let drawing: (SubpathRun & { points: PathVertex[] }) | null = null;
+  let x = 0;
+  let y = 0;
+  let startX = 0;
+  let startY = 0;
+
+  SVG_PATH_COMMAND_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null = SVG_PATH_COMMAND_REGEX.exec(pathD);
+  while (match !== null) {
+    const command = match[1];
+    const absolute = command.toUpperCase();
+    const isRelative = command !== absolute;
+    const args = (match[2].match(SVG_PATH_NUMBER_REGEX) ?? []).map(Number);
+    match = SVG_PATH_COMMAND_REGEX.exec(pathD);
+
+    if (absolute === 'Z') {
+      if (drawing !== null) {
+        drawing.closed = true;
+      }
+      // A command after a closepath starts a new subpath where the last began.
+      drawing = null;
+      x = startX;
+      y = startY;
+      continue;
+    }
+
+    if (drawing === null && absolute !== 'M') {
+      drawing = { closed: false, bends: false, points: [{ x, y }] };
+      subpaths.push(drawing);
+    }
+    if (absolute === 'A') {
+      if (drawing !== null) {
+        drawing.bends = true;
+      }
+      continue;
+    }
+
+    const arity = SVG_PATH_ARITY[absolute];
+    for (let i = 0; i + arity <= args.length; i += arity) {
+      if (absolute === 'H') {
+        x = isRelative ? x + args[i] : args[i];
+      } else if (absolute === 'V') {
+        y = isRelative ? y + args[i] : args[i];
+      } else {
+        const endX = args[i + arity - 2];
+        const endY = args[i + arity - 1];
+        x = isRelative ? x + endX : endX;
+        y = isRelative ? y + endY : endY;
+      }
+
+      if (absolute === 'M' && i === 0) {
+        startX = x;
+        startY = y;
+        drawing = { closed: false, bends: false, points: [{ x, y }] };
+        subpaths.push(drawing);
+        continue;
+      }
+      if (drawing !== null) {
+        // A curve bends wherever its endpoints are; a lineto only off the line.
+        drawing.bends ||= 'CSQT'.includes(absolute);
+        drawing.points.push({ x, y });
+      }
+    }
+  }
+
+  return subpaths.map(subpath => ({
+    closed: subpath.closed,
+    bends: subpath.bends || !isCollinear(subpath.points),
+  }));
+}
+
+/**
+ * Whether points all lie on one straight line.
+ *
+ * @param points - The points, in any order
+ * @returns True for fewer than three distinct points, too
+ */
+function isCollinear(points: readonly PathVertex[]): boolean {
+  if (points.length === 0) {
+    return true;
+  }
+  const [first] = points;
+  const far = points.find(point =>
+    Math.hypot(point.x - first.x, point.y - first.y) > COLLINEAR_TOLERANCE);
+  if (far === undefined) {
+    return true;
+  }
+  const dx = far.x - first.x;
+  const dy = far.y - first.y;
+  const length = Math.hypot(dx, dy);
+  return points.every(point =>
+    Math.abs(dx * (point.y - first.y) - dy * (point.x - first.x)) / length <= COLLINEAR_TOLERANCE);
 }
 
 /** The element MAIDR wraps every chart it reads in. */

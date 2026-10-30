@@ -324,10 +324,10 @@ describe('createHighlightElement colour', () => {
 
   it.each([
     { what: 'an edge drawn in the fill\'s own colour', tag: 'circle', style: 'fill: #FFFF78; stroke: #FFFF78' },
-    { what: 'a mark with no fill', tag: 'path', style: 'fill: none; stroke: #1F77B4' },
+    { what: 'a hollow marker, whose stroke closes on itself', tag: 'path', style: 'fill: none; stroke: #1F77B4', d: 'M 0 -3 A 3 3 0 1 1 0 3 A 3 3 0 1 1 0 -3 Z' },
     { what: 'an edge drawn at zero opacity', tag: 'rect', style: 'fill: #ECECFF; stroke: #000000; stroke-opacity: 0' },
-  ])('strokes $what in the highlight\'s own colour', ({ tag, style }) => {
-    const mark = renderMark(tag, style);
+  ])('strokes $what in the highlight\'s own colour', ({ tag, style, d }) => {
+    const mark = renderMark(tag, style, d === undefined ? '' : `d="${d}"`);
 
     const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
 
@@ -441,6 +441,78 @@ describe('createHighlightElement on a mark too small to see', () => {
 
     expect(highlight.tagName.toLowerCase()).toBe('path');
     expect(document.querySelector('circle')).toBeNull();
+  });
+});
+
+describe('createHighlightElement on a mark drawn by its stroke alone', () => {
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    document.body.innerHTML = '';
+  });
+
+  // ApexCharts draws a radial gauge's value as an arc, Frappe a donut's slices
+  // and every producer a percentile band's median as open lines, all unfilled.
+  // Filled, the highlight covered the hollow centre, or the band between the
+  // line and the chord joining its ends.
+  it.each([
+    { what: 'a gauge\'s arc', d: 'M 200 40 A 160 160 0 1 1 51.6 140.2' },
+    { what: 'a band\'s median line', d: 'M 60.43 258.1 L 94.02 247.14 L 127.6 251.9 L 429.83 137.59' },
+  ])('strokes $what wider in the highlight colour and leaves it unfilled', ({ d }) => {
+    const mark = renderMark('path', 'fill: none; stroke: #1F77B4; stroke-width: 2px', `d="${d}"`);
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.getAttribute('fill')).toBe('none');
+    expect(highlight.style.fill).toBe('none');
+    expect(highlight.getAttribute('stroke')).toBe(FALLBACK_COLOR);
+    expect(highlight.getAttribute('stroke-width')).toBe('4px');
+  });
+
+  it('strokes an error bar, whose fill covers nothing, in the highlight colour', () => {
+    // Plotly draws the cap, the bar and the shoe as three straight runs and
+    // leaves the fill at its default black. Recolouring the fill drew nothing,
+    // and the bar kept its own stroke: the highlight was the bar as drawn.
+    const mark = renderMark(
+      'path',
+      'fill: rgb(0, 0, 0); stroke: rgb(31, 119, 180); stroke-width: 2px',
+      'd="M226.5,373h16m-8,0V420m-8,0h16"',
+    );
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.getAttribute('stroke')).toBe(FALLBACK_COLOR);
+    expect(highlight.getAttribute('stroke-width')).toBe('4px');
+    expect(highlight.getAttribute('fill')).toBe('none');
+  });
+
+  it('leaves an unfilled polyline unfilled', () => {
+    const mark = renderMark(
+      'polyline',
+      'fill: none; stroke: #12355b; stroke-width: 2px',
+      'points="100,240 180,238.2 260,235.5 340,236.4"',
+    );
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.getAttribute('fill')).toBe('none');
+    expect(highlight.getAttribute('stroke')).toBe(FALLBACK_COLOR);
+  });
+
+  it('fills a polyline the chart fills', () => {
+    const mark = renderMark('polyline', 'fill: #1F77B4; stroke: #1F77B4', 'points="0,10 10,0 20,10"');
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.getAttribute('fill')).toBe(FALLBACK_COLOR);
+  });
+
+  it('fills a filled area drawn as an open path, as the chart does', () => {
+    const mark = renderMark('path', 'fill: #1F77B4; stroke: #1F77B4; stroke-width: 1px', 'd="M 0 100 L 50 20 L 100 60 L 100 100"');
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.getAttribute('fill')).toBe(FALLBACK_COLOR);
+    expect(highlight.getAttribute('stroke-width')).toBeNull();
   });
 });
 
