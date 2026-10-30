@@ -2,7 +2,7 @@ import type { JSX } from 'react';
 import { VictoryAxis, VictoryChart, VictoryHistogram } from 'victory';
 import { MaidrVictory } from '../../../src/adapters/victory/MaidrVictory';
 
-// Raw observations; the adapter derives equal-width bins from these values.
+// Raw observations. Victory bins them, and the adapter reads the bins it draws.
 const data = [
   { x: 1 },
   { x: 2 },
@@ -26,11 +26,7 @@ export function HistogramExample(): JSX.Element {
   return (
     <div>
       <h2>Histogram</h2>
-      <p>
-        Histogram of observed values.
-        {' '}
-        <em>Note: the adapter recomputes bins independently of Victory's render.</em>
-      </p>
+      <p>Histogram of observed values.</p>
       <MaidrVictory
         id="victory-histogram"
         title="Value Distribution"

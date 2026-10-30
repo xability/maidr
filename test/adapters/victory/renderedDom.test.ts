@@ -15,7 +15,7 @@
  * as a chart that announces correctly and highlights nothing.
  */
 
-import type { ErrorBarPoint, MaidrLayer } from '@type/grammar';
+import type { ErrorBarPoint, HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { ReactElement } from 'react';
 import { extractVictoryLayers, toMaidrLayer } from '@adapters/victory/converters';
 import { tagLayerElements } from '@adapters/victory/selectors';
@@ -31,6 +31,7 @@ import {
   VictoryChart,
   VictoryErrorBar,
   VictoryGroup,
+  VictoryHistogram,
   VictoryLine,
   VictoryPolarAxis,
   VictoryScatter,
@@ -203,6 +204,52 @@ describe('victory waterfall', () => {
     expect(layers[0].type).toBe(TraceType.WATERFALL);
     expect(doc.querySelectorAll(layers[0].selectors as string)).toHaveLength(3);
   });
+});
+
+describe('victory histogram', () => {
+  // The example page's observations with `bins={5}`. Victory bins them at the
+  // thresholds d3 picks over the axis' nice extent, 2, 4, 6 and 8, rather
+  // than at five equal widths of 1.8 from the smallest value to the largest.
+  const VALUES = [1, 2, 2, 3, 3, 3, 4, 4, 5, 6, 6, 7, 8, 9, 9, 10].map(x => ({ x }));
+
+  it('reads the bins victory draws', () => {
+    const { layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryHistogram, { data: VALUES, bins: 5 }),
+    ));
+
+    expect(layers[0].type).toBe(TraceType.HISTOGRAM);
+    expect((layers[0].data as HistogramPoint[]).map(bin => [bin.xMin, bin.xMax, bin.y]))
+      .toEqual([[1, 2, 1], [2, 4, 5], [4, 6, 3], [6, 8, 3], [8, 10, 4]]);
+  });
+
+  it.each([
+    ['a bin count', { bins: 5 }],
+    ['no bins', {}],
+    ['bin edges', { bins: [0, 3, 6, 10] }],
+  ])('announces each bar at the height victory draws it, given %s', (_given, bins) => {
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryHistogram, { data: VALUES, ...bins }),
+    ));
+
+    // Every bar is drawn as tall as its count, so one scale fits them all.
+    const counts = (layers[0].data as HistogramPoint[]).map(bin => Number(bin.y));
+    const bars = Array.from(doc.querySelectorAll(layers[0].selectors as string));
+    expect(bars).toHaveLength(counts.length);
+    const perCount = barHeight(bars[0]) / counts[0];
+    expect(bars.map(bar => barHeight(bar) / perCount)).toEqual(counts.map(count => expect.closeTo(count, 6)));
+  });
+
+  /** The height of a Victory bar `<path>`, from the extremes of its own `d`. */
+  function barHeight(bar: Element): number {
+    const ys = Array.from((bar.getAttribute('d') ?? '').matchAll(/[\s,](-?[\d.]+)\s*(?:[a-z]|$)/gi))
+      .map(match => Number.parseFloat(match[1]))
+      .filter(y => Number.isFinite(y));
+    return Math.max(...ys) - Math.min(...ys);
+  }
 });
 
 describe('victory polar area', () => {

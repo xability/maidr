@@ -608,21 +608,34 @@ function extractCandlestickData(
 /**
  * Extracts data from a VictoryHistogram element.
  *
- * VictoryHistogram accepts raw values and a `bins` prop. Since Victory
- * computes bins internally during render, we derive the bins ourselves to
- * produce MAIDR's `HistogramPoint[]`. The `bins` prop is honored in both
- * supported forms:
- *   - a **number** → that many equal-width bins over `[min, max]`;
- *   - an **array of edges** (e.g. `[0, 25, 50, 100]`) → the explicit, possibly
- *     unequal-width bins Victory actually renders.
- * When `bins` is absent, an equal-width count is derived via the sqrt heuristic.
+ * VictoryHistogram accepts raw values and a `bins` prop, and bins the values
+ * itself while it renders: with d3's `bin()` over the axis' nice extent, cut
+ * at d3's own thresholds for a bin count, at the edges an array of `bins`
+ * gives, and at Sturges' count when `bins` is absent. The bins are read from
+ * that same computation -- see {@link drawnHistogramBins} -- so each bin
+ * announced is a bar drawn.
  *
- * Non-numeric values (e.g. date strings) are filtered out so binning never
- * indexes `bins[NaN]`, which would throw inside the caller's `useLayoutEffect`
- * and crash the React tree.
+ * A component that carries no such binning falls back to deriving the bins
+ * here:
+ *   - a **number** → that many equal-width bins over `[min, max]`;
+ *   - an **array of edges** (e.g. `[0, 25, 50, 100]`) → those bins;
+ *   - absent → an equal-width count by the square-root heuristic.
+ * Applied to Victory's own component, that derivation announced bins Victory
+ * never drew: the example page's 16 values with `bins={5}` were read as five
+ * bins 1.8 wide counting 3, 5, 3, 2 and 3, over bars drawn from 1 to 2, 2 to
+ * 4, 4 to 6, 6 to 8 and 8 to 10 counting 1, 5, 3, 3 and 4.
+ *
+ * Non-numeric values (e.g. date strings) are filtered out of that derivation
+ * so it never indexes `bins[NaN]`, which would throw inside the caller's
+ * `useLayoutEffect` and crash the React tree.
+ *
+ * @param props - The component's props
+ * @param type  - The component, whose static binning Victory draws from
+ * @returns The bins, or null when there are none to read
  */
 function extractHistogramData(
   props: Record<string, unknown>,
+  type: unknown,
 ): { data: VictoryLayerData; count: number } | null {
   const rawData = props.data;
   if (!validateRawData(rawData))
@@ -634,9 +647,10 @@ function extractHistogramData(
   if (values.length === 0)
     return null;
 
-  const bins = Array.isArray(props.bins)
-    ? binByEdges(values, props.bins)
-    : binByCount(values, typeof props.bins === 'number' ? props.bins : undefined);
+  const bins = drawnHistogramBins(type, rawData, props)
+    ?? (Array.isArray(props.bins)
+      ? binByEdges(values, props.bins)
+      : binByCount(values, typeof props.bins === 'number' ? props.bins : undefined));
 
   if (bins === null || bins.length === 0)
     return null;
@@ -655,6 +669,44 @@ function extractHistogramData(
 
 /** A single histogram bin with its counted total and `[xMin, xMax]` range. */
 interface HistogramBin { count: number; xMin: number; xMax: number }
+
+/** VictoryHistogram's binning, as the component class carries it. */
+interface VictoryHistogramBinning {
+  getFormattedData: (props: { data: unknown[]; x?: unknown; bins?: unknown }) => unknown;
+}
+
+/**
+ * The bins VictoryHistogram draws, from the static it draws them from.
+ *
+ * `VictoryHistogram.getFormattedData` is how the component turns `data`, `x`
+ * and `bins` into the bars it renders, one `{ x0, x1, y }` per bar (a bin of
+ * no width is left out). Asking it rather than binning again is what keeps
+ * every bin announced the bar drawn under it.
+ *
+ * @param type  - The element's component type
+ * @param data  - The component's `data`, as it was given
+ * @param props - The component's props, for its `x` accessor and `bins`
+ * @returns The drawn bins, or null when the component bins nothing here
+ */
+function drawnHistogramBins(
+  type: unknown,
+  data: unknown[],
+  props: Record<string, unknown>,
+): HistogramBin[] | null {
+  if (typeof (type as Partial<VictoryHistogramBinning> | null)?.getFormattedData !== 'function')
+    return null;
+
+  const formatted = (type as VictoryHistogramBinning).getFormattedData({ data, x: props.x, bins: props.bins });
+  if (!Array.isArray(formatted))
+    return null;
+
+  const bins = formatted.map((bin: { x0?: unknown; x1?: unknown; y?: unknown } | null) => ({
+    count: Number(bin?.y),
+    xMin: Number(bin?.x0),
+    xMax: Number(bin?.x1),
+  }));
+  return bins.every(bin => [bin.count, bin.xMin, bin.xMax].every(Number.isFinite)) ? bins : null;
+}
 
 /**
  * Bins `values` into `binCount` equal-width bins over `[min, max]`. When
@@ -933,7 +985,7 @@ function extractLayerFromElement(
       extracted = extractCandlestickData(props);
       break;
     case 'VictoryHistogram':
-      extracted = extractHistogramData(props);
+      extracted = extractHistogramData(props, element.type);
       break;
     case 'VictoryPie':
       extracted = extractPieData(props);
