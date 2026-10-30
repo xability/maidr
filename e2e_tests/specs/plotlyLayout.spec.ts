@@ -70,6 +70,29 @@ for (const example of ['plotly-bar', 'plotly-line', 'plotly-subplots']) {
   });
 }
 
+test('moves the heading after a Plotly chart below the chart\'s text', async ({ page }) => {
+  // The page gives each graph div a height, and MAIDR's text below the chart
+  // ran out of the div over the heading of the next chart.
+  await routePlotly(page);
+  await page.goto('examples/plotly-area.html');
+  const target = page.locator(FOCUS_TARGET).first();
+  await target.waitFor({ state: 'attached' });
+
+  await target.focus();
+  await page.keyboard.press('ArrowRight');
+
+  await expect.poll(async () => page.evaluate(() => {
+    const container = document.querySelector('#area div[id^="react-container-"]');
+    const next = document.querySelector('#area')?.nextElementSibling;
+    if (!container || !next || (container.textContent ?? '').trim() === '') {
+      return null;
+    }
+    const text = document.createRange();
+    text.selectNodeContents(container);
+    return text.getBoundingClientRect().bottom <= next.getBoundingClientRect().top;
+  })).toBe(true);
+});
+
 /** A bar chart MAIDR binds from its own SVG, to share a page with Plotly. */
 const SVG_CHART = {
   id: 'svg-chart',
