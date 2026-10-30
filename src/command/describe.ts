@@ -5,7 +5,7 @@ import type { HighlightService } from '@service/highlight';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { BarBrailleState, BoxBrailleState, BrailleState, FigureState, LineBrailleState, NonEmptyTraceState } from '@type/state';
+import type { BarBrailleState, BoxBrailleState, BrailleState, FigureState, LineBrailleState, NonEmptyTraceState, TraceState } from '@type/state';
 import type { Command } from './command';
 import { focusedSubplotTitle } from '@model/plot';
 import { Scope } from '@type/event';
@@ -125,6 +125,23 @@ abstract class AnnounceCommand implements Command {
   }
 
   /**
+   * The trace state a layer's own title and axis labels are read from: the
+   * populated one {@link resolveActiveTraceState} finds, or, on a layer with
+   * no data, the empty state it reports, which still carries them. The
+   * layer has a title and axes though it has no points: py-maidr's legacy
+   * candlestick sends its candlestick layer with no data, and `l x` there
+   * said "X label is not available" while the dialog read "X axis: Date".
+   * @returns The state to read labels from, or null when there is none
+   */
+  protected resolveLabelledState(): TraceState | null {
+    const state = this.context.state;
+    if (state.type === 'trace' && state.empty) {
+      return state;
+    }
+    return this.resolveActiveTraceState();
+  }
+
+  /**
    * Prefix that names which subplot an announced label belongs to.
    *
    * At the multi-panel figure lobby the cursor sits on one subplot at a time
@@ -183,13 +200,13 @@ abstract class AnnounceCommand implements Command {
       return;
     }
 
-    const traceState = this.resolveActiveTraceState();
-    const label = traceState !== null ? (axis === 'x' ? traceState.xAxis : traceState.yAxis) : '';
+    const traceState = this.resolveLabelledState();
+    const label = (axis === 'x' ? traceState?.xAxis : traceState?.yAxis) ?? '';
     // A label the layer did not author -- which the trace state carries as
     // empty, never as the generic 'X' or 'Y' -- or a blank one is announced
     // as "not available" (matching the title/subtitle/caption commands), so
     // a chart with no y axis never says "Y label is Y".
-    if (traceState !== null && label.trim() !== '') {
+    if (label.trim() !== '') {
       const text = this.textService.isTerse()
         ? label
         : `${this.labelSourcePrefix()}${t('text.axisLabelIs', { axis: axisName, label })}`;
@@ -384,6 +401,13 @@ export class AnnounceTitleCommand extends AnnounceCommand {
    */
   protected run(): void {
     const state = this.context.state;
+
+    // A layer with no data still has its title; see resolveLabelledState.
+    const emptyLayerTitle = state.type === 'trace' && state.empty ? state.title : undefined;
+    if (emptyLayerTitle !== undefined) {
+      this.announceTraceTitle(emptyLayerTitle);
+      return;
+    }
 
     if (state.empty) {
       this.announceUnavailable();

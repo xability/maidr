@@ -75,6 +75,12 @@ export interface TraceEmptyState {
   name?: string;
   /** The layer's type as it announces itself, as in a populated state. */
   plotType?: string;
+  /** The layer's title, as in a populated state. */
+  title?: string;
+  /** The x axis label the layer authored, or empty, as in a populated state. */
+  xAxis?: string;
+  /** The y axis label the layer authored, or empty, as in a populated state. */
+  yAxis?: string;
 }
 
 /**

@@ -543,6 +543,22 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return named(this.layer.axes?.y?.label, t('model.defaultYAxis'));
   }
 
+  /**
+   * The x axis label the layer authored, or empty when it authored none or a
+   * blank one -- only what the layer authored, as the figure's own labels
+   * are. The label commands read it from the state, and the generic 'X' the
+   * point text falls back to is not a label: "Y label is Y" on a chart with no
+   * y axis sounded like one, where "not available" is the truth.
+   */
+  private get authoredXAxis(): string {
+    return this.layer.axes?.x?.label?.trim() ? this.xAxis : '';
+  }
+
+  /** The y axis label the layer authored, or empty. See {@link authoredXAxis}. */
+  private get authoredYAxis(): string {
+    return this.layer.axes?.y?.label?.trim() ? this.yAxis : '';
+  }
+
   /** The z axis's name, or a generic one. See {@link xAxis}. */
   protected get z(): string {
     return named(this.layer.axes?.z?.label, t('model.defaultZAxis'));
@@ -642,12 +658,16 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     // funnel they are all reached through, and because a producer can always
     // emit an empty series -- the core cannot assume otherwise.
     //
-    // The layer still says what it is, so a switch onto it can name it.
+    // The layer still says what it is, so a switch onto it can name it, and
+    // what it labels, so the label keys can read its title and axes.
     if (this.isEmptyAtCursor) {
       return {
         ...this.outOfBoundsState,
         plotType: this.spokenPlotType(plotTypeLabel(this.type)),
         name: this.name,
+        title: this.title,
+        xAxis: this.authoredXAxis,
+        yAxis: this.authoredYAxis,
       };
     }
     return {
@@ -659,12 +679,8 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       plotType: this.spokenPlotType(plotTypeLabel(this.type)),
       title: this.title,
       name: this.name,
-      // Only what the layer authored, as the figure's own labels are. The
-      // label commands read these, and the generic 'X' and 'Y' the point
-      // text falls back to are not labels: "Y label is Y" on a chart with no
-      // y axis sounded like one, where "not available" is the truth.
-      xAxis: this.layer.axes?.x?.label?.trim() ? this.xAxis : '',
-      yAxis: this.layer.axes?.y?.label?.trim() ? this.yAxis : '',
+      xAxis: this.authoredXAxis,
+      yAxis: this.authoredYAxis,
       z: this.z,
       hasMultiPoints: this.hasMultiPoints,
       audio: this.audio,
