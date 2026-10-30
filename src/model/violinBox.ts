@@ -3,7 +3,7 @@ import type { BoxPoint, BoxSelector, MaidrLayer, ViolinOptions } from '@type/gra
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
-import type { Edge, LineRequest, WhiskerRequest } from '@util/svg';
+import type { Edge, LineRequest, MarkerPaint, WhiskerRequest } from '@util/svg';
 import type { Dimension, NearestPoint } from './abstract';
 import { BoxplotSection, boxSectionLabel } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
@@ -48,6 +48,14 @@ export class ViolinBoxTrace extends AbstractTrace {
    * on the box trace for why a renderer wants the shape instead.
    */
   private readonly geometry: SVGElement[] = [];
+
+  /**
+   * The whisker each of this trace's whisker markers stands for, so that
+   * high contrast paints the whisker as a mark: the markers are no copies,
+   * and the pairing of a copy with the element before it finds none.
+   */
+  private readonly whiskerMarkedBy = new WeakMap<SVGElement, SVGElement>();
+
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
@@ -774,19 +782,32 @@ export class ViolinBoxTrace extends AbstractTrace {
       }
     });
 
-    // Measured here with the rest, before anything is inserted; see
-    // `whiskerEnds`.
-    const sharedEnds = originals.map(original =>
-      original.min !== null && original.min === original.max
-        ? ViolinBoxTrace.whiskerEnds(original.min, isVertical, isIqrReversed)
-        : null);
+    // Measured here with the rest, before anything is inserted, and the
+    // markers' paint read with them; see `whiskerEnds`.
+    const shared = originals.map(original => ViolinBoxTrace.sharedWhisker(original, isVertical, isIqrReversed));
+    const showMax = this.violinOptions.showExtrema !== false;
 
     // Phase 2: Clone elements
     originals.forEach((original, boxIdx) => {
-      const ends = sharedEnds[boxIdx];
-      const [min, max] = ends !== null && original.min !== null
-        ? Svg.createCircleElements(ends, original.min)
-        : [this.cloneElementOrEmpty(original.min), this.cloneElementOrEmpty(original.max)];
+      // The maximum is made only where it is read: one made and not read is
+      // in no highlight value, and stayed on the page after `dispose()`.
+      const whisker = shared[boxIdx];
+      let min: SVGElement;
+      let max: SVGElement | null;
+      if (whisker !== null) {
+        const markers = Svg.createCircleElements(whisker.ends.slice(0, showMax ? 2 : 1), whisker.element, whisker.paint);
+        // A box Plotly draws as one path, whiskers and all, is not paired,
+        // as it was not before: none of its copies pairs with it either,
+        // since the derived edges stand between it and them.
+        if (whisker.element !== original.iq) {
+          markers.forEach(marker => this.whiskerMarkedBy.set(marker, whisker.element));
+        }
+        min = markers[0];
+        max = markers[1] ?? null;
+      } else {
+        min = this.cloneElementOrEmpty(original.min);
+        max = showMax ? this.cloneElementOrEmpty(original.max) : null;
+      }
       const q2 = this.cloneElementOrEmpty(original.q2);
       const mean = this.cloneElementOrEmpty(original.mean);
 
@@ -829,7 +850,7 @@ export class ViolinBoxTrace extends AbstractTrace {
       sectionElements.push(q3);
 
       // MAX - only if showExtrema !== false
-      if (this.violinOptions.showExtrema !== false) {
+      if (max !== null) {
         sectionElements.push(max);
       }
 
@@ -846,6 +867,42 @@ export class ViolinBoxTrace extends AbstractTrace {
   }
 
   /**
+   * The whisker a box's minimum and maximum both name, measured, with the
+   * paint its markers take, read before anything is inserted.
+   *
+   * @param original - The box's own elements
+   * @param original.min - Its minimum's element
+   * @param original.max - Its maximum's element
+   * @param isVertical - Whether the violin stands upright
+   * @param isReversed - Whether its axis runs downwards in the element's
+   *   own coordinates
+   * @returns The whisker, its two ends and its paint, or null where the
+   *   minimum and maximum name different elements, or the whisker cannot be
+   *   measured
+   */
+  private static sharedWhisker(
+    original: { min: SVGElement | null; max: SVGElement | null },
+    isVertical: boolean,
+    isReversed: boolean,
+  ): { element: SVGElement; ends: { cx: number; cy: number }[]; paint: MarkerPaint } | null {
+    const { min, max } = original;
+    if (min === null || min !== max) {
+      return null;
+    }
+    const ends = ViolinBoxTrace.whiskerEnds(min, isVertical, isReversed);
+    return ends === null ? null : { element: min, ends, paint: Svg.markerPaintOf(min) };
+  }
+
+  /**
+   * The whisker a marker of a box's minimum or maximum stands for.
+   * @param marker - A marker in this trace's highlight values
+   * @returns The whisker, or null for anything else
+   */
+  protected override originalMarkedBy(marker: SVGElement): SVGElement | null {
+    return this.whiskerMarkedBy.get(marker) ?? null;
+  }
+
+  /**
    * Where the minimum and the maximum are drawn on a whisker that runs from
    * one to the other.
    *
@@ -859,25 +916,34 @@ export class ViolinBoxTrace extends AbstractTrace {
    * 'reverse'`) has them swapped -- and the left and right ends on a violin
    * lying on its side.
    *
+   * A whisker drawn with a `transform` of its own is left out: its box is
+   * measured inside that transform, and the markers go beside it, outside
+   * it, so they would stand away from its ends.
+   *
    * @param whisker - The element both name
    * @param isVertical - Whether the violin stands upright
    * @param isReversed - Whether its axis runs downwards in the element's
    *   own coordinates
    * @returns The centres of the minimum's and the maximum's markers, in the
-   *   element's own coordinates, or null when it cannot be measured or does
-   *   not run along the violin
+   *   coordinates of the element's parent, or null when it cannot be
+   *   measured, is transformed, or does not run along the violin
    */
   private static whiskerEnds(
     whisker: SVGElement,
     isVertical: boolean,
     isReversed: boolean,
   ): [{ cx: number; cy: number }, { cx: number; cy: number }] | null {
-    // `getBBox` throws on an element the document cannot measure; the
-    // element is then outlined, as before.
+    const graphic = whisker as Partial<SVGGraphicsElement>;
+    if (whisker.hasAttribute('transform') || typeof graphic.getBBox !== 'function') {
+      return null;
+    }
+    // `getBBox` throws on an element the document cannot measure, as Firefox
+    // does on one not rendered; the element is then outlined, as before.
     let box: DOMRect;
     try {
-      box = (whisker as SVGGraphicsElement).getBBox();
-    } catch {
+      box = graphic.getBBox();
+    } catch (error) {
+      console.warn('[ViolinBoxTrace] A whisker its minimum and maximum share could not be measured, so both outline all of it:', error);
       return null;
     }
     if (isVertical) {

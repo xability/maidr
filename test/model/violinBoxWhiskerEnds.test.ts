@@ -3,7 +3,7 @@
  */
 import type { BoxSelector, MaidrLayer } from '@type/grammar';
 import type { TraceState } from '@type/state';
-import { beforeEach, describe, expect, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { ViolinBoxTrace } from '@model/violinBox';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -52,8 +52,10 @@ function layer(
   selector: Omit<BoxSelector, 'lowerOutliers' | 'upperOutliers'>,
   orientation = Orientation.VERTICAL,
   domMapping?: MaidrLayer['domMapping'],
+  violinOptions?: MaidrLayer['violinOptions'],
 ): MaidrLayer {
   return {
+    ...(violinOptions ? { violinOptions } : {}),
     id: 'violin-box',
     type: TraceType.VIOLIN_BOX,
     title: 'Violins',
@@ -90,6 +92,10 @@ function centre(element: SVGElement): [number, number] {
 describe('the minimum and maximum of a violin whose whisker is one line', () => {
   beforeEach(() => {
     document.body.innerHTML = `<svg xmlns="${SVG_NS}"><g></g></svg>`;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test('mark the lower and the upper end of the line', () => {
@@ -168,5 +174,74 @@ describe('the minimum and maximum of a violin whose whisker is one line', () => 
 
     expect(minimum.tagName).toBe('path');
     expect(minimum.previousElementSibling).toBe(low);
+  });
+  test('keep the whisker among the chart\'s own elements the layer reads, which high contrast paints as marks', () => {
+    // The markers are no copies of the whisker, so pairing each with the
+    // element before it, as a copy is paired, found no original for them.
+    const whisker = place('whisker', { x: 99, y: 40, width: 2, height: 100 });
+    place('iq', { x: 96, y: 80, width: 8, height: 40 });
+    place('median', { x: 98, y: 98, width: 4, height: 4 });
+    const trace = new ViolinBoxTrace(layer({ min: '#whisker', iq: '#iq', q2: '#median', max: '#whisker' }));
+
+    expect(trace.getAllOriginalElements()).toContain(whisker);
+  });
+
+  test.each([
+    { shape: 'one whisker for both', min: '#whisker', max: '#whisker', made: () => document.querySelectorAll('circle[data-maidr-owned]') },
+    { shape: 'two caps', min: '#low', max: '#high', made: () => document.querySelectorAll('[id="high"]') },
+  ])('make no maximum where the layer reads none, with $shape', ({ min, max, made }) => {
+    // A maximum made and not read is in no highlight value, so it stayed on
+    // the page after the trace was disposed.
+    place('whisker', { x: 99, y: 40, width: 2, height: 100 });
+    place('low', { x: 95, y: 140, width: 10, height: 0 });
+    place('high', { x: 95, y: 40, width: 10, height: 0 });
+    place('iq', { x: 96, y: 80, width: 8, height: 40 });
+    place('median', { x: 98, y: 98, width: 4, height: 4 });
+    const before = made().length;
+    const trace = new ViolinBoxTrace(layer(
+      { min, iq: '#iq', q2: '#median', max },
+      Orientation.VERTICAL,
+      undefined,
+      { showExtrema: false },
+    ));
+
+    trace.dispose();
+
+    expect(made()).toHaveLength(before);
+  });
+
+  test('outline a whisker drawn with a transform of its own whole, as before', () => {
+    // Its box is measured inside its transform, and the markers would go
+    // beside it, outside it, away from its ends.
+    const whisker = place('whisker', { x: 99, y: 40, width: 2, height: 100 });
+    whisker.setAttribute('transform', 'translate(10, 0)');
+    place('iq', { x: 96, y: 80, width: 8, height: 40 });
+    place('median', { x: 98, y: 98, width: 4, height: 4 });
+    const trace = new ViolinBoxTrace(layer({ min: '#whisker', iq: '#iq', q2: '#median', max: '#whisker' }));
+
+    trace.moveToIndex(0, 0);
+    const [minimum] = marked(trace);
+
+    expect(minimum.tagName).toBe('path');
+    expect(minimum.id).toBe(whisker.id);
+  });
+
+  test('say so when the whisker cannot be measured, and outline it whole', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const whisker = place('whisker', { x: 99, y: 40, width: 2, height: 100 });
+    Object.defineProperty(whisker, 'getBBox', {
+      value: () => {
+        throw new Error('NS_ERROR_FAILURE');
+      },
+    });
+    place('iq', { x: 96, y: 80, width: 8, height: 40 });
+    place('median', { x: 98, y: 98, width: 4, height: 4 });
+    const trace = new ViolinBoxTrace(layer({ min: '#whisker', iq: '#iq', q2: '#median', max: '#whisker' }));
+
+    trace.moveToIndex(0, 0);
+    const [minimum] = marked(trace);
+
+    expect(minimum.tagName).toBe('path');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[ViolinBoxTrace]'), expect.any(Error));
   });
 });
