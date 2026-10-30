@@ -2032,6 +2032,50 @@ describe('convertRechartsToMaidr', () => {
       expect(data[0]).toHaveLength(2);
     });
 
+    it('lists the ridges bottom first when the drawn key places them, each with its own band', () => {
+      // Feb is drawn 1 up the page and Jan 2: Feb is the lower ridge, and
+      // `RidgelineTrace` steps Up from its first curve to the next.
+      const layer = convertRechartsToMaidr({
+        ...ridgelineConfig,
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted' },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as ViolinKdePoint[][];
+      expect(data.map(curve => curve[0].x)).toEqual(['Feb', 'Jan']);
+      expect(data[0]).toEqual([
+        { x: 'Feb', y: -2, density: 0.08 },
+        { x: 'Feb', y: 2, density: 0.13 },
+      ]);
+      // Each ridge names the band of its own `<Area>`, declared in the order
+      // the groups first appear: Feb's is the second, Jan's the first.
+      expect(layer.selectors).toEqual([
+        '#maidr-article-temps g.recharts-area ~ g.recharts-area:not(g.recharts-area ~ g.recharts-area ~ g.recharts-area) .recharts-area-area',
+        '#maidr-article-temps g.recharts-area:not(g.recharts-area ~ g.recharts-area) .recharts-area-area',
+      ]);
+    });
+
+    it('keeps first-appearance order when a group has no drawn height to place it by', () => {
+      const layer = convertRechartsToMaidr({
+        ...ridgelineConfig,
+        data: samples.map(sample => (sample.month === 'Feb' ? { ...sample, plotted: undefined } : sample)),
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted' },
+      }).subplots[0][0].layers[0];
+
+      expect((layer.data as ViolinKdePoint[][]).map(curve => curve[0].x)).toEqual(['Jan', 'Feb']);
+      expect(layer.selectors).toBe('#maidr-article-temps .recharts-area .recharts-area-area');
+    });
+
+    it('keeps first-appearance order under a selector override, which names the bands in it', () => {
+      const layer = convertRechartsToMaidr({
+        ...ridgelineConfig,
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted' },
+        selectorOverride: '.ridge',
+      }).subplots[0][0].layers[0];
+
+      expect((layer.data as ViolinKdePoint[][]).map(curve => curve[0].x)).toEqual(['Jan', 'Feb']);
+      expect(layer.selectors).toBe('.ridge');
+    });
+
     it('drops a sample carrying no density rather than filling in a zero', () => {
       const layer = convertRechartsToMaidr({
         ...ridgelineConfig,

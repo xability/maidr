@@ -43,7 +43,7 @@ import type { MaidrRechartsProps, RechartsPieAngles, RechartsSubplotConfig } fro
 import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
 import { Orientation } from '../../type/grammar';
-import { categoryAxisReversedFor, categoryAxisReversedPerPanelFor, dotSeriesFor, pieAnglesFor, stepDirectionFor } from './childProps';
+import { areaDataKeyFor, categoryAxisReversedFor, categoryAxisReversedPerPanelFor, dotSeriesFor, pieAnglesFor, stepDirectionFor } from './childProps';
 import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
 import { getPanelClassName } from './selectors';
 
@@ -197,6 +197,11 @@ export function MaidrRecharts({
     ? dotSeries
     : (dotSeries ?? dotSeriesFor(children, chartType));
   const dotSeriesKey = resolvedDotSeries === undefined ? undefined : JSON.stringify(resolvedDotSeries);
+  // The key a ridgeline's `<Area>`s draw, which places each ridge on the page.
+  // Simple mode only, as the others are, and never over one the config gives.
+  const ridgelinePlottedKey = chartType === 'ridgeline' && !subplots && ridgelineConfig?.plottedKey === undefined
+    ? areaDataKeyFor(children)
+    : undefined;
 
   const maidrData = useMemo(
     () => convertRechartsToMaidr({
@@ -238,7 +243,9 @@ export function MaidrRecharts({
       ganttConfig,
       gaugeConfig,
       parallelConfig,
-      ridgelineConfig,
+      ridgelineConfig: ridgelineConfig !== undefined && ridgelinePlottedKey !== undefined
+        ? { ...ridgelineConfig, plottedKey: ridgelinePlottedKey }
+        : ridgelineConfig,
       hexbinConfig,
       boxenConfig,
       selectorOverride,
@@ -246,7 +253,7 @@ export function MaidrRecharts({
     // The three facts read out of `children` stand in for it, so a chart that
     // flips `reversed` is still picked up while a parent re-render that only
     // rebuilds the same subtree is not.
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, pieAnglesKey, dotSeriesKey, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, pieAnglesKey, dotSeriesKey, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, ridgelinePlottedKey, hexbinConfig, boxenConfig, selectorOverride],
   );
 
   return (

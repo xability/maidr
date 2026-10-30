@@ -538,10 +538,25 @@ export interface ParallelAxesConfig {
 export interface RidgelineCurveConfig {
   /**
    * Key holding the group a sample's curve belongs to. Rows are grouped by it
-   * in first-appearance order, which is the order the ridges are announced in
-   * and the order the `<Area>`s have to be declared in for highlighting.
+   * in first-appearance order, which is the order the `<Area>`s have to be
+   * declared in for highlighting, and the order the ridges are read in when
+   * {@link plottedKey} cannot place them.
    */
   groupKey: string;
+  /**
+   * Key holding the height the `<Area>`s draw: the density with the group's
+   * ridge offset added.
+   *
+   * Read only for where each ridge is drawn, never as data: a group's offset
+   * is its drawn height less its density. With it the ridges are read bottom
+   * first, as `RidgelineTrace` takes them, so Up moves to the ridge drawn
+   * above. {@link MaidrRecharts} reads it off the `<Area dataKey>` in its
+   * children when not given; through {@link useRechartsAdapter} it is yours
+   * to state. Without it, or when a group has no sample to read an offset
+   * from, the groups are read in first-appearance order, the first as the
+   * lowest.
+   */
+  plottedKey?: string;
   /**
    * Key holding the position along the shared value axis.
    *

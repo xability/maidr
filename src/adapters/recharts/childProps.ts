@@ -288,3 +288,44 @@ export function dotSeriesFor(
   walk(children);
   return found;
 }
+
+/**
+ * The key a ridgeline's `<Area>`s draw: each group's density with its ridge's
+ * offset added.
+ *
+ * Every `<Area>` of a ridgeline draws the same key, over its own group's
+ * rows, so the first one names it. Read so the ridges can be placed where
+ * they are drawn: the offset that key adds is how far up the page each ridge
+ * sits, and that is the order `RidgelineTrace` walks them in.
+ *
+ * Depth-first for the same reason the other walks are, and stops at the
+ * first `<Area>`. A tree with none, or an `<Area>` whose `dataKey` is not a
+ * string, answers `undefined`, and the groups are then read in the order they
+ * first appear in `data`.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns The key, or `undefined`
+ */
+export function areaDataKeyFor(children: ReactNode): string | undefined {
+  let found: string | undefined;
+  let done = false;
+
+  const walk = (nodes: ReactNode): void => {
+    if (done)
+      return;
+    Children.forEach(nodes, (child) => {
+      if (done || !isValidElement(child))
+        return;
+      const props = child.props as { dataKey?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'Area') {
+        done = true;
+        found = typeof props.dataKey === 'string' ? props.dataKey : undefined;
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
+}
