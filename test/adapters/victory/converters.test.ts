@@ -1,5 +1,6 @@
 import type { VictoryLayerInfo } from '@adapters/victory/types';
-import type { BarPoint, SegmentedPoint } from '@type/grammar';
+import type { AbstractTrace } from '@model/abstract';
+import type { BarPoint, CandlestickPoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { ReactNode } from 'react';
 import {
   computeSubplotGrid,
@@ -8,6 +9,7 @@ import {
   toMaidrLayer,
 } from '@adapters/victory/converters';
 import { describe, expect, it, jest } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { PieDirection, TraceType } from '@type/grammar';
 import { createElement } from 'react';
 
@@ -34,6 +36,7 @@ const VictoryChart = stub('VictoryChart');
 const VictoryAxis = stub('VictoryAxis');
 const VictoryArea = stub('VictoryArea');
 const VictoryBar = stub('VictoryBar');
+const VictoryCandlestick = stub('VictoryCandlestick');
 const VictoryErrorBar = stub('VictoryErrorBar');
 const VictoryLine = stub('VictoryLine');
 const VictoryScatter = stub('VictoryScatter');
@@ -677,6 +680,63 @@ describe('error bar', () => {
     );
 
     expect(layers).toHaveLength(0);
+  });
+});
+
+describe('candlestick', () => {
+  // The example page's first two days: Victory draws an open, a close, a high
+  // and a low for each, and nothing about what was traded.
+  const days = [
+    { x: 'Mon', open: 100, close: 110, high: 115, low: 98 },
+    { x: 'Tue', open: 110, close: 105, high: 112, low: 102 },
+  ];
+
+  function layerOf(data: Record<string, unknown>[]): MaidrLayer {
+    const [info] = extractVictoryLayers(chart({}, createElement(VictoryCandlestick, { data })));
+    return toMaidrLayer(info);
+  }
+
+  it('leaves the volume out of a candle that records none', () => {
+    const layer = layerOf(days);
+
+    expect((layer.data as CandlestickPoint[]).map(candle => 'volume' in candle)).toEqual([false, false]);
+  });
+
+  it('gives the description of such a chart no Volume column', () => {
+    const trace = TraceFactory.create(layerOf(days)) as AbstractTrace;
+
+    expect(trace.description.dataTable.headers).not.toContain('Volume');
+  });
+
+  it('keeps a volume the candle declares, a zero included', () => {
+    const layer = layerOf([{ ...days[0], volume: 1200 }, { ...days[1], volume: 0 }]);
+
+    expect((layer.data as CandlestickPoint[]).map(candle => candle.volume)).toEqual([1200, 0]);
+  });
+
+  it('leaves out a volume that is not a number', () => {
+    const layer = layerOf([{ ...days[0], volume: 'abc' }, { ...days[1], volume: '900' }]);
+
+    const candles = layer.data as CandlestickPoint[];
+    expect('volume' in candles[0]).toBe(false);
+    expect(candles[1].volume).toBe(900);
+  });
+
+  it.each([
+    ['a blank string', ''],
+    ['true', true],
+    ['false', false],
+  ])('leaves out a volume of %s, which spells no number', (_given, volume) => {
+    // `Number()` reads these as 0, 1 and 0.
+    const layer = layerOf([{ ...days[0], volume }, days[1]]);
+
+    expect('volume' in (layer.data as CandlestickPoint[])[0]).toBe(false);
+  });
+
+  it('keeps the volume on the candles that declare one and leaves it off the rest', () => {
+    const layer = layerOf([{ ...days[0], volume: 1200 }, days[1]]);
+
+    expect((layer.data as CandlestickPoint[]).map(candle => candle.volume)).toEqual([1200, undefined]);
   });
 });
 
