@@ -130,12 +130,14 @@ describe('victory horizontal box plot', () => {
     outlines: Record<keyof typeof SECTIONS, Element | null>;
   }
 
-  function readBoxes(): BoxReading[] {
-    const { doc, layers } = renderAndTag(createElement(
+  function readBoxes(
+    chart: ReactElement = createElement(
       VictoryChart,
       { horizontal: true },
       createElement(VictoryBoxPlot, { data: BOXES, boxWidth: 20 }),
-    ));
+    ),
+  ): BoxReading[] {
+    const { doc, layers } = renderAndTag(chart);
     expect(layers[0].type).toBe(TraceType.BOX);
 
     return withPageDocument(doc.body, () => {
@@ -192,6 +194,20 @@ describe('victory horizontal box plot', () => {
       // All on the one box.
       expect(parts.every(part => Math.abs(part.middle - parts[0].middle) < 1e-6)).toBe(true);
     }
+  });
+
+  it('reads a box plot turned by its own horizontal prop the same way', () => {
+    // `horizontal` on the box plot itself, in a chart that does not declare
+    // it, turns the boxes just as the chart's does.
+    const readings = readBoxes(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryBoxPlot, { data: BOXES, boxWidth: 20, horizontal: true }),
+    ));
+
+    expect(readings.map(reading => reading.group)).toEqual(['A', 'B', 'C']);
+    const parts = readings.flatMap(reading => Object.values(reading.outlines).map(across));
+    expect(parts.every(part => Number.isFinite(part.left) && Number.isFinite(part.middle))).toBe(true);
   });
 
   it('starts on the box drawn lowest and reads up the chart', () => {
