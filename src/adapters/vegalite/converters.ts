@@ -453,10 +453,17 @@ function mergeLineLayers(
   // not belong to the dimension the others describe, and titling the axis
   // would mislabel them. Without a label, LineTrace's own "Group" default
   // reads better than a fabricated axis title.
+  //
+  // The first sub-layer's own z axis came along with the spread above, and it
+  // names that sub-layer's colour field alone, so it gives way to this
+  // decision either way.
   const [dimensionLabel] = [...dimensionLabels];
+  const mergedAxes = { ...merged.axes };
+  delete mergedAxes.z;
   if (named && dimensionLabels.size === 1 && dimensionLabel) {
-    merged.axes = { ...merged.axes, z: { label: dimensionLabel } };
+    mergedAxes.z = { label: dimensionLabel };
   }
+  merged.axes = mergedAxes;
 
   return merged;
 }
@@ -3900,6 +3907,42 @@ function convertDeclaredFan(
 // Layer conversion
 // ---------------------------------------------------------------------------
 
+/**
+ * The layer types whose colour field is a dimension of their own, which the
+ * layer's z axis names: the series of a segmented bar or of a line, the value
+ * of a heatmap cell.
+ */
+const NAMED_BY_COLOR = new Set<TraceType>([
+  TraceType.STACKED,
+  TraceType.DODGED,
+  TraceType.NORMALIZED,
+  TraceType.HEATMAP,
+  TraceType.LINE,
+  TraceType.AREA,
+  TraceType.STEP,
+  TraceType.SMOOTH,
+  TraceType.STACKED_AREA,
+  TraceType.NORMALIZED_AREA,
+  TraceType.BUMP,
+]);
+
+/**
+ * What a layer's colour field is called, as its legend titles it: the
+ * channel's `title`, or the field itself, which is what Vega-Lite writes over
+ * the legend when no title is given.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns The label, or `undefined` when no colour field is bound
+ */
+function colorFieldLabel(encoding: VegaLiteEncoding): string | undefined {
+  const channel = encoding.color ?? encoding.fill;
+  if (!hasField(channel))
+    return undefined;
+  // `||`, not `??`: an empty title falls back to the field, as
+  // `resolveSeriesDimensionLabel` does.
+  return channel?.title || channel?.field;
+}
+
 function convertLayerSpec(
   spec: VegaLiteSpec,
   index: number,
@@ -4317,6 +4360,15 @@ function convertLayerSpec(
     } else if (Array.isArray(selectors)) {
       selectors = (selectors as string[]).map(sel => scopeSelector(sel, cellScope));
     }
+  }
+
+  // Left unset, the core announces its own placeholder for what the colour
+  // splits or shades the marks by -- 'Level', 'Group', 'Competitor' --
+  // instead of the title the chart's legend shows.
+  if (axes.z === undefined && NAMED_BY_COLOR.has(traceType)) {
+    const label = colorFieldLabel(encoding);
+    if (label)
+      axes.z = { label };
   }
 
   const layer: MaidrLayer = {

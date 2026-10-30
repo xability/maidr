@@ -48,7 +48,9 @@ describe('vega-lite precision-recall curve', () => {
     }));
 
     expect(layer.type).toBe(TraceType.PR_CURVE);
-    expect(layer.axes).toEqual({ x: { label: 'Recall' }, y: { label: 'Precision' } });
+    // The curves are told apart by the colour field, which names them as the
+    // legend does.
+    expect(layer.axes).toEqual({ x: { label: 'Recall' }, y: { label: 'Precision' }, z: { label: 'model' } });
     expect(layer.data as PrCurvePoint[][]).toEqual([
       [
         { x: 0, y: 1, z: 'Logistic' },
