@@ -70,9 +70,10 @@ describe('highcharts streamgraph', () => {
     expect(layer.type).toBe(TraceType.STACKED_AREA);
     // Each band's OWN height, never the centred edge Highcharts drew it at:
     // `AreaTrace` sums the rows itself to announce the column total.
+    // From the base of the stack up: Highcharts stacks the first band on top.
     expect(layer.data as LinePoint[][]).toEqual([
-      [{ x: 'A', y: 10, z: 'one' }, { x: 'B', y: 40, z: 'one' }],
       [{ x: 'A', y: 5, z: 'two' }, { x: 'B', y: 15, z: 'two' }],
+      [{ x: 'A', y: 10, z: 'one' }, { x: 'B', y: 40, z: 'one' }],
     ]);
   });
 
@@ -99,8 +100,8 @@ describe('highcharts streamgraph', () => {
     // the `highcharts-graph` path `AreaTrace` parses for the highlight.
     const layer = highchartsToMaidr(streamChart(2)).subplots[0][0].layers[0];
     expect(layer.selectors).toEqual([
-      '#stream-chart .highcharts-series-group .highcharts-series-0 path.highcharts-graph',
       '#stream-chart .highcharts-series-group .highcharts-series-1 path.highcharts-graph',
+      '#stream-chart .highcharts-series-group .highcharts-series-0 path.highcharts-graph',
     ]);
   });
 });
