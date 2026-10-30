@@ -1129,9 +1129,9 @@ function collectShapeCandidatesFromRoot(
  *    otherwise look identical to bars at the DOM level.
  *
  * In document order the surviving candidates are assigned to each series'
- * points: the first N go to series 0, the next M to series 1, etc. The
- * stamp is idempotent: elements already carrying the attribute are left
- * untouched.
+ * points: the first N go to series 0, the next M to series 1, etc. A series
+ * hidden with `enabled(false)` draws no bars and takes none. The stamp is
+ * idempotent: elements already carrying the attribute are left untouched.
  */
 function stampBarAttributes(
   chart: AnyChartInstance,
@@ -1182,6 +1182,11 @@ function stampBarAttributes(
     }
     // Only stamp for bar/column series; leave other shapes for future work.
     if (seriesType !== 'bar' && seriesType !== 'column')
+      continue;
+    // A hidden series draws no bars. Counted, it took the bars of the series
+    // after it, which then took none, so its highlight outlined the next
+    // series' bars and that series' outlined nothing.
+    if (series.enabled?.() === false)
       continue;
 
     const rows = extractRawRows(series);

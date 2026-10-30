@@ -442,3 +442,23 @@ describe('bindAnyChart (a line or area beside a marker series)', () => {
     cleanUp(container);
   });
 });
+
+describe('bindAnyChart (a series a legend hides or shows)', () => {
+  const ofSeries = (s: number): string[] => [0, 1, 2, 3].map(i => `${s}-${i}`);
+
+  it('gives a column series hidden when the chart is bound no bars', () => {
+    // With North hidden by `enabled(false)`, only South's bars are drawn.
+    // Counted, North took them, and South's highlight outlined nothing.
+    const { container, bars } = createRenderedChart('column-hidden', [], [30, 30, 30, 30]);
+    const chart = createChart(
+      [createSeries('column', 4, 'North', { enabled: () => false }), createSeries('column', 4, 'South')],
+      container,
+    );
+
+    bindAnyChart(chart);
+
+    expect(stamps(bars, 'data-maidr-anychart-bar')).toEqual(ofSeries(1));
+
+    cleanUp(container);
+  });
+});
