@@ -9,6 +9,7 @@ import type {
   CandlestickSelector,
   Maidr,
   MaidrLayer,
+  SegmentedPoint,
 } from '@type/grammar';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -170,5 +171,26 @@ describe('an authored example\'s data is what its marks draw', () => {
       expect(price(Math.min(...pathYs(highs[index])))).toBeCloseTo(candle.high, 1);
       expect(candle.volume).toBe((volumeLayer.data as BarPoint[])[index].y);
     }
+  });
+
+  it('draws each age band\'s label on the band\'s own bars', () => {
+    // Bar k spans y 100 + 40k to 132 + 40k; its label sat at 148 + 40k, on
+    // the top of the next band down, so the bar MAIDR outlined as "15-29"
+    // carried the label "0-14".
+    const [layer] = loadLayers('pyramid.html');
+    const bands = (layer.data as SegmentedPoint[][])[0].map(point => String(point.y));
+    const bars = marks(layer.selectors as string);
+    const labels = marks('g[id=\'axis_y\'] text');
+
+    const misplaced = labels.filter((label) => {
+      // The rects run band by band, each band's two sides together.
+      const bar = bars[2 * bands.indexOf(label.textContent ?? '')];
+      const y = Number(label.getAttribute('y'));
+      const from = Number(bar?.getAttribute('y'));
+      return !(from < y && y <= from + Number(bar?.getAttribute('height')));
+    }).map(label => label.textContent);
+
+    expect(labels).toHaveLength(bands.length);
+    expect(misplaced).toEqual([]);
   });
 });
