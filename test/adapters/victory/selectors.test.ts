@@ -446,6 +446,67 @@ describe('buildVictorySubplots', () => {
     }
   });
 
+  /**
+   * Places each panel svg where a page draws it. jsdom lays nothing out, and
+   * a panel it has not placed reads as unmeasured.
+   */
+  function drawPanels(container: HTMLElement, places: { top: number; left: number }[]): void {
+    Array.from(container.querySelectorAll('svg')).forEach((svg, at) => {
+      const { top, left } = places[at];
+      Object.defineProperty(svg, 'getBoundingClientRect', {
+        value: () => ({ top, left, width: 400, height: 250, right: left + 400, bottom: top + 250, x: left, y: top }),
+        configurable: true,
+      });
+    });
+  }
+
+  /** The panels' names, row by row. */
+  const names = (subplots: { layers: { title?: string }[] }[][]): (string | undefined)[][] =>
+    subplots.map(row => row.map(subplot => subplot.layers[0].title));
+
+  it('stacks the panels the page draws one below the other', () => {
+    // Victory draws each chart as a block, so three charts in a row of the
+    // page's flow stand one below the other. They were read as one row:
+    // Right moved down the page and Down said there was nothing below.
+    const { container } = buildContainer([1, 1, 1]);
+    drawPanels(container, [{ top: 120, left: 8 }, { top: 380, left: 8 }, { top: 640, left: 8 }]);
+
+    const subplots = buildVictorySubplots(container, [
+      { layers: [barLayer('0_0', 1)], title: 'North Region' },
+      { layers: [barLayer('1_0', 1)], title: 'South Region' },
+      { layers: [barLayer('2_0', 1)], title: 'Combined Trend' },
+    ], scope);
+
+    expect(names(subplots)).toEqual([['North Region'], ['South Region'], ['Combined Trend']]);
+  });
+
+  it('puts panels drawn side by side in one row, left to right, whatever their order', () => {
+    const { container } = buildContainer([1, 1, 1, 1]);
+    drawPanels(container, [{ top: 0, left: 0 }, { top: 300, left: 0 }, { top: 6, left: 420 }, { top: 300, left: 420 }]);
+
+    const subplots = buildVictorySubplots(container, [
+      { layers: [barLayer('0_0', 1)], title: 'North' },
+      { layers: [barLayer('1_0', 1)], title: 'South' },
+      { layers: [barLayer('2_0', 1)], title: 'East' },
+      { layers: [barLayer('3_0', 1)], title: 'West' },
+    ], scope);
+
+    expect(names(subplots)).toEqual([['North', 'East'], ['South', 'West']]);
+  });
+
+  it('follows an explicit layout over the drawing', () => {
+    const { container } = buildContainer([1, 1, 1]);
+    drawPanels(container, [{ top: 0, left: 0 }, { top: 260, left: 0 }, { top: 520, left: 0 }]);
+
+    const subplots = buildVictorySubplots(container, [
+      { layers: [barLayer('0_0', 1)], title: 'A' },
+      { layers: [barLayer('1_0', 1)], title: 'B' },
+      { layers: [barLayer('2_0', 1)], title: 'C' },
+    ], scope, { columns: 3 });
+
+    expect(names(subplots)).toEqual([['A', 'B', 'C']]);
+  });
+
   it('emits undefined selectors when a panel svg is missing', () => {
     const { container } = buildContainer([2]); // only one svg for two panels
     const subplots = buildVictorySubplots(container, [

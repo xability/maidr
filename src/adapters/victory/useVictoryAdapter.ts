@@ -9,8 +9,9 @@
  * Multi-panel figures: when `children` contains two or more top-level
  * `<VictoryChart>` components, each chart becomes one MAIDR subplot (arrow
  * keys navigate panels; Enter drills into a panel). By default the panels
- * form a single row in children order; pass `layout: { rows, columns }` for
- * row-major grid chunking.
+ * are arranged as they are drawn, and in a single row in children order when
+ * they cannot be measured; pass `layout: { rows, columns }` for row-major grid
+ * chunking.
  *
  * @example
  * ```tsx
@@ -39,10 +40,10 @@
 
 import type { Maidr as MaidrData, MaidrSubplot } from '@type/grammar';
 import type { RefObject } from 'react';
-import type { VictoryAdapterConfig, VictoryLayerInfo, VictoryPanelLayout, VictorySubplotInfo } from './types';
+import type { VictoryAdapterConfig, VictoryLayerInfo, VictoryPanelBox, VictoryPanelLayout, VictorySubplotInfo } from './types';
 import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { computeSubplotGrid, extractVictorySubplots, foldPercentileBands, toMaidrLayer } from './converters';
+import { arrangeByDrawnPosition, computeSubplotGrid, extractVictorySubplots, foldPercentileBands, toMaidrLayer } from './converters';
 import { clearTaggedElements, getTaggedElements, PANEL_ATTR, resolvePanelSvgs, tagLayerElements } from './selectors';
 
 /**
@@ -96,6 +97,10 @@ function subplotFingerprint(subplots: VictorySubplotInfo[], layout?: VictoryPane
  * `data-maidr-victory-panel="<i>"`, and emit panel-scoped attribute names and
  * selectors so panels can never cross-highlight. Each panel gets its own
  * `claimed` element set so tagging never leaks across panels.
+ *
+ * Without a `layout`, the panels are put in rows by where their svgs are
+ * drawn ({@link arrangeByDrawnPosition}), and in one row in children order
+ * when a panel was not laid out, as in a hidden tab.
  *
  * Panels whose charts contain no supported data are dropped (the core model
  * cannot represent an empty subplot inside a grid), but only AFTER grid
@@ -164,9 +169,27 @@ export function buildVictorySubplots(
     };
   });
 
-  return computeSubplotGrid(entries, layout)
+  const grid = layout === undefined
+    ? arrangeByDrawnPosition(entries, victorySubplots.map((info, panelIndex) =>
+      drawnBox(panelSvgs[info.svgIndex ?? panelIndex]))) ?? computeSubplotGrid(entries)
+    : computeSubplotGrid(entries, layout);
+  return grid
     .map(row => row.filter((subplot): subplot is MaidrSubplot => subplot !== null))
     .filter(row => row.length > 0);
+}
+
+/**
+ * Where a panel's chart is drawn on the page.
+ *
+ * @param svg - The panel's svg, when it has one
+ * @returns Its box, or null when it has none or was not laid out
+ */
+function drawnBox(svg: SVGElement | undefined): VictoryPanelBox | null {
+  if (svg === undefined) {
+    return null;
+  }
+  const { top, left, height } = svg.getBoundingClientRect();
+  return height > 0 ? { top, left, height } : null;
 }
 
 /**

@@ -55,7 +55,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 | `title` | `string` | No | Chart title displayed in text descriptions. |
 | `subtitle` | `string` | No | Chart subtitle. |
 | `caption` | `string` | No | Chart caption. |
-| `layout` | `{ rows?: number; columns?: number }` | No | Row-major grid for [multi-panel figures](#multi-panel-figures). Only consulted with two or more `<VictoryChart>` children. |
+| `layout` | `{ rows?: number; columns?: number }` | No | Row-major grid for [multi-panel figures](#multi-panel-figures), in place of the arrangement the charts are drawn in. Only consulted with two or more `<VictoryChart>` children. |
 | `percentileBands` | `{ median: string; bands: { series: string; lower: number; upper: number }[]; title?: string; name?: string }[]` | No | Fan charts: a `<VictoryLine>` median and `<VictoryArea>` bands drawn with `y0`, each named by its `name` prop. See [Fan Chart](#fan-chart-experimental). |
 
 ## Supported Chart Types
@@ -328,7 +328,7 @@ Nest two or more `<VictoryChart>` components inside one `<MaidrVictory>` to buil
 </MaidrVictory>
 ```
 
-By default the panels form a single navigable row in children order. The `layout` prop chunks them row-major into a grid: `columns` fixes the panels per row (the last row may be shorter), or `rows` derives the column count when `columns` is omitted. Match `layout` to how you visually arrange the charts with CSS. A `<VictoryChart>` is a block, so charts your CSS does not place side by side stand one below the other: pass `layout={{ columns: 1 }}` for them, and Up and Down move between the panels as they are drawn.
+By default the panels are arranged as the page draws them. A `<VictoryChart>` is a block, so charts your CSS does not place side by side stand one below the other, and Up and Down move between them; charts whose tops line up share a row, read left to right whatever order they are written in. Panels that have not been laid out when the figure is read, as in a tab not shown yet, form a single row in children order. The `layout` prop chunks the panels row-major into a grid instead: `columns` fixes the panels per row (the last row may be shorter), or `rows` derives the column count when `columns` is omitted.
 
 Each panel keeps its own axis labels (from its own `<VictoryAxis>` children), its own layers (a chart with several data components stays a multi-layer panel, switchable with `Page Up`/`Page Down` after drilling in), and its own highlight scope — one panel's highlighting can never bleed into another.
 
@@ -337,8 +337,8 @@ Notes and limitations:
 - Charts must be **direct children** of `<MaidrVictory>`; charts wrapped in your own components are not detected. Lay panels out visually with CSS on the surrounding page.
 - Charts rendered with `standalone={false}` into a shared parent SVG are not supported for multi-panel detection.
 - In multi-panel mode, standalone data components (e.g. a bare `<VictoryScatter>`) outside any `<VictoryChart>` are ignored with a console warning. With at most one `<VictoryChart>`, everything is flattened into a single panel exactly as before.
-- A `<VictoryChart>` that contains no supported data components is omitted from subplot navigation (with a console warning). The remaining panels keep the grid cells of your `layout` — only the dropped chart's cell disappears from its row.
-- For multi-row grids (`rows` ≥ 2), MAIDR measures each panel's rendered position, so the Up/Down arrows follow the visual arrangement of your CSS layout. If panel positions cannot be measured (for example, panels that overlap at the same position), navigation conservatively falls back to children order, where Up/Down may not match the visual arrangement. Single-row layouts are unaffected.
+- A `<VictoryChart>` that contains no supported data components is omitted from subplot navigation (with a console warning). The remaining panels keep their grid cells — only the dropped chart's cell disappears from its row.
+- For grids of more than one row, MAIDR measures each panel's rendered position, so the Up/Down arrows follow the visual arrangement of your CSS layout. If panel positions cannot be measured (for example, panels that overlap at the same position), navigation conservatively falls back to children order, where Up/Down may not match the visual arrangement. Single-row layouts are unaffected.
 
 ## Using the Hook
 
