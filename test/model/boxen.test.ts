@@ -451,6 +451,40 @@ describe('moving between distributions keeps the percentile', () => {
     expect(heard(trace)).toEqual(['tail', '25th percentile', 47]);
   });
 
+  test('holds the percentile on a jump to the first distribution', () => {
+    const trace = boxen(1, 1, LADDERS);
+
+    trace.moveToExtreme('DOWNWARD');
+
+    expect(heard(trace)).toEqual(['heavy', '25th percentile', 46]);
+  });
+
+  test('holds the percentile of the rung a jump to a position lands on', () => {
+    // The walk set out from heavy's 6.25th percentile; the jump to light's
+    // 75th starts a new one.
+    const trace = boxen(0, 1, LADDERS);
+    trace.moveOnce('UPWARD');
+
+    trace.moveToIndex(1, 3);
+    trace.moveOnce('UPWARD');
+
+    expect(heard(trace)).toEqual(['tail', '75th percentile', 57]);
+  });
+
+  test('holds the percentile of the rung entered on after the chart is reset', () => {
+    // Leaving the trace (another subplot or layer) resets it; the walk held
+    // light's 87.5th percentile, and the reader comes back in at heavy's
+    // deepest rung, which is what the next step has to hold.
+    const trace = boxen(0, 6, LADDERS);
+    trace.moveOnce('UPWARD');
+
+    trace.resetToInitialEntry();
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+
+    expect(heard(trace)).toEqual(['light', '12.5th percentile', 42]);
+  });
+
   test('holds the percentile a move along the ladder chose', () => {
     // A step along the ladder chooses a new percentile, so the deep one the
     // walk began with is not carried past it.

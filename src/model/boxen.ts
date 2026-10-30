@@ -240,6 +240,19 @@ export class BoxenTrace extends AbstractTrace {
   }
 
   /**
+   * Sends the reader back to enter the chart afresh, holding nothing.
+   *
+   * Leaving the trace and coming back (another subplot, another layer)
+   * resets it, and the reader enters on its first rung. Held across the
+   * reset, the quantile of the walk they had left decided where the next
+   * Up or Down went, rather than the rung they entered on.
+   */
+  public override resetToInitialEntry(): void {
+    this.heldQuantile = null;
+    super.resetToInitialEntry();
+  }
+
+  /**
    * Moves to a distribution, onto its rung nearest the quantile being held.
    *
    * The quantile is the one the reader set out from, not the one the last
