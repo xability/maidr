@@ -33,12 +33,22 @@ interface Rung {
  * would name several different rungs identically, which is exactly the part
  * of the distribution a letter-value plot exists to separate.
  *
+ * The upper tail is the same problem against 100, so the precision follows
+ * the distance to whichever end is nearer: three significant digits of it,
+ * on both sides. Three significant digits of the percentile itself named the
+ * 99.95th and the 99.98th both "100th", a percentile the drawn outliers above
+ * them showed was not reached. So "0.0244th" now pairs with "99.9756th",
+ * and "6.25th" with "93.75th", the two ends of one rung.
+ *
  * @param fraction - A quantile, from 0 to 1
  * @returns Its percentile, as text
  */
 export function percentileLabel(fraction: number): string {
-  const percent = Number((fraction * 100).toPrecision(3));
-  return t('model.boxenPercentile', { percent: percent.toString(), suffix: englishOrdinalSuffix(percent) });
+  const percent = fraction * 100;
+  const fromEnd = Math.min(percent, 100 - percent);
+  const decimals = fromEnd > 0 ? Math.max(0, 2 - Math.floor(Math.log10(fromEnd))) : 0;
+  const rounded = Number(percent.toFixed(decimals));
+  return t('model.boxenPercentile', { percent: rounded.toString(), suffix: englishOrdinalSuffix(rounded) });
 }
 
 const ENGLISH_ORDINAL = new Intl.PluralRules('en', { type: 'ordinal' });

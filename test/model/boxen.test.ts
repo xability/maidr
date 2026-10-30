@@ -1,7 +1,7 @@
 import type { BoxenPoint, MaidrLayer } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
-import { BoxenTrace } from '@model/boxen';
+import { BoxenTrace, percentileLabel } from '@model/boxen';
 import { TraceFactory } from '@model/factory';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -168,6 +168,44 @@ describe('each position says which quantile it is', () => {
 
   test('trims a trailing zero rather than reading "25.0th"', () => {
     expect(nonEmptyState(boxen(0, 1)).text.section).toBe('25th percentile');
+  });
+
+  test('a deep upper rung keeps the precision a deep lower rung has', () => {
+    // Three significant digits of the percentile itself named both of these
+    // upper rungs "100th": two rungs under one name, and a percentile the
+    // outliers drawn above them show was never reached.
+    const deep: BoxenPoint[] = [{
+      z: 'deep',
+      median: 50,
+      levels: [
+        { p: 0.000244140625, lo: 1, hi: 99 },
+        { p: 0.00048828125, lo: 2, hi: 98 },
+      ],
+    }];
+    const sections = [0, 1, 2, 3, 4].map(col =>
+      nonEmptyState(boxen(0, col, deep)).text.section);
+
+    expect(sections).toEqual([
+      '0.0244th percentile',
+      '0.0488th percentile',
+      'median',
+      '99.9512th percentile',
+      '99.9756th percentile',
+    ]);
+  });
+
+  test('names the top of a rung as precisely as its bottom', () => {
+    // heavy's third-deepest rung runs from its 6.25th percentile to its
+    // 93.75th; rounded to three digits of the percentile the top read 93.8th.
+    const bottom = nonEmptyState(boxen(1, 1)).text.section;
+    const top = nonEmptyState(boxen(1, 7)).text.section;
+
+    expect([bottom, top]).toEqual(['6.25th percentile', '93.75th percentile']);
+  });
+
+  test('never names a quantile short of the top the 100th percentile', () => {
+    expect(percentileLabel(0.9999)).toBe('99.99th percentile');
+    expect(percentileLabel(1)).toBe('100th percentile');
   });
 });
 

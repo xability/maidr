@@ -290,7 +290,7 @@ describe('description', () => {
     expect(stat(trace, 'Points along the band')).toBe(4);
     expect(stat(trace, 'Quantile levels')).toBe(
       'Minimum, 6.68th percentile, 15.9th percentile, 30.9th percentile, Median, '
-      + '69.2th percentile, 84.1th percentile, 93.3th percentile, Maximum',
+      + '69.2th percentile, 84.1th percentile, 93.32th percentile, Maximum',
     );
     expect(stat(trace, 'Lowest median')).toBe('0 at 0');
     expect(stat(trace, 'Highest median')).toBe('0.06 at 300');
@@ -339,7 +339,7 @@ describe('description', () => {
       'Median',
       '69.2th percentile',
       '84.1th percentile',
-      '93.3th percentile',
+      '93.32th percentile',
       'Maximum',
     ]);
     expect(table.columnAxes).toEqual(['x', ...LEVELS.map(() => 'y')]);
