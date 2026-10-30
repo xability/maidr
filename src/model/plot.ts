@@ -731,9 +731,9 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    * that happens to be close: a bell curve over the measurements it was
    * fitted to took 2.48 cm of sepal length to observation 2, and observation
    * 3 back to 3.06 cm. The layer entered keeps its own place then -- where
-   * the reader last was on it, or its first point -- as it does when an x
-   * cannot be found on it. A name is the same thing on any layer, and is
-   * carried whatever the axes.
+   * the reader last was on it, or where a switch would enter it first -- as
+   * it does when an x cannot be found on it. A name is the same thing on any
+   * layer, and is carried whatever the axes.
    *
    * Shared by {@link switchLayer} and {@link selectLayer} so a keyboard step
    * and a description-dialog jump land the cursor in the same place. Static
@@ -747,6 +747,15 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     const fromXValue = Subplot.carriedXValue(from, to, xValue);
     if (typeof fromXValue !== 'number' || Subplot.sharesPlaceAxis(from, to)) {
       Subplot.moveToCarried(from, to, fromXValue);
+    } else if (to.isInitialEntry) {
+      // Nothing to carry, onto a layer never visited: it is entered where a
+      // switch carrying its own first x would enter it, which is where its
+      // place is read from -- a box plot at its first box's lower whisker,
+      // not at outliers it may not have.
+      const own = to.getCurrentXValue();
+      if (own !== null) {
+        to.moveToXValue(own);
+      }
     }
 
     // A layer the position could not be carried into, and never visited, is

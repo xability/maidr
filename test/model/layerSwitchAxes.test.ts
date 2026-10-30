@@ -247,3 +247,36 @@ describe('a layer switch between layers drawn on their side', () => {
     expect(xOf(subplot.switchLayer('UPWARD'))).toBe(2020);
   });
 });
+
+describe('a layer switch that carries nothing onto a layer never visited', () => {
+  test('enters a box plot where a switch enters one, at its first box\'s lower whisker', () => {
+    // A box plot starts at its lower outliers, and these boxes have none:
+    // left there, the reader heard that there were none, not a value.
+    const boxes: MaidrLayer = {
+      id: 'boxes',
+      type: TraceType.BOX,
+      axes: { x: { label: 'Species' }, y: { label: 'Sepal length (cm)' } },
+      data: [
+        { z: 'setosa', lowerOutliers: [], min: 4.3, q1: 4.8, q2: 5, q3: 5.2, max: 5.8, upperOutliers: [] },
+        { z: 'versicolor', lowerOutliers: [], min: 4.9, q1: 5.6, q2: 5.9, q3: 6.3, max: 7, upperOutliers: [] },
+      ],
+    };
+    const subplot = subplotOf(CURVE, boxes);
+    subplot.activeTrace?.moveOnce('FORWARD');
+
+    const box = subplot.switchLayer('UPWARD');
+
+    expect(box?.getCurrentSection?.()).toBe('Minimum');
+    expect(xOf(box)).toBe('setosa');
+  });
+
+  test('leaves a layer visited before where the reader left it', () => {
+    const subplot = subplotOf(CURVE, MEASUREMENTS);
+    const points = subplot.switchLayer('UPWARD');
+    points?.moveOnce('FORWARD');
+    points?.moveOnce('FORWARD');
+    subplot.switchLayer('DOWNWARD');
+
+    expect(xOf(subplot.switchLayer('UPWARD'))).toBe(2);
+  });
+});
