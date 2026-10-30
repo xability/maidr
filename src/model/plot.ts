@@ -453,6 +453,11 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   private readonly highlightValue: Element | null;
   private readonly isViolinPlot: boolean;
   private readonly layerSelector: string | null;
+  /**
+   * Every selector the first layer names, whatever their shape, for finding
+   * the panel that holds its marks.
+   */
+  private readonly layerMarkSelectors: readonly string[];
 
   /**
    * The pre-resolved parent `<g id="axes_*">` SVG element for this subplot.
@@ -491,6 +496,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       : Array.isArray(firstLayerSelectors) && typeof firstLayerSelectors[0] === 'string'
         ? firstLayerSelectors[0]
         : null;
+    this.layerMarkSelectors = [...new Set(Subplot.selectorsIn(firstLayerSelectors))];
 
     // Violin detection: explicit layer types (VIOLIN_KDE / VIOLIN_BOX)
     const layerTypes = layers.map(layer => layer.type);
@@ -947,6 +953,17 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   }
 
   /**
+   * Returns every selector the first layer names, whatever their shape.
+   * Used by the layout utility to find the panel that holds the subplot's
+   * marks, and to keep another subplot's panel from taking it in.
+   * @returns The selectors, in the order the layer gives them; none when it
+   *   names none.
+   */
+  public getLayerMarkSelectors(): readonly string[] {
+    return this.layerMarkSelectors;
+  }
+
+  /**
    * Returns the pre-resolved parent `<g id="axes_*">` element for this subplot.
    * This is set externally via {@link setAxesElement} during layout resolution
    * and does not perform any DOM queries.
@@ -991,6 +1008,32 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     return typeof selector === 'string' && selector.trim() !== ''
       ? Svg.queryAll<Element>(selector)[0] ?? null
       : null;
+  }
+
+  /**
+   * Every selector a layer's `selectors` holds: a string, a list or a grid of
+   * them, or the parts of a box or a candlestick.
+   *
+   * The lobby found a subplot's panel only from a string, so a subplot whose
+   * first layer was a box, a candlestick or a heat map's grid had none, and
+   * the panel of the one beside it grew over it: on r-maidr's patchwork of a
+   * box plot over a bar chart, or its pheatmap with a row tree alone, the
+   * outline went round the whole figure.
+   *
+   * @param value - A layer's `selectors`
+   * @returns Its selectors, in order
+   */
+  private static selectorsIn(value: unknown): string[] {
+    if (typeof value === 'string') {
+      return value.trim() === '' ? [] : [value];
+    }
+    if (Array.isArray(value)) {
+      return value.flatMap(item => Subplot.selectorsIn(item));
+    }
+    if (value !== null && typeof value === 'object') {
+      return Object.values(value).flatMap(item => Subplot.selectorsIn(item));
+    }
+    return [];
   }
 }
 

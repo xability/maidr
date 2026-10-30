@@ -169,12 +169,13 @@ describe('createMaidrFromFrappeCharts × resolveSubplotLayout (vertical navigati
       const selector = firstLayerSelector(subplot);
       const el = document.querySelector(selector) as SVGElement;
       mockRect(el, rects[r][c]);
-      // Stand-in exposing the two accessors the layout utility consumes; the
+      // Stand-in exposing the accessors the layout utility consumes; the
       // real Subplot emits no highlight element (no subplot selector) and
       // caches the same first layer selector string.
       return {
         getHighlightElement: () => null,
         getLayerSelector: () => selector,
+        getLayerMarkSelectors: () => [selector],
       } as unknown as Subplot;
     }));
 
