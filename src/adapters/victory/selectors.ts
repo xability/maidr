@@ -1,4 +1,4 @@
-import type { BoxSelector, CandlestickSelector } from '@type/grammar';
+import type { BoxSelector, CandlestickSelector, SegmentedPoint } from '@type/grammar';
 import type { VictoryLayerInfo } from './types';
 
 /**
@@ -163,9 +163,10 @@ export function clearTaggedElements(container: HTMLElement): void {
  *                     original single-panel attribute naming
  * @returns Whatever names this layer's marks: one CSS selector for a series
  *          the model can walk positionally, a `string[]` when the marks have
- *          to be named one by one, or the structured selector a box or a
- *          candle needs. `undefined` if the elements could not be matched, in
- *          which case highlighting degrades gracefully.
+ *          to be named one by one, a `string[][]` grid naming each segment of
+ *          a stack, or the structured selector a box or a candle needs.
+ *          `undefined` if the elements could not be matched, in which case
+ *          highlighting degrades gracefully.
  */
 export function tagLayerElements(
   svg: SVGElement,
@@ -174,7 +175,7 @@ export function tagLayerElements(
   claimed: Set<Element>,
   scope: string,
   panelIndex: number | null = null,
-): string | string[] | BoxSelector[] | CandlestickSelector | undefined {
+): string | string[] | string[][] | BoxSelector[] | CandlestickSelector | undefined {
   const attrName = victoryAttr(panelIndex, String(layerIndex));
   const { victoryType, data } = layer;
 
@@ -236,7 +237,7 @@ function tagDiscreteElements(
   attrName: string,
   claimed: Set<Element>,
   scope: string,
-): string | string[] | undefined {
+): string | string[] | string[][] | undefined {
   const candidates = Array.from(
     svg.querySelectorAll('path[role="presentation"]'),
   ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
@@ -286,7 +287,49 @@ function tagDiscreteElements(
     });
   }
 
+  // A stack is read bottom segment first, its series in the order they are
+  // declared, but `VictoryStack` paints them the other way round. The shared
+  // attribute is walked series by series in document order, which paired
+  // every series with another series' segments of the same bars, so each
+  // segment is named in a grid instead.
+  if (layer.data.kind === 'segmented') {
+    return tagStackSegments(matched, layer.data.points, attrName, scope);
+  }
+
   return `${scope}[${attrName}]`;
+}
+
+/**
+ * Names each segment of a stacked bar layer, as a `[series][category]` grid
+ * in payload order.
+ *
+ * `VictoryStack` reverses the render order of its children so the topmost
+ * series paints last, which puts the series in the DOM back to front, each
+ * one's bars in data order: the reversal {@link tagStackedAreaElements} undoes
+ * for the bands of a stacked area.
+ *
+ * @param bars     - The layer's bars, in document order
+ * @param series   - The layer's points, one row per series, bottom first
+ * @param attrName - The layer's tracking attribute name
+ * @param scope    - Per-chart (and per-panel) CSS scope prefix
+ * @returns One selector per segment, each matching that segment alone
+ */
+function tagStackSegments(
+  bars: Element[],
+  series: SegmentedPoint[][],
+  attrName: string,
+  scope: string,
+): string[][] {
+  const grid = series.map(() => new Array<string>());
+  let next = 0;
+  for (let row = series.length - 1; row >= 0; row--) {
+    for (let col = 0; col < series[row].length; col++) {
+      const segmentAttr = `${attrName}-segment-${row}-${col}`;
+      bars[next++].setAttribute(segmentAttr, '');
+      grid[row].push(`${scope}[${segmentAttr}]`);
+    }
+  }
+  return grid;
 }
 
 /**
