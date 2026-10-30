@@ -44,13 +44,18 @@ export function SankeyExample(): JSX.Element {
         xKey="source"
         yKeys={['value']}
         flowConfig={{ targetKey: 'target', nodes }}
-        xLabel="Stage"
+        // No x label: it is the noun every node is announced with, and these
+        // nodes are sources, conversions and uses, so they are read as
+        // "Node is Crude oil".
         yLabel="Energy (PJ)"
       >
+        {/* sort={false} draws each column's nodes in the order `nodes` lists
+            them, the order MAIDR reads them in. */}
         <Sankey
           width={600}
           height={350}
           data={{ nodes, links }}
+          sort={false}
           nodePadding={30}
           margin={{ top: 10, right: 120, bottom: 10, left: 10 }}
           link={{ stroke: '#82ca9d' }}

@@ -28,18 +28,21 @@ export function MultiPanelExample(): JSX.Element {
     <div>
       <h2>Multi-Panel Figure</h2>
       <p>
-        Three VictoryChart panels inside one MaidrVictory figure. Use arrow
-        keys to move between panels, press Enter to drill into a panel, and
-        Escape to return to panel navigation. Each chart&apos;s
+        Three VictoryChart panels inside one MaidrVictory figure, one below the
+        other. Use the Up and Down arrow keys to move between panels, press
+        Enter to drill into a panel, and Escape to return to panel navigation. Each chart&apos;s
         {' '}
         <code>title</code>
         {' '}
         prop names its panel.
       </p>
+      {/* The charts stand one below the other, Victory's own layout, so the
+          figure is a column: Down moves to the panel drawn below. */}
       <MaidrVictory
         id="victory-multi-panel"
         title="Quarterly Sales by Region"
         subtitle="2024 Fiscal Year"
+        layout={{ columns: 1 }}
       >
         <VictoryChart title="North Region" domainPadding={24} height={220}>
           <VictoryAxis label="Quarter" />

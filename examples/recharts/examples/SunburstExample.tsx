@@ -2,7 +2,15 @@ import type { JSX } from 'react';
 import { SunburstChart } from 'recharts';
 import { MaidrRecharts } from '../../../src/adapters/recharts/MaidrRecharts';
 
-const nodes = [
+// A type alias rather than an interface: only the former gets the implicit
+// index signature that lets it stand in for the adapter's `data` rows.
+type ChannelNode = {
+  name: string;
+  sessions?: number;
+  children?: ChannelNode[];
+};
+
+const nodes: ChannelNode[] = [
   {
     name: 'Direct',
     children: [
@@ -26,6 +34,26 @@ const nodes = [
   },
 ];
 
+/**
+ * The tree with every interior node's total filled in.
+ *
+ * `<SunburstChart>` sizes the whole circle by the root's own `dataKey` value
+ * and each arc by its own node's, so a node with no value of its own is drawn
+ * at an angle of NaN: with only the leaves valued, nothing was drawn at all.
+ * The adapter is still given the tree as declared; MAIDR derives the same
+ * totals from the leaves.
+ *
+ * @param node - A node and its subtree
+ * @returns A copy whose interior nodes carry the sum of their children
+ */
+function withTotals(node: ChannelNode): ChannelNode {
+  if (node.children === undefined) {
+    return node;
+  }
+  const children = node.children.map(withTotals);
+  return { ...node, sessions: children.reduce((sum, child) => sum + (child.sessions ?? 0), 0), children };
+}
+
 export function SunburstExample(): JSX.Element {
   return (
     <div>
@@ -48,7 +76,7 @@ export function SunburstExample(): JSX.Element {
         <SunburstChart
           width={420}
           height={420}
-          data={{ name: 'All traffic', children: nodes }}
+          data={withTotals({ name: 'All traffic', children: nodes })}
           dataKey="sessions"
         />
       </MaidrRecharts>

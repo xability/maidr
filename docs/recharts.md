@@ -994,14 +994,18 @@ const links = [
   xKey="source"
   yKeys={['value']}
   flowConfig={{ targetKey: 'target', nodes }}
-  xLabel="Stage"
+  xLabel="Plan"
   yLabel="Accounts"
 >
-  <Sankey width={600} height={350} data={{ nodes, links }} link={{ stroke: '#8884d8' }} />
+  <Sankey width={600} height={350} data={{ nodes, links }} sort={false} link={{ stroke: '#8884d8' }} />
 </MaidrRecharts>
 ```
 
 `xKey` names the source field and the single `yKeys` entry the magnitude, so only the target needs a key of its own. Recharts addresses nodes by their index in the `nodes` array; the adapter resolves those indices back to names, because "flow from 1 to 3" names neither end. Links that already carry node names work without `nodes`.
+
+`xLabel` is what a node is: every node is announced under it, "Plan is Free (Q1)", so name the nodes' kind rather than the stage, which is the column the reader moves between with Left and Right. Leave it out and a node is announced as "Node is Free (Q1)".
+
+MAIDR reads the nodes of each column in the order the flows first name them, and Up and Down walk a column in that order. `<Sankey>` sorts each column by where its own layout settled the nodes, which can put them in another order on the page, so pass `sort={false}`: Recharts then draws a column's nodes in the order `nodes` lists them, and listing them in the order the flows first name them keeps the two in step.
 
 Set `chartType="sankey"` for the budget reading. Nothing else changes: the payload, the config and the selector are identical, and which of the two a figure is is a fact about the data — whether a node reappears at each stage — rather than anything the adapter emits.
 
@@ -1134,6 +1138,7 @@ const data = [
   { task: 'Build', from: 3, to: 12, phase: 'Alpha' },
   { task: 'Build', from: 14, to: 18, phase: 'Beta' },
 ];
+const lanes = ['Design', 'Build', 'Launch'];
 
 <MaidrRecharts
   id="gantt-example"
@@ -1142,19 +1147,28 @@ const data = [
   chartType="gantt"
   xKey="task"
   yKeys={['from', 'to']}
-  ganttConfig={{ lanes: ['Design', 'Build', 'Launch'], labelKey: 'phase', unit: 'days' }}
+  ganttConfig={{ lanes, labelKey: 'phase', unit: 'days' }}
   xLabel="Task"
   yLabel="Day"
 >
   <BarChart width={600} height={350} layout="vertical" data={data}>
     <XAxis type="number" />
-    <YAxis type="category" dataKey="task" />
-    <Bar dataKey={(row) => [row.from, row.to]} fill="#8884d8" />
+    <YAxis
+      type="number"
+      dataKey={(row) => lanes.indexOf(row.task)}
+      domain={[-0.5, lanes.length - 0.5]}
+      ticks={lanes.map((_, lane) => lane)}
+      tickFormatter={(lane) => lanes[lane]}
+      interval={0}
+    />
+    <Bar dataKey={(row) => [row.from, row.to]} barSize={40} fill="#8884d8" />
   </BarChart>
 </MaidrRecharts>
 ```
 
-Declare `lanes` so that a lane with **nothing booked still exists** — `Launch` above holds no row, and nothing booked is a real statement about a schedule that a list grouped by task cannot make. A lane a row names but the list omits is appended rather than dropped. `unit` names what a unit of the axis is; without it the length of an interval is announced as a bare number.
+Declare `lanes` so that a lane with **nothing booked still exists** — `Launch` above holds no row, and nothing booked is a real statement about a schedule that a list grouped by task cannot make. A lane a row names but the list omits is appended rather than dropped.
+
+Draw the lanes MAIDR reads, one row each, on a **number axis**. Recharts places a bar on a category axis by the row's position rather than its value: every row gets a slot of its own, so a lane holding two intervals is drawn as two rows and a reader moving along a lane is moved down the chart, and a lane no row names is not drawn at all. `allowDuplicatedCategory={false}` merges the slots but still places the bars by position, on other lanes' rows. On a number axis a bar sits at its value, so number the lanes, put a tick on each and name it, and every interval is drawn on its lane's row and `Launch` as an empty row. Give the bars a `barSize`: Recharts sizes a bar on a number axis by the gaps between the rows' values, and the intervals of one lane leave none. `unit` names what a unit of the axis is; without it the length of an interval is announced as a bare number.
 
 Dates have to arrive as **epoch milliseconds**: a `Date` is not a position on a numeric axis.
 
@@ -1197,6 +1211,8 @@ const data = [{ measure: 'NPS', score: 73 }];
 
 "73" is not the reading. "73 out of 100, 7 below target, in the 'ok' band" is, and a sighted reader gets all of it from the dial's geometry — the needle's position, the marker beside it, the coloured arc it lands on. None of that is written anywhere a screen reader can reach, and none of it is inferable from a `<RadialBar>`, so the range mirrors the chart's `domain` and the target and bands are declared.
 
+Declare only what the dial draws. A `<RadialBar>` draws the value and its track and nothing else, so a gauge that declares a target and bands draws them too, or a reader is told of marks a sighted colleague cannot find: the gauge example draws its bands as arcs round the rim and its target as a mark across the dial, with a small component of plain SVG placed inside the `<RadialBarChart>`, where Recharts draws its children.
+
 Bands are **ascending and bounded above only**: a band starts where the previous one ended, and the first starts at `min`. A value above every band belongs to none rather than to the last one. There is deliberately no default range — a guessed maximum misreports the one number the chart draws.
 
 #### Treemap, Sunburst and Icicle [experimental]
@@ -1221,17 +1237,23 @@ const nodes = [
 </MaidrRecharts>
 ```
 
-A sunburst is the same config with `chartType="sunburst"`. Its Recharts component takes a single root object, and it draws that root's **children** — so pass the children here, and the declared nodes are then exactly the drawn ones:
+A sunburst is the same config with `chartType="sunburst"`. Its Recharts component takes a single root object, and it draws that root's **children** — so pass the children here, and the declared nodes are then exactly the drawn ones. Unlike `<Treemap>`, `<SunburstChart>` does not total a node's children: it sizes the whole circle by the root's own `dataKey` value and each arc by its node's, so the tree it draws needs every interior node's value, the root's included, or every arc is drawn at an angle of NaN and nothing appears. Give it a copy with the totals filled in:
 
 ```tsx
+function withTotals(node) {
+  if (!node.children) return node;
+  const children = node.children.map(withTotals);
+  return { ...node, people: children.reduce((sum, child) => sum + child.people, 0), children };
+}
+
 <MaidrRecharts id="sunburst-example" data={nodes} chartType="sunburst" xKey="name" yKeys={['people']}>
-  <SunburstChart width={400} height={400} data={{ name: 'World', children: nodes }} dataKey="people" />
+  <SunburstChart width={400} height={400} data={withTotals({ name: 'World', children: nodes })} dataKey="people" />
 </MaidrRecharts>
 ```
 
 MAIDR navigates the tree **as a tree**, on arrow keys that already exist: up returns to the parent, down enters the first child, left and right walk the siblings. Each node is announced with its exact share of its parent — the comparison the rectangles are drawn to support and the one the eye estimates worst.
 
-A node with children gets no value of its own, because Recharts computes an interior node's value as the sum of its children and ignores any value declared on it. MAIDR derives interior totals the same way.
+In the adapter's `data`, a node with children gets no value of its own: MAIDR derives an interior node's value as the sum of its children, as `<Treemap>` does, which ignores any value declared on it.
 
 Highlighting relies on both components drawing their nodes in depth-first pre-order, which they do. The treemap selector deliberately skips the **synthetic root** rectangle Recharts wraps the data array in — it is one element more than there are nodes, and a count mismatch turns highlighting off entirely. A `<Treemap type="nest">`, or one given a custom `content`, draws something else and needs `selectorOverride`.
 
@@ -1240,22 +1262,24 @@ An icicle takes the same config again, with `chartType="icicle"`. Recharts has n
 ```tsx
 // The same `nodes` tree, flattened the way the adapter flattens it.
 const bands = [
-  { name: 'Europe', depth: '0', from: 0, to: 240 },
-  { name: 'France', depth: '1', from: 0, to: 67.4 },
-  { name: 'Spain', depth: '1', from: 67.4, to: 114.8 },
-  { name: 'Asia', depth: '0', from: 240, to: 395 },
-  { name: 'Japan', depth: '1', from: 240, to: 365.1 },
-  { name: 'Nepal', depth: '1', from: 365.1, to: 395.1 },
+  { name: 'Europe', depth: 0, from: 0, to: 240 },
+  { name: 'France', depth: 1, from: 0, to: 67.4 },
+  { name: 'Spain', depth: 1, from: 67.4, to: 114.8 },
+  { name: 'Asia', depth: 0, from: 240, to: 395 },
+  { name: 'Japan', depth: 1, from: 240, to: 365.1 },
+  { name: 'Nepal', depth: 1, from: 365.1, to: 395.1 },
 ];
 
 <MaidrRecharts id="icicle-example" data={nodes} chartType="icicle" xKey="name" yKeys={['people']}>
   <BarChart width={600} height={300} layout="vertical" data={bands}>
     <XAxis type="number" />
-    <YAxis type="category" dataKey="depth" />
-    <Bar dataKey={row => [row.from, row.to]} fill="#8884d8" />
+    <YAxis type="number" dataKey="depth" domain={[-0.5, 1.5]} ticks={[0, 1]} interval={0} />
+    <Bar dataKey={row => [row.from, row.to]} barSize={100} fill="#8884d8" stroke="#fff" />
   </BarChart>
 </MaidrRecharts>
 ```
+
+The depth is a **number**, on a number axis, for the gantt's reason: on a category axis Recharts gives every row a slot of its own and places each bar by its row's position, which draws a staircase of one-node rows rather than an icicle, and moving to a sibling moves down the chart. On a number axis each node is drawn on its depth's band. The `barSize` is needed there too, and a white `stroke` parts siblings that meet.
 
 Built the other obvious way — one stacked `<Bar>` per depth level — the rectangles come out series-major rather than depth-first, which is not the order the nodes are in. Such a chart needs `selectorOverride`.
 
@@ -1434,6 +1458,8 @@ const distributions = [
 `p` is the **tail** probability, which is how letter-value plots are defined and how the libraries that draw them report it: `p = 0.25` is the rung spanning the middle half, `p = 0.125` the middle three quarters, and so on inwards. MAIDR announces each position as the percentile it actually is, and walks the ladder in value order — deepest lower quantile, inward to the median, outward again — so arrowing across rises monotonically through the distribution and the *rate* it rises at is where the sample is thin. The order the rungs arrive in does not matter.
 
 A rung whose three numbers are not all finite is dropped rather than announced as a quantile the data never contained, and a row with no median is dropped entirely: the median is the ladder's centre and a navigable position in its own right.
+
+Name outliers only where the chart draws them. `lowerOutliersKey` and `upperOutliersKey` name the values beyond the deepest rung, and each is read out in the description and listed in its table. The stacked `<Bar>`s above draw none: `slow` is there to show the key, and a chart that declares it draws its points too, for instance as a `<Scatter>` in a `<ComposedChart>` whose axis reaches them. The boxen example draws no outliers and declares none.
 
 No highlight selector is generated. A rung is a rectangle and a distribution is not, and no class name says which rung is which — so a chart that wants highlighting puts a `className` on the single `<Bar>` that can stand for the whole distribution and passes it as `selectorOverride`, as above.
 

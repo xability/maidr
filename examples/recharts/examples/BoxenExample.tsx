@@ -7,6 +7,10 @@ import { MaidrRecharts } from '../../../src/adapters/recharts/MaidrRecharts';
 // half, 0.125 the middle three quarters, and so on outwards. A box plot is this
 // shape with exactly one rung, and that fixed depth is why it cannot express a
 // large sample's tails.
+//
+// The chart draws no outliers, so none are declared: an outlier named through
+// `boxenConfig` is read out and tabulated, and the reader would be told of
+// points a sighted colleague cannot find.
 const distributions = [
   {
     region: 'East',
@@ -16,7 +20,6 @@ const distributions = [
       { p: 0.125, lo: 130, hi: 310 },
       { p: 0.0625, lo: 110, hi: 420 },
     ],
-    slow: [820, 910],
   },
   {
     region: 'West',
@@ -26,7 +29,6 @@ const distributions = [
       { p: 0.125, lo: 150, hi: 330 },
       { p: 0.0625, lo: 120, hi: 450 },
     ],
-    fast: [40],
   },
   {
     region: 'North',
@@ -90,7 +92,6 @@ export function BoxenExample(): JSX.Element {
         data={distributions}
         chartType="boxen"
         xKey="region"
-        boxenConfig={{ lowerOutliersKey: 'fast', upperOutliersKey: 'slow' }}
         selectorOverride="#maidr-article-boxen-example .boxen-centre .recharts-rectangle"
         xLabel="Region"
         yLabel="Response time (ms)"
