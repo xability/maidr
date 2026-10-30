@@ -444,6 +444,12 @@ export abstract class Svg {
   }
 
   /**
+   * The smallest radius {@link createCircleElements} draws a marker at, in the
+   * chart's units: the radius an ordinary 2px line's marker has.
+   */
+  private static readonly MIN_MARKER_RADIUS = 4;
+
+  /**
    * Creates one circle element per centre, styled to match the parent
    * element's stroke or fill.
    *
@@ -454,6 +460,13 @@ export abstract class Svg {
    * an element is what forces the browser to recalculate it, so a loop
    * alternating the two paid a recalculation per point of every line, at
    * construction and again on every live-data rebuild.
+   *
+   * A marker's radius is twice the width the line it stands on is drawn at,
+   * and never less than {@link MIN_MARKER_RADIUS}. Sized from the stroke
+   * alone, a marker on a thin line, or on a band drawn by its fill alone --
+   * whose stroke width still computes as `1px` -- was a dot four pixels
+   * across, half the size of one on an ordinary line, which a reader could
+   * barely find.
    *
    * @param centres - Where to put each circle, in order
    * @param parent - The SVG element to inherit styling from and sit beside
@@ -470,7 +483,9 @@ export abstract class Svg {
     const style = (page.defaultView ?? window).getComputedStyle(parent);
     const color = style.stroke || style.fill;
     const strokeWidth = style.strokeWidth || '2';
-    const radius = Number.parseFloat(strokeWidth) * 2;
+    const stroked = style.stroke !== '' && style.stroke !== 'none';
+    const width = stroked ? Number.parseFloat(strokeWidth) : Number.NaN;
+    const radius = Math.max(Number.isFinite(width) ? width * 2 : 0, this.MIN_MARKER_RADIUS);
 
     const fragment = page.createDocumentFragment();
     const elements = centres.map(({ cx, cy }) => {
