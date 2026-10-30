@@ -51,6 +51,14 @@ const Review: React.FC = () => {
     };
   }, []);
 
+  // Focused without scrolling, as the braille field is: the field sits below
+  // the chart, and `autoFocus` scrolled it into view, which pushed the top of
+  // a chart taller than the window, with the point being read, off the
+  // screen while review was on.
+  useEffect(() => {
+    inputRef.current?.focus({ preventScroll: true });
+  }, []);
+
   return (
     <div id={id}>
       <input
@@ -61,7 +69,6 @@ const Review: React.FC = () => {
         size={50}
         type="text"
         autoComplete="off"
-        autoFocus
       />
     </div>
   );
