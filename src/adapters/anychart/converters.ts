@@ -4175,8 +4175,29 @@ function stampChoroplethAttributes(
 // Gantt task tree, axis scale and attribute stamping
 // ---------------------------------------------------------------------------
 
+const MS_PER_MINUTE = 60_000;
 const MS_PER_HOUR = 3_600_000;
 const MS_PER_DAY = 86_400_000;
+
+/**
+ * The zone AnyChart formats dates in, as `anychart.format.outputTimezone()`
+ * holds it: minutes behind UTC, counted as `Date.prototype.getTimezoneOffset()`
+ * counts them. Measured on AnyChart 8.13, `outputTimezone(-180)` shows UTC
+ * midnight as 03:00 and `outputTimezone(300)` as 19:00 the day before.
+ *
+ * @returns The offset, or 0 (UTC, AnyChart's default) when the page's
+ *   `anychart` global sets none or cannot be read
+ */
+function readOutputTimezoneOffset(): number {
+  try {
+    const offset = (globalThis as {
+      anychart?: { format?: { outputTimezone?: () => unknown } };
+    }).anychart?.format?.outputTimezone?.();
+    return typeof offset === 'number' && Number.isFinite(offset) ? offset : 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * The widest span a schedule may cover and still be read in hours. Two days —
@@ -6016,6 +6037,7 @@ function buildGanttLayer(
     });
   });
 
+  const offsetMs = readOutputTimezoneOffset() * MS_PER_MINUTE;
   return {
     id: '0',
     type: TraceType.GANTT,
@@ -6026,14 +6048,21 @@ function buildGanttLayer(
     // The positions stay readable as dates even though the lengths are now
     // counted in units: without this an end announces as the unit count it
     // is, which says how far along the axis a task sits and not when it runs.
+    // Formatted in the zone AnyChart draws its timeline in: UTC, shifted by
+    // `anychart.format.outputTimezone()` when the page sets one (see
+    // {@link readOutputTimezoneOffset}). Formatted in the reader's own zone, a
+    // schedule of UTC midnights was announced a day early everywhere west of
+    // Greenwich.
     axes: {
       x: {
         format: {
-          function: `return new Date(value * ${scale.perUnit}).${
+          function: `return new Date(value * ${scale.perUnit}${
+            offsetMs === 0 ? '' : ` ${offsetMs < 0 ? '+' : '-'} ${Math.abs(offsetMs)}`
+          }).${
             scale.perUnit === MS_PER_HOUR
-              ? 'toLocaleString()'
-              : 'toLocaleDateString()'
-          }`,
+              ? 'toLocaleString'
+              : 'toLocaleDateString'
+          }(undefined, { timeZone: 'UTC' })`,
         },
       },
     },
