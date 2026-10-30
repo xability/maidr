@@ -11,7 +11,7 @@
  * the grid the nesting makes: left to right along the top row, then the next
  * row down.
  */
-import type { VegaLiteSpec } from '@adapters/vegalite/types';
+import type { VegaLiteSpec, VegaView } from '@adapters/vegalite/types';
 import type { Maidr } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
 import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -93,6 +93,66 @@ describe('a vega-lite concat nested in a concat', () => {
     });
 
     expect(panels(maidr)).toEqual([['A', 'B', 'D'], ['C']]);
+  });
+
+  it('reads a three-level nesting in rows, a row shorter than the one above it', () => {
+    // A beside a column of B over C, all over D: the grid's rows are A and B,
+    // then C alone under B, then D.
+    const maidr = convert({ vconcat: [{ hconcat: [chart('A'), { vconcat: [chart('B'), chart('C')] }] }, chart('D')] });
+
+    expect(panels(maidr)).toEqual([['A', 'B'], ['C'], ['D']]);
+    expect(maidr.subplots.flat().map(subplot => subplot.layers[0].id)).toEqual(['0_0_0', '0_1_0_0', '0_1_1_0', '1_0']);
+  });
+
+  it('reads the columns of different heights in rows', () => {
+    const maidr = convert({ hconcat: [{ vconcat: [chart('A'), chart('B'), chart('C')] }, { vconcat: [chart('D')] }] });
+
+    expect(panels(maidr)).toEqual([['A', 'D'], ['B'], ['C']]);
+  });
+
+  it('names a layered nested child\'s layers after the path to it', () => {
+    const layered = {
+      title: 'B',
+      data: { values: [{ c: 'a', v: 1 }, { c: 'b', v: 2 }] },
+      layer: [
+        { mark: 'bar', encoding: { x: { field: 'c', type: 'nominal' }, y: { field: 'v', type: 'quantitative' } } },
+        { mark: 'line', encoding: { x: { field: 'c', type: 'nominal' }, y: { field: 'v', type: 'quantitative' } } },
+      ],
+    };
+
+    const maidr = convert({ vconcat: [{ hconcat: [chart('A'), layered] }, chart('C')] });
+
+    const b = maidr.subplots[0][1];
+    expect(b.layers.map(layer => layer.id)).toEqual(['0_1_0', '0_1_1']);
+    expect(String(b.layers[1].selectors)).toContain('g.mark-line.role-mark.concat_0_concat_1_layer_1_marks');
+  });
+
+  it('reads each nested chart from the dataset Vega numbers it by, depth first', () => {
+    // vega-lite 5.23 compiles three charts that bring their own data,
+    // `vconcat: [{ hconcat: [A, B] }, C]`, to datasets data_0, data_1 and
+    // data_2: the order the charts are parsed in, depth first, as a flat
+    // concat's are.
+    const own = (name: string, v: number): Record<string, unknown> => ({ ...chart(name), data: { values: [{ c: 'a', v }] } });
+    const datasets: Record<string, Array<Record<string, unknown>>> = {
+      data_0: [{ c: 'a', v: 1 }],
+      data_1: [{ c: 'a', v: 2 }],
+      data_2: [{ c: 'a', v: 3 }],
+    };
+    const view = {
+      data: (name: string) => {
+        if (!datasets[name])
+          throw new Error(`no dataset ${name}`);
+        return datasets[name];
+      },
+      container: () => null,
+      runAsync: async (): Promise<unknown> => view,
+      scale: () => undefined,
+    } as unknown as VegaView;
+
+    const maidr = vegaLiteToMaidr({ vconcat: [{ hconcat: [own('A', 10), own('B', 20)] }, own('C', 30)] } as unknown as VegaLiteSpec, view);
+
+    const values = maidr.subplots.flat().map(subplot => (subplot.layers[0].data as Array<{ y: number }>).map(bar => bar.y));
+    expect(values).toEqual([[1], [2], [3]]);
   });
 
   it('still falls back to the empty figure when a nested child has no mark to read', () => {
