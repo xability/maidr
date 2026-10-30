@@ -246,6 +246,18 @@ export const model = {
   'model.modalBinJoin': ' and ',
   'model.tableBinMin': 'Bin Min',
   'model.tableBinMax': 'Bin Max',
+  // A span of time, as a bin width on a date axis reads; One for a count
+  // of exactly 1.
+  'model.durationWeeksOne': '{count} week',
+  'model.durationWeeksMany': '{count} weeks',
+  'model.durationDaysOne': '{count} day',
+  'model.durationDaysMany': '{count} days',
+  'model.durationHoursOne': '{count} hour',
+  'model.durationHoursMany': '{count} hours',
+  'model.durationMinutesOne': '{count} minute',
+  'model.durationMinutesMany': '{count} minutes',
+  'model.durationSecondsOne': '{count} second',
+  'model.durationSecondsMany': '{count} seconds',
   // Pie chart labels.
   'model.asidePercentage': 'Percentage',
   'model.statNumberOfSlices': 'Number of slices',
