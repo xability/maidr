@@ -997,11 +997,13 @@ const links = [
   xLabel="Stage"
   yLabel="Accounts"
 >
-  <Sankey width={600} height={350} data={{ nodes, links }} link={{ stroke: '#8884d8' }} />
+  <Sankey width={600} height={350} data={{ nodes, links }} sort={false} link={{ stroke: '#8884d8' }} />
 </MaidrRecharts>
 ```
 
 `xKey` names the source field and the single `yKeys` entry the magnitude, so only the target needs a key of its own. Recharts addresses nodes by their index in the `nodes` array; the adapter resolves those indices back to names, because "flow from 1 to 3" names neither end. Links that already carry node names work without `nodes`.
+
+MAIDR reads the nodes of each column in the order the flows first name them, and Up and Down walk a column in that order. `<Sankey>` sorts each column by where its own layout settled the nodes, which can put them in another order on the page, so pass `sort={false}`: Recharts then draws a column's nodes in the order `nodes` lists them, and listing them in the order the flows first name them keeps the two in step.
 
 Set `chartType="sankey"` for the budget reading. Nothing else changes: the payload, the config and the selector are identical, and which of the two a figure is is a fact about the data — whether a node reappears at each stage — rather than anything the adapter emits.
 

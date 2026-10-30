@@ -10,6 +10,7 @@
  * sighted colleague were describing two different charts.
  */
 
+import type { FlowTrace } from '@model/flow';
 import type {
   BoxenPoint,
   GanttData,
@@ -20,12 +21,15 @@ import type {
 } from '@type/grammar';
 import type { ReactElement, ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, jest } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { cleanup, render } from '@testing-library/react';
 import { createElement } from 'react';
+import { AlluvialExample } from '../../../examples/recharts/examples/AlluvialExample';
 import { BoxenExample } from '../../../examples/recharts/examples/BoxenExample';
 import { GanttExample } from '../../../examples/recharts/examples/GanttExample';
 import { GaugeExample } from '../../../examples/recharts/examples/GaugeExample';
 import { IcicleExample } from '../../../examples/recharts/examples/IcicleExample';
+import { SankeyExample } from '../../../examples/recharts/examples/SankeyExample';
 import { SunburstExample } from '../../../examples/recharts/examples/SunburstExample';
 
 const seen: MaidrData[] = [];
@@ -185,5 +189,49 @@ describe('the recharts example apps', () => {
 
     expect(chart.querySelectorAll('.recharts-scatter-symbol')).toHaveLength(0);
     expect(outliers).toEqual([]);
+  });
+
+  it.each([
+    ['alluvial', AlluvialExample],
+    ['sankey', SankeyExample],
+  ])('draw the %s\'s columns in the order MAIDR walks them', (_name, example) => {
+    // Recharts sorted each column by its own layout, so Q2 was drawn Free,
+    // Churned, Paid and read Free, Paid, Churned: Up and Down ran against
+    // the drawing.
+    const { chart, layer } = draw(example);
+    const flows = layer.data as { source: string; target: string; value: number }[];
+    const through = (node: string): number => Math.max(
+      flows.filter(flow => flow.target === node).reduce((sum, flow) => sum + flow.value, 0),
+      flows.filter(flow => flow.source === node).reduce((sum, flow) => sum + flow.value, 0),
+    );
+    const rects = [...chart.querySelectorAll('path.recharts-sankey-node')].map(boxOf);
+    const columnsDrawn = [...new Set(rects.map(rect => rect.x))].sort((a, b) => a - b).map(x => rects.filter(rect => rect.x === x));
+
+    // Each column as MAIDR reads it, Up and Down from its first node.
+    const trace = TraceFactory.create(layer) as FlowTrace;
+    const read: string[][] = [];
+    for (let col = 0; trace.moveToIndex(0, col); col++) {
+      const column: string[] = [];
+      for (let row = 0; trace.moveToIndex(row, col); row++) {
+        const state = trace.state;
+        if (!state.empty && state.type === 'trace') {
+          column.push(String((state.text as { main?: { value?: unknown } }).main?.value));
+        }
+      }
+      read.push(column);
+    }
+    trace.dispose();
+    // A node is drawn as tall as what passes through it, so within a column
+    // the drawn rects and the nodes pair up by size, largest with largest.
+    const drawn = read.map((column, index) => {
+      const bySize = [...column].sort((a, b) => through(b) - through(a));
+      const rectsBySize = [...(columnsDrawn[index] ?? [])].sort((a, b) => b.height - a.height);
+      return [...rectsBySize.keys()]
+        .sort((a, b) => rectsBySize[a].y - rectsBySize[b].y)
+        .map(rank => bySize[rank]);
+    });
+
+    expect(columnsDrawn).toHaveLength(read.length);
+    expect(read).toEqual(drawn);
   });
 });

@@ -42,10 +42,14 @@ export function AlluvialExample(): JSX.Element {
         xLabel="Stage"
         yLabel="Accounts"
       >
+        {/* sort={false} draws each column's nodes in the order `nodes` lists
+            them, the order MAIDR reads them in; Recharts' own sort moved
+            Churned above Paid in Q2, so Up and Down ran against the drawing. */}
         <Sankey
           width={600}
           height={350}
           data={{ nodes, links }}
+          sort={false}
           nodePadding={40}
           margin={{ top: 10, right: 120, bottom: 10, left: 10 }}
           link={{ stroke: '#8884d8' }}

@@ -47,10 +47,13 @@ export function SankeyExample(): JSX.Element {
         xLabel="Stage"
         yLabel="Energy (PJ)"
       >
+        {/* sort={false} draws each column's nodes in the order `nodes` lists
+            them, the order MAIDR reads them in. */}
         <Sankey
           width={600}
           height={350}
           data={{ nodes, links }}
+          sort={false}
           nodePadding={30}
           margin={{ top: 10, right: 120, bottom: 10, left: 10 }}
           link={{ stroke: '#82ca9d' }}
