@@ -233,10 +233,16 @@ export class ViolinKdeTrace extends AbstractTrace {
 
     // No `Position` column: it was the raw index into the KDE sample array, a
     // number that appears in no announcement and means nothing to a reader.
+    //
+    // The last column holds each point's density, or its width where the
+    // producer sent no density, and is named for which: py-maidr and r-maidr
+    // send only the width the violin is drawn at, which the table called
+    // "Density" while the announcement called it something else again.
+    const sentDensity = this.points.some(violin => violin.some(point => point.density !== undefined));
     const headers = [
       isHorizontal ? this.yAxis : this.xAxis,
       isHorizontal ? this.xAxis : this.yAxis,
-      t('model.tableDensity'),
+      sentDensity ? t('model.tableDensity') : t('model.tableWidth'),
     ];
     // Sampled, not dumped. A curve arrives with of the order of a hundred
     // samples, so the full cross product filled the dialog's first page with
@@ -256,8 +262,8 @@ export class ViolinKdeTrace extends AbstractTrace {
 
     // The violin name sits on whichever axis carries the categories and the
     // sampled value on the other one, so both read the way the layer's own
-    // format asks for. `Density` is the height of the curve, which no axis
-    // declares.
+    // format asks for. The density or width is the height of the curve, which
+    // no axis declares.
     const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
       isHorizontal ? 'y' : 'x',
       isHorizontal ? 'x' : 'y',
@@ -600,12 +606,14 @@ export class ViolinKdeTrace extends AbstractTrace {
       crossAxis: isHorizontal ? 'x' : 'y',
     };
 
-    // Volume (width) in z field if available
+    // The width the violin is drawn at here, named as the width it is. It was
+    // announced as "volume", a word for nothing on the chart, while the data
+    // table called the same number "Density".
     const roundedWidth = currentPoint.width !== undefined && currentPoint.width > 0
       ? roundTo4(currentPoint.width)
       : undefined;
     if (roundedWidth !== undefined) {
-      textState.z = { label: t('model.asideVolume'), value: String(roundedWidth) };
+      textState.z = { label: t('model.asideWidth'), value: String(roundedWidth) };
     }
 
     return textState;

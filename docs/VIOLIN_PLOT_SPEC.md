@@ -484,18 +484,20 @@ The frontend asks `Svg.buildLineElements` for the `'bottom'` and `'top'` edges o
 
 **Verbose mode:**
 ```
-Cut Quality is Ideal, Price (USD) is 1810.5, volume is 0.8000
+Cut Quality is Ideal, Price (USD) is 1810.5, width is 0.8
 ```
 
-Format: `{xAxisLabel} is {categoryLabel}, {yAxisLabel} is {yValue}, volume is {densityValue}`
+Format: `{xAxisLabel} is {categoryLabel}, {yAxisLabel} is {yValue}, width is {widthValue}`
 
 - `categoryLabel`: From `point.x` field
 - `yValue`: Rounded to 4 decimal places
-- `densityValue`: Shown as "volume", rounded to 4 decimal places. Only shown if density > 0.
+- `widthValue`: The point's `width`, rounded to 4 decimal places. Only shown when the point carries a `width` greater than 0.
+
+The data table's last column holds `density`, or `width` where the layer sends no `density`, and is headed "Density" or "Width" to match.
 
 **Terse mode:**
 ```
-Ideal, 1810.5, 0.8000
+Ideal, 1810.5, 0.8
 ```
 
 ### 10.2 Box Layer Text
