@@ -57,6 +57,13 @@ export interface VegaView {
     signals?: (name?: string, operator?: unknown) => boolean;
     recurse?: boolean;
   }) => { data?: Record<string, unknown>; signals?: Record<string, unknown> } | undefined;
+  /**
+   * The drawn scenegraph. The adapter reads one thing from it: the rows the
+   * marks of a concat child are drawn from, which sit inside the child's
+   * group, out of {@link VegaView.data}'s reach. Optional for the same reason
+   * as `getState`.
+   */
+  scenegraph?: () => { root?: unknown } | undefined;
 }
 
 /**
