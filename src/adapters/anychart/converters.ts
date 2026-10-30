@@ -1326,6 +1326,8 @@ function enableLineMarkersIfNeeded(chart: AnyChartInstance): boolean {
  * - roughly square (aspect ratio < 5 — excludes ticks and short line
  *   segments which are very thin),
  * - not part of `<defs>` / `<clipPath>` (decorative or template shapes),
+ * - not a bar {@link stampBarAttributes} has already stamped, which runs
+ *   first: a short bar is as small as a marker,
  * - non-zero bbox (degenerate spacer paths such as `d="M 0,0"` are
  *   eliminated by the visibility check as well as by this guard).
  *
@@ -1351,6 +1353,12 @@ function collectLineMarkerCandidates(
 
   for (const el of Array.from(shapes)) {
     if (el.closest('defs, clipPath'))
+      continue;
+    // A bar the bar stamper has already claimed is a column's, however small.
+    // Measured on AnyChart 8.13, a column series' bars 30 px wide and 7 to 10
+    // px tall pass every test below, and on a chart combining it with a line
+    // the line was stamped on the bars and its own markers on nothing.
+    if (el.hasAttribute(BAR_ATTR))
       continue;
 
     let bbox: DOMRect | null = null;
