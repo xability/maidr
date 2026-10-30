@@ -51,6 +51,7 @@ import type {
   WordCloudPoint,
 } from '@type/grammar';
 import type {
+  AnyChartAxisTitle,
   AnyChartBinderOptions,
   AnyChartDataView,
   AnyChartGraphData,
@@ -203,13 +204,34 @@ export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
   return traceType;
 }
 
+/**
+ * The title's text, when the chart draws the title.
+ *
+ * AnyChart's default theme gives every title placeholder text and leaves it
+ * disabled: an untitled chart answers `text()` with "Chart Title" ("Pie Chart"
+ * on a pie), and an untitled axis with "X-Axis" or "Y-Axis", none of which the
+ * chart shows. `enabled()` is what says whether a title is drawn — it turns
+ * true when the title is set as a string or an object, and stays false when
+ * only `title().text()` is set — so a title that is not drawn is not read.
+ *
+ * @param title - A chart's or an axis' title object
+ * @returns Its text, or `undefined` when the chart does not draw it
+ */
+function drawnTitleText(
+  title: AnyChartTitle | AnyChartAxisTitle | null | undefined,
+): string | undefined {
+  if (!title || title.enabled?.() === false)
+    return undefined;
+  return title.text?.() ?? undefined;
+}
+
 /** Safely extract the title text from an AnyChart chart. */
 function extractTitle(chart: AnyChartInstance): string | undefined {
   try {
     const title = chart.title();
     if (typeof title === 'string')
       return title;
-    return (title as AnyChartTitle).text?.() ?? undefined;
+    return drawnTitleText(title);
   } catch {
     return undefined;
   }
@@ -225,7 +247,7 @@ function extractAxisTitle(
     if (!axisAccessor)
       return undefined;
     const axisObj = axisAccessor.call(chart, 0);
-    return axisObj?.title().text() ?? undefined;
+    return drawnTitleText(axisObj?.title());
   } catch {
     return undefined;
   }

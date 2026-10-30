@@ -135,6 +135,11 @@ export interface AnyChartTree {
 /** Title object returned by `chart.title()`. */
 export interface AnyChartTitle {
   text: () => string | undefined;
+  /**
+   * Whether the chart draws the title. AnyChart's default theme gives every
+   * title placeholder text and leaves it disabled until a title is set.
+   */
+  enabled?: () => boolean;
 }
 
 /** Axis label configuration. */
@@ -145,6 +150,8 @@ export interface AnyChartAxisLabels {
 /** Axis title configuration. */
 export interface AnyChartAxisTitle {
   text: () => string | undefined;
+  /** Whether the axis draws its title; see {@link AnyChartTitle.enabled}. */
+  enabled?: () => boolean;
 }
 
 /** An axis instance on a Cartesian chart. */

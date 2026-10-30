@@ -370,8 +370,8 @@ Left and Right move between slices; Up and Down are out of bounds, since a pie i
 ```ts
 bindAnyChart(chart, {
   id?: string;                                     // defaults to container element's id
-  title?: string;                                  // defaults to chart.title().text()
-  axes?: { x?: string; y?: string };               // override axis labels
+  title?: string;                                  // defaults to chart.title().text(), when the chart draws it
+  axes?: { x?: string; y?: string };               // override axis labels (default: the axis titles the chart draws)
   selectors?: Array<string | string[] | undefined>; // per-series CSS selectors for SVG highlighting
 });
 ```
