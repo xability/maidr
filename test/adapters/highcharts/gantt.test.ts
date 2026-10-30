@@ -43,21 +43,21 @@ describe('highcharts gantt series', () => {
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
 
     const data = layer.data as GanttData;
+    // Stated in days, the coarsest unit the shortest task fills; see the
+    // datetime cases below.
     expect(data.points).toEqual([
       [
-        { x: 'Design', start: 0, end: 2 * DAY, label: 'Wireframes' },
-        { x: 'Design', start: 3 * DAY, end: 4 * DAY, label: 'Revisions' },
+        { x: 'Design', start: 0, end: 2, label: 'Wireframes' },
+        { x: 'Design', start: 3, end: 4, label: 'Revisions' },
       ],
-      [{ x: 'Develop', start: DAY, end: 4 * DAY, label: 'API' }],
-      [{ x: 'Test', start: 4 * DAY, end: 6 * DAY, label: 'Regression' }],
+      [{ x: 'Develop', start: 1, end: 4, label: 'API' }],
+      [{ x: 'Test', start: 4, end: 6, label: 'Regression' }],
       // Nothing is booked in Ship, and an empty lane is a real statement about
       // a schedule — which is the whole reason the shape is nested.
       [],
     ]);
     expect(data.lanes).toEqual(LANES);
-    // A Highcharts datetime axis counts milliseconds, and a length is a
-    // difference along it.
-    expect(data.unit).toBe('ms');
+    expect(data.unit).toBe('days');
     expect(layer.axes?.x?.label).toBe('Date');
     expect(layer.axes?.y?.label).toBe('Task');
   });

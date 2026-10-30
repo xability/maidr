@@ -26,6 +26,7 @@ import type {
 } from '../../type/declaration';
 import type {
   AxisConfig,
+  AxisFormat,
   BarPoint,
   BoxPoint,
   CandlestickPoint,
@@ -59,6 +60,7 @@ import type {
   SurvivalPoint,
   ThresholdOptions,
   TreemapPoint,
+  TypeGuide,
   VennPoint,
   VolcanoPoint,
   WaterfallKind,
@@ -565,10 +567,26 @@ function radialLineType(
   return undefined;
 }
 
+/**
+ * What one of a series' axes is called: the title the chart draws on it.
+ *
+ * An axis the chart draws untitled -- every x axis Highcharts draws without a
+ * `title.text` -- is left unlabelled rather than called "X", so MAIDR says its
+ * label is not available instead of naming it after a coordinate. So is an
+ * axis the chart hides: Highcharts gives every y axis the title "Values" by
+ * default, and a hidden one still carries it, though it is drawn nowhere.
+ *
+ * @param series - The series whose axis is named
+ * @param axis - Which of its two axes
+ * @returns The axis' label, or none
+ */
 function getAxisLabel(series: HighchartsSeries, axis: 'x' | 'y'): AxisConfig {
   const axisObj = axis === 'x' ? series.xAxis : series.yAxis;
-  const label = axisObj?.options?.title?.text ?? (axis === 'x' ? 'X' : 'Y');
-  return { label };
+  if (axisObj?.options?.visible === false) {
+    return {};
+  }
+  const label = axisObj?.options?.title?.text;
+  return typeof label === 'string' && label.trim() !== '' ? { label } : {};
 }
 
 /**
@@ -633,6 +651,26 @@ function pointLabel(point: HighchartsPoint): string | number {
     ?? point.category
     ?? point.name
     ?? point.x;
+}
+
+/**
+ * What a point that sits on no category axis is called: the name its data
+ * label prints -- a pie's slice, a funnel's stage, a word cloud's term.
+ *
+ * {@link pointLabel} asks `point.category` before `point.name`, and on these
+ * series the category is no name. Highcharts 13 fills it on every point, with
+ * the x axis' category where there is one and the point's own `x` otherwise
+ * (`categories?.[x] ?? x`), so it held each slice's index, and every slice,
+ * stage and term was announced as 0, 1, 2. Highcharts names such a point by
+ * its `name` first itself, in `point.key`.
+ *
+ * @param point - The point to name
+ * @returns Its name, or {@link pointLabel}'s answer when it has none
+ */
+function pointName(point: HighchartsPoint): string | number {
+  return typeof point.name === 'string' && point.name !== ''
+    ? point.name
+    : pointLabel(point);
 }
 
 /**
@@ -1769,7 +1807,7 @@ function convertSeries(
     // already carries — so both read as the same schedule of intervals.
     case 'gantt':
     case 'xrange':
-      return convertGanttSeries(series, containerId);
+      return convertGanttSeries(series, chart, containerId);
     case 'boxplot':
       return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
@@ -3034,6 +3072,22 @@ function timelineEventLabel(point: HighchartsPoint): string | undefined {
   return unique.length > 0 ? unique.join(', ') : undefined;
 }
 
+/** What a timeline is called wherever MAIDR names the chart's type. */
+const TIMELINE_TYPE_LABEL = 'Timeline';
+
+/**
+ * The description's guide to a timeline, in place of the scatter plot's.
+ *
+ * Written for the chart Highcharts draws rather than taken from MAIDR's own
+ * timeline diagram, whose guide describes events grouped under periods: a
+ * Highcharts timeline is one row of events, with no periods at all.
+ */
+const TIMELINE_TYPE_GUIDE: TypeGuide = {
+  definition: 'A timeline shows events in the order they happened, as points along a line.',
+  purpose: 'It is used to tell the story of something at a glance, such as the milestones of space exploration.',
+  appearance: 'Each event is a dot on a line, with a box beside it giving its name and often its date. The boxes alternate between the two sides of the line.',
+};
+
 /**
  * Converts a `timeline` series into a labelled scatter layer.
  *
@@ -3091,6 +3145,11 @@ function convertTimelineSeries(
       y: getAxisLabel(series, 'y'),
     },
     data,
+    // Read as a scatter, and named as the chart it is: without these the
+    // reader was told it was a scatter plot, "used to see whether two
+    // measures are related", of a chart that measures nothing.
+    typeLabel: TIMELINE_TYPE_LABEL,
+    typeGuide: TIMELINE_TYPE_GUIDE,
   };
 }
 
@@ -3265,8 +3324,7 @@ function convertVariwideSeries(
 
 /**
  * What a funnel's two dimensions are called. Like a pie, a funnel series is
- * bound to no axis, so {@link getAxisLabel}'s `'X'` / `'Y'` fallback would
- * name them after coordinates the chart does not have.
+ * bound to no axis, so {@link getAxisLabel} has no title to read for either.
  */
 const FUNNEL_STAGE_AXIS = 'Stage';
 const FUNNEL_COUNT_AXIS = 'Count';
@@ -3292,7 +3350,7 @@ function convertFunnelSeries(
   const data: BarPoint[] = series.data
     .filter(p => p.y != null)
     .map(p => ({
-      x: pointLabel(p),
+      x: pointName(p),
       y: p.y as number,
     }));
 
@@ -3339,7 +3397,7 @@ function convertWordCloudSeries(
   const data: WordCloudPoint[] = series.data
     .filter(p => (p.weight ?? p.y) !== null)
     .map(p => ({
-      x: String(pointLabel(p)),
+      x: String(pointName(p)),
       y: (p.weight ?? p.y) as number,
     }))
     .sort((a, b) => Number(b.y) - Number(a.y));
@@ -3456,8 +3514,7 @@ function convertNetworkSeries(
 
 /**
  * What a hierarchy's two dimensions are called — a treemap and a sunburst are
- * bound to no axis, so `getAxisLabel`'s `'X'` / `'Y'` fallback would name them
- * after coordinates neither chart has.
+ * bound to no axis, so `getAxisLabel` has no title to read for either.
  */
 const TREE_NODE_AXIS = 'Node';
 const TREE_VALUE_AXIS = 'Value';
@@ -4579,14 +4636,170 @@ function convertDumbbellSeries(
 }
 
 /**
- * What MAIDR calls a unit of a datetime axis.
- *
- * A Highcharts datetime axis counts milliseconds, and an interval's length is
- * a difference along it, so that is the unit — announced rather than converted
- * because `start` and `end` have to stay in the axis' own numbers for the
- * panning to place them where the chart draws them.
+ * The units a datetime schedule is announced in, coarsest first, with the
+ * milliseconds in one of each.
+ */
+const GANTT_UNITS: { unit: string; ms: number }[] = [
+  { unit: 'days', ms: 86_400_000 },
+  { unit: 'hours', ms: 3_600_000 },
+  { unit: 'minutes', ms: 60_000 },
+  { unit: 'seconds', ms: 1000 },
+];
+
+/**
+ * The unit of a datetime axis itself: Highcharts counts milliseconds. A
+ * schedule stays in it when nothing on it lasts a second, or when the page
+ * cannot compile the format that would read a coarser unit back as dates.
  */
 const GANTT_DATETIME_UNIT = 'ms';
+
+/** How a datetime schedule is read; see {@link ganttTimeScale}. */
+interface GanttTimeScale {
+  /** The milliseconds in one unit of the positions emitted. */
+  ms: number;
+  /** What one of those units is called. */
+  unit: string;
+  /** The time axis' format, which writes a position as the date it names. */
+  format: AxisFormat;
+}
+
+/**
+ * How a datetime schedule is read: the unit its positions and lengths are
+ * stated in, and the format that writes a position as the date it names.
+ *
+ * A Highcharts datetime axis counts milliseconds since 1970, and a task
+ * announced as running from 1,704,067,200,000 to 1,704,412,800,000 for
+ * 345,600,000 ms has not been announced. So the positions are restated in the
+ * coarsest unit the shortest task fills, and the length reads "4 days"; the
+ * format multiplies a position back into milliseconds and writes the date, in
+ * the time zone the chart draws its dates in. A start and an end divided by
+ * the same number keep their places along the axis, so the panning that
+ * places each task where the chart draws it is unchanged.
+ *
+ * The format rounds that product. A time that is not a whole number of units,
+ * such as 08:40 on a schedule read in days, is a fraction no binary number
+ * states exactly, so the product can fall short of it by a fraction of a
+ * millisecond; `Date` drops the fraction, and 08:40 was written as 08:39.
+ *
+ * That format is a function body MAIDR compiles. A page whose Content Security
+ * Policy forbids compiling one would read the restated positions as bare
+ * numbers, so there they stay in milliseconds and are written through the
+ * eval-free date format: the dates still read, and only the lengths stay in
+ * milliseconds.
+ *
+ * @param chart - The chart, for the time zone it draws dates in
+ * @param points - The schedule's intervals, in milliseconds
+ * @returns How to read them
+ */
+function ganttTimeScale(chart: HighchartsChart, points: GanttPoint[]): GanttTimeScale {
+  const timeZone = chartTimeZone(chart);
+  const stamps = points.flatMap(point => [point.start, point.end]);
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    ...(allAtMidnight(stamps, timeZone) ? {} : { hour: '2-digit', minute: '2-digit' }),
+    ...(timeZone === undefined ? {} : { timeZone }),
+  };
+
+  // Reduced rather than spread into Math.min, which a long enough schedule
+  // would overflow. Milestones last no time and are left out, or every
+  // schedule with one would be read in milliseconds.
+  const shortest = points.reduce((least, point) => {
+    const length = point.end - point.start;
+    return Number.isFinite(length) && length > 0 ? Math.min(least, length) : least;
+  }, Number.POSITIVE_INFINITY);
+  const scale = Number.isFinite(shortest)
+    ? GANTT_UNITS.find(candidate => shortest >= candidate.ms)
+    : undefined;
+  if (scale === undefined || !canCompileFormat()) {
+    return {
+      ms: 1,
+      unit: GANTT_DATETIME_UNIT,
+      format: { type: 'date', dateOptions },
+    };
+  }
+  return {
+    ms: scale.ms,
+    unit: scale.unit,
+    format: {
+      function: `return new Date(Math.round(value * ${scale.ms})).toLocaleString('en-US', ${JSON.stringify(dateOptions)});`,
+    },
+  };
+}
+
+/**
+ * The time zone a chart draws its dates in, or undefined for the browser's
+ * own.
+ *
+ * Highcharts 12 and later resolve it onto `chart.time.timezone`, leaving it
+ * undefined for the browser's zone; earlier versions say so with `useUTC`.
+ * Both default to UTC, which is what a chart that carries no `time` gets.
+ *
+ * @param chart - The chart
+ * @returns An IANA zone name, or undefined
+ */
+function chartTimeZone(chart: HighchartsChart): string | undefined {
+  const time = chart.time;
+  if (time === undefined) {
+    return 'UTC';
+  }
+  if ('timezone' in time) {
+    return typeof time.timezone === 'string' ? time.timezone : undefined;
+  }
+  return time.useUTC === false ? undefined : 'UTC';
+}
+
+/**
+ * Whether every instant falls on midnight where the chart draws it, so a date
+ * alone names each one.
+ *
+ * @param stamps - Milliseconds since 1970
+ * @param timeZone - The zone the chart draws dates in, undefined for local
+ * @returns True when each is at midnight
+ */
+function allAtMidnight(stamps: number[], timeZone: string | undefined): boolean {
+  let clock: Intl.DateTimeFormat;
+  try {
+    clock = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hourCycle: 'h23',
+      timeZone,
+    });
+  } catch {
+    // A zone this browser cannot name: say the time rather than drop it.
+    return false;
+  }
+  return stamps.filter(Number.isFinite).every(stamp => clock.formatToParts(new Date(stamp))
+    .filter(part => part.type === 'hour' || part.type === 'minute' || part.type === 'second')
+    .every(part => Number(part.value) === 0));
+}
+
+/** What {@link canCompileFormat} found, once it has asked. */
+let formatsCompile: boolean | undefined;
+
+/**
+ * Whether the page lets MAIDR compile a format function -- a Content Security
+ * Policy without `unsafe-eval` does not.
+ *
+ * Asked once per page: under such a policy every attempt reports a violation,
+ * and a chart converted again on each redraw would report one every time.
+ *
+ * @returns True when `new Function` works
+ */
+function canCompileFormat(): boolean {
+  if (formatsCompile === undefined) {
+    try {
+      // eslint-disable-next-line no-new-func
+      formatsCompile = new Function('return true')() === true;
+    } catch {
+      formatsCompile = false;
+    }
+  }
+  return formatsCompile;
+}
 
 /**
  * Converts a `gantt` or `xrange` series into a gantt layer.
@@ -4609,6 +4822,7 @@ const GANTT_DATETIME_UNIT = 'ms';
  */
 function convertGanttSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
   const categories = series.yAxis?.categories ?? [];
@@ -4632,15 +4846,26 @@ function convertGanttSeries(
     (_, lane) => categories[lane] ?? lane,
   );
 
+  const points = laneSources.map((lane, index) => lane.map(point => ({
+    x: lanes[index],
+    start: point.x,
+    end: point.x2 ?? point.x,
+    ...(point.name ? { label: point.name } : {}),
+  } satisfies GanttPoint)));
+  const time = isDatetimeAxis(series.xAxis)
+    ? ganttTimeScale(chart, points.flat())
+    : undefined;
+
   const data: GanttData = {
-    points: laneSources.map((lane, index) => lane.map(point => ({
-      x: lanes[index],
-      start: point.x,
-      end: point.x2 ?? point.x,
-      ...(point.name ? { label: point.name } : {}),
-    } satisfies GanttPoint))),
+    points: time === undefined
+      ? points
+      : points.map(lane => lane.map(point => ({
+          ...point,
+          start: point.start / time.ms,
+          end: point.end / time.ms,
+        }))),
     lanes,
-    ...(isDatetimeAxis(series.xAxis) ? { unit: GANTT_DATETIME_UNIT } : {}),
+    ...(time === undefined ? {} : { unit: time.unit }),
   };
 
   stampGanttIndices(laneSources);
@@ -4654,7 +4879,10 @@ function convertGanttSeries(
     orientation: Orientation.HORIZONTAL,
     selectors: ganttSelectors(containerId, series.index, laneSources.flat().length),
     axes: {
-      x: getAxisLabel(series, 'x'),
+      x: {
+        ...getAxisLabel(series, 'x'),
+        ...(time === undefined ? {} : { format: time.format }),
+      },
       y: getAxisLabel(series, 'y'),
     },
     data,
@@ -4912,8 +5140,8 @@ function convertSignificanceSeries(
 
 /**
  * What a pie's two dimensions are called. A pie series is bound to no axis, so
- * {@link getAxisLabel}'s `'X'` / `'Y'` fallback would name them after
- * coordinates a pie does not have; these name what each one actually holds.
+ * {@link getAxisLabel} has no title to read for either; these name what each
+ * one actually holds.
  */
 const PIE_LABEL_AXIS = 'Label';
 const PIE_VALUE_AXIS = 'Value';
@@ -4934,7 +5162,7 @@ function convertPieSeries(
   const data: PiePoint[] = series.data
     .filter(p => p.y != null)
     .map(p => ({
-      x: pointLabel(p),
+      x: pointName(p),
       y: p.y as number,
     }));
 
@@ -5361,6 +5589,7 @@ function convertHeatmapSeries(
   // mapping independent of Highcharts' DOM insertion order (which may be
   // row- or column-major depending on how `series.data` was provided).
   stampHeatmapIndices(series);
+  const valueLabel = cellValueLabel(series);
 
   return {
     id: String(series.index),
@@ -5370,9 +5599,30 @@ function convertHeatmapSeries(
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
+      ...(valueLabel === undefined ? {} : { z: { label: valueLabel } }),
     },
     data,
   };
+}
+
+/**
+ * What a heatmap's cell values are called: the title of the colour axis that
+ * shades them, or else the series' name, which heads the tooltip Highcharts
+ * shows for every cell.
+ *
+ * Without one MAIDR names the values with its generic "Level", so a chart
+ * whose cells measure activity announced "Level is 60" where its tooltip says
+ * "Activity".
+ *
+ * @param series - The heatmap series
+ * @returns The name, or undefined when the chart gives none
+ */
+function cellValueLabel(series: HighchartsSeries): string | undefined {
+  const title = series.colorAxis?.options?.title?.text;
+  if (typeof title === 'string' && title.trim() !== '') {
+    return title;
+  }
+  return series.name?.trim() ? series.name : undefined;
 }
 
 /**
@@ -5539,8 +5789,7 @@ function stampHexbinIndices(rows: HighchartsPoint[][]): void {
 /**
  * What a choropleth's two dimensions are called. A `map` series is bound to no
  * axis a title could be read from — the value runs along a colour axis and the
- * regions along nothing at all — so {@link getAxisLabel}'s `'X'` / `'Y'`
- * fallback would name them after coordinates the chart does not have.
+ * regions along nothing at all — so {@link getAxisLabel} has none to read.
  */
 /** What a map marker's own coordinates are called when it has no other axis. */
 const MAP_LONGITUDE_AXIS = 'Longitude';

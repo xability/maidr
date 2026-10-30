@@ -159,6 +159,16 @@ export interface HighchartsChart {
     hide: () => void;
   };
   /**
+   * The time settings the chart draws its dates with. Highcharts 12 and later
+   * resolve the zone onto `timezone`, leaving it undefined for the browser's
+   * own; earlier versions say whether it is UTC with `useUTC`. Both default
+   * to UTC.
+   */
+  time?: {
+    timezone?: string;
+    useUTC?: boolean;
+  };
+  /**
    * The Highmaps view (v10+) — the thing that knows the projection a map is
    * drawn through, and the only way back from where a shape sits to where it
    * is on the globe.
@@ -243,6 +253,11 @@ export interface HighchartsSeries {
   nodes?: HighchartsNode[];
   xAxis: HighchartsAxis;
   yAxis: HighchartsAxis;
+  /**
+   * The colour axis a heatmap or a map shades its cells by, when the chart
+   * has one. Its title, when drawn, names what the colours measure.
+   */
+  colorAxis?: HighchartsAxis;
   index: number;
   visible: boolean;
   /**
@@ -474,6 +489,11 @@ export interface HighchartsAxis {
   options: {
     title?: { text?: string };
     type?: string;
+    /**
+     * False on an axis the chart does not draw — a timeline's, usually. Its
+     * title is then drawn nowhere, though Highcharts still fills one in.
+     */
+    visible?: boolean;
     /** Declares {@link HighchartsAxis.reversed}; read as its fallback. */
     reversed?: boolean;
     /**
