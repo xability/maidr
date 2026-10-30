@@ -68,7 +68,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 | `VictoryScatter` | Scatter plot | ✅ | |
 | `VictoryStack` | Stacked bar chart | ✅ | Each child `<VictoryBar name="...">` becomes one series. |
 | `VictoryGroup` | Dodged bar chart | ✅ | A group of `<VictoryBar>` children. Wrapping anything else, the group is read through: each child becomes the layer it would be on its own. |
-| `VictoryHistogram` | Histogram | ⚠️ | The adapter derives equal-width bins from the raw values, which may not exactly match Victory's rendered bins. |
+| `VictoryHistogram` | Histogram | ✅ | The bins are the ones Victory draws, read from its own binning of the raw values. |
 | `VictoryBoxPlot` | Box plot | ✅ | Per-section highlight (min, Q1, median, Q3, max). Requires pre-computed statistics. |
 | `VictoryCandlestick` | Candlestick chart | ✅ | Per-section highlight (open, high, low, close, volatility). |
 | `VictoryPie` | Pie chart | ✅ | A doughnut is the same component with an `innerRadius`. Standing alone it has no `VictoryAxis` to read labels from, so the axes are named `Category` and `Value`; wrap it in a `<VictoryChart>` with axis labels to override. |
@@ -194,7 +194,7 @@ each becomes its own polar area rather than a band of one dodged layer.
 
 ### Histogram
 
-Pass raw observations; the adapter derives equal-width bins. Use the `bins` prop to control the bin count.
+Pass raw observations. Victory bins them as it draws them, and the adapter reads those bins rather than deriving its own: a `bins` count is cut at d3's nice thresholds, an array of `bins` at its edges, and no `bins` at Sturges' count.
 
 ```tsx
 <MaidrVictory id="histogram-example" title="Value Distribution">
@@ -208,8 +208,6 @@ Pass raw observations; the adapter derives equal-width bins. Use the `bins` prop
   </VictoryChart>
 </MaidrVictory>
 ```
-
-> **Note:** Victory computes histogram bins internally during render, while the adapter derives bins from the raw values independently. The described bins may not perfectly match the drawn bars.
 
 ### Box Plot
 
