@@ -342,7 +342,7 @@ export const model = {
   'model.intersectionCoords': 'x={x}, y={y}',
   'model.intersectionCoordsBetween': 'x {from} और {to} के बीच, y={y}',
   'model.intersectionCoordsBetweenAxes': 'x {from} और {to} के बीच',
-  'model.intersectionAtLines': '{lines} पर प्रतिच्छेदन',
+  'model.intersectionAtLines': '({lines}) पर प्रतिच्छेदन',
   'model.nounBand': 'बैंड',
   'model.statNumberOfBands': 'बैंड की संख्या',
   'model.statPointsPerBand': 'प्रति बैंड बिंदु',
