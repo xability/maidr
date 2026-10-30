@@ -1884,6 +1884,35 @@ function splitTwoSegmentPath(path: SVGElement): SVGElement[] {
 }
 
 /**
+ * How far a whisker stem's inner end may sit from the box edge it starts at.
+ * AnyChart draws the two from the same coordinate, so this covers rounding.
+ */
+const WHISKER_EDGE_TOLERANCE_PX = 1;
+
+/**
+ * Whether one subpath of a whisker path is a stem rather than a cap.
+ *
+ * A stem runs out from the box's top or bottom edge, so one of its ends sits
+ * on that edge; a cap sits at the far end, drawn flat across the stem or, at
+ * AnyChart's default whisker width of zero, as a single point. Position is
+ * what tells them apart, not length: a stem is only as long as the gap between
+ * the quartile and the extreme, and a set whose minimum is two units below its
+ * first quartile draws one about a pixel long.
+ *
+ * @param segment - The subpath's geometric box
+ * @param iq - The box it belongs to
+ * @returns True for a vertical stroke with an end on the box's top or bottom
+ */
+function isWhiskerStem(segment: DOMRect, iq: IqCandidate): boolean {
+  if (segment.height <= 0 || segment.width > WHISKER_EDGE_TOLERANCE_PX)
+    return false;
+  const touches = (end: number, edge: number): boolean =>
+    Math.abs(end - edge) <= WHISKER_EDGE_TOLERANCE_PX;
+  return touches(segment.y + segment.height, iq.bbox.y)
+    || touches(segment.y, iq.bbox.y + iq.bbox.height);
+}
+
+/**
  * Resolve the whisker DOM for a given IQR box and return the two split
  * segments labeled by orientation relative to the box center.
  *
@@ -1945,14 +1974,7 @@ function findWhiskerElements(
           } catch {
             segBox = null;
           }
-          if (!segBox || segBox.width < 0 || segBox.height <= 0)
-            continue;
-          // Per-segment cap filter (defensive: combined-bbox check above
-          // should already cover this, but split-clone bboxes can differ).
-          if (segBox.height < 2)
-            continue;
-          // Each segment should be vertical-ish on its own.
-          if (segBox.height < Math.max(segBox.width, 1) * BOX_ASPECT_THRESHOLD)
+          if (!segBox || !isWhiskerStem(segBox, iq))
             continue;
           const segCy = segBox.y + segBox.height / 2;
           out.push({ el: seg, isUpper: segCy < iq.cy });
