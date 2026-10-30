@@ -1616,10 +1616,23 @@ function traceName(trace: PlotlyTrace, layout: PlotlyFullLayout | undefined): st
   const written = authoredName(trace);
   if (written !== undefined)
     return written;
-  const listed = layout?.showlegend === true
+  const listed = listedInLegend(trace, layout);
+  return listed && typeof trace.name === 'string' && trace.name.trim() !== '' ? trace.name : undefined;
+}
+
+/**
+ * Whether the chart's legend lists a trace, and so shows its name: the
+ * layout's `showlegend`, which Plotly turns on by itself for two traces or
+ * more, and the trace's own. A pie's legend lists its slices, not the trace.
+ *
+ * @param trace - The trace, from `_fullData` or `gd.data`
+ * @param layout - The figure's full layout
+ * @returns Whether the legend lists it
+ */
+function listedInLegend(trace: PlotlyTrace, layout: PlotlyFullLayout | undefined): boolean {
+  return layout?.showlegend === true
     && trace.showlegend === true
     && !SLICE_LEGEND_TYPES.has(trace.type ?? 'scatter');
-  return listed && typeof trace.name === 'string' && trace.name.trim() !== '' ? trace.name : undefined;
 }
 
 /**
@@ -2583,6 +2596,11 @@ function extractMultiLineLayer(
     const len = Math.min(x.length, y.length);
     const series: LinePoint[] = [];
     const seriesName = trace.name ?? `Series ${data.length + 1}`;
+    // A series is named on its points, and so announced, where the chart
+    // names it: in a layer of several, where the name tells them apart, or
+    // in the legend. A lone line plotly draws no legend for is named nowhere
+    // on the chart, so its points carry no name.
+    const named = lineTraces.length > 1 || listedInLegend(trace, gd._fullLayout);
 
     for (let i = 0; i < len; i++) {
       // Plotly uses `null` for line gaps (`y: [1, null, 3]`). Skip them (rather
@@ -2594,7 +2612,7 @@ function extractMultiLineLayer(
       series.push({
         x: x[i] as number | string,
         y: Number(y[i]),
-        z: seriesName,
+        ...(named ? { z: seriesName } : {}),
       });
     }
 
