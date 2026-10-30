@@ -930,6 +930,81 @@ function sortHistogramBinsByVisualOrder(
 }
 
 /**
+ * The row Vega bound to a rendered mark, or `undefined` when there is none.
+ *
+ * Vega's SVG renderer keeps the scenegraph item a node was drawn for on the
+ * node's `__data__`, and the item keeps the data row it came from on `datum`
+ * -- the same pairing `resolveMarkItemData` reads off the view's mark
+ * datasets.
+ *
+ * @param element - A rendered mark
+ * @returns The row the mark was drawn from, when the renderer bound one
+ */
+function boundRow(element: Element): Record<string, unknown> | undefined {
+  const item = (element as { __data__?: { datum?: unknown } }).__data__;
+  const datum = item?.datum;
+  return typeof datum === 'object' && datum !== null && !Array.isArray(datum)
+    ? datum as Record<string, unknown>
+    : undefined;
+}
+
+/** One drawn heatmap cell: where the chart put it, and the row behind it. */
+interface DrawnCell {
+  element: SVGGraphicsElement;
+  cx: number;
+  cy: number;
+  /** Visual row, counted from the top. */
+  row: number;
+  /** Visual column, counted from the left. */
+  col: number;
+  /** The row Vega bound to the cell, when it bound one. */
+  datum?: Record<string, unknown>;
+}
+
+/**
+ * The column of the cells' rows that one heatmap axis is read from.
+ *
+ * The pass is handed an axis' labels rather than its field, so the field is
+ * recognised from the rows: every cell carries it, its values are exactly the
+ * axis' labels, and it stays the same along the line of cells the axis names
+ * -- a column of the grid for x, a row for y. That last test is what tells the
+ * two axes apart when they share their labels, as a correlation matrix's do.
+ *
+ * @param cells  - The drawn cells, each with its row
+ * @param labels - The axis' labels
+ * @param lineOf - Which line of the grid a cell is on along this axis
+ * @returns The field, or `undefined` when no column qualifies
+ */
+function axisField(
+  cells: readonly DrawnCell[],
+  labels: readonly string[],
+  lineOf: (cell: DrawnCell) => number,
+): string | undefined {
+  const first = cells[0]?.datum;
+  if (!first) {
+    return undefined;
+  }
+  const wanted = new Set(labels);
+  return Object.keys(first).find((field) => {
+    const lineLabel = new Map<number, string>();
+    const seen = new Set<string>();
+    for (const cell of cells) {
+      if (!cell.datum || !(field in cell.datum)) {
+        return false;
+      }
+      const label = String(cell.datum[field] ?? '');
+      const line = lineOf(cell);
+      if (!wanted.has(label) || (lineLabel.get(line) ?? label) !== label) {
+        return false;
+      }
+      lineLabel.set(line, label);
+      seen.add(label);
+    }
+    return seen.size === wanted.size;
+  });
+}
+
+/**
  * For HEATMAP layers, reconcile the data layout (`HeatmapData.x`,
  * `.y`, `.points`) and the DOM emission order with the **visual grid
  * layout** that Vega-Lite renders.
@@ -939,8 +1014,6 @@ function sortHistogramBinsByVisualOrder(
  * Vega-Lite emits one mark per dataset row in **input row order**,
  * which does NOT necessarily match the visual grid laid out by the
  * x/y scales (which are typically alphabetical or by scale-domain).
- * `extractHeatmapData` builds `points[yi][xi]` using `Set`-insertion
- * order of labels — also dataset-driven, not visual.
  *
  * `Heatmap.mapToSvgElements`'s SVGPath branch (the one our adapter
  * hits, since `buildSelector` returns `path` for `mark: 'rect'`)
@@ -954,19 +1027,22 @@ function sortHistogramBinsByVisualOrder(
  * on the wrong cell while the announced text matches the data —
  * the "highlight jumps randomly" symptom.
  *
+ * A cell's place in the DOM says nothing about which cell of the payload it
+ * is: `extractHeatmapData` orders both axes by the compiled scales' domains
+ * (#977), not by the order the rows arrive in. So each drawn cell is named by
+ * the row Vega bound to it, which also covers a scale drawn the other way
+ * round, whose domain order is not its top-to-bottom order.
+ *
  * Strategy
  * --------
- * 1. Detect the current DOM↔data pairing convention (row-major or
- *    column-major) from the rects of `DOM[0]` vs `DOM[1]`.
- * 2. Annotate each DOM element with its current `(yi, xi)` data
- *    coordinates and visual centre.
- * 3. Cluster sorted-by-y elements into visual rows (using a
- *    half-cell-height tolerance).
- * 4. Within each row, sort left-to-right by x.
- * 5. Rebuild `HeatmapData` so `y` is top-to-bottom labels, `x` is
+ * 1. Cluster the cells sorted by y into visual rows (using a
+ *    half-cell-height tolerance), each sorted left to right.
+ * 2. Name each visual row and column from the rows Vega bound to the cells;
+ *    without them, keep the converter's scale-ordered grid.
+ * 3. Rebuild `HeatmapData` so `y` is top-to-bottom labels, `x` is
  *    left-to-right labels, and `points[r][c]` is the value at the
  *    visual cell at row `r` (from top) and column `c` (from left).
- * 6. Re-append DOM nodes in row-major visual order.
+ * 4. Re-append DOM nodes in row-major visual order.
  *
  * The model's existing reverse on `y` and `points` then makes
  * navigation row 0 = visual bottom, which is what sighted users
@@ -996,8 +1072,7 @@ function sortHeatmapCellsByVisualOrder(
     const ny = data.y.length;
     const nx = data.x.length;
     const expected = nx * ny;
-    // A 0- or 1-cell heatmap needs no visual reordering; bail early so
-    // the single-cell case never dereferences elements[1] below.
+    // A 0- or 1-cell heatmap needs no visual reordering.
     if (expected < 2) {
       continue;
     }
@@ -1018,47 +1093,24 @@ function sortHeatmapCellsByVisualOrder(
       continue;
     }
 
-    // 1. Detect DOM emission convention from first two elements.
-    //    If they share roughly the same y, DOM is row-major
-    //    (incrementing xi first within a row). Otherwise we treat it
-    //    as column-major (incrementing yi first within a column).
-    const r0 = elements[0].getBoundingClientRect();
-    const r1 = elements[1].getBoundingClientRect();
-    const cellHeight = r0.height || r0.width || 1;
-    const sameRow = Math.abs(r0.y - r1.y) < cellHeight / 2;
-    const isRowMajor = sameRow;
-
-    // 2. Annotate each DOM element with its (yi, xi) and centre.
-    interface Cell {
-      element: SVGGraphicsElement;
-      yi: number;
-      xi: number;
-      value: number;
-      yLabel: string;
-      xLabel: string;
-      cy: number;
-      cx: number;
-    }
-    const cells: Cell[] = elements.map((element, k) => {
-      const yi = isRowMajor ? Math.floor(k / nx) : k % ny;
-      const xi = isRowMajor ? k % nx : Math.floor(k / ny);
+    const first = elements[0].getBoundingClientRect();
+    const cellHeight = first.height || first.width || 1;
+    const cells: DrawnCell[] = elements.map((element) => {
       const rect = element.getBoundingClientRect();
       return {
         element,
-        yi,
-        xi,
-        value: data.points[yi]?.[xi] ?? 0,
-        yLabel: data.y[yi] ?? '',
-        xLabel: data.x[xi] ?? '',
-        cy: rect.y + rect.height / 2,
         cx: rect.x + rect.width / 2,
+        cy: rect.y + rect.height / 2,
+        row: 0,
+        col: 0,
+        datum: boundRow(element),
       };
     });
 
-    // 3. Sort by visual y, then cluster into rows by y proximity.
+    // 1. Sort by visual y, then cluster into rows by y proximity.
     const tolerance = cellHeight / 2;
     const byCy = [...cells].sort((a, b) => a.cy - b.cy);
-    const rows: Cell[][] = [];
+    const rows: DrawnCell[][] = [];
     for (const cell of byCy) {
       const last = rows[rows.length - 1];
       if (last && Math.abs(last[0].cy - cell.cy) < tolerance) {
@@ -1068,31 +1120,53 @@ function sortHeatmapCellsByVisualOrder(
       }
     }
 
-    // 4. Sort each row left-to-right; verify uniform width.
+    // Sort each row left-to-right; verify uniform width.
     for (const row of rows) {
       row.sort((a, b) => a.cx - b.cx);
     }
     if (rows.length !== ny || rows.some(r => r.length !== nx)) {
       continue;
     }
+    rows.forEach((row, r) => row.forEach((cell, c) => {
+      cell.row = r;
+      cell.col = c;
+    }));
 
-    // Bail out if everything is already in canonical row-major
-    // visual order — avoids a needless DOM reflow.
+    // 2. Name the drawn rows and columns from the rows Vega bound to the
+    //    cells. Vega's SVG renderer binds every mark, so this falls
+    //    through only for a DOM it did not draw; the converter's grid
+    //    then stands, in the order of the compiled scales' domains, which
+    //    is the drawn order unless a scale is reversed.
+    const xField = axisField(cells, data.x, cell => cell.col);
+    const yField = axisField(cells, data.y, cell => cell.row);
+    if (xField !== undefined && yField !== undefined) {
+      const xIndex = new Map(data.x.map((label, i) => [label, i]));
+      const yIndex = new Map(data.y.map((label, i) => [label, i]));
+      const labelOf = (cell: DrawnCell, field: string): string =>
+        String(cell.datum?.[field] ?? '');
+      const valueOf = (cell: DrawnCell): number | null => {
+        const yi = yIndex.get(labelOf(cell, yField));
+        const xi = xIndex.get(labelOf(cell, xField));
+        return yi === undefined || xi === undefined ? null : data.points[yi]?.[xi] ?? null;
+      };
+
+      // 3. Rebuild HeatmapData in visual top→bottom, left→right order.
+      const newY = rows.map(r => labelOf(r[0], yField));
+      const newX = rows[0].map(c => labelOf(c, xField));
+      const newPoints = rows.map(r => r.map(valueOf));
+      layer.data = { x: newX, y: newY, points: newPoints };
+    } else {
+      debugLog(`heatmap layer "${layer.id}": no bound rows, keeping the converter's grid`);
+    }
+
+    // Leave the DOM alone when it is already in canonical row-major
+    // visual order — avoids a needless reflow.
     const flatVisual = rows.flat();
-    const alreadyRowMajor = isRowMajor
-      && flatVisual.every((c, i) => c.element === elements[i]);
-    if (alreadyRowMajor) {
+    if (flatVisual.every((c, i) => c.element === elements[i])) {
       continue;
     }
 
-    // 5. Rebuild HeatmapData in visual top→bottom, left→right order.
-    const newY = rows.map(r => r[0].yLabel);
-    const newX = rows[0].map(c => c.xLabel);
-    const newPoints = rows.map(r => r.map(c => c.value));
-
-    layer.data = { x: newX, y: newY, points: newPoints };
-
-    // 6. Re-append DOM elements in visual row-major order so
+    // 4. Re-append DOM elements in visual row-major order so
     //    Heatmap.mapToSvgElements's path branch (flatIndex =
     //    (numRows-1-r)*numCols + c) lands on the right cell.
     reappendInOrder(flatVisual.map(c => c.element));
