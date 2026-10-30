@@ -1504,6 +1504,14 @@ implements Observer<SubplotState | TraceState>, Disposable {
       return;
     }
 
+    // A layer switch onto a layer with no data is announced by the subplot,
+    // and that layer has nothing to encode. The display is emptied: kept, it
+    // showed the cells of the layer just left as though they were this one's.
+    if (state.type === 'subplot' && state.trace.empty) {
+      this.clearDisplay();
+      return;
+    }
+
     const trace = state.type === 'subplot' ? state.trace : state;
     if (
       trace.empty
@@ -1570,6 +1578,24 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.onChangeEmitter.fire({
       value: this.cache.value,
       index: this.cache.cellToIndex[braille.row][braille.col],
+      displaySize: this.displaySize,
+      displayLines: this.displayLines,
+    });
+  }
+
+  /**
+   * Empties the display, and forgets the encoding it showed, so that cursor
+   * routing has no cell to send the reader to and the next layer with data
+   * is encoded afresh.
+   */
+  private clearDisplay(): void {
+    this.cache = null;
+    this.cacheId = Constant.EMPTY;
+    this.cacheValues = null;
+    this.colOffset = 0;
+    this.onChangeEmitter.fire({
+      value: Constant.EMPTY,
+      index: -1,
       displaySize: this.displaySize,
       displayLines: this.displayLines,
     });

@@ -35,8 +35,14 @@ type TactileStateUnion = SubplotState | TraceState | FigureState;
  * A trace is the ordinary case. A figure state is the multi-panel lobby, where
  * the reader is moving between panels and has not entered one: there is a chart
  * to show — the panel under the cursor — but nothing inside it is focused yet.
+ * A subplot state is a layer switch onto a layer with no data, which the
+ * subplot announces: the chart is there, and nothing on that layer can be
+ * focused.
  */
-type DrawableState = NonEmptyTraceState | Extract<FigureState, { empty: false }>;
+type DrawableState
+  = | NonEmptyTraceState
+    | Extract<FigureState, { empty: false }>
+    | Extract<SubplotState, { empty: false }>;
 
 /**
  * What a redraw did to the pins, as far as the reader can tell.
@@ -597,8 +603,10 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // Figure states as well as trace states. In a multi-panel plot the reader
     // arrives at the lobby first and moves between panels there, and without
     // this the pins keep whatever chart was last drawn — a panel they may have
-    // left, presented as though it were the one under the cursor.
-    if (state.empty || (state.type !== 'trace' && state.type !== 'figure')) {
+    // left, presented as though it were the one under the cursor. The same
+    // goes for a subplot's state, which is a switch onto a layer with no data:
+    // without it the pins kept the last layer's focused mark filled.
+    if (state.empty || (state.type === 'subplot' && !state.trace.empty)) {
       return;
     }
     this.lastState = state;

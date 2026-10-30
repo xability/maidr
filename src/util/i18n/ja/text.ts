@@ -13,6 +13,7 @@ export const text = {
   // Layer navigation and the states with nothing to read.
   'text.layerOfSize': 'レイヤー {size}個中{index}番目: {identity}',
   'text.layerSwitchAt': '{layer}、{details}',
+  'text.layerEmpty': '{layer}、空',
   'text.noAdditionalLayer': '他のレイヤーはありません',
   'text.noPlotInfo': '表示するグラフの情報がありません',
   'text.noFigureInfo': '表示する図の情報がありません',

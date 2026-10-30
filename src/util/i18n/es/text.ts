@@ -22,6 +22,7 @@ export const text = {
   // Layer navigation (Page Up / Page Down) and the states with nothing to read.
   'text.layerOfSize': 'Capa {index} de {size}: {identity}',
   'text.layerSwitchAt': '{layer} en {details}',
+  'text.layerEmpty': '{layer}, vacía',
   'text.noAdditionalLayer': 'No hay más capas',
   'text.noPlotInfo': 'No hay información del gráfico para mostrar',
   'text.noFigureInfo': 'No hay información de la figura para mostrar',

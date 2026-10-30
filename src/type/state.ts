@@ -59,6 +59,11 @@ export type SubplotState
 
 /**
  * Empty trace state used as a placeholder when no data is available.
+ *
+ * A layer with nothing to read at the cursor -- one a producer sent with no
+ * data -- is still a layer, and its state says what it is in the fields
+ * below, as a populated state does. A step off the edge of the data is about
+ * the move, not the layer, and its state leaves them out.
  */
 export interface TraceEmptyState {
   empty: true;
@@ -66,6 +71,16 @@ export interface TraceEmptyState {
   traceType: TraceType;
   audio: AudioEmptyState;
   warning?: boolean;
+  /** What the layer is, when the producer named it, as in a populated state. */
+  name?: string;
+  /** The layer's type as it announces itself, as in a populated state. */
+  plotType?: string;
+  /** The layer's title, as in a populated state. */
+  title?: string;
+  /** The x axis label the layer authored, or empty, as in a populated state. */
+  xAxis?: string;
+  /** The y axis label the layer authored, or empty, as in a populated state. */
+  yAxis?: string;
 }
 
 /**

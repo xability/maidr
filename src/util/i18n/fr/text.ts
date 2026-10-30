@@ -15,6 +15,7 @@ export const text = {
   // Layer navigation and the states with nothing to read.
   'text.layerOfSize': 'Couche {index} sur {size} : {identity}',
   'text.layerSwitchAt': '{layer} à {details}',
+  'text.layerEmpty': '{layer}, vide',
   'text.noAdditionalLayer': 'Aucune autre couche',
   'text.noPlotInfo': 'Aucune information de graphique à afficher',
   'text.noFigureInfo': 'Aucune information de figure à afficher',

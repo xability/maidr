@@ -93,7 +93,9 @@ switch takes the top one, where point navigation would start; onto a named
 point that shares its column, it lands on the point's row, which names it,
 where no other point shares that row. Each switch says which layer of how many you
 are on and the values of the point you landed on, with its name where the
-chart names its points, as a Wardley map's components are named. Past the first or
+chart names its points, as a Wardley map's components are named. A layer with
+no data is named and said to be empty, with no tone; the braille display is
+emptied, and a tactile display shows the chart with nothing focused. Past the first or
 last layer, or on a chart with only one, you hear the same edge signal as at the
 end of the data.
 

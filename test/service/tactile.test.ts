@@ -481,6 +481,11 @@ describe('tactileService', () => {
         const figure = state as { index: number; size: number };
         return `Subplot ${figure.index} of ${figure.size}, a bar plot of units sold by fruit`;
       }
+      // A subplot's state is a layer switch onto a layer with no data.
+      if (state.type === 'subplot') {
+        const subplot = state as { index: number; size: number };
+        return `Layer ${subplot.index} of ${subplot.size}: candlestick plot, empty`;
+      }
       const trace = state as NonEmptyTraceState;
       // `cross` is optional: a chart may have no cross axis to speak of. The
       // fixture says so rather than asserting one, so this stub keeps working
@@ -1201,6 +1206,37 @@ describe('tactileService', () => {
 
       expect(session.writeText).toHaveBeenCalled();
       expect(session.writeText.mock.calls[0][0]).not.toBe(first);
+    });
+
+    it('should drop the last layer\'s focus when a switch lands on a layer with no data', () => {
+      // A layer with no data is announced by its subplot, and the pins kept
+      // the last layer's focused mark filled, and its description on the
+      // line, as though the reader were still on it. Marks wide enough to
+      // have an interior, where a fill and an outline raise different pins.
+      chart.marks.forEach((mark, index) => {
+        stubRect(mark, { left: index * 70, top: 0, width: 60, height: 100 });
+      });
+      const figure = createFigure(chart.axes, [chart.marks, []]);
+      rebuild(chart, figure);
+      activate();
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+      session.writeText.mockClear();
+      const emptyLayer: SubplotState = {
+        empty: false,
+        type: 'subplot',
+        size: 2,
+        index: 2,
+        trace: { empty: true, type: 'trace', traceType: 'candlestick', audio: { x: 0, y: 0, rows: 0, cols: 0 } },
+        highlight: { empty: true, type: 'trace', audio: { x: 0, y: 0, rows: 0, cols: 0 } },
+      } as unknown as SubplotState;
+
+      switchLayer(figure, 1);
+      service.update(emptyLayer);
+
+      expect(session.writeGraphic.mock.calls.length + session.writeGraphicRow.mock.calls.length).toBeGreaterThan(0);
+      expect(format).toHaveBeenCalledWith(expect.objectContaining({ type: 'subplot' }));
+      expect(session.writeText).toHaveBeenCalled();
     });
   });
 
@@ -2731,11 +2767,14 @@ describe('tactileService', () => {
       expect(session.writeText).not.toHaveBeenCalled();
     });
 
-    it('should ignore a subplot state', () => {
+    it('should ignore a subplot state whose layer has data', () => {
+      // A subplot's state over a layer with no data is drawn: it is a switch
+      // onto that layer (see "layers" above). Over one with data, the layer's
+      // own state is what the switch announces.
       session.isConnected = true;
       turnOn();
 
-      service.update({ empty: false, type: 'subplot' } as unknown as SubplotState);
+      service.update({ empty: false, type: 'subplot', trace: { empty: false } } as unknown as SubplotState);
 
       expect(session.writeGraphic).not.toHaveBeenCalled();
       expect(session.writeText).not.toHaveBeenCalled();
