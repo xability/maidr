@@ -8,7 +8,7 @@
  * `extractSegmentedData` groups the rows by fill and pushes each series' points
  * in data-flow order. Vega sorts a nominal domain rather than keeping that
  * order — the same fact `orderedHeatmapAxis` documents for the heatmap (#977)
- * and `sortSimpleBarsByVisualOrder` fixes for a plain bar — and neither reached
+ * and `sortCategoryMarksByVisualOrder` fixes for a plain bar — and neither reached
  * a segmented layer, whose two existing passes reorder *series* and never
  * columns.
  *
