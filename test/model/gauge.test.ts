@@ -175,6 +175,46 @@ describe('the announcement a reader hears', () => {
   });
 });
 
+describe('a gauge whose layer labels no axis', () => {
+  /**
+   * Build a gauge positioned on its point, with the axes given.
+   * @param axes The layer's axes, if any
+   * @param data The measure the layer carries
+   * @returns The positioned trace
+   */
+  function unlabelled(axes?: MaidrLayer['axes'], data: GaugePoint = { ...KPI, label: 'Net Promoter Score' }): GaugeTrace {
+    const trace = TraceFactory.create({ id: 'unlabelled-gauge', type: TraceType.GAUGE, axes, data }) as GaugeTrace;
+    trace.moveToIndex(0, 0);
+    return trace;
+  }
+
+  test('reads its two fields under the words its table heads them with', () => {
+    // A dial has no axes, and the Recharts gauge recipe passes no labels. The
+    // generic 'X' and 'Y' were read out instead: "X is Net Promoter Score, ok
+    // Y is 73", over a table headed Measure and Value.
+    const trace = unlabelled();
+
+    expect(announce(trace)).toBe(
+      'Measure is Net Promoter Score, ok Value is 73, Range is 0 to 100, Target is 80',
+    );
+    expect(trace.description.dataTable.headers).toEqual(['Measure', 'Value']);
+  });
+
+  test('still has no axis label for L X and L Y to announce', () => {
+    // The words name the two fields; they are not labels the chart has.
+    const state = nonEmptyState(unlabelled());
+
+    expect(state.xAxis).toBe('');
+    expect(state.yAxis).toBe('');
+  });
+
+  test('takes the label it has and the word for the one it lacks', () => {
+    const trace = unlabelled({ y: { label: 'Percent' } }, { label: 'Load', value: 42, min: 0, max: 50 });
+
+    expect(announce(trace)).toBe('Measure is Load, Percent is 42, Range is 0 to 50');
+  });
+});
+
 describe('bands', () => {
   test('picks the first band the value has not passed', () => {
     const at50 = { ...KPI, value: 50 };

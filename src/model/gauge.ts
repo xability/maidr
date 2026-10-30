@@ -6,7 +6,7 @@ import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace, DEFAULT_SUBPLOT_TITLE } from './abstract';
+import { AbstractTrace, DEFAULT_SUBPLOT_TITLE, named } from './abstract';
 import { MovableGrid } from './movable';
 
 /**
@@ -250,15 +250,42 @@ export class GaugeTrace extends AbstractTrace {
     return measureFallback();
   }
 
+  /**
+   * What the measure's name is read under: the x axis's label, or the word
+   * the data table heads that column with when the layer labelled none.
+   *
+   * A dial has no axes, so a layer that labels neither is describing it
+   * accurately -- the Recharts gauge recipe passes no labels, and the MUI X
+   * adapter has none to pass. `xAxis` and `yAxis` fall back to the literal
+   * 'X' and 'Y', which the announcement read out: "X is Net Promoter Score,
+   * good Y is 73" over a table headed `Measure` and `Value`. A sankey and a
+   * treemap name their own dimensions the same way.
+   *
+   * @returns The x axis label, or `Measure`
+   */
+  private get measureLabel(): string {
+    return named(this.layer.axes?.x?.label, measureFallback());
+  }
+
+  /**
+   * What the reading is read under: the y axis's label, or the table's word.
+   * See {@link GaugeTrace.measureLabel}.
+   *
+   * @returns The y axis label, or `Value`
+   */
+  private get valueLabel(): string {
+    return named(this.layer.axes?.y?.label, valueFallback());
+  }
+
   protected get text(): TextState {
     const band = bandOf(this.value, this.point.bands);
 
     const state: TextState = {
       main: {
-        label: this.xAxis,
+        label: this.measureLabel,
         value: this.measureName,
       },
-      cross: { label: this.yAxis, value: this.value },
+      cross: { label: this.valueLabel, value: this.value },
       // What the value is out of. A gauge's reading is a position on a dial,
       // and without the dial's ends the number is unanchored.
       //
@@ -346,15 +373,10 @@ export class GaugeTrace extends AbstractTrace {
       stats.push({ label: t('model.statAllBands'), value: edges });
     }
 
-    // Headed from the axes the announcement already names these two fields
-    // by, so the dialog's Axes block, the spoken sentence and the table do not
-    // give the same number three names. The domain words stand in only where
-    // the layer labelled nothing, `named()`'s generic 'X' and 'Y' being worse
-    // than either in a column header.
-    const headers = [
-      this.layer.axes?.x?.label?.trim() ? this.xAxis : measureFallback(),
-      this.layer.axes?.y?.label?.trim() ? this.yAxis : valueFallback(),
-    ];
+    // Headed by the names the announcement reads these two fields under, so
+    // the dialog's Axes block, the spoken sentence and the table do not give
+    // the same number three names.
+    const headers = [this.measureLabel, this.valueLabel];
     const rows: (string | number)[][] = [[this.measureName, this.value]];
 
     // The measure's name sits on x and its reading on y, the axes the

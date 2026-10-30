@@ -46,7 +46,7 @@ const CASES: Case[] = [
   { button: 'Scatter Chart', id: 'mui-scatter', first: /Height \(cm\) is 152, Weight \(kg\) is 48/, second: /Height \(cm\) is 160, Weight \(kg\) is 55/ },
   { button: 'Pie Chart', id: 'mui-pie', first: /Category is Chrome, Value is 64/, second: /Category is Safari, Value is 19/ },
   { button: 'Sparkline', id: 'mui-sparkline', first: /X is 0, Y is 3/, second: /X is 1, Y is 7/, keepsMuiTabStop: true },
-  { button: 'Gauge', id: 'mui-gauge', first: /Y is 72, Range is 0 to 100/, second: /No more data/ },
+  { button: 'Gauge', id: 'mui-gauge', first: /Value is 72, Range is 0 to 100/, second: /No more data/ },
   { button: 'Radar Chart', id: 'mui-radar', first: /X is Speed, Y is 80.*Alex/, second: /X is Power, Y is 65.*Alex/ },
   { button: 'Heatmap (Pro)', id: 'mui-heatmap', first: /Day is Mon, Time of day is Evening, Level is 15/, second: /Day is Tue, Time of day is Evening, Level is 16/ },
   { button: 'Funnel (Pro)', id: 'mui-funnel', first: /Stage is Visit, Value is 2000/, second: /Stage is Cart, Value is 800/ },
