@@ -57,6 +57,79 @@ export abstract class Svg {
     return pathVertices(pathD);
   }
 
+  /**
+   * The outline a shape is drawn along, in its own user units: a path's
+   * vertices, a polyline's or a polygon's points, or those of the shape a
+   * `<use>` draws, moved by its offset -- matplotlib draws a filled band as a
+   * `<use>` of a path kept in its definitions.
+   *
+   * @param element - The shape
+   * @returns Its vertices and whether it closes, or null for an element that
+   *   is none of these
+   */
+  public static outlineOf(element: Element): ShapeOutline | null {
+    return outlineOf(element);
+  }
+
+  /**
+   * Where an outline crosses the vertical line at `x`: a band's two bounds, a
+   * line's one point.
+   *
+   * @param outline - The outline, from {@link outlineOf}
+   * @param x - Where the vertical line is, in the outline's units
+   * @returns The y of every crossing, in drawing order; a segment lying along
+   *   the line gives both its ends
+   */
+  public static crossingsAt(outline: ShapeOutline, x: number): number[] {
+    return crossingsAt(outline, x);
+  }
+
+  /**
+   * Where along an outline's x each of a series of points is drawn.
+   *
+   * An outline drawn through every point has a vertex at each one's x, and
+   * those are the places, in order. One with fewer -- Plotly drops each
+   * vertex within a fraction of a pixel of the line through its neighbours,
+   * and a smooth fan of fifty steps drawn by Plotly 2.35.2 kept 37 -- has
+   * its points spread over
+   * its extent by their own x, as a linear axis draws them, or evenly, as a
+   * category axis does, but only when every vertex it kept between its ends
+   * stands at one of those places. Otherwise -- a log axis, an outline with
+   * no vertex kept between its ends, a curve that does not pass through its
+   * points -- where each point is drawn cannot be read, and none is given,
+   * with a warning: the caller outlines the whole shape, coarse but never
+   * away from the point. Spread without that check, as this did, a log
+   * axis's markers stood where a linear one would have drawn its points.
+   *
+   * @param outline - The outline, from {@link outlineOf}
+   * @param keys - Each point's x, in the order the points are drawn
+   * @returns The x each point is drawn at, in the outline's units, or none
+   *   when the outline does not say
+   */
+  public static columnsAlong(outline: ShapeOutline, keys: readonly (number | string)[]): number[] {
+    return columnsAlong(outline, keys);
+  }
+
+  /**
+   * Which of some heights in an element's user units is drawn highest on the
+   * page, and which lowest. A chart flipped upright -- gridSVG draws R's
+   * charts with their y running up -- has them the other way round.
+   *
+   * @param element - The element the heights are measured in
+   * @param ys - The heights
+   * @returns The top and bottom ones, or null for none
+   */
+  public static topAndBottom(element: SVGElement, ys: readonly number[]): { top: number; bottom: number } | null {
+    if (ys.length === 0) {
+      return null;
+    }
+    const min = Math.min(...ys);
+    const max = Math.max(...ys);
+    const graphics = element as SVGGraphicsElement;
+    const matrix = typeof graphics.getScreenCTM === 'function' ? graphics.getScreenCTM() : null;
+    return matrix === null || matrix.d >= 0 ? { top: min, bottom: max } : { top: max, bottom: min };
+  }
+
   private constructor() { /* Prevent instantiation */ }
 
   /**
@@ -390,14 +463,18 @@ export abstract class Svg {
     centres: readonly { cx: string | number; cy: string | number }[],
     parent: SVGElement,
   ): SVGElement[] {
-    const style = window.getComputedStyle(parent);
+    // The parent's own document and window, which on a page are the page's:
+    // a chart built in a document of its own, as the adapters' tests build
+    // theirs, has no page-global `window`.
+    const page = parent.ownerDocument;
+    const style = (page.defaultView ?? window).getComputedStyle(parent);
     const color = style.stroke || style.fill;
     const strokeWidth = style.strokeWidth || '2';
     const radius = Number.parseFloat(strokeWidth) * 2;
 
-    const fragment = document.createDocumentFragment();
+    const fragment = page.createDocumentFragment();
     const elements = centres.map(({ cx, cy }) => {
-      const element = document.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
+      const element = page.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
 
       element.setAttribute(Constant.CIRCLE_X, String(cx));
       element.setAttribute(Constant.CIRCLE_Y, String(cy));
@@ -1415,6 +1492,28 @@ interface PathVertex {
   y: number;
 }
 
+/** The outline a shape is drawn along, from {@link Svg.outlineOf}. */
+export interface ShapeOutline {
+  /** Its vertices, in drawing order, in the shape's own user units. */
+  vertices: PathVertex[];
+  /** Whether it closes, back from its last vertex to its first. */
+  closed: boolean;
+}
+
+/**
+ * How far from a segment's end a vertical line may pass and still cross it,
+ * and how near upright a segment may be and still lie along the line, in a
+ * shape's user units: enough for the rounding of relative path commands.
+ */
+const CROSSING_TOLERANCE = 1e-6;
+
+/**
+ * How close two vertices' x have to be to stand at one place along an
+ * outline, in a shape's user units: well under a pixel, and over the
+ * rounding a renderer writes coordinates with.
+ */
+const COLUMN_TOLERANCE = 0.01;
+
 /**
  * Splits a path `d` attribute into commands, each with its argument text.
  *
@@ -1658,6 +1757,155 @@ function isCollinear(points: readonly PathVertex[]): boolean {
   const length = Math.hypot(dx, dy);
   return points.every(point =>
     Math.abs(dx * (point.y - first.y) - dy * (point.x - first.x)) / length <= COLLINEAR_TOLERANCE);
+}
+
+/**
+ * See {@link Svg.outlineOf}.
+ * @param element - The shape
+ * @returns Its vertices and whether it closes, or null
+ */
+function outlineOf(element: Element): ShapeOutline | null {
+  const tag = element.tagName.toLowerCase();
+  if (tag === 'use') {
+    const href = element.getAttribute('href') ?? element.getAttribute('xlink:href') ?? '';
+    const shape = href.startsWith('#') ? element.ownerDocument.getElementById(href.slice(1)) : null;
+    const outline = shape === null || shape.tagName.toLowerCase() === 'use' ? null : outlineOf(shape);
+    if (outline === null) {
+      return null;
+    }
+    const dx = Number.parseFloat(element.getAttribute(Constant.X) ?? '') || 0;
+    const dy = Number.parseFloat(element.getAttribute(Constant.Y) ?? '') || 0;
+    return {
+      vertices: outline.vertices.map(vertex => ({ x: vertex.x + dx, y: vertex.y + dy })),
+      closed: outline.closed,
+    };
+  }
+  if (tag === 'path') {
+    const d = element.getAttribute(Constant.D) ?? '';
+    return { vertices: pathVertices(d), closed: /z/i.test(d) };
+  }
+  if (tag === Constant.POLYLINE || tag === 'polygon') {
+    const numbers = (element.getAttribute(Constant.POINTS) ?? '').match(SVG_PATH_NUMBER_REGEX) ?? [];
+    const vertices: PathVertex[] = [];
+    for (let i = 0; i + 1 < numbers.length; i += 2) {
+      vertices.push({ x: Number(numbers[i]), y: Number(numbers[i + 1]) });
+    }
+    return { vertices, closed: tag === 'polygon' };
+  }
+  return null;
+}
+
+/**
+ * See {@link Svg.crossingsAt}.
+ * @param outline - The outline
+ * @param x - Where the vertical line is
+ * @returns The y of every crossing
+ */
+function crossingsAt(outline: ShapeOutline, x: number): number[] {
+  const { vertices, closed } = outline;
+  const crossings: number[] = [];
+  const segments = closed ? vertices.length : vertices.length - 1;
+  for (let i = 0; i < segments; i++) {
+    const from = vertices[i];
+    const to = vertices[(i + 1) % vertices.length];
+    if (x < Math.min(from.x, to.x) - CROSSING_TOLERANCE || x > Math.max(from.x, to.x) + CROSSING_TOLERANCE) {
+      continue;
+    }
+    if (Math.abs(to.x - from.x) <= CROSSING_TOLERANCE) {
+      crossings.push(from.y, to.y);
+    } else if (Math.abs(x - from.x) <= CROSSING_TOLERANCE) {
+      crossings.push(from.y);
+    } else if (Math.abs(x - to.x) <= CROSSING_TOLERANCE) {
+      crossings.push(to.y);
+    } else {
+      crossings.push(from.y + ((x - from.x) / (to.x - from.x)) * (to.y - from.y));
+    }
+  }
+  return crossings;
+}
+
+/**
+ * See {@link Svg.columnsAlong}.
+ * @param outline - The outline
+ * @param keys - Each point's x
+ * @returns The x each point is drawn at
+ */
+function columnsAlong(outline: ShapeOutline, keys: readonly (number | string)[]): number[] {
+  const xs = outline.vertices.map(vertex => vertex.x).sort((a, b) => a - b);
+  const distinct = xs.filter((x, i) => i === 0 || x - xs[i - 1] > COLUMN_TOLERANCE);
+  if (distinct.length === keys.length) {
+    return distinct;
+  }
+  const placed = placeByKeptVertices(distinct, keys);
+  if (placed !== null) {
+    return placed;
+  }
+  if (keys.length > 0) {
+    warnNotOnePerPoint(distinct.length, keys.length);
+  }
+  return [];
+}
+
+/**
+ * How far a vertex an outline kept may stand from where a point is placed and
+ * still be taken for that point's, in the outline's units: over the rounding
+ * a renderer writes coordinates with, Plotly's two decimals among them, and
+ * far under the gap between two points a reader could tell apart.
+ */
+const KEPT_VERTEX_TOLERANCE = 0.05;
+
+/**
+ * Where each point is drawn along an outline that kept fewer vertices than it
+ * has points: spread over the outline's extent by the points' own x, as a
+ * linear axis draws them, or evenly, as a category axis does -- whichever
+ * puts a point at every vertex the outline kept.
+ *
+ * @param columns - The outline's distinct x, in order
+ * @param keys - Each point's x, in the order the points are drawn
+ * @returns The x of each point, or null when the outline kept more vertices
+ *   than points, kept none between its ends, or kept one at neither placing
+ */
+function placeByKeptVertices(columns: readonly number[], keys: readonly (number | string)[]): number[] | null {
+  if (columns.length < 3 || columns.length >= keys.length) {
+    return null;
+  }
+  const min = columns[0];
+  const span = columns[columns.length - 1] - min;
+  const placings = [keys.map((_, i) => min + (i / (keys.length - 1)) * span)];
+  const first = keys[0];
+  const last = keys[keys.length - 1];
+  if (typeof first === 'number' && typeof last === 'number' && first !== last
+    && keys.every(key => typeof key === 'number' && Number.isFinite(key))) {
+    placings.unshift(keys.map(key => min + ((Number(key) - first) / (last - first)) * span));
+  }
+  return placings.find(places => columns.every(column =>
+    places.some(place => Math.abs(place - column) <= KEPT_VERTEX_TOLERANCE))) ?? null;
+}
+
+/** The shapes, as `columns:points`, {@link warnNotOnePerPoint} has told of. */
+const toldOf = new Set<string>();
+
+/**
+ * Tells a producer, once per shape of outline, that a band or a ridge is
+ * outlined whole at every point, because its outline has not one vertex per
+ * point to say where each is drawn. Once: the trace is built again each time
+ * the chart takes focus, and a second chart of the same shape is drawn the
+ * same way.
+ *
+ * @param columns - How many distinct x the outline has
+ * @param points - How many points it was to mark
+ */
+function warnNotOnePerPoint(columns: number, points: number): void {
+  const key = `${columns}:${points}`;
+  if (toldOf.has(key)) {
+    return;
+  }
+  toldOf.add(key);
+  console.warn(
+    `[MAIDR] An outline drawn at ${columns} distinct x positions is to mark ${points} points, so where `
+    + 'each is drawn cannot be read from it, and it is outlined whole at every point. '
+    + 'Draw the outline with a vertex at each point to mark them one by one.',
+  );
 }
 
 /** The element MAIDR wraps every chart it reads in. */

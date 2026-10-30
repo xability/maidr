@@ -9,6 +9,7 @@ import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals'
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
+import { markedOn } from '../bandMarkers';
 import { fakeChart, svg } from './helpers';
 
 /**
@@ -84,7 +85,7 @@ describe('apexcharts percentile band', () => {
     });
   });
 
-  it('outlines each band\'s filled path, outermost first, then the median\'s line', () => {
+  it('marks each quantile on the edge of its band\'s filled path, outermost first, then on the median\'s line', () => {
     const chart = fanChart();
     const maidr = apexchartsToMaidr(chart, { percentileBands: BANDS });
 
@@ -93,10 +94,15 @@ describe('apexcharts percentile band', () => {
     const trace = figure.subplots[0][0].traces[0][0] as unknown as {
       highlightValues: SVGElement[][][] | null;
     };
-    const outlined = trace.highlightValues?.map(row => (row[0] as unknown as SVGElement[])[0].getAttribute('d'));
+    const paths = ['path.apexcharts-rangeArea', 'path.apexcharts-line'].flatMap(selector =>
+      Array.from(document.querySelectorAll(selector)));
+    const marked = markedOn(trace.highlightValues, paths)?.map(path => path?.getAttribute('d'));
+    const heights = trace.highlightValues?.map(row => Number((row[0] as unknown as SVGElement[])[0].getAttribute('cy')));
 
-    // Levels 0.05, 0.25, 0.5, 0.75 and 0.95.
-    expect(outlined).toEqual([OUTER_D, INNER_D, MEDIAN_D, INNER_D, OUTER_D]);
+    // Levels 0.05, 0.25, 0.5, 0.75 and 0.95: each band's lower edge, the
+    // median, then each band's upper edge, at the first point.
+    expect(marked).toEqual([OUTER_D, INNER_D, MEDIAN_D, INNER_D, OUTER_D]);
+    expect(heights).toEqual([258.348, 215.29, 172.232, 129.174, 86.116]);
   });
 
   it('skips a rangeArea no fan names, as before', () => {

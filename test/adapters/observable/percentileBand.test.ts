@@ -12,6 +12,7 @@ import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals'
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
+import { markedOn } from '../bandMarkers';
 import { withPageDocument } from '../d3/pageDocument';
 import { mountFixture } from './helpers';
 
@@ -55,7 +56,7 @@ describe('a fan chart drawn by Observable Plot', () => {
     });
   });
 
-  it('outlines each band\'s outline, outermost first, then the median', () => {
+  it('marks each quantile on its band\'s outline, outermost first, then on the median', () => {
     const { element, svg } = mountFixture('fanChart');
     const maidr = observablePlotToMaidr(element, { percentileBands: BANDS });
     if (!maidr)
@@ -67,8 +68,9 @@ describe('a fan chart drawn by Observable Plot', () => {
       const trace = figure.subplots[0][0].traces[0][0] as unknown as {
         highlightValues: SVGElement[][][] | null;
       };
-      const outlined = trace.highlightValues?.map(row =>
-        (row[0] as unknown as SVGElement[])[0].parentElement?.getAttribute('class'));
+      const named = (maidr.subplots[0][0].layers[0].selectors as string[])
+        .map(selector => svg.ownerDocument.querySelector(selector));
+      const outlined = markedOn(trace.highlightValues, named)?.map(element => element?.parentElement?.getAttribute('class'));
 
       // Levels 0.05, 0.25, 0.5, 0.75 and 0.95.
       expect(outlined).toEqual(['band-90', 'band-50', 'median', 'band-50', 'band-90']);

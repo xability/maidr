@@ -18,6 +18,7 @@ import { JSDOM } from 'jsdom';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { VictoryArea, VictoryChart, VictoryLine } from 'victory';
+import { markedOn } from '../bandMarkers';
 import { withPageDocument } from '../d3/pageDocument';
 
 const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -78,7 +79,7 @@ describe('victory percentile band', () => {
     });
   });
 
-  it('outlines each band\'s path, outermost first, then the median\'s', () => {
+  it('marks each quantile on its band\'s path, outermost first, then on the median\'s', () => {
     const { doc, layers } = render(fan(), BANDS);
     const maidr: Maidr = { id: 'fan', subplots: [[{ layers }]] };
     const [outer, inner, median] = (layers[0].selectors as string[]).map(selector => doc.querySelectorAll(selector));
@@ -90,7 +91,7 @@ describe('victory percentile band', () => {
       const trace = figure.subplots[0][0].traces[0][0] as unknown as {
         highlightValues: SVGElement[][][] | null;
       };
-      const outlined = trace.highlightValues?.map(row => (row[0] as unknown as SVGElement[])[0]);
+      const outlined = markedOn(trace.highlightValues, [outer[0], inner[0], median[0]]);
 
       // Levels 0.05, 0.25, 0.5, 0.75 and 0.95.
       expect(outlined).toEqual([outer[0], inner[0], median[0], inner[0], outer[0]]);

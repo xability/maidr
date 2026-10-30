@@ -4,7 +4,7 @@
 
 import type { MaidrLayer, PercentileBandPoint } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
-import { afterEach, describe, expect, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { PercentileBandTrace } from '@model/percentileBand';
 import { TraceType } from '@type/grammar';
@@ -351,60 +351,203 @@ describe('description', () => {
 describe('highlight', () => {
   afterEach(() => {
     document.body.innerHTML = '';
+    jest.restoreAllMocks();
   });
 
+  /** Where a step is drawn across the page. */
+  const across = (x: number): number => 100 + x;
+
+  /** Where a value is drawn down the page: 1 at 150, -1 at 250. */
+  const down = (value: number): number => 200 - 50 * value;
+
   /**
-   * Draw four nested band polygons and a median line, the way a fan chart is drawn.
-   * @returns The band polygons, outermost first, and the median line
+   * Where a value is drawn in a chart flipped upright, as gridSVG draws R's
+   * charts: its y runs up the page, so a higher value has a larger y.
    */
-  function drawBands(): { polygons: Element[]; median: Element } {
+  const up = (value: number): number => 200 + 50 * value;
+
+  /**
+   * One quantile's points, left to right.
+   * @param level - The quantile's index in {@link LEVELS}
+   * @param toY - Where a value is drawn
+   * @returns Each step's point, as `x,y`
+   */
+  function quantilePoints(level: number, toY: (value: number) => number = down): string[] {
+    return STEPS.map(point => `${across(Number(point.x))},${toY(Number(point.quantiles[level].value))}`);
+  }
+
+  /**
+   * Draw four nested band polygons and a median line, the way a fan chart is
+   * drawn: each band out along its lower bound and back along its upper one.
+   * @param tag - What each band is drawn as
+   * @param toY - Where a value is drawn
+   * @returns The bands, outermost first, and the median line
+   */
+  function drawBands(
+    tag: 'polygon' | 'rect' = 'polygon',
+    toY: (value: number) => number = down,
+  ): { bands: Element[]; median: Element } {
+    const bands = [0, 1, 2, 3].map(k =>
+      `<${tag} points="${[...quantilePoints(k, toY), ...quantilePoints(8 - k, toY).reverse()].join(' ')}"></${tag}>`);
     document.body.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
-        <g id="bands">
-          <polygon points="0,0 10,0 10,10 0,10" />
-          <polygon points="1,1 9,1 9,9 1,9" />
-          <polygon points="2,2 8,2 8,8 2,8" />
-          <polygon points="3,3 7,3 7,7 3,7" />
-        </g>
-        <polyline id="median" points="0,5 3,5 6,5 9,5" />
+        <g id="bands">${bands.join('')}</g>
+        <polyline id="median" fill="none" points="${quantilePoints(4, toY).join(' ')}" />
       </svg>`;
     return {
-      polygons: [...document.querySelectorAll('#bands polygon')],
+      bands: [...document.querySelectorAll('#bands > *')],
       median: document.querySelector('#median')!,
     };
   }
 
   /** One selector per band, outermost first. */
-  const BAND_SELECTORS = [1, 2, 3, 4].map(n => `#bands > polygon:nth-of-type(${n})`);
+  const BAND_SELECTORS = [1, 2, 3, 4].map(n => `#bands > :nth-child(${n})`);
 
-  test('a bound outlines the band it bounds', () => {
-    const { polygons } = drawBands();
-    const trace = band(STEPS, { selectors: BAND_SELECTORS });
-    trace.moveOnce('DOWNWARD');
-    trace.moveOnce('DOWNWARD');
-
+  /**
+   * Where the highlight marks the point the reader is on.
+   * @param trace - The trace to read
+   * @returns The marker's centre, or null with no single marker
+   */
+  function markedAt(trace: PercentileBandTrace): [number, number] | null {
     const highlight = stateOf(trace).highlight;
+    const elements = highlight.empty ? [] : [highlight.elements].flat();
+    if (elements.length !== 1 || elements[0].tagName.toLowerCase() !== 'circle') {
+      return null;
+    }
+    return [Number(elements[0].getAttribute('cx')), Number(elements[0].getAttribute('cy'))];
+  }
 
-    expect(highlight.empty).toBe(false);
-    expect(highlight.empty ? [] : highlight.elements).toEqual([polygons[2]]);
+  test('a bound is marked where its edge of the band is drawn, and the mark moves with the reader', () => {
+    drawBands();
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+
+    expect(markedAt(trace)).toEqual([across(0), down(-0.4)]);
+
+    trace.moveOnce('FORWARD');
+
+    expect(markedAt(trace)).toEqual([across(100), down(-0.31)]);
   });
 
-  test('the median outlines its own line when one is named', () => {
-    const { median } = drawBands();
+  test('a bound is marked on its own edge in a chart flipped upright, as gridSVG draws R\'s', () => {
+    // gridSVG draws a chart in a group flipped with scale(1, -1), so a lower
+    // bound is the smaller y in the band's own units, not the larger.
+    const { bands, median } = drawBands('polygon', up);
+    for (const element of [...bands, median]) {
+      Object.defineProperty(element, 'getScreenCTM', { value: () => ({ a: 1, b: 0, c: 0, d: -1, e: 0, f: 400 }) });
+    }
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+
+    expect(markedAt(trace)).toEqual([across(0), up(-0.4)]);
+
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+
+    expect(markedAt(trace)).toEqual([across(0), up(0.4)]);
+  });
+
+  test('keeps its bands and the median\'s line among the chart\'s own elements the layer reads, which high contrast paints as marks', () => {
+    // The markers are no copies of the band, so pairing each with the
+    // element before it, as a copy is paired, found no original for them.
+    const { bands, median } = drawBands();
     const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
 
-    const highlight = stateOf(trace).highlight;
+    const originals = trace.getAllOriginalElements();
 
-    expect(highlight.empty ? [] : highlight.elements).toEqual([median]);
+    for (const element of [...bands, median]) {
+      expect(originals).toContain(element);
+    }
   });
 
-  test('the median outlines the innermost band when no line is named', () => {
-    const { polygons } = drawBands();
+  test('takes its markers away when it is disposed, and leaves the chart\'s own bands', () => {
+    const { bands } = drawBands();
+    // A copy: disposing a trace empties the points it was built from, which
+    // the controller hands it as a copy of its own.
+    const trace = band(JSON.parse(JSON.stringify(STEPS)) as PercentileBandPoint[], { selectors: [...BAND_SELECTORS, '#median'] });
+    expect(document.querySelectorAll('[data-maidr-owned]').length).toBeGreaterThan(0);
+
+    trace.dispose();
+
+    expect(document.querySelectorAll('[data-maidr-owned]')).toHaveLength(0);
+    expect(bands.every(element => element.isConnected)).toBe(true);
+  });
+
+  test('an upper bound is marked on the band\'s upper edge', () => {
+    drawBands();
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    expect(markedAt(trace)).toEqual([across(200), down(0.9)]);
+  });
+
+  test('the median is marked on its own line, step by step', () => {
+    drawBands();
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+
+    expect(markedAt(trace)).toEqual([across(0), down(0)]);
+
+    trace.moveOnce('FORWARD');
+
+    expect(markedAt(trace)).toEqual([across(100), down(0.02)]);
+  });
+
+  test('the median is marked inside the innermost band when no line is named', () => {
+    drawBands();
     const trace = band(STEPS, { selectors: BAND_SELECTORS });
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    const [x, y] = markedAt(trace) ?? [Number.NaN, Number.NaN];
+
+    expect(x).toBe(across(200));
+    expect(y).toBeCloseTo(down(0.05));
+  });
+
+  test('a band drawn as something other than a shape is outlined whole, as before', () => {
+    const { bands } = drawBands('rect');
+    const trace = band(STEPS, { selectors: BAND_SELECTORS });
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
 
     const highlight = stateOf(trace).highlight;
 
-    expect(highlight.empty ? [] : highlight.elements).toEqual([polygons[3]]);
+    expect(highlight.empty ? [] : highlight.elements).toEqual([bands[2]]);
+  });
+
+  test('a band that dropped a vertex on a log axis is outlined whole, not marked where a linear axis would put the step', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // The four steps drawn at 100, 250, 330 and 400, as a log axis spaces
+    // them, and every band drawn without its vertex at the second step, as
+    // Plotly drops a vertex a straight run does not need. The median's line
+    // keeps all four.
+    const at = [100, 250, 330, 400];
+    const edge = (level: number, steps: number[]): string[] =>
+      steps.map(i => `${at[i]},${down(Number(STEPS[i].quantiles[level].value))}`);
+    const bands = [0, 1, 2, 3].map(k =>
+      `<polygon points="${[...edge(k, [0, 2, 3]), ...edge(8 - k, [0, 2, 3]).reverse()].join(' ')}"></polygon>`);
+    document.body.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <g id="bands">${bands.join('')}</g>
+        <polyline id="median" fill="none" points="${edge(4, [0, 1, 2, 3]).join(' ')}" />
+      </svg>`;
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+    trace.moveOnce('FORWARD');
+
+    expect(markedAt(trace)).toEqual([250, down(0.02)]);
+
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+    const highlight = stateOf(trace).highlight;
+
+    expect(highlight.empty ? [] : highlight.elements).toEqual([document.querySelectorAll('#bands > *')[2]]);
   });
 
   test('reads without an outline when the selectors match nothing', () => {

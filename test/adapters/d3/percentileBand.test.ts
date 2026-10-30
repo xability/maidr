@@ -5,6 +5,7 @@ import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 import { JSDOM } from 'jsdom';
+import { markedOn } from '../bandMarkers';
 import { withPageDocument } from './pageDocument';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -18,18 +19,32 @@ const ROWS = [0, 1, 2].map(step => ({
   p75: step + 1,
 }));
 
+/** Where a row's value is drawn: a step 10 across, and 10 up per unit. */
+function at(step: number, value: number): string {
+  return `${step * 10},${100 - value * 10}`;
+}
+
 /**
  * The two band areas, outermost drawn first, then the median line -- each a
- * `<path>` whose datum is the rows, as `.datum(rows).attr('d', area)` leaves it.
+ * `<path>` whose datum is the rows, as `.datum(rows).attr('d', area)` leaves it,
+ * drawn as d3's area draws one: along the upper bound, then back along the
+ * lower.
  */
 function buildSvg(bandRows: unknown[] = ROWS): SVGElement {
   const dom = new JSDOM(`<!doctype html><svg xmlns="${SVG_NS}" id="fan-svg"></svg>`);
   const doc = dom.window.document;
   const svg = doc.querySelector('svg') as unknown as SVGElement;
-  for (const [cls, rows] of [['band-90', ROWS], ['band-50', bandRows], ['median', ROWS]] as const) {
+  const area = (rows: typeof ROWS, low: 'p5' | 'p25', high: 'p95' | 'p75'): string =>
+    `M${[...rows.map(row => at(row.step, row[high])), ...[...rows].reverse().map(row => at(row.step, row[low]))].join('L')}Z`;
+  const drawn: [string, unknown[], string][] = [
+    ['band-90', ROWS, area(ROWS, 'p5', 'p95')],
+    ['band-50', bandRows, area(bandRows as typeof ROWS, 'p25', 'p75')],
+    ['median', ROWS, `M${ROWS.map(row => at(row.step, row.p50)).join('L')}`],
+  ];
+  for (const [cls, rows, d] of drawn) {
     const path = doc.createElementNS(SVG_NS, 'path');
     path.setAttribute('class', cls);
-    path.setAttribute('d', 'M0,0L10,10');
+    path.setAttribute('d', d);
     (path as unknown as { __data__: unknown }).__data__ = rows;
     svg.appendChild(path);
   }
@@ -73,7 +88,7 @@ describe('bindD3PercentileBand', () => {
     });
   });
 
-  test('names each band, outermost first, then the median -- and the trace outlines them so', () => {
+  test('names each band, outermost first, then the median -- and the trace marks the quantiles on them so', () => {
     const svg = buildSvg();
     const result = bindD3PercentileBand(svg, CONFIG);
 
@@ -88,7 +103,8 @@ describe('bindD3PercentileBand', () => {
       const trace = figure.subplots[0][0].traces[0][0] as unknown as {
         highlightValues: SVGElement[][][] | null;
       };
-      const outlined = trace.highlightValues?.map(row => (row[0] as unknown as SVGElement[])[0].getAttribute('class'));
+      const named = Array.from(svg.querySelectorAll('path.band-90, path.band-50, path.median'));
+      const outlined = markedOn(trace.highlightValues, named)?.map(path => path?.getAttribute('class'));
 
       // Levels 0.05, 0.25, 0.5, 0.75 and 0.95.
       expect(outlined).toEqual(['band-90', 'band-50', 'median', 'band-50', 'band-90']);

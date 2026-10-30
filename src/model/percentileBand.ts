@@ -40,6 +40,32 @@ interface Band {
 }
 
 /**
+ * Where one quantile is drawn at each x: on a band's edge, or on a line.
+ */
+interface DrawnHeights {
+  /** The band or line the quantile is drawn on. */
+  element: SVGElement;
+  /** The x of each point, in the element's own units. */
+  xs: number[];
+  /** The quantile's height at each point there, or null where nothing is drawn. */
+  ys: (number | null)[];
+}
+
+/**
+ * Where a band's two edges are drawn at each x.
+ */
+interface BandEdges {
+  /** The band's element. */
+  element: SVGElement;
+  /** The x of each point, in the element's own units. */
+  xs: number[];
+  /** The lower edge's height at each point, or null where the band is not drawn. */
+  lower: (number | null)[];
+  /** The upper edge's height at each point, or null where the band is not drawn. */
+  upper: (number | null)[];
+}
+
+/**
  * The layer's quantile levels: every level any point declares, from 0 to 1,
  * sorted and with near-equal ones merged.
  *
@@ -139,6 +165,13 @@ function sharePercent(share: number): string {
   const whole = Math.round(percent);
   return whole === 0 || whole === 100 ? String(Number(percent.toFixed(1))) : String(whole);
 }
+
+/**
+ * The band or line each quantile marker stands for. Kept outside the trace,
+ * because the markers are made while the parent's constructor runs, before
+ * the trace's own fields exist.
+ */
+const MARKED_BY = new WeakMap<SVGElement, SVGElement>();
 
 /**
  * Trace implementation for a percentile band, or fan chart: the
@@ -625,12 +658,18 @@ export class PercentileBandTrace extends LineTrace {
    * One selector per quantile -- each bound drawn as its own line -- is the
    * line's shape, and a marker walks along the bound with the cursor. One
    * selector per band, outermost first, is how a fan chart is usually drawn:
-   * a filled polygon per band, and a bound is outlined as the band it
-   * bounds. An extra selector after the bands names the median's line; with
-   * none, the median outlines the innermost band, the one it sits inside.
+   * a filled polygon per band. A marker walks along that too, on the edge of
+   * the band for a bound, and on the median's line, which an extra selector
+   * after the bands names. With no such line, the median's marker is placed
+   * inside the innermost band, where its value falls between the band's two
+   * edges. Outlining the whole band or line at every x, as this did, left
+   * the highlight where it was on every step along x.
    *
-   * A band selector that matches nothing leaves that band's quantiles
-   * without an outline and every other band with one.
+   * Where a band's geometry cannot be read -- a selector matching several
+   * pieces, or something other than a path, a polyline, a polygon or a
+   * `<use>` of one -- its quantiles outline the whole of it, as before. A
+   * band selector that matches nothing leaves that band's quantiles without
+   * an outline and every other band with one.
    *
    * @param selectors - The layer's selectors
    * @returns The elements to outline, point by point
@@ -653,21 +692,157 @@ export class PercentileBandTrace extends LineTrace {
     const rows = this.lineValues.length;
     const bands = Math.floor(rows / 2);
     const median = resolved[bands] ?? [];
-    return this.lineValues.map((values, row) => {
+    const cells: (SVGElement[] | SVGElement)[][] = this.lineValues.map((values, row) => {
       const isMiddle = rows % 2 === 1 && row === bands;
       const elements = isMiddle
         ? (median.length > 0 ? median : resolved[bands - 1])
         : resolved[Math.min(row, rows - 1 - row)];
       return elements.length === 0 ? [] : values.map(() => elements);
     });
+
+    const edges = resolved.slice(0, bands).map(elements => this.bandEdges(elements));
+    edges.forEach((band, outer) => {
+      if (band !== null) {
+        cells[outer] = this.markersAt(band.element, band.xs, band.lower, outer);
+        cells[rows - 1 - outer] = this.markersAt(band.element, band.xs, band.upper, rows - 1 - outer);
+      }
+    });
+    if (rows % 2 === 1) {
+      const middle = median.length > 0 ? this.lineHeights(median) : this.heightsInside(edges[bands - 1], bands - 1);
+      if (middle !== null) {
+        cells[bands] = this.markersAt(middle.element, middle.xs, middle.ys, bands);
+      }
+    }
+    return cells;
   }
 
   /**
-   * No hover target when the outline is a band: every x of a quantile
-   * outlines the same polygon, so its centre says nothing about which x the
-   * pointer is over.
+   * Where a band's two edges are drawn at each x: the highest crossing of
+   * its outline there is the upper bound, and the lowest the lower one.
    *
-   * @returns The centres, or null for band outlines
+   * @param elements - What the band's selector matched
+   * @returns The band's element, the x of each point, and each bound's
+   *   height there, or null when the band is not one readable shape
+   */
+  private bandEdges(elements: SVGElement[]): BandEdges | null {
+    const outline = elements.length === 1 ? Svg.outlineOf(elements[0]) : null;
+    if (outline === null || outline.vertices.length < 3) {
+      return null;
+    }
+    const [element] = elements;
+    const xs = Svg.columnsAlong(outline, this.points[0]?.map(point => point.x) ?? []);
+    if (xs.length !== this.lineValues[0]?.length) {
+      return null;
+    }
+    const ends = xs.map(x => Svg.topAndBottom(element, Svg.crossingsAt(outline, x)));
+    return {
+      element,
+      xs,
+      lower: ends.map(end => end?.bottom ?? null),
+      upper: ends.map(end => end?.top ?? null),
+    };
+  }
+
+  /**
+   * Where the median's line is drawn at each x.
+   *
+   * @param elements - What the median's selector matched
+   * @returns The line's element, the x of each point and the line's height
+   *   there, or null when the line is not one readable shape
+   */
+  private lineHeights(elements: SVGElement[]): DrawnHeights | null {
+    const outline = elements.length === 1 ? Svg.outlineOf(elements[0]) : null;
+    if (outline === null || outline.vertices.length < 2) {
+      return null;
+    }
+    const xs = Svg.columnsAlong(outline, this.points[0]?.map(point => point.x) ?? []);
+    if (xs.length !== this.lineValues[0]?.length) {
+      return null;
+    }
+    // Where a line runs straight up at an x, as a step does, the point is
+    // where the line arrives there last.
+    const ys = xs.map(x => Svg.crossingsAt(outline, x).at(-1) ?? null);
+    return { element: elements[0], xs, ys };
+  }
+
+  /**
+   * Where the median falls inside the innermost band at each x, when the
+   * chart names no line for it: as far from the band's lower edge, in
+   * proportion, as its value is from the lower bound's.
+   *
+   * @param band - The innermost band's edges
+   * @param outer - The row of the band's lower bound
+   * @returns The band's element, the x of each point and the median's height
+   *   there, or null without the band
+   */
+  private heightsInside(band: BandEdges | null | undefined, outer: number): DrawnHeights | null {
+    if (band === null || band === undefined) {
+      return null;
+    }
+    const rows = this.lineValues.length;
+    const middle = Math.floor(rows / 2);
+    const ys = band.xs.map((_x, col) => {
+      const low = this.lineValues[outer][col];
+      const high = this.lineValues[rows - 1 - outer][col];
+      const value = this.lineValues[middle][col];
+      const bottom = band.lower[col];
+      const top = band.upper[col];
+      if (bottom === null || top === null || !isMeasured(low) || !isMeasured(high) || !isMeasured(value)) {
+        return null;
+      }
+      return high === low ? bottom : bottom + ((value - low) / (high - low)) * (top - bottom);
+    });
+    return { element: band.element, xs: band.xs, ys };
+  }
+
+  /**
+   * A marker at each point of one quantile, beside the element it is drawn
+   * on; none at a point with no reading, or where the drawing has no height.
+   *
+   * @param element - The band or line the markers stand on
+   * @param xs - The x of each point, in the element's units
+   * @param ys - The height of each point there
+   * @param row - The quantile
+   * @returns One cell per point
+   */
+  private markersAt(
+    element: SVGElement,
+    xs: readonly number[],
+    ys: readonly (number | null)[],
+    row: number,
+  ): SVGElement[][] {
+    const placed = xs.flatMap((x, col) => {
+      const y = ys[col];
+      return y === null || !isMeasured(this.lineValues[row][col]) ? [] : [{ col, cx: x, cy: y }];
+    });
+    const circles = Svg.createCircleElements(placed, element);
+    circles.forEach(circle => MARKED_BY.set(circle, element));
+    const cells: SVGElement[][] = xs.map(() => []);
+    placed.forEach((place, at) => {
+      cells[place.col] = [circles[at]];
+    });
+    return cells;
+  }
+
+  /**
+   * The band or line a marker of a quantile stands for, so that high
+   * contrast paints it as a mark: the markers are no copies of it, and the
+   * pairing of a copy with the element before it finds none.
+   *
+   * @param marker - A marker in this trace's highlight values
+   * @returns The band or line, or null for anything else
+   */
+  protected override originalMarkedBy(marker: SVGElement): SVGElement | null {
+    return MARKED_BY.get(marker) ?? null;
+  }
+
+  /**
+   * No hover target when the layer names one element per band, as before
+   * its quantiles were marked point by point: where a band's geometry cannot
+   * be read, every x of a quantile still outlines the same polygon, whose
+   * centre says nothing about which x the pointer is over.
+   *
+   * @returns The centres, or null for one element per band
    */
   protected override mapSvgElementsToCenters(): ReturnType<LineTrace['mapSvgElementsToCenters']> {
     const selectors = typeof this.layer.selectors === 'string'
