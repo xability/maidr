@@ -6,7 +6,7 @@ import type { Trace } from '@model/plot';
 import type { Maidr, MaidrLayer, MosaicPoint } from '@type/grammar';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from '@jest/globals';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 
 /**
@@ -95,6 +95,34 @@ function startOf(element: Element): { x: number; y: number } {
   return { x, y };
 }
 
+/** Whether this file put the `SVGPathElement` shim in place. */
+let shimmed = false;
+
+beforeAll(() => {
+  // jsdom implements none of the per-tag SVG interfaces, so the
+  // `instanceof SVGPathElement` a line trace asks of each element it reads
+  // would throw. Answer it by tag, as a browser would.
+  if ('SVGPathElement' in globalThis) {
+    return;
+  }
+  shimmed = true;
+  Object.defineProperty(globalThis, 'SVGPathElement', {
+    configurable: true,
+    writable: true,
+    value: class SVGPathElementShim {
+      public static [Symbol.hasInstance](value: unknown): boolean {
+        return value instanceof SVGElement && value.tagName === 'path';
+      }
+    },
+  });
+});
+
+afterAll(() => {
+  if (shimmed) {
+    delete (globalThis as { SVGPathElement?: unknown }).SVGPathElement;
+  }
+});
+
 afterEach(() => {
   document.body.innerHTML = '';
 });
@@ -154,6 +182,33 @@ describe('an authored example\'s selectors name the marks its data is drawn as',
     }
     trace.dispose();
 
+    expect(wrong).toEqual([]);
+  });
+
+  it('outlines each car\'s own line at the variable read', () => {
+    // One selector string is one series to the line family; the layer has
+    // four, so nothing was outlined at all.
+    const { layers: [layer] } = load('parallel.html');
+    // Counted before the trace is made: a line trace takes the layer's rows
+    // as its own and empties them when it is disposed.
+    const readings = (layer.data as unknown[][]).map(row => row.length);
+    const trace = TraceFactory.create(layer);
+    const lines = [...document.querySelectorAll('g[id=\'parallel-lines\'] > polyline')]
+      .map(line => (line.getAttribute('points') ?? '').trim().split(/\s+/).map(pair => pair.split(',').map(Number)));
+
+    const wrong: string[] = [];
+    for (const [row, count] of readings.entries()) {
+      for (let col = 0; col < count; col++) {
+        const [marker] = outlinedAt(trace, row, col);
+        const [x, y] = lines[row][col];
+        if (Number(marker?.getAttribute('cx')) !== x || Number(marker?.getAttribute('cy')) !== y) {
+          wrong.push(`${row},${col}`);
+        }
+      }
+    }
+    trace.dispose();
+
+    expect(readings).toHaveLength(4);
     expect(wrong).toEqual([]);
   });
 });
