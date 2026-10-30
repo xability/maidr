@@ -341,6 +341,27 @@ export abstract class MathUtil {
   }
 
   /**
+   * Whether two numbers are the same but for float noise: they differ by no
+   * more than a billionth of the larger of them, or of 1 when both are
+   * smaller than that.
+   *
+   * A number computed as a quotient or a difference carries the rounding of
+   * what it was computed from, so two numbers equal on paper can differ in
+   * the last bit: 22.15 placed on an axis from 10.4 to 33.9 is
+   * 0.49999999999999994, and 50 placed on an axis from 0 to 100 is 0.5. A
+   * billionth, the margin a percentile band's widths are compared within, is
+   * far above that noise and far below any difference a reader could see or
+   * hear.
+   *
+   * @param a - One number
+   * @param b - The other
+   * @returns True when the two are the same but for float noise
+   */
+  static nearlyEqual(a: number, b: number): boolean {
+    return a === b || Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+  }
+
+  /**
    * Clamps a value into the inclusive `[min, max]` range.
    * @param value - The value to clamp
    * @param min - Lower bound (inclusive)

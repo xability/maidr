@@ -440,6 +440,12 @@ export class ParallelTrace extends LineTrace {
    * highest and `[` to the one drawn lowest. Readings level with it on other
    * axes are ties, which further presses walk.
    *
+   * Places are compared without float noise. A place is a quotient, so 22.15
+   * on an axis from 10.4 to 33.9 is 0.49999999999999994 and 50 on one from 0
+   * to 100 is 0.5: compared exactly, `]` went to the 50 alone, though the two
+   * are drawn at one height and played at one pitch. The service that walks
+   * the ties compares the places the same way.
+   *
    * Each target keeps the raw reading as its value, which is what the Go To
    * dialog shows; the place on the axis is only what it is ranked by. A gap
    * is no reading, so it is never a target, even on an axis with no spread,
@@ -479,8 +485,8 @@ export class ParallelTrace extends LineTrace {
     };
 
     return [
-      ...readings.filter(({ place }) => place === highest).map(({ col }) => targetAt(col, 'max')),
-      ...readings.filter(({ place }) => place === lowest).map(({ col }) => targetAt(col, 'min')),
+      ...readings.filter(({ place }) => MathUtil.nearlyEqual(place, highest)).map(({ col }) => targetAt(col, 'max')),
+      ...readings.filter(({ place }) => MathUtil.nearlyEqual(place, lowest)).map(({ col }) => targetAt(col, 'min')),
       ...crossings,
     ];
   }

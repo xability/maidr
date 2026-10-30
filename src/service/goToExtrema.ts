@@ -4,6 +4,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { TraceState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Scope } from '@type/event';
+import { MathUtil } from '@util/math';
 
 /**
  * Where a bracket-key jump landed among the points sharing that extreme value.
@@ -141,7 +142,10 @@ export class GoToExtremaService {
    * named, each further press stayed on it.
    *
    * A target that carries a `rankValue` is compared by it rather than by its
-   * value: see {@link ExtremaTarget.rankValue}.
+   * value: see {@link ExtremaTarget.rankValue}. A rank value is computed by
+   * the trace and can carry float noise, so it ties with the extreme when
+   * `MathUtil.nearlyEqual` says so, as the trace tied it; a value is the
+   * producer's number and ties only with the same number.
    * @param targets - The extrema targets reported by the trace.
    * @param type - Which extreme to collect.
    * @returns The tied targets, one per place, or an empty array when the
@@ -165,10 +169,13 @@ export class GoToExtremaService {
         : Math.max(best, rank(target))),
       rank(candidates[0]),
     );
+    const level = (target: ExtremaTarget): boolean => (target.rankValue === undefined
+      ? target.value === extreme
+      : MathUtil.nearlyEqual(target.rankValue, extreme));
     const places = new Set<string>();
     return candidates.filter((target) => {
       const place = GoToExtremaService.placeOf(target);
-      if (rank(target) !== extreme || places.has(place)) {
+      if (!level(target) || places.has(place)) {
         return false;
       }
       places.add(place);

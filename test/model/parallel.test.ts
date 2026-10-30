@@ -654,6 +654,20 @@ describe('[ and ] judge a reading by its place on its own axis', () => {
     expect(axesOf(parallel(1, 0), 'max')).toEqual(['weight']);
   });
 
+  test('readings drawn level part way up axes of different extents are tied', () => {
+    // 22.15 is halfway up an axis from 10.4 to 33.9, and 50 halfway up one
+    // from 0 to 100, but the first place computes to 0.49999999999999994
+    // and the second to 0.5. Compared exactly, `]` offered the 50 alone,
+    // though the two are drawn at one height and played at one pitch.
+    const level: LinePoint[][] = [
+      [{ x: 'a', y: 22.15 }, { x: 'b', y: 50 }, { x: 'c', y: 0 }],
+      [{ x: 'a', y: 10.4 }, { x: 'b', y: 0 }, { x: 'c', y: 10 }],
+      [{ x: 'a', y: 33.9 }, { x: 'b', y: 100 }, { x: 'c', y: 5 }],
+    ];
+
+    expect(axesOf(parallel(0, 2, level), 'max')).toEqual(['a', 'b']);
+  });
+
   test('ranks a target by its place and shows its reading', () => {
     // The Go To dialog prints `value` beside the label; the place on the
     // axis is only what the bracket keys compare.

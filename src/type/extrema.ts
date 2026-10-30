@@ -33,6 +33,11 @@ export interface ExtremaTarget {
    * observation crosses axes measured in different units, so its readings
    * are ranked by where each sits on its own axis, from 0 to 1, rather than
    * by which number is largest.
+   *
+   * A place is a quotient, so two readings drawn at one height on axes of
+   * different extents can differ in the last bit. Rank values are therefore
+   * tied when `MathUtil.nearlyEqual` says they are, by the trace that lists
+   * the targets and by the service that walks them alike.
    */
   rankValue?: number;
 

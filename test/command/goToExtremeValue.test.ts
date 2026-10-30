@@ -394,6 +394,32 @@ describe('ranking by something other than the value', () => {
     expect(service.goToExtremeValue('min')).toEqual({ position: 1, total: 1 });
     expect(trace.getCurrentXValue()).toBe('mpg');
   });
+
+  test('walks readings drawn level part way up axes of different extents', () => {
+    // 22.15 on an axis from 10.4 to 33.9 and 50 on one from 0 to 100 are
+    // both halfway up, but their places compute to 0.49999999999999994 and
+    // 0.5. Compared exactly, `]` went to the 50 alone and a further press
+    // stayed on it.
+    const level: LinePoint[][] = [
+      [{ x: 'a', y: 22.15 }, { x: 'b', y: 50 }, { x: 'c', y: 0 }],
+      [{ x: 'a', y: 10.4 }, { x: 'b', y: 0 }, { x: 'c', y: 10 }],
+      [{ x: 'a', y: 33.9 }, { x: 'b', y: 100 }, { x: 'c', y: 5 }],
+    ];
+    const trace = TraceFactory.create({
+      id: 'level',
+      type: TraceType.PARALLEL,
+      axes: { x: { label: 'Variable' }, y: { label: 'Value' } },
+      data: level,
+    });
+    trace.moveToIndex(0, 2);
+    const service = serviceFor(trace);
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 2 });
+    expect(trace.getCurrentXValue()).toBe('a');
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 2, total: 2 });
+    expect(trace.getCurrentXValue()).toBe('b');
+  });
 });
 
 describe('bracket key commands', () => {
