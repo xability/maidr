@@ -88,4 +88,36 @@ test.describe('Subplot with no layers', () => {
     const recorded = (await recordedAnnouncements(page)).slice(before);
     expect(recorded).toContain('Category is A, Value is 1');
   });
+
+  test('outlines the panel the reader is on in the lobby, and takes the outline away when they leave', async ({ page }) => {
+    // The empty panel draws a filled background, which is outlined along its
+    // edge. The bar panel's group starts with a bar, so a box is drawn round
+    // the group: stroking the group's first shape, as the lobby did, outlined
+    // that one bar.
+    const plotPage = new EmptySubplotPage(page);
+    await plotPage.navigateToEmptySubplotFigure();
+    await plotPage.activateMaidr();
+    await plotPage.announceStartingSubplot();
+    await expect(page.locator('#panel1 > rect[data-maidr-orig-stroke]')).toHaveCount(1);
+
+    await plotPage.moveToNextSubplot();
+
+    await expect(page.locator('[data-maidr-orig-stroke]')).toHaveCount(0);
+    const box = await page.locator('div[data-maidr-owned]').boundingBox();
+    const panel = await page.locator('#axes_2').boundingBox();
+    if (box === null || panel === null) {
+      throw new Error(`no ${box === null ? 'box' : 'panel'} to measure`);
+    }
+    // Round the panel, standing off it by the box's border and gap.
+    expect(box.x).toBeLessThan(panel.x);
+    expect(box.y).toBeLessThan(panel.y);
+    expect(box.x + box.width).toBeGreaterThan(panel.x + panel.width);
+    expect(box.y + box.height).toBeGreaterThan(panel.y + panel.height);
+    expect(box.width - panel.width).toBeLessThan(20);
+    expect(box.height - panel.height).toBeLessThan(20);
+
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+
+    await expect(page.locator('div[data-maidr-owned]')).toHaveCount(0);
+  });
 });
