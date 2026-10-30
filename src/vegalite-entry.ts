@@ -1404,6 +1404,66 @@ function sortLinesByVisualOrder(
 }
 
 /**
+ * Give each series of a layer drawn as one path per series a selector of its
+ * own.
+ *
+ * Vega draws a colour-split line's series as paths under the same classes,
+ * so `buildLineSelectors` cannot tell them apart and repeats one selector
+ * per series; `LineTrace` then takes the r-th match for series r. It first
+ * tries each selector as one element per *point*, though, and takes it so
+ * whenever the selector matches as many elements as the series has points.
+ * A chart with as many series as points per series -- three competitors
+ * over three rounds, three cars over three axes -- was therefore highlighted
+ * as a whole line chosen by the column, and Up/Down never moved it.
+ *
+ * The r-th match is stamped with its series and series r is given a
+ * selector naming the stamp: the pairing `LineTrace` made, without the
+ * ambiguity. Left alone when the matches do not come one per series, and
+ * when a series has a single point, which `LineTrace` would take its whole
+ * path for, costing the other series their markers.
+ *
+ * @param svg - The chart's SVG
+ * @param layers - Every layer of the chart
+ * @param containerScope - The chart container's selector prefix
+ */
+function distinguishSeriesSelectors(
+  svg: SVGSVGElement,
+  layers: MaidrLayer[],
+  containerScope: string,
+): void {
+  for (const layer of layers) {
+    const selectors = layer.selectors;
+    if (!Array.isArray(selectors) || selectors.length < 2)
+      continue;
+    const shared = selectors[0];
+    if (typeof shared !== 'string' || !selectors.every(selector => selector === shared))
+      continue;
+    const series = layer.data;
+    if (!Array.isArray(series) || series.length !== selectors.length
+      || !series.every(points => Array.isArray(points) && points.length > 1)) {
+      continue;
+    }
+
+    const paths = Array.from(svg.querySelectorAll<SVGElement>(shared));
+    if (paths.length !== selectors.length) {
+      debugLog(
+        `${layer.type} layer "${layer.id}": ${paths.length} paths for `
+        + `${selectors.length} series, so the series keep their shared selector`,
+      );
+      continue;
+    }
+
+    // Quotes and backslashes would end or escape the attribute value.
+    const owner = String(layer.id).replace(/["\\]/g, '_');
+    layer.selectors = paths.map((path, r) => {
+      const stamp = `${owner}/${r}`;
+      path.setAttribute('data-maidr-series', stamp);
+      return `${containerScope} ${path.tagName.toLowerCase()}[data-maidr-series="${stamp}"]`;
+    });
+  }
+}
+
+/**
  * For BOX layers, replace the placeholder single-string selector
  * (`"g.mark-rect.role-mark.{marks} path"`) with a properly typed
  * `BoxSelector[]` (one entry per box group), populate outlier
@@ -2082,6 +2142,11 @@ export function bindVegaLite(
   // Vega-Lite renders nominal/ordinal X scales alphabetically while
   // the dataset is in insertion (e.g. calendar) order.
   sortLinesByVisualOrder(svg as SVGSVGElement, layers, cellDomMap);
+
+  // For layers drawn as one path per series, replace the one selector they
+  // repeat per series with one per series, so a chart with as many series as
+  // points per series is not highlighted a point at a time.
+  distinguishSeriesSelectors(svg as SVGSVGElement, layers, containerScope);
 
   // For BOX layers, build the per-group BoxSelector[] from the
   // rendered DOM and populate outlier values. Fixes "highlight
