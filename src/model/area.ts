@@ -3,6 +3,7 @@ import type { MovableDirection } from '@type/movable';
 import type { BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import { TraceType } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { toBarValue } from './bar';
@@ -719,12 +720,15 @@ export class AreaTrace extends LineTrace {
       // -- so the pair handed the reader a range and then one number twice
       // over, and float error could make 0.9999 and 1.0001 read as a span.
       // `spannedOrMissing` rather than `spanned` for the empty case the filter
-      // above cannot quite rule out on its own.
+      // above cannot quite rule out on its own. A total is a sum of the bands'
+      // values, so it reads in the y axis's declared format, as `Min value`
+      // and `Max value` above it do.
       stats.push({
         label: t('model.statTotalRange'),
         value: MathUtil.spannedOrMissing(
           MathUtil.safeMin(totals),
           MathUtil.safeMax(totals),
+          this.authoredFormat('y') ?? defaultFormat,
         ),
       });
     }

@@ -63,8 +63,10 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       //
       // Every bin holding the largest count, not the first of them: two bins
       // of 38 are two peaks, and `]` already offers both. The count is
-      // composed into the string, so it is rounded here; the description
-      // service rounds a bare number and passes a string through.
+      // composed into the string, so it is formatted here; the description
+      // service rounds a bare number and passes a string through. It reads
+      // in the value axis's declared format where there is one, as the
+      // maximum above it does.
       const peakCount = MathUtil.safeMax(measuredCounts);
       const peaks = points.filter((_point, index) => counts[index] === peakCount);
       if (peaks.length > 0) {
@@ -77,7 +79,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
                 Number(isVertical ? peak.xMax : peak.yMax),
               ))
               .join(t('model.modalBinJoin')),
-            count: defaultFormat(peakCount),
+            count: (this.valueFormat ?? defaultFormat)(peakCount),
           }),
         });
       }

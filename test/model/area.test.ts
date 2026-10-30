@@ -235,6 +235,24 @@ describe('stacked area', () => {
     });
   });
 
+  test('reads the range of the stack in the value axis\'s format', () => {
+    // `Min value` and `Max value` read through the y axis's declared format,
+    // and the total range beside them read raw: "$70" above "15 to 100".
+    const layer = createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, SERVICES]);
+    const trace = TraceFactory.create({
+      ...layer,
+      axes: {
+        ...layer.axes,
+        y: { label: 'Revenue', format: { type: 'currency', currency: 'USD', decimals: 0 } },
+      },
+    }) as AreaTrace;
+
+    const { stats } = trace.description;
+
+    expect(stats).toContainEqual({ label: 'Max value', value: '$70' });
+    expect(stats).toContainEqual({ label: 'Total range', value: '$15 to $100' });
+  });
+
   test('carries the running total beside each band height in the table', () => {
     // The second magnitude the chart draws. It is announced on every move, and
     // the table was the one surface where recovering it meant summing

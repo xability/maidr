@@ -73,4 +73,21 @@ describe('the modal bin of a histogram', () => {
 
     expect(modalBin(histogram(bins))).toBe('0.16 to 0.41, 0.38');
   });
+
+  test('reads the height in the value axis\'s format, as the maximum beside it', () => {
+    // Shares of a sample on an axis declared as percentages: the maximum read
+    // "38%" and the modal bin "1 to 2, 0.38".
+    const layer: MaidrLayer = {
+      ...histogram([[0, 1, 0.24], [1, 2, 0.38], [2, 3, 0.25], [3, 4, 0.13]]),
+      axes: {
+        x: { label: 'Score' },
+        y: { label: 'Share', format: { type: 'percent', decimals: 0 } },
+      },
+    };
+
+    const { stats } = new Histogram(layer).description;
+
+    expect(stats).toContainEqual({ label: 'Maximum Share', value: '38%' });
+    expect(modalBin(layer)).toBe('1 to 2, 38%');
+  });
 });

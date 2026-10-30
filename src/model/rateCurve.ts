@@ -1,9 +1,19 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState } from '@type/state';
+import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { isMeasured } from './bar';
 import { LineTrace } from './line';
+
+/**
+ * The most significant digits a threshold is announced with when two decimals
+ * cannot tell it from its neighbours. Thresholds that agree further than this
+ * are read alike: the closest neighbours on the gallery's Keras curves,
+ * 0.4165611 and 0.4165606, do, and those two points differ in recall, so
+ * they are still announced differently.
+ */
+const MAX_THRESHOLD_DIGITS = 6;
 
 /**
  * One point of a classifier's curve: two rates at one decision threshold.
@@ -120,6 +130,41 @@ export abstract class RateCurveTrace extends LineTrace {
   protected static thresholdOf(point: RateCurvePoint | undefined): number | undefined {
     const threshold = point?.threshold;
     return typeof threshold === 'number' && Number.isFinite(threshold) ? threshold : undefined;
+  }
+
+  /**
+   * The cursor's threshold, with the digits it takes to tell it from the
+   * thresholds either side of it on its curve.
+   *
+   * Two decimals, the precision the rest of the reading uses, make
+   * neighbouring operating points sound the same: TensorBoard's thresholds
+   * are 1/126 apart and scikit-learn's one per distinct score, so 0.905 and
+   * 0.897 both read 0.9, and where the two rates round alike as well a press
+   * of Right announced exactly what the last one did. A threshold already
+   * apart from its neighbours at two decimals reads as before, and none is
+   * given more than {@link MAX_THRESHOLD_DIGITS} significant digits: past
+   * that the difference is float noise.
+   *
+   * @param threshold - The threshold at the cursor
+   * @returns The threshold as it is announced
+   */
+  protected thresholdText(threshold: number): string {
+    const curve = this.curves[this.row];
+    const neighbours = [curve?.[this.col - 1], curve?.[this.col + 1]]
+      .map(point => RateCurveTrace.thresholdOf(point))
+      .filter((other): other is number => other !== undefined && other !== threshold);
+    const rounded = defaultFormat(threshold);
+    if (neighbours.every(other => defaultFormat(other) !== rounded)) {
+      return rounded;
+    }
+    const toDigits = (value: number, digits: number): string => String(Number(value.toPrecision(digits)));
+    for (let digits = 3; digits <= MAX_THRESHOLD_DIGITS; digits++) {
+      const text = toDigits(threshold, digits);
+      if (neighbours.every(other => toDigits(other, digits) !== text)) {
+        return text;
+      }
+    }
+    return rounded;
   }
 
   /**
