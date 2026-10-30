@@ -1,6 +1,6 @@
 import type { MaidrLiveApi, MaidrRuntimeInfo } from './service/liveData';
 import type { Maidr } from './type/grammar';
-import { claimPlotlyExamination, extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
+import { claimPlotlyExamination, deferWhilePlotlyDraws, extractPlotlyData, isPlotlyPlot, normalizePlotlySvg } from './adapters/plotly';
 import { installHostGuards } from './service/hostGuard';
 import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
@@ -273,6 +273,11 @@ function initPlotlyChart(gd: HTMLElement): void {
   // break Plotly's rendering pipeline — only the SVG is safe to adopt.
   const svg = gd.querySelector<SVGSVGElement>('svg.main-svg');
   if (!svg)
+    return;
+
+  // A chart plotly is still drawing -- a map waiting for its outlines -- is
+  // read once plotly has finished, so the reading has what the chart draws.
+  if (deferWhilePlotlyDraws(gd, () => initPlotlyChart(gd)))
     return;
 
   if (!claimPlotlyExamination(gd))

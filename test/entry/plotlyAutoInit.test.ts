@@ -13,6 +13,8 @@ const mockClaimPlotlyExamination = jest.fn(() => false);
 
 jest.mock('../../src/adapters/plotly', () => ({
   claimPlotlyExamination: mockClaimPlotlyExamination,
+  // A chart with nothing left to draw, which is read at once.
+  deferWhilePlotlyDraws: jest.fn(() => false),
   extractPlotlyData: jest.fn(() => null),
   isPlotlyPlot: jest.fn(() => false),
   normalizePlotlySvg: jest.fn(),

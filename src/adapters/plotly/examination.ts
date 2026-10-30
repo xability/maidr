@@ -19,6 +19,61 @@ interface ExaminationInputs {
 const examinedCharts = new WeakMap<PlotlyGraphDiv, ExaminationInputs>();
 
 /**
+ * How long a chart plotly is still drawing is waited for, in milliseconds,
+ * before it is read as it stands.
+ */
+export const DRAW_WAIT_MS = 10_000;
+
+/**
+ * The charts {@link deferWhilePlotlyDraws} has waited for: true while it is
+ * waiting, false once it has.
+ */
+const waitedCharts = new WeakMap<PlotlyGraphDiv, boolean>();
+
+/**
+ * Defers reading a chart until plotly has finished drawing it.
+ *
+ * `Plotly.newPlot` returns with part of a chart still to come: a map waits for
+ * the outlines it fetches over the network, and only then draws the regions
+ * and works out each one's centroid. Plotly keeps what it is waiting for in
+ * `gd._promises` until it settles. A choropleth read before then had no
+ * centroids, so it was read as a list in the order it was declared rather
+ * than by compass direction.
+ *
+ * Waited for once per chart, and for {@link DRAW_WAIT_MS} at most: a chart
+ * whose outlines never arrive is read as it stands, as it was before.
+ *
+ * @param element - Any element inside the plotly graph div, or the div itself.
+ * @param ready   - Called once plotly has finished, or the wait has run out.
+ * @returns Whether the caller should leave the chart until `ready` is called.
+ */
+export function deferWhilePlotlyDraws(element: HTMLElement, ready: () => void): boolean {
+  const gd = findGraphDiv(element);
+  if (!gd)
+    return false;
+
+  const waiting = waitedCharts.get(gd);
+  if (waiting !== undefined)
+    return waiting;
+
+  const pending = gd._promises ?? [];
+  if (pending.length === 0)
+    return false;
+
+  waitedCharts.set(gd, true);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, DRAW_WAIT_MS);
+  });
+  void Promise.race([Promise.allSettled(pending), timeout]).then(() => {
+    clearTimeout(timer);
+    waitedCharts.set(gd, false);
+    ready();
+  });
+  return true;
+}
+
+/**
  * Claims a chart for examination, so a caller examines it once per set of
  * inputs rather than once per DOM mutation.
  *
