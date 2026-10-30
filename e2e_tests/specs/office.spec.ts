@@ -70,13 +70,13 @@ test.describe('Office adapter: the PowerPoint task pane (office-taskpane.html)',
     await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
 
     await page.keyboard.press('ArrowRight');
-    await waitForText(page, 'Quarter is Q1, Sales ($) is 120, Level is North');
+    await waitForText(page, 'Quarter is Q1, Sales ($) is 120, Series is North');
     for (const quarter of ['Q2', 'Q3']) {
       await page.keyboard.press('ArrowRight');
       await waitForText(page, `Quarter is ${quarter}, Sales ($)`);
     }
     await page.keyboard.press('ArrowUp');
-    await waitForText(page, 'Quarter is Q3, Sales ($) is missing, Level is South');
+    await waitForText(page, 'Quarter is Q3, Sales ($) is missing, Series is South');
   });
 
   test('reads a waterfall\'s totals from the file, which Office.js could not report', async ({ page }) => {
@@ -131,7 +131,7 @@ test.describe('Office adapter: the PowerPoint task pane (office-taskpane.html)',
     await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
     await page.keyboard.press('ArrowRight');
 
-    await waitForText(page, 'Quarter is Q1, Sales ($) is 125, Level is North');
+    await waitForText(page, 'Quarter is Q1, Sales ($) is 125, Series is North');
   });
 });
 
@@ -163,6 +163,6 @@ test.describe('Office adapter: the Word task pane (office-taskpane.html?host=Wor
     await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
     await page.keyboard.press('ArrowRight');
 
-    await waitForText(page, 'Quarter is Q1, Sales ($) is 125, Level is North');
+    await waitForText(page, 'Quarter is Q1, Sales ($) is 125, Series is North');
   });
 });

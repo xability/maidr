@@ -341,6 +341,21 @@ test.describe('Stacked Barplot', () => {
       const firstDataPointValue = getStackedBarplotDisplayValue(stackedBarplotLayer, 0);
       expect(currentDataPoint).toContain(firstDataPointValue);
     });
+
+    test('should name the series by one word on a move and on P', async ({ page }) => {
+      // The example declares no z label. The moves said "Level is 0" and P
+      // said "Level is 0" while the dialog's table headed the column
+      // `Series`; all three now use the table's word.
+      const stackedBarplotPage = await setupStackedBarplotPage(page);
+
+      await stackedBarplotPage.moveToNextDataPoint();
+      const move = await stackedBarplotPage.getCurrentDataPointInfo();
+      await stackedBarplotPage.announcePosition();
+      const position = await stackedBarplotPage.getInstructionText();
+
+      expect(move).toContain('Series is 0');
+      expect(position).toBe('Position is 1 of 3, Series is 0');
+    });
   });
 
   test.describe('Autoplay Controls', () => {

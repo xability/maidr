@@ -190,13 +190,15 @@ describe('a stacked layer names its value and its band differently', () => {
   it.each(['StackedColumnChart', 'DodgedColumnChart', 'DivergingColumnChart'])(
     '%s does not call both of them "Level"',
     (chartType) => {
-      // The builder emitted `y: { label: 'Level' }`, which is the label the
-      // core already defaults the *band* axis to — so a reader heard "Level is
+      // The builder emitted `y: { label: 'Level' }`, which was the label the
+      // core defaulted the *band* axis to — so a reader heard "Level is
       // Alpha … Level is 1", one word for the series and for its magnitude.
+      // The band now takes the word the data table heads it with.
       const { value, band } = labels(chartType);
 
-      expect(band).toBe('Level');
+      expect(band).toBe('Series');
       expect(value).not.toBe('Level');
+      expect(value).not.toBe(band);
     },
   );
 

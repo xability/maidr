@@ -6,6 +6,7 @@ import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { joinSelectorList, legacyListProblem, warnSelectors } from '@util/selectors';
 import { Svg } from '@util/svg';
+import { named } from './abstract';
 import { AbstractBarPlot, isMeasured, missingText } from './bar';
 import { extremumAt } from './extremaTarget';
 
@@ -172,6 +173,22 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
+   * What the series dimension is called: the layer's z label, or the word
+   * the data table has always headed its series column with.
+   *
+   * Read by every surface that names the dimension -- each move, the
+   * position key through the move's state, the table, the extremes -- so
+   * they cannot come to disagree. The moves used to read `this.z`, whose
+   * fallback is the generic `Level`, so a chart with no z label was read
+   * "Level is Below" while its dialog called the same thing `Series`.
+   *
+   * @returns The z label, or `Series`
+   */
+  protected get seriesLabel(): string {
+    return named(this.layer.axes?.z?.label, t('model.nounSeries'));
+  }
+
+  /**
    * Get a human-readable label for the current group
    * @param groupIndex The index of the group
    * @returns A label for the group
@@ -239,8 +256,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * @returns The z axis label
    */
   private getZAxisLabel(): string {
-    // Use the z-axis label from the layer configuration
-    return this.z;
+    return this.seriesLabel;
   }
 
   /**
@@ -321,8 +337,8 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     }
 
     const headers = isVertical
-      ? [this.xAxis, this.yAxis, zLabel ?? t('model.nounSeries')]
-      : [this.yAxis, this.xAxis, zLabel ?? t('model.nounSeries')];
+      ? [this.xAxis, this.yAxis, this.seriesLabel]
+      : [this.yAxis, this.xAxis, this.seriesLabel];
 
     // Swapped on the same condition as the headers above, so the two cannot
     // fall out of step: the category column sits on whichever axis carries the
@@ -364,7 +380,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     return {
       ...super.text,
       z: {
-        label: this.z,
+        label: this.seriesLabel,
         value: this.seriesNameAt(this.row),
       },
     };

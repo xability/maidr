@@ -85,11 +85,11 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
     await tabIntoFigure(page, 'maidr plot of type: vertical dodged bar');
 
     await page.keyboard.press('ArrowRight');
-    await waitForText(page, 'Quarter is Q1, Sales ($) is 120, Level is North');
+    await waitForText(page, 'Quarter is Q1, Sales ($) is 120, Series is North');
     await page.keyboard.press('ArrowRight');
-    await waitForText(page, 'Quarter is Q2, Sales ($) is 135, Level is North');
+    await waitForText(page, 'Quarter is Q2, Sales ($) is 135, Series is North');
     await page.keyboard.press('ArrowUp');
-    await waitForText(page, 'Quarter is Q2, Sales ($) is 110, Level is South');
+    await waitForText(page, 'Quarter is Q2, Sales ($) is 110, Series is South');
   });
 
   test('a blank cell is announced as missing', async ({ page }) => {
@@ -102,7 +102,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
 
     await page.keyboard.press('ArrowUp');
 
-    await waitForText(page, 'Quarter is Q3, Sales ($) is missing, Level is South');
+    await waitForText(page, 'Quarter is Q3, Sales ($) is missing, Series is South');
   });
 
   test('choosing another chart with the arrow keys reads it, named by its header cell', async ({ page }) => {
@@ -180,7 +180,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
       await waitForText(page, `Quarter is ${quarter}`);
     }
     await page.keyboard.press('ArrowUp');
-    await waitForText(page, 'Quarter is Q3, Sales ($) is missing, Level is South');
+    await waitForText(page, 'Quarter is Q3, Sales ($) is missing, Series is South');
 
     // In Excel the edit happens in the grid while the pane keeps its focused
     // element; a scripted click keeps focus on MAIDR's figure here too.
@@ -192,9 +192,9 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
     await expect.poll(async () => {
       await page.keyboard.press('Space');
       return text(page);
-    }, { timeout: 5000 }).toContain('Quarter is Q3, Sales ($) is 105, Level is South');
+    }, { timeout: 5000 }).toContain('Quarter is Q3, Sales ($) is 105, Series is South');
     await page.keyboard.press('ArrowRight');
-    await waitForText(page, 'Quarter is Q4, Sales ($) is 140, Level is South');
+    await waitForText(page, 'Quarter is Q4, Sales ($) is 140, Series is South');
   });
 
   test('a treemap reads its groups, then each group\'s products, from the category columns', async ({ page }) => {
@@ -226,7 +226,7 @@ test.describe('Excel adapter: the task pane (excel-taskpane.html)', () => {
 
     await expect(page.locator('#taskpane [role="application"]')).toBeFocused();
     await page.keyboard.press('ArrowRight');
-    await waitForText(page, 'Quarter is Q1, Sales ($) is 120, Level is North');
+    await waitForText(page, 'Quarter is Q1, Sales ($) is 120, Series is North');
   });
 
   test('an Excel without ExcelApi 1.12 is told why nothing is read', async ({ page }) => {

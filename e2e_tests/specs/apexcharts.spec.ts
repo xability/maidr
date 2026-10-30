@@ -381,8 +381,8 @@ test.describe('ApexCharts adapter', () => {
 
     // One quarter, one series at a time: Up moves to the next region's bar
     // in the same quarter.
-    expect(first.text).toContain('Quarter is Q1, Revenue ($ thousands) is 44, Level is North');
-    expect(next.text).toContain('Quarter is Q1, Revenue ($ thousands) is 76, Level is South');
+    expect(first.text).toContain('Quarter is Q1, Revenue ($ thousands) is 44, Series is North');
+    expect(next.text).toContain('Quarter is Q1, Revenue ($ thousands) is 76, Series is South');
     expect(first.outlined).toBeGreaterThan(0);
     expect(next.outlined).toBeGreaterThan(0);
     expect(where(next)).not.toEqual(where(first));
@@ -427,11 +427,11 @@ test.describe('ApexCharts adapter', () => {
       'apexcharts-gantt': ['Task is Research, Date is Jan 6, 2025 through Jan 17, 2025, Length is 11 days'],
       'apexcharts-gauge': ['Measure is Battery, Charge (%) is 72'],
       'apexcharts-multiline': ['Week is W1, Active users is 1200, Group is Desktop'],
-      'apexcharts-normalized': ['Age group is 18-29, Share of respondents is 73.57, Level is Agree'],
+      'apexcharts-normalized': ['Age group is 18-29, Share of respondents is 73.57, Series is Agree'],
       'apexcharts-polar-area': ['Season is Spring, Hours is 5.2'],
       'apexcharts-radar': ['Skill is Coding, Rating is 8, Series is Alice'],
       'apexcharts-scatter': ['Height (cm) is 155, Weight (kg) is 53'],
-      'apexcharts-stacked': ['Year is 2019, Generation (TWh) is 210, Level is Coal'],
+      'apexcharts-stacked': ['Year is 2019, Generation (TWh) is 210, Series is Coal'],
       'apexcharts-stacked-area': ['Month is Jan, Visits is 4200, Band is Organic'],
       'apexcharts-step': ['Quarter is 2022 Q1, Rate (%) is 0.25'],
       'apexcharts-treemap': ['City is Tokyo, Population (millions) is 37.2'],
