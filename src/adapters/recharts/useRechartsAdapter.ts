@@ -50,7 +50,10 @@ import { convertRechartsToMaidr } from './converters';
  * independently. However, fields that are arrays or objects (`data`,
  * `yKeys`, `layers`, `subplots`, `fillKeys`, `binConfig`) are compared
  * by reference. Define them outside the component or wrap them in
- * `useMemo` to avoid unnecessary recomputation on every render.
+ * `useMemo` to avoid unnecessary recomputation on every render: each
+ * recomputation is a new object for `<Maidr>`, which then forgets the point
+ * a reader who stepped away from the chart would come back to. `dotSeries`
+ * is compared by its content, so it can be written inline.
  *
  * In subplot mode (`subplots` set), the hook — unlike `<MaidrRecharts>` —
  * does NOT wrap your charts in panel container divs. You must render each
@@ -108,6 +111,11 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
     boxenConfig,
     selectorOverride,
   } = config;
+  // Serialised, as `<MaidrRecharts>` serialises what it reads off its
+  // children: the list is usually written inline, a new array on every
+  // render, and a new MAIDR object makes `<Maidr>` forget the place a reader
+  // who stepped away would come back to.
+  const dotSeriesKey = dotSeries === undefined ? undefined : JSON.stringify(dotSeries);
 
   return useMemo(
     () => convertRechartsToMaidr({
@@ -121,7 +129,9 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       categoryAxisReversedPerPanel,
       stepDirection,
       pieAngles,
-      dotSeries,
+      dotSeries: dotSeriesKey === undefined
+        ? undefined
+        : (JSON.parse(dotSeriesKey) as (string | null)[]),
       xKey,
       yKeys,
       layers,
@@ -148,6 +158,6 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       boxenConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, categoryAxisReversed, categoryAxisReversedPerPanel, stepDirection, pieAngles, dotSeries, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, categoryAxisReversed, categoryAxisReversedPerPanel, stepDirection, pieAngles, dotSeriesKey, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
   );
 }
