@@ -11,8 +11,9 @@
  * The shapes of chart exercised here break the split in different directions:
  * a combined chart whose first series is not line-like at all, series of
  * unequal length, series whose marks share every x position, a series that
- * draws no marks at all, and a line or area beside a marker series, whose
- * layers AnyChart writes in z-index order rather than series order.
+ * draws no marks at all, a line or area beside a marker series, whose
+ * layers AnyChart writes in z-index order rather than series order, and a
+ * series a legend click shows after the chart was bound.
  */
 
 import type {
@@ -438,6 +439,185 @@ describe('bindAnyChart (a line or area beside a marker series)', () => {
 
     expect(stamps(markers, LINE_ATTR)).toEqual([...ofSeries(0), null, null, null, null]);
     expect(stamps(markers, POINT_ATTR)).toEqual([null, null, null, null, ...ofSeries(1)]);
+
+    cleanUp(container);
+  });
+});
+
+/**
+ * A chart that calls its `chartdraw` listeners when `redraw` is called, as
+ * AnyChart does on each draw, with an SVG 700 by 400 pixels on the page
+ * until `setSize` says otherwise.
+ */
+function createRedrawingChart(
+  series: AnyChartSeries[],
+  container: HTMLElement,
+): { chart: AnyChartInstance; redraw: () => void; setSize: (width: number, height: number) => void } {
+  const listeners: Array<() => void> = [];
+  const chart = {
+    ...createChart(series, container),
+    listen: (type: string, listener: () => void) => {
+      if (type === 'chartdraw')
+        listeners.push(listener);
+    },
+  } as AnyChartInstance;
+  let size = { width: 700, height: 400 };
+  const svg = container.querySelector('svg') as SVGElement;
+  Object.defineProperty(svg, 'getBoundingClientRect', {
+    value: () => ({ x: 0, y: 0, top: 0, left: 0, right: size.width, bottom: size.height, ...size }),
+  });
+  return {
+    chart,
+    redraw: () => listeners.forEach(listener => listener()),
+    setSize: (width, height) => {
+      size = { width, height };
+    },
+  };
+}
+
+/** New shapes drawn into `layer`, each `width` by `height`, one at each of `xs`. */
+function drawShapes(layer: Element, tag: 'path' | 'rect', xs: number[], width: number, height: number): SVGElement[] {
+  return xs.map((x) => {
+    const shape = document.createElementNS(SVG_NS, tag);
+    shape.setAttribute('fill', '#64b5f6');
+    Object.defineProperty(shape, 'getBBox', { value: () => ({ x, y: 100, width, height }) });
+    layer.appendChild(shape);
+    return shape as unknown as SVGElement;
+  });
+}
+
+/**
+ * MAIDR's copy of a mark, as its core inserts one while the reader is in the
+ * chart: hidden, owned, with the mark's stamp, straight after the mark.
+ */
+function addMaidrCopy(mark: SVGElement): void {
+  const copy = mark.cloneNode(true) as SVGElement;
+  copy.setAttribute('visibility', 'hidden');
+  copy.setAttribute('data-maidr-owned', 'true');
+  const box = (mark as unknown as SVGGraphicsElement).getBBox();
+  Object.defineProperty(copy, 'getBBox', { value: () => box });
+  mark.after(copy);
+}
+
+describe('bindAnyChart (a series a legend hides or shows)', () => {
+  const ofSeries = (s: number): string[] => [0, 1, 2, 3].map(i => `${s}-${i}`);
+  const at = (zIndex: number, markersZIndex?: number): Partial<AnyChartSeries> => ({
+    zIndex: () => zIndex,
+    ...(markersZIndex === undefined
+      ? {}
+      : { markers: () => ({ enabled: () => true, zIndex: () => markersZIndex }) as unknown as AnyChartMarkers }),
+  });
+
+  it('gives a column series hidden when the chart is bound no bars', () => {
+    // With North hidden by `enabled(false)`, only South's bars are drawn.
+    // Counted, North took them, and South's highlight outlined nothing.
+    const { container, bars } = createRenderedChart('column-hidden', [], [30, 30, 30, 30]);
+    const chart = createChart(
+      [createSeries('column', 4, 'North', { enabled: () => false }), createSeries('column', 4, 'South')],
+      container,
+    );
+
+    bindAnyChart(chart);
+
+    expect(stamps(bars, 'data-maidr-anychart-bar')).toEqual(ofSeries(1));
+
+    cleanUp(container);
+  });
+
+  it('stamps the markers of a line shown after the chart was bound', () => {
+    // Measured on AnyChart 8.13: a line hidden when the chart is bound draws
+    // no markers, and shown with a legend click it draws new ones, in a layer
+    // between the marker series' points and the other line's markers.
+    // Stamped only when the chart was bound, they never were, and MAIDR could
+    // never outline them. MAIDR's copies of the marker series' points, there
+    // while the reader is in the chart, are passed over.
+    let alphaShown = false;
+    const { container, markers } = createRenderedChart('line-shown', [10, 20, 30, 40, 10, 20, 30, 40], [], [4, 4]);
+    const points = markers.slice(0, 4);
+    const gamma = markers.slice(4);
+    const { chart, redraw } = createRedrawingChart(
+      [
+        createSeries('line', 4, 'Alpha', { ...at(31, 31.000012), enabled: () => alphaShown }),
+        createSeries('marker', 4, 'Beta', at(30.00001)),
+        createSeries('line', 4, 'Gamma', at(31.00002, 31.000032)),
+      ],
+      container,
+    );
+    bindAnyChart(chart);
+    points.forEach(addMaidrCopy);
+    alphaShown = true;
+    const alphaLayer = document.createElementNS(SVG_NS, 'g');
+    alphaLayer.id = 'ac_layer_alpha';
+    gamma[0].parentElement?.before(alphaLayer);
+    const alpha = drawShapes(alphaLayer, 'path', [10, 20, 30, 40], 6, 6);
+    const warn = jest.mocked(console.warn);
+    warn.mockClear();
+
+    redraw();
+
+    expect(stamps(alpha, LINE_ATTR)).toEqual(ofSeries(0));
+    expect(stamps(points, POINT_ATTR)).toEqual(ofSeries(1));
+    expect(stamps(gamma, LINE_ATTR)).toEqual(ofSeries(2));
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
+
+  it('stamps the bars of a column series shown after the chart was bound', () => {
+    // South is hidden when the chart is bound and shown after, with MAIDR's
+    // copies of North's bars in the chart. Counted with the copies, the bars
+    // North had already been given took South's turn as well.
+    let southShown = false;
+    const { container, bars } = createRenderedChart('column-shown', [], [30, 30, 30, 30]);
+    const { chart, redraw } = createRedrawingChart(
+      [createSeries('column', 4, 'North'), createSeries('column', 4, 'South', { enabled: () => southShown })],
+      container,
+    );
+    bindAnyChart(chart);
+    bars.forEach(addMaidrCopy);
+    southShown = true;
+    const layer = bars[0].parentElement as Element;
+    const south = drawShapes(layer, 'rect', [40, 140, 240, 340], 30, 200);
+
+    redraw();
+
+    expect(stamps(bars, 'data-maidr-anychart-bar')).toEqual(ofSeries(0));
+    expect(stamps(south, 'data-maidr-anychart-bar')).toEqual(ofSeries(1));
+
+    cleanUp(container);
+  });
+
+  it('leaves a chart drawn while it has no size for the next draw', () => {
+    // AnyChart also draws the chart while its SVG has no size. In Chromium no
+    // shape can be measured then, and stamping warned for every series of
+    // every example.
+    let alphaShown = false;
+    const { container, markers } = createRenderedChart('no-size', [10, 20, 30, 40]);
+    const { chart, redraw, setSize } = createRedrawingChart(
+      [
+        createSeries('line', 4, 'Alpha', { ...at(31, 31.000012), enabled: () => alphaShown }),
+        createSeries('line', 4, 'Gamma', at(31.00001, 31.000022)),
+      ],
+      container,
+    );
+    bindAnyChart(chart);
+    alphaShown = true;
+    const alphaLayer = document.createElementNS(SVG_NS, 'g');
+    markers[0].parentElement?.before(alphaLayer);
+    const alpha = drawShapes(alphaLayer, 'path', [10, 20, 30, 40], 6, 6);
+    const warn = jest.mocked(console.warn);
+    warn.mockClear();
+
+    setSize(0, 0);
+    redraw();
+    const whileSizeless = stamps(alpha, LINE_ATTR);
+    setSize(700, 400);
+    redraw();
+
+    expect(whileSizeless).toEqual([null, null, null, null]);
+    expect(stamps(alpha, LINE_ATTR)).toEqual(ofSeries(0));
+    expect(stamps(markers, LINE_ATTR)).toEqual(ofSeries(1));
+    expect(warn).not.toHaveBeenCalled();
 
     cleanUp(container);
   });
