@@ -173,7 +173,9 @@ export class DivergingTrace extends SegmentedTrace {
     // negative value, so it was the row's lowest cell, and its shortest bar
     // the row's highest. One scale for every row also keeps a band's two
     // bars comparable cell for cell, which is what a multiline display lays
-    // the rows out for.
+    // the rows out for. The last row goes the same way: the balance on a
+    // two-sided chart, and on any other a signed sum, whose size is what the
+    // cell shows, as the pitch plays it, while the sign is announced.
     const lengths = this.barValues.map(row =>
       row.map(value => (isMeasured(value) ? Math.abs(value) : value)));
     return {

@@ -702,9 +702,12 @@ pyramid -- wide at the young bands, narrow at the old -- reads as cells falling
 along both rows, and at any band the two sides' cells can be compared
 directly.
 
-The balance row is each band's lead on the same scale, so it reads low unless
-one side leads by about as much as a bar is long. Which side leads is in the
-announcement, not in the dots.
+On a two-sided chart the last row is the balance, each band's lead on the same
+scale, so it reads low unless one side leads by about as much as a bar is long.
+Which side leads is in the announcement, not in the dots. A chart that is not
+two-sided -- three sides, or two that grow the same way -- keeps the segmented
+bar's plain sum in that row instead. Its cells, like its pitch, show the sum's
+size whatever its sign, and the sign is in the announcement.
 
 #### Multiline Displays
 
