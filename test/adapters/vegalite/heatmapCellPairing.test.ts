@@ -68,6 +68,8 @@ interface Drawing {
   bound?: boolean;
   /** Indices of rows whose mark carries no binding, when only some do. */
   unbound?: number[];
+  /** The row Vega binds to a mark, when it is not the row as listed. */
+  boundAs?: (row: Row) => Row;
 }
 
 /**
@@ -102,7 +104,7 @@ function chart(rows: Row[], drawing: Drawing, x = 'day', y = 'hour'): VegaView {
       bottom: top + CELL,
     }) as DOMRect;
     if (drawing.bound !== false && !drawing.unbound?.includes(index)) {
-      (path as unknown as { __data__: unknown }).__data__ = { datum: row };
+      (path as unknown as { __data__: unknown }).__data__ = { datum: drawing.boundAs?.(row) ?? row };
     }
     marks.appendChild(path);
   }
@@ -259,6 +261,30 @@ describe('a vega-lite heatmap whose rows are not listed in the drawn order', () 
     expect(data.x).toEqual(['0', '1']);
     expect(data.points).toEqual([[1, 2], [3, 4]]);
   });
+
+  it('does not take a one-row heatmap\'s row field for its columns when they share labels', () => {
+    // Along a single row every field is constant down each column, and the
+    // row field's one value is also a column label; it still names one label,
+    // not the three columns, so it is not the column field. Listed first, it
+    // is the first field tried.
+    const fromP: Row[] = [
+      { from: 'p', to: 'r', value: 3 },
+      { from: 'p', to: 'p', value: 1 },
+      { from: 'p', to: 'q', value: 2 },
+    ];
+    const drawing: Drawing = {
+      columns: ['p', 'q', 'r'],
+      rows: ['p'],
+      domains: { x: ['p', 'q', 'r'], y: ['p'] },
+    };
+
+    const { data, dom } = bind(fromP, drawing, 'to', 'from');
+
+    expect(data.x).toEqual(['p', 'q', 'r']);
+    expect(data.y).toEqual(['p']);
+    expect(data.points).toEqual([[1, 2, 3]]);
+    expect(dom).toEqual(['p p', 'q p', 'r p']);
+  });
 });
 
 describe('a vega-lite heatmap whose marks carry no bound row', () => {
@@ -292,5 +318,35 @@ describe('a vega-lite heatmap whose marks carry no bound row', () => {
 
     expect(data.y).toEqual(['Afternoon', 'Evening', 'Morning']);
     expect(data.points).toEqual([[8, 6], [3, 4], [5, 7]]);
+  });
+
+  it('keeps the converter\'s grid when the bound rows do not hold the labels\' values', () => {
+    // A converter that read the spec's own rows labels a date by its text,
+    // while Vega binds the row it parsed, holding a timestamp. No field spells
+    // the labels, so the cells are not renamed; the converter's grid is in
+    // the scales' domain order, which is the drawn order here.
+    const days: Row[] = [
+      { day: '2024-01-02', hour: 'Morning', value: 7 },
+      { day: '2024-01-01', hour: 'Morning', value: 5 },
+      { day: '2024-01-02', hour: 'Evening', value: 4 },
+      { day: '2024-01-01', hour: 'Evening', value: 3 },
+    ];
+
+    const { data, dom } = bind(days, {
+      columns: ['2024-01-01', '2024-01-02'],
+      rows: ['Evening', 'Morning'],
+      domains: { x: ['2024-01-01', '2024-01-02'], y: ['Evening', 'Morning'] },
+      boundAs: row => ({ ...row, day: Date.parse(String(row.day)) }),
+    });
+
+    expect(data.x).toEqual(['2024-01-01', '2024-01-02']);
+    expect(data.y).toEqual(['Evening', 'Morning']);
+    expect(data.points).toEqual([[3, 4], [5, 7]]);
+    expect(dom).toEqual([
+      '2024-01-01 Evening',
+      '2024-01-02 Evening',
+      '2024-01-01 Morning',
+      '2024-01-02 Morning',
+    ]);
   });
 });
