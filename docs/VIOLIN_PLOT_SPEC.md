@@ -161,7 +161,7 @@ Index 3: { x: "Ideal", y: -294.2, svg_x: 105.99, svg_y: 279.41, width: 0.100 }  
 ...
 ```
 
-**IMPORTANT**: Do NOT deduplicate these pairs. The navigation traverses both sides of the curve (up the left side, down the right side). Deduplicating would break navigation — the user would only traverse one side.
+Keep both points of a pair. The frontend reads consecutive points with the same `y` and the same density (or width) as one **level**: one stop when the reader moves along the curve, one row in the data table, and one braille cell. The highlight marks the level at every point the pair gives, so the reader sees both edges of the violin at that value. A curve sent as one point per `y` is read the same way, with one marker at each level.
 
 ### 4.5 Example KDE Layer
 
@@ -410,8 +410,8 @@ The frontend asks `Svg.buildLineElements` for the `'bottom'` and `'top'` edges o
 |-----|-----------|--------|
 | Left | BACKWARD | Move to previous violin. Reset to bottom of curve (col=0). |
 | Right | FORWARD | Move to next violin. Reset to bottom of curve (col=0). |
-| Up | UPWARD | Move to next point along KDE curve (col+1). |
-| Down | DOWNWARD | Move to previous point along KDE curve (col-1). |
+| Up | UPWARD | Move to next level along KDE curve (col+1). |
+| Down | DOWNWARD | Move to previous level along KDE curve (col-1). |
 | Ctrl+Left | BACKWARD extreme | Jump to first violin. |
 | Ctrl+Right | FORWARD extreme | Jump to last violin. |
 | Ctrl+Up | UPWARD extreme | Jump to top of curve. |
@@ -535,7 +535,7 @@ The cross value (Y) is excluded for violin box layers during layer switch announ
 Provides density values for braille rendering:
 - `values`: 2D array of density values `number[][]`
 - `min`/`max`: Per-violin minimum/maximum density (arrays)
-- Row = current violin, Col = current curve position
+- Row = current violin, Col = current level along the curve
 
 ### 11.2 Box Layer Braille
 
@@ -774,7 +774,7 @@ Provides BoxPoint array:
 - [ ] Set layer `type` to `"violin_kde"` (NOT `"smooth"`)
 - [ ] **Put `violin_box` layer first** in the `layers` array (default view for users)
 - [ ] KDE data is `ViolinKdePoint[][]` — outer array per violin, inner array per curve point
-- [ ] KDE points include BOTH sides of violin (paired left/right at each Y level) — do NOT deduplicate
+- [ ] KDE points include BOTH sides of violin (paired left/right at each Y level), so both edges are highlighted — each pair is read as one level
 - [ ] KDE `x` field has the categorical label for every point in a violin
 - [ ] KDE `y` field has numeric values, monotonically increasing along the curve
 - [ ] KDE `density` or `width` field has the density value (at least one must be present)
