@@ -29,9 +29,9 @@
  * Row-major is the default because no producer in the tree relies on the other
  * answer: every `<rect>` producer declares `order: 'row'`, and every producer
  * that declares nothing draws `<path>`, where row was already the default. A
- * producer that draws each category's segments bottom-up -- the convention
- * `groupsRunForward` describes -- declares `order: 'column'` and gets what the
- * rect branch used to hand it silently.
+ * producer that draws category by category, each column from its top segment
+ * down -- the convention `groupsRunForward` describes -- declares
+ * `order: 'column'` and gets what the rect branch used to hand it silently.
  *
  * **jsdom decides the branch, not the markup.** It builds every SVG child as a
  * plain `SVGElement` and defines neither `SVGPathElement` nor `SVGRectElement`,
@@ -179,9 +179,9 @@ describe('how a segmented layer pairs its cells with the DOM', () => {
   });
 
   it('answers the same on every branch once column is declared', () => {
-    // Column-major is still reachable, and is what a producer drawing each
-    // category's segments bottom-up asks for. It is just no longer something
-    // a layer can end up with by drawing the wrong tag.
+    // Column-major is still reachable, and is what a producer drawing
+    // category by category asks for. It is just no longer something a layer
+    // can end up with by drawing the wrong tag.
     expect(pairedBars('path', 'column')).toEqual(CATEGORY_MAJOR);
     expect(pairedBars('rect', 'column')).toEqual(CATEGORY_MAJOR);
     expect(pairedBars('neither', 'column')).toEqual(CATEGORY_MAJOR);

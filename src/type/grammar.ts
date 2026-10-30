@@ -2141,9 +2141,13 @@ export interface MaidrLayer {
      */
     order?: 'row' | 'column';
     /**
-     * For segmented/dodged bars, control the per-column group/level iteration.
-     * 'forward' => iterate groups top-to-bottom (as previously domOrder='forward').
-     * 'reverse' => iterate bottom-to-top (default).
+     * For segmented/dodged bars walked category by category, which series a
+     * category's elements start from. A stack's series are listed bottom
+     * segment first.
+     * 'forward' => the first series (as previously domOrder='forward'): a
+     * column drawn from its bottom segment up, as base R draws one.
+     * 'reverse' => the last series (default): a column drawn from its top
+     * segment down, as ggplot2 draws one.
      */
     groupDirection?: 'forward' | 'reverse';
     /**
