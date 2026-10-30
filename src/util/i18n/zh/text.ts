@@ -115,6 +115,7 @@ export const text = {
   'text.noCaptionAvailable': '没有说明文字',
 
   // Position announcements.
+  'text.noDataHere': '此处没有数据，无法显示位置。',
   'text.notInChart': '不在图表中，无法显示位置。',
   'text.indexOfSize': '第 {index} 个，共 {size} 个',
   'text.positionIs': '位置为第 {position} 个，共 {total} 个',

@@ -116,6 +116,7 @@ export const text = {
   'text.noCaptionAvailable': 'Aucune légende disponible',
 
   // Position announcements.
+  'text.noDataHere': 'Aucune donnée ici, donc aucune position à indiquer.',
   'text.notInChart': 'Pas dans un graphique, impossible d\'indiquer la position.',
   'text.indexOfSize': '{index} sur {size}',
   'text.positionIs': 'Position {position} sur {total}',

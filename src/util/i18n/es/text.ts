@@ -130,6 +130,7 @@ export const text = {
   'text.noCaptionAvailable': 'No hay pie de figura disponible',
 
   // Position announcements, one shape per chart family.
+  'text.noDataHere': 'No hay datos aquí, así que no hay ninguna posición que mostrar.',
   'text.notInChart': 'No está en un gráfico, no se puede mostrar la posición.',
   'text.indexOfSize': '{index} de {size}',
   'text.positionIs': 'La posición es {position} de {total}',

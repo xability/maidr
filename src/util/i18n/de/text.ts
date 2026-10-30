@@ -121,6 +121,7 @@ export const text = {
   'text.noCaptionAvailable': 'Keine Bildunterschrift verfügbar',
 
   // Position announcements, one shape per chart family.
+  'text.noDataHere': 'Hier gibt es keine Daten, daher kann keine Position angezeigt werden.',
   'text.notInChart': 'Nicht in einem Diagramm, Position kann nicht angezeigt werden.',
   'text.indexOfSize': '{index} von {size}',
   'text.positionIs': 'Position ist {position} von {total}',

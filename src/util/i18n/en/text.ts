@@ -124,6 +124,7 @@ export const text = {
   'text.noCaptionAvailable': 'No caption available',
 
   // Position announcements, one shape per chart family.
+  'text.noDataHere': 'No data here, so no position to show.',
   'text.notInChart': 'Not in a chart, unable to show position.',
   'text.indexOfSize': '{index} of {size}',
   'text.positionIs': 'Position is {position} of {total}',

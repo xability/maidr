@@ -98,6 +98,7 @@ export const text = {
   'text.caption': 'Didascalia',
   'text.noCaptionAvailable': 'Nessuna didascalia disponibile',
 
+  'text.noDataHere': 'Nessun dato qui, quindi nessuna posizione da indicare.',
   'text.notInChart': 'Non in un grafico, impossibile indicare la posizione.',
   'text.indexOfSize': '{index} di {size}',
   'text.positionIs': 'Posizione {position} di {total}',

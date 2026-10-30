@@ -798,6 +798,14 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     // Get current state
     const state = this.context.state;
 
+    // On a layer, with no point where the reader is: a layer with no data, or
+    // a ragged layer's empty series before the first move. Said as "Not in a
+    // chart", this told a reader on the chart that they were not on it.
+    if (state.type === 'trace' && state.empty) {
+      this.answer(t('text.noDataHere'));
+      return;
+    }
+
     // Handle no data case
     if (state.empty || (state.type !== 'trace' && state.type !== 'figure')) {
       this.answer(t('text.notInChart'));
