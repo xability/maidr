@@ -669,7 +669,7 @@ Once a chart is focused, use standard MAIDR keyboard shortcuts:
 | Function | Key (Windows) | Key (Mac) |
 |----------|--------------|-----------|
 | Move between data points | Arrow keys | Arrow keys |
-| Move between panels (facets) | Page Up / Page Down | Page Up / Page Down |
+| Choose a panel (facets), then go into it and back out | Arrow keys, then Enter and Escape | Arrow keys, then Return and Escape |
 | Go to extremes | Ctrl + Arrow | Cmd + Arrow |
 | Toggle Sonification | S | S |
 | Toggle Braille Mode | B | B |

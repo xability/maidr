@@ -83,9 +83,12 @@
         { day: 'Thu', count: 260 },
         { day: 'Fri', count: 310 },
       ];
+      // Plot sorts an ordinal axis by its values unless told the domain, which
+      // would draw the week as Fri, Mon, Thu, Tue, Wed; the rows' order is the
+      // week's.
       charts.append(Plot.plot({
         title: 'Daily visitors',
-        x: { label: 'Day' },
+        x: { label: 'Day', domain: visitors.map(d => d.day) },
         y: { label: 'Visitors' },
         marks: [Plot.barY(visitors, { x: 'day', y: 'count' })],
       }));
