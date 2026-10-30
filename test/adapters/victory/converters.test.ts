@@ -714,6 +714,14 @@ describe('candlestick', () => {
     expect((layer.data as CandlestickPoint[]).map(candle => candle.volume)).toEqual([1200, 0]);
   });
 
+  it('leaves out a volume that is not a number', () => {
+    const layer = layerOf([{ ...days[0], volume: 'abc' }, { ...days[1], volume: '900' }]);
+
+    const candles = layer.data as CandlestickPoint[];
+    expect('volume' in candles[0]).toBe(false);
+    expect(candles[1].volume).toBe(900);
+  });
+
   it('keeps the volume on the candles that declare one and leaves it off the rest', () => {
     const layer = layerOf([{ ...days[0], volume: 1200 }, days[1]]);
 
