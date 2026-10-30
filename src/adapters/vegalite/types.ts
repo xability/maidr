@@ -103,7 +103,11 @@ export interface VegaLiteSpec {
    */
   usermeta?: { maidr?: MaidrTraceDeclaration };
   $schema?: string;
-  title?: string | { text?: string; subtitle?: string };
+  /**
+   * The chart's title. An array is a title of several lines, drawn one under
+   * the other.
+   */
+  title?: string | string[] | { text?: string | string[]; subtitle?: string | string[] };
   description?: string;
   data?: unknown;
   transform?: VegaLiteTransform[];

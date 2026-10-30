@@ -673,7 +673,7 @@ function resolveLayerSeriesName(
     return String(filter.equal);
   }
 
-  const title = typeof spec.title === 'string' ? spec.title : spec.title?.text;
+  const title = titleText(textOf(spec.title));
   if (title)
     return title;
 
@@ -751,6 +751,47 @@ function buildMaidr(
 }
 
 /**
+ * The text a title is drawn with, as a reader hears it: a string as written,
+ * a multi-line title -- an array of lines -- with its lines joined by a
+ * space. A line drawn blank, empty or only whitespace, is left out, and an
+ * all-blank title reads as no text.
+ *
+ * @param text - A title, a title's `text` or `subtitle`, or a header title
+ * @returns The text, or `undefined` for anything else, such as an expression
+ */
+function titleText(text: unknown): string | undefined {
+  if (typeof text === 'string')
+    return text.trim();
+  if (Array.isArray(text)) {
+    // A line is a string, as Vega-Lite's `isText` reads one; anything else
+    // in the array has no text to read.
+    return text
+      .filter((line): line is string => typeof line === 'string')
+      .map(line => line.trim())
+      .filter(line => line !== '')
+      .join(' ');
+  }
+  return undefined;
+}
+
+/**
+ * A title's `text`: the title itself when it is written as text alone.
+ *
+ * Vega-Lite reads an array as lines of text only when its first entry is a
+ * string (`isText`). Any other array, an empty one among them, is read as a
+ * title object with no text, which a layered spec then passes over for its
+ * layers' titles.
+ *
+ * @param title - A spec node's `title`
+ * @returns What the title's text is written as
+ */
+function textOf(title: VegaLiteSpec['title']): unknown {
+  if (Array.isArray(title))
+    return typeof title[0] === 'string' ? title : undefined;
+  return typeof title === 'object' && title !== null ? title.text : title;
+}
+
+/**
  * The spec node whose title the chart draws.
  *
  * A layered spec without a title of its own draws the first title among its
@@ -759,11 +800,16 @@ function buildMaidr(
  * the heatmap on `layer[0]` and gives the composite none, so reading the top
  * level alone announced the drawn title as 'Vega-Lite Chart'.
  *
+ * A node has a title of its own only when its title has text, as
+ * `Model.assembleTitle` draws one: a title of `{ text: '', subtitle }` is
+ * drawn as nothing, its subtitle with it, and a layer's title is drawn in its
+ * place.
+ *
  * @param spec - The spec, or a layer of it
  * @returns The node carrying the drawn title, or `undefined` when none does
  */
 function titledNode(spec: VegaLiteSpec): VegaLiteSpec | undefined {
-  if (spec.title)
+  if (textOf(spec.title))
     return spec;
   for (const layer of spec.layer ?? []) {
     const titled = titledNode(layer);
@@ -780,10 +826,8 @@ function titledNode(spec: VegaLiteSpec): VegaLiteSpec | undefined {
  * @returns The text of the title {@link titledNode} finds, or `undefined`
  */
 function drawnTitle(spec: VegaLiteSpec): string | undefined {
-  const title = titledNode(spec)?.title;
-  if (!title)
-    return undefined;
-  return typeof title === 'string' ? title : title.text || undefined;
+  const node = titledNode(spec);
+  return node ? titleText(textOf(node.title)) || undefined : undefined;
 }
 
 function extractTitle(spec: VegaLiteSpec): string {
@@ -792,9 +836,9 @@ function extractTitle(spec: VegaLiteSpec): string {
 
 function extractSubtitle(spec: VegaLiteSpec): string | undefined {
   const title = titledNode(spec)?.title;
-  if (!title || typeof title === 'string')
+  if (typeof title !== 'object' || title === null || Array.isArray(title))
     return undefined;
-  return title.subtitle;
+  return titleText(title.subtitle) || undefined;
 }
 
 function getMarkType(spec: VegaLiteSpec): string | null {
@@ -4997,7 +5041,8 @@ function resolveFacetLayerDatasets(
  * no title at all for one written `null`. Read by the field alone, the
  * barley example's panels, drawn under "Site", were announced as
  * "site: Crookston", and a field such as `loc_id` would have been read out
- * as written.
+ * as written. A title of several lines is read with its lines joined by a
+ * space.
  *
  * @param channel - The facet channel
  * @param field - The field it splits by
@@ -5009,7 +5054,7 @@ function panelName(channel: VegaLiteChannelDef | undefined, field: string, value
   const written = header?.title !== undefined ? header.title : (channel as { title?: unknown } | undefined)?.title;
   if (written === null)
     return value;
-  return `${typeof written === 'string' && written !== '' ? written : field}: ${value}`;
+  return `${titleText(written) || field}: ${value}`;
 }
 
 /**
