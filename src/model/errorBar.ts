@@ -367,8 +367,10 @@ export class ErrorBarTrace extends AbstractTrace {
 
   protected get audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    const rows = this.sectionValues.length;
-    const cols = this.sectionValues[this.row]?.length ?? 0;
+    // The grid's two counts: a row per section (of every group), and a column
+    // per sample of the current row's group -- the count `dimension` gives.
+    const sections = this.sectionValues.length;
+    const samples = this.sectionValues[this.row]?.length ?? 0;
     return {
       freq: {
         // One scale across every section, not per row: the bounds and the
@@ -390,8 +392,8 @@ export class ErrorBarTrace extends AbstractTrace {
         // centre, and nothing to the right.
         x: isHorizontal ? this.row : this.col,
         y: isHorizontal ? this.col : this.row,
-        rows: isHorizontal ? cols : rows,
-        cols: isHorizontal ? rows : cols,
+        rows: isHorizontal ? samples : sections,
+        cols: isHorizontal ? sections : samples,
       },
     };
   }
