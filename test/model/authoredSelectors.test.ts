@@ -1,0 +1,120 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import type { Trace } from '@model/plot';
+import type { Maidr, MaidrLayer, MosaicPoint } from '@type/grammar';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
+
+/**
+ * An authored example's selectors name the marks its data is drawn as, in
+ * the shape its layer type reads.
+ *
+ * Audio, text and braille read the data, so a layer whose selectors pair its
+ * points with the wrong marks, or with none, still reads correctly to anyone
+ * listening: only the outline a sighted or low-vision reader follows is
+ * wrong, which is the blind spot #814 names. Each case therefore walks the
+ * example the way a reader does and measures the mark each step outlines.
+ */
+
+const EXAMPLES = join(__dirname, '..', '..', 'examples');
+
+/**
+ * Undoes the entity escaping a `maidr` attribute carries.
+ *
+ * @param raw - The attribute's text as it appears in the page
+ * @returns The JSON it stands for
+ */
+function unescapeHtml(raw: string): string {
+  return raw
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, '\'')
+    .replace(/&#39;/g, '\'')
+    .replace(/&apos;/g, '\'')
+    .replace(/&#10;/g, '\n')
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&amp;/g, '&');
+}
+
+/**
+ * Every layer of every spec a page carries in a `maidr` or `maidr-data`
+ * attribute.
+ *
+ * @param html - The page's HTML
+ * @returns The layers, chart by chart and subplot by subplot
+ */
+function layersOf(html: string): MaidrLayer[] {
+  return [...html.matchAll(/\smaidr(?:-data)?=(['"])(\{[\s\S]*?\})\1/g)].flatMap((attribute) => {
+    const spec = JSON.parse(unescapeHtml(attribute[2])) as Maidr;
+    return spec.subplots.flat().flatMap(subplot => subplot.layers);
+  });
+}
+
+/**
+ * Puts an example page in the DOM.
+ *
+ * @param page - The file name under `examples/`
+ * @returns The page's HTML and its layers
+ */
+function load(page: string): { html: string; layers: MaidrLayer[] } {
+  const html = readFileSync(join(EXAMPLES, page), 'utf8');
+  document.body.innerHTML = html;
+  return { html, layers: layersOf(html) };
+}
+
+/**
+ * What a trace outlines at a cell.
+ *
+ * @param trace - The trace
+ * @param row - The cell's row
+ * @param col - The cell's column
+ * @returns The highlighted elements, none when nothing is outlined
+ */
+function outlinedAt(trace: Trace, row: number, col: number): Element[] {
+  trace.moveToIndex(row, col);
+  const state = trace.state;
+  if (state.empty || state.type !== 'trace' || state.highlight.empty) {
+    return [];
+  }
+  const elements = state.highlight.elements;
+  return Array.isArray(elements) ? elements : [elements];
+}
+
+afterEach(() => {
+  document.body.innerHTML = '';
+});
+
+describe('an authored example\'s selectors name the marks its data is drawn as', () => {
+  it('outlines each mosaic tile the reader is on, and Up climbs its column', () => {
+    // The tiles are drawn column by column, each from the bottom up, and the
+    // layer listed its top series first with no domMapping: "First,
+    // Survived" outlined First's Died tile, and Up went down the column.
+    const { layers: [layer] } = load('mosaic.html');
+    const trace = TraceFactory.create(layer);
+    const series = layer.data as MosaicPoint[][];
+    const plotHeight = 240;
+
+    const wrong: string[] = [];
+    for (const [row, cells] of series.entries()) {
+      for (const [col, cell] of cells.entries()) {
+        const [tile] = outlinedAt(trace, row, col);
+        const height = Number(tile?.getAttribute('height'));
+        const columnLeft = Number(outlinedAt(trace, 0, col)[0]?.getAttribute('x'));
+        if (Math.abs(height - Number(cell.y) * plotHeight) > 1 || Number(tile?.getAttribute('x')) !== columnLeft) {
+          wrong.push(`${cell.x}, ${cell.z}`);
+        }
+      }
+    }
+    const climbs = series[0].every((_, col) => series.every((__, row) =>
+      row === 0 || Number(outlinedAt(trace, row, col)[0]?.getAttribute('y'))
+      < Number(outlinedAt(trace, row - 1, col)[0]?.getAttribute('y'))));
+    trace.dispose();
+
+    expect(wrong).toEqual([]);
+    expect(climbs).toBe(true);
+  });
+});

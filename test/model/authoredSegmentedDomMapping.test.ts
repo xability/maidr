@@ -29,11 +29,14 @@ import { TraceType } from '@type/grammar';
  * for every cell outright, so there is no ordering left to infer.
  */
 
+// A mosaic is a stacked bar whose columns have widths of their own, and pairs
+// its marks the same way.
 const SEGMENTED = new Set<string>([
   TraceType.STACKED,
   TraceType.DODGED,
   TraceType.NORMALIZED,
   TraceType.DIVERGING,
+  TraceType.MOSAIC,
 ]);
 
 const EXAMPLES = join(__dirname, '..', '..', 'examples');
