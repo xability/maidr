@@ -106,6 +106,34 @@ describe('a layered vega-lite chart whose shared axis one layer titles', () => {
   });
 });
 
+describe('a layered vega-lite chart with a layer that writes its title away', () => {
+  // Vega-Lite draws a shared axis with no title at all when any layer writes
+  // it as `null` (vega-lite 5.23, `mergeTitleComponent`), so no layer is
+  // given a sibling's title and each is read as before.
+  it('reads each layer as before when the channel\'s title is null', () => {
+    const maidr = vegaLiteToMaidr(barAndLine({ lineX: { field: 'x', type: 'ordinal', title: null } }));
+
+    expect(labels(maidr).map(([x]) => x)).toEqual(['X values', 'x']);
+  });
+
+  it('reads each layer as before when the axis\'s title is null', () => {
+    const maidr = vegaLiteToMaidr(barAndLine({ lineX: { field: 'x', type: 'ordinal', axis: { title: null } } }));
+
+    expect(labels(maidr).map(([x]) => x)).toEqual(['X values', 'x']);
+  });
+
+  it('names the axis by the written title over an empty one, as it is drawn', () => {
+    const titles = [
+      { field: 'x', type: 'ordinal', title: '' },
+      { field: 'x', type: 'ordinal', axis: { title: '' } },
+    ];
+
+    const read = titles.map(lineX => labels(vegaLiteToMaidr(barAndLine({ lineX }))).map(([x]) => x));
+
+    expect(read).toEqual([['X values', 'X values'], ['X values', 'X values']]);
+  });
+});
+
 describe('a layered vega-lite chart none of whose layers titles an axis', () => {
   it('names each layer\'s axis by its own field, as before', () => {
     const spec = barAndLine();

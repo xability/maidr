@@ -270,6 +270,11 @@ export function vegaLiteToMaidr(
  * bar + line chart titles the bars' x "X values" and not the line's, and the
  * line was read as "x is 1" under an axis drawn "X values".
  *
+ * An empty title gives way to a written one as a missing one does, but a
+ * layer that writes the title away with `null` -- Altair's `title=None` --
+ * has the shared axis drawn with no title at all, so then no layer is given
+ * one and each is read as before.
+ *
  * @param layers - The layered spec's children
  * @param parent - The layered spec, whose encoding they inherit
  * @returns The children, each untitled shared channel titled as drawn
@@ -283,6 +288,8 @@ function withSharedAxisTitles(layers: VegaLiteSpec[], parent: VegaLiteSpec): Veg
     }
     const channelOf = (layer: VegaLiteSpec): VegaLiteChannelDef | undefined =>
       layer.encoding?.[channel] ?? parent.encoding?.[channel];
+    if (titled.some(layer => writesTitleAway(channelOf(layer))))
+      continue;
     const written = titled
       .map(layer => authoredLabel(channelOf(layer)))
       .filter((title): title is string => typeof title === 'string' && title !== '');
@@ -291,12 +298,28 @@ function withSharedAxisTitles(layers: VegaLiteSpec[], parent: VegaLiteSpec): Veg
     const drawn = [...new Set(written)].join(', ');
     titled = titled.map((layer) => {
       const own = channelOf(layer);
-      if (!own || authoredLabel(own) != null)
+      if (!own || authoredLabel(own))
         return layer;
-      return { ...layer, encoding: { ...layer.encoding, [channel]: { ...own, title: drawn } } };
+      // `axis.title` is read before `title`, so an empty one is titled too.
+      const titledOwn = own.axis
+        ? { ...own, title: drawn, axis: { ...own.axis, title: drawn } }
+        : { ...own, title: drawn };
+      return { ...layer, encoding: { ...layer.encoding, [channel]: titledOwn } };
     });
   }
   return titled;
+}
+
+/**
+ * Whether a channel writes its axis title away: `title: null`, or
+ * `axis: { title: null }`.
+ *
+ * @param channel - The channel, when the layer has one
+ * @returns Whether its title is written as `null`
+ */
+function writesTitleAway(channel: VegaLiteChannelDef | undefined): boolean {
+  const written = channel as { title?: unknown; axis?: { title?: unknown } | null } | undefined;
+  return written?.title === null || written?.axis?.title === null;
 }
 
 /**
