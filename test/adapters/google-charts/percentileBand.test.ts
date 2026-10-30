@@ -7,6 +7,7 @@ import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 import { JSDOM } from 'jsdom';
+import { markedOn } from '../bandMarkers';
 import { withPageDocument } from '../d3/pageDocument';
 
 /**
@@ -107,7 +108,7 @@ describe('createMaidrFromGoogleChart with a declared fan chart', () => {
     });
   });
 
-  it('outlines each band\'s filled path, outermost first, then the median', () => {
+  it('marks each quantile on its band\'s filled path, outermost first, then on the median', () => {
     const container = makeContainer();
     const maidr = createMaidrFromGoogleChart(CHART, makeTable(), container, {
       chartType: 'LineChart',
@@ -121,7 +122,7 @@ describe('createMaidrFromGoogleChart with a declared fan chart', () => {
         highlightValues: SVGElement[][][] | null;
       };
       const paths = Array.from(container.querySelectorAll('g[clip-path] path'));
-      const outlined = trace.highlightValues?.map(row => paths.indexOf((row[0] as unknown as SVGElement[])[0]));
+      const outlined = markedOn(trace.highlightValues, paths)?.map(path => (path === null ? -1 : paths.indexOf(path)));
 
       // Levels 0.05, 0.25, 0.5, 0.75 and 0.95: the first pair's area, the
       // second's, the line, the second's and the first's.

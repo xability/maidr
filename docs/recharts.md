@@ -1347,7 +1347,7 @@ const samples = [
 </MaidrRecharts>
 ```
 
-Groups are announced in the order they first appear in `data`. Highlighting lights one whole ridge — a chart draws a filled band per group, not an element per sample — so the `<Area>`s have to be declared in that same order; otherwise pass `selectorOverride`.
+Groups are announced in the order they first appear in `data`. Highlighting places a marker on top of the group's ridge, where the sample being read is drawn — a chart draws a filled band per group, not an element per sample, so the marker is placed on that band — and the `<Area>`s have to be declared in that same order; otherwise pass `selectorOverride`.
 
 Arrowing up and down moves between groups **holding the value**, which is the comparison a ridgeline exists for and the one a listener cannot make by holding a dozen numbers in their head.
 

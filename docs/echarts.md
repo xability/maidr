@@ -397,10 +397,10 @@ on nothing is reported and left out, and the fan keeps the rest; a median the
 chart does not draw as a plain line leaves the whole entry unread. A chart
 turned on its side is not read as a fan.
 
-Highlighting outlines each band's area, outermost first, then the median's
-line, so a quantile is outlined as the band it bounds. Verified against
-echarts 6.1.0's SVG renderer: the five levels of a two-band fan outlined the
-outer band, the inner band, the median, the inner band and the outer band.
+The selectors name each band's area, outermost first, then the median's
+line, as found against echarts 6.1.0's SVG renderer. The highlight is a
+marker at the x being read, on the edge of the band a quantile bounds or on
+the median's line.
 
 ### Hierarchies and graphs [experimental]
 

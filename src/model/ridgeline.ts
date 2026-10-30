@@ -74,6 +74,12 @@ export class RidgelineTrace extends AbstractTrace {
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
+   * Each group's drawn curve, which a pointer is measured against; empty when
+   * the selectors do not name one per group.
+   */
+  private readonly ridges: SVGElement[];
+
+  /**
    * Creates a new ridgeline trace.
    *
    * @param layer - The MAIDR layer carrying one curve per group
@@ -89,53 +95,91 @@ export class RidgelineTrace extends AbstractTrace {
 
     this.peak = MathUtil.safeMax(this.densities.flat().filter(Number.isFinite));
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors);
+    const ridges = this.resolveRidges(layer.selectors);
+    this.ridges = ridges ?? [];
+    this.highlightValues = ridges === null ? null : this.markRidges(ridges);
     this.movable = new MovableGrid<ViolinKdePoint>(this.points);
   }
 
   /**
    * Resolves the layer's selectors to one element per group.
    *
-   * A ridgeline is drawn as one filled path per group, not one element per
-   * sample, so every sample of a group highlights that group's curve --
-   * honest about what was drawn rather than inventing per-sample elements.
    * Withdrawn unless the count matches the number of groups exactly: a list
    * off by one lights a neighbouring ridge for the rest of the chart, and the
    * curves overlap, so which one is lit is not obvious even to a sighted
    * reader looking at it.
    *
    * @param selectors - The layer's selectors, when it has any
-   * @returns Elements shaped groups x samples, or null when unresolvable
+   * @returns The chart's own curves, one per group, or null when unresolvable
    */
-  private mapToSvgElements(
-    selectors?: MaidrLayer['selectors'],
-  ): SVGElement[][] | null {
-    // Resolved live here and cloned by `pairWith` only once the count fits.
-    // A clone is inserted beside its original the moment it is made, so
-    // declining after cloning left every copy in the chart for `dispose()`
-    // never to reach -- and the next resolution matched the copies too.
+  private resolveRidges(selectors?: MaidrLayer['selectors']): SVGElement[] | null {
+    // Resolved live here, and marked only once the count fits. A copy is
+    // inserted beside its original the moment it is made, so declining after
+    // making them left every copy in the chart for `dispose()` never to
+    // reach -- and the next resolution matched the copies too.
+    let live: SVGElement[];
     if (typeof selectors === 'string') {
-      return this.pairWith(Svg.selectAllElements(selectors, false));
-    }
-    if (!Array.isArray(selectors)
-      || !selectors.every(one => typeof one === 'string')) {
+      live = Svg.selectAllElements(selectors, false);
+    } else if (Array.isArray(selectors) && selectors.every(one => typeof one === 'string')) {
+      live = selectors.flatMap(one => Svg.selectAllElements(one, false));
+    } else {
       return null;
     }
-    return this.pairWith(selectors.flatMap(one => Svg.selectAllElements(one, false)));
+    return live.length === this.points.length ? live : null;
   }
 
   /**
-   * Pairs resolved elements with the curves, one element per group.
+   * A marker at each sample of every group, on top of the group's curve
+   * where the sample's value is drawn.
    *
-   * @param live - The chart's own elements the selectors resolved to
-   * @returns Elements shaped groups x samples, or null on a count mismatch
+   * A ridgeline is drawn as one filled path per group, not one element per
+   * sample. Outlining that path at every sample, as this did, left the
+   * highlight where it was on every step along the curve. A group whose
+   * curve cannot be read -- something other than a path, a polyline, a
+   * polygon or a `<use>` of one, or one that misses a sample's value --
+   * outlines the whole curve at every sample, as before.
+   *
+   * @param ridges - The chart's own curves, one per group
+   * @returns Elements shaped groups x samples
    */
-  private pairWith(live: SVGElement[]): SVGElement[][] | null {
-    if (live.length !== this.points.length) {
+  private markRidges(ridges: SVGElement[]): SVGElement[][] {
+    return this.points.map((row, group) => {
+      const ridge = ridges[group];
+      const markers = this.markersOn(ridge, row);
+      if (markers !== null) {
+        return markers;
+      }
+      const whole = Svg.cloneHidden(ridge);
+      return row.map(() => whole);
+    });
+  }
+
+  /**
+   * One marker per sample on top of a curve, at the sample's value.
+   *
+   * @param ridge - The group's curve
+   * @param row - The group's samples
+   * @returns The markers, in sample order, or null when a sample cannot be
+   *   placed on the curve
+   */
+  private markersOn(ridge: SVGElement, row: ViolinKdePoint[]): SVGElement[] | null {
+    const outline = Svg.outlineOf(ridge);
+    if (outline === null || outline.vertices.length < 2) {
       return null;
     }
-    const flat = live.map(element => Svg.cloneHidden(element));
-    return this.points.map((row, group) => row.map(() => flat[group]));
+    const xs = Svg.columnsAlong(outline, row.map(point => Number(point.y)));
+    if (xs.length !== row.length) {
+      return null;
+    }
+    const centres: { cx: number; cy: number }[] = [];
+    for (const x of xs) {
+      const ends = Svg.topAndBottom(ridge, Svg.crossingsAt(outline, x));
+      if (ends === null) {
+        return null;
+      }
+      centres.push({ cx: x, cy: ends.top });
+    }
+    return Svg.createCircleElements(centres, ridge);
   }
 
   protected get values(): number[][] {
@@ -541,32 +585,24 @@ export class RidgelineTrace extends AbstractTrace {
   /**
    * Finds the group whose drawn curve is nearest a pointer position.
    *
-   * Measured once per group rather than once per sample. `pairWith` gives
-   * every sample of a group the same path -- a ridgeline draws one curve per
-   * group, not one element per sample -- so a row's samples all answer with
-   * the identical rect and only the first can win the strict comparison.
-   * Measuring the others is a layout read apiece, taken on every
-   * `pointermove`, for an answer already in hand.
+   * Measured once per group rather than once per sample: a ridgeline draws
+   * one curve per group, and its markers say nothing a pointer over the
+   * curve could choose between that the curve does not. Measuring them is a
+   * layout read apiece, taken on every `pointermove`.
    *
    * The sample the pointer resolves to is therefore the group's first, as it
-   * has always been: a shared element carries no per-sample geometry to
-   * choose between.
+   * has always been.
    *
    * @param x - Horizontal pointer position
    * @param y - Vertical pointer position
    * @returns The nearest sample, or null when nothing is resolvable
    */
   protected findNearestPoint(x: number, y: number): NearestPoint | null {
-    const elements = this.highlightValues;
-    if (!elements) {
-      return null;
-    }
-
     let nearest: NearestPoint | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
-    for (let row = 0; row < elements.length; row++) {
-      const element = elements[row][0];
+    for (let row = 0; row < this.ridges.length; row++) {
+      const element = this.ridges[row];
       if (!element) {
         continue;
       }

@@ -353,58 +353,114 @@ describe('highlight', () => {
     document.body.innerHTML = '';
   });
 
+  /** Where a step is drawn across the page. */
+  const across = (x: number): number => 100 + x;
+
+  /** Where a value is drawn down the page: 1 at 150, -1 at 250. */
+  const down = (value: number): number => 200 - 50 * value;
+
   /**
-   * Draw four nested band polygons and a median line, the way a fan chart is drawn.
-   * @returns The band polygons, outermost first, and the median line
+   * One quantile's points, left to right.
+   * @param level - The quantile's index in {@link LEVELS}
+   * @returns Each step's point, as `x,y`
    */
-  function drawBands(): { polygons: Element[]; median: Element } {
+  function quantilePoints(level: number): string[] {
+    return STEPS.map(point => `${across(Number(point.x))},${down(Number(point.quantiles[level].value))}`);
+  }
+
+  /**
+   * Draw four nested band polygons and a median line, the way a fan chart is
+   * drawn: each band out along its lower bound and back along its upper one.
+   * @param tag - What each band is drawn as
+   * @returns The bands, outermost first, and the median line
+   */
+  function drawBands(tag: 'polygon' | 'rect' = 'polygon'): { bands: Element[]; median: Element } {
+    const bands = [0, 1, 2, 3].map(k =>
+      `<${tag} points="${[...quantilePoints(k), ...quantilePoints(8 - k).reverse()].join(' ')}"></${tag}>`);
     document.body.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
-        <g id="bands">
-          <polygon points="0,0 10,0 10,10 0,10" />
-          <polygon points="1,1 9,1 9,9 1,9" />
-          <polygon points="2,2 8,2 8,8 2,8" />
-          <polygon points="3,3 7,3 7,7 3,7" />
-        </g>
-        <polyline id="median" points="0,5 3,5 6,5 9,5" />
+        <g id="bands">${bands.join('')}</g>
+        <polyline id="median" fill="none" points="${quantilePoints(4).join(' ')}" />
       </svg>`;
     return {
-      polygons: [...document.querySelectorAll('#bands polygon')],
+      bands: [...document.querySelectorAll('#bands > *')],
       median: document.querySelector('#median')!,
     };
   }
 
   /** One selector per band, outermost first. */
-  const BAND_SELECTORS = [1, 2, 3, 4].map(n => `#bands > polygon:nth-of-type(${n})`);
+  const BAND_SELECTORS = [1, 2, 3, 4].map(n => `#bands > :nth-child(${n})`);
 
-  test('a bound outlines the band it bounds', () => {
-    const { polygons } = drawBands();
-    const trace = band(STEPS, { selectors: BAND_SELECTORS });
-    trace.moveOnce('DOWNWARD');
-    trace.moveOnce('DOWNWARD');
-
+  /**
+   * Where the highlight marks the point the reader is on.
+   * @param trace - The trace to read
+   * @returns The marker's centre, or null with no single marker
+   */
+  function markedAt(trace: PercentileBandTrace): [number, number] | null {
     const highlight = stateOf(trace).highlight;
+    const elements = highlight.empty ? [] : [highlight.elements].flat();
+    if (elements.length !== 1 || elements[0].tagName.toLowerCase() !== 'circle') {
+      return null;
+    }
+    return [Number(elements[0].getAttribute('cx')), Number(elements[0].getAttribute('cy'))];
+  }
 
-    expect(highlight.empty).toBe(false);
-    expect(highlight.empty ? [] : highlight.elements).toEqual([polygons[2]]);
+  test('a bound is marked where its edge of the band is drawn, and the mark moves with the reader', () => {
+    drawBands();
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+
+    expect(markedAt(trace)).toEqual([across(0), down(-0.4)]);
+
+    trace.moveOnce('FORWARD');
+
+    expect(markedAt(trace)).toEqual([across(100), down(-0.31)]);
   });
 
-  test('the median outlines its own line when one is named', () => {
-    const { median } = drawBands();
+  test('an upper bound is marked on the band\'s upper edge', () => {
+    drawBands();
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    expect(markedAt(trace)).toEqual([across(200), down(0.9)]);
+  });
+
+  test('the median is marked on its own line, step by step', () => {
+    drawBands();
     const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
 
-    const highlight = stateOf(trace).highlight;
+    expect(markedAt(trace)).toEqual([across(0), down(0)]);
 
-    expect(highlight.empty ? [] : highlight.elements).toEqual([median]);
+    trace.moveOnce('FORWARD');
+
+    expect(markedAt(trace)).toEqual([across(100), down(0.02)]);
   });
 
-  test('the median outlines the innermost band when no line is named', () => {
-    const { polygons } = drawBands();
+  test('the median is marked inside the innermost band when no line is named', () => {
+    drawBands();
     const trace = band(STEPS, { selectors: BAND_SELECTORS });
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    const [x, y] = markedAt(trace) ?? [Number.NaN, Number.NaN];
+
+    expect(x).toBe(across(200));
+    expect(y).toBeCloseTo(down(0.05));
+  });
+
+  test('a band drawn as something other than a shape is outlined whole, as before', () => {
+    const { bands } = drawBands('rect');
+    const trace = band(STEPS, { selectors: BAND_SELECTORS });
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
 
     const highlight = stateOf(trace).highlight;
 
-    expect(highlight.empty ? [] : highlight.elements).toEqual([polygons[3]]);
+    expect(highlight.empty ? [] : highlight.elements).toEqual([bands[2]]);
   });
 
   test('reads without an outline when the selectors match nothing', () => {

@@ -8,6 +8,7 @@ import { TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 import * as echarts from 'echarts';
 import { JSDOM } from 'jsdom';
+import { markedOn } from '../bandMarkers';
 import { withPageDocument } from '../d3/pageDocument';
 
 /**
@@ -115,7 +116,7 @@ describe('echarts percentile band', () => {
     });
   });
 
-  it('outlines each band\'s area, outermost first, then the median', () => {
+  it('marks each quantile on its band\'s area, outermost first, then on the median', () => {
     const { maidr, container } = render(FAN, { percentileBands: BANDS });
     const layer = maidr.subplots[0][0].layers[0];
 
@@ -126,9 +127,9 @@ describe('echarts percentile band', () => {
       const trace = figure.subplots[0][0].traces[0][0] as unknown as {
         highlightValues: SVGElement[][][] | null;
       };
-      const outlined = trace.highlightValues?.map(row => (row[0] as unknown as SVGElement[])[0]);
       const [outer, inner, median] = (layer.selectors as string[])
         .map(selector => container.ownerDocument.querySelector(selector));
+      const outlined = markedOn(trace.highlightValues, [outer, inner, median]);
 
       // Levels 0.05, 0.25, 0.5, 0.75 and 0.95.
       expect(outlined).toEqual([outer, inner, median, inner, outer]);

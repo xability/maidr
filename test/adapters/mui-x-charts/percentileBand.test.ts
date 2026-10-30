@@ -17,6 +17,7 @@ import { resolveSubplotLayout } from '@util/subplotLayout';
 import { JSDOM } from 'jsdom';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { markedOn } from '../bandMarkers';
 import { withPageDocument } from '../d3/pageDocument';
 
 const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -84,7 +85,7 @@ describe('mui percentile band', () => {
     });
   });
 
-  it('outlines each band\'s fill, outermost first, then the median\'s line', () => {
+  it('marks each quantile on its band\'s fill, outermost first, then on the median\'s line', () => {
     const { doc, maidr, layers } = render(fan(), BANDS);
     const [outer, inner, median] = (layers[0].selectors as string[]).map(selector => doc.querySelectorAll(selector));
 
@@ -95,7 +96,7 @@ describe('mui percentile band', () => {
       const trace = figure.subplots[0][0].traces[0][0] as unknown as {
         highlightValues: SVGElement[][][] | null;
       };
-      const outlined = trace.highlightValues?.map(row => (row[0] as unknown as SVGElement[])[0]);
+      const outlined = markedOn(trace.highlightValues, [outer[0], inner[0], median[0]]);
 
       // Levels 0.05, 0.25, 0.5, 0.75 and 0.95.
       expect(outlined).toEqual([outer[0], inner[0], median[0], inner[0], outer[0]]);

@@ -373,9 +373,10 @@ that fails is refused and the chart reads as its lines. A band naming no trace,
 a trace not filled `tonexty`, or one another band already reads, is reported and
 left out, and the layer keeps the rest. The edges are matched to the median by
 `x`. Plotly draws the fill between a pair in the group of the trace filled to,
-so the highlight outlines that fill for a band's quantiles and the median's line
+so the selectors name that fill for a band's quantiles and the median's line
 for the median — measured on plotly.js 2.35.2, and emitted only when each
-resolves to exactly one element of the drawn chart.
+resolves to exactly one element of the drawn chart. The highlight is a marker
+at the x being read, on the fill's edge or on the median's line.
 
 ## Code Examples
 
