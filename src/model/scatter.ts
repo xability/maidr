@@ -498,8 +498,25 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     const selector = selectorString(layer);
     const allSvgClones = selector ? Svg.selectAllElements(selector) : [];
     this.svgClones = allSvgClones;
+    // One mark per point: the n-th mark is the n-th point's. Every navigation
+    // mode that outlines points pairs them by this.
+    const hasSvg = allSvgClones.length === data.length;
 
-    [this.highlightXValues, this.highlightYValues] = this.groupSvgElements(allSvgClones);
+    // A column's or row's marks are the marks of the points in it, each mark
+    // paired with the point at its index, as point, intersection and grid
+    // navigation pair them, whenever the selector matches one mark per point.
+    // Grouping the marks by where they are drawn instead outlined the mirror
+    // row on every chart whose y grows upward, as r-maidr draws them, made
+    // one group of two values drawn at one pixel, and made several of one
+    // value drawn a hair apart or jittered. Marks that do not pair with the
+    // points one to one are still grouped by where they are drawn.
+    [this.highlightXValues, this.highlightYValues]
+      = hasSvg
+        ? [
+            this.xPointIndices.map(column => column.map(index => allSvgClones[index])),
+            this.yPointIndices.map(row => row.map(index => allSvgClones[index])),
+          ]
+        : this.groupSvgElements(allSvgClones);
     // Left for the first hover to measure. `highlightCentersDirty` starts
     // true, so findNearestPoint builds them the same way it does after a
     // scroll.
@@ -560,7 +577,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         xLabel: nameOf(p.xLabel),
         yLabel: nameOf(p.yLabel),
         label: nameOf(p.label),
-        svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
+        svg: hasSvg ? allSvgClones[i] : null,
         xIndex,
         yIndexInColumn: slotOfYInColumn[xIndex]?.get(p.y) ?? 0,
       };
@@ -599,7 +616,6 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // having any stack is enough — intersection mode from COL uses x-column
     // stacks, from ROW it uses y-row stacks, so we offer the mode whenever
     // either is non-trivial.
-    const hasSvg = allSvgClones.length === data.length;
     this.xPointsSvg = hasSvg
       ? this.xPointIndices.map(group => group.map(i => allSvgClones[i] ?? null))
       : null;
@@ -3177,6 +3193,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   /**
    * Groups pre-selected SVG elements by their X and Y coordinates.
+   *
+   * Used only for marks that do not pair with the points one to one, where
+   * nothing says which mark is which point. The rows are ordered largest `y`
+   * first, which is lowest on the page only where y grows downward.
    * @param elements - Array of SVG element clones (already selected from the DOM)
    * @returns Tuple of SVG element arrays grouped by X and Y, or null arrays if empty
    */
