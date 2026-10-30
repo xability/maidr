@@ -23,7 +23,7 @@
 
 import type { SettingsService } from '@service/settings';
 import type { SubplotState, TraceState } from '@type/state';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { HighlightService } from '@service/highlight';
 import { DEFAULT_SETTINGS } from '@type/settings';
 
@@ -240,6 +240,84 @@ describe('HighlightService outlining a panel', () => {
 
     expect(background.hasAttribute('data-maidr-orig-stroke')).toBe(false);
     service.dispose();
+  });
+});
+
+describe('HighlightService when an outlined panel is resized', () => {
+  // jsdom has no ResizeObserver, so one that only records is put in its
+  // place, and its callback is called as a browser would after laying the
+  // chart out again.
+  const watchers: { callback: ResizeObserverCallback; watched: Element[] }[] = [];
+  const realResizeObserver = globalThis.ResizeObserver;
+
+  beforeEach(() => {
+    watchers.length = 0;
+    class RecordingResizeObserver {
+      private readonly watcher: { callback: ResizeObserverCallback; watched: Element[] };
+
+      public constructor(callback: ResizeObserverCallback) {
+        this.watcher = { callback, watched: [] };
+        watchers.push(this.watcher);
+      }
+
+      public observe(element: Element): void {
+        this.watcher.watched.push(element);
+      }
+
+      public unobserve(): void {}
+
+      public disconnect(): void {
+        this.watcher.watched.length = 0;
+      }
+    }
+    Object.defineProperty(globalThis, 'ResizeObserver', { value: RecordingResizeObserver, configurable: true, writable: true });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, 'ResizeObserver', { value: realResizeObserver, configurable: true, writable: true });
+  });
+
+  /**
+   * Outlines a panel with no background of its own, which gets a box.
+   * @returns The service, the chart and the panel
+   */
+  function outlineOnePanel(): { service: HighlightService; plot: HTMLElement; panel: SVGElement } {
+    document.body.innerHTML = `<div id="plot"><svg xmlns="${SVG_NAMESPACE}">`
+      + `<g class="panel"><rect class="bar" style="fill: #1f77b4"/></g></svg></div>`;
+    const plot = document.getElementById('plot') as HTMLElement;
+    const panel = plot.querySelector('g.panel') as SVGElement;
+    placeAt(panel, { left: 40, top: 30, width: 200, height: 120 });
+    const service = new HighlightService(settingsStub(), () => [plot]);
+    service.update(onPanel(panel));
+    return { service, plot, panel };
+  }
+
+  /** What every live watcher is watching. */
+  function watched(): Element[] {
+    return watchers.flatMap(watcher => watcher.watched);
+  }
+
+  it('should draw the box again where the panel is now', () => {
+    // A box is placed from where its panel is when it is drawn. A responsive
+    // chart laid out again at another size, as on a zoom, moves its panels.
+    const { service, plot, panel } = outlineOnePanel();
+
+    placeAt(panel, { left: 40, top: 230, width: 400, height: 240 });
+    watchers.filter(watcher => watcher.watched.length > 0).forEach(watcher => watcher.callback([], {} as ResizeObserver));
+
+    const [box] = panelBoxes();
+    expect(watched()).toEqual(expect.arrayContaining([panel, plot]));
+    expect([box.style.left, box.style.top, box.style.width, box.style.height]).toEqual(['34px', '224px', '412px', '252px']);
+    service.dispose();
+  });
+
+  it('should stop watching once the outline is gone', () => {
+    const { service } = outlineOnePanel();
+
+    service.dispose();
+
+    expect(watched()).toEqual([]);
+    expect(panelBoxes()).toHaveLength(0);
   });
 });
 
