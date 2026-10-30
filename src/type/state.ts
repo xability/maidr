@@ -253,6 +253,16 @@ export interface AudioState {
    */
   ordinal?: boolean;
   /**
+   * When true, the value is a position on the value axis -- where a line, a
+   * contour or a quantile is drawn -- rather than a magnitude measured up
+   * from zero, as a bar's height, a bin's count or a cell's value is. On an
+   * axis that runs below zero a position of 0 lies between the values either
+   * side of it, so it is pitched where it lies instead of played as the low
+   * "null" tone, which marks a magnitude of zero. Set by every point of a
+   * line-family layer.
+   */
+  positional?: boolean;
+  /**
    * Pitch-glide direction for the tone. When set, the tone glides its pitch
    * over the note duration to convey a direction while `freq.raw` still sets
    * the base pitch: `'up'` sweeps upward (a rising "whoosh"), `'down'` sweeps

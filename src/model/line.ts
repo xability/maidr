@@ -773,8 +773,11 @@ export class LineTrace extends AbstractTrace {
       },
       panning: this.panningFor(this.row, this.col),
       group: this.row,
-      // A point that names its level is an ordinal code (see `text`), so a
-      // code of 0 is the lowest level, pitched as one, not a missing value.
+      // A line's value is where it is drawn on the value axis, not a
+      // magnitude, so a 0 between negative and positive values is pitched
+      // where it lies. A point that names its level is an ordinal code (see
+      // `text`), so a code of 0 is the lowest level, pitched as one.
+      positional: true,
       ...(this.points[this.row]?.[this.col]?.label ? { ordinal: true } : {}),
     };
   }

@@ -578,19 +578,28 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * Whether a value of exactly 0 is the absence of a magnitude, which the low
    * "null" tone marks, rather than a place in the register.
    *
-   * It is an absence where nothing in the register lies below it: a bar of no
-   * height, an empty bin, a count of none. Where the register runs below zero
-   * -- a signed value, a coordinate, a median between negative and positive
-   * quantiles -- 0 lies between the values either side of it, and the null
-   * tone, which sounds below the whole register, said it was lower than the
-   * minimum. An ordinal level's code is a place too: a level coded 0 is the
-   * lowest level, not a missing one.
+   * A magnitude of 0 -- a bar of no height, an empty bin, a cell of nothing --
+   * is an absence whatever else the chart holds: a bar of 0 between negative
+   * and positive bars is still no bar, and the null tone is how a listener
+   * hears that. A position is not. Where a line, a contour or a quantile is
+   * drawn on an axis that runs below zero, 0 lies between the values either
+   * side of it, and the null tone, which sounds below the whole register,
+   * said it was lower than the minimum. An ordinal level's code is a place
+   * too: a level coded 0 is the lowest level, not a missing one. A register
+   * that is not finite has no place to put a 0, so it keeps the null tone.
    *
    * @param audio - The point's audio state
    * @returns True when a 0 is to be played as the null tone
    */
   private static isZeroMagnitude(audio: AudioState): boolean {
-    return audio.ordinal !== true && Math.min(audio.freq.min, audio.freq.max) >= 0;
+    const { min, max } = audio.freq;
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      return true;
+    }
+    if (audio.ordinal === true) {
+      return false;
+    }
+    return audio.positional !== true || Math.min(min, max) >= 0;
   }
 
   /**

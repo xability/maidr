@@ -448,11 +448,12 @@ describe('lineTrace ordinal levels', () => {
 
     expect(nonEmptyState(trace).audio).toMatchObject({
       freq: { min: 0, max: 1, raw: 0 },
+      positional: true,
       ordinal: true,
     });
   });
 
-  test('leaves a value with no level name a magnitude', () => {
+  test('does not mark a value with no level name as an ordinal code', () => {
     const trace = new LineTrace(createLineLayer([[
       { x: 0, y: 1, label: '' },
       { x: 1, y: 0 },
