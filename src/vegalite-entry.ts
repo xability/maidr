@@ -1817,6 +1817,43 @@ function sortStackedBandsByDrawnOrder(svg: SVGSVGElement, layers: MaidrLayer[]):
 }
 
 /**
+ * Whether a box plot's value axis draws its values against the screen's
+ * usual direction: larger values lower down a vertical axis, or further left
+ * along a horizontal one, as `scale: { reverse: true }` draws them.
+ *
+ * Read from the axis Vega drew: each label is bound to its tick, whose
+ * `value` it stands for, so two labels say which way the values run. Without
+ * a readable axis -- one hidden with `axis: null` -- the usual direction is
+ * assumed.
+ *
+ * @param root - The box plot's panel, or the chart's SVG
+ * @param vertical - Whether the values run up the y axis
+ * @returns True when the values run down (or leftwards)
+ */
+function valuesRunBackwards(root: Element, vertical: boolean): boolean {
+  for (const axis of Array.from(root.querySelectorAll('g.role-axis'))) {
+    const ticks = Array.from(axis.querySelectorAll<SVGTextElement>('g.role-axis-label text'))
+      .map((text) => {
+        const value = (text as { __data__?: { datum?: { value?: unknown } } }).__data__?.datum?.value;
+        const box = text.getBoundingClientRect();
+        return { value, x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      })
+      .filter((tick): tick is { value: number; x: number; y: number } => typeof tick.value === 'number');
+    if (ticks.length < 2)
+      continue;
+    const low = ticks.reduce((a, b) => (b.value < a.value ? b : a));
+    const high = ticks.reduce((a, b) => (b.value > a.value ? b : a));
+    const along = vertical ? low.y - high.y : high.x - low.x;
+    const across = vertical ? Math.abs(high.x - low.x) : Math.abs(high.y - low.y);
+    // The other positional axis, or labels that are not laid out.
+    if (Math.abs(along) <= across)
+      continue;
+    return along < 0;
+  }
+  return false;
+}
+
+/**
  * Give one side of a box's drawn outliers the values the data holds.
  *
  * The converter takes a box's outliers from the observations themselves, so
@@ -2033,6 +2070,11 @@ function buildBoxPlotSelectorsFromDom(
     }
 
     const isVertical = layer.orientation !== Orientation.HORIZONTAL;
+    // A reversed value axis draws the minimum where the maximum usually is,
+    // so every comparison of positions below turns round with it. Read as
+    // drawn the usual way, the whisker ends swapped, each outlier was filed on
+    // the other side of its box, and its value read off the wrong end.
+    const backwards = valuesRunBackwards(root, isVertical);
 
     interface ElInfo {
       el: SVGGraphicsElement;
@@ -2071,34 +2113,24 @@ function buildBoxPlotSelectorsFromDom(
     //    which is the upper-whisker group? Each group has N lines (one
     //    per box). For vertical boxplots, the lower whisker extends
     //    BELOW the box (visually larger cy); for horizontal, to the
-    //    LEFT (smaller cx). Compare averages once per layer and use
-    //    the result for every box.
+    //    LEFT (smaller cx); the other way round on a reversed axis.
+    //    Compare averages once per layer and use the result for every
+    //    box.
     const avg = (xs: ElInfo[], pick: (e: ElInfo) => number): number =>
       xs.reduce((s, e) => s + pick(e), 0) / xs.length;
     let lowerRuleInfos: ElInfo[];
     let upperRuleInfos: ElInfo[];
-    if (isVertical) {
-      const aAvgCy = avg(ruleAInfos, e => e.cy);
-      const bAvgCy = avg(ruleBInfos, e => e.cy);
-      // Higher avg cy → visually lower → lower whisker group.
-      if (aAvgCy > bAvgCy) {
-        lowerRuleInfos = ruleAInfos;
-        upperRuleInfos = ruleBInfos;
-      } else {
-        lowerRuleInfos = ruleBInfos;
-        upperRuleInfos = ruleAInfos;
-      }
+    // Higher avg cy → visually lower → lower whisker group; smaller avg
+    // cx → visually left → lower (min) whisker group.
+    const aDrawnLower = isVertical
+      ? avg(ruleAInfos, e => e.cy) > avg(ruleBInfos, e => e.cy)
+      : avg(ruleAInfos, e => e.cx) < avg(ruleBInfos, e => e.cx);
+    if (aDrawnLower !== backwards) {
+      lowerRuleInfos = ruleAInfos;
+      upperRuleInfos = ruleBInfos;
     } else {
-      const aAvgCx = avg(ruleAInfos, e => e.cx);
-      const bAvgCx = avg(ruleBInfos, e => e.cx);
-      // Smaller avg cx → visually left → lower (min) whisker group.
-      if (aAvgCx < bAvgCx) {
-        lowerRuleInfos = ruleAInfos;
-        upperRuleInfos = ruleBInfos;
-      } else {
-        lowerRuleInfos = ruleBInfos;
-        upperRuleInfos = ruleAInfos;
-      }
+      lowerRuleInfos = ruleBInfos;
+      upperRuleInfos = ruleAInfos;
     }
     interface GroupBundle {
       rect: ElInfo;
@@ -2172,9 +2204,10 @@ function buildBoxPlotSelectorsFromDom(
         }
       }
       const g = groups[bestIdx];
-      const isLower = isVertical
+      const drawnLower = isVertical
         ? ot.cy > g.rect.cy
         : ot.cx < g.rect.cx;
+      const isLower = drawnLower !== backwards;
 
       // 6. Estimate the outlier's value via linear interpolation
       //    between the min/max rule far-end pixel anchors.
@@ -2185,8 +2218,13 @@ function buildBoxPlotSelectorsFromDom(
       //    horizontal boxplots) uses a LINEAR scale, so for log / sqrt /
       //    pow / time scales it is biased, and `Math.round` takes it to
       //    a whole number.
-      const minAnchor = isVertical ? g.minRule.rect.bottom : g.minRule.rect.left;
-      const maxAnchor = isVertical ? g.maxRule.rect.top : g.maxRule.rect.right;
+      // The far end of each whisker, which is the end away from the box.
+      const minAnchor = isVertical
+        ? (backwards ? g.minRule.rect.top : g.minRule.rect.bottom)
+        : (backwards ? g.minRule.rect.right : g.minRule.rect.left);
+      const maxAnchor = isVertical
+        ? (backwards ? g.maxRule.rect.bottom : g.maxRule.rect.top)
+        : (backwards ? g.maxRule.rect.left : g.maxRule.rect.right);
       const span = minAnchor - maxAnchor;
       const dp = data[g.dataIndex];
       let value: number;
@@ -2210,7 +2248,8 @@ function buildBoxPlotSelectorsFromDom(
     // upper outliers go from least-extreme-high to most-extreme). By
     // position rather than by the rounded estimate, which ties values
     // closer together than a unit.
-    const along = (o: { info: ElInfo }): number => (isVertical ? -o.info.cy : o.info.cx);
+    const along = (o: { info: ElInfo }): number =>
+      (isVertical ? -o.info.cy : o.info.cx) * (backwards ? -1 : 1);
     for (const g of groups) {
       g.lowerOutliers.sort((a, b) => along(a) - along(b));
       g.upperOutliers.sort((a, b) => along(a) - along(b));

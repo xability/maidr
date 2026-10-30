@@ -218,7 +218,15 @@ interface Drawing {
   horizontal?: boolean;
   /** Symbols drawn above box a's upper whisker that its rows do not hold. */
   extraUpper?: number[];
+  /**
+   * Values running down the page, as `scale: { reverse: true }` draws them,
+   * with a y axis whose labels say so.
+   */
+  reversed?: boolean;
 }
+
+/** Pixel y of a value on a reversed axis: 20 at 0, larger values lower. */
+const yDown = (v: number): number => 20 + v;
 
 /**
  * The box plot spec over `RAW`.
@@ -266,12 +274,29 @@ function renderedBoxPlot(drawing: Drawing = {}): VegaView {
         drawn(symbols, 'path', { x: x(v) - 2.5, y: across - 2.5, width: 5, height: 5 });
       continue;
     }
+    if (drawing.reversed) {
+      drawn(boxes, 'path', { x: across - 10, y: yDown(p.q1), width: 20, height: p.q3 - p.q1 }, `g: ${p.z}`);
+      drawn(medians, 'path', { x: across - 10, y: yDown(p.q2) - 0.5, width: 20, height: 1 });
+      drawn(lowerRules, 'line', { x: across, y: yDown(p.min), width: 0, height: p.q1 - p.min });
+      drawn(upperRules, 'line', { x: across, y: yDown(p.q3), width: 0, height: p.max - p.q3 });
+      for (const v of outliers)
+        drawn(symbols, 'path', { x: across - 2.5, y: yDown(v) - 2.5, width: 5, height: 5 });
+      continue;
+    }
     drawn(boxes, 'path', { x: across - 10, y: y(p.q3), width: 20, height: p.q3 - p.q1 }, `g: ${p.z}`);
     drawn(medians, 'path', { x: across - 10, y: y(p.q2) - 0.5, width: 20, height: 1 });
     drawn(lowerRules, 'line', { x: across, y: y(p.q1), width: 0, height: p.q1 - p.min });
     drawn(upperRules, 'line', { x: across, y: y(p.max), width: 0, height: p.max - p.q3 });
     for (const v of outliers)
       drawn(symbols, 'path', { x: across - 2.5, y: y(v) - 2.5, width: 5, height: 5 });
+  }
+  if (drawing.reversed) {
+    // The y axis Vega draws, each label bound to its tick.
+    const labels = group(group(svg, 'mark-group role-axis'), 'mark-text role-axis-label');
+    for (const value of [0, 100]) {
+      const text = drawn(labels, 'text', { x: 5, y: yDown(value) - 5, width: 15, height: 10 });
+      (text as unknown as { __data__: unknown }).__data__ = { datum: { value } };
+    }
   }
 
   const view = {
@@ -321,6 +346,25 @@ describe('binding a vega-lite box plot with fractional outliers', () => {
 
     expect(boxes.map(p => p.upperOutliers)).toEqual([[200.4], []]);
     expect(boxes.map(p => p.lowerOutliers)).toEqual([[], [-10.3]]);
+  });
+
+  it('reads a box plot whose values run down the page the right way up', () => {
+    // On a reversed axis the minimum's whisker is drawn above the box and the
+    // high outliers below it. Read as drawn the usual way round, before the
+    // fix, a's 200.4 was filed as a lower outlier and the whisker ends were
+    // swapped.
+    const view = renderedBoxPlot({ reversed: true });
+    bindVegaLite(view, boxSpec());
+    const maidr = initMock.mock.calls[0]?.[0] as Maidr;
+    const layer = maidr.subplots[0][0].layers[0];
+    const boxes = layer.data as BoxPoint[];
+    const selectors = layer.selectors as Array<{ min: string; max: string }>;
+    const container = view.container() as HTMLElement;
+
+    expect(boxes.map(p => p.upperOutliers)).toEqual([[200.4], []]);
+    expect(boxes.map(p => p.lowerOutliers)).toEqual([[], [-10.3]]);
+    expect(container.querySelector(selectors[0].min)?.getBoundingClientRect().y).toBe(yDown(10));
+    expect(container.querySelector(selectors[0].max)?.getBoundingClientRect().y).toBe(yDown(62.5));
   });
 
   it('keeps the drawn estimates when the rows hold a different number of outliers', () => {
