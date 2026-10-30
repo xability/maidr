@@ -135,9 +135,10 @@ function categoryPoints(layer: MaidrLayer): unknown[] | null {
  * {@link reappendInOrder} does. A `line` split by `detail` -- a dumbbell's
  * connectors -- draws each path in a group of its own, so there the groups
  * are what is reordered: the children of the marks' nearest common ancestor.
- * They are put back where they stood rather than appended, since that
- * ancestor also holds the chart's other layers, and appending would draw the
- * moved marks over them.
+ * Vega draws those groups as the items of one scope group, which holds
+ * nothing else; should the ancestor hold other marks too, the groups are
+ * put back together where the last of them stood rather than appended, so
+ * they are not drawn over marks that came after them.
  *
  * @param elements - The marks, in the desired order
  * @returns Whether the marks could be put in that order
