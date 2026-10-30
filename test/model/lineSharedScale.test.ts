@@ -244,12 +244,13 @@ describe('the chord at a point several series share', () => {
   });
 
   test('sounds a precision-recall curve\'s shared point on the unit interval its tones use', () => {
-    // Both classifiers start at the baseline, a recall of 1 at a precision of
-    // 0.3. Their tones are on the unit interval; the chord was on each
-    // curve's own range, so it played the baseline as the bottom note.
+    // Both classifiers meet at the baseline, a recall of 1 at a precision of
+    // 0.3, the right end of each curve. Their tones are on the unit interval;
+    // the chord was on each curve's own range, so it played the baseline as
+    // the bottom note.
     const trace = build(PR_LAYER);
 
-    const state = stateAt(trace, 0, 0);
+    const state = stateAt(trace, 0, 2);
 
     expect(state.audio.freq).toEqual({ min: 0, max: 1, raw: 0.3 });
     expect(state.intersections?.map(tone => tone.freq)).toEqual([

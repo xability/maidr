@@ -924,6 +924,10 @@ The data property is defined as a list of objects where each object is a record 
    // its top. When no point carries `prevalence`, the baseline is not said.
    // The points may be listed in either order; `precision_recall_curve`
    // returns them from a recall of 1 down to 0, the last without a threshold.
+   // Either way the curve is read from its lowest recall up, as it is drawn:
+   // Right moves toward a higher recall, and Control + Left and Right go to
+   // its two ends. `selectors` pairs the marks with the points in the order
+   // the points are listed.
    //
    // The pitch is the precision on the unit interval for every curve, and
    // the pan follows the recall, the boundary tone of a refused move as well
@@ -957,7 +961,9 @@ The data property is defined as a list of objects where each object is a record 
    // point of the curve that carries one; when no point does, the area is the
    // trapezoid rule over the curve's own points, which is what
    // `sklearn.metrics.auc` and `pROC::auc` compute. The points may be listed
-   // in either order.
+   // in either order; the curve is read from its lowest false positive rate
+   // up, as it is drawn, and `selectors` pairs the marks with the points in
+   // the order the points are listed.
    //
    // The pitch is the true positive rate on the unit interval for every
    // curve, so two classifiers are comparable by ear; the pan follows the

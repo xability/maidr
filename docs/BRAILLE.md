@@ -333,7 +333,7 @@ several groups' tails can be compared with one sweep.
 
 ### Precision-recall curve [experimental]
 
-A precision-recall curve is a multi-line layer -- one curve per classifier, class or run, one point per decision threshold -- and its braille is a line plot's: each Braille character is the precision at that threshold, encoded by its magnitude on the unit interval, the register the pitch uses, so every curve is encoded against the same range and two curves can be compared cell by cell. The recall is not on the display; it is what the pitch's stereo position and the text carry, and so is the baseline the curve is read against.
+A precision-recall curve is a multi-line layer -- one curve per classifier, class or run, one point per decision threshold -- and its braille is a line plot's: each Braille character is the precision at that threshold, encoded by its magnitude on the unit interval, the register the pitch uses, so every curve is encoded against the same range and two curves can be compared cell by cell. The recall is not on the display; it is what the pitch's stereo position and the text carry, and so is the baseline the curve is read against. The characters run from the lowest recall to the highest, as the curve is drawn, whichever way round the producer listed its points.
 
 #### Multiline Displays
 
@@ -341,7 +341,7 @@ As for a line plot: each line of a multiline display is one curve, and a single-
 
 ### ROC curve [experimental]
 
-A ROC curve is a multi-line layer -- one curve per classifier, one point per decision threshold -- and its braille is a line plot's: each Braille character is the true positive rate at that operating point, encoded by its magnitude on the unit interval, the register the pitch uses, so every curve is encoded against the same range and two curves can be compared cell by cell. The false positive rate is not on the display; it is what the pitch's stereo position and the text carry.
+A ROC curve is a multi-line layer -- one curve per classifier, one point per decision threshold -- and its braille is a line plot's: each Braille character is the true positive rate at that operating point, encoded by its magnitude on the unit interval, the register the pitch uses, so every curve is encoded against the same range and two curves can be compared cell by cell. The false positive rate is not on the display; it is what the pitch's stereo position and the text carry. The characters run from the lowest false positive rate to the highest, as the curve is drawn, whichever way round the producer listed its points.
 
 #### Multiline Displays
 

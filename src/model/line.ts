@@ -222,11 +222,43 @@ export class LineTrace extends AbstractTrace {
       ? [layer.selectors]
       : (layer.selectors as string[] | undefined);
     this.highlightValues = this.mapToSvgElements(normalizedSelectors);
+
+    // A series listed from its right end is read from its left end, so that
+    // Right moves toward the larger x, as the series is drawn. It is turned
+    // round after its marks are found: they pair with the points in the
+    // order the producer listed them, and turn round with them.
+    const turned = this.points.map(series => this.listedRightToLeft(series));
+    if (turned.some(Boolean)) {
+      const turn = <T>(rows: T[][]): T[][] =>
+        rows.map((row, r) => (turned[r] ? [...row].reverse() : row));
+      this.points = turn(this.points);
+      this.lineValues = turn(this.lineValues);
+      this.highlightValues = this.highlightValues === null ? null : turn(this.highlightValues);
+    }
+
     // Left for the first hover to measure. `highlightCentersDirty` starts
     // true, so findNearestPoint builds them the same way it does after a
     // scroll.
     this.highlightCenters = null;
     this.movable = new MovableGraph(this.buildGraph());
+  }
+
+  /**
+   * Whether a series is listed from its right end to its left, and so is read
+   * turned round.
+   *
+   * False for a line: its points are walked in the order they are listed,
+   * which on a category axis is the order they are drawn in. A layer type
+   * whose producers may list a series either way round answers for it.
+   *
+   * Called from the constructor, before a subclass's own fields are set, so
+   * an override reads only the series it is given.
+   *
+   * @param _series - The series' points, as listed
+   * @returns True when the series is to be read in the reverse of its listed order
+   */
+  protected listedRightToLeft(_series: readonly LinePoint[]): boolean {
+    return false;
   }
 
   /**

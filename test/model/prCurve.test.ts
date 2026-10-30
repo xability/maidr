@@ -9,7 +9,8 @@ import { TraceType } from '@type/grammar';
 /**
  * Two classifiers over the same test set, 30% of it positive, listed the way
  * `precision_recall_curve` returns them: from a recall of 1 down to 0, the
- * last point without a threshold.
+ * last point without a threshold. Each is read from a recall of 0 up, as it
+ * is drawn, so column 0 is the point listed last.
  *
  * Logistic regression's average precision, by the step sum, is
  * 0.3 * 0.95 + 0.3 * 0.85 + 0.2 * 0.7 + 0.1 * 0.5 + 0.1 * 0.3 = 0.76; its
@@ -121,27 +122,27 @@ describe('precision-recall registration', () => {
 
 describe('the pitch is the precision on the unit interval', () => {
   test('every curve is read against 0 to 1, not its own range', () => {
-    expect(stateOf(pr(0, 2)).audio.freq).toEqual({ raw: 0.7, min: 0, max: 1 });
+    expect(stateOf(pr(0, 3)).audio.freq).toEqual({ raw: 0.7, min: 0, max: 1 });
     expect(stateOf(pr(1, 2)).audio.freq).toEqual({ raw: 0.56, min: 0, max: 1 });
   });
 
   test('the pan follows the recall, not the column index', () => {
-    // Column 3 of 6 sits at a recall of 0.6.
-    expect(stateOf(pr(0, 3)).audio.panning).toEqual({ x: 0.6, y: 0, rows: 2, cols: 2 });
-    expect(stateOf(pr(1, 0)).audio.panning).toEqual({ x: 1, y: 1, rows: 2, cols: 2 });
+    // Column 2 of 6 sits at a recall of 0.6, column 1 of 5 at 0.35.
+    expect(stateOf(pr(0, 2)).audio.panning).toEqual({ x: 0.6, y: 0, rows: 2, cols: 2 });
+    expect(stateOf(pr(1, 1)).audio.panning).toEqual({ x: 0.35, y: 1, rows: 2, cols: 2 });
   });
 });
 
 describe('each point says its threshold and where it stands against the baseline', () => {
   test('precision and recall are announced against their axes and the curve is named', () => {
-    const { text } = stateOf(pr(0, 2));
+    const { text } = stateOf(pr(0, 3));
     expect(text.main).toEqual({ label: 'Recall', value: 0.8 });
     expect(text.cross).toEqual({ label: 'Precision', value: 0.7 });
     expect(text.z).toEqual({ label: 'Curve', value: 'Logistic' });
   });
 
   test('the threshold and the height above the baseline travel as asides', () => {
-    expect(stateOf(pr(0, 2)).text.asides).toEqual([
+    expect(stateOf(pr(0, 3)).text.asides).toEqual([
       { label: 'Threshold', value: '0.4' },
       { label: 'Above baseline', value: '0.4' },
     ]);
@@ -159,13 +160,13 @@ describe('each point says its threshold and where it stands against the baseline
   });
 
   test('a point without a threshold announces only the baseline', () => {
-    expect(stateOf(pr(0, 5)).text.asides).toEqual([
+    expect(stateOf(pr(0, 0)).text.asides).toEqual([
       { label: 'Above baseline', value: '0.7' },
     ]);
   });
 
   test('a curve that declares no prevalence says nothing about a baseline', () => {
-    expect(stateOf(pr(0, 2, [withoutPrevalence(LOGISTIC)])).text.asides).toEqual([
+    expect(stateOf(pr(0, 3, [withoutPrevalence(LOGISTIC)])).text.asides).toEqual([
       { label: 'Threshold', value: '0.4' },
     ]);
   });
@@ -304,8 +305,8 @@ describe('the description gives the numbers the chart is quoted by', () => {
     const { dataTable } = pr().description;
     expect(dataTable.headers).toEqual(['Recall', 'Precision', 'Threshold', 'Curve']);
     expect(dataTable.columnAxes).toEqual(['x', 'y', undefined, 'z']);
-    expect(dataTable.rows[2]).toEqual([0.8, 0.7, 0.4, 'Logistic']);
-    expect(dataTable.rows[5]).toEqual([0, 1, '', 'Logistic']);
+    expect(dataTable.rows[3]).toEqual([0.8, 0.7, 0.4, 'Logistic']);
+    expect(dataTable.rows[0]).toEqual([0, 1, '', 'Logistic']);
     expect(dataTable.rows).toHaveLength(11);
   });
 });
@@ -323,7 +324,7 @@ describe('the up and down keys move between curves at the cursor\'s recall', () 
 
   test('down goes to the curve below at the same recall', () => {
     // Logistic (0.8, 0.7); the forest has a point at a recall of 0.8, at 0.4.
-    const trace = pr(0, 2);
+    const trace = pr(0, 3);
 
     expect(trace.moveOnce('DOWNWARD')).toBe(true);
     expect(at(trace)).toEqual({ curve: 'Forest', recall: 0.8, precision: 0.4 });
@@ -332,14 +333,14 @@ describe('the up and down keys move between curves at the cursor\'s recall', () 
   test('up goes to the curve above, though it has no point at this recall', () => {
     // Forest (0.35, 0.72); the logistic is drawn at 0.93 there, between its
     // points at 0.3 and 0.6, and its nearest point in recall is 0.3.
-    const trace = pr(1, 3);
+    const trace = pr(1, 1);
 
     expect(trace.moveOnce('UPWARD')).toBe(true);
     expect(at(trace)).toEqual({ curve: 'Logistic', recall: 0.3, precision: 0.95 });
   });
 
   test('a direction with no curve that way is out of bounds', () => {
-    const trace = pr(0, 2);
+    const trace = pr(0, 3);
 
     expect(trace.isMovable('UPWARD')).toBe(false);
     expect(trace.moveOnce('UPWARD')).toBe(false);
@@ -348,7 +349,7 @@ describe('the up and down keys move between curves at the cursor\'s recall', () 
 
 describe('a point two curves share sounds as both', () => {
   test('the loosest threshold, where both curves sit at the prevalence, carries both', () => {
-    const trace = pr(0, 0);
+    const trace = pr(0, 5);
 
     trace.moveOnce('DOWNWARD');
 
