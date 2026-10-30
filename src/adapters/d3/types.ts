@@ -530,6 +530,17 @@ export interface D3HistogramConfig extends D3BinderConfig {
 export interface D3CandlestickConfig extends D3BinderConfig {
   /** CSS selector for the candlestick body elements (e.g., `'rect.candle'`). */
   selector: string;
+  /**
+   * CSS selector for the candles' wicks, the lines drawn from each low to its
+   * high (e.g., `'line.wick'`), one per candle.
+   *
+   * With it, the high and the low are outlined on the wick and the open and
+   * the close on the edge of the body they are drawn at; without it, every
+   * reading of a candle outlines its body. Each wick is paired with the candle
+   * whose row D3 bound to it, or, when the wicks carry other rows, in the
+   * order they are drawn.
+   */
+  wickSelector?: string;
   /** Accessor for the label/date value. @default 'value' */
   value?: DataAccessor<string>;
   /** Accessor for the open price. @default 'open' */
