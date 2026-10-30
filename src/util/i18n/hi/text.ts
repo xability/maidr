@@ -89,6 +89,8 @@ export const text = {
   // Key names stay as they are; the words around them are translated.
   'text.modifierControl': 'Control',
   'text.modifierCommand': 'Command',
+  'text.modifierAlt': 'Alt',
+  'text.modifierOption': 'Option',
   'text.invalidKey': 'अमान्य कुंजी। कीबोर्ड सहायता के लिए {modifier} स्लैश दबाएँ।',
 
   'text.brailleUnavailableHere': 'यहाँ ब्रेल उपलब्ध नहीं है। पहले Enter दबाकर कोई सबप्लॉट चुनें।',

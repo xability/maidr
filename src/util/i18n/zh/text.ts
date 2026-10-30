@@ -90,6 +90,8 @@ export const text = {
   // Key names stay as they are; the words around them are translated.
   'text.modifierControl': 'Control',
   'text.modifierCommand': 'Command',
+  'text.modifierAlt': 'Alt',
+  'text.modifierOption': 'Option',
   'text.invalidKey': '无效按键。按 {modifier} 加斜杠键可查看键盘帮助。',
 
   // Offering the braille key where braille has nothing to encode.

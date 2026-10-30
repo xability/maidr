@@ -105,6 +105,8 @@ export const text = {
   // warning that names it. The key names themselves are not translated.
   'text.modifierControl': 'Control',
   'text.modifierCommand': 'Command',
+  'text.modifierAlt': 'Alt',
+  'text.modifierOption': 'Option',
   'text.invalidKey': 'Tecla no válida. Presione {modifier} y barra diagonal para ver la ayuda del teclado.',
 
   // Offering the braille key where braille has nothing to encode.

@@ -77,6 +77,8 @@ export const text = {
 
   'text.modifierControl': 'Control',
   'text.modifierCommand': 'Command',
+  'text.modifierAlt': 'Alt',
+  'text.modifierOption': 'Option',
   'text.invalidKey': 'Tasto non valido. Premere {modifier} barra per la guida della tastiera.',
 
   'text.brailleUnavailableHere': 'Il braille non è disponibile qui. Premere Enter per selezionare prima un sottografico.',

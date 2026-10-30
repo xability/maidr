@@ -20,7 +20,7 @@ export const notification = {
   'notification.brailleIsOff': '点字 オフ',
   'notification.brailleNoInfo': '点字で表示できる情報がありません',
   'notification.brailleNotSupported': 'グラフの種類 {type} では点字はサポートされていません',
-  'notification.brailleInGridNavigation': 'このグラフの点字はグリッドのナビゲーションで表示されます。グリッドのナビゲーションと読み上げられるまで Alt Shift 上矢印キーを押し、次に B キーを押してください。',
+  'notification.brailleInGridNavigation': 'このグラフの点字はグリッドのナビゲーションで表示されます。グリッドのナビゲーションと読み上げられるまで {alt} Shift 上矢印キーを押し、次に B キーを押してください。',
   'notification.brailleDisplay': '点字ディスプレイ',
 
   // Monitor mode on live charts.
@@ -38,10 +38,10 @@ export const notification = {
   'notification.deltaReferenceUnavailable': '選択した基準線は使用できません。',
   'notification.deltaNoMatchingX': 'ローソク足チャートと{reference}の間に一致するx値がありません。',
   'notification.deltaKeepingComparison': '現在の比較を維持します。{reference}は{x}まで届いていません。この基準線が通るローソク足に移動してから、もう一度選択してください。',
-  'notification.deltaNoComparisonAtX': '{x}には基準線比較がありません。{reference}はこのローソク足まで届いていません。移動平均線が通るローソク足に移動してから、Alt L キーを押してください。',
+  'notification.deltaNoComparisonAtX': '{x}には基準線比較がありません。{reference}はこのローソク足まで届いていません。移動平均線が通るローソク足に移動してから、{alt} L キーを押してください。',
   'notification.deltaActivationFailed': 'ここでは基準線比較を開始できませんでした。',
-  'notification.deltaActivated': '基準線比較 オン。OHLC価格から{reference}を引いた値で、ポイント数は{count}、{field}から始まります。正の値は線より上、負の値は線より下を表します。左右の矢印キーでローソク足の間を移動し、上下の矢印キーで始値、高値、安値、終値を切り替えます。Alt L キーで比較をオフにし、G キーで極値へ移動し、ローターで線より上、線より下、線上のポイントを探せます。Escape キーを押すとチャートに戻ります。',
-  'notification.deltaClosed': '基準線比較を終了しました。チャートのレイヤーに戻りました。もう一度比較するには Alt L キーを押してください。',
+  'notification.deltaActivated': '基準線比較 オン。OHLC価格から{reference}を引いた値で、ポイント数は{count}、{field}から始まります。正の値は線より上、負の値は線より下を表します。左右の矢印キーでローソク足の間を移動し、上下の矢印キーで始値、高値、安値、終値を切り替えます。{alt} L キーで比較をオフにし、G キーで極値へ移動し、ローターで線より上、線より下、線上のポイントを探せます。Escape キーを押すとチャートに戻ります。',
+  'notification.deltaClosed': '基準線比較を終了しました。チャートのレイヤーに戻りました。もう一度比較するには {alt} L キーを押してください。',
   'notification.deltaClosedByUpdate': 'データの更新により基準線比較を終了しました。',
   'notification.deltaNoReferenceChosen': '基準線はまだ選択されていません。リストから移動平均線を選び、Enter キーを押して比較します。キャンセルするには Escape キーを押してください。',
   'notification.deltaTraceTitle': 'OHLC価格と{reference}の比較',
@@ -50,7 +50,7 @@ export const notification = {
   // The reference-line picker.
   'notification.deltaPickerTitle': '基準線と比較',
   'notification.deltaPickerClose': '基準線の選択画面を閉じる',
-  'notification.deltaPickerDescription': '各ローソク足と比較する基準線を選んでください。上下の矢印キーで移動し、Enter キーを押します。選択後は Alt L キーで比較のオンとオフを切り替えられます。',
+  'notification.deltaPickerDescription': '各ローソク足と比較する基準線を選んでください。上下の矢印キーで移動し、Enter キーを押します。選択後は {alt} L キーで比較のオンとオフを切り替えられます。',
   'notification.deltaPickerListLabel': '基準線の一覧',
   'notification.objectListGone': '{label}はもうチャートにありません',
 } satisfies Partial<Record<MessageKey, string>>;

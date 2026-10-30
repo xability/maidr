@@ -51,6 +51,7 @@ import { TraceType } from '@type/grammar';
 import { DEFAULT_BRAILLE_LINES, DEFAULT_BRAILLE_SIZE, MAX_BRAILLE_LINES } from '@type/settings';
 import { Constant } from '@util/constant';
 import { t } from '@util/i18n';
+import { Platform } from '@util/platform';
 
 /**
  * Normalizes configured braille display size to a safe positive integer.
@@ -1724,7 +1725,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // A scatter with a grid has braille, in grid navigation only, and a
       // reader told it has none would not go looking for it there.
       const message = state.braille.inGridNavigation
-        ? t('notification.brailleInGridNavigation')
+        ? t('notification.brailleInGridNavigation', { alt: Platform.altSpoken })
         : t('notification.brailleNotSupported', { type: state.braille.traceType });
       this.notification.notify(message);
       return;

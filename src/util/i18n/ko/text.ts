@@ -91,6 +91,8 @@ export const text = {
   // Key names stay as they are; the words around them are translated.
   'text.modifierControl': 'Control',
   'text.modifierCommand': 'Command',
+  'text.modifierAlt': 'Alt',
+  'text.modifierOption': 'Option',
   'text.invalidKey': '잘못된 키입니다. 키보드 도움말을 보려면 {modifier} 슬래시를 누르세요.',
 
   'text.brailleUnavailableHere': '여기서는 점자를 사용할 수 없습니다. 먼저 Enter 키를 눌러 서브플롯을 선택하세요.',

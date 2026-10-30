@@ -17,7 +17,7 @@ export const notification = {
   'notification.brailleIsOff': 'Braille disattivato',
   'notification.brailleNoInfo': 'Nessuna informazione per il braille',
   'notification.brailleNotSupported': 'Il braille non è supportato per il tipo di grafico: {type}',
-  'notification.brailleInGridNavigation': 'Per questo grafico il braille è mostrato nella navigazione a griglia. Premere Alt Maiusc freccia su finché non viene annunciata la navigazione a griglia, poi premere B.',
+  'notification.brailleInGridNavigation': 'Per questo grafico il braille è mostrato nella navigazione a griglia. Premere {alt} Maiusc freccia su finché non viene annunciata la navigazione a griglia, poi premere B.',
   'notification.brailleDisplay': 'Display braille',
 
   'notification.monitoringLiveOnly': 'Il monitoraggio è disponibile solo per i grafici in tempo reale',
@@ -32,10 +32,10 @@ export const notification = {
   'notification.deltaReferenceUnavailable': 'La linea di riferimento selezionata non è disponibile.',
   'notification.deltaNoMatchingX': 'Nessun valore x in comune tra il grafico a candele e {reference}.',
   'notification.deltaKeepingComparison': 'Il confronto corrente viene mantenuto: {reference} non arriva a {x}. Spostarsi su una candela coperta dalla linea, poi sceglierla di nuovo.',
-  'notification.deltaNoComparisonAtX': 'Nessun confronto con il riferimento in {x}: {reference} non arriva a questa candela. Spostarsi su una candela coperta dalla media mobile, poi premere Alt L.',
+  'notification.deltaNoComparisonAtX': 'Nessun confronto con il riferimento in {x}: {reference} non arriva a questa candela. Spostarsi su una candela coperta dalla media mobile, poi premere {alt} L.',
   'notification.deltaActivationFailed': 'Impossibile attivare qui il confronto con il riferimento.',
-  'notification.deltaActivated': 'Confronto con il riferimento attivato: prezzo OHLC meno {reference}, {count} punti, a partire da {field}. I valori positivi sono sopra la linea, quelli negativi sotto. Usare le frecce sinistra e destra per spostarsi tra le candele, su e giù per passare tra apertura, massimo, minimo e chiusura. Premere Alt L per disattivare il confronto, G per i valori estremi e il rotore per scorrere i punti sopra la linea, sotto la linea o sulla linea. Premere Escape per tornare al grafico.',
-  'notification.deltaClosed': 'Confronto con il riferimento chiuso. Ritorno al livello del grafico. Premere Alt L per confrontare di nuovo.',
+  'notification.deltaActivated': 'Confronto con il riferimento attivato: prezzo OHLC meno {reference}, {count} punti, a partire da {field}. I valori positivi sono sopra la linea, quelli negativi sotto. Usare le frecce sinistra e destra per spostarsi tra le candele, su e giù per passare tra apertura, massimo, minimo e chiusura. Premere {alt} L per disattivare il confronto, G per i valori estremi e il rotore per scorrere i punti sopra la linea, sotto la linea o sulla linea. Premere Escape per tornare al grafico.',
+  'notification.deltaClosed': 'Confronto con il riferimento chiuso. Ritorno al livello del grafico. Premere {alt} L per confrontare di nuovo.',
   'notification.deltaClosedByUpdate': 'Confronto con il riferimento chiuso da un aggiornamento dei dati.',
   'notification.deltaNoReferenceChosen': 'Nessuna linea di riferimento ancora scelta. Usare l\'elenco per scegliere una linea di media mobile e premere Enter per confrontare. Premere Escape per annullare.',
   'notification.deltaTraceTitle': 'Prezzo OHLC rispetto a {reference}',
@@ -43,7 +43,7 @@ export const notification = {
 
   'notification.deltaPickerTitle': 'Confronta con una linea di riferimento',
   'notification.deltaPickerClose': 'Chiudi il selettore di riferimento',
-  'notification.deltaPickerDescription': 'Scegliere una linea di riferimento con cui confrontare ogni candela. Usare le frecce su e giù per spostarsi, poi premere Enter. Una volta scelta, premere Alt L per attivare o disattivare il confronto.',
+  'notification.deltaPickerDescription': 'Scegliere una linea di riferimento con cui confrontare ogni candela. Usare le frecce su e giù per spostarsi, poi premere Enter. Una volta scelta, premere {alt} L per attivare o disattivare il confronto.',
   'notification.deltaPickerListLabel': 'Linee di riferimento',
   'notification.objectListGone': '{label} non è più nel grafico',
 } satisfies Partial<Record<MessageKey, string>>;

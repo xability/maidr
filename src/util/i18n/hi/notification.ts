@@ -17,7 +17,7 @@ export const notification = {
   'notification.brailleIsOff': 'ब्रेल बंद है',
   'notification.brailleNoInfo': 'ब्रेल के लिए कोई जानकारी नहीं',
   'notification.brailleNotSupported': 'इस प्लॉट प्रकार के लिए ब्रेल समर्थित नहीं है: {type}',
-  'notification.brailleInGridNavigation': 'इस चार्ट का ब्रेल ग्रिड नेविगेशन में दिखाया जाता है। ग्रिड नेविगेशन की घोषणा होने तक Alt Shift ऊपर तीर दबाएँ, फिर B दबाएँ।',
+  'notification.brailleInGridNavigation': 'इस चार्ट का ब्रेल ग्रिड नेविगेशन में दिखाया जाता है। ग्रिड नेविगेशन की घोषणा होने तक {alt} Shift ऊपर तीर दबाएँ, फिर B दबाएँ।',
   'notification.brailleDisplay': 'ब्रेल डिस्प्ले',
 
   'notification.monitoringLiveOnly': 'मॉनिटरिंग केवल लाइव चार्ट के लिए उपलब्ध है',
@@ -32,10 +32,10 @@ export const notification = {
   'notification.deltaReferenceUnavailable': 'चुनी गई संदर्भ रेखा उपलब्ध नहीं है।',
   'notification.deltaNoMatchingX': 'कैंडलस्टिक चार्ट और {reference} के बीच कोई मेल खाता x मान नहीं है।',
   'notification.deltaKeepingComparison': 'वर्तमान तुलना बनी रहेगी: {reference} {x} तक नहीं पहुँचती। किसी ऐसी कैंडल पर जाएँ जिसे यह कवर करती है, फिर इसे दोबारा चुनें।',
-  'notification.deltaNoComparisonAtX': '{x} पर कोई संदर्भ तुलना नहीं: {reference} इस कैंडल तक नहीं पहुँचती। किसी ऐसी कैंडल पर जाएँ जिसे मूविंग एवरेज कवर करता है, फिर Alt L दबाएँ।',
+  'notification.deltaNoComparisonAtX': '{x} पर कोई संदर्भ तुलना नहीं: {reference} इस कैंडल तक नहीं पहुँचती। किसी ऐसी कैंडल पर जाएँ जिसे मूविंग एवरेज कवर करता है, फिर {alt} L दबाएँ।',
   'notification.deltaActivationFailed': 'यहाँ संदर्भ तुलना सक्रिय नहीं की जा सकी।',
-  'notification.deltaActivated': 'संदर्भ तुलना चालू: OHLC मूल्य में से {reference} घटाकर, {count} बिंदु, {field} से शुरू। धनात्मक मान रेखा के ऊपर हैं, ऋणात्मक नीचे। कैंडल बदलने के लिए बाएँ और दाएँ तीर दबाएँ, ओपन, हाई, लो और क्लोज़ के बीच बदलने के लिए ऊपर और नीचे तीर दबाएँ। तुलना बंद करने के लिए Alt L दबाएँ, चरम मान के लिए G दबाएँ, और रेखा के ऊपर, नीचे या रेखा पर स्थित बिंदुओं को देखने के लिए रोटर का उपयोग करें। चार्ट पर लौटने के लिए Escape दबाएँ।',
-  'notification.deltaClosed': 'संदर्भ तुलना बंद हुई। चार्ट लेयर पर लौटे। दोबारा तुलना करने के लिए Alt L दबाएँ।',
+  'notification.deltaActivated': 'संदर्भ तुलना चालू: OHLC मूल्य में से {reference} घटाकर, {count} बिंदु, {field} से शुरू। धनात्मक मान रेखा के ऊपर हैं, ऋणात्मक नीचे। कैंडल बदलने के लिए बाएँ और दाएँ तीर दबाएँ, ओपन, हाई, लो और क्लोज़ के बीच बदलने के लिए ऊपर और नीचे तीर दबाएँ। तुलना बंद करने के लिए {alt} L दबाएँ, चरम मान के लिए G दबाएँ, और रेखा के ऊपर, नीचे या रेखा पर स्थित बिंदुओं को देखने के लिए रोटर का उपयोग करें। चार्ट पर लौटने के लिए Escape दबाएँ।',
+  'notification.deltaClosed': 'संदर्भ तुलना बंद हुई। चार्ट लेयर पर लौटे। दोबारा तुलना करने के लिए {alt} L दबाएँ।',
   'notification.deltaClosedByUpdate': 'डेटा अपडेट के कारण संदर्भ तुलना बंद हुई।',
   'notification.deltaNoReferenceChosen': 'अभी तक कोई संदर्भ रेखा नहीं चुनी गई है। सूची से कोई मूविंग एवरेज रेखा चुनें और तुलना के लिए Enter दबाएँ। रद्द करने के लिए Escape दबाएँ।',
   'notification.deltaTraceTitle': 'OHLC मूल्य बनाम {reference}',
@@ -43,7 +43,7 @@ export const notification = {
 
   'notification.deltaPickerTitle': 'संदर्भ रेखा से तुलना करें',
   'notification.deltaPickerClose': 'संदर्भ रेखा चयनकर्ता बंद करें',
-  'notification.deltaPickerDescription': 'हर कैंडल की तुलना के लिए एक संदर्भ रेखा चुनें। चलने के लिए ऊपर और नीचे तीर दबाएँ, फिर Enter दबाएँ। चुनने के बाद तुलना चालू या बंद करने के लिए Alt L दबाएँ।',
+  'notification.deltaPickerDescription': 'हर कैंडल की तुलना के लिए एक संदर्भ रेखा चुनें। चलने के लिए ऊपर और नीचे तीर दबाएँ, फिर Enter दबाएँ। चुनने के बाद तुलना चालू या बंद करने के लिए {alt} L दबाएँ।',
   'notification.deltaPickerListLabel': 'संदर्भ रेखाएँ',
   'notification.objectListGone': '{label} अब चार्ट में नहीं है',
 } satisfies Partial<Record<MessageKey, string>>;
