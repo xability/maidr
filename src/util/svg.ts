@@ -860,6 +860,14 @@ export abstract class Svg {
     const tag = element.tagName.toLowerCase();
     const drawnByStroke = this.isDrawnByStroke(element, computed);
     const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE || drawnByStroke;
+    // A mark drawn by its stroke alone is all stroke, and its copy is drawn
+    // opaque: a Recharts sankey ribbon, stroked at 20%, was highlighted as a
+    // slightly deeper tint of the same pale colour, at 1.2:1 against the
+    // ribbons beside it. A filled mark keeps its opacity, so that the marks a
+    // translucent point or bar is drawn over still show through its copy.
+    if (isLineElement) {
+      clone.style.strokeOpacity = '1';
+    }
     const originalColor = isLineElement
       ? computed.getPropertyValue(Constant.STROKE)
       : computed.getPropertyValue(Constant.FILL);
@@ -1338,7 +1346,9 @@ export abstract class Svg {
    * dominant channel, as this did, moved a lavender pie slice by 1.06:1 and
    * a yellow radar point by 1.17:1, since blue and red carry little of a
    * colour's luminance. It stops at that contrast rather than going to
-   * black, so a dark label drawn over the mark stays readable on it.
+   * black, so a dark label drawn over the mark stays readable on it. A white
+   * or light grey mark, which has no hue of its own, is drawn in a shade of
+   * the fallback colour instead, to the same contrast.
    *
    * @param originalColor - The original color to base the highlight on
    * @param fallbackColor - Color to use if original cannot be parsed or is dark
@@ -1358,22 +1368,48 @@ export abstract class Svg {
       return fallbackColor;
     }
 
-    return Color.rgbToString(this.darkenToContrast(originalRgb, Constant.HIGHLIGHT_CONTRAST_RATIO));
+    // A white or light grey mark has no hue to keep, and a darker shade of
+    // its own colour is a mid grey, the colour of the axes and gridlines
+    // around it: a Recharts line's white dot was highlighted grey inside its
+    // unchanged ring. A shade of the highlight colour is taken instead.
+    const fallbackRgb = Color.parse(fallbackColor);
+    const base = fallbackRgb !== null && this.isGrey(originalRgb) ? fallbackRgb : originalRgb;
+    return Color.rgbToString(this.darkenToContrast(base, Constant.HIGHLIGHT_CONTRAST_RATIO, originalRgb));
   }
 
   /**
-   * The lightest shade of a colour that reaches a contrast against it.
+   * The most a colour's channels may differ for it to count as a grey: a
+   * white or a grey a little off true, as `#fafaf5` is. A cut-off, chosen by
+   * eye: a pale tint whose channels spread further, as `#f0f0ff`'s do, is
+   * read as having a hue, and keeps a darker shade of its own colour.
+   */
+  private static readonly GREY_CHANNEL_SPREAD = 8;
+
+  /**
+   * Whether a colour is a white, a grey or a black, with no hue of its own.
+   * @param rgb - The colour
+   * @returns True when its channels are all but equal
+   */
+  private static isGrey(rgb: Rgb): boolean {
+    return Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b) <= this.GREY_CHANNEL_SPREAD;
+  }
+
+  /**
+   * The lightest shade of a colour that reaches a given contrast against a
+   * light colour, which is the colour itself unless another is given.
    *
    * Every channel is scaled by the same factor, so the hue is kept; the
-   * factor is found by halving, since the contrast only grows as it falls.
-   * Black always reaches the contrast asked of a light colour, so the search
-   * always ends on a shade that does.
+   * factor is found by halving, since once the shade is darker than the
+   * light colour the contrast only grows as it falls. Black always reaches
+   * the contrast asked against a light colour, so the search always ends on
+   * a shade that does.
    *
    * @param rgb - The colour
-   * @param ratio - The contrast the shade must reach against it
+   * @param ratio - The contrast the shade must reach
+   * @param against - The light colour it must reach it against
    * @returns The shade
    */
-  private static darkenToContrast(rgb: Rgb, ratio: number): Rgb {
+  private static darkenToContrast(rgb: Rgb, ratio: number, against: Rgb = rgb): Rgb {
     const scale = (factor: number): Rgb => ({
       r: Math.floor(rgb.r * factor),
       g: Math.floor(rgb.g * factor),
@@ -1383,7 +1419,7 @@ export abstract class Svg {
     let high = 1;
     for (let step = 0; step < 16; step++) {
       const middle = (low + high) / 2;
-      if (Color.getContrastRatio(scale(middle), rgb) >= ratio) {
+      if (Color.getContrastRatio(scale(middle), against) >= ratio) {
         low = middle;
       } else {
         high = middle;
