@@ -225,7 +225,8 @@ export function pieAnglesFor(children: ReactNode): RechartsPieAngles | undefined
 /**
  * The component that draws each series of a line-family chart type, and
  * whether it draws its dots when `dot` is not set: a `<Line>` does, an
- * `<Area>` and a `<Radar>` do not.
+ * `<Area>` and a `<Radar>` do not. The types are those `SERIES_DOTS` in
+ * `selectors.ts` names the dots of: a type added to one belongs in the other.
  */
 const SERIES_COMPONENT: Partial<Record<RechartsChartType, { name: string; dotsByDefault: boolean }>> = {
   line: { name: 'Line', dotsByDefault: true },

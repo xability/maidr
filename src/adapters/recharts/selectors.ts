@@ -359,7 +359,11 @@ function scoped(selector: string, chartId?: string, panelScope?: string): string
   return `${scopes.join(' ')} ${selector}`;
 }
 
-/** The group Recharts draws one series' dots in, and the dot, per chart type. */
+/**
+ * The group Recharts draws one series' dots in, and the dot, per chart type.
+ * The types are those `SERIES_COMPONENT` in `childProps.ts` reads the series
+ * of: a type added to one belongs in the other.
+ */
 const SERIES_DOTS: Partial<Record<RechartsChartType, { group: string; dot: string }>> = {
   line: { group: 'g.recharts-line-dots', dot: '.recharts-line-dot' },
   step: { group: 'g.recharts-line-dots', dot: '.recharts-line-dot' },
