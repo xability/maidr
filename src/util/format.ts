@@ -13,10 +13,23 @@ export type FormattableValue = number | string | (number | string)[];
 const DEFAULT_MAX_DECIMALS = 2;
 
 /**
- * Significant digits used for a value too small to survive rounding to
- * {@link DEFAULT_MAX_DECIMALS} places.
+ * Significant digits a fractional number smaller than
+ * {@link SIGNIFICANT_DIGITS_BELOW} reads with.
  */
 const DEFAULT_SIGNIFICANT_DIGITS = 3;
+
+/**
+ * The size below which a fractional number reads with
+ * {@link DEFAULT_SIGNIFICANT_DIGITS} significant digits rather than
+ * {@link DEFAULT_MAX_DECIMALS} decimals.
+ *
+ * Two decimals leave a value from 0.005 to 0.1 one significant digit or two,
+ * and below 0.005 none, so the precision used to jump there: on a density
+ * curve, neighbouring samples of 0.0050 and 0.0052 read "0.005" and "0.01",
+ * twice apart, and a peak of 0.0366 read "0.04". From 0.1 up, two decimals
+ * keep at least two significant digits.
+ */
+const SIGNIFICANT_DIGITS_BELOW = 0.1;
 
 /**
  * Smallest magnitude the default format groups into thousands. A four-digit
@@ -60,7 +73,10 @@ function groupThousands(value: number, text: string): string {
  * this is what a screen reader speaks aloud. A value MAIDR computes rather than
  * reads verbatim — a `barnorm` share, a percentage of a stack — carries the full
  * float, and `57.14285714285714` is sixteen digits to listen through for two
- * digits of meaning.
+ * digits of meaning. One smaller than {@link SIGNIFICANT_DIGITS_BELOW} is
+ * rounded to {@link DEFAULT_SIGNIFICANT_DIGITS} significant digits instead
+ * (`0.0366`, `0.00522`), so a small value never rounds to `0` and neighbouring
+ * small values read at the same precision.
  *
  * Rounding stops at the announcement. Sonification, braille, and extrema all
  * read the underlying numbers, so the pitch of a bar and the position of a
@@ -76,19 +92,14 @@ export const defaultLabelFormat: FormatFunction = (value: number | string): stri
     return `${value}`;
   }
 
-  const rounded = Number(value.toFixed(DEFAULT_MAX_DECIMALS));
-  if (rounded !== 0) {
-    return `${rounded}`;
+  // Significant digits for a small value, and not only for one two decimals
+  // would erase: rounding 0.0052 to "0.01" doubles it as surely as rounding
+  // 0.0004 to "0" removes it. A small negative never reaches `toFixed`, which
+  // would have rounded it to a signed zero.
+  if (Math.abs(value) < SIGNIFICANT_DIGITS_BELOW) {
+    return `${Number(value.toPrecision(DEFAULT_SIGNIFICANT_DIGITS))}`;
   }
-
-  // Rounding erased the value (0.00012 -> 0). Announcing `0` for something that
-  // is not zero is worse than the extra digits, so keep it visible instead.
-  //
-  // The check catches the negative case as well, and relies on it: a small
-  // negative rounds to `-0`, and `-0 !== 0` is false in IEEE-754, so it lands
-  // here rather than being announced as a signed zero. Comparing against
-  // `Object.is(rounded, 0)` instead would let `-0` through.
-  return `${Number(value.toPrecision(DEFAULT_SIGNIFICANT_DIGITS))}`;
+  return `${Number(value.toFixed(DEFAULT_MAX_DECIMALS))}`;
 };
 
 /**

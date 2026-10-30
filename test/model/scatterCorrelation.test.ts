@@ -81,6 +81,20 @@ describe('a scatter says which way its cloud tilts', () => {
     expect(String(statOf(traceOf(RISING), 'Correlation'))).toMatch(/r = -?\d+(\.\d{1,2})?,/);
   });
 
+  test('never reads a coefficient short of perfect as one', () => {
+    // r = 0.99691. Two decimals read it as "r = 1", a straight line the
+    // points do not lie on.
+    const xs = [1, 2, 3, 4, 5, 6];
+    const ys = [1, 2.1, 2.9, 4.2, 4.8, 6.1];
+    const near = xs.map((x, i) => ({ x, y: ys[i] }));
+    const falling = xs.map((x, i) => ({ x, y: -ys[i] }));
+    const straight = xs.map(x => ({ x, y: 2 * x }));
+
+    expect(statOf(traceOf(near), 'Correlation')).toBe('very strong positive (r = 0.997, n = 6)');
+    expect(statOf(traceOf(falling), 'Correlation')).toBe('very strong negative (r = -0.997, n = 6)');
+    expect(String(statOf(traceOf(straight), 'Correlation'))).toContain('r = 1,');
+  });
+
   test('makes no claim about a categorical axis', () => {
     // The numbers on a named axis are slots the producer chose, so a
     // coefficient over them would describe that ordering while sounding like a

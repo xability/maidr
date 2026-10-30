@@ -75,6 +75,51 @@ describe('defaultFormat', () => {
     expect(defaultFormat(-0.000987654)).toBe('-0.000988');
   });
 
+  it('reads a value under 0.1 with three significant digits, whichever side of 0.005 it falls', () => {
+    // Densities from the Old Faithful curve and the ridgeline example. Two
+    // decimals read 0.0050 and 0.0052 as "0.005" and "0.01", twice apart,
+    // and the peak 0.0366 as "0.04".
+    expect(defaultFormat(0.0050)).toBe('0.005');
+    expect(defaultFormat(0.0052)).toBe('0.0052');
+    expect(defaultFormat(0.00507)).toBe('0.00507');
+    expect(defaultFormat(0.0106)).toBe('0.0106');
+    expect(defaultFormat(0.0366)).toBe('0.0366');
+    expect(defaultFormat(-0.0734)).toBe('-0.0734');
+  });
+
+  it('keeps two decimals from 0.1 up', () => {
+    expect(defaultFormat(0.384916570869134)).toBe('0.38');
+    expect(defaultFormat(0.1)).toBe('0.1');
+    expect(defaultFormat(-0.256)).toBe('-0.26');
+  });
+
+  it('reads a small negative the way it reads the positive', () => {
+    expect(defaultFormat(-0.0366)).toBe('-0.0366');
+    expect(defaultFormat(-0.0052)).toBe('-0.0052');
+  });
+
+  it('reads zero as zero, signed or not', () => {
+    expect(defaultFormat(0)).toBe('0');
+    expect(defaultFormat(-0)).toBe('0');
+  });
+
+  it('reads a very small value as three digits and an exponent, not a run of zeros', () => {
+    expect(defaultFormat(1e-7)).toBe('1e-7');
+    expect(defaultFormat(1.23456e-7)).toBe('1.23e-7');
+    expect(defaultFormat(1e-12)).toBe('1e-12');
+    expect(defaultFormat(-4.5678e-12)).toBe('-4.57e-12');
+  });
+
+  it('changes precision at 0.1 without reading a value past it', () => {
+    // Just under the boundary three significant digits; at it, two decimals.
+    // A value three digits round up to 0.1 reads as 0.1, not as 0.100.
+    expect(defaultFormat(0.0999)).toBe('0.0999');
+    expect(defaultFormat(0.09996)).toBe('0.1');
+    expect(defaultFormat(0.1)).toBe('0.1');
+    expect(defaultFormat(0.1004)).toBe('0.1');
+    expect(defaultFormat(-0.0999)).toBe('-0.0999');
+  });
+
   it('keeps exponential notation where JavaScript already used it', () => {
     // Below ~1e-6 the fallback's toPrecision returns an exponent, but so does
     // plain stringification — `String(1.234e-7)` is already `'1.234e-7'`. Only

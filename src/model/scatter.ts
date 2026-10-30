@@ -161,6 +161,38 @@ function correlationStrength(r: number): string {
 }
 
 /**
+ * The most decimals a coefficient is printed with to keep it from reading as
+ * a perfect one.
+ */
+const MAX_COEFFICIENT_DECIMALS = 6;
+
+/**
+ * A correlation coefficient as the summary prints it.
+ *
+ * Rounded as every other number in the dialog is, except where that would
+ * make a coefficient that is not perfect read as one: r = 0.9954 read
+ * "r = 1", a straight line the points do not lie on. Such a coefficient keeps
+ * the decimals it takes to stay short of one, up to
+ * {@link MAX_COEFFICIENT_DECIMALS}; past that the difference is float noise.
+ *
+ * @param r - Pearson's r, in [-1, 1]
+ * @returns The coefficient as it is printed
+ */
+function coefficientText(r: number): string {
+  const rounded = defaultFormat(r);
+  if (Math.abs(r) === 1 || Math.abs(Number(rounded)) !== 1) {
+    return rounded;
+  }
+  for (let decimals = 3; decimals <= MAX_COEFFICIENT_DECIMALS; decimals++) {
+    const text = String(Number(r.toFixed(decimals)));
+    if (Math.abs(Number(text)) !== 1) {
+      return text;
+    }
+  }
+  return rounded;
+}
+
+/**
  * The four regions of a scatter, in quadrant order.
  *
  * Numbered anticlockwise from the upper right, as the convention has it, and
@@ -1365,7 +1397,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // service, which rounds numbers and passes composed strings through.
       value: t('model.statCorrelationValue', {
         strength: correlationStrength(r),
-        r: defaultFormat(r),
+        r: coefficientText(r),
         n: MathUtil.pairedCount(xs, ys),
       }),
     };
