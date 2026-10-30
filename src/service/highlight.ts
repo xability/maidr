@@ -6,11 +6,11 @@ import type { Settings } from '@type/settings';
 import type {
   FigureState,
   HighlightState,
+  PanelHighlightState,
   SubplotState,
   TraceState,
 } from '@type/state';
 import { Constant } from '@util/constant';
-import { countAxesGroups } from '@util/subplotLayout';
 import { Svg } from '@util/svg';
 
 /**
@@ -55,16 +55,16 @@ implements Observer<HighlightStateUnion>, Disposable {
 
   /**
    * The elements the chart is drawn in, the same ones its layout is resolved
-   * in. Its panels are counted, and its figure background read, inside them
-   * alone: another chart on the page has panels and a background of its own.
+   * in. Its figure background is read inside them alone: another chart on the
+   * page has a background of its own.
    */
   private readonly chartRoots: () => readonly Element[];
 
   /**
-   * Set of subplot elements that currently have highlight styling applied.
+   * Set of subplot panels that are currently outlined.
    * Used to track and clean up subplot-level highlights.
    */
-  private readonly highlightedSubplots: Set<SVGElement>;
+  private readonly highlightedSubplots: Set<Element>;
 
   /**
    * The current color used for highlighting elements.
@@ -230,7 +230,7 @@ implements Observer<HighlightStateUnion>, Disposable {
     const figureBackground = this.figureBackground();
     for (const element of this.highlightedSubplots) {
       if (element.isConnected) {
-        Svg.setSubplotHighlightSvgWithAdaptiveColor(element, this.currentHighlightColor, figureBackground);
+        Svg.outlinePanel(element, this.currentHighlightColor, figureBackground);
       }
     }
   }
@@ -297,24 +297,23 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Processes highlighting based on whether the visualization is a multi-plot scenario.
-   * For multi-plot scenarios, applies subplot highlighting; otherwise clears subplot highlights.
+   * Outlines the panel a figure or subplot state names, or clears the outline
+   * when it names none.
    *
-   * @param highlight - The highlight state containing elements to highlight
+   * The model names a panel only on a figure of several subplots, for every
+   * producer it can find one for. Outlining only where the chart had more
+   * than one matplotlib axes group, as this did, left the lobby of every
+   * other producer's figure with nothing on screen to say which panel the
+   * reader was on.
+   *
+   * @param highlight - The panel to outline
    */
-  private processHighlighting(highlight: HighlightState): void {
+  private processHighlighting(highlight: PanelHighlightState): void {
     if (highlight.empty) {
+      this.unhighlightSubplotElements();
       return;
     }
-
-    const elements = this.getElementsFromHighlight(highlight);
-    const isMultiPlot = this.isMultiPlotScenario();
-
-    if (isMultiPlot) {
-      this.highlightSubplotElements(elements);
-    } else {
-      this.unhighlightSubplotElements();
-    }
+    this.highlightSubplotElements([highlight.elements]);
   }
 
   /**
@@ -331,16 +330,6 @@ implements Observer<HighlightStateUnion>, Disposable {
     return Array.isArray(highlight.elements)
       ? highlight.elements
       : [highlight.elements];
-  }
-
-  /**
-   * Determines if the current visualization contains multiple subplots.
-   * Checks the chart for multiple axes groups to identify multi-plot scenarios.
-   *
-   * @returns True if more than one subplot exists, false otherwise
-   */
-  private isMultiPlotScenario(): boolean {
-    return countAxesGroups(this.chartRoots()) > 1;
   }
 
   /**
@@ -361,20 +350,20 @@ implements Observer<HighlightStateUnion>, Disposable {
   }
 
   /**
-   * Applies highlight styling to subplot-level SVG elements.
+   * Outlines subplot panels.
    * Uses adaptive color calculation based on the figure background.
    *
    * The background is py-maidr's figure patch, whose group py-maidr gives a
    * `maidr-<uuid>` id; a chart without one is measured against the highlight
    * colour itself.
    *
-   * @param elements - Array of subplot SVG elements to highlight
+   * @param elements - The panels to outline
    */
-  private highlightSubplotElements(elements: SVGElement[]): void {
+  private highlightSubplotElements(elements: Element[]): void {
     this.unhighlightSubplotElements();
     const figureBgElement = this.figureBackground();
     for (const element of elements) {
-      Svg.setSubplotHighlightSvgWithAdaptiveColor(
+      Svg.outlinePanel(
         element,
         this.currentHighlightColor,
         figureBgElement,
@@ -487,7 +476,7 @@ implements Observer<HighlightStateUnion>, Disposable {
    */
   private unhighlightSubplotElements(): void {
     this.highlightedSubplots.forEach((element) => {
-      Svg.removeSubplotHighlightSvg(element);
+      Svg.removePanelOutline(element);
     });
     this.highlightedSubplots.clear();
   }

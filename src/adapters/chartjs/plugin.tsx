@@ -33,6 +33,7 @@ import { Maidr as MaidrComponent } from '../../maidr-component';
 import { extractChartData } from './extractor';
 import { computeTargetMaps, resolveActiveTargets } from './highlightTargets';
 import { elementToOverlayShape, HighlightOverlay } from './overlay';
+import { panelRect } from './panel';
 
 // ---------------------------------------------------------------------------
 // Internal state per chart
@@ -199,7 +200,7 @@ export function createHighlightCallback(
   getOverlay: () => HighlightOverlay | null,
   recordActive: (event: NavEvent | null) => void,
 ): NavigateCallback {
-  return (event) => {
+  return (event, panel) => {
     try {
       recordActive(event);
       // `null` is the cursor leaving a subplot for the figure lobby: nothing
@@ -218,6 +219,14 @@ export function createHighlightCallback(
             event.pointIndices,
           );
       applyHighlight(chart, getOverlay(), targets);
+      // In the lobby, the panel the reader is on is outlined instead, which
+      // nothing else on a canvas can do.
+      const rect = event === null && panel !== undefined
+        ? panelRect(chart, panel.layerIds.flatMap(id => layerDatasetIndices.get(id) ?? []))
+        : null;
+      if (rect !== null) {
+        getOverlay()?.show([rect]);
+      }
     } catch {
       // Silently ignore highlight errors (e.g., after chart destruction)
     }

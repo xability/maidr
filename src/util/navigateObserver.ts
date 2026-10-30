@@ -1,6 +1,6 @@
 import type { NavigateCallback } from '@type/grammar';
 import type { Observer } from '@type/observable';
-import type { TraceState } from '@type/state';
+import type { FigureState, TraceState } from '@type/state';
 import { isPointCloudHighlightable } from '@type/navigation';
 
 /**
@@ -59,6 +59,45 @@ export function createNavigateObserver(
           col: state.braille.col,
         });
       }
+    },
+  };
+}
+
+/**
+ * Build the observer that tells a navigate callback the reader is in the
+ * figure lobby, and on which subplot.
+ *
+ * Leaving a subplot makes the figure active rather than a trace, so the
+ * trace observers go quiet and say nothing about having stopped. A consumer
+ * drawing an overlay would keep the last point highlighted and carry it to
+ * whichever panel the reader moved to next, so the figure reports the
+ * selection ending with `null`. It names the subplot the lobby is on beside
+ * it: MAIDR outlines that panel itself only where it finds one in the page,
+ * and a chart drawn on a canvas has none to find, so the consumer is the only
+ * one that can.
+ *
+ * @param figure - The figure, read for its active subplot when it moves
+ * @param figure.size - How many subplots it has; one has no lobby, and its
+ *   panel is not named
+ * @param figure.activeSubplot - The subplot the lobby is on
+ * @param figure.activeSubplot.traces - Its layers, one row per layer
+ * @param callback - The adapter's navigate callback
+ * @returns An observer to register on the figure
+ */
+export function createLobbyObserver(
+  figure: {
+    readonly size: number;
+    readonly activeSubplot: { readonly traces: readonly (readonly { getId: () => string }[])[] };
+  },
+  callback: NavigateCallback,
+): Observer<FigureState> {
+  return {
+    update: (): void => {
+      if (figure.size <= 1) {
+        callback(null);
+        return;
+      }
+      callback(null, { layerIds: figure.activeSubplot.traces.flat().map(trace => trace.getId()) });
     },
   };
 }
