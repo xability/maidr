@@ -1304,30 +1304,60 @@ function axisLevelNames(root: Element): Map<number, string> | null {
 }
 
 /**
+ * Whether a spec names the values of a y axis with a `labelExpr` -- on any of
+ * its views, since the composite's children and layers draw their own or a
+ * shared axis.
+ *
+ * @param spec - The spec, or one of its views
+ * @returns True when some view's y axis carries a `labelExpr`
+ */
+function namesYAxisValues(spec: VegaLiteSpec | undefined): boolean {
+  if (!spec)
+    return false;
+  const axis = spec.encoding?.y?.axis as { labelExpr?: unknown } | null | undefined;
+  if (typeof axis?.labelExpr === 'string' && axis.labelExpr.trim() !== '')
+    return true;
+  const children = [
+    ...(spec.layer ?? []),
+    ...(spec.hconcat ?? []),
+    ...(spec.vconcat ?? []),
+    ...(spec.concat ?? []),
+  ];
+  return children.some(namesYAxisValues) || namesYAxisValues(spec.spec);
+}
+
+/**
  * For a line read against a y axis that names its levels, give every point
  * the name of the level it sits on.
  *
  * A chart whose y is a category coded as a number -- a hypnogram's sleep
- * stages, a Likert scale -- draws the codes as names, with Vega-Lite's
- * `labelExpr` or explicit axis `values`. `LinePoint.label` carries such a name
- * beside the numeric `y` that sonification, braille and the range read, and
- * the converter cannot fill it: the names exist only once Vega has drawn the
- * axis. py-maidr's Altair hypnogram, whose axis reads N3, N2, N1, REM, Awake,
- * was announced as "Sleep stage is 3".
+ * stages, a Likert scale -- draws the codes as names with Vega-Lite's
+ * `labelExpr`. `LinePoint.label` carries such a name beside the numeric `y`
+ * that sonification, braille and the range read, and the converter cannot
+ * fill it: the names exist only once Vega has drawn the axis. py-maidr's
+ * Altair hypnogram, whose axis reads N3, N2, N1, REM, Awake, was announced as
+ * "Sleep stage is 3".
  *
- * Only when every point sits on a named tick, so a line that merely passes
- * through tick values on a continuous axis keeps its numbers. A name the
- * layer already carries stays.
+ * Only for a spec that writes a `labelExpr` for a y axis: an axis whose labels
+ * are merely formatted (`$10`, `50%`, `2.5M`) measures its values rather than
+ * naming them, and its points keep their numbers. And only when every point
+ * sits on a named tick, so a line that passes through tick values on a
+ * continuous axis keeps its numbers too. A name the layer already carries
+ * stays.
  *
  * @param svg - The chart's SVG
  * @param layers - Every layer of the chart
+ * @param spec - The spec the chart was drawn from
  * @param cellDomMap - Each panel layer's own root, for charts of panels
  */
 function nameLevelsFromAxis(
   svg: SVGSVGElement,
   layers: MaidrLayer[],
+  spec: VegaLiteSpec,
   cellDomMap?: Map<MaidrLayer, CellDomInfo>,
 ): void {
+  if (!namesYAxisValues(spec))
+    return;
   let chartLevels: Map<number, string> | null | undefined;
   for (const layer of layers) {
     if (!READ_AGAINST_Y_AXIS.has(layer.type) || !Array.isArray(layer.data)
@@ -2280,7 +2310,7 @@ export function bindVegaLite(
 
   // For lines read against a y axis that names its levels (a hypnogram's
   // stages drawn through `labelExpr`), carry each point's level name.
-  nameLevelsFromAxis(svg as SVGSVGElement, layers, cellDomMap);
+  nameLevelsFromAxis(svg as SVGSVGElement, layers, spec, cellDomMap);
 
   initMaidrOnElement(maidr, svg);
 }

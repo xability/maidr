@@ -30,23 +30,26 @@ const STAGE_NAMES = ['N3', 'N2', 'N1', 'REM', 'Awake'];
 /** A night's readings: hours asleep, and the stage code. */
 const NIGHT = [4, 3, 2, 1, 0, 0, 1, 3].map((stage, i) => ({ hours: i * 0.5, stage }));
 
+/** The Altair hypnogram's y axis: its codes, and the names drawn for them. */
+const STAGE_AXIS = {
+  values: [0, 1, 2, 3, 4],
+  labelExpr: 'datum.value == 0 ? \'N3\' : datum.value == 1 ? \'N2\' : '
+    + 'datum.value == 2 ? \'N1\' : datum.value == 3 ? \'REM\' : \'Awake\'',
+};
+
 /**
  * The hypnogram spec over the given rows.
  * @param rows - The readings
+ * @param yAxis - The y channel's axis
  * @returns The spec
  */
-function hypnogram(rows: Array<Record<string, number>>): VegaLiteSpec {
+function hypnogram(rows: Array<Record<string, number>>, yAxis: Record<string, unknown> = STAGE_AXIS): VegaLiteSpec {
   return {
     data: { values: rows },
     mark: { type: 'line', interpolate: 'step-after' },
     encoding: {
       x: { field: 'hours', type: 'quantitative', title: 'Time asleep (hours)' },
-      y: {
-        field: 'stage',
-        type: 'quantitative',
-        title: 'Sleep stage',
-        axis: { values: [0, 1, 2, 3, 4], labelExpr: 'datum.value == 0 ? \'N3\' : \'...\'' },
-      },
+      y: { field: 'stage', type: 'quantitative', title: 'Sleep stage', axis: yAxis },
     },
   } as unknown as VegaLiteSpec;
 }
@@ -123,10 +126,15 @@ function chart(yTicks: Array<[number, string]>, extraY?: Array<[number, string]>
  * Bind a chart and return the layer MAIDR is handed.
  * @param rows - The readings
  * @param view - The rendered chart
+ * @param yAxis - The y channel's axis, if not the hypnogram's
  * @returns The layer
  */
-function bound(rows: Array<Record<string, number>>, view: VegaView): MaidrLayer {
-  bindVegaLite(view, hypnogram(rows));
+function bound(
+  rows: Array<Record<string, number>>,
+  view: VegaView,
+  yAxis?: Record<string, unknown>,
+): MaidrLayer {
+  bindVegaLite(view, hypnogram(rows, yAxis));
   const maidr = initMock.mock.calls[0]?.[0] as Maidr | undefined;
   const layer = maidr?.subplots?.[0]?.[0]?.layers?.[0];
   if (!layer)
@@ -171,6 +179,17 @@ describe('a vega-lite line whose axis names no levels', () => {
     const numerals: Array<[number, string]> = [[0, '0'], [1, '1'], [2, '2'], [3, '3'], [4, '4']];
 
     const layer = bound(NIGHT, chart(numerals));
+
+    expect(labels(layer).every(label => label === undefined)).toBe(true);
+  });
+
+  it('keeps its numbers when the axis only formats them', () => {
+    // `format: '$,d'` draws "$0" to "$4": not numerals, but numbers all the
+    // same, and every point sits on a tick. Without a labelExpr in the spec
+    // the axis is read as measuring its values, not naming them.
+    const dollars: Array<[number, string]> = [[0, '$0'], [1, '$1'], [2, '$2'], [3, '$3'], [4, '$4']];
+
+    const layer = bound(NIGHT, chart(dollars), { format: '$,d' });
 
     expect(labels(layer).every(label => label === undefined)).toBe(true);
   });
