@@ -6,7 +6,7 @@ import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
 import type { Keys } from '@type/event';
 import type { ExtremaTarget } from '@type/extrema';
-import type { LinePoint, MaidrLayer } from '@type/grammar';
+import type { BoxPoint, LinePoint, MaidrLayer } from '@type/grammar';
 import { CommandFactory } from '@command/factory';
 import { GoToMaxValueCommand, GoToMinValueCommand } from '@command/goTo';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -349,6 +349,40 @@ describe('walking the cells tied at a heatmap extreme', () => {
 
     expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1 });
     expect(cellOf(trace)).toBe('b/bottom');
+  });
+});
+
+describe('a box plot answers [ and ] at its whisker ends', () => {
+  test('walks the boxes tied at the highest maximum, and goes to the lowest minimum', () => {
+    // Both keys answered that there was no maximum or minimum value in this
+    // layer, though every box carries five of them.
+    const box = (z: string, min: number, max: number): BoxPoint => ({
+      z,
+      lowerOutliers: [],
+      min,
+      q1: min + 1,
+      q2: min + 2,
+      q3: min + 3,
+      max,
+      upperOutliers: [max + 50],
+    });
+    const trace = TraceFactory.create({
+      id: 'boxes',
+      type: TraceType.BOX,
+      axes: { x: { label: 'Group' }, y: { label: 'Value' } },
+      data: [box('A', 5, 40), box('B', 1, 12), box('C', 3, 40)],
+    });
+    trace.moveToIndex(1, 1);
+    const service = serviceFor(trace);
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 2 });
+    expect(trace.getCurrentXValue()).toBe('A');
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 2, total: 2 });
+    expect(trace.getCurrentXValue()).toBe('C');
+
+    expect(service.goToExtremeValue('min')).toEqual({ position: 1, total: 1 });
+    expect(trace.getCurrentXValue()).toBe('B');
   });
 });
 

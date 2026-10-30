@@ -292,6 +292,31 @@ test.describe('Boxplot Vertical', () => {
       const firstDataPointValue = getBoxplotVerticalDisplayValue(boxplotVerticalLayer, 0);
       expect(currentDataPoint).toContain(firstDataPointValue);
     });
+
+    test('should jump to the box with the highest maximum', async () => {
+      // ] used to answer that there was no maximum value in this layer.
+      const boxes = boxplotVerticalLayer.data as { z: string; max: number }[];
+      const highest = boxes.reduce((best, box) => (box.max > best.max ? box : best));
+
+      await boxplotVerticalPage.moveToNextDataPoint();
+      await boxplotVerticalPage.goToMaximumValue();
+      const announcement = await boxplotVerticalPage.getCurrentDataPointInfo();
+
+      expect(announcement).toContain(String(highest.z));
+      expect(announcement).toContain('Maximum');
+    });
+
+    test('should jump to the box with the lowest minimum', async () => {
+      const boxes = boxplotVerticalLayer.data as { z: string; min: number }[];
+      const lowest = boxes.reduce((best, box) => (box.min < best.min ? box : best));
+
+      await boxplotVerticalPage.moveToNextDataPoint();
+      await boxplotVerticalPage.goToMinimumValue();
+      const announcement = await boxplotVerticalPage.getCurrentDataPointInfo();
+
+      expect(announcement).toContain(String(lowest.z));
+      expect(announcement).toContain('Minimum');
+    });
   });
 
   test.describe('Autoplay Controls', () => {

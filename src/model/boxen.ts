@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { BoxenPoint, LetterValueLevel, MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
@@ -8,6 +9,7 @@ import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -92,7 +94,11 @@ function englishOrdinalSuffix(percent: number): string {
  * "level 3" is one they have to count back from.
  */
 export class BoxenTrace extends AbstractTrace {
-  protected readonly supportsExtrema = false;
+  /**
+   * `[` and `]` go to the two ends of the quantile range, and the Go To
+   * dialog lists both: see {@link BoxenTrace.getExtremaTargets}.
+   */
+  protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
 
   private readonly points: BoxenPoint[];
@@ -601,5 +607,64 @@ export class BoxenTrace extends AbstractTrace {
     }
 
     return nearest;
+  }
+
+  /**
+   * The rungs at the two ends of the quantile range, for `]`, `[` and the
+   * Go To dialog: the highest upper quantile any distribution reaches and
+   * the lowest lower one, the range the description gives as `Quantile
+   * range`. The outliers past them are not rungs, as they are not in that
+   * range. Every rung holding an end is offered, distribution by
+   * distribution, so a tie is walked.
+   *
+   * @returns The targets, or none for a chart with no measured rung
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    if (!Number.isFinite(this.max) || !Number.isFinite(this.min)) {
+      return [];
+    }
+    const at = (value: number, type: 'max' | 'min'): ExtremaTarget[] =>
+      this.rungValues.flatMap((ladder, row) => ladder.flatMap((rung, col) => (
+        rung !== value
+          ? []
+          : [{
+              ...extremumAt(
+                t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+                this.distributionNameAt(row),
+              ),
+              value,
+              pointIndex: col,
+              segment: String(row),
+              type,
+              groupIndex: row,
+              categoryIndex: col,
+              navigationType: 'group' as const,
+            }]
+      )));
+    return [...at(this.max, 'max'), ...at(this.min, 'min')];
+  }
+
+  /**
+   * Moves to the rung a target names, as any jump does.
+   *
+   * @param target - A target from {@link BoxenTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
+  }
+
+  /**
+   * What a distribution is called: its name, or its position among them.
+   *
+   * @param row - Which distribution
+   * @returns Its name
+   */
+  private distributionNameAt(row: number): string {
+    const name = this.points[row]?.z;
+    return typeof name === 'string' && name.trim() !== ''
+      ? name.trim()
+      : t('model.fallbackNumbered', { noun: t('model.nounDistribution'), index: row + 1 });
   }
 }
