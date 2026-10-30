@@ -1073,10 +1073,20 @@ function resolveSelector(
 }
 
 /**
+ * MAIDR's own copies of the marks it outlines. While the reader is in a
+ * chart, MAIDR's core copies each mark a layer's selectors match, hides the
+ * copy, marks it `data-maidr-owned` and inserts it straight after the mark.
+ * A copy carries the mark's stamp and stands where the mark stood, so a
+ * stamper that counts the chart's shapes again, after a redraw, must pass it
+ * over (see {@link restampOnRedraw}).
+ */
+const MAIDR_COPY_SELECTOR = '[data-maidr-owned]';
+
+/**
  * Collect bar-shape candidate elements from a single root, applying the
- * shared "looks like a bar" filter (non-defs, non-clip, non-zero bbox, and
- * bbox area below a fraction of the chart SVG to exclude plot-area
- * backgrounds and frame rectangles).
+ * shared "looks like a bar" filter (non-defs, non-clip, not one of MAIDR's
+ * own copies, non-zero bbox, and bbox area below a fraction of the chart SVG
+ * to exclude plot-area backgrounds and frame rectangles).
  */
 function collectShapeCandidatesFromRoot(
   root: ParentNode,
@@ -1086,8 +1096,9 @@ function collectShapeCandidatesFromRoot(
   const out: SVGElement[] = [];
   const shapes = root.querySelectorAll<SVGElement>('rect, path');
   for (const el of Array.from(shapes)) {
-    // Skip clip-path / definition shapes and any descendant of them.
-    if (el.closest('defs, clipPath'))
+    // Skip clip-path / definition shapes, MAIDR's own copies, and any
+    // descendant of them.
+    if (el.closest(`defs, clipPath, ${MAIDR_COPY_SELECTOR}`))
       continue;
     let bbox: DOMRect | null = null;
     try {
@@ -1331,6 +1342,7 @@ function enableLineMarkersIfNeeded(chart: AnyChartInstance): boolean {
  * - roughly square (aspect ratio < 5 — excludes ticks and short line
  *   segments which are very thin),
  * - not part of `<defs>` / `<clipPath>` (decorative or template shapes),
+ * - not one of MAIDR's own copies (see {@link MAIDR_COPY_SELECTOR}),
  * - not a bar {@link stampBarAttributes} has already stamped, which runs
  *   first: a short bar is as small as a marker,
  * - non-zero bbox (degenerate spacer paths such as `d="M 0,0"` are
@@ -1357,7 +1369,7 @@ function collectLineMarkerCandidates(
   );
 
   for (const el of Array.from(shapes)) {
-    if (el.closest('defs, clipPath'))
+    if (el.closest(`defs, clipPath, ${MAIDR_COPY_SELECTOR}`))
       continue;
     // A bar the bar stamper has already claimed is a column's, however small.
     // Measured on AnyChart 8.13, a column series' bars 30 px wide and 7 to 10
@@ -3101,6 +3113,76 @@ function stampChartAttributes(
       console.warn(`[maidr/anychart] Failed to stamp ${kind} attributes:`, err);
     }
   }
+}
+
+/**
+ * The stampers run again each time AnyChart draws a chart again: the ones
+ * that pair each series with its marks, a legend click being what shows and
+ * hides a series. {@link resolveStampers} keeps them in this order, so the
+ * line stamper still finds the bars already claimed.
+ */
+const REDRAW_STAMPERS: ReadonlySet<typeof stampPieAttributes> = new Set([
+  stampBarAttributes,
+  stampLineAttributes,
+  stampScatterAttributes,
+]);
+
+/** The charts that already stamp again on every draw. */
+const restampedCharts = new WeakSet<AnyChartInstance>();
+
+/**
+ * Stamp a chart's series marks again whenever AnyChart draws it again.
+ *
+ * The adapter stamps a chart when it is bound, and AnyChart draws it again
+ * when a legend item is clicked, its container resizes or its data changes.
+ * Measured on AnyChart 8.13, a redraw keeps the shapes it drew before, stamps
+ * and all, and a series hidden with a legend click and shown again gets its
+ * own shapes back. A series that was hidden when the chart was bound is drawn
+ * with new shapes, so MAIDR could never outline it. Each stamper leaves a
+ * stamped shape as it is, so stamping again after every draw stamps only the
+ * new shapes. MAIDR reads the stamps when the reader next enters the chart.
+ *
+ * @param chart - The bound chart
+ * @param svg - Its SVG
+ * @param stampPrefix - The panel prefix, on a multi-panel figure
+ */
+function restampOnRedraw(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  if (typeof chart.listen !== 'function' || restampedCharts.has(chart))
+    return;
+  const stampers = resolveStampers(chart).filter(([, stamp]) => REDRAW_STAMPERS.has(stamp));
+  if (stampers.length === 0)
+    return;
+  restampedCharts.add(chart);
+  chart.listen('chartdraw', () => {
+    // AnyChart also draws a chart while its SVG has no size: while MAIDR moves
+    // it into its own figure, say. With no shape to measure, every stamper
+    // warned for every series of every example. A later draw with a size
+    // stamps the chart.
+    if (!hasSize(svg))
+      return;
+    for (const [kind, stamp] of stampers) {
+      try {
+        stamp(chart, svg, stampPrefix);
+      } catch (err) {
+        console.warn(`[maidr/anychart] Failed to stamp ${kind} attributes after a redraw:`, err);
+      }
+    }
+  });
+}
+
+/**
+ * Whether an SVG is laid out on the page, so the shapes in it can be measured.
+ *
+ * @param svg - A chart's SVG
+ * @returns True when it is in the page and has a width and a height
+ */
+function hasSize(svg: SVGElement): boolean {
+  const rect = svg.getBoundingClientRect();
+  return svg.isConnected && rect.width > 0 && rect.height > 0;
 }
 
 function stampPieAttributes(
@@ -7602,6 +7684,7 @@ export function bindAnyChart(
   // text / braille modalities work even when highlight cannot.
   whenChartRendered(chart, container, (svg) => {
     stampChartAttributes(chart, svg);
+    restampOnRedraw(chart, svg);
 
     const host = ensureHostWrapper(svg, container);
     if (boundElements.has(host))
@@ -7863,6 +7946,7 @@ function stampPanelAttributes(
 
   const prefix = `${token}:`;
   stampChartAttributes(chart, svg, prefix);
+  restampOnRedraw(chart, svg, prefix);
 }
 
 /**

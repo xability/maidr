@@ -255,6 +255,12 @@ export interface AnyChartInstance {
   /** Get a series by its numeric index. */
   getSeriesAt: (index: number) => AnyChartSeries | null;
 
+  /**
+   * Registers a listener for one of the chart's events. AnyChart dispatches
+   * `chartdraw` at the end of every draw, a legend click's included.
+   */
+  listen?: (type: string, listener: () => void) => unknown;
+
   /** X-axis accessor (Cartesian charts). Returns null for non-Cartesian. */
   xAxis?: (index?: number) => AnyChartAxis | null;
 
