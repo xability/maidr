@@ -222,10 +222,12 @@ export class Heatmap extends AbstractTrace {
     // in the two stats above where the service still rounds them; withheld
     // when both name one cell, as a constant or single-valued grid does,
     // since "highest" and "lowest" would then point at the same place.
-    const hottest = this.findGlobalExtrema('max');
-    const coldest = this.findGlobalExtrema('min');
+    // Where several cells hold an extreme, the first is named: the cell
+    // `]` and `[` land on first.
+    const [hottest] = this.findGlobalExtrema('max');
+    const [coldest] = this.findGlobalExtrema('min');
     if (
-      hottest !== null && coldest !== null
+      hottest !== undefined && coldest !== undefined
       && (hottest.row !== coldest.row || hottest.col !== coldest.col)
     ) {
       const hottestAt = this.cellName(hottest.row, hottest.col);
@@ -727,9 +729,10 @@ export class Heatmap extends AbstractTrace {
     const currentRow = this.row;
     const currentCol = this.col;
 
-    // 1. Global Maximum
-    const globalMax = this.findGlobalExtrema('max');
-    if (globalMax) {
+    // 1. Global Maximum, at every cell holding it. Two cells at the maximum
+    // are two places a reader can be sent, and `]` walks the ones listed
+    // here; a target for the first cell alone hid the others from it.
+    for (const globalMax of this.findGlobalExtrema('max')) {
       targets.push({
         ...extremumAt(t('model.extremaGlobalMaximum'), this.x[globalMax.col], this.y[globalMax.row]),
         value: globalMax.value,
@@ -743,9 +746,8 @@ export class Heatmap extends AbstractTrace {
       });
     }
 
-    // 2. Global Minimum
-    const globalMin = this.findGlobalExtrema('min');
-    if (globalMin) {
+    // 2. Global Minimum, at every cell holding it, for `[`.
+    for (const globalMin of this.findGlobalExtrema('min')) {
       targets.push({
         ...extremumAt(t('model.extremaGlobalMinimum'), this.x[globalMin.col], this.y[globalMin.row]),
         value: globalMin.value,
@@ -827,44 +829,34 @@ export class Heatmap extends AbstractTrace {
   }
 
   /**
-   * Finds the global maximum or minimum in the heatmap
+   * Finds every cell holding the heatmap's maximum or minimum.
+   *
+   * All of them, not only the first: the bracket keys walk the cells this
+   * returns, and a grid often holds its extreme in several -- a correlation
+   * matrix has 1 all along its diagonal. They come bottom row first and left
+   * to right along a row, the order the cursor counts rows and columns in.
+   *
+   * Matched against the range the constructor measured, which leaves the
+   * holes out (#1191). A hole is `NaN` and equals nothing, so it is never
+   * returned; a grid with nothing measured has no range and returns no cell.
    * @param type - Whether to find 'max' or 'min'
-   * @returns Object with row, col, and value of the extrema
+   * @returns The row, col and value of each cell holding the extreme
    */
-  private findGlobalExtrema(type: 'max' | 'min'): { row: number; col: number; value: number } | null {
-    if (this.heatmapValues.length === 0) {
-      return null;
+  private findGlobalExtrema(type: 'max' | 'min'): { row: number; col: number; value: number }[] {
+    const value = type === 'max' ? this.max : this.min;
+    if (!isMeasured(value)) {
+      return [];
     }
 
-    // Seeded from the first *measured* cell rather than from cell (0, 0).
-    // Every comparison against a `NaN` is false, so a hole in the corner would
-    // hold the seed and the extrema would be announced as "NaN at" its label
-    // -- a reading of a cell the chart drew nothing at (#1191).
-    let extremaRow = -1;
-    let extremaCol = -1;
-    let extremaValue = Number.NaN;
-
+    const cells: { row: number; col: number; value: number }[] = [];
     for (let r = 0; r < this.heatmapValues.length; r++) {
       for (let c = 0; c < this.heatmapValues[r].length; c++) {
-        const value = this.heatmapValues[r][c];
-        if (!isMeasured(value)) {
-          continue;
-        }
-        const better = extremaRow === -1
-          || (type === 'max' ? value > extremaValue : value < extremaValue);
-        if (better) {
-          extremaValue = value;
-          extremaRow = r;
-          extremaCol = c;
+        if (this.heatmapValues[r][c] === value) {
+          cells.push({ row: r, col: c, value });
         }
       }
     }
-
-    if (extremaRow === -1) {
-      return null;
-    }
-
-    return { row: extremaRow, col: extremaCol, value: extremaValue };
+    return cells;
   }
 
   /**

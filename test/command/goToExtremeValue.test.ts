@@ -11,6 +11,7 @@ import { CommandFactory } from '@command/factory';
 import { GoToMaxValueCommand, GoToMinValueCommand } from '@command/goTo';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BarTrace } from '@model/bar';
+import { Heatmap } from '@model/heatmap';
 import { GoToExtremaService as RealGoToExtremaService } from '@service/goToExtrema';
 import { getKeymapForScope } from '@service/keybinding';
 import { Scope } from '@type/event';
@@ -189,6 +190,130 @@ describe('walking values tied at an extreme', () => {
     expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1 });
     expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1 });
     expect(trace.getCurrentXValue()).toBe('Q2');
+  });
+
+  test('counts a place once however many targets name it', () => {
+    // A trace may list one place under several names: a heatmap's row and
+    // column maxima are cells its global maximum already names. Counted
+    // per target, one cell was "1 of 3" and each press stayed on it.
+    const trace = new BarTrace(barLayer([30, 90, 50, 10, 70]));
+    const at = (label: string, pointIndex: number): ExtremaTarget => ({
+      label,
+      value: 90,
+      pointIndex,
+      segment: 'bar',
+      type: 'max',
+      navigationType: 'point',
+    });
+    jest.spyOn(trace, 'getExtremaTargets').mockReturnValue([
+      at('Max overall', 1),
+      at('Max of this row', 1),
+      at('Max of this column', 1),
+    ]);
+    const service = serviceFor(trace);
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1 });
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1 });
+    expect(trace.getCurrentXValue()).toBe('Q2');
+  });
+});
+
+describe('walking the cells tied at a heatmap extreme', () => {
+  /**
+   * The correlation matrix r-maidr's heatmap example draws: 1 in each of the
+   * four cells on the diagonal and -0.2 in two corners.
+   */
+  function correlationLayer(): MaidrLayer {
+    return {
+      id: 'correlation',
+      type: TraceType.HEATMAP,
+      axes: { x: { label: 'Variables' }, y: { label: 'Variables' }, z: { label: 'value' } },
+      data: {
+        x: ['Var1', 'Var2', 'Var3', 'Var4'],
+        // Top row first, as a producer writes it. `Heatmap` turns the rows
+        // over, so its row 0 is Var1, the bottom row of the grid.
+        y: ['Var4', 'Var3', 'Var2', 'Var1'],
+        points: [
+          [-0.2, 0.1, 0.6, 1],
+          [0.3, 0.5, 1, 0.6],
+          [0.8, 1, 0.5, 0.1],
+          [1, 0.8, 0.3, -0.2],
+        ],
+      },
+    };
+  }
+
+  /**
+   * The cell the cursor is on, column label first.
+   * @param trace - The heatmap to read.
+   * @returns The column and row labels, as `column/row`.
+   */
+  function cellOf(trace: Heatmap): string {
+    const state = trace.state;
+    if (state.empty) {
+      throw new Error('expected a populated state');
+    }
+    return `${state.text.main.value}/${state.text.cross?.value}`;
+  }
+
+  test('lists every cell holding the extreme rather than only the first', () => {
+    const trace = new Heatmap(correlationLayer());
+    const global = (type: 'max' | 'min'): string[] => trace.getExtremaTargets()
+      .filter(target => target.segment === 'global' && target.type === type)
+      .map(target => `${target.display?.x}/${target.display?.y}`);
+
+    expect(global('max')).toEqual(['Var1/Var1', 'Var2/Var2', 'Var3/Var3', 'Var4/Var4']);
+    expect(global('min')).toEqual(['Var4/Var1', 'Var1/Var4']);
+  });
+
+  test('steps through each cell at the maximum once and wraps', () => {
+    // Pressed from Var2/Var1, where the audit pressed it. The row and column
+    // maxima there are cells on the diagonal too, and counted as targets of
+    // their own they made the four cells "1 of 3" and kept every press on
+    // Var1/Var1.
+    const trace = new Heatmap(correlationLayer());
+    trace.moveToIndex(0, 1);
+    const service = serviceFor(trace);
+
+    const walk = [1, 2, 3, 4, 5].map(() => {
+      const landed = service.goToExtremeValue('max');
+      return `${cellOf(trace)} ${landed?.position} of ${landed?.total}`;
+    });
+
+    expect(walk).toEqual([
+      'Var1/Var1 1 of 4',
+      'Var2/Var2 2 of 4',
+      'Var3/Var3 3 of 4',
+      'Var4/Var4 4 of 4',
+      'Var1/Var1 1 of 4',
+    ]);
+  });
+
+  test('steps through each cell at the minimum once and wraps', () => {
+    const trace = new Heatmap(correlationLayer());
+    trace.moveToIndex(0, 1);
+    const service = serviceFor(trace);
+
+    const walk = [1, 2, 3].map(() => {
+      const landed = service.goToExtremeValue('min');
+      return `${cellOf(trace)} ${landed?.position} of ${landed?.total}`;
+    });
+
+    expect(walk).toEqual(['Var4/Var1 1 of 2', 'Var1/Var4 2 of 2', 'Var4/Var1 1 of 2']);
+  });
+
+  test('gives no count for a maximum one cell holds', () => {
+    // 9 is the highest value in the grid and in the cursor's row. That is
+    // one cell, which was announced as "1 of 2".
+    const trace = new Heatmap({
+      ...correlationLayer(),
+      data: { x: ['a', 'b'], y: ['top', 'bottom'], points: [[1, 2], [3, 9]] },
+    });
+    trace.moveToIndex(0, 0);
+    const service = serviceFor(trace);
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1 });
+    expect(cellOf(trace)).toBe('b/bottom');
   });
 });
 
