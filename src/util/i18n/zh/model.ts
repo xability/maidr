@@ -476,6 +476,10 @@ export const model = {
   'model.tableQuantile': '分位数',
   'model.boxenLowerOutlier': '下方离群值',
   'model.boxenUpperOutlier': '上方离群值',
+  'model.boxenLowerOutliersBeyondOne': '更远处还有 {count} 个下方离群值',
+  'model.boxenLowerOutliersBeyondMany': '更远处还有 {count} 个下方离群值',
+  'model.boxenUpperOutliersBeyondOne': '更远处还有 {count} 个上方离群值',
+  'model.boxenUpperOutliersBeyondMany': '更远处还有 {count} 个上方离群值',
   // Diverging bar: the two sides, and the balance between them.
   'model.asideBalance': '差额',
   'model.divergingLevel': '持平',

@@ -480,6 +480,10 @@ export const model = {
   'model.tableQuantile': '分位点',
   'model.boxenLowerOutlier': '下側の外れ値',
   'model.boxenUpperOutlier': '上側の外れ値',
+  'model.boxenLowerOutliersBeyondOne': 'その先に下側の外れ値 {count} 件',
+  'model.boxenLowerOutliersBeyondMany': 'その先に下側の外れ値 {count} 件',
+  'model.boxenUpperOutliersBeyondOne': 'その先に上側の外れ値 {count} 件',
+  'model.boxenUpperOutliersBeyondMany': 'その先に上側の外れ値 {count} 件',
   // Diverging bar: the two sides, and the balance between them.
   'model.asideBalance': '差し引き',
   'model.divergingLevel': '同点',

@@ -480,6 +480,10 @@ export const model = {
   'model.tableQuantile': 'Quantile',
   'model.boxenLowerOutlier': 'valeur aberrante inférieure',
   'model.boxenUpperOutlier': 'valeur aberrante supérieure',
+  'model.boxenLowerOutliersBeyondOne': '{count} valeur aberrante inférieure au-delà',
+  'model.boxenLowerOutliersBeyondMany': '{count} valeurs aberrantes inférieures au-delà',
+  'model.boxenUpperOutliersBeyondOne': '{count} valeur aberrante supérieure au-delà',
+  'model.boxenUpperOutliersBeyondMany': '{count} valeurs aberrantes supérieures au-delà',
   // Diverging bar: the two sides, and the balance between them.
   'model.asideBalance': 'Équilibre',
   'model.divergingLevel': 'à égalité',

@@ -1,6 +1,6 @@
 import type { BoxenPoint, LetterValueLevel, MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextAside, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { defaultFormat } from '@util/format';
@@ -436,7 +436,49 @@ export class BoxenTrace extends AbstractTrace {
       section: rung?.label,
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
+      ...this.outliersBeyond(),
     };
+  }
+
+  /**
+   * How many outliers the chart draws past the end of the ladder the cursor
+   * is on, as a statement after the reading.
+   *
+   * Navigation stops at a ladder's deepest rungs, and the points drawn past
+   * them -- the extremes of the distribution -- are not stops of their own:
+   * they were only in the description, so a reader at the end of a ladder
+   * heard nothing of them. Counted here, at the end they lie beyond, the
+   * reader learns they are there; the table lists each value.
+   *
+   * @returns The asides for the current rung, or nothing when there is none
+   */
+  private outliersBeyond(): { asides?: TextAside[] } {
+    const point = this.points[this.row];
+    const ladder = this.rungs[this.row];
+    if (point === undefined || ladder === undefined) {
+      return {};
+    }
+
+    const asides: TextAside[] = [];
+    const lower = point.lowerOutliers?.length ?? 0;
+    if (this.col === 0 && lower > 0) {
+      asides.push({
+        value: t(
+          lower === 1 ? 'model.boxenLowerOutliersBeyondOne' : 'model.boxenLowerOutliersBeyondMany',
+          { count: lower },
+        ),
+      });
+    }
+    const upper = point.upperOutliers?.length ?? 0;
+    if (this.col === ladder.length - 1 && upper > 0) {
+      asides.push({
+        value: t(
+          upper === 1 ? 'model.boxenUpperOutliersBeyondOne' : 'model.boxenUpperOutliersBeyondMany',
+          { count: upper },
+        ),
+      });
+    }
+    return asides.length > 0 ? { asides } : {};
   }
 
   public get description(): DescriptionState {

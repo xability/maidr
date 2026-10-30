@@ -483,6 +483,10 @@ export const model = {
   'model.tableQuantile': 'Quantil',
   'model.boxenLowerOutlier': 'unterer Ausreißer',
   'model.boxenUpperOutlier': 'oberer Ausreißer',
+  'model.boxenLowerOutliersBeyondOne': 'jenseits davon {count} unterer Ausreißer',
+  'model.boxenLowerOutliersBeyondMany': 'jenseits davon {count} untere Ausreißer',
+  'model.boxenUpperOutliersBeyondOne': 'jenseits davon {count} oberer Ausreißer',
+  'model.boxenUpperOutliersBeyondMany': 'jenseits davon {count} obere Ausreißer',
   // Diverging bar: the two sides, and the balance between them.
   'model.asideBalance': 'Bilanz',
   'model.divergingLevel': 'ausgeglichen',
