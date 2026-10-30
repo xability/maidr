@@ -852,7 +852,8 @@ The data property is defined as a list of objects where each object is a record 
 
    // violin_kde: KDE density curve for violin plots
    // data is a 2D array: data[violinIndex][curvePosition] = ViolinKdePoint
-   // points come in left/right pairs at each Y level (do NOT deduplicate)
+   // points come in left/right pairs at each Y level; a pair is read as one
+   // level, and both of its points are highlighted
    maidr = {
       "type": "violin_kde",
       "data": [

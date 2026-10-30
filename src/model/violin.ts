@@ -31,9 +31,10 @@ const MIN_DENSITY_RANGE = 0.001;
 /**
  * Concrete trace for violin KDE (kernel density estimation) layers.
  *
- * Data layout: points[violin][curvePosition] = ViolinKdePoint
+ * Data layout: points[violin][level] = ViolinKdePoint
  *   - Row index = which violin (categorical group)
- *   - Col index = position along the KDE curve
+ *   - Col index = level along the KDE curve: one value of the measured axis,
+ *     however many points the producer drew it with (see {@link levelsOf})
  *
  * Navigation (vertical):
  *   - Left/Right (FORWARD/BACKWARD) = switch between violins (change row)
@@ -56,10 +57,13 @@ export class ViolinKdeTrace extends AbstractTrace {
   protected readonly movable: Movable;
 
   private readonly orientation: Orientation;
+  /** Each violin's levels, each level holding every point drawn for it. */
+  private readonly levels: ViolinKdePoint[][][];
+  /** Each violin's levels, as the first point drawn for each. */
   private readonly points: ViolinKdePoint[][];
   private readonly densityValues: number[][];
   private readonly yValues: number[][];
-  protected readonly highlightValues: SVGElement[][] | null;
+  protected readonly highlightValues: (SVGElement | SVGElement[] | null)[][] | null;
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
@@ -111,15 +115,15 @@ export class ViolinKdeTrace extends AbstractTrace {
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
     // For horizontal orientation, reverse points to match visual order
-    // (same convention as ViolinBoxTrace)
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.points = [...(layer.data as ViolinKdePoint[][])].reverse();
-    } else {
-      // Copied, like the reversed branch above: `dispose()` truncates the
-      // array it holds, and held by reference that would empty the caller's
-      // spec, so a figure rebuilt from it came up empty.
-      this.points = [...(layer.data as ViolinKdePoint[][])];
-    }
+    // (same convention as ViolinBoxTrace). The levels are new arrays either
+    // way: `dispose()` truncates the arrays it holds, and the caller's spec
+    // held by reference would be emptied, so a figure rebuilt from it came up
+    // empty.
+    const curves = this.orientation === Orientation.HORIZONTAL
+      ? [...(layer.data as ViolinKdePoint[][])].reverse()
+      : layer.data as ViolinKdePoint[][];
+    this.levels = curves.map(curve => ViolinKdeTrace.levelsOf(curve));
+    this.points = this.levels.map(levels => levels.map(level => level[0]));
 
     // Extract density and y values for each violin
     // Falls back to `width` when `density` is absent (legacy format support)
@@ -172,6 +176,46 @@ export class ViolinKdeTrace extends AbstractTrace {
     // scroll.
     this.highlightCenters = null;
     this.movable = new MovableGrid<ViolinKdePoint>(this.points, { row: 0 });
+  }
+
+  /**
+   * Groups a curve's points into the levels it is read at.
+   *
+   * A violin is drawn mirrored, and producers send its outline as two points
+   * at each value, one on each edge, as `docs/VIOLIN_PLOT_SPEC.md` asks: the
+   * two carry the same value and the same width, so they are one reading
+   * drawn twice. Walked as two positions, every value was announced twice in
+   * a row and every other move along the curve told the reader nothing new.
+   * So consecutive points that agree on both are one level, which the
+   * highlight marks at each of its points; a curve sent as one point per
+   * value keeps one level per point.
+   *
+   * @param curve - One violin's points, in the order they were sent
+   * @returns Its levels, each holding the points drawn for it
+   */
+  private static levelsOf(curve: ViolinKdePoint[]): ViolinKdePoint[][] {
+    const levels: ViolinKdePoint[][] = [];
+    for (const point of curve) {
+      const level = levels[levels.length - 1];
+      if (level !== undefined && ViolinKdeTrace.isSameReading(level[0], point)) {
+        level.push(point);
+      } else {
+        levels.push([point]);
+      }
+    }
+    return levels;
+  }
+
+  /**
+   * Whether two points say the same thing: one value, one width.
+   *
+   * @param a - One point
+   * @param b - The other
+   * @returns True when a reader would hear the same reading at both
+   */
+  private static isSameReading(a: ViolinKdePoint, b: ViolinKdePoint): boolean {
+    return Number(a.y) === Number(b.y)
+      && (a.density ?? a.width ?? 0) === (b.density ?? b.width ?? 0);
   }
 
   /**
@@ -301,6 +345,7 @@ export class ViolinKdeTrace extends AbstractTrace {
     this.stopViewportWatch();
     this.outlineElements.length = 0;
 
+    this.levels.length = 0;
     this.points.length = 0;
     this.densityValues.length = 0;
     this.yValues.length = 0;
@@ -761,12 +806,14 @@ export class ViolinKdeTrace extends AbstractTrace {
     return matched.filter(el => el instanceof SVGPolygonElement);
   }
 
-  protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
+  protected mapToSvgElements(
+    selectors?: string[],
+  ): (SVGElement | SVGElement[] | null)[][] | null {
     if (!selectors || selectors.length === 0) {
       return null;
     }
 
-    const elementsByViolin: SVGElement[][] = [];
+    const elementsByViolin: (SVGElement | SVGElement[] | null)[][] = [];
     let allFailed = true;
 
     // Support: one selector per violin (selectors.length === points.length)
@@ -782,8 +829,7 @@ export class ViolinKdeTrace extends AbstractTrace {
       : ViolinKdeTrace.candidatesOf(Svg.selectAllElements(selectors[0], false));
 
     for (let r = 0; r < this.points.length; r++) {
-      const violinElements: SVGElement[] = [];
-      const dataPoints = this.points[r];
+      const levels = this.levels[r];
 
       const selector = isOnePerViolin ? selectors[r] : selectors[0];
       if (!selector) {
@@ -801,22 +847,35 @@ export class ViolinKdeTrace extends AbstractTrace {
         this.outlineElements.push(primaryElement);
       }
 
-      if (primaryElement && dataPoints) {
-        // Use SVG viewport coordinates when available (from backend)
-        const centres = dataPoints.flatMap((point) => {
-          const x = point.svg_x;
-          const y = point.svg_y;
-          return x !== undefined && y !== undefined && !Number.isNaN(x) && !Number.isNaN(y)
-            ? [{ cx: x, cy: y }]
-            : [];
-        });
-        violinElements.push(...Svg.createCircleElements(centres, primaryElement));
-        if (violinElements.length > 0) {
-          allFailed = false;
-        }
+      if (!primaryElement || !levels) {
+        elementsByViolin.push([]);
+        continue;
       }
 
-      elementsByViolin.push(violinElements);
+      // Use SVG viewport coordinates when available (from backend). Every
+      // point of a level is marked -- both edges of the violin, where the
+      // producer sent both -- in one batch per violin, and the markers are
+      // then handed back to the level they belong to, so a point sent
+      // without coordinates leaves its own level unmarked rather than
+      // shifting every marker after it onto the wrong level.
+      const centres = levels.map(level => level.flatMap((point) => {
+        const x = point.svg_x;
+        const y = point.svg_y;
+        return x !== undefined && y !== undefined && !Number.isNaN(x) && !Number.isNaN(y)
+          ? [{ cx: x, cy: y }]
+          : [];
+      }));
+      const markers = Svg.createCircleElements(centres.flat(), primaryElement);
+      if (markers.length > 0) {
+        allFailed = false;
+      }
+
+      let next = 0;
+      elementsByViolin.push(centres.map((own) => {
+        const mine = markers.slice(next, next + own.length);
+        next += own.length;
+        return mine.length === 0 ? null : mine.length === 1 ? mine[0] : mine;
+      }));
     }
 
     return allFailed ? null : elementsByViolin;
@@ -832,8 +891,10 @@ export class ViolinKdeTrace extends AbstractTrace {
     const centers: { x: number; y: number; row: number; col: number; element: SVGElement }[] = [];
     for (let row = 0; row < this.highlightValues.length; row++) {
       for (let col = 0; col < this.highlightValues[row].length; col++) {
-        const element = this.highlightValues[row][col];
-        if (element) {
+        // A level marked on both edges answers to a pointer at either.
+        const cell = this.highlightValues[row][col];
+        const elements = Array.isArray(cell) ? cell : cell ? [cell] : [];
+        for (const element of elements) {
           const bbox = element.getBoundingClientRect();
           centers.push({
             x: bbox.x + bbox.width / 2,
