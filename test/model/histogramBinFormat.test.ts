@@ -64,3 +64,78 @@ describe('a histogram summary on a layer that formats its binned axis', () => {
     expect(stats).toContainEqual({ label: 'Modal bin', value: '$2 to $4, 33' });
   });
 });
+
+describe('the bin width of a histogram over dates', () => {
+  const DAY = 86_400_000;
+  const JAN1 = Date.UTC(2026, 0, 1);
+  /** Bins `days` wide from 1 January 2026, as `[low, high, count]`. */
+  const binsOf = (days: number): [number, number, number][] => [4, 9, 2].map((count, index) => (
+    [JAN1 + index * days * DAY, JAN1 + (index + 1) * days * DAY, count]
+  ));
+
+  test('reads a span of time in days or weeks, not in milliseconds', () => {
+    // A `date` format reads its values as epoch milliseconds, so daily bins
+    // were "constant 86,400,000".
+    const upright = (days: number): HistogramPoint[] => binsOf(days).map(([low, high, count]) => (
+      { x: (low + high) / 2, y: count, xMin: low, xMax: high, yMin: 0, yMax: count }
+    ));
+    const layer = (days: number): MaidrLayer => ({
+      id: 'days',
+      type: TraceType.HISTOGRAM,
+      axes: { x: { label: 'Day', format: { type: 'date' } }, y: { label: 'Orders' } },
+      data: upright(days),
+    });
+
+    expect(statsOf(layer(1))).toContainEqual({ label: 'Bin width', value: 'constant 1 day' });
+    expect(statsOf(layer(14))).toContainEqual({ label: 'Bin width', value: 'constant 2 weeks' });
+  });
+
+  test('reads bins of different widths as a range of spans', () => {
+    // A one-day bin, then a two-day one.
+    const edges = [JAN1, JAN1 + DAY, JAN1 + 3 * DAY];
+    const data: HistogramPoint[] = [4, 9].map((count, index) => (
+      { x: (edges[index] + edges[index + 1]) / 2, y: count, xMin: edges[index], xMax: edges[index + 1], yMin: 0, yMax: count }
+    ));
+    const stats = statsOf({
+      id: 'days',
+      type: TraceType.HISTOGRAM,
+      axes: { x: { label: 'Day', format: { type: 'date' } }, y: { label: 'Orders' } },
+      data,
+    });
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: '1 day to 2 days' });
+  });
+
+  test('reads it on the y axis of a histogram drawn sideways', () => {
+    const data: HistogramPoint[] = binsOf(1).map(([low, high, count]) => (
+      { x: count, y: (low + high) / 2, xMin: 0, xMax: count, yMin: low, yMax: high }
+    ));
+    const stats = statsOf({
+      id: 'days',
+      type: TraceType.HISTOGRAM,
+      orientation: Orientation.HORIZONTAL,
+      axes: { x: { label: 'Orders' }, y: { label: 'Day', format: { type: 'date' } } },
+      data,
+    });
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: 'constant 1 day' });
+  });
+
+  test('leaves a width a number when a function format draws the dates', () => {
+    // matplotlib's day numbers through py-maidr's date function: a function
+    // says nothing about its unit, so weekly bins are seven of whatever it is.
+    const stats = statsOf({
+      id: 'weeks',
+      type: TraceType.HISTOGRAM,
+      axes: {
+        x: { label: 'Week', format: { function: 'return new Date(value * 86400000).toISOString().slice(0, 10)' } },
+        y: { label: 'Orders' },
+      },
+      data: [[18628, 18635, 4], [18635, 18642, 9]].map(([low, high, count]) => (
+        { x: (low + high) / 2, y: count, xMin: low, xMax: high, yMin: 0, yMax: count }
+      )),
+    });
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: 'constant 7' });
+  });
+});

@@ -1,6 +1,7 @@
-import type { HistogramPoint, MaidrLayer } from '@type/grammar';
+import type { FormatFunction, HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { durationText } from '@util/duration';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
@@ -35,7 +36,8 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     // format, as the table's bin columns and the announced bin already do. The
     // bin width below does not: it is a length along the axis, and an axis of
     // dates would print a span of days as a date.
-    const binFormat = this.authoredFormat(isVertical ? 'x' : 'y') ?? defaultFormat;
+    const binAxis = isVertical ? 'x' : 'y';
+    const binFormat = this.authoredFormat(binAxis) ?? defaultFormat;
     const binRange = MathUtil.spannedOrMissing(
       MathUtil.safeMin(lows),
       MathUtil.safeMax(highs),
@@ -100,11 +102,20 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     if (widths.length > 0) {
       const narrowest = MathUtil.safeMin(widths);
       const widest = MathUtil.safeMax(widths);
+      // A `date` format reads its values as epoch milliseconds, so on a date
+      // axis a width is a span of time in milliseconds: daily bins read
+      // "constant 86,400,000". It reads in the unit a reader counts it in
+      // instead, "constant 1 day". A date drawn by a `function` format says
+      // nothing about its unit -- matplotlib's are days, a JavaScript
+      // timestamp's milliseconds -- so its widths stay numbers.
+      const widthFormat: FormatFunction = this.layer.axes?.[binAxis]?.format?.type === 'date'
+        ? value => durationText(Number(value))
+        : defaultFormat;
       stats.push({
         label: t('model.statBinWidth'),
         value: Histogram.binsAreEqual(narrowest, widest, [...lows, ...highs])
-          ? MathUtil.spanned(narrowest, narrowest)
-          : MathUtil.spannedOrMissing(narrowest, widest),
+          ? MathUtil.spanned(narrowest, narrowest, widthFormat)
+          : MathUtil.spannedOrMissing(narrowest, widest, widthFormat),
       });
     }
 
