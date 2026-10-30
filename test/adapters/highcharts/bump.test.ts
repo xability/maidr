@@ -203,6 +203,18 @@ describe('highcharts bump charts', () => {
       .toBe(TraceType.BUMP);
   });
 
+  it('says first place is at the top of a reversed axis', () => {
+    const chart = standingsChart({ Ajax: [1, 2], PSV: [2, 1] });
+
+    expect(highchartsToMaidr(chart).subplots[0][0].layers[0].firstPlace).toBe('top');
+  });
+
+  it('says first place is at the bottom of an ordinary axis a declared bump chart sits on', () => {
+    const chart = standingsChart({ Ajax: [1, 2], PSV: [2, 1] }, false);
+
+    expect(highchartsToMaidr(chart, { bump: true }).subplots[0][0].layers[0].firstPlace).toBe('bottom');
+  });
+
   it('is suppressed by `bump: false` where the heuristic accepts', () => {
     const chart = standingsChart({ Ajax: [1, 2], PSV: [2, 1] });
 

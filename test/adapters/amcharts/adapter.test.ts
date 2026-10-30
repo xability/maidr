@@ -527,6 +527,19 @@ describe('fromAmCharts (bump chart)', () => {
     );
 
     expect(layer.type).toBe(TraceType.BUMP);
+    // Drawn the ordinary way up, first place is at the bottom.
+    expect(layer.firstPlace).toBe('bottom');
+  });
+
+  it('says first place is at the top, where an inversed axis draws it', () => {
+    // amCharts draws to a canvas, which MAIDR cannot measure to find out.
+    const layer = layerOf([
+      fakeRankSeries('Ash', ASH),
+      fakeRankSeries('Birch', BIRCH),
+      fakeRankSeries('Cedar', CEDAR),
+    ]);
+
+    expect(layer.firstPlace).toBe('top');
   });
 
   it('leaves a declared bump chart a line when its values are not places', () => {

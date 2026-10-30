@@ -206,6 +206,18 @@ describe('createMaidrFromFrappeChart (bump)', () => {
       { x: 'Week 3', y: 3, z: 'Beta' },
     ]);
   });
+
+  it('says first place is drawn at the bottom, so Up moves up the chart', () => {
+    const layer = onlyLayer(ranks, 'bump');
+
+    expect(layer.firstPlace).toBe('bottom');
+  });
+
+  it('says nothing of first place on a line chart', () => {
+    const layer = onlyLayer(ranks, 'line');
+
+    expect(layer.firstPlace).toBeUndefined();
+  });
 });
 
 describe('createMaidrFromFrappeChart (pr_curve)', () => {

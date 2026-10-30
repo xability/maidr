@@ -399,6 +399,8 @@ export const model = {
   'model.asideChange': 'Change',
   'model.statRanksShown': 'Ranks shown',
   'model.statRankChanges': 'Rank changes',
+  'model.extremaBestRank': 'Best rank',
+  'model.extremaWorstRank': 'Worst rank',
   'model.statLedAtTheStart': 'Led at the start',
   'model.statLedAtTheEnd': 'Led at the end',
   'model.statClimbedFurthest': 'Climbed furthest',

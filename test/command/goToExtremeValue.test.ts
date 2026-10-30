@@ -11,6 +11,7 @@ import { CommandFactory } from '@command/factory';
 import { GoToMaxValueCommand, GoToMinValueCommand } from '@command/goTo';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BarTrace } from '@model/bar';
+import { BumpTrace } from '@model/bump';
 import { Heatmap } from '@model/heatmap';
 import { GoToExtremaService as RealGoToExtremaService } from '@service/goToExtrema';
 import { getKeymapForScope } from '@service/keybinding';
@@ -45,6 +46,39 @@ function serviceFor(active: unknown): RealGoToExtremaService {
 
   return new RealGoToExtremaService(context, { toggleFocus: (): void => {} } as never);
 }
+
+describe('a bump chart\'s extremes are its places', () => {
+  // A bump trace offers its best place as the maximum: the smallest rank
+  // number, and the highest note. The service picks the extreme value among
+  // one type's targets only, so it keeps every round the competitor held that
+  // place rather than reading the maximum as the largest number.
+  const league: MaidrLayer = {
+    id: 'league',
+    type: TraceType.BUMP,
+    axes: { x: { label: 'Round' }, y: { label: 'Rank' } },
+    data: [
+      [{ x: 'R1', y: 2, z: 'Ash' }, { x: 'R2', y: 1, z: 'Ash' }, { x: 'R3', y: 1, z: 'Ash' }, { x: 'R4', y: 3, z: 'Ash' }],
+      [{ x: 'R1', y: 1, z: 'Birch' }, { x: 'R2', y: 2, z: 'Birch' }, { x: 'R3', y: 3, z: 'Birch' }, { x: 'R4', y: 1, z: 'Birch' }],
+      [{ x: 'R1', y: 3, z: 'Cedar' }, { x: 'R2', y: 3, z: 'Cedar' }, { x: 'R3', y: 2, z: 'Cedar' }, { x: 'R4', y: 2, z: 'Cedar' }],
+    ],
+  };
+
+  test('max walks every round the competitor held its best place, and min its worst', () => {
+    const trace = new BumpTrace(league);
+    const service = serviceFor(trace);
+
+    const first = service.goToExtremeValue('max');
+    const firstRound = trace.getCurrentXValue();
+    const second = service.goToExtremeValue('max');
+    const secondRound = trace.getCurrentXValue();
+    const worst = service.goToExtremeValue('min');
+
+    expect([first, firstRound]).toEqual([{ position: 1, total: 2 }, 'R2']);
+    expect([second, secondRound]).toEqual([{ position: 2, total: 2 }, 'R3']);
+    expect(worst).toEqual({ position: 1, total: 1 });
+    expect(trace.getCurrentXValue()).toBe('R4');
+  });
+});
 
 describe('jumping straight to a layer extreme', () => {
   test('min lands on the lowest bar and max on the highest', () => {

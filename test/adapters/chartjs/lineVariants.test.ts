@@ -132,6 +132,15 @@ describe('chart.js bump chart detection', () => {
     expect(points[2][2]).toEqual({ x: 'Q3', y: 1, z: 'Spurs' });
   });
 
+  it('says first place is drawn at the top, which a canvas cannot show', () => {
+    // The reversed axis the reading requires draws first place at the top.
+    // Unsaid, MAIDR has no marks to measure and keeps the line's rule, so Up
+    // moved to the next larger rank, down the drawing.
+    const layers = layersOf(lineChart(table, rankScales));
+
+    expect(layers[0].firstPlace).toBe('top');
+  });
+
   it('leaves a reversed axis alone when the values are not ranks', () => {
     // A reversed axis is common enough on its own; the permutation test is
     // what makes the reading safe.

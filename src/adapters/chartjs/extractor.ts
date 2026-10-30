@@ -2520,6 +2520,13 @@ function extractLineLayers(
       // stacked band that happens to be stepped is read as an area, and
       // declaring a direction on it would describe navigation it does not have.
       ...(type === TraceType.STEP ? { stepDirection: group.direction as StepDirection } : {}),
+      // A reversed y axis draws first place at the top, and the bump reading
+      // requires one today. MAIDR cannot measure a canvas, so where first
+      // place is drawn is said, from the same axis; unsaid, Up moved to the
+      // next larger rank, down the drawing.
+      ...(type === TraceType.BUMP
+        ? { firstPlace: chart.options.scales?.y?.reverse === true ? 'top' as const : 'bottom' as const }
+        : {}),
       data: group.indices.map(dsIdx => linePoints(data.datasets[dsIdx], dsIdx)),
     });
   }

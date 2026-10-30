@@ -2250,6 +2250,33 @@ export interface MaidrLayer {
    */
   stepDirection?: StepDirection;
   /**
+   * Where a {@link TraceType.BUMP} layer draws first place: `'top'`, as a
+   * bump chart is usually drawn, with its rank axis running down the page, or
+   * `'bottom'`, on a chart whose rank axis runs up it.
+   *
+   * Up and Down follow the drawing. With first place at the top, Up moves to
+   * the competitor one place better, drawn above, and Control + Up to first
+   * place; with first place at the bottom, Up moves one place worse, which is
+   * the place drawn above there. The pitch does not change with it: first
+   * place is the highest note either way, and `]` goes to a competitor's best
+   * place.
+   *
+   * Optional. Left out, MAIDR reads where first place is drawn from the marks
+   * the highlight resolves, and where it has nothing to measure -- a chart
+   * drawn to a canvas, or no highlight -- Up moves to the next larger rank
+   * number, as on a line. A layer left without it whose drawing turns Up and
+   * Down round from that rule logs a console warning, once, asking for it.
+   * Say it where the drawing cannot be measured: the Chart.js and amCharts
+   * adapters do, Highcharts says it from its reversed axis, and Frappe, which
+   * cannot reverse an axis, says `'bottom'`. Read by `BumpTrace` and ignored
+   * by every other type.
+   *
+   * @example
+   * // a bump chart whose rank axis runs up the page
+   * { type: 'bump', firstPlace: 'bottom', data: [...] }
+   */
+  firstPlace?: 'top' | 'bottom';
+  /**
    * The quantiles, from 0 to 1, at which a {@link TraceType.BOX} layer's lower
    * and upper whiskers end: `[0.1, 0.9]` for whiskers drawn to the 10th and
    * 90th percentiles. Read by `BoxTrace` and ignored by every other type.

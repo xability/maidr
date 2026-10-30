@@ -673,6 +673,30 @@ The data property is defined as a list of objects where each object is a record 
       ]
     }
 
+    //bump: nested exactly like `line`, one inner array per competitor, each
+    //`y` the competitor's RANK in that period, 1 for first place. Emit the
+    //true ranks: MAIDR makes first place the highest note itself.
+    //
+    //`firstPlace` is an optional layer-level property saying where the chart
+    //draws first place: "top", as a bump chart is usually drawn with its rank
+    //axis running down the page, or "bottom", on a chart drawn the ordinary
+    //way up. Up and Down follow the drawing, so on the usual chart Up moves to
+    //the competitor one place better and Control + Up to first place; `]`
+    //goes to a competitor's best place and `[` to its worst either way. Left
+    //out, MAIDR reads where first place is drawn from the highlighted marks;
+    //with nothing to measure (a canvas, no highlight), Up moves to the next
+    //larger rank number, as on a line. Say it when the drawing cannot be
+    //measured; a layer left without it whose drawing turns the keys round from
+    //that rule logs a console warning asking for it.
+    maidr = {
+      "type": "bump",
+      "firstPlace": "top",
+      "data":[
+        [ { "x": "R1", "y": 1, "z": "Ash" }, { "x": "R2", "y": 2, "z": "Ash" } ],
+        [ { "x": "R1", "y": 2, "z": "Birch" }, { "x": "R2", "y": 1, "z": "Birch" } ]
+      ]
+    }
+
     //pie: a FLAT array, one object per slice, in the order the slices are
     //drawn. Never the nested array the bar-family types use — a pie is one
     //row of N slices.
