@@ -232,6 +232,11 @@ export interface HighchartsSeries {
   name: string;
   data: HighchartsPoint[];
   /**
+   * The SVG group the series draws its marks into. A line draws its path
+   * here, and MAIDR draws the dot for a line's point beside it.
+   */
+  group?: { element: SVGElement };
+  /**
    * The nodes of a node-and-link series, resolved by Highcharts from the
    * links. Absent on every other series type.
    */
@@ -414,9 +419,22 @@ export interface HighchartsPoint {
   };
   /** Reference to the SVG element for this point (may be undefined if not rendered). */
   graphic?: { element: SVGElement };
+  /**
+   * Where the point is drawn, in the coordinates of its series' group: the
+   * vertex a line passes through at this point.
+   */
+  plotX?: number;
+  /** See {@link HighchartsPoint.plotX}. */
+  plotY?: number;
   series: HighchartsSeries;
   index: number;
   setState?: (state: string) => void;
+  /**
+   * Set once Highcharts has destroyed the point, as a redraw does to the
+   * points it replaces: it deletes the point's own properties, `series` among
+   * them, and `setState`, which stays on the prototype, then throws.
+   */
+  destroyed?: boolean;
 }
 
 /**
