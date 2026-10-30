@@ -185,6 +185,194 @@ describe('spacing is the gradient', () => {
   });
 });
 
+/**
+ * Three levels of a peak, each traced at its own x values, as a contour
+ * tracer samples them: no two curves share an x, so a line chart's reading of
+ * Up and Down -- another series at the same x -- finds nothing.
+ */
+const RINGS: ContourPoint[][] = [
+  [{ x: 1, y: 5, level: 0.1 }, { x: 5, y: 9, level: 0.1 }, { x: 9, y: 5, level: 0.1 }],
+  [{ x: 2.5, y: 6, level: 0.2 }, { x: 4.9, y: 7.5, level: 0.2 }, { x: 7.5, y: 5, level: 0.2 }],
+  [{ x: 4, y: 4.5, level: 0.3 }, { x: 5.5, y: 6, level: 0.3 }, { x: 6, y: 5, level: 0.3 }],
+];
+
+/**
+ * Where the reader is, as the x, y and level announced.
+ * @param trace The trace to read
+ * @returns The announced x, y and level
+ */
+function place(trace: ContourTrace): [unknown, unknown, unknown] {
+  const { text } = nonEmptyState(trace);
+  return [text.main.value, text.cross?.value, text.z?.value];
+}
+
+describe('up and down move between levels', () => {
+  test('up goes to the nearest point of the next level up', () => {
+    const trace = contour(0, 0, RINGS);
+
+    const moved = trace.moveOnce('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(place(trace)).toEqual([2.5, 6, 0.2]);
+  });
+
+  test('down goes to the nearest point of the next level down', () => {
+    const trace = contour(2, 1, RINGS);
+
+    const moved = trace.moveOnce('DOWNWARD');
+
+    expect(moved).toBe(true);
+    expect(place(trace)).toEqual([4.9, 7.5, 0.2]);
+  });
+
+  test('the nearest point is taken wherever the reader is on the curve', () => {
+    const trace = contour(0, 2, RINGS);
+
+    trace.moveOnce('UPWARD');
+
+    expect(place(trace)).toEqual([7.5, 5, 0.2]);
+  });
+
+  test('the top and bottom levels are the edges', () => {
+    expect(contour(2, 0, RINGS).moveOnce('UPWARD')).toBe(false);
+    expect(contour(0, 0, RINGS).moveOnce('DOWNWARD')).toBe(false);
+  });
+
+  test('a level drawn as two islands is one level, reached at its nearer island', () => {
+    const islands: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 1 }, { x: 10, y: 0, level: 1 }],
+      [{ x: 1, y: 1, level: 2 }],
+      [{ x: 9, y: 1, level: 2 }],
+    ];
+    const trace = contour(0, 1, islands);
+
+    trace.moveOnce('UPWARD');
+
+    expect(place(trace)).toEqual([9, 1, 2]);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+  });
+
+  test('control and up goes to the highest level, and up from there is the edge', () => {
+    // Inherited, the jump went to the top of the reader's column by point
+    // index, here level 0.2, and Up then moved again.
+    const trace = contour(0, 0, RINGS);
+
+    trace.moveToExtreme('UPWARD');
+
+    expect(place(trace)).toEqual([4, 4.5, 0.3]);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+  });
+
+  test('control and down goes to the lowest level', () => {
+    const trace = contour(2, 1, RINGS);
+
+    trace.moveToExtreme('DOWNWARD');
+
+    expect(place(trace)).toEqual([5, 9, 0.1]);
+    expect(trace.moveOnce('DOWNWARD')).toBe(false);
+  });
+
+  test('control and up on the highest level stays and says the point again', () => {
+    // As a jump to the end of a grid does on every other chart.
+    const trace = contour(2, 1, RINGS);
+
+    const moved = trace.moveToExtreme('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(place(trace)).toEqual([5.5, 6, 0.3]);
+  });
+
+  test('from a point with no position, up lands on the next level\'s first point', () => {
+    // Nothing to measure the nearest point from, but the next level is still
+    // there: the reader reaches it rather than hearing there is none.
+    const unplaced: ContourPoint[][] = [
+      [{ x: Number.NaN, y: 0, level: 1 }],
+      [{ x: 4, y: 4, level: 2 }, { x: 5, y: 5, level: 2 }],
+    ];
+    const trace = contour(0, 0, unplaced);
+
+    const moved = trace.moveOnce('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(place(trace)).toEqual([4, 4, 2]);
+  });
+
+  test('left and right still walk the curve', () => {
+    const trace = contour(1, 0, RINGS);
+
+    trace.moveOnce('FORWARD');
+
+    expect(place(trace)).toEqual([4.9, 7.5, 0.2]);
+  });
+});
+
+/**
+ * Three levels, the lowest drawn as two islands, as a contour tracer emits a
+ * level that closes in two places: two curves in a row carrying one number.
+ * The second island lies nearer the first than the next level up does.
+ */
+const ISLANDS: ContourPoint[][] = [
+  [{ x: 0, y: 0, level: 100 }, { x: 1, y: 0, level: 100 }],
+  [{ x: 3, y: 0, level: 100 }],
+  [{ x: 0, y: 4, level: 120 }, { x: 1, y: 4, level: 120 }, { x: 3, y: 5, level: 120 }],
+  [{ x: 0, y: 6, level: 140 }],
+];
+
+describe('a level drawn as islands is one level', () => {
+  test('the description counts it once', () => {
+    // Counted as curves, this was "Number of levels: 4" over three levels.
+    expect(stat('Number of levels', ISLANDS)).toBe(3);
+  });
+
+  test('the description names it once, and the levels lowest first', () => {
+    const shuffled = [ISLANDS[3], ISLANDS[0], ISLANDS[2], ISLANDS[1]];
+
+    expect(stat('Levels', ISLANDS)).toBe('100, 120, 140');
+    expect(stat('Levels', shuffled)).toBe('100, 120, 140');
+  });
+
+  test('its points are counted over all its islands', () => {
+    // 100 has three points over two islands of two and one, and 120 three.
+    // Counted per curve, two levels of three points each read "1 to 3".
+    const twoLevels: ContourPoint[][] = [ISLANDS[0], ISLANDS[1], ISLANDS[2]];
+
+    expect(stat('Points per level', twoLevels)).toBe(3);
+    expect(stat('Points per level', ISLANDS)).toBe('1 to 3');
+  });
+
+  test('the spacing is measured to the next level, not to another island', () => {
+    // The second island of 100 is 3 away; level 120 is 4 away. Measured to
+    // the curve emitted next, this said "3 to level 100" -- a gap inside one
+    // level, announced as the gradient.
+    expect(nonEmptyState(contour(0, 0, ISLANDS)).text.asides)
+      .toEqual([{ label: 'Spacing', value: '4 to level 120' }]);
+  });
+
+  test('the widest separation is between two levels', () => {
+    // The island at (3, 0) is 2 from its own level's other island and 4.47
+    // from level 120, the nearest point of which is (1, 4).
+    expect(stat('Widest separation between levels', ISLANDS)).toBe('4.47 at X 3, Y 0');
+    expect(stat('Closest approach between levels', ISLANDS)).toBe('2 at X 0, Y 4');
+  });
+
+  test('one level drawn as islands has no range and no step', () => {
+    const one: ContourPoint[][] = [ISLANDS[0], ISLANDS[1]];
+
+    expect(stat('Number of levels', one)).toBe(1);
+    expect(stat('Levels', one)).toBe('100');
+    expect(stat('Level range', one)).toBeUndefined();
+    expect(stat('Level step', one)).toBeUndefined();
+  });
+
+  test('a curve declaring no level is listed as a level of its own', () => {
+    const bare: ContourPoint[][] = [ISLANDS[0], [{ x: 5, y: 5 }], ISLANDS[1]];
+
+    expect(stat('Number of levels', bare)).toBe(2);
+    expect(stat('Levels', bare)).toBe('100, Curve 2');
+    expect(nonEmptyState(contour(1, 0, bare)).text.asides).toBeUndefined();
+  });
+});
+
 describe('the description answers what a curve cannot', () => {
   test('counts and names the levels', () => {
     expect(stat('Number of levels')).toBe(3);
@@ -338,6 +526,31 @@ describe('the description speaks of levels, not lines', () => {
     expect(headers).toEqual(['X', 'Y', 'Density']);
     expect(rows[0]).toEqual([0, 0, '0.1']);
     expect(rows.map(row => row[2])).not.toContain('Line 1');
+  });
+
+  test('a level computed as a float is listed as it is announced', () => {
+    // matplotlib steps its levels by adding, so 0.15 reaches 0.3 as
+    // 0.30000000000000004, which is what the producer hands over. Every point
+    // of that curve announces `Level is 0.3`.
+    const step = 0.1 + 0.05;
+    const computed: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: step }],
+      [{ x: 0, y: 1, level: 0.1 + 0.2 }],
+      [{ x: 0, y: 2, level: 3 * step }],
+    ];
+
+    expect(stat('Levels', computed)).toBe('0.15, 0.3, 0.45');
+    expect(description(computed).dataTable.rows.map(row => row[2]))
+      .toEqual(['0.15', '0.3', '0.45']);
+  });
+
+  test('levels are listed without the thousands commas the list separates them with', () => {
+    const high: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 10000 }],
+      [{ x: 0, y: 1, level: 20000 }],
+    ];
+
+    expect(stat('Levels', high)).toBe('10000, 20000');
   });
 
   test('a curve with no level is not given one', () => {
