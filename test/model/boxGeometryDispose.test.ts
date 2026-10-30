@@ -61,12 +61,13 @@ const KINDS = [
 ];
 
 /**
- * The lines on the page. The chart draws none of its own here, so each is
- * one MAIDR built.
+ * The elements MAIDR has put on the page, whatever it draws them as: the
+ * whiskers it builds and the copies it makes of the chart's marks. Each
+ * carries MAIDR's owner mark, which the chart's own elements do not.
  * @returns How many there are
  */
-function lines(): number {
-  return document.querySelectorAll('line').length;
+function owned(): number {
+  return document.querySelectorAll('[data-maidr-owned]').length;
 }
 
 describe('a box\'s whisker lines', () => {
@@ -80,20 +81,22 @@ describe('a box\'s whisker lines', () => {
 
   test.each(KINDS)('are taken away with the $kind\'s trace when it is disposed', ({ build }) => {
     const trace = build();
-    expect(trace.getGeometryElements().filter(element => element.tagName === 'line')).toHaveLength(2);
+    const whiskers = trace.getGeometryElements().filter(element => element.hasAttribute('data-maidr-owned'));
+    expect(whiskers).toHaveLength(2);
 
     trace.dispose();
 
-    expect(lines()).toBe(0);
+    expect(whiskers.filter(whisker => whisker.isConnected)).toHaveLength(0);
+    expect(owned()).toBe(0);
     // The chart's own box, median and caps stay.
-    expect(document.querySelectorAll('path')).toHaveLength(4);
+    expect(document.querySelectorAll('path:not([data-maidr-owned])')).toHaveLength(4);
   });
 
   test.each(KINDS)('do not pile up on a $kind however often the chart takes focus', ({ build }) => {
     // A trace is built each time the chart takes focus, and disposed when it
     // loses it.
     const first = build();
-    const once = lines();
+    const once = owned();
     first.dispose();
     for (let focus = 0; focus < 3; focus++) {
       build().dispose();
@@ -101,7 +104,7 @@ describe('a box\'s whisker lines', () => {
 
     const trace = build();
 
-    expect(lines()).toBe(once);
+    expect(owned()).toBe(once);
     trace.dispose();
   });
 });
