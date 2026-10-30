@@ -146,17 +146,24 @@ export class BumpTrace extends LineTrace {
    * a value to a dot height, and handed the inverted register it would place
    * every cell outside the range it is given.
    *
+   * Built on the line's state, so every other field follows it. `values` is
+   * restated, as `ParallelTrace` does, because `super.braille` is typed as
+   * every braille state: with only `min` and `max` replaced, a box plot's
+   * `values` would stay in the type of the result, and it would match none.
+   *
    * @returns The braille state, scaled from the best rank to the worst
    */
   protected override get braille(): BrailleState {
+    const base = super.braille;
+    if (base.empty) {
+      return base;
+    }
+
     return {
-      empty: false,
-      id: this.id,
+      ...base,
       values: this.lineValues,
       min: this.lineValues.map(() => this.bestRank),
       max: this.lineValues.map(() => this.worstRank),
-      row: this.row,
-      col: this.col,
     };
   }
 
