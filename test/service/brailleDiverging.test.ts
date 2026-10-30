@@ -103,6 +103,18 @@ describe('a population pyramid on the braille display', () => {
     expect(displayedLines(gappy)[0]).toBe('⠉ ⠒');
   });
 
+  test('a chart of nothing but zeros reads as blank cells', () => {
+    // The widest bar is 0, so every line's scale runs from 0 to 0. The
+    // encoder splits that range into bands and compares, without dividing,
+    // and a zero reads blank before any comparison is made.
+    const zeros: SegmentedPoint[][] = [
+      [{ x: 'a', y: 0, z: 'Men' }, { x: 'b', y: 0, z: 'Men' }],
+      [{ x: 'a', y: 0, z: 'Women' }, { x: 'b', y: 0, z: 'Women' }],
+    ];
+
+    expect(displayedLines(zeros).slice(0, 3)).toEqual(['  ', '  ', '  ']);
+  });
+
   test('the last line of a chart that is not two-sided is its sum\'s size, whatever its sign', () => {
     // Three sides, so the last row is a plain sum rather than a balance:
     // -300 in the first band and 300 in the second, announced with their
