@@ -498,6 +498,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     const selector = selectorString(layer);
     const allSvgClones = selector ? Svg.selectAllElements(selector) : [];
     this.svgClones = allSvgClones;
+    // One mark per point: the n-th mark is the n-th point's. Every navigation
+    // mode that outlines points pairs them by this.
+    const hasSvg = allSvgClones.length === data.length;
 
     // A column's or row's marks are the marks of the points in it, each mark
     // paired with the point at its index, as point, intersection and grid
@@ -508,7 +511,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // value drawn a hair apart or jittered. Marks that do not pair with the
     // points one to one are still grouped by where they are drawn.
     [this.highlightXValues, this.highlightYValues]
-      = allSvgClones.length > 0 && allSvgClones.length === data.length
+      = hasSvg
         ? [
             this.xPointIndices.map(column => column.map(index => allSvgClones[index])),
             this.yPointIndices.map(row => row.map(index => allSvgClones[index])),
@@ -574,7 +577,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         xLabel: nameOf(p.xLabel),
         yLabel: nameOf(p.yLabel),
         label: nameOf(p.label),
-        svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
+        svg: hasSvg ? allSvgClones[i] : null,
         xIndex,
         yIndexInColumn: slotOfYInColumn[xIndex]?.get(p.y) ?? 0,
       };
@@ -613,7 +616,6 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // having any stack is enough — intersection mode from COL uses x-column
     // stacks, from ROW it uses y-row stacks, so we offer the mode whenever
     // either is non-trivial.
-    const hasSvg = allSvgClones.length === data.length;
     this.xPointsSvg = hasSvg
       ? this.xPointIndices.map(group => group.map(i => allSvgClones[i] ?? null))
       : null;

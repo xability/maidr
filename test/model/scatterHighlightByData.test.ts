@@ -1,10 +1,11 @@
 /**
  * @jest-environment jsdom
  */
-import type { MaidrLayer, ScatterPoint } from '@type/grammar';
+import type { Maidr, MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { TraceState } from '@type/state';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { ScatterTrace } from '@model/scatter';
+import { appendPointToMaidr } from '@service/liveData';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -180,6 +181,43 @@ describe('pointing at a mark', () => {
     trace.moveToPointAndGetPointerGuidance(300, 100);
 
     expect(stateOf(trace).text.main.value).toBe(1);
+  });
+});
+
+describe('a point streamed in after the chart was first read', () => {
+  test('is outlined in its row once the chart draws its mark', () => {
+    // An append rebuilds the trace from the whole series, so the marks are
+    // paired with the points again, against what the chart draws by then.
+    const figure = {
+      id: 'live',
+      subplots: [[{ layers: [layerOf([{ x: 1, y: 10 }, { x: 2, y: 30 }])] }]],
+    } as unknown as Maidr;
+    const appended = appendPointToMaidr(figure, { x: 3, y: 20 });
+    if (appended === null) {
+      throw new Error('expected the point to be appended');
+    }
+    draw([{ x: 100, y: 100 }, { x: 200, y: 300 }, { x: 300, y: 200 }], 'translate(0, 400) scale(1, -1)');
+    const trace = new ScatterTrace(appended.maidr.subplots[0][0].layers[0]);
+    trace.moveOnce('FORWARD');
+
+    const rows = walk(trace, 'UPWARD', 3);
+
+    // The streamed point, y = 20, is the middle row, outlined by the third mark.
+    expect(rows).toEqual([[0], [2], [1]]);
+  });
+});
+
+describe('a selector that matches no mark', () => {
+  test('outlines nothing in a column or a row', () => {
+    draw([]);
+    const trace = new ScatterTrace(layerOf([{ x: 1, y: 1 }, { x: 2, y: 2 }]));
+
+    trace.moveOnce('FORWARD');
+    const column = outlined(trace);
+    trace.moveOnce('UPWARD');
+    const row = outlined(trace);
+
+    expect([column, row]).toEqual([[], []]);
   });
 });
 
