@@ -115,6 +115,21 @@ test.describe('Parallel coordinates', () => {
     expect(announcement).toContain('33');
   });
 
+  test('should outline the reading on its own car\'s line', async ({ page }) => {
+    // Each car's line has a selector of its own. One selector for all four
+    // lines was read as a single series, and no step was outlined.
+    const plot = new ParallelPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+
+    const marker = page.locator('[id^="maidr-highlight"]').first();
+    await expect(marker).toBeAttached();
+
+    // The Honda Civic's 33 mpg, the first vertex of the first line.
+    expect(Number(await marker.getAttribute('cx'))).toBe(180);
+    expect(Number(await marker.getAttribute('cy'))).toBe(90);
+  });
+
   test('should jump to the reading drawn highest on its own axis, not the largest number', async ({ page }) => {
     // The Honda Civic has the best economy of the four cars and the least
     // power and weight. Its largest number is its 1,800 pounds, the foot of

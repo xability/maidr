@@ -85,11 +85,14 @@ for (const layout of LAYOUTS) {
       expect(maidrData.subplots[0][0].layers[0].type).toBe(layout.type);
     });
 
-    test('should declare only the leaves, as the treemap does', () => {
+    test('should declare the continents it draws as well as the leaves', () => {
+      // Unlike a treemap's, these continents are drawn as marks of their own,
+      // the inner ring or the top band, so each is declared with its mark and
+      // the level the reader enters on is outlined.
       const nodes = maidrData.subplots[0][0].layers[0].data as { x: string }[];
 
-      expect(nodes).toHaveLength(10);
-      expect(nodes.map(node => node.x)).not.toContain('Asia');
+      expect(nodes).toHaveLength(13);
+      expect(nodes.slice(0, 3).map(node => node.x)).toEqual(['Asia', 'Africa', 'Europe']);
     });
 
     test('should announce itself as the chart the author drew', async ({ page }) => {

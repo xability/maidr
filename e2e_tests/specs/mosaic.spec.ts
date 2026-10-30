@@ -84,9 +84,10 @@ test.describe('Mosaic plot', () => {
     const series = maidrData.subplots[0][0].layers[0].data as {
       x: string;
       y: number;
+      z: string;
       width?: number;
     }[][];
-    const survived = series[0];
+    const survived = series.find(row => row[0]?.z === 'Survived') ?? [];
     const first = survived.find(cell => cell.x === 'First');
     const third = survived.find(cell => cell.x === 'Third');
 
@@ -103,9 +104,10 @@ test.describe('Mosaic plot', () => {
     await plot.activateMaidr();
     await plot.moveToNextDataPoint();
 
+    // The reader enters on First's bottom tile, the passengers who died.
     expect(normalizeText(await plot.getInstructionText())).toBe(
-      'Class is First, Proportion is 0.62, Outcome is Survived, '
-      + 'Share of all is 15.0%, Count is 203',
+      'Class is First, Proportion is 0.38, Outcome is Died, '
+      + 'Share of all is 15.0%, Count is 122',
     );
   });
 
