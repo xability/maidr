@@ -18,6 +18,7 @@
 import type {
   AnyChartInstance,
   AnyChartIterator,
+  AnyChartMarkers,
   AnyChartSeries,
 } from '@adapters/anychart/types';
 import { bindAnyChart } from '@adapters/anychart/converters';
@@ -53,7 +54,12 @@ function createIterator(rows: Array<Record<string, unknown>>): AnyChartIterator 
 }
 
 /** A drawn series of `count` points, of the given AnyChart type. */
-function createSeries(seriesType: string, count: number, name: string): AnyChartSeries {
+function createSeries(
+  seriesType: string,
+  count: number,
+  name: string,
+  overrides: Partial<AnyChartSeries> = {},
+): AnyChartSeries {
   const rows = Array.from({ length: count }, (_, i) => ({ x: `c${i}`, value: i + 1 }));
   return {
     id: () => 0,
@@ -62,6 +68,7 @@ function createSeries(seriesType: string, count: number, name: string): AnyChart
     getIterator: () => createIterator(rows),
     getPoint: () => ({ get: () => undefined, getIndex: () => 0, exists: () => false }),
     getStat: () => undefined,
+    ...overrides,
   };
 }
 
@@ -190,6 +197,37 @@ describe('bindAnyChart (multi-series line stamping)', () => {
       .toEqual(['0-0', '0-1', '0-2', '1-0', '1-1', '1-2', '1-3', '1-4']);
 
     cleanUp(container);
+  });
+
+  it('gives a series that draws no markers no layer, and the series after it its own', () => {
+    // Measured on AnyChart 8.13: of three lines with the second hidden by
+    // `enabled(false)`, the hidden one was stamped on the third line's
+    // markers, and the third line found none. A series whose markers stay off
+    // draws none either. The markers are listed out of x order within their
+    // layers: the order they are drawn in decides nothing.
+    const quiet: Array<Partial<AnyChartSeries>> = [
+      { enabled: () => false },
+      { markers: () => ({ enabled: () => false }) as unknown as AnyChartMarkers },
+    ];
+    for (const [variant, overrides] of quiet.entries()) {
+      const { container, markers } = createRenderedChart(
+        `quiet-${variant}`,
+        [449, 141, 603, 295, 295, 603, 141, 449],
+        [],
+        [4, 4],
+      );
+      const chart = createChart(
+        [createSeries('line', 4, 'A'), createSeries('line', 4, 'B', overrides), createSeries('line', 4, 'C')],
+        container,
+      );
+
+      bindAnyChart(chart);
+
+      expect(stamps(markers, LINE_ATTR))
+        .toEqual(['0-2', '0-0', '0-3', '0-1', '2-1', '2-3', '2-0', '2-2']);
+
+      cleanUp(container);
+    }
   });
 
   it('gives each band of a stacked area the markers drawn in its own layer', () => {

@@ -102,6 +102,11 @@ export interface AnyChartSeries {
    * candlestick series do not expose this method.
    */
   markers?: () => AnyChartMarkers;
+  /**
+   * Whether the series is drawn. A series hidden with `enabled(false)` draws
+   * nothing, its markers included.
+   */
+  enabled?: () => boolean;
 }
 
 /**

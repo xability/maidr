@@ -1414,7 +1414,8 @@ function collectLineMarkerCandidates(
  *      data-point order).
  *   3. Hand the groups out in series order, each line-like series taking the
  *      next one. A series this loop skips — the bars of a combined chart, one
- *      that cannot name its type — takes none.
+ *      that cannot name its type, one that draws no markers (see
+ *      {@link drawsMarkers}) — takes none.
  *
  * Splitting one left-to-right list into runs of `pointCount` instead gave a
  * series whatever markers came first along x, whichever series drew them: on
@@ -1444,7 +1445,8 @@ function stampLineAttributes(
 
   // How many groups the series before this one took. A running cursor rather
   // than `s`: `s` counts the series this loop skipped — the bars of a combined
-  // chart, a series that cannot name its type — none of which drew a marker.
+  // chart, a series that cannot name its type, a hidden series — none of which
+  // drew a marker.
   let consumed = 0;
 
   for (let s = 0; s < seriesCount; s++) {
@@ -1462,7 +1464,7 @@ function stampLineAttributes(
 
     const rows = extractRawRows(series);
     const pointCount = rows.length;
-    if (pointCount === 0)
+    if (pointCount === 0 || !drawsMarkers(series))
       continue;
 
     const markers = groups[consumed++] ?? [];
@@ -1479,6 +1481,26 @@ function stampLineAttributes(
       if (!el.hasAttribute(LINE_ATTR))
         el.setAttribute(LINE_ATTR, `${stampPrefix}${s}-${i}`);
     });
+  }
+}
+
+/**
+ * Whether a series draws markers for {@link stampLineAttributes} to find.
+ *
+ * A series hidden with `enabled(false)` draws nothing, and one whose markers
+ * stayed off after {@link enableLineMarkersIfNeeded} draws no markers, so
+ * neither has a layer of its own. Handed the next layer, a hidden series
+ * outlined the next series' markers, and every series after it took the layer
+ * of the one after it. A series that cannot say is taken to draw them.
+ *
+ * @param series - A line-like series
+ * @returns False when the series says it draws no markers
+ */
+function drawsMarkers(series: AnyChartSeries): boolean {
+  try {
+    return series.enabled?.() !== false && series.markers?.().enabled() !== false;
+  } catch {
+    return true;
   }
 }
 
