@@ -159,6 +159,11 @@ export function buildSelector(
  *
  * `markGroupPrefix` scopes the mark-group class tokens to a composite
  * child (e.g. `concat_<i>_` for concat children). Defaults to `''`.
+ *
+ * `overlaid` says the layer draws an overlay -- points on a line, a line
+ * along an area -- which Vega-Lite compiles by turning the layer into a layer
+ * of its own: in a layered spec the path is then one level down, under
+ * `layer_<i>_layer_0_marks`, and nothing is named `layer_<i>_marks`.
  */
 export function buildLineSelectors(
   mark: string,
@@ -166,9 +171,16 @@ export function buildLineSelectors(
   layerIndex: number,
   isLayered: boolean,
   markGroupPrefix = '',
+  overlaid = false,
 ): string[] {
   const cssClass = markToCssClass(mark);
   const layeredClass = `${markGroupPrefix}layer_${layerIndex}_marks`;
+  // A single view expanded by an overlay is named `layer_0_marks`, which the
+  // non-layered selector below already covers; a layer of a layered spec
+  // goes one level down.
+  const ownClass = overlaid
+    ? `${markGroupPrefix}layer_${layerIndex}_layer_0_marks`
+    : layeredClass;
   const selectors: string[] = [];
   for (let i = 0; i < seriesCount; i++) {
     if (isLayered) {
@@ -176,7 +188,7 @@ export function buildLineSelectors(
       // Each layer typically has one `<path>` so first-of-type is fine;
       // when the layer itself contains color-encoded multi-series, the
       // caller's selectNthElement(sel, r) indexing still resolves them.
-      selectors.push(`g.${cssClass}.role-mark.${layeredClass} > path`);
+      selectors.push(`g.${cssClass}.role-mark.${ownClass} > path`);
     } else {
       // Cover both DOM patterns Vega uses for a non-layered single mark:
       //   - `.marks` (single-series simple line)

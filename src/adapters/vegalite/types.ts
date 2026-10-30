@@ -125,6 +125,13 @@ export interface VegaLiteSpec {
     innerRadius?: number;
     extent?: string;
     center?: string;
+    /**
+     * Points drawn over a `line`, `area` or `trail`: `true`, a point mark
+     * def or `'transparent'` draws them, `false` or `null` turns them off.
+     */
+    point?: boolean | 'transparent' | Record<string, unknown> | null;
+    /** A line drawn along the top of an `area`, as `point` is for points. */
+    line?: boolean | Record<string, unknown> | null;
   };
   encoding?: VegaLiteEncoding;
   /**
@@ -205,6 +212,8 @@ export interface VegaLiteEncoding {
   radius?: VegaLiteChannelDef;
   color?: VegaLiteChannelDef;
   fill?: VegaLiteChannelDef;
+  /** A point's shape; on a `line` or `area`, it also turns their points on. */
+  shape?: VegaLiteChannelDef;
   /**
    * A mark's outline colour. Bound to a field, it splits lines and stacks
    * bars and areas as `color` does, and is given a legend.
