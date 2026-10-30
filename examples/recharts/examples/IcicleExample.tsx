@@ -40,7 +40,7 @@ const nodes: ChannelNode[] = [
 /** One band of the icicle: a node's span at its own depth. */
 interface Band {
   name: string;
-  depth: string;
+  depth: number;
   from: number;
   to: number;
 }
@@ -71,7 +71,7 @@ function toBands(level: ChannelNode[], depth = 0, start = 0): Band[] {
 
   for (const node of level) {
     const to = from + total(node);
-    bands.push({ name: node.name, depth: String(depth), from, to });
+    bands.push({ name: node.name, depth, from, to });
     if (node.children) {
       bands.push(...toBands(node.children, depth + 1, from));
     }
@@ -82,6 +82,9 @@ function toBands(level: ChannelNode[], depth = 0, start = 0): Band[] {
 }
 
 const bands = toBands(nodes);
+
+/** The depths the tree reaches, the root's children's first. */
+const depths = [...new Set(bands.map(band => band.depth))];
 
 /** The span a floating `<Bar>` draws. */
 function span(row: unknown): [number, number] {
@@ -111,9 +114,23 @@ export function IcicleExample(): JSX.Element {
         <BarChart width={600} height={300} layout="vertical" data={bands}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis type="number" />
-          <YAxis type="category" dataKey="depth" width={40} />
+          {/* One band per depth. Recharts places a bar on a category axis by
+              the row's position rather than its value, which drew every node
+              a row of its own; on a number axis a bar sits at its value, so
+              each node is drawn on its depth's band. */}
+          <YAxis
+            type="number"
+            dataKey="depth"
+            domain={[-0.5, depths.length - 0.5]}
+            ticks={depths}
+            interval={0}
+            width={40}
+          />
           <Tooltip />
-          <Bar dataKey={span} fill="#8884d8" isAnimationActive={false} />
+          {/* Sized, since a bar on a number axis is sized by the gaps between
+              the rows' values and a band's nodes share one; the white edges
+              part siblings that meet. */}
+          <Bar dataKey={span} barSize={100} fill="#8884d8" stroke="#fff" isAnimationActive={false} />
         </BarChart>
       </MaidrRecharts>
     </div>

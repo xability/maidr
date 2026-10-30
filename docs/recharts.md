@@ -1134,6 +1134,7 @@ const data = [
   { task: 'Build', from: 3, to: 12, phase: 'Alpha' },
   { task: 'Build', from: 14, to: 18, phase: 'Beta' },
 ];
+const lanes = ['Design', 'Build', 'Launch'];
 
 <MaidrRecharts
   id="gantt-example"
@@ -1142,19 +1143,28 @@ const data = [
   chartType="gantt"
   xKey="task"
   yKeys={['from', 'to']}
-  ganttConfig={{ lanes: ['Design', 'Build', 'Launch'], labelKey: 'phase', unit: 'days' }}
+  ganttConfig={{ lanes, labelKey: 'phase', unit: 'days' }}
   xLabel="Task"
   yLabel="Day"
 >
   <BarChart width={600} height={350} layout="vertical" data={data}>
     <XAxis type="number" />
-    <YAxis type="category" dataKey="task" />
-    <Bar dataKey={(row) => [row.from, row.to]} fill="#8884d8" />
+    <YAxis
+      type="number"
+      dataKey={(row) => lanes.indexOf(row.task)}
+      domain={[-0.5, lanes.length - 0.5]}
+      ticks={lanes.map((_, lane) => lane)}
+      tickFormatter={(lane) => lanes[lane]}
+      interval={0}
+    />
+    <Bar dataKey={(row) => [row.from, row.to]} barSize={40} fill="#8884d8" />
   </BarChart>
 </MaidrRecharts>
 ```
 
-Declare `lanes` so that a lane with **nothing booked still exists** — `Launch` above holds no row, and nothing booked is a real statement about a schedule that a list grouped by task cannot make. A lane a row names but the list omits is appended rather than dropped. `unit` names what a unit of the axis is; without it the length of an interval is announced as a bare number.
+Declare `lanes` so that a lane with **nothing booked still exists** — `Launch` above holds no row, and nothing booked is a real statement about a schedule that a list grouped by task cannot make. A lane a row names but the list omits is appended rather than dropped.
+
+Draw the lanes MAIDR reads, one row each, on a **number axis**. Recharts places a bar on a category axis by the row's position rather than its value: every row gets a slot of its own, so a lane holding two intervals is drawn as two rows and a reader moving along a lane is moved down the chart, and a lane no row names is not drawn at all. `allowDuplicatedCategory={false}` merges the slots but still places the bars by position, on other lanes' rows. On a number axis a bar sits at its value, so number the lanes, put a tick on each and name it, and every interval is drawn on its lane's row and `Launch` as an empty row. Give the bars a `barSize`: Recharts sizes a bar on a number axis by the gaps between the rows' values, and the intervals of one lane leave none. `unit` names what a unit of the axis is; without it the length of an interval is announced as a bare number.
 
 Dates have to arrive as **epoch milliseconds**: a `Date` is not a position on a numeric axis.
 
@@ -1240,22 +1250,24 @@ An icicle takes the same config again, with `chartType="icicle"`. Recharts has n
 ```tsx
 // The same `nodes` tree, flattened the way the adapter flattens it.
 const bands = [
-  { name: 'Europe', depth: '0', from: 0, to: 240 },
-  { name: 'France', depth: '1', from: 0, to: 67.4 },
-  { name: 'Spain', depth: '1', from: 67.4, to: 114.8 },
-  { name: 'Asia', depth: '0', from: 240, to: 395 },
-  { name: 'Japan', depth: '1', from: 240, to: 365.1 },
-  { name: 'Nepal', depth: '1', from: 365.1, to: 395.1 },
+  { name: 'Europe', depth: 0, from: 0, to: 240 },
+  { name: 'France', depth: 1, from: 0, to: 67.4 },
+  { name: 'Spain', depth: 1, from: 67.4, to: 114.8 },
+  { name: 'Asia', depth: 0, from: 240, to: 395 },
+  { name: 'Japan', depth: 1, from: 240, to: 365.1 },
+  { name: 'Nepal', depth: 1, from: 365.1, to: 395.1 },
 ];
 
 <MaidrRecharts id="icicle-example" data={nodes} chartType="icicle" xKey="name" yKeys={['people']}>
   <BarChart width={600} height={300} layout="vertical" data={bands}>
     <XAxis type="number" />
-    <YAxis type="category" dataKey="depth" />
-    <Bar dataKey={row => [row.from, row.to]} fill="#8884d8" />
+    <YAxis type="number" dataKey="depth" domain={[-0.5, 1.5]} ticks={[0, 1]} interval={0} />
+    <Bar dataKey={row => [row.from, row.to]} barSize={100} fill="#8884d8" stroke="#fff" />
   </BarChart>
 </MaidrRecharts>
 ```
+
+The depth is a **number**, on a number axis, for the gantt's reason: on a category axis Recharts gives every row a slot of its own and places each bar by its row's position, which draws a staircase of one-node rows rather than an icicle, and moving to a sibling moves down the chart. On a number axis each node is drawn on its depth's band. The `barSize` is needed there too, and a white `stroke` parts siblings that meet.
 
 Built the other obvious way — one stacked `<Bar>` per depth level — the rectangles come out series-major rather than depth-first, which is not the order the nodes are in. Such a chart needs `selectorOverride`.
 
