@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable, PointCloudAddressable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
@@ -12,6 +13,7 @@ import { selectorString } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovablePlane } from './movable';
 
 /**
@@ -269,7 +271,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   private mode: NavMode;
   protected readonly movable: MovablePlane;
-  protected readonly supportsExtrema = false;
+  /**
+   * `]` and `[` go to the highest and the lowest point, and the Go To dialog
+   * lists them: see {@link ScatterTrace.getExtremaTargets}.
+   */
+  protected readonly supportsExtrema = true;
 
   private readonly xPoints: ScatterXPoint[];
   private readonly yPoints: ScatterYPoint[];
@@ -3568,5 +3574,127 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // to super avoids the base early-return guard, which compares against the
     // wrong fields for scatter's (mode, row, col) coordinate system.
     this.moveToIndex(0, nearest.row);
+  }
+
+  /**
+   * The highest and the lowest points, for `]`, `[` and the Go To dialog:
+   * the largest and the smallest y, what the pitch plays.
+   *
+   * Walking columns and rows, each is the row of points at that y, where
+   * Control + Up and Control + Down go from a column; one row holds every
+   * point at its y, so it is one target. In point navigation each is a
+   * point, and every point holding the extreme is offered in reading order,
+   * so a tie is walked. Grid and intersection navigation offer none: their
+   * cursors are a cell and a stack of points rather than a point.
+   *
+   * @returns The targets, or none in grid or intersection navigation or for
+   *   a plot with no measured y
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    if (this.isInGridMode || this.isInIntersectionMode) {
+      return [];
+    }
+    if (this.isInPointMode) {
+      return this.pointExtremaTargets();
+    }
+    const top = this.yPoints.length - 1;
+    if (top < 0) {
+      return [];
+    }
+    const rowTarget = (row: number, type: 'max' | 'min'): ExtremaTarget => ({
+      ...extremumAt(
+        t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+        this.rowWhere(this.yPoints[row]),
+      ),
+      value: this.yPoints[row].y,
+      pointIndex: row,
+      segment: 'row',
+      type,
+      groupIndex: row,
+      categoryIndex: 0,
+      navigationType: 'group',
+    });
+    return [rowTarget(top, 'max'), rowTarget(0, 'min')];
+  }
+
+  /**
+   * The points holding the largest and the smallest y, in reading order.
+   *
+   * @returns One target per point, or none for a plot with no measured y
+   */
+  private pointExtremaTargets(): ExtremaTarget[] {
+    const measured = this.readingOrder.filter(index => Number.isFinite(this.flatPoints[index].y));
+    if (measured.length === 0) {
+      return [];
+    }
+    const ys = measured.map(index => this.flatPoints[index].y);
+    const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => measured
+      .filter(index => this.flatPoints[index].y === extreme)
+      .map((index) => {
+        const point = this.flatPoints[index];
+        return {
+          ...extremumAt(
+            t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+            point.label ?? point.xLabel ?? defaultFormat(point.x),
+          ),
+          value: point.y,
+          pointIndex: index,
+          segment: 'point',
+          type,
+          navigationType: 'point',
+        };
+      });
+    return [...at(MathUtil.safeMax(ys), 'max'), ...at(MathUtil.safeMin(ys), 'min')];
+  }
+
+  /**
+   * Where a row's points are, as its target names them: their names where
+   * the chart names its points, and their x values otherwise.
+   *
+   * @param row - The row
+   * @returns The names or the x values, joined
+   */
+  private rowWhere(row: ScatterYPoint): string {
+    const names = row.names.filter((name): name is string => name !== undefined);
+    if (names.length > 0) {
+      return names.join(', ');
+    }
+    return row.x.map((x, index) => row.xLabels[index] ?? defaultFormat(x)).join(', ');
+  }
+
+  /**
+   * Moves to the point a target names: in point navigation the point itself,
+   * and otherwise its row, turning a column into rows as Control + Up does.
+   *
+   * @param target - A target from {@link ScatterTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (this.isInPointMode) {
+      this.pointModeIndex = target.pointIndex;
+      this.finalizeNavigation();
+      return;
+    }
+    if (this.isInitialEntry) {
+      this.handleInitialEntry();
+    }
+    if (this.mode === NavMode.COL) {
+      this.toggleNavigation();
+    }
+    this.moveToIndex(target.groupIndex ?? target.pointIndex, this.col);
+  }
+
+  /**
+   * Whether the cursor stands on a target. In point navigation the cursor is
+   * a point's index, which neither the row nor the column holds; walking
+   * columns and rows, it is on a row target only once it is walking rows.
+   *
+   * @param target - A target from {@link ScatterTrace.getExtremaTargets}
+   * @returns Whether the cursor is on it
+   */
+  public override isAtExtremum(target: ExtremaTarget): boolean {
+    if (this.isInPointMode) {
+      return target.navigationType === 'point' && this.pointModeIndex === target.pointIndex;
+    }
+    return this.mode === NavMode.ROW && target.groupIndex === this.row;
   }
 }

@@ -73,6 +73,14 @@ values, [ and ] say there is no minimum or maximum value to go to, and G says
 there are no extrema to go to. All three play the warning tone with their
 message.
 
+On a scatter plot, and on a volcano or Manhattan plot, ] goes to the highest
+point and [ to the lowest, by the y the pitch plays. Walking columns and rows,
+that is the row of points at that y, where Control + Up and Control + Down go
+from a column. In point navigation it is the point, and where several points
+hold the value a further press goes to the next of them. In grid and
+intersection navigation, whose cursor is a cell or a stack of points rather
+than a point, [ and ] have nothing to go to.
+
 On a parallel coordinates plot, whose axes measure different things, [ and ]
 go to the reading of the observation you are on that is drawn lowest or
 highest on its own axis, which is also the one played lowest or highest,

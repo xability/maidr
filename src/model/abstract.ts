@@ -1076,6 +1076,20 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * Whether the cursor stands on an extremum target, for a trace whose
+   * cursor its row and column do not hold: a scatter plot in point
+   * navigation keeps a point's index instead. Null leaves the answer to the
+   * row and column, which is how every other trace's cursor is read.
+   *
+   * @param _target - A target from {@link getExtremaTargets}
+   * @returns True or false where the trace keeps its cursor elsewhere, and
+   *   otherwise null
+   */
+  public isAtExtremum(_target: ExtremaTarget): boolean | null {
+    return null;
+  }
+
+  /**
    * Common post-navigation cleanup that should be called by subclasses
    * after they update their internal state
    */
