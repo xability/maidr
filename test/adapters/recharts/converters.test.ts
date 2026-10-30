@@ -595,10 +595,13 @@ describe('convertRechartsToMaidr', () => {
       expect(result.subplots[0][0].layers[0].data).toEqual(everyNode);
     });
 
-    it('declares a leaf at the top level of a treemap as it is', () => {
+    it.each([
+      ['no children', { name: 'Antarctica', people: 0, children: [] }],
+      ['children undefined', { name: 'Antarctica', people: 0, children: undefined }],
+    ])('declares a leaf at the top level of a treemap as it is, with %s', (_, leaf) => {
       const result = convertRechartsToMaidr({
         ...hierarchyConfig,
-        data: [...hierarchyConfig.data as Record<string, unknown>[], { name: 'Antarctica', people: 0, children: [] }],
+        data: [...hierarchyConfig.data as Record<string, unknown>[], leaf],
       });
 
       const data = result.subplots[0][0].layers[0].data as TreemapPoint[];
