@@ -4577,8 +4577,9 @@ function extractHeatmapLayers(
  * A matrix chart has no scale for the cell value `v`, so there is no axis
  * title to read it from. The page can name it with the plugin's `axes.z`;
  * failing that, the dataset's label is what the matrix plugin's tooltip calls
- * the value. Datasets with different labels name different things, so then
- * there is no one name. Without a name nothing is emitted and MAIDR says
+ * the value. It names every cell only when every dataset carries it: datasets
+ * labelled differently name different things, and an unlabelled one does not
+ * say what its cells measure. Without a name nothing is emitted and MAIDR says
  * "Level".
  *
  * @param chart - The matrix chart
@@ -4592,10 +4593,7 @@ function heatmapValueLabel(
   if (pluginOptions?.axes?.z)
     return pluginOptions.axes.z;
 
-  const labels = new Set(
-    chart.data.datasets
-      .map(dataset => dataset.label?.trim())
-      .filter((label): label is string => Boolean(label)),
-  );
-  return labels.size === 1 ? [...labels][0] : undefined;
+  const labels = chart.data.datasets.map(dataset => dataset.label?.trim() ?? '');
+  const [first] = labels;
+  return first && labels.every(label => label === first) ? first : undefined;
 }

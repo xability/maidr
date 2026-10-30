@@ -70,4 +70,18 @@ describe('chart.js heatmap value name', () => {
 
     expect(layer.axes?.z).toBeUndefined();
   });
+
+  it('names nothing when only some datasets are labelled', () => {
+    // The unlabelled dataset does not say what its cells measure, so the
+    // other's label would name cells it may not describe.
+    const layer = layerOf(matrixChart(['Task Performance', undefined]));
+
+    expect(layer.axes?.z).toBeUndefined();
+  });
+
+  it('reads a blank label as no label', () => {
+    const layer = layerOf(matrixChart(['   ']));
+
+    expect(layer.axes?.z).toBeUndefined();
+  });
 });
