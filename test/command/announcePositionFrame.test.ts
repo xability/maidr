@@ -366,3 +366,43 @@ describe('a tree', () => {
     expect(announce(at(sunburst, 1, 1))).toBe('Level 2 of 2, Position is 2 of 2 in To do');
   });
 });
+
+describe('a directed graph', () => {
+  /**
+   * A small network in two blocks. The top level is input, block1, block2
+   * and dense; the second depth holds block1's three layers, then block2's
+   * two.
+   */
+  const NETWORK = {
+    id: 'graph',
+    type: TraceType.DIRECTED_GRAPH,
+    axes: { x: { label: 'Layer' } },
+    data: [
+      { id: 'input' },
+      { id: 'block1/conv1', label: 'conv1', path: ['block1'], inputs: ['input'] },
+      { id: 'block1/conv2', label: 'conv2', path: ['block1'], inputs: ['block1/conv1'] },
+      { id: 'block1/add', label: 'add', path: ['block1'], inputs: ['block1/conv2', 'input'] },
+      { id: 'block2/conv', label: 'conv', path: ['block2'], inputs: ['block1/add'] },
+      { id: 'block2/pool', label: 'pool', path: ['block2'], inputs: ['block2/conv'] },
+      { id: 'dense', inputs: ['block2/pool'] },
+    ],
+  } as unknown as MaidrLayer;
+
+  test('is at a place among the items of its scope, at its depth, as a tree\'s node is', () => {
+    // "column 1 of 4, row 1 of 2" and "column 2 of 2, row 2 of 2" before:
+    // the pan's place in the scope and depth of nesting, read as a column
+    // and a row of a drawing that has neither.
+    expect(announce(at(NETWORK, 0, 0))).toBe('Level 1 of 2, Position is 1 of 4');
+    expect(announce(at(NETWORK, 1, 4))).toBe('Level 2 of 2, Position is 2 of 2 in block2');
+    expect(announce(at(NETWORK, 0, 1), 'terse')).toBe('33%, 0%');
+  });
+
+  test('without scopes is at a place along its one level', () => {
+    const chain = {
+      ...NETWORK,
+      data: [{ id: 'load' }, { id: 'clean', inputs: ['load'] }, { id: 'fit', inputs: ['clean'] }],
+    } as unknown as MaidrLayer;
+
+    expect(announce(at(chain, 0, 1))).toBe('Position is 2 of 3');
+  });
+});

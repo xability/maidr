@@ -552,6 +552,18 @@ describe('the modalities agree with the announcement', () => {
     expect(conv1).toMatchObject({ x: 0, cols: 3 });
   });
 
+  test('the state places the item in its scope and at its depth, as a tree places its node', () => {
+    // What the position key reads. The pan carries the same two numbers as a
+    // column and a row, which is how they were announced.
+    const top = nonEmptyState(graph()).treePosition;
+    const trace = graph();
+    walk(trace, 'FORWARD', 'FORWARD', 'DOWNWARD', 'FORWARD');
+    const pool = nonEmptyState(trace).treePosition;
+
+    expect(top).toEqual({ index: 0, count: 4, level: 0, levels: 2 });
+    expect(pool).toEqual({ index: 1, count: 2, level: 1, levels: 2, parent: 'block2' });
+  });
+
   test('an item alone in its scope is centred, not hard left', () => {
     const trace = graph([
       { id: 'a/x', label: 'x', path: ['a'] },

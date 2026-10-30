@@ -48,6 +48,11 @@ class DirectedGraphPage extends BasePage {
     const textarea = await this.waitForElement(this.selectors.braille);
     return (await textarea.inputValue()).replace(/\n$/, '');
   }
+
+  /** Presses P, which announces where the cursor is. */
+  public async announcePosition(): Promise<void> {
+    await this.pressKeyAwaitingAnnouncement('p', 'announce position');
+  }
 }
 
 test.describe('Directed graph', () => {
@@ -137,6 +142,22 @@ test.describe('Directed graph', () => {
     for (const row of rows) {
       expect(row).toMatch(BRAILLE_CELL);
     }
+  });
+
+  test('should place the reader in a scope and a depth on P, as a tree does', async ({ page }) => {
+    // The pan's place in the scope and depth of nesting were announced as a
+    // column and a row: "Position is column 2 of 3, row 2 of 2" on conv2.
+    const plot = new DirectedGraphPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
+    await plot.moveToNextDataPoint();
+    await plot.announcePosition();
+
+    const position = normalizeText(await plot.getInstructionText());
+
+    expect(position).toBe('Level 2 of 2, Position is 2 of 3 in block1');
   });
 
   test('should announce itself as a directed graph', async ({ page }) => {
