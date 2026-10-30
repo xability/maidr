@@ -329,11 +329,70 @@ function wedgePath(wedge: OverlayWedge): string {
 }
 
 /**
+ * The summary a box plot's or violin's element carries
+ * (`@sgratzl/chartjs-chart-boxplot`), each value already converted to a pixel
+ * along the value axis.
+ */
+interface DistributionGeometry {
+  median?: number;
+  min?: number;
+  max?: number;
+  q1?: number;
+  q3?: number;
+  whiskerMin?: number;
+  whiskerMax?: number;
+  outliers?: number[];
+  /** A violin's density curve. */
+  coords?: { v: number }[];
+}
+
+/**
+ * The rect around everything a box or a violin draws: box, whiskers, outliers,
+ * and a violin's curve.
+ *
+ * The lowest and highest pixels of the summary are the two ends of the mark
+ * whichever way the scale runs. Across the other axis the mark is as wide as
+ * the element.
+ */
+function distributionRect(
+  el: ChartJsMetaElement & DistributionGeometry & { width?: number; height?: number; horizontal?: boolean },
+): OverlayRect | null {
+  const along = [
+    el.median,
+    el.min,
+    el.max,
+    el.q1,
+    el.q3,
+    el.whiskerMin,
+    el.whiskerMax,
+    ...(el.outliers ?? []),
+    ...(el.coords ?? []).map(coord => coord.v),
+  ].filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  // A box with no finite summary has nothing drawn to outline.
+  if (along.length === 0)
+    return null;
+  const start = Math.min(...along);
+  const end = Math.max(...along);
+
+  if (el.horizontal) {
+    if (typeof el.height !== 'number')
+      return null;
+    return { kind: 'rect', left: start, top: el.y - el.height / 2, width: end - start, height: el.height };
+  }
+  if (typeof el.width !== 'number')
+    return null;
+  return { kind: 'rect', left: el.x - el.width / 2, top: start, width: el.width, height: end - start };
+}
+
+/**
  * Convert a Chart.js element (bar, slice, point, etc.) into an overlay shape.
  *
  * Element types expose different geometry properties:
  * - Arc (pie / doughnut slice): `x`, `y` (circle centre), `innerRadius`,
  *   `outerRadius`, `startAngle`, `endAngle` — no box of any kind.
+ * - Box or violin: a bar's `x`, `y`, `width`, `height`, `horizontal`, plus its
+ *   summary as pixels along the value axis (`median`, `q1`, `q3`, `min`,
+ *   `max`, `whiskerMin`/`whiskerMax`, `outliers`, and a violin's `coords`).
  * - Bar: `x`, `y`, `base`, `width`, `height`, `horizontal` (read directly).
  * - Candlestick / OHLC: `x` (center), `width`, `high`/`low` (top/bottom pixel
  *   y), `open`/`close` (body endpoints in pixels).
@@ -345,7 +404,7 @@ function wedgePath(wedge: OverlayWedge): string {
 export function elementToOverlayShape(element: ChartJsMetaElement): OverlayShape | null {
   // Chart.js element instances carry additional runtime properties beyond
   // the minimal `ChartJsMetaElement` interface. Access them defensively.
-  const el = element as ChartJsMetaElement & {
+  const el = element as ChartJsMetaElement & DistributionGeometry & {
     base?: number;
     width?: number;
     height?: number;
@@ -384,6 +443,15 @@ export function elementToOverlayShape(element: ChartJsMetaElement): OverlayShape
       endAngle: el.endAngle,
     };
   }
+
+  // Box or violin (chartjs-chart-boxplot). Its controller extends Chart.js's
+  // BarController, so the element also carries a bar's `base`, `width` and
+  // `height`, and the bar branch below outlined a bar from the value axis's
+  // base to the median: empty space under the box, and none of the box above
+  // the median, the upper whisker or the outliers. A plain bar has no
+  // `median`, so this is checked first.
+  if (typeof el.median === 'number')
+    return distributionRect(el);
 
   // Bar-shaped element: has a baseline and a box.
   if (

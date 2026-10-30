@@ -10,7 +10,7 @@ import { elementToOverlayShape, HighlightOverlay } from '@adapters/chartjs/overl
  * `ChartJsMetaElement` interface declares, and that extra geometry is exactly
  * what the shape detection reads — so build them loosely.
  */
-function element(props: Record<string, number | boolean>): ChartJsMetaElement {
+function element(props: Record<string, unknown>): ChartJsMetaElement {
   return props as unknown as ChartJsMetaElement;
 }
 
@@ -77,6 +77,85 @@ describe('chart.js highlight overlay', () => {
       }));
 
       expect(shape).toEqual({ kind: 'rect', left: 35, top: 20, width: 30, height: 100 });
+    });
+
+    // The boxplot plugin's elements as its controller leaves them: Chart.js's
+    // bar geometry, with `y` at the median and `base` at the zero line, plus
+    // the summary in pixels. The scale draws value v at pixel 400 - 5v.
+    it('outlines a box plot\'s box, whiskers and outliers, not a bar up to its median', () => {
+      const shape = elementToOverlayShape(element({
+        x: 384,
+        y: 190,
+        base: 400,
+        width: 156,
+        height: 210,
+        median: 190,
+        q1: 250,
+        q3: 140,
+        whiskerMin: 300,
+        whiskerMax: 75,
+        min: 300,
+        max: 75,
+        outliers: [340, 40],
+      }));
+
+      // From the upper outlier (72) down to the lower one (12).
+      expect(shape).toEqual({ kind: 'rect', left: 306, top: 40, width: 156, height: 300 });
+    });
+
+    it('outlines a sideways box plot along the value axis', () => {
+      // `indexAxis: 'y'`: the value runs across, at pixel 100 + 5v, and
+      // `height` is the box's thickness.
+      const shape = elementToOverlayShape(element({
+        x: 250,
+        y: 200,
+        base: 100,
+        width: 150,
+        height: 68,
+        horizontal: true,
+        median: 250,
+        q1: 210,
+        q3: 300,
+        whiskerMin: 150,
+        whiskerMax: 350,
+        outliers: [],
+      }));
+
+      expect(shape).toEqual({ kind: 'rect', left: 150, top: 166, width: 200, height: 68 });
+    });
+
+    it('outlines a violin from one end of its curve to the other', () => {
+      const shape = elementToOverlayShape(element({
+        x: 100,
+        y: 200,
+        base: 400,
+        width: 40,
+        height: 200,
+        median: 200,
+        q1: 240,
+        q3: 160,
+        min: 300,
+        max: 80,
+        outliers: [],
+        coords: [{ v: 300, estimate: 0.1 }, { v: 200, estimate: 0.4 }, { v: 80, estimate: 0.1 }],
+      }));
+
+      expect(shape).toEqual({ kind: 'rect', left: 80, top: 80, width: 40, height: 220 });
+    });
+
+    it('outlines nothing for a box with no finite summary', () => {
+      // A degenerate box, as the plugin leaves one it could not summarise.
+      const shape = elementToOverlayShape(element({
+        x: 100,
+        y: Number.NaN,
+        base: 400,
+        width: 40,
+        height: Number.NaN,
+        median: Number.NaN,
+        outliers: [],
+      }));
+
+      expect(shape).toBeNull();
     });
   });
 
