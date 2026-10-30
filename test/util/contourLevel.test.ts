@@ -18,7 +18,7 @@ describe('contourCurveLevel', () => {
     // it, while the chart is first rendered.
     const malformed = [null, 7, { x: 0 }] as unknown as ContourPoint[][];
 
-    expect(malformed.map(curve => contourCurveLevel(curve))).toEqual([NaN, NaN, NaN]);
+    expect(malformed.map(curve => contourCurveLevel(curve))).toEqual([Number.NaN, Number.NaN, Number.NaN]);
     expect(contourCurveLevel([null] as unknown as ContourPoint[])).toBeNaN();
   });
 });

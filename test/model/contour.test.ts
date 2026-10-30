@@ -272,6 +272,31 @@ describe('up and down move between levels', () => {
     expect(trace.moveOnce('DOWNWARD')).toBe(false);
   });
 
+  test('control and up on the highest level stays and says the point again', () => {
+    // As a jump to the end of a grid does on every other chart.
+    const trace = contour(2, 1, RINGS);
+
+    const moved = trace.moveToExtreme('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(place(trace)).toEqual([5.5, 6, 0.3]);
+  });
+
+  test('from a point with no position, up lands on the next level\'s first point', () => {
+    // Nothing to measure the nearest point from, but the next level is still
+    // there: the reader reaches it rather than hearing there is none.
+    const unplaced: ContourPoint[][] = [
+      [{ x: Number.NaN, y: 0, level: 1 }],
+      [{ x: 4, y: 4, level: 2 }, { x: 5, y: 5, level: 2 }],
+    ];
+    const trace = contour(0, 0, unplaced);
+
+    const moved = trace.moveOnce('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(place(trace)).toEqual([4, 4, 2]);
+  });
+
   test('left and right still walk the curve', () => {
     const trace = contour(1, 0, RINGS);
 

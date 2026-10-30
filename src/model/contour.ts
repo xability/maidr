@@ -13,6 +13,16 @@ function withoutFloatNoise(value: number): number {
   return Number(value.toPrecision(12));
 }
 
+/** One point of a level, and where it sits in the grid the reader walks. */
+interface LevelPoint {
+  /** Which curve. */
+  row: number;
+  /** Which point along it. */
+  col: number;
+  /** The point itself. */
+  point: ContourPoint;
+}
+
 /** A gap between two adjacent levels, and the point it was measured from. */
 interface Gap {
   /** How far apart the two levels run there. */
@@ -64,7 +74,7 @@ export class ContourTrace extends LineTrace {
   private readonly levelOrder: number[];
 
   /** Every point of each declared level, over all the curves it is drawn as. */
-  private readonly levelPoints: Map<number, ContourPoint[]>;
+  private readonly levelPoints: Map<number, LevelPoint[]>;
 
   /**
    * Memoised {@link ContourTrace.spacingExtremes}. `undefined` means not yet
@@ -91,8 +101,8 @@ export class ContourTrace extends LineTrace {
         continue;
       }
       const points = this.levelPoints.get(level) ?? [];
-      for (const point of curve) {
-        points.push(point);
+      for (const [col, point] of curve.entries()) {
+        points.push({ row, col, point });
       }
       this.levelPoints.set(level, points);
     }
@@ -136,6 +146,9 @@ export class ContourTrace extends LineTrace {
    * on every curve -- so they landed on an arbitrary curve rather than the
    * highest or lowest level, and the next Up or Down still moved.
    *
+   * On the highest level already, Control+Up stays and says the point again,
+   * as a jump to the end of a grid does on every other chart.
+   *
    * @param direction - The direction to jump in
    * @returns Whether the reader moved
    */
@@ -158,9 +171,6 @@ export class ContourTrace extends LineTrace {
     const target = level === extreme
       ? { row: this.row, col: this.col }
       : this.nearestPointOf(extreme);
-    if (target === null) {
-      return super.moveToExtreme(direction);
-    }
     this.row = target.row;
     this.col = target.col;
     this.notifyStateUpdate();
@@ -171,35 +181,35 @@ export class ContourTrace extends LineTrace {
    * The point of a level nearest the reader's, across every curve the level
    * is drawn as.
    *
-   * @param level - The level to land on
-   * @returns Its nearest point, or null when the reader's point or every
-   * point of the level has no position
+   * Where nothing can be measured -- the reader's point, or every point of
+   * the level, has no position -- the level's first point, so the reader
+   * still reaches the level rather than hearing that there is none.
+   *
+   * @param level - A declared level, to land on
+   * @returns Its nearest point
    */
-  private nearestPointOf(level: number): { row: number; col: number } | null {
+  private nearestPointOf(level: number): { row: number; col: number } {
+    const points = this.levelPoints.get(level) ?? [];
+    const first = points[0] ?? { row: this.levels.indexOf(level), col: 0 };
     const here = this.curves[this.row]?.[this.col];
     const x = Number(here?.x);
     const y = Number(here?.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      return null;
+      return { row: first.row, col: first.col };
     }
 
-    let best: { row: number; col: number } | null = null;
+    let best = first;
     let bestDistance = Number.POSITIVE_INFINITY;
-    for (const [row, curve] of this.curves.entries()) {
-      if (this.levels[row] !== level) {
-        continue;
-      }
-      for (const [col, point] of curve.entries()) {
-        const dx = Number(point.x) - x;
-        const dy = Number(point.y) - y;
-        const distance = dx * dx + dy * dy;
-        if (Number.isFinite(distance) && distance < bestDistance) {
-          bestDistance = distance;
-          best = { row, col };
-        }
+    for (const candidate of points) {
+      const dx = Number(candidate.point.x) - x;
+      const dy = Number(candidate.point.y) - y;
+      const distance = dx * dx + dy * dy;
+      if (Number.isFinite(distance) && distance < bestDistance) {
+        bestDistance = distance;
+        best = candidate;
       }
     }
-    return best;
+    return { row: best.row, col: best.col };
   }
 
   /**
@@ -386,10 +396,9 @@ export class ContourTrace extends LineTrace {
    * @returns One name per level
    */
   private levelNames(): string[] {
-    const names = this.levelOrder.map((level) => {
-      const row = this.levels.indexOf(level);
-      return this.groupNameAt(row);
-    });
+    const names = this.levelOrder.map(level =>
+      this.groupNameAt(this.levelPoints.get(level)?.[0]?.row ?? this.levels.indexOf(level)),
+    );
     for (const [row, level] of this.levels.entries()) {
       if (!Number.isFinite(level)) {
         names.push(this.groupNameAt(row));
@@ -516,7 +525,7 @@ export class ContourTrace extends LineTrace {
       if (level === undefined) {
         continue;
       }
-      for (const point of this.levelPoints.get(level) ?? []) {
+      for (const { point } of this.levelPoints.get(level) ?? []) {
         const dx = Number(point.x) - x;
         const dy = Number(point.y) - y;
         if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
