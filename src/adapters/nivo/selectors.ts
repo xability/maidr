@@ -63,19 +63,16 @@ export function testIdSelector(scope: string, testId: string): string {
  *
  * A horizontal box is that same vertical box inside a group transformed with
  * `rotate(-90)`. The core derives the Q1 and Q3 highlights from the edges of
- * the `iq` element's bounding box, which it measures in the element's own,
- * unrotated coordinates — so for a horizontal layer it would take the box's
- * local left and right edges, which the rotation lays along the top and
- * bottom on screen. Such a box names its body for Q1 and Q3 outright, which
- * the core outlines as drawn, rotation and all.
+ * the `iq` element's bounding box, and takes a box drawn turned a quarter by
+ * the edges the turn lays across the chart, so a horizontal box names the
+ * same parts as a vertical one.
  *
  * @param scope - The chart's scope prefix
  * @param key - The box's `data-key`
  * @param whiskerCaps - Whether Nivo draws whisker caps
- * @param horizontal - Whether the box is drawn rotated
  * @returns The box's selector
  */
-function boxSelector(scope: string, key: string, whiskerCaps: boolean, horizontal: boolean): BoxSelector {
+function boxSelector(scope: string, key: string, whiskerCaps: boolean): BoxSelector {
   const box = `${scope}[data-key="${cssEscape(key)}"]`;
   const line = (n: number): string => `${box} > line:nth-of-type(${n})`;
   const body = `${box} > rect`;
@@ -86,7 +83,6 @@ function boxSelector(scope: string, key: string, whiskerCaps: boolean, horizonta
     q2: line(1),
     max: line(whiskerCaps ? 5 : 3),
     upperOutliers: [],
-    ...(horizontal ? { q1: body, q3: body } : {}),
   };
 }
 
@@ -120,7 +116,7 @@ export function stampedSelectors(marks: NivoMarks, scope: string): MaidrLayer['s
     case 'cells':
       return [...marks.testIds].reverse().map(row => row.map(id => (id === null ? null : testIdSelector(scope, id))));
     case 'boxes':
-      return marks.keys.map(key => boxSelector(scope, key, marks.whiskerCaps, marks.horizontal));
+      return marks.keys.map(key => boxSelector(scope, key, marks.whiskerCaps));
     case 'lines':
     case 'nodes':
       return undefined;

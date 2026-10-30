@@ -405,10 +405,10 @@ describe('nivo boxplot', () => {
     const selectors = layer.selectors as BoxSelector[];
 
     expectBoxesResolve(selectors);
-    // Drawn rotated, so Q1 and Q3 name the body rather than leave the core to
-    // derive them from its unrotated edges.
+    // Drawn rotated, and the core takes the quartile edges from where the
+    // turn draws them, so Q1 and Q3 are left to it, as on a vertical box.
     for (const box of selectors)
-      expect([box.q1, box.q3]).toEqual([box.iq, box.iq]);
+      expect([box.q1, box.q3]).toEqual([undefined, undefined]);
     expect(document.querySelector(selectors[0].iq)?.parentElement?.getAttribute('transform')).toContain('rotate(-90)');
     expect((layer.data as BoxPoint[]).map(box => box.z)).toEqual(['C', 'B', 'A']);
     const ys = selectors.map(box => translateY(document.querySelector(box.iq)?.parentElement));

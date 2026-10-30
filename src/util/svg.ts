@@ -541,6 +541,55 @@ export abstract class Svg {
   private static readonly MIN_LINE_SPAN = 10;
 
   /**
+   * Which of an element's own edges is drawn on each side of the chart, when
+   * the element is drawn turned a quarter.
+   *
+   * An edge named for {@link buildLineElements} is an edge of the element's
+   * bounding box in its own coordinates. Turned a quarter, as Nivo draws a
+   * horizontal box -- a vertical one inside a group rotated by -90° -- its
+   * own top and bottom are drawn as the chart's left and right. Read before
+   * anything is inserted, as the lines are.
+   *
+   * @param element - The element
+   * @returns The element's own edge drawn on each side of the chart, or null
+   *   when the element is not turned a quarter, or cannot be measured
+   */
+  public static quarterTurnedEdges(element: SVGElement): Record<Edge, Edge> | null {
+    const graphic = element as Partial<SVGGraphicsElement>;
+    if (typeof graphic.getCTM !== 'function' || typeof graphic.getBBox !== 'function') {
+      return null;
+    }
+    let measured: { matrix: DOMMatrix | null; box: DOMRect };
+    try {
+      measured = { matrix: graphic.getCTM(), box: graphic.getBBox() };
+    } catch {
+      return null;
+    }
+    const { matrix, box } = measured;
+    // A quarter turn's off-diagonal terms outweigh its diagonal ones:
+    // rotate(±90) has b and c at ±1 and a and d at 0. A rotation nearer
+    // upright than 45°, or a skew that leaves the diagonal larger, is read
+    // as upright, as a box is otherwise drawn.
+    if (matrix === null || Math.abs(matrix.b) + Math.abs(matrix.c) <= Math.abs(matrix.a) + Math.abs(matrix.d)) {
+      return null;
+    }
+    const drawn = (x: number, y: number): { x: number; y: number } => ({
+      x: matrix.a * x + matrix.c * y + matrix.e,
+      y: matrix.b * x + matrix.d * y + matrix.f,
+    });
+    const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const top = drawn(middle.x, box.y);
+    const bottom = drawn(middle.x, box.y + box.height);
+    const left = drawn(box.x, middle.y);
+    const right = drawn(box.x + box.width, middle.y);
+    // A quarter turn lays the element's own top and bottom across the
+    // chart, and its own left and right up and down it.
+    const [onLeft, onRight]: [Edge, Edge] = top.x <= bottom.x ? ['top', 'bottom'] : ['bottom', 'top'];
+    const [onTop, onBottom]: [Edge, Edge] = left.y <= right.y ? ['left', 'right'] : ['right', 'left'];
+    return { left: onLeft, right: onRight, top: onTop, bottom: onBottom };
+  }
+
+  /**
    * Builds one line per request, each along one edge of one element's
    * bounding box, and returns them **detached**.
    *

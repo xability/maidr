@@ -102,7 +102,7 @@ export type NivoMarks
      * order. A horizontal box is drawn as a vertical one inside a group
      * rotated by -90°.
      */
-    | { kind: 'boxes'; keys: string[]; whiskerCaps: boolean; horizontal: boolean }
+    | { kind: 'boxes'; keys: string[]; whiskerCaps: boolean }
     /**
      * Line series, tagged after render. `points[s]` lists the test ids of the
      * point markers of series `s` in data order, and is null when Nivo draws
