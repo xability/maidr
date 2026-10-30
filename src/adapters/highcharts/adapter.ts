@@ -2735,8 +2735,13 @@ function convertAreaSeries(
   const traceType = isNormalized
     ? TraceType.NORMALIZED_AREA
     : (STACKING_MODES.has(stacking) ? TraceType.STACKED_AREA : TraceType.AREA);
+  // A stack's bands are read from the base of the stack up, Up moving to the
+  // band drawn above, and Highcharts draws its first series on top unless the
+  // axis turns `reversedStacks` off (see `inStackOrder`). Bands that do not
+  // stack are drawn at their own values and keep the declared order.
+  const bands = traceType === TraceType.AREA ? seriesList : inStackOrder(seriesList);
 
-  const data: LinePoint[][] = seriesList.map(series =>
+  const data: LinePoint[][] = bands.map(series =>
     series.data
       .filter(p => p.y !== null)
       .map(p => ({
@@ -2763,7 +2768,7 @@ function convertAreaSeries(
     // An area series still renders the `path.highcharts-graph` its top edge
     // traces, alongside the `path.highcharts-area` fill; `AreaTrace` inherits
     // `LineTrace`'s path parsing, so the graph is what it needs.
-    selectors: lineSelectors(containerId, seriesList.map(s => s.index)),
+    selectors: lineSelectors(containerId, bands.map(s => s.index)),
     axes: {
       x: getAxisLabel(first, 'x'),
       y: getAxisLabel(first, 'y'),

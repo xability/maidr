@@ -160,6 +160,37 @@ test.describe('Stacked Area Plot', () => {
     });
   });
 
+  test.describe('Navigation', () => {
+    test('should move up the stack to the band drawn on top', async ({ page }) => {
+      // Subscriptions, the bottom band, is the thicker one in 2019 (10 under
+      // 5). Ranked by value, Up from it said "No more data to display".
+      const areaPlotPage = new AreaPlotPage(page);
+      await areaPlotPage.activateMaidr();
+      await areaPlotPage.moveToNextDataPoint();
+      await areaPlotPage.moveToDataPointAbove();
+
+      const announcement = normalizeText(await areaPlotPage.getInstructionText());
+
+      expect(announcement).toContain('Services');
+      expect(announcement).toContain('Total is 15');
+    });
+
+    test('should name the band where two bands have the same value', async ({ page }) => {
+      // Both bands are 20 in 2020, drawn one on top of the other. Read as
+      // lines, the point was announced as an intersection of the two.
+      const areaPlotPage = new AreaPlotPage(page);
+      await areaPlotPage.activateMaidr();
+      await areaPlotPage.moveToNextDataPoint();
+      await areaPlotPage.moveToNextDataPoint();
+
+      const announcement = normalizeText(await areaPlotPage.getInstructionText());
+
+      expect(announcement).toContain('2020');
+      expect(announcement).toContain('Subscriptions');
+      expect(announcement).not.toContain('intersection');
+    });
+  });
+
   test.describe('Announcements', () => {
     test('should announce the running total alongside the band value', async ({ page }) => {
       // The whole point of the trace type: verbose mode has to name both

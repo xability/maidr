@@ -177,10 +177,12 @@ export interface AnyChartScale {
   stackMode?: () => string;
 
   /**
-   * `'direct'` by default, `'reverse'` when the series are stacked the other
-   * way round. Read on a marimekko's y scale, together with
-   * {@link AnyChartScale.inverted}, to tell which series is drawn at the
-   * bottom of each column.
+   * Which way the series are stacked: `'direct'`, the default, draws the
+   * first series at the top of the stack and the last on the baseline, and
+   * `'reverse'` the other way round. Read on a marimekko's y scale and on a
+   * stacked area chart's, together with {@link AnyChartScale.inverted}, to
+   * tell which series is drawn at the bottom. Absent on scale types that
+   * cannot stack.
    */
   stackDirection?: () => string;
 

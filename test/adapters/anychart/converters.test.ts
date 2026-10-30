@@ -607,6 +607,8 @@ interface MockChartConfig {
    * at all, which is how every non-Cartesian chart answers.
    */
   stackMode?: string;
+  /** The y scale's stacking direction, `'direct'` when omitted. */
+  stackDirection?: string;
   /**
    * The x scale's kind. Omit for a chart that exposes no x scale, which is how
    * every build the adapter cannot ask answers — a marker series then keeps
@@ -629,7 +631,9 @@ function createChart(config: MockChartConfig): AnyChartInstance {
     getSeriesCount: () => series.length,
     getSeriesAt: (i: number) => series[i] ?? null,
     ...(chartType ? { getType: () => chartType } : {}),
-    ...(stackMode ? { yScale: () => ({ stackMode: () => stackMode }) } : {}),
+    ...(stackMode
+      ? { yScale: () => ({ stackMode: () => stackMode, stackDirection: () => config.stackDirection ?? 'direct' }) }
+      : {}),
     ...(xScaleType ? { xScale: () => ({ getType: () => xScaleType }) } : {}),
     ...(dataRows
       ? { data: () => ({ getIterator: () => createIterator(dataRows) }) }
@@ -1049,14 +1053,38 @@ describe('anyChartToMaidr (area series)', () => {
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.STACKED_AREA);
     // Each band carries its OWN value, never the running edge: AreaTrace sums
-    // the layer itself, and pre-accumulating here would double-count.
+    // the layer itself, and pre-accumulating here would double-count. AnyChart
+    // draws the first series on top, so the bands are listed last series
+    // first, from the bottom of the stack up.
     expect(layers[0].data as LinePoint[][]).toEqual([
-      [{ x: 'Jan', y: 3, z: 'area' }, { x: 'Feb', y: 5, z: 'area' }],
       [{ x: 'Jan', y: 1, z: 'spline-area' }, { x: 'Feb', y: 2, z: 'spline-area' }],
+      [{ x: 'Jan', y: 3, z: 'area' }, { x: 'Feb', y: 5, z: 'area' }],
     ]);
     // One selector per band, in band order — a shortfall would drop the
     // highlight for the whole layer, not for the one band that went missing.
     expect(layers[0].selectors).toEqual([
+      '[data-maidr-anychart-line-point^="1-"]',
+      '[data-maidr-anychart-line-point^="0-"]',
+    ]);
+  });
+
+  it('lists the bands of a chart stacked in reverse as declared', () => {
+    // `stackDirection('reverse')` draws the first series on the baseline, so
+    // the declared order already runs from the bottom of the stack up.
+    const chart = createChart({
+      title: 'Rainfall',
+      stackMode: 'value',
+      stackDirection: 'reverse',
+      series: [
+        createAreaSeries('area', [['Jan', 3]]),
+        createAreaSeries('spline-area', [['Jan', 1]]),
+      ],
+    });
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect((layer.data as LinePoint[][]).map(band => band[0].z)).toEqual(['area', 'spline-area']);
+    expect(layer.selectors).toEqual([
       '[data-maidr-anychart-line-point^="0-"]',
       '[data-maidr-anychart-line-point^="1-"]',
     ]);

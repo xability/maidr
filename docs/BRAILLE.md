@@ -383,6 +383,10 @@ would read as the same shape with different numbers behind it.
 As for a line plot: each line of the display is one series, and the user moves
 between series with the up and down arrow keys on a single-line display.
 
+A stacked area's bands are listed **top band first**, as they are drawn, in the
+on-screen braille field as on a multiline display: the up arrow moves to the
+band stacked on top and the cursor up a line.
+
 ### Error bar plot [experimental]
 
 An error bar layer becomes one braille row per magnitude it draws — the lower

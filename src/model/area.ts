@@ -1,5 +1,6 @@
 import type { LinePoint, MaidrLayer, StepDirection } from '@type/grammar';
-import type { DescriptionState, TextState, TraceState } from '@type/state';
+import type { MovableDirection } from '@type/movable';
+import type { BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import { TraceType } from '@type/grammar';
 import { t } from '@util/i18n';
@@ -171,6 +172,28 @@ function isMeasured(value: number): boolean {
 }
 
 /**
+ * Where the marker the highlight holds for a point is drawn: its centre, and
+ * how wide it is, in viewport pixels.
+ *
+ * @param cell - The highlight's marker, or markers, for one point
+ * @returns The marker's centre and width; null when the point has no marker,
+ *   and NaN throughout when the chart is not laid out yet
+ */
+function markerCentre(
+  cell: SVGElement[] | SVGElement | undefined,
+): { x: number; y: number; width: number } | null {
+  const marker = Array.isArray(cell) ? cell[0] : cell;
+  if (marker === undefined) {
+    return null;
+  }
+  const box = marker.getBoundingClientRect();
+  if (box.top === 0 && box.width === 0 && box.height === 0) {
+    return { x: Number.NaN, y: Number.NaN, width: Number.NaN };
+  }
+  return { x: box.left + box.width / 2, y: box.top + box.height / 2, width: box.width };
+}
+
+/**
  * Trace implementation for area charts — a line with the region between it
  * and a baseline filled in.
  *
@@ -193,6 +216,13 @@ function isMeasured(value: number): boolean {
  * or the already-accumulated edge, and asking every adapter to normalise that
  * would put the same arithmetic in each of them. Summing the series MAIDR was
  * given keeps one definition in one place.
+ *
+ * The same two magnitudes are why a stack is not walked as a line is. Up and
+ * Down step through the bands in stack order ({@link findVerticalTarget}),
+ * since a band's value says how thick it is and not where it is drawn, and
+ * two bands of one value are never taken to meet ({@link seriesCanMeet}).
+ * Which end of the list is the top of the stack is measured where the chart
+ * can be ({@link listedTopFirst}).
  */
 export class AreaTrace extends LineTrace {
   private readonly variant: AreaVariant;
@@ -228,6 +258,12 @@ export class AreaTrace extends LineTrace {
    * area, which is the shape of every producer that does not say.
    */
   private readonly stepDirection?: StepDirection;
+
+  /**
+   * Whether the first band is the one drawn at the top of the stack, once
+   * measured; `null` until then. See {@link listedTopFirst}.
+   */
+  private topBandFirst: boolean | null = null;
 
   /**
    * Creates a new area trace.
@@ -376,6 +412,175 @@ export class AreaTrace extends LineTrace {
       }
     }
     return totals;
+  }
+
+  /**
+   * The band stacked on top of the cursor's, or the one underneath it.
+   *
+   * A stacked layer lists its bands from the bottom of the stack up, as a
+   * stacked bar lists its segments, so the next series is the band drawn on
+   * top -- or, on a chart measured to list them the other way, the band drawn
+   * underneath ({@link listedTopFirst}). A line moves to the series with the
+   * next higher value, because a line is drawn at its value; a band is drawn
+   * on top of the bands below it, and its value is its thickness. Read the
+   * line's way, Up from a bottom band thicker than the band above it said "No
+   * more data to display", Down went up the drawing, and which way a key went
+   * changed from one x to the next.
+   *
+   * A band that does not reach this x -- one that starts late or ends early,
+   * so its list has no entry for the x -- is passed over to the band beyond
+   * it. A band that has an entry for the x with no value, a gap, is landed on
+   * and announced as missing, as Left and Right land on gaps. An unstacked
+   * area's bands are drawn at their values and move as a line's series do.
+   *
+   * @param direction - UPWARD for the band on top, DOWNWARD for the one underneath
+   * @returns The row and column to move to, or null past the top or bottom band
+   */
+  protected override findVerticalTarget(
+    direction: 'UPWARD' | 'DOWNWARD',
+  ): { row: number; col: number } | null {
+    if (this.variant === 'area') {
+      return super.findVerticalTarget(direction);
+    }
+    const current = this.points[this.row]?.[this.col];
+    if (current === undefined) {
+      return null;
+    }
+    const upward = this.listedTopFirst() ? -1 : 1;
+    const step = direction === 'UPWARD' ? upward : -upward;
+    for (let row = this.row + step; row >= 0 && row < this.points.length; row += step) {
+      const col = this.findColumnByXValue(row, current.x);
+      if (col !== -1) {
+        return { row, col };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Control + Up and Down go to the top and the bottom band at this x.
+   *
+   * The line's extremes are the highest and lowest values at the x, which on
+   * a stack name a band in the middle as often as not, and from that "top"
+   * band Up could still move. Left and right are the line's.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (this.variant === 'area' || (direction !== 'UPWARD' && direction !== 'DOWNWARD')) {
+      return super.moveToExtreme(direction);
+    }
+    if (this.isInitialEntry) {
+      this.enterTrace();
+    }
+    if (this.points[this.row]?.[this.col] === undefined) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    for (let target = this.findVerticalTarget(direction); target !== null; target = this.findVerticalTarget(direction)) {
+      this.row = target.row;
+      this.col = target.col;
+    }
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * Stacked bands never meet: each is drawn on top of the bands below it, so
+   * two of one value are one band on top of the other, and no band crosses
+   * another. An unstacked area's bands are drawn at their values and meet
+   * where lines would.
+   *
+   * @returns True only for an unstacked area
+   */
+  protected override get seriesCanMeet(): boolean {
+    return this.variant === 'area';
+  }
+
+  /**
+   * Whether the bands are listed from the top of the stack down.
+   *
+   * The documented order is bottom band first, and it is the order read when
+   * nothing can be measured: a chart drawn on a canvas, or a stack of one
+   * band. Not every producer lists a stack that way, though. ggplot2 stacks
+   * its first group on top, so that the stack reads in the order of its
+   * legend, and r-maidr lists the groups in that order; Highcharts, by
+   * default, draws its first series on top as well. Read the documented way,
+   * Up on those charts moved down the drawing. So a chart in the page is
+   * measured, the way `GanttTrace` measures its lanes, from the markers the
+   * highlight already holds: they sit on each band's top edge, and at an x
+   * both bands reach, the first band's edge is drawn above the last band's
+   * only when the first band is the top of the stack. Summed over every such
+   * x, so a band with nothing in it at one x does not decide it alone. Two
+   * markers of one x that are not drawn one above the other are not read: a
+   * highlight that resolved a band to another x's marks says nothing about
+   * the stack, and the list is then read as documented.
+   *
+   * Measured when first asked -- a vertical key, or the braille a move
+   * reports -- rather than at construction, when the chart may not be laid
+   * out yet; until it is, the list is read as documented and measured again
+   * on the next key.
+   *
+   * @returns True when the first band is drawn at the top of the stack
+   */
+  private listedTopFirst(): boolean {
+    if (this.variant === 'area') {
+      return false;
+    }
+    if (this.topBandFirst !== null) {
+      return this.topBandFirst;
+    }
+    // The first and the last band the highlight found markers for: a band it
+    // could not resolve has nothing to measure, and leaves the order of the
+    // others as it was.
+    const markers = this.highlightValues ?? [];
+    const found = markers.flatMap((row, index) => (row.length > 0 ? [index] : []));
+    const first = found[0];
+    const last = found.at(-1);
+    if (first === undefined || last === undefined || first === last) {
+      this.topBandFirst = false;
+      return false;
+    }
+
+    // How far below the first band's edge the last band's is drawn, summed
+    // over the x values both reach. Screen y grows down the page.
+    let lean = 0;
+    for (let col = 0; col < this.points[first].length; col++) {
+      const lastCol = this.findColumnByXValue(last, this.points[first][col].x);
+      if (lastCol === -1) {
+        continue;
+      }
+      const ofFirst = markerCentre(markers[first][col]);
+      const ofLast = markerCentre(markers[last][lastCol]);
+      if (ofFirst === null || ofLast === null) {
+        continue;
+      }
+      if (Number.isNaN(ofFirst.y) || Number.isNaN(ofLast.y)) {
+        // Not laid out yet: read the list as documented, and measure again
+        // on the next key rather than keep an answer read from nothing.
+        return false;
+      }
+      if (Math.abs(ofFirst.x - ofLast.x) > Math.max(ofFirst.width, ofLast.width, 1)) {
+        continue;
+      }
+      lean += ofLast.y - ofFirst.y;
+    }
+    this.topBandFirst = lean > 0;
+    return this.topBandFirst;
+  }
+
+  /**
+   * The braille state, which writes the top band on the top line whichever
+   * way the bands are listed: a list that runs down the stack keeps its first
+   * band, row 0, on the top line (`rowsTopFirst`), and Down moves the caret
+   * down a line to the band underneath.
+   *
+   * @returns The line trace's braille state, marked when row 0 is drawn on top
+   */
+  protected override get braille(): BrailleState {
+    const state = super.braille;
+    return !state.empty && this.listedTopFirst() ? { ...state, rowsTopFirst: true } : state;
   }
 
   /**

@@ -613,6 +613,23 @@ The data property is defined as a list of objects where each object is a record 
       ]
     }
 
+    //stacked_area and stacked_normalized_area: nested exactly like `line`, one
+    //inner array per band. Each point carries its band's OWN value, not the
+    //height its top edge is drawn at; MAIDR sums the running total itself.
+    //List the bands from the bottom of the stack up: the first is the bottom
+    //band, Up moves to the next one, drawn on top of it, and Control + Up to
+    //the top band. Where the bands' highlight can be measured, MAIDR reads
+    //which end of the list is drawn on top, so a list in legend order (top
+    //band first, as ggplot2 stacks it) is walked the same way; a chart drawn
+    //on a canvas, with nothing to measure, is read bottom band first.
+    maidr = {
+      "type": "stacked_area",
+      "data":[
+        [ { "x": "2019", "y": 10, "z": "Subscriptions" } ], //the bottom band
+        [ { "x": "2019", "y": 5, "z": "Services" } ]        //drawn on top of it
+      ]
+    }
+
     //step: piecewise-constant data — the value is HELD across an interval and
     //then jumps, rather than being interpolated the way a line implies.
     //Data is nested exactly like `line`: one inner array per series.

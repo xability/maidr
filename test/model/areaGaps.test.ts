@@ -117,3 +117,29 @@ describe('a measured zero is still a reading', () => {
     expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is 0, Band is Subscriptions, Total is 20, 0.0% of it');
   });
 });
+
+describe('up and down onto a gap', () => {
+  // A band with a position at this x and no reading there is still the band
+  // drawn at that place in the stack, so Up and Down land on it and say it is
+  // missing, as Left and Right do. A band that does not reach the x at all is
+  // passed over (`area.test.ts`).
+
+  test('up lands on the gap in the band on top and announces it missing', () => {
+    const trace = stackedArea([SERVICES, SUBSCRIPTIONS], 0, 1);
+
+    const moved = trace.moveOnce('UPWARD');
+
+    expect(moved).toBe(true);
+    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is missing, Band is Subscriptions, Total is 20');
+    expect(trace.isMovable('UPWARD')).toBe(false);
+  });
+
+  test('down from the gap reaches the band underneath', () => {
+    const trace = stackedArea([SERVICES, SUBSCRIPTIONS], 1, 1);
+
+    const moved = trace.moveOnce('DOWNWARD');
+
+    expect(moved).toBe(true);
+    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is 20, Band is Services, Total is 20, 100.0% of it');
+  });
+});

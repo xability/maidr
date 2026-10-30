@@ -395,3 +395,12 @@ Up, Down, Left, and Right controls function similar to a grid:
 - Up and Down arrows move between different layers of the same bar or point on the x-axis.
 
 Note that there are also pseudo layers at the top of each layer stack: a Summary layer representing a sum of all that bar's values, and a Combined layer that plays a separated or combined run of tones of all the layers. The standard 'S' key that controls sonification now has an extra setting to play either combined tones or separated tones.
+
+## Stacked Area Controls
+
+On a stacked area chart and a 100% stacked area chart, Up and Down move between
+the bands at the same point on the x-axis in the order they are stacked: Up to
+the band drawn on top of the one you are on, Down to the band underneath,
+whatever their values. Control + Up and Control + Down (Command on a Mac) go to
+the top and the bottom band. Two bands of the same value are still two bands, one
+drawn on top of the other, so they are never announced as an intersection.

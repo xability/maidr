@@ -1247,10 +1247,12 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // height profile — so the line encoder renders it correctly. A stacked
       // layer encodes each band's own height, matching what the audio plays
       // and what `cross` announces; the running total is not part of the
-      // profile.
+      // profile. Its bands are stacked bottom up and UP is the band on top,
+      // the next series, so they are written last first on a single line as
+      // well as on several, the top band on the top line as it is drawn.
       [TraceType.AREA, asGeneric(new LineBrailleEncoder())],
-      [TraceType.NORMALIZED_AREA, asGeneric(new LineBrailleEncoder())],
-      [TraceType.STACKED_AREA, asGeneric(new LineBrailleEncoder())],
+      [TraceType.NORMALIZED_AREA, asGeneric(new LineBrailleEncoder(true))],
+      [TraceType.STACKED_AREA, asGeneric(new LineBrailleEncoder(true))],
       [TraceType.ALLUVIAL, asGeneric(new BarBrailleEncoder())],
       [TraceType.BAR, asGeneric(new BarBrailleEncoder())],
       [TraceType.CHORD, asGeneric(new BarBrailleEncoder())],

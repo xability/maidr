@@ -1,7 +1,7 @@
 import type { LinePoint } from '@type/grammar';
 import { highchartsToMaidr } from '@adapters/highcharts/adapter';
 import { TraceType } from '@type/grammar';
-import { categoryPoints, fakeChart, fakeSeries } from './helpers';
+import { categoryPoints, fakeAxis, fakeChart, fakeSeries } from './helpers';
 
 /** Points as Highcharts builds them for a percent stack: shares alongside values. */
 function percentPoints(
@@ -120,11 +120,33 @@ describe('highcharts area series', () => {
 
       expect(layer.type).toBe(TraceType.STACKED_AREA);
       // Each band carries its OWN height, never the accumulated top edge:
-      // AreaTrace sums the rows itself to announce the running total.
+      // AreaTrace sums the rows itself to announce the running total. The
+      // bands run from the base of the stack up, and Highcharts draws the
+      // first series, Asia, on top.
       expect(layer.data as LinePoint[][]).toEqual([
-        [{ x: '1750', y: 502, z: 'Asia' }, { x: '1800', y: 635, z: 'Asia' }],
         [{ x: '1750', y: 106, z: 'Africa' }, { x: '1800', y: 107, z: 'Africa' }],
+        [{ x: '1750', y: 502, z: 'Asia' }, { x: '1800', y: 635, z: 'Asia' }],
       ]);
+      expect(layer.selectors).toEqual([
+        expect.stringContaining('.highcharts-series-1 '),
+        expect.stringContaining('.highcharts-series-0 '),
+      ]);
+    });
+
+    it('keeps the declared order on an axis that stacks the first series at the base', () => {
+      const yAxis = fakeAxis({ options: { reversedStacks: false } });
+      const chart = fakeChart({
+        type: 'area',
+        plotOptions: { area: { stacking: 'normal' } },
+        series: [
+          fakeSeries({ index: 0, type: 'area', name: 'A', yAxis, data: categoryPoints([1, 2], ['a', 'b']) }),
+          fakeSeries({ index: 1, type: 'area', name: 'B', yAxis, data: categoryPoints([3, 4], ['a', 'b']) }),
+        ],
+      });
+
+      const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
+
+      expect((layer.data as LinePoint[][]).map(band => band[0].z)).toEqual(['A', 'B']);
     });
 
     it('reads chart-level `plotOptions.area.stacking` the same way', () => {
@@ -168,8 +190,8 @@ describe('highcharts area series', () => {
       expect(layer.type).toBe(TraceType.NORMALIZED_AREA);
       // The percentage is what the chart draws, so it is what is sonified.
       expect(layer.data as LinePoint[][]).toEqual([
-        [{ x: 'a', y: 25, z: 'A' }, { x: 'b', y: 40, z: 'A' }],
         [{ x: 'a', y: 75, z: 'B' }, { x: 'b', y: 60, z: 'B' }],
+        [{ x: 'a', y: 25, z: 'A' }, { x: 'b', y: 40, z: 'A' }],
       ]);
     });
 
@@ -209,8 +231,9 @@ describe('highcharts area series', () => {
 
       const data = highchartsToMaidr(chart).subplots[0][0].layers[0].data as LinePoint[][];
 
-      expect(data[0]).toHaveLength(3);
-      expect(data[1]).toEqual([{ x: 'c', y: 9, z: 'Late' }]);
+      // Late, declared last, is the band at the base of the stack.
+      expect(data[0]).toEqual([{ x: 'c', y: 9, z: 'Late' }]);
+      expect(data[1]).toHaveLength(3);
     });
   });
 

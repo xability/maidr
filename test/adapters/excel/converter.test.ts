@@ -1227,7 +1227,6 @@ function announce(maidr: Maidr, moves: ((context: Context) => void)[]): TextStat
 
 const right = (context: Context): void => context.moveOnce('FORWARD');
 const up = (context: Context): void => context.moveOnce('UPWARD');
-const down = (context: Context): void => context.moveOnce('DOWNWARD');
 
 describe('the figure reads in MAIDR\'s model as the chart holds it', () => {
   it('a column chart announces each quarter\'s value', () => {
@@ -1255,8 +1254,9 @@ describe('the figure reads in MAIDR\'s model as the chart holds it', () => {
   });
 
   it('a stacked area announces the band\'s value with the running total', () => {
-    // A line-shaped trace moves between its series by value: South is below.
-    const texts = announce(convert(chart('AreaStacked', [NORTH, SOUTH])), [right, down]);
+    // Excel stacks the series in order, so South is drawn on top of North,
+    // and Up is the band on top whatever the two values are.
+    const texts = announce(convert(chart('AreaStacked', [NORTH, SOUTH])), [right, up]);
 
     expect(texts.at(-1)?.cross?.value).toBe(90);
     expect(texts.at(-1)?.stack?.value).toBe(210);
@@ -1295,7 +1295,7 @@ describe('the figure reads in MAIDR\'s model as the chart holds it', () => {
   });
 
   it('a stacked line announces each band\'s own value with the running total', () => {
-    const texts = announce(convert(chart('LineStacked', [NORTH, SOUTH])), [right, down]);
+    const texts = announce(convert(chart('LineStacked', [NORTH, SOUTH])), [right, up]);
 
     expect(texts.at(-1)?.cross?.value).toBe(90);
     expect(texts.at(-1)?.stack?.value).toBe(210);
