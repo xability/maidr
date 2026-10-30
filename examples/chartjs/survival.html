@@ -17,8 +17,10 @@
     <script>
       Chart.register(maidrChartjs.maidrPlugin);
 
-      // A Kaplan-Meier curve is a `stepped: 'after'` line, and nothing in the
-      // config tells it from any other staircase — hence the declaration.
+      // A Kaplan-Meier curve is a `stepped: 'before'` line: each arm holds its
+      // level until the next event time and drops there. (`'after'` would draw
+      // each drop at the time before.) Nothing in the config tells it from any
+      // other staircase — hence the declaration.
       // Chart.js ignores properties it does not know, so the censoring marks
       // and the confidence band ride on the points themselves.
       new Chart(document.getElementById('survival-chart'), {
@@ -35,7 +37,7 @@
                 { x: 14, y: 0.79, yMin: 0.68, yMax: 0.9 },
                 { x: 21, y: 0.71, yMin: 0.58, yMax: 0.84 },
               ],
-              stepped: 'after',
+              stepped: 'before',
               borderColor: '#2ca02c',
             },
             {
@@ -48,7 +50,7 @@
                 { x: 12, y: 0.61, yMin: 0.48, yMax: 0.74, censored: true },
                 { x: 19, y: 0.44, yMin: 0.31, yMax: 0.57 },
               ],
-              stepped: 'after',
+              stepped: 'before',
               borderColor: '#d62728',
             },
           ],
