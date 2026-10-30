@@ -65,20 +65,24 @@
  *   A gauge draws exactly one measure, so one sector is what the trace wants.
  *
  * Treemap:
- *   g.recharts-treemap-depth-N > g.recharts-layer > g > path.recharts-rectangle
+ *   g.recharts-treemap-depth-N > g.recharts-layer:only-child > g > path.recharts-rectangle
  *   [target: the same, for every depth EXCEPT 0]
  *
+ *   One rectangle per LEAF, which is all a treemap layer declares: a branch's
+ *   rectangle is drawn under its children, and the core outlines a branch
+ *   through the leaves drawn over it. A node's `<Layer>` holds its own item
+ *   followed by its children's layers, so the item is the only child of a
+ *   leaf's layer and never of a branch's, which is what `:only-child` keeps.
+ *
  *   Recharts wraps the `data` array in a synthetic root node and draws it as a
- *   full-plot rectangle at depth 0, which is one more rectangle than the
- *   layer declares nodes — and `TreemapTrace` withdraws highlighting entirely
- *   on a count mismatch. Hence the `:not(.recharts-treemap-depth-0)`. The
- *   remaining rectangles come out in document order, which for a tree drawn
- *   as nested `<Layer>`s is depth-first pre-order: the same order the adapter
- *   flattens the nested data in.
+ *   full-plot rectangle at depth 0, which the layer does not declare — and
+ *   `TreemapTrace` withdraws highlighting entirely on a count mismatch. Hence
+ *   the `:not(.recharts-treemap-depth-0)`. The rectangles come out in document
+ *   order, which for a tree drawn as nested `<Layer>`s is depth-first
+ *   pre-order: the same order the adapter flattens the nested data in.
  *
  *   The `> g > g >` chain picks a node's OWN rectangle rather than its
- *   descendants', since a child's `<Layer>` is a sibling of its parent's
- *   rectangle. A `<Treemap type="nest">` or one given a custom `content`
+ *   descendants'. A `<Treemap type="nest">` or one given a custom `content`
  *   draws something else and needs `selectorOverride`.
  *
  * SunburstChart:
@@ -497,7 +501,7 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
     case 'gauge':
       return '.recharts-radial-bar-sectors .recharts-radial-bar-sector';
     case 'treemap':
-      return 'g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g > g > path.recharts-rectangle';
+      return 'g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g:only-child > g > path.recharts-rectangle';
     case 'sunburst':
       return '.recharts-sunburst .recharts-sector';
     // A bump chart is a <LineChart> of ranks and a survival curve a

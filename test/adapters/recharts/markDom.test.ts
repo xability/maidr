@@ -91,7 +91,7 @@ const hierarchyData = [
   { name: 'Europe', children: [{ name: 'France', people: 67.4 }, { name: 'Spain', people: 47.4 }] },
   { name: 'Oceania', children: [{ name: 'Fiji', people: 0.9 }] },
 ];
-/** Every node of {@link hierarchyData}, which is what both charts draw. */
+/** Every node of {@link hierarchyData}, which a sunburst and an icicle both declare. */
 const hierarchyNodes = 5;
 
 const flowNodes = [{ name: 'Free' }, { name: 'Trial' }, { name: 'Paid' }, { name: 'Churned' }];
@@ -665,15 +665,15 @@ describe('recharts rendered mark contract', () => {
     expect(document.querySelectorAll(firstSelector(maidr.gauge))).toHaveLength(1);
   });
 
-  it('matches one treemap rectangle per node, excluding the synthetic root', () => {
+  it('matches one treemap rectangle per leaf, excluding the branches and the synthetic root', () => {
     // Recharts wraps the data array in a root node and draws it full-plot,
     // which is one rectangle more than the layer declares nodes — and
-    // `TreemapTrace` withdraws highlighting entirely on a count mismatch.
+    // `TreemapTrace` withdraws highlighting entirely on a count mismatch. A
+    // branch's rectangle is drawn under its children, and is not declared.
     const nodes = document.querySelectorAll(firstSelector(maidr.treemap));
 
-    expect(nodes).toHaveLength(hierarchyNodes);
     expect([...nodes].map(node => node.getAttribute('name')))
-      .toEqual(['Europe', 'France', 'Spain', 'Oceania', 'Fiji']);
+      .toEqual(['France', 'Spain', 'Fiji']);
   });
 
   it('matches one sunburst sector per node, in depth-first order', () => {
