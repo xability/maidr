@@ -935,6 +935,9 @@ test.describe('Mermaid adapter', () => {
     const nested = await press(page, 'ArrowRight');
     expect(nested).toContain('Message is check(seat)');
     expect(nested).toContain('Route is API to Store');
+    // The number the plugin draws beside the arrow: a call made inside the
+    // first one.
+    expect(nested).toContain('Number is 1.1');
 
     const reply = await press(page, 'ArrowRight');
     expect(reply).toContain('Route is Store to API');
@@ -948,10 +951,16 @@ test.describe('Mermaid adapter', () => {
       await expect(page.locator(HIGHLIGHT).first()).toContainText(message);
     }
 
-    // ZenUML's own numbers are not read yet; the description invents none.
+    // The description numbers each message as the plugin draws it, by the
+    // call and the statement it is made in: the reserve made in the first
+    // call's second statement is 1.2.1.
     await page.keyboard.press('d');
-    await expect(page.getByRole('dialog').locator('th', { hasText: 'Message' })).toBeVisible();
-    await expect(page.getByRole('dialog').locator('th', { hasText: 'Number' })).toHaveCount(0);
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('th', { hasText: 'Message' })).toBeVisible();
+    await expect(dialog.locator('th', { hasText: 'Number' })).toBeVisible();
+    for (const [message, number] of [['check(seat)', '1.1'], ['reserve(seat)', '1.2.1'], ['receipt e-mailed', '2']]) {
+      await expect(dialog.locator('tr', { hasText: message }).locator('th, td').first()).toHaveText(number);
+    }
   });
 
   test('reads a gantt chart\'s tasks as dates with their status', async ({ page }) => {

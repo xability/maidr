@@ -140,7 +140,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 |---------|-----------------|-------------------|
 | Flowchart [experimental] | `flowchart`, `graph` | a `directed_graph`: steps, subgraphs as scopes, each arrow by its label, a node's shape when it means something (decision, database) |
 | Sequence diagram [experimental] | `sequenceDiagram` | a `sequence`: messages in time, lifelines, fragments, notes and sequence numbers |
-| ZenUML sequence diagram [experimental] | `zenuml` (with the `@mermaid-js/mermaid-zenuml` plugin) | a `sequence`: sync, async, creation and reply messages, nested calls and their fragments |
+| ZenUML sequence diagram [experimental] | `zenuml` (with the `@mermaid-js/mermaid-zenuml` plugin) | a `sequence`: sync, async, creation and reply messages, nested calls and their fragments, each message with the number ZenUML draws beside it |
 | Class diagram [experimental] | `classDiagram` | a `directed_graph`: classes with their attributes and methods; inheritance, realization, composition, aggregation, association and dependency with cardinalities; namespaces as scopes |
 | State diagram [experimental] | `stateDiagram-v2` | a `directed_graph`: states joined by their events, composite states and concurrent regions as scopes, start and end named |
 | Entity relationship diagram [experimental] | `erDiagram` | a `directed_graph`: entities with their attributes and keys, each relationship by its verb and both cardinalities |
@@ -167,7 +167,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Treemap [experimental] | `treemap-beta` | a `treemap` of sections and sized items |
 | Venn diagram [experimental] | `venn-beta` | a `venn`: the sets, then their overlaps by depth, each with its name, size and the items written in it |
 
-ZenUML (`zenuml`) is drawn by a separate Mermaid plugin that keeps no diagram database -- ZenUML parses its own text -- so the adapter reads the text itself, following the grammar Mermaid documents for ZenUML. Register the plugin with Mermaid before binding:
+ZenUML (`zenuml`) is drawn by a separate Mermaid plugin that keeps no diagram database -- ZenUML parses its own text -- so the adapter reads the text itself, following the grammar Mermaid documents for ZenUML. The number ZenUML draws beside each message, `1.1` for the first call made inside the first one, is read from the drawing and announced with the message, `Number is 1.1`, as a Mermaid sequence diagram's numbers are; where the drawn messages cannot be paired with the text, they are read without their numbers, and without the highlight. Register the plugin with Mermaid before binding:
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/@mermaid-js/mermaid-zenuml@1.0.1/dist/mermaid-zenuml.min.js"></script>
