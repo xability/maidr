@@ -994,7 +994,7 @@ const links = [
   xKey="source"
   yKeys={['value']}
   flowConfig={{ targetKey: 'target', nodes }}
-  xLabel="Stage"
+  xLabel="Plan"
   yLabel="Accounts"
 >
   <Sankey width={600} height={350} data={{ nodes, links }} sort={false} link={{ stroke: '#8884d8' }} />
@@ -1002,6 +1002,8 @@ const links = [
 ```
 
 `xKey` names the source field and the single `yKeys` entry the magnitude, so only the target needs a key of its own. Recharts addresses nodes by their index in the `nodes` array; the adapter resolves those indices back to names, because "flow from 1 to 3" names neither end. Links that already carry node names work without `nodes`.
+
+`xLabel` is what a node is: every node is announced under it, "Plan is Free (Q1)", so name the nodes' kind rather than the stage, which is the column the reader moves between with Left and Right. Leave it out and a node is announced as "Node is Free (Q1)".
 
 MAIDR reads the nodes of each column in the order the flows first name them, and Up and Down walk a column in that order. `<Sankey>` sorts each column by where its own layout settled the nodes, which can put them in another order on the page, so pass `sort={false}`: Recharts then draws a column's nodes in the order `nodes` lists them, and listing them in the order the flows first name them keeps the two in step.
 

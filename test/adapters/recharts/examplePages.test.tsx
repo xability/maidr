@@ -234,4 +234,11 @@ describe('the recharts example apps', () => {
     expect(columnsDrawn).toHaveLength(read.length);
     expect(read).toEqual(drawn);
   });
+
+  it('name the flows\' nodes by what they are rather than by the stage', () => {
+    // The x label is the noun every node is announced with, and "Stage is
+    // Crude oil" called a node a stage.
+    expect(draw(AlluvialExample).layer.axes?.x?.label).toBe('Plan');
+    expect(draw(SankeyExample).layer.axes?.x?.label).toBeUndefined();
+  });
 });

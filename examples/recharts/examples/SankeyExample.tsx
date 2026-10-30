@@ -44,7 +44,9 @@ export function SankeyExample(): JSX.Element {
         xKey="source"
         yKeys={['value']}
         flowConfig={{ targetKey: 'target', nodes }}
-        xLabel="Stage"
+        // No x label: it is the noun every node is announced with, and these
+        // nodes are sources, conversions and uses, so they are read as
+        // "Node is Crude oil".
         yLabel="Energy (PJ)"
       >
         {/* sort={false} draws each column's nodes in the order `nodes` lists

@@ -39,7 +39,9 @@ export function AlluvialExample(): JSX.Element {
         xKey="source"
         yKeys={['value']}
         flowConfig={{ targetKey: 'target', nodes }}
-        xLabel="Stage"
+        // What a node is: every node is announced as "Plan is Free (Q1)".
+        // The quarter is the column, which Left and Right move between.
+        xLabel="Plan"
         yLabel="Accounts"
       >
         {/* sort={false} draws each column's nodes in the order `nodes` lists
