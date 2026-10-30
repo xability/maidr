@@ -1231,17 +1231,23 @@ const nodes = [
 </MaidrRecharts>
 ```
 
-A sunburst is the same config with `chartType="sunburst"`. Its Recharts component takes a single root object, and it draws that root's **children** — so pass the children here, and the declared nodes are then exactly the drawn ones:
+A sunburst is the same config with `chartType="sunburst"`. Its Recharts component takes a single root object, and it draws that root's **children** — so pass the children here, and the declared nodes are then exactly the drawn ones. Unlike `<Treemap>`, `<SunburstChart>` does not total a node's children: it sizes the whole circle by the root's own `dataKey` value and each arc by its node's, so the tree it draws needs every interior node's value, the root's included, or every arc is drawn at an angle of NaN and nothing appears. Give it a copy with the totals filled in:
 
 ```tsx
+function withTotals(node) {
+  if (!node.children) return node;
+  const children = node.children.map(withTotals);
+  return { ...node, people: children.reduce((sum, child) => sum + child.people, 0), children };
+}
+
 <MaidrRecharts id="sunburst-example" data={nodes} chartType="sunburst" xKey="name" yKeys={['people']}>
-  <SunburstChart width={400} height={400} data={{ name: 'World', children: nodes }} dataKey="people" />
+  <SunburstChart width={400} height={400} data={withTotals({ name: 'World', children: nodes })} dataKey="people" />
 </MaidrRecharts>
 ```
 
 MAIDR navigates the tree **as a tree**, on arrow keys that already exist: up returns to the parent, down enters the first child, left and right walk the siblings. Each node is announced with its exact share of its parent — the comparison the rectangles are drawn to support and the one the eye estimates worst.
 
-A node with children gets no value of its own, because Recharts computes an interior node's value as the sum of its children and ignores any value declared on it. MAIDR derives interior totals the same way.
+In the adapter's `data`, a node with children gets no value of its own: MAIDR derives an interior node's value as the sum of its children, as `<Treemap>` does, which ignores any value declared on it.
 
 Highlighting relies on both components drawing their nodes in depth-first pre-order, which they do. The treemap selector deliberately skips the **synthetic root** rectangle Recharts wraps the data array in — it is one element more than there are nodes, and a count mismatch turns highlighting off entirely. A `<Treemap type="nest">`, or one given a custom `content`, draws something else and needs `selectorOverride`.
 

@@ -22,6 +22,7 @@ import { cleanup, render } from '@testing-library/react';
 import { createElement } from 'react';
 import { GanttExample } from '../../../examples/recharts/examples/GanttExample';
 import { IcicleExample } from '../../../examples/recharts/examples/IcicleExample';
+import { SunburstExample } from '../../../examples/recharts/examples/SunburstExample';
 
 const seen: MaidrData[] = [];
 
@@ -144,5 +145,16 @@ describe('the recharts example apps', () => {
 
     expect(rows.map(row => row.label)).toEqual(['0', '1']);
     expect(bars.map(bar => rowOf(rows, bar))).toEqual(nodes.map(node => String(node.path?.length ?? 0)));
+  });
+
+  it('draw the sunburst\'s every node as an arc', () => {
+    // With only its leaves valued, every arc's angle was NaN and nothing was
+    // drawn at all.
+    const { chart, layer } = draw(SunburstExample);
+    const arcs = [...chart.querySelectorAll('.recharts-sunburst .recharts-sector')];
+    const nodes = (layer.data as unknown[]).length;
+
+    expect(arcs).toHaveLength(nodes);
+    expect(arcs.filter(arc => /NaN/.test(arc.getAttribute('d') ?? ''))).toEqual([]);
   });
 });
