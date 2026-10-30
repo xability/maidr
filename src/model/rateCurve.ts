@@ -51,11 +51,14 @@ export type RateCurvePoint = LinePoint & {
  * Each curve is sampled at its own thresholds, so two curves rarely share an
  * x, and the line's exact-x rule refused most moves between them.
  *
+ * **A curve is read from its left end, whichever way it is listed.** See
+ * {@link RateCurveTrace.listedRightToLeft}.
+ *
  * **The table carries each point's threshold.** It is the one number a
  * reader can act on: the rates without it are a result with no recipe.
  */
 export abstract class RateCurveTrace extends LineTrace {
-  /** The curves, as the producer listed them. */
+  /** The curves, each from its left end; see {@link RateCurveTrace.listedRightToLeft}. */
   protected readonly curves: RateCurvePoint[][];
 
   /** The register the pitch is read against; see {@link RateCurveTrace.valueRange}. */
@@ -96,6 +99,25 @@ export abstract class RateCurveTrace extends LineTrace {
   public override dispose(): void {
     this.sortedCurves.length = 0;
     super.dispose();
+  }
+
+  /**
+   * Whether a curve is listed from its right end: its first point has a
+   * larger x than its last.
+   *
+   * A producer may list a curve's points either way round, and
+   * `precision_recall_curve` returns them from a recall of 1 down to 0. Read
+   * in that order, Right moved left across the chart, Control + Left went to
+   * the right end, and the braille row ran against the drawing. Turned round,
+   * Right moves toward the larger rate, the ends are the drawn ends, and a
+   * curve reads the same whichever way it was listed.
+   *
+   * @param curve - The curve's points, as listed
+   * @returns True when the curve is to be read in the reverse of its listed order
+   */
+  protected override listedRightToLeft(curve: readonly LinePoint[]): boolean {
+    const xs = curve.map(point => Number(point?.x)).filter(Number.isFinite);
+    return xs.length > 1 && xs[0] > xs[xs.length - 1];
   }
 
   /**

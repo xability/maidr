@@ -104,24 +104,25 @@ test.describe('Precision-recall curve', () => {
   test('should announce the threshold and the height above the baseline with the rates', async ({ page }) => {
     const plot = new PrCurvePage(page);
     await plot.activateMaidr();
-    // The first keypress establishes the entry position at the loosest
-    // threshold; the second reaches the next one.
+    // The curves are listed from a recall of 1 down and read from a recall
+    // of 0 up, as they are drawn. The first keypress enters at a recall of
+    // 0; the second reaches the next point to the right.
     await plot.moveToNextDataPoint();
     await plot.moveToNextDataPoint();
 
     const announcement = normalizeText(await plot.getInstructionText());
 
     expect(announcement).toContain('Recall');
-    expect(announcement).toContain('0.9');
+    expect(announcement).toContain('0.3');
     expect(announcement).toContain('Precision');
-    expect(announcement).toContain('0.5');
+    expect(announcement).toContain('0.95');
     expect(announcement).toContain('Threshold');
-    expect(announcement).toContain('0.2');
+    expect(announcement).toContain('0.8');
     expect(announcement).toContain('Above baseline');
   });
 
   test('should move to the other classifier with the down arrow', async ({ page }) => {
-    // The forest has no point at a recall of 0.9; the move lands on its
+    // The forest has no point at a recall of 0.3; the move lands on its
     // nearest point below the cursor.
     const plot = new PrCurvePage(page);
     await plot.activateMaidr();
@@ -132,12 +133,12 @@ test.describe('Precision-recall curve', () => {
     const announcement = normalizeText(await plot.getInstructionText());
 
     expect(announcement).toContain('Random forest');
-    expect(announcement).toContain('0.4');
+    expect(announcement).toContain('0.72');
   });
 
   test('should announce both classifiers at the point they share', async ({ page }) => {
-    // Both curves were scored on one test set, so at the loosest threshold
-    // both sit at a recall of 1 and the prevalence.
+    // Both curves start at a recall of 0 and a precision of 1, where the
+    // first keypress enters.
     const plot = new PrCurvePage(page);
     await plot.activateMaidr();
     await plot.moveToNextDataPoint();
