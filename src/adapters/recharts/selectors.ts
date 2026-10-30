@@ -173,7 +173,9 @@
  *   One `<Area>` per group, so one filled band each, and `RidgelineTrace`
  *   wants exactly that — one element per ridge, lit from any sample of it.
  *   The bands come out in the order the `<Area>`s are declared, so they must
- *   be declared in the order the groups first appear in `data`.
+ *   be declared in the order the groups first appear in `data`. A layer that
+ *   lists its ridges bottom first, in another order, names each band by its
+ *   `<Area>`'s place instead ({@link ridgeSelectors}).
  *
  * Hexbin:
  *   g.recharts-scatter-symbol > g.recharts-shape > (the drawn hexagon)
@@ -444,6 +446,31 @@ export function seriesDotSelectors(
   }
   return places.map(place => scoped(
     `g[class*="recharts-zIndex-layer_"] > ${nthOfGroup(classes.group, place)} ${classes.dot}`,
+    chartId,
+    panelScope,
+  ));
+}
+
+/**
+ * One selector per ridge of a ridgeline, each naming the filled band of the
+ * `<Area>` at that place among the chart's `<Area>`s.
+ *
+ * The one class selector a ridgeline uses resolves the bands in the order the
+ * `<Area>`s are declared, which is the order the groups first appear in
+ * `data`. A layer that lists its ridges in another order -- bottom first, as
+ * `RidgelineTrace` reads them -- would pair each with another ridge's band,
+ * so each is named by its own `<Area>`'s place, counted among the areas
+ * alone, as {@link seriesDotSelectors} counts the dots' groups.
+ *
+ * @param places - For each ridge in the layer's order, the place of its
+ *                 `<Area>` among the chart's, from 0
+ * @param chartId - When set, scopes the selectors to the chart's article
+ * @param panelScope - When set, additionally scopes them to one panel
+ * @returns One selector per ridge
+ */
+export function ridgeSelectors(places: readonly number[], chartId?: string, panelScope?: string): string[] {
+  return places.map(place => scoped(
+    `${nthOfGroup('g.recharts-area', place)} .recharts-area-area`,
     chartId,
     panelScope,
   ));

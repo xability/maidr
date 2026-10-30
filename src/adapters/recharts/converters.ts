@@ -65,7 +65,7 @@ import { clockFromCounterclockwiseOf3, pieGeometry } from '@adapters/shared/pieG
 import { cssEscape } from '@adapters/shared/selectorUtil';
 import { resolveFieldRef, validateDeclaration } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
-import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors, seriesDotSelectors } from './selectors';
+import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors, ridgeSelectors, seriesDotSelectors } from './selectors';
 
 /**
  * What a layer carries when its marks run opposite to its payload.
@@ -1006,8 +1006,16 @@ const RIDGELINE_DENSITY_AXIS = 'Density';
  * loudness would be a function of where it was stacked and the lowest ridge
  * would be the loudest thing on the chart.
  *
- * The groups come out in first-appearance order, which is the order the
- * `<Area>`s have to be declared in for the highlight to land on the right one.
+ * `RidgelineTrace` reads its first curve as the lowest ridge and steps Up to
+ * the next one listed, while a ridgeline drawn as the recipe draws it puts its
+ * first group on top: listed in first-appearance order, Up moved down the page
+ * and Down up it. So where `plottedKey` places every group, the curves are
+ * listed bottom first, by the offset each is drawn at -- its drawn height less
+ * its density -- and each is paired with its own `<Area>` by the place that
+ * `<Area>` is declared at, which is the group's first appearance in `data`.
+ * Otherwise, and whenever a `selectorOverride` names the bands, the groups come
+ * out in first-appearance order, which is the order the `<Area>`s have to be
+ * declared in for the highlight to land on the right one.
  */
 function buildRidgelineLayer(
   data: Record<string, unknown>[],
@@ -1024,8 +1032,11 @@ function buildRidgelineLayer(
     throw new Error('RechartsAdapter: ridgelineConfig with a groupKey is required when chartType is "ridgeline"');
   }
 
-  const { valueKey, densityKey } = ridgelineConfig ?? {};
+  const { valueKey, densityKey, plottedKey } = ridgelineConfig ?? {};
   const curves = new Map<string, ViolinKdePoint[]>();
+  // How far up the page each group's ridge is drawn, read off the first of
+  // its samples to carry a drawn height.
+  const offsets = new Map<string, number>();
 
   for (const item of data) {
     const group = toText(item[groupKey]);
@@ -1036,6 +1047,11 @@ function buildRidgelineLayer(
     // put a trough in the curve where the data said nothing.
     if (group === undefined || value === undefined || density === undefined) {
       continue;
+    }
+
+    const plotted = plottedKey === undefined ? undefined : toOptionalNumber(item[plottedKey]);
+    if (plotted !== undefined && !offsets.has(group)) {
+      offsets.set(group, plotted - density);
     }
 
     const point: ViolinKdePoint = { x: group, y: value, density };
@@ -1054,19 +1070,28 @@ function buildRidgelineLayer(
     );
   }
 
+  const declared = [...curves.keys()];
+  const placed = selectorOverride === undefined && declared.every(group => offsets.has(group));
+  // Stable, so ridges drawn at one offset keep the order they appear in.
+  const listed = placed
+    ? [...declared].sort((a, b) => (offsets.get(a) ?? 0) - (offsets.get(b) ?? 0))
+    : declared;
+
   return {
     id: '0',
     type: TraceType.RIDGELINE,
     // One element per group, which is what the chart draws: `RidgelineTrace`
-    // resolves the selector to a flat list, requires exactly one entry per
+    // resolves the selectors to a flat list, requires exactly one entry per
     // ridge, and then lights that ridge's whole curve from any of its samples.
-    selectors: selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope),
+    selectors: selectorOverride ?? (placed
+      ? ridgeSelectors(listed.map(group => declared.indexOf(group)), chartId, panelScope)
+      : getRechartsSelector(chartType, undefined, chartId, panelScope)),
     axes: {
       x: { label: xLabel },
       y: { label: yLabel },
       z: { label: RIDGELINE_DENSITY_AXIS },
     },
-    data: [...curves.values()],
+    data: listed.map(group => curves.get(group) ?? []),
   };
 }
 
