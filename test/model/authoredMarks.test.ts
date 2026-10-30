@@ -196,11 +196,14 @@ describe('an authored example\'s data is what its marks draw', () => {
     expect(misplaced).toEqual([]);
   });
 
-  it('gives the Manhattan plot the grid its braille display is drawn on', () => {
+  it.each([
+    ['manhattan.html'],
+    ['volcano.html'],
+  ])('gives %s the grid its braille display is drawn on', (page) => {
     // A scatter's points are brailled only in grid navigation, which needs
     // both axes' range and step; without them B answered "Braille is not
-    // supported for plot type: manhattan".
-    const [layer] = loadLayers('manhattan.html');
+    // supported for plot type: manhattan", or volcano.
+    const [layer] = loadLayers(page);
     const trace = TraceFactory.create(layer) as ScatterTrace;
 
     trace.setGridMode(true);
