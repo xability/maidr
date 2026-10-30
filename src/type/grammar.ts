@@ -2267,9 +2267,9 @@ export interface MaidrLayer {
    * number, as on a line. A layer left without it whose drawing turns Up and
    * Down round from that rule logs a console warning, once, asking for it.
    * Say it where the drawing cannot be measured: the Chart.js and amCharts
-   * adapters do, Highcharts says it from its reversed axis, and Frappe, which
-   * cannot reverse an axis, says `'bottom'`. Read by `BumpTrace` and ignored
-   * by every other type.
+   * adapters do, Highcharts says it from its reversed axis, Vega-Lite from its
+   * y scale, and Frappe, which cannot reverse an axis, says `'bottom'`. Read
+   * by `BumpTrace` and ignored by every other type.
    *
    * @example
    * // a bump chart whose rank axis runs up the page

@@ -1,4 +1,4 @@
-import type { VegaLiteSpec } from '@adapters/vegalite/types';
+import type { VegaLiteSpec, VegaView } from '@adapters/vegalite/types';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
 import { TraceType } from '@type/grammar';
@@ -162,5 +162,126 @@ describe('vega-Lite lines over a rank window', () => {
     );
 
     expect(layer.type).toBe(TraceType.STEP);
+  });
+});
+
+/** A compiled scale: the pixel it draws a value at, and its domain. */
+type ScaleStub = ((value: unknown) => number | undefined) & { domain: () => unknown[] };
+
+/**
+ * A continuous scale from `domain` onto `range`, as Vega's linear scale.
+ * @param domain The domain's two ends
+ * @param range The pixels they are drawn at
+ * @returns The scale
+ */
+function linear(domain: [number, number], range: [number, number]): ScaleStub {
+  const scale = (value: unknown): number =>
+    range[0] + (Number(value) - domain[0]) * (range[1] - range[0]) / (domain[1] - domain[0]);
+  return Object.assign(scale, { domain: () => domain });
+}
+
+/**
+ * A discrete scale placing each value of `domain` at a pixel of `at`, as
+ * Vega's point scale.
+ * @param domain The values, in the order the scale lays them out
+ * @param at The pixel each is drawn at
+ * @returns The scale
+ */
+function point(domain: number[], at: number[]): ScaleStub {
+  const scale = (value: unknown): number | undefined => at[domain.indexOf(Number(value))];
+  return Object.assign(scale, { domain: () => domain });
+}
+
+/**
+ * The test view, with a compiled y scale of its own.
+ * @param y The y scale
+ * @returns The view
+ */
+function viewWithY(y: ScaleStub): VegaView {
+  return {
+    ...makeView({ data_0: RANKED_ROWS }),
+    scale: (name: string) => {
+      if (name !== 'y')
+        throw new Error(`Unrecognized scale or projection: ${name}`);
+      return y;
+    },
+  };
+}
+
+/**
+ * The bump spec with its y channel changed.
+ * @param y The channel's changes
+ * @returns The spec
+ */
+function withY(y: Record<string, unknown>): VegaLiteSpec {
+  return { ...BUMP_SPEC, encoding: { ...BUMP_SPEC.encoding, y: { ...BUMP_SPEC.encoding?.y, ...y } } } as VegaLiteSpec;
+}
+
+/**
+ * Where the one layer a spec converts to says first place is drawn.
+ * @param spec The spec
+ * @param view The compiled view, if any
+ * @returns The layer's `firstPlace`
+ */
+function firstPlace(spec: VegaLiteSpec, view?: VegaView): MaidrLayer['firstPlace'] {
+  return vegaLiteToMaidr(spec, view).subplots[0][0].layers[0].firstPlace;
+}
+
+// The three places on a 200-pixel axis where vega 5.33 draws them. `rank:Q`
+// includes zero in its domain; `rank:O` lays its values out top first.
+const RANK_Q = linear([0, 3], [200, 0]);
+const RANK_Q_REVERSED = linear([0, 3], [0, 200]);
+const RANK_O = point([1, 2, 3], [33, 100, 167]);
+const RANK_O_REVERSED = point([1, 2, 3], [167, 100, 33]);
+
+/** Without a view: each way up of each scale type, and where it puts first place. */
+const FROM_THE_SPEC: Array<[string, Record<string, unknown>, 'top' | 'bottom']> = [
+  ['rank:Q', {}, 'bottom'],
+  ['rank:Q reversed', { scale: { reverse: true } }, 'top'],
+  ['rank:O', { type: 'ordinal' }, 'top'],
+  ['rank:O reversed', { type: 'ordinal', scale: { reverse: true } }, 'bottom'],
+];
+
+describe('vega-Lite bump charts saying where first place is drawn', () => {
+  it('says first place is at the top on a reversed rank:Q axis', () => {
+    const spec = withY({ scale: { reverse: true } });
+
+    expect(firstPlace(spec, viewWithY(RANK_Q_REVERSED))).toBe('top');
+  });
+
+  it('says first place is at the bottom on a rank:Q axis drawn the usual way up', () => {
+    expect(firstPlace(BUMP_SPEC, viewWithY(RANK_Q))).toBe('bottom');
+  });
+
+  it('says first place is at the top on a rank:O axis, which lays its first value out at the top', () => {
+    // The bump chart of the Vega-Lite and Altair galleries: unreversed, and
+    // first place at the top all the same.
+    const spec = withY({ type: 'ordinal' });
+
+    expect(firstPlace(spec, viewWithY(RANK_O))).toBe('top');
+  });
+
+  it('says first place is at the bottom on a reversed rank:O axis', () => {
+    const spec = withY({ type: 'ordinal', scale: { reverse: true } });
+
+    expect(firstPlace(spec, viewWithY(RANK_O_REVERSED))).toBe('bottom');
+  });
+
+  it('goes by the drawn scale where the spec turns the axis round some other way', () => {
+    // A domain written largest first draws rank 1 at the top without
+    // `reverse`, which only the compiled scale knows.
+    const spec = withY({ scale: { domain: [3, 1] } });
+
+    expect(firstPlace(spec, viewWithY(linear([3, 1], [200, 0])))).toBe('top');
+  });
+
+  it.each(FROM_THE_SPEC)('reads %s from the spec without a view', (_label, y, expected) => {
+    expect(firstPlace(withY(y))).toBe(expected);
+  });
+
+  it('says nothing on a line that is not a bump chart', () => {
+    const spec = { ...BUMP_SPEC, transform: undefined };
+
+    expect(firstPlace(spec, viewWithY(RANK_Q))).toBeUndefined();
   });
 });

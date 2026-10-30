@@ -284,6 +284,13 @@ export interface VegaLiteChannelDef {
   bin?: boolean | Record<string, unknown>;
   stack?: boolean | string | null;
   /**
+   * The channel's scale. The adapter reads one thing from it, `reverse`, and
+   * only where there is no compiled view to read the drawn scale from: where
+   * a bump chart draws first place (`firstPlaceOf`). `null` draws the field
+   * without a scale.
+   */
+  scale?: { reverse?: unknown } | null;
+  /**
    * A time unit the field is truncated to (`month`, `yearmonth`, or a time
    * unit params object), whose result Vega-Lite writes to a column of its
    * own name (`month_date`).
