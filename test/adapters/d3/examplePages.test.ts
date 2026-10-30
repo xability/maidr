@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import type { Maidr } from '@type/grammar';
+import type { Maidr, MaidrLayer } from '@type/grammar';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import * as maidrD3 from '@adapters/d3';
@@ -67,6 +67,18 @@ function drawnTexts(): string[] {
   return [...document.querySelectorAll('svg text')].map(text => text.textContent ?? '');
 }
 
+/**
+ * The one layer a single chart binds.
+ *
+ * @param spec - What the page bound
+ * @returns Its layer
+ */
+function onlyLayer(spec: Maidr): MaidrLayer {
+  const layers = spec.subplots.flat().flatMap(subplot => subplot.layers);
+  expect(layers).toHaveLength(1);
+  return layers[0];
+}
+
 beforeAll(() => {
   runScript(D3_SOURCE);
   (globalThis as { maidrD3?: unknown }).maidrD3 = maidrD3;
@@ -82,5 +94,15 @@ describe('the d3 example pages', () => {
 
     expect(drawnTexts()).toContain('Revenue by Region');
     expect(spec.title).toBe('Revenue by Region');
+  });
+
+  it('name the choropleth for the example rate it shades, under the title they draw', () => {
+    // The values are made up for the example; the page drew and bound a
+    // placeholder, "Something per Thousand, by State".
+    const spec = runPage('d3-bindchoropleth.html');
+
+    expect(drawnTexts()).toContain('Example rate per 1,000 residents, by western state');
+    expect(spec.title).toBe('Example rate per 1,000 residents, by western state');
+    expect(onlyLayer(spec).axes?.y?.label).toBe('Rate per 1,000 residents');
   });
 });

@@ -91,14 +91,14 @@
         .attr('x', width / 2)
         .attr('y', 24)
         .attr('text-anchor', 'middle')
-        .text('Something per Thousand, by State');
+        .text('Example rate per 1,000 residents, by western state');
 
       // === MAIDR Integration ===
       const svgElement = document.getElementById('d3-choropleth-map');
       const result = maidrD3.bindD3Choropleth(svgElement, {
         selector: 'path.region',
-        title: 'Something per Thousand, by State',
-        axes: { x: 'State', y: 'Rate' },
+        title: 'Example rate per 1,000 residents, by western state',
+        axes: { x: 'State', y: 'Rate per 1,000 residents' },
         // `region` needs no accessor: the default reads `properties.name`.
         value: d => rateByState.get(d.properties.name),
         // DEGREES, and this is the call that returns them. `path.centroid(d)`
