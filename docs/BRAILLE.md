@@ -1090,6 +1090,11 @@ magnitudes fall by an order of magnitude per level, so a single scale across
 the chart would put every leaf on the floor of a range topped by the root and
 render the level a reader is actually walking as a flat line of empty cells.
 
+A level whose nodes all hold one value -- above all the lone root of a tree
+drawn from one root -- has no spread of its own to scale against, so it is
+scaled from zero instead: the root reads as the tallest dot and sounds as the
+top note, rather than as the smallest node on the chart.
+
 **The tree has no representation, and this is the modality's real limit.** A
 row is a sequence of cells; a level is a set of siblings belonging to
 different parents. Nothing in the dots says where one parent's children end

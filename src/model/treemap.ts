@@ -197,7 +197,11 @@ export class TreemapTrace extends AbstractTrace {
   /** Magnitudes in the same shape, which is what the modalities read. */
   private readonly nodeValues: number[][];
 
-  /** Per-depth extremes, for the pitch range. */
+  /**
+   * The range each depth's magnitudes are pitched and brailled against: the
+   * depth's smallest value to its largest, or from zero for a depth whose
+   * nodes all hold one value (see the constructor).
+   */
   private readonly depthMin: number[];
   private readonly depthMax: number[];
 
@@ -283,8 +287,17 @@ export class TreemapTrace extends AbstractTrace {
     this.nodes = TreemapTrace.buildTree(points);
     this.nodeValues = this.nodes.map(level =>
       level.map(node => node?.value ?? Number.NaN));
-    this.depthMin = this.nodeValues.map(level => MathUtil.safeMin(level));
     this.depthMax = this.nodeValues.map(level => MathUtil.safeMax(level));
+    // A depth whose nodes all hold one value -- the lone root of a hierarchy
+    // drawn from one root, as Plotly's sunbursts, treemaps and icicles usually
+    // are -- has no spread to place them in, and an empty range is heard at
+    // the bottom of the register: the root, the largest value on the chart,
+    // played the lowest note and its largest child the highest. Measured from
+    // zero, such a depth is heard, and read, at the top.
+    this.depthMin = this.nodeValues.map((level, depth) => {
+      const min = MathUtil.safeMin(level);
+      return min === this.depthMax[depth] ? Math.min(0, min) : min;
+    });
     this.shape = this.nodes.map(level => level.map(node => (node?.children.length ?? 0) + 1));
     this.shapeMin = this.shape.map(() => 1);
     this.shapeMax = this.shape.map(level => MathUtil.safeMax(level));
@@ -613,11 +626,10 @@ export class TreemapTrace extends AbstractTrace {
       };
     }
     const node = this.current;
-    // Scaled within the depth rather than across the whole tree, the way a
-    // line's rows each carry their own range. A tree's magnitudes fall by an
-    // order of magnitude per level, so a single scale would put every leaf on
-    // the floor of the range and make the level a reader is actually walking
-    // inaudible.
+    // Scaled within the depth rather than across the whole tree. A tree's
+    // magnitudes fall by an order of magnitude per level, so a single scale
+    // would put every leaf on the floor of the range and make the level a
+    // reader is actually walking inaudible.
     return {
       freq: {
         min: this.depthMin[this.row] ?? 0,
