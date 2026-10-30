@@ -106,6 +106,9 @@ export class SmoothTrace extends LineTrace {
         cols: this.lineValues[this.row].length,
       },
       isContinuous: true,
+      // A fitted curve's samples are places on the value axis, as a line's
+      // points are (see `LineTrace.valuesArePositions`).
+      ...(this.valuesArePositions ? { positional: true } : {}),
     };
   }
 }

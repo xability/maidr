@@ -274,6 +274,14 @@ describe('a value of 0 read from a real trace', () => {
     expect(tone.frequency).toBeCloseTo(200 + (1.5 / 3.1) * 800);
   });
 
+  it('is marked a position on a smooth curve, which builds its own audio', () => {
+    // The curve is heard as a glissando, so its 0 never reaches the null
+    // tone's branch; the mark keeps it a position like every other line.
+    const state = stateOf(TraceType.SMOOTH, [SIGNED], 1) as { audio: AudioState };
+
+    expect(state.audio).toMatchObject({ isContinuous: true, positional: true });
+  });
+
   it.each([TraceType.AREA, TraceType.STACKED_AREA, TraceType.POLAR_AREA])(
     'plays the null tone for a band or wedge of 0 on a %s layer, as for a bar',
     async (type) => {
