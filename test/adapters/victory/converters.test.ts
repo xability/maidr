@@ -906,6 +906,21 @@ describe('polar area', () => {
     expect(toMaidrLayer(info).axes).toEqual({ x: { label: 'Category' }, y: { label: 'Hours' } });
   });
 
+  it('names the values of any polar layer after the radial axis', () => {
+    // The label is the chart's, drawn on the axis every polar mark is
+    // measured along, so a polar line takes it as a coxcomb does.
+    const [info] = extractVictoryLayers(chart(
+      { polar: true },
+      createElement(VictoryPolarAxis, { key: 'radius', dependentAxis: true, label: 'Hours' }),
+      createElement(VictoryLine, { key: 'line', data: lineData }),
+    ));
+
+    const layer = toMaidrLayer(info);
+
+    expect(layer.type).toBe(TraceType.LINE);
+    expect(layer.axes?.y).toEqual({ label: 'Hours' });
+  });
+
   it('carries the chart polar flag into each panel of a multi-panel figure', () => {
     const subplots = extractVictorySubplots([
       chart({ key: 'a', polar: true }, createElement(VictoryBar, { data: wedges })),
