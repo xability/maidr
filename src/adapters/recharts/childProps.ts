@@ -340,31 +340,31 @@ export function areaDataKeyFor(children: ReactNode): string | undefined {
  * highlight to measure the drawing by, Up moved to the next larger rank
  * number: down the page, to the place one worse.
  *
- * Only `reversed` is read, on the first `<YAxis>`, found depth-first as the
- * other walks find their element. An axis without it may still be turned
- * another way, by its `domain` or a scale of its own, which the core can
- * measure from the highlighted dots where it has them and this cannot, so
- * it answers `undefined` and leaves the core to read the drawing. A chart
- * whose rank axis is not its first `<YAxis>`, or is turned some other way,
- * says where first place is through the config's `firstPlace`.
+ * Only `reversed` is read, on the first `<YAxis>` the chart draws, found
+ * depth-first as the other walks find their element. An axis under `hide`
+ * is passed over, as one placed ahead of the rank axis to scale another
+ * series is; when every axis is hidden, as on a bump chart that labels its
+ * lines rather than its axis, the first is read. An axis without `reversed`
+ * may still be turned another way, by its `domain` or a scale of its own,
+ * which the core can measure from the highlighted dots where it has them
+ * and this cannot, so it answers `undefined` and leaves the core to read the
+ * drawing. A chart whose rank axis is not the first it draws, or is turned
+ * some other way, says where first place is through the config's
+ * `firstPlace`.
  *
  * @param children - The chart subtree this component was given
- * @returns `'top'` when the first `<YAxis>` is reversed, otherwise `undefined`
+ * @returns `'top'` when that `<YAxis>` is reversed, otherwise `undefined`
  */
 export function firstPlaceFor(children: ReactNode): 'top' | undefined {
-  let found: 'top' | undefined;
-  let done = false;
+  const axes: { reversed?: unknown; hide?: unknown }[] = [];
 
   const walk = (nodes: ReactNode): void => {
-    if (done)
-      return;
     Children.forEach(nodes, (child) => {
-      if (done || !isValidElement(child))
+      if (!isValidElement(child))
         return;
-      const props = child.props as { reversed?: unknown; children?: ReactNode };
+      const props = child.props as { reversed?: unknown; hide?: unknown; children?: ReactNode };
       if (displayNameOf(child.type) === 'YAxis') {
-        done = true;
-        found = props.reversed === true ? 'top' : undefined;
+        axes.push(props);
         return;
       }
       walk(props.children);
@@ -372,5 +372,6 @@ export function firstPlaceFor(children: ReactNode): 'top' | undefined {
   };
 
   walk(children);
-  return found;
+  const rankAxis = axes.find(axis => axis.hide !== true) ?? axes[0];
+  return rankAxis?.reversed === true ? 'top' : undefined;
 }

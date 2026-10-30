@@ -1274,13 +1274,15 @@ export interface RechartsAdapterConfig {
    * on one whose rank axis runs up the page, as an ordinary `<YAxis>` does.
    * Up and Down move to the place drawn above and below.
    *
-   * {@link MaidrRecharts} says `'top'` when the first `<YAxis>` in its
-   * `children` is `reversed`, in simple and composed mode, and nothing
-   * otherwise; through {@link useRechartsAdapter} it is yours to state. Left
+   * {@link MaidrRecharts} says `'top'` when the first `<YAxis>` its
+   * `children` draw is `reversed` -- passing over one under `hide`, unless
+   * every one is -- in simple and composed mode, and nothing otherwise. A
+   * grid reads no panel's axis, and this, given on the grid, reaches every
+   * panel; through {@link useRechartsAdapter} it is yours to state. Left
    * out, MAIDR reads it from the highlighted dots where it can, and otherwise
    * moves Up to the next larger rank number. Give it for a chart whose rank
    * axis is turned another way, by its `domain` or a scale of its own, or is
-   * not its first `<YAxis>`.
+   * not the first `<YAxis>` it draws.
    */
   firstPlace?: 'top' | 'bottom';
 
