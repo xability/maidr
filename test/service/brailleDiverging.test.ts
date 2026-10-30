@@ -36,16 +36,17 @@ afterEach(() => {
 });
 
 /**
- * What the braille display shows for the pyramid, line by line.
- * @returns One string of cells per line: men, women, then the balance
+ * What the braille display shows for a diverging chart, line by line.
+ * @param data The sides the chart carries; the pyramid by default
+ * @returns One string of cells per line: each side, then the last row
  */
-function displayedLines(): string[] {
+function displayedLines(data: SegmentedPoint[][] = BANDS): string[] {
   const trace = TraceFactory.create({
     id: 'pyramid',
     type: TraceType.DIVERGING,
     orientation: Orientation.VERTICAL,
     axes: { x: { label: 'Age band' }, y: { label: 'People' } },
-    data: BANDS,
+    data,
   });
   disposables.push(trace);
   trace.moveOnce('FORWARD');
@@ -88,5 +89,30 @@ describe('a population pyramid on the braille display', () => {
     // Level in the first band, and leads of 50 and 100 after it: small
     // beside a bar of 1,200, as the pitch plays them.
     expect(displayedLines()[2]).toBe(' ⣀⣀');
+  });
+
+  test('a gap is a blank cell, and the rest of its line keeps the chart\'s scale', () => {
+    // No count for men aged 25-44. Their other two bands read as they do
+    // with the count there (⠉⠒⠒).
+    const gappy = BANDS.map(side => side.map(point => (
+      point.z === 'Men' && point.x === '25-44'
+        ? { ...point, y: null as unknown as number }
+        : point
+    )));
+
+    expect(displayedLines(gappy)[0]).toBe('⠉ ⠒');
+  });
+
+  test('the last line of a chart that is not two-sided is its sum\'s size, whatever its sign', () => {
+    // Three sides, so the last row is a plain sum rather than a balance:
+    // -300 in the first band and 300 in the second, announced with their
+    // signs. The cells, like the pitch, show the size, so the two read alike.
+    const threeSided: SegmentedPoint[][] = [
+      [{ x: 'a', y: -900, z: 'Against' }, { x: 'b', y: -100, z: 'Against' }],
+      [{ x: 'a', y: 400, z: 'For' }, { x: 'b', y: 300, z: 'For' }],
+      [{ x: 'a', y: 200, z: 'Strongly for' }, { x: 'b', y: 100, z: 'Strongly for' }],
+    ];
+
+    expect(displayedLines(threeSided)[3]).toBe('⠤⠤');
   });
 });

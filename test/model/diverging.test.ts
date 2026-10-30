@@ -622,4 +622,15 @@ describe('[ and ] rank a bar by its length, not by its sign', () => {
     expect(bandsOf(diverging(3, 0, threeSided), 'max')).toEqual(['b']);
     expect(bandsOf(diverging(3, 0, threeSided), 'min')).toEqual(['a']);
   });
+
+  test('a row of nothing but gaps offers no extreme', () => {
+    // Every bar's length is a gap, so there is no longest or shortest bar
+    // to go to, rather than a target at a column the row does not hold.
+    const noMen: SegmentedPoint[][] = [
+      [{ x: 'a', y: null as unknown as number, z: 'Men' }, { x: 'b', y: null as unknown as number, z: 'Men' }],
+      [{ x: 'a', y: 400, z: 'Women' }, { x: 'b', y: 450, z: 'Women' }],
+    ];
+
+    expect(diverging(0, 0, noMen).getExtremaTargets()).toEqual([]);
+  });
 });
