@@ -1011,8 +1011,10 @@ const RIDGELINE_DENSITY_AXIS = 'Density';
  * first group on top: listed in first-appearance order, Up moved down the page
  * and Down up it. So where `plottedKey` places every group, the curves are
  * listed bottom first, by the offset each is drawn at -- its drawn height less
- * its density -- and each is paired with its own `<Area>` by the place that
- * `<Area>` is declared at, which is the group's first appearance in `data`.
+ * its density, a larger one drawn lower on a reversed axis
+ * (`plottedAxisReversed`) -- and each is paired with its own `<Area>` by the
+ * place that `<Area>` is declared at, which is the group's first appearance
+ * in `data`.
  * Otherwise, and whenever a `selectorOverride` names the bands, the groups come
  * out in first-appearance order, which is the order the `<Area>`s have to be
  * declared in for the highlight to land on the right one.
@@ -1032,7 +1034,7 @@ function buildRidgelineLayer(
     throw new Error('RechartsAdapter: ridgelineConfig with a groupKey is required when chartType is "ridgeline"');
   }
 
-  const { valueKey, densityKey, plottedKey } = ridgelineConfig ?? {};
+  const { valueKey, densityKey, plottedKey, plottedAxisReversed } = ridgelineConfig ?? {};
   const curves = new Map<string, ViolinKdePoint[]>();
   // How far up the page each group's ridge is drawn, read off the first of
   // its samples to carry a drawn height.
@@ -1072,9 +1074,12 @@ function buildRidgelineLayer(
 
   const declared = [...curves.keys()];
   const placed = selectorOverride === undefined && declared.every(group => offsets.has(group));
-  // Stable, so ridges drawn at one offset keep the order they appear in.
+  // Stable, so ridges drawn at one offset keep the order they appear in. On a
+  // reversed axis a larger offset is drawn lower, so the bottom ridge is the
+  // one offset most.
+  const upward = plottedAxisReversed === true ? -1 : 1;
   const listed = placed
-    ? [...declared].sort((a, b) => (offsets.get(a) ?? 0) - (offsets.get(b) ?? 0))
+    ? [...declared].sort((a, b) => upward * ((offsets.get(a) ?? 0) - (offsets.get(b) ?? 0)))
     : declared;
 
   return {

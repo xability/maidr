@@ -558,6 +558,13 @@ export interface RidgelineCurveConfig {
    */
   plottedKey?: string;
   /**
+   * Whether the drawn heights are plotted on a reversed axis
+   * (`<YAxis reversed>`), where a larger offset is drawn lower on the page,
+   * so the ridges are read from the largest offset down. {@link MaidrRecharts}
+   * reads it off the first `<YAxis>` in its children when not given.
+   */
+  plottedAxisReversed?: boolean;
+  /**
    * Key holding the position along the shared value axis.
    *
    * Defaults to a `value` column, then `x`, `t`, `position`.
