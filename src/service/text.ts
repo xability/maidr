@@ -810,7 +810,17 @@ export class TextService implements Observer<PlotState>, Disposable {
     const crossAxisType = state.crossAxis ?? 'y';
     const cross = state.cross;
 
-    if (Array.isArray(state.main.value)) {
+    if (state.range !== undefined) {
+      // A histogram bin is its range, and verbose reads it so. Reading
+      // `main.value` here named the bin by its midpoint, a number verbose
+      // never says. "through" rather than the dash a gantt's span takes: bins
+      // run below zero as often as not, and in "-1.5--1" a minus sign and a
+      // dash cannot be told apart by ear.
+      clauses.push(t('text.rangeThrough', {
+        min: this.formatSingleValue(state.range.min, mainAxisType),
+        max: this.formatSingleValue(state.range.max, mainAxisType),
+      }));
+    } else if (Array.isArray(state.main.value)) {
       clauses.push(this.bracketed(state.main.value as (number | string)[], mainAxisType));
     } else {
       clauses.push(this.formatSingleValue(state.main.value as number | string, mainAxisType));

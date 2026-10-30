@@ -35,21 +35,26 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       MathUtil.safeMax(highs),
     );
 
+    // A bar's height is a count only when it is a whole number. A density, a
+    // probability or a weighted histogram draws fractions, and they add up to
+    // no number of observations: the densities of 500 samples in bins half a
+    // unit wide sum to 2, which was reported as "Total observations: 2".
+    const measuredCounts = counts.filter(isMeasured);
+    const heightsAreCounts = measuredCounts.every(Number.isInteger);
+
     const stats: DescriptionState['stats'] = [
       { label: t('model.statNumberOfBins'), value: points.length },
-      // `count`, not `value`: these are bin heights, and they sat directly
-      // above a `Bin range` that is the binned variable -- two adjacent lines
-      // about two different axes, under labels naming neither.
-      ...this.rangeStats({ min: 'model.statMinCount', max: 'model.statMaxCount' }),
+      ...this.heightStats(heightsAreCounts),
       { label: t('model.statBinRange'), value: binRange },
     ];
 
-    const measuredCounts = counts.filter(isMeasured);
     if (measuredCounts.length > 0) {
-      stats.push({
-        label: t('model.statTotalObservations'),
-        value: measuredCounts.reduce((sum, count) => sum + count, 0),
-      });
+      if (heightsAreCounts) {
+        stats.push({
+          label: t('model.statTotalObservations'),
+          value: measuredCounts.reduce((sum, count) => sum + count, 0),
+        });
+      }
 
       // Where the distribution peaks -- the question a histogram is drawn to
       // answer, and one a reader could previously only get by walking every
@@ -76,9 +81,13 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       ))
       .filter(Number.isFinite);
     if (widths.length > 0) {
+      const narrowest = MathUtil.safeMin(widths);
+      const widest = MathUtil.safeMax(widths);
       stats.push({
         label: t('model.statBinWidth'),
-        value: MathUtil.spannedOrMissing(MathUtil.safeMin(widths), MathUtil.safeMax(widths)),
+        value: Histogram.binsAreEqual(narrowest, widest, [...lows, ...highs])
+          ? MathUtil.spanned(narrowest, narrowest)
+          : MathUtil.spannedOrMissing(narrowest, widest),
       });
     }
 
@@ -109,6 +118,67 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       stats,
       dataTable: { headers, columnAxes, rows },
     };
+  }
+
+  /**
+   * The lowest and highest bar, named for what a bar's height is.
+   *
+   * `count`, not `value`, when the heights are counts: they sit directly
+   * above a `Bin range` that is the binned variable, and `Min value` there
+   * would be two adjacent lines about two different axes under labels naming
+   * neither. Heights that are not counts are named for the axis they are read
+   * off ("Maximum Density"), which keeps the two lines apart without calling
+   * a density a count.
+   *
+   * @param heightsAreCounts - Whether every measured height is a whole number
+   * @returns The minimum and maximum stats
+   */
+  private heightStats(heightsAreCounts: boolean): DescriptionState['stats'] {
+    if (heightsAreCounts) {
+      return this.rangeStats({ min: 'model.statMinCount', max: 'model.statMaxCount' });
+    }
+    const axis = this.orientation === Orientation.VERTICAL ? this.yAxis : this.xAxis;
+    const [lowest, highest] = this.rangeStats();
+    return [
+      { ...lowest, label: t('model.statMinimumAxis', { axis }) },
+      { ...highest, label: t('model.statMaximumAxis', { axis }) },
+    ];
+  }
+
+  /**
+   * Whether bins this narrow and this wide are the same width.
+   *
+   * Producers compute bin edges in floating point -- numpy as
+   * `start + i * step`, R writing its edges out to fifteen significant
+   * figures -- so the widths of equal bins agree in every digit a reader is
+   * shown and differ in the last few bits: 4.916666666666657 beside
+   * 4.916666666666686. Compared exactly, twelve equal bins read
+   * "Bin width: 4.92 to 4.92".
+   *
+   * The noise in a width comes from the edges it is taken from, so the
+   * tolerance is scaled by the largest edge rather than by the width: two
+   * widths are the same when they differ by less than a billionth of it.
+   * Rounding each width instead, the way a single derived length is trimmed
+   * elsewhere, would still split two widths either side of a rounding
+   * boundary, and R's widths carry noise close to the twelfth figure.
+   *
+   * It is also capped at a millionth of a width. Far from zero a billionth
+   * of an edge can be more than a bin is wide -- 1.7 seconds on an axis of
+   * epoch seconds -- and bins a quarter and a half second wide would have
+   * read as equal.
+   *
+   * @param narrowest - The narrowest bin's width
+   * @param widest - The widest bin's width
+   * @param edges - Every bin edge the widths were taken from
+   * @returns True when the bins differ in width by float noise alone
+   */
+  private static binsAreEqual(narrowest: number, widest: number, edges: number[]): boolean {
+    const scale = MathUtil.safeMax(edges.map(Math.abs));
+    const tolerance = Math.min(
+      scale * 1e-9,
+      Math.min(Math.abs(narrowest), Math.abs(widest)) * 1e-6,
+    );
+    return Number.isFinite(tolerance) && widest - narrowest <= tolerance;
   }
 
   protected override get text(): TextState {
