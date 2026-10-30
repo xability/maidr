@@ -1417,13 +1417,15 @@ function collectLineMarkerCandidates(
  *   1. For each line-like series, determine the expected `pointCount`.
  *   2. Run {@link collectLineMarkerCandidates} once over the SVG and group the
  *      candidates by the `ac_layer_` they sit in: AnyChart draws each series'
- *      markers into a layer of its own, and lays those layers out in series
+ *      markers into a layer of its own, and lays those layers out in z-index
  *      order. Within a layer the markers are sorted left-to-right (matching
  *      data-point order).
- *   3. Hand the groups out in series order, each line-like series taking the
- *      next one. A series this loop skips — the bars of a combined chart, one
- *      that cannot name its type, one that draws no markers (see
- *      {@link drawsMarkers}) — takes none.
+ *   3. Pair the groups with the series that draw them, in the order AnyChart
+ *      draws their layers (see {@link pointLayerOwners}), and stamp the groups
+ *      of the line-like series. A scatter-like series' group is left to
+ *      {@link stampScatterAttributes}. A series that draws no point-sized
+ *      marks — the bars of a combined chart, one that cannot name its type,
+ *      one that draws no markers (see {@link drawsMarkers}) — takes none.
  *
  * Splitting one left-to-right list into runs of `pointCount` instead gave a
  * series whatever markers came first along x, whichever series drew them: on
@@ -1439,8 +1441,8 @@ function stampLineAttributes(
   svg: SVGElement,
   stampPrefix = '',
 ): void {
-  const seriesCount = chart.getSeriesCount();
-  if (seriesCount === 0)
+  const owners = pointLayerOwners(chart);
+  if (!owners.some(owner => owner.family === 'line'))
     return;
 
   const svgRect = svg.getBoundingClientRect();
@@ -1451,31 +1453,11 @@ function stampLineAttributes(
   const groups = groupByLayer(collectLineMarkerCandidates(svg, svgArea))
     .map(group => group.sort((a, b) => a.x - b.x));
 
-  // How many groups the series before this one took. A running cursor rather
-  // than `s`: `s` counts the series this loop skipped — the bars of a combined
-  // chart, a series that cannot name its type, a hidden series — none of which
-  // drew a marker.
-  let consumed = 0;
-
-  for (let s = 0; s < seriesCount; s++) {
-    const series = chart.getSeriesAt(s);
-    if (!series)
-      continue;
-    let seriesType = '';
-    try {
-      seriesType = series.seriesType();
-    } catch {
-      continue;
-    }
-    if (!LINE_LIKE_SERIES_TYPES.has(seriesType))
+  for (const [layer, { index: s, family, pointCount }] of owners.entries()) {
+    if (family !== 'line')
       continue;
 
-    const rows = extractRawRows(series);
-    const pointCount = rows.length;
-    if (pointCount === 0 || !drawsMarkers(series))
-      continue;
-
-    const markers = groups[consumed++] ?? [];
+    const markers = groups[layer] ?? [];
     if (markers.length !== pointCount) {
       console.warn(
         `[maidr/anychart] Expected ${pointCount} line-marker shapes for `
@@ -1545,21 +1527,119 @@ const SCATTER_LIKE_SERIES_TYPES = new Set([
 ]);
 
 /**
+ * A series that draws a layer of point-sized marks: a line's markers, or a
+ * scatter series' points.
+ */
+interface PointLayerOwner {
+  /** The series' index on the chart, which its stamps carry. */
+  index: number;
+  /** Which stamper stamps its marks. */
+  family: 'line' | 'scatter';
+  /** How many points it draws. */
+  pointCount: number;
+}
+
+/**
+ * The series that each draw a layer of point-sized marks, in the order
+ * AnyChart draws those layers: line-like series that draw markers (see
+ * {@link drawsMarkers}) and scatter-like series that are drawn.
+ *
+ * The line and scatter stampers share this one list, because AnyChart writes
+ * the layers in z-index order rather than series order. Measured on AnyChart
+ * 8.13: a marker or area series is drawn at z-index 30 and a line or stick at
+ * 31, plus 0.00001 for each series added before it, and a line-like series
+ * draws its markers 0.000012 above itself. So beside a line or an area, a
+ * marker series' points came first whichever series was added first. Each
+ * stamper counted only its own series, in series order, so the line or area
+ * took the marker series' points, and a marker series raised above a line
+ * with `zIndex()` took the line's markers. A series that reports no z-index
+ * keeps its place in series order.
+ *
+ * @param chart - A Cartesian chart
+ * @returns The owners, one per layer, in the order the layers are drawn
+ */
+function pointLayerOwners(chart: AnyChartInstance): PointLayerOwner[] {
+  const owners: Array<PointLayerOwner & { zIndex: number }> = [];
+  const seriesCount = chart.getSeriesCount();
+  for (let s = 0; s < seriesCount; s++) {
+    const series = chart.getSeriesAt(s);
+    if (!series)
+      continue;
+    const family = pointLayerFamily(series);
+    if (!family)
+      continue;
+    const pointCount = extractRawRows(series).length;
+    if (pointCount === 0)
+      continue;
+    owners.push({ index: s, family, pointCount, zIndex: pointLayerZIndex(series, family) });
+  }
+  // `sort` is stable, so layers at the same z-index stay in series order.
+  return owners.sort((a, b) => a.zIndex - b.zIndex);
+}
+
+/**
+ * Which stamper a series' point-sized marks belong to, if it draws any.
+ *
+ * @param series - Any series of a Cartesian chart
+ * @returns `'line'` for a line-like series that draws markers, `'scatter'`
+ *   for a scatter-like series that is drawn, and `null` otherwise
+ */
+function pointLayerFamily(series: AnyChartSeries): 'line' | 'scatter' | null {
+  let seriesType = '';
+  try {
+    seriesType = series.seriesType();
+  } catch {
+    return null;
+  }
+  if (LINE_LIKE_SERIES_TYPES.has(seriesType))
+    return drawsMarkers(series) ? 'line' : null;
+  // A hidden series draws no points. Its `markers()` say nothing here:
+  // measured on AnyChart 8.13, a marker series reports its markers as
+  // disabled while it draws every point.
+  if (SCATTER_LIKE_SERIES_TYPES.has(seriesType))
+    return series.enabled?.() === false ? null : 'scatter';
+  return null;
+}
+
+/**
+ * The z-index a series' point-sized marks are drawn at: a line-like series'
+ * markers at their own, a scatter-like series' points at the series'. Either
+ * is 0 when the series reports none.
+ *
+ * @param series - A series {@link pointLayerFamily} places in `family`
+ * @param family - Which marks the series draws
+ * @returns The z-index of the layer holding the marks
+ */
+function pointLayerZIndex(series: AnyChartSeries, family: 'line' | 'scatter'): number {
+  try {
+    const markersZIndex = family === 'line' ? series.markers?.().zIndex?.() : undefined;
+    const zIndex = markersZIndex ?? series.zIndex?.();
+    return typeof zIndex === 'number' && Number.isFinite(zIndex) ? zIndex : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Stamp `data-maidr-anychart-point="<series>-<index>"` on every scatter /
  * marker / bubble point so MAIDR's highlight service can locate each data
  * point via attribute selector.
  *
  * Strategy mirrors {@link stampLineAttributes}: AnyChart does not expose
  * per-point DOM accessors, so we use {@link collectLineMarkerCandidates} to
- * geometrically filter point-sized shapes, then sort and partition by
- * series. Scatter points are visually identical to line markers (small,
- * roughly square), so the same filter applies.
+ * geometrically filter point-sized shapes. Scatter points are visually
+ * identical to line markers (small, roughly square), so the same filter
+ * applies, and AnyChart draws each series' points into a layer of its own, so
+ * the candidates are grouped by layer and paired with the series that draw
+ * them, lines included (see {@link pointLayerOwners}). A hidden series takes
+ * none.
  *
- * Sort order is x-center primary, y-center secondary, matching
- * `ScatterTrace.groupSvgElements`'s X→Y grouping expectation. Multi-series
- * scatter charts hand the candidates out with the same running cursor as
- * line-series and emit the same one-time warning recommending an explicit
- * `selectors` entry.
+ * Within a group the sort order is x-center primary, y-center secondary,
+ * matching `ScatterTrace.groupSvgElements`'s X→Y grouping expectation.
+ * Splitting one sorted list into runs of `pointCount` instead gave a series
+ * whatever points came first along x, whichever series drew them: of two
+ * series measured at the same x values, the first took both series' points at
+ * the first half of the x values.
  *
  * Idempotent — re-running on a chart that has already been stamped is a
  * no-op.
@@ -1569,8 +1649,8 @@ function stampScatterAttributes(
   svg: SVGElement,
   stampPrefix = '',
 ): void {
-  const seriesCount = chart.getSeriesCount();
-  if (seriesCount === 0)
+  const owners = pointLayerOwners(chart);
+  if (!owners.some(owner => owner.family === 'scatter'))
     return;
 
   const svgRect = svg.getBoundingClientRect();
@@ -1590,60 +1670,28 @@ function stampScatterAttributes(
     const y = bbox ? bbox.y + bbox.height / 2 : 0;
     return { el: c.el, x: c.x, y };
   });
-  candidates.sort((a, b) => (a.x - b.x) || (a.y - b.y));
+  // One group of candidates per layer, in the order the layers are drawn.
+  const groups = groupByLayer(candidates)
+    .map(group => group.sort((a, b) => (a.x - b.x) || (a.y - b.y)));
 
-  let multiSeriesWarned = false;
-  // See {@link stampLineAttributes}: a running cursor over the candidates the
-  // earlier series took, not `s * pointCount`, which counts the series this
-  // loop skipped and assumes every series is the same length.
-  let consumed = 0;
-
-  for (let s = 0; s < seriesCount; s++) {
-    const series = chart.getSeriesAt(s);
-    if (!series)
-      continue;
-    let seriesType = '';
-    try {
-      seriesType = series.seriesType();
-    } catch {
-      continue;
-    }
-    if (!SCATTER_LIKE_SERIES_TYPES.has(seriesType))
+  for (const [layer, { index: s, family, pointCount }] of owners.entries()) {
+    if (family !== 'scatter')
       continue;
 
-    const rows = extractRawRows(series);
-    const pointCount = rows.length;
-    if (pointCount === 0)
-      continue;
-
-    if (seriesCount > 1 && !multiSeriesWarned) {
-      console.warn(
-        '[maidr/anychart] Multi-series scatter highlighting uses an '
-        + 'offset-based partition of marker candidates and may misattribute '
-        + 'points across series with overlapping geometry. For precise '
-        + 'highlighting, pass an explicit `selectors` entry to bindAnyChart().',
-      );
-      multiSeriesWarned = true;
-    }
-
-    const stampStart = consumed;
-    const stampEnd = Math.min(consumed + pointCount, candidates.length);
-    consumed = stampEnd;
-
-    if (stampEnd - stampStart < pointCount) {
+    const points = groups[layer] ?? [];
+    if (points.length !== pointCount) {
       console.warn(
         `[maidr/anychart] Expected ${pointCount} scatter marker shapes for `
-        + `series ${s} but found ${Math.max(0, stampEnd - stampStart)}. `
+        + `series ${s} but found ${points.length}. `
         + 'Highlighting may be incomplete; pass an explicit `selectors` entry '
         + 'to override.',
       );
     }
 
-    for (let i = stampStart; i < stampEnd; i++) {
-      const c = candidates[i];
+    for (const [i, c] of points.slice(0, pointCount).entries()) {
       if (c.el.hasAttribute(POINT_ATTR))
         continue;
-      c.el.setAttribute(POINT_ATTR, `${stampPrefix}${s}-${i - stampStart}`);
+      c.el.setAttribute(POINT_ATTR, `${stampPrefix}${s}-${i}`);
       // Stamp the bbox-center as `cx` / `cy` so MAIDR's
       // `ScatterTrace.groupSvgElements` can extract coordinates from these
       // <path> elements directly. AnyChart scatter markers render as
