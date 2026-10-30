@@ -849,14 +849,16 @@ function reorderDodgedBarsByVisualPosition(
 }
 
 /**
- * A bin edge computed by adding steps, rid of the float noise the sum picks
- * up (`0.1 + 0.2`), so it reads as the axis prints it.
+ * How many decimals a number is written with: 2 for `2.25`, 7 for `1e-7`, 0
+ * for `1500` or `1e21`.
  *
- * @param value - The edge
- * @returns The edge to twelve significant digits
+ * @param value - The number
+ * @returns Its decimal places, as `String` writes it
  */
-function binEdge(value: number): number {
-  return Number(value.toPrecision(12));
+function decimalsOf(value: number): number {
+  const [mantissa, exponent = '0'] = String(value).split('e');
+  const fraction = mantissa.split('.')[1]?.length ?? 0;
+  return Math.min(Math.max(fraction - Number(exponent), 0), 100);
 }
 
 /**
@@ -897,9 +899,14 @@ function withEmptyBins(bins: HistogramPoint[], isHorizontal: boolean): Histogram
     return bins;
   }
 
+  // An edge computed by adding steps picks up float noise (`0.1 + 0.2`), so
+  // it is written to as many decimals as the most precise edge Vega-Lite
+  // wrote, and reads as theirs do: '2-2.5' beside '1.5-2'.
+  const decimals = Math.max(...bins.flatMap(bin => [start(bin), end(bin)]).map(decimalsOf));
+  const edge = (value: number): number => Number(value.toFixed(decimals));
   const empty = (from: number): HistogramPoint => {
-    const lo = binEdge(from);
-    const hi = binEdge(from + step);
+    const lo = edge(from);
+    const hi = edge(from + step);
     return isHorizontal
       ? { x: 0, y: `${lo}-${hi}`, xMin: 0, xMax: 0, yMin: lo, yMax: hi }
       : { x: `${lo}-${hi}`, y: 0, xMin: lo, xMax: hi, yMin: 0, yMax: 0 };

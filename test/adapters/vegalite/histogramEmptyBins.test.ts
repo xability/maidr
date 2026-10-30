@@ -173,6 +173,37 @@ describe('a vega-lite histogram with a run of empty bins', () => {
 
     expect(bins.map(b => b.x)).toEqual(['0.1-0.2', '0.2-0.3', '0.3-0.4', '0.4-0.5']);
   });
+
+  it('fills a gap of one bin wherever it falls', () => {
+    const bins = bound([bin(3, 2), bin(1, 4), bin(2, 1)]).data as HistogramPoint[];
+
+    expect(bins.map(b => [b.x, b.y])).toEqual([
+      ['1-1.5', 4],
+      ['1.5-2', 0],
+      ['2-2.5', 1],
+      ['2.5-3', 0],
+      ['3-3.5', 2],
+    ]);
+  });
+
+  it('writes an empty bin\'s label as the drawn bins\' labels are written', () => {
+    // Every digit of an edge counts: a timestamp of thirteen, to the unit.
+    const start = 1700000000123;
+    const stamps: Row[] = [0, 3].map(k => ({
+      bin_maxbins_20_petal: start + k * 1000,
+      bin_maxbins_20_petal_end: start + (k + 1) * 1000,
+      __count: 1,
+    }));
+
+    const bins = bound(stamps).data as HistogramPoint[];
+
+    expect(bins.map(b => b.x)).toEqual([
+      '1700000000123-1700000001123',
+      '1700000001123-1700000002123',
+      '1700000002123-1700000003123',
+      '1700000003123-1700000004123',
+    ]);
+  });
 });
 
 describe('a vega-lite histogram the empty bins are not put into', () => {
