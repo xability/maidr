@@ -57,7 +57,11 @@ const Braille: React.FC = () => {
     textArea.value = value;
     textArea.selectionStart = index;
     textArea.selectionEnd = index;
-    textArea.focus();
+    // Without scrolling: the field sits below the chart, and scrolling it
+    // into view on every step pushed the top of a chart taller than the
+    // window, with the point being read, off the screen for as long as
+    // braille was on.
+    textArea.focus({ preventScroll: true });
     lastIndexRef.current = index;
   }, [value, index]);
 
