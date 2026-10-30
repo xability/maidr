@@ -140,13 +140,57 @@ describe('readLightweightChart', () => {
     const plain = readLightweightChart(chart).maidr.subplots[0][0].layers;
     const labelled = readLightweightChart(chart, { axes: { x: 'Date', y: 'USD' } }).maidr.subplots[0][0].layers;
 
-    expect(plain.map(layer => [layer.title, layer.axes?.x, layer.axes?.y])).toEqual([
+    expect(plain.map(layer => [layer.name, layer.axes?.x, layer.axes?.y])).toEqual([
       ['ACME', { label: 'Time' }, { label: 'ACME' }],
-      ['Candlestick series', { label: 'Time' }, { label: 'Price' }],
-      ['Line series', { label: 'Time' }, { label: 'Value' }],
+      [undefined, { label: 'Time' }, { label: 'Price' }],
+      [undefined, { label: 'Time' }, { label: 'Value' }],
     ]);
     expect(labelled.map(layer => layer.axes?.y)).toEqual([{ label: 'ACME' }, { label: 'USD' }, { label: 'USD' }]);
     expect(labelled[0].axes?.x).toEqual({ label: 'Date' });
+  });
+
+  it('names a layer after its series and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: a chart bound with the
+    // title "ACME daily prices" was announced as "Title is ACME".
+    const chart = fakeChart([{
+      series: [
+        fakeSeries('Candlestick', ohlc, { title: 'ACME' }),
+        fakeSeries('Line', [{ time: day(2), value: 1 }], { title: '10-day average' }),
+        fakeSeries('Line', [{ time: day(2), value: 1 }]),
+      ],
+    }]);
+
+    const { maidr } = readLightweightChart(chart, { title: 'ACME daily prices' });
+    const layers = maidr.subplots[0][0].layers;
+
+    expect(maidr.title).toBe('ACME daily prices');
+    expect(layers.map(layer => [layer.name, layer.title])).toEqual([
+      ['ACME', undefined],
+      ['10-day average', undefined],
+      [undefined, undefined],
+    ]);
+  });
+
+  it('names each pane once, after its first series', () => {
+    const chart = fakeChart([
+      {
+        series: [
+          fakeSeries('Candlestick', ohlc, { title: 'ACME' }),
+          fakeSeries('Line', [{ time: day(2), value: 10 }], { title: '10-day average' }),
+        ],
+      },
+      { series: [fakeSeries('Histogram', [{ time: day(2), value: 500 }], { title: 'Volume' })] },
+      { series: [fakeSeries('Line', [{ time: day(2), value: 1 }])] },
+    ]);
+
+    const { maidr } = readLightweightChart(chart, { title: 'ACME daily prices' });
+
+    // Bottom pane first: the untitled line, the volume, then the prices.
+    expect(maidr.subplots.map(row => row[0].layers.map(layer => [layer.title, layer.name]))).toEqual([
+      [[undefined, undefined]],
+      [['Volume', 'Volume']],
+      [['ACME', 'ACME'], [undefined, '10-day average']],
+    ]);
   });
 
   it('carries the series price format where MAIDR has the same one', () => {

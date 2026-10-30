@@ -303,7 +303,7 @@ describe('chart.js geo', () => {
     ], { labels: ['Nevada', 'Utah'] }));
 
     expect(layers).toHaveLength(2);
-    expect(layers.map(({ layer }) => layer.title)).toEqual(['2024', '2025']);
+    expect(layers.map(({ layer }) => layer.name)).toEqual(['2024', '2025']);
     expect(layers[0].regions.map(region => region.y)).toEqual([10, 20]);
     expect(layers[1].regions.map(region => region.y)).toEqual([30, 40]);
   });

@@ -27,7 +27,7 @@ describe('highcharts treemap series', () => {
     const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.TREEMAP);
-    expect(layer.title).toBe('People');
+    expect(layer.name).toBe('People');
     // An interior node keeps no value: TreemapTrace derives its total from the
     // children the paths give it.
     expect(layer.data as TreemapPoint[]).toEqual([

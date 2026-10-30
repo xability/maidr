@@ -15,6 +15,17 @@ export interface PlotlyTrace {
   type?: string;
   mode?: string;
   name?: string;
+  /**
+   * The trace as the page wrote it, which plotly keeps on each trace of
+   * `_fullData`. A name plotly gave an unnamed trace itself ("trace 0") is
+   * not on it.
+   */
+  _input?: { name?: unknown };
+  /**
+   * Whether the legend lists the trace, as plotly resolved it on `_fullData`:
+   * true unless the page or the trace type says otherwise.
+   */
+  showlegend?: boolean;
   uid?: string;
   visible?: boolean | 'legendonly';
   /**
@@ -412,6 +423,11 @@ export interface PlotlyAnnotation {
 }
 
 export interface PlotlyFullLayout extends PlotlyLayout {
+  /**
+   * Whether the legend is drawn, as plotly resolved it: the page's own
+   * setting, or on by itself for a figure of two legend traces or more.
+   */
+  showlegend?: boolean;
   barmode?: string;
   barnorm?: string;
   /**

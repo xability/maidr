@@ -95,7 +95,8 @@ describe('createMaidrFromGoogleChart with a declared fan chart', () => {
     const layer = layerOf(BANDS);
 
     expect(layer.type).toBe(TraceType.PERCENTILE_BAND);
-    expect(layer.title).toBe('Median');
+    expect(layer.name).toBe('Median');
+    expect(layer.title).toBeUndefined();
     expect((layer.data as PercentileBandPoint[])[1]).toEqual({
       x: '1',
       quantiles: [
@@ -106,6 +107,28 @@ describe('createMaidrFromGoogleChart with a declared fan chart', () => {
         { level: 0.95, value: 3.5 },
       ],
     });
+  });
+
+  it('names the fan after its median column and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: "Title is Median" on a
+    // chart titled Forecast.
+    const maidr = createMaidrFromGoogleChart(CHART, makeTable(COLUMNS), makeContainer(), {
+      chartType: 'LineChart',
+      title: 'Forecast',
+      percentileBands: BANDS,
+    });
+    const layer = maidr.subplots[0][0].layers[0];
+
+    expect(maidr.title).toBe('Forecast');
+    expect(layer.title).toBeUndefined();
+    expect(layer.name).toBe('Median');
+  });
+
+  it('keeps the title and the name the page gave the fan', () => {
+    const layer = layerOf([{ ...BANDS[0], title: 'Forecast with intervals', name: 'Central estimate' }]);
+
+    expect(layer.title).toBe('Forecast with intervals');
+    expect(layer.name).toBe('Central estimate');
   });
 
   it('marks each quantile on its band\'s filled path, outermost first, then on the median', () => {

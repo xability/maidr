@@ -463,6 +463,10 @@ describe('declared survival curves', () => {
     expect(layer.type).toBe(TraceType.SURVIVAL);
     expect(arms).toHaveLength(2);
     expect(arms[1][0].z).toBe('Control');
+    // The arms name the layer; they are not the chart's title, which a layer
+    // title would be read as ("Title is Treated, Control").
+    expect(layer.name).toBe('Treated, Control');
+    expect(layer.title).toBeUndefined();
   });
 
   it('leaves the second arm its own layer when merge is off', () => {
@@ -728,6 +732,8 @@ describe('declared error bars', () => {
     })]);
 
     expect(layer.type).toBe(TraceType.ERROR_BAR);
+    expect(layer.name).toBe('Mean');
+    expect(layer.title).toBeUndefined();
     // A one-sided interval keeps the half it has rather than losing the
     // estimate with it.
     expect(layer.data as ErrorBarPoint[]).toEqual([
@@ -1036,6 +1042,9 @@ describe('declared clouds', () => {
       { x: 1, y: 3, label: 'rs1', group: '1' },
       { x: 2, y: 8, label: 'rs2', group: '2' },
     ]);
+    // The declaring series names one chromosome, not the cloud.
+    expect(layers[0].name).toBeUndefined();
+    expect(layers[0].title).toBeUndefined();
   });
 
   it('keeps a volcano\'s sibling series apart, which a Manhattan\'s are not', () => {

@@ -22,7 +22,7 @@ describe('highcharts wordcloud series', () => {
     const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.WORD_CLOUD);
-    expect(layer.title).toBe('Occurrences');
+    expect(layer.name).toBe('Occurrences');
     expect(layer.selectors).toBe(
       '#cloud-chart .highcharts-series-group .highcharts-series-0 .highcharts-point',
     );

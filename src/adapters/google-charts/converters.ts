@@ -2135,8 +2135,10 @@ function fanLayer(
   return {
     id: nextId('layer'),
     type: TraceType.PERCENTILE_BAND,
-    title: plan.title ?? (dt.getColumnLabel(group.dataCol) || plan.median),
-    ...(plan.name ? { name: plan.name } : {}),
+    // The median column's label says which layer this is; it is not the
+    // chart's title, which a layer `title` would be read as.
+    ...(plan.title ? { title: plan.title } : {}),
+    name: plan.name ?? (dt.getColumnLabel(group.dataCol) || plan.median),
     ...(selectors ? { selectors } : {}),
     axes: {
       x: { label: dt.getColumnLabel(0) || undefined },
@@ -3011,7 +3013,9 @@ function buildCalendarLayers(
     return {
       id: nextId('layer'),
       type: TraceType.HEATMAP,
-      title: String(block.year),
+      // The year tells the layers apart on a layer switch; as a `title` it
+      // was read as the chart's ("Title is 2013").
+      name: String(block.year),
       ...(cellSelectors
         ? { selectors: calendarSelectors(block, cellSelectors, base) }
         : {}),

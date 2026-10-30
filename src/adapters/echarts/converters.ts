@@ -1310,13 +1310,15 @@ function fanLayer(
   const selectors = polyline && areas.every(marks => marks?.length === 1)
     ? [...areas.map(marks => (marks as string[])[0]), polyline]
     : undefined;
-  const name = authoredName(fan.median);
+  // The median series' name says which layer this is, as a line's own name
+  // does; it is not the chart's title, which a layer `title` would be read as.
+  const name = fan.plan.name ?? authoredName(fan.median);
 
   return {
     id: nextId('layer'),
     type: TraceType.PERCENTILE_BAND,
-    ...(fan.plan.title ?? name ? { title: fan.plan.title ?? name } : {}),
-    ...(fan.plan.name ? { name: fan.plan.name } : {}),
+    ...(fan.plan.title ? { title: fan.plan.title } : {}),
+    ...(name ? { name } : {}),
     ...(selectors ? { selectors } : {}),
     axes: axisConfig(axes),
     data: percentileBandPoints(medians, bands),

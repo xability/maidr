@@ -23,7 +23,7 @@ describe('highcharts funnel series', () => {
     const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.FUNNEL);
-    expect(layer.title).toBe('Unique users');
+    expect(layer.name).toBe('Unique users');
     // Declared order is stage order; the retention between adjacent stages is
     // arithmetic FunnelTrace does itself.
     expect(layer.data as BarPoint[]).toEqual([

@@ -64,7 +64,7 @@ describe('chart.js word cloud', () => {
     const { layer } = wordCloudLayer(termsChart());
 
     expect(layer.type).toBe(TraceType.WORD_CLOUD);
-    expect(layer.title).toBe('Terms');
+    expect(layer.name).toBe('Terms');
   });
 
   it('pairs each term with the weight beside it', () => {

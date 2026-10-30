@@ -38,8 +38,8 @@ let gridCounter = 0;
  *   (`columns` = charts per row; `rows` derives columns when set alone).
  *
  * Panel naming: each chart's own title becomes its panel's display name
- * (written into the first layer's `title`); the figure title comes from
- * `options.title`. Charts with no convertible series are skipped (with a
+ * (written into the first layer's `title`), and a chart with no title is
+ * named after its first series; the figure title comes from `options.title`. Charts with no convertible series are skipped (with a
  * warning) and their row compacted, because MAIDR crashes on empty subplots.
  * A member chart that itself contains multiple panes (stacked `yAxis` bands)
  * is expanded with the same pane detection as {@link highchartsToMaidr}: each
@@ -92,7 +92,9 @@ export function highchartsGridToMaidr(
       // from the first layer's title (there is no subplot-title field). For a
       // multi-pane chart it names the first pane only — the remaining panes
       // keep their pane-level names (series name or y-axis title fallback).
-      const paneTitle = chart.title?.textStr;
+      // A chart with no title is named after its first series, as a pane is;
+      // the series' name is on the layer's `name`.
+      const paneTitle = chart.title?.textStr || paneSubplots[0].layers[0].name;
       if (paneTitle) {
         paneSubplots[0].layers[0].title = paneTitle;
       }

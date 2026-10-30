@@ -50,7 +50,7 @@ describe('highcharts mappoint series', () => {
 
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.SCATTER);
-    expect(layers[0].title).toBe('Cities');
+    expect(layers[0].name).toBe('Cities');
   });
 
   it('puts the degrees on the axes and the place on the point', () => {

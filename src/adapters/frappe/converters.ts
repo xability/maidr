@@ -194,11 +194,18 @@ export function createMaidrFromFrappeCharts(
           + 'descendant of the wrapper element passed to createMaidrFromFrappeCharts.',
         );
       }
-      return buildSubplot(panel.chart, panel.container, {
+      const subplot = buildSubplot(panel.chart, panel.container, {
         chartType: panel.chartType,
         axes: panel.axes,
         panelTitle: panel.title,
       });
+      // A panel the page gave no title is named after its first layer's
+      // dataset, whose name the layer carries.
+      const first = subplot.layers[0];
+      if (first && first.title === undefined && first.name !== undefined) {
+        subplot.layers[0] = { ...first, title: first.name };
+      }
+      return subplot;
     }),
   );
 
@@ -292,6 +299,25 @@ function buildSubplot(
     ...(isMultiLine ? { legend: data.datasets.map(seriesName) } : {}),
     layers,
   };
+}
+
+/**
+ * A dataset's name as the name of its layer, spread into the layer: nothing
+ * when the dataset has none.
+ *
+ * A name given as a number, a year say, names the layer by its digits;
+ * anything else that is not text names nothing. The
+ * name has to be a string: MAIDR trims a layer's name as it reads the layer,
+ * and a number there would stop the chart from loading.
+ *
+ * @param dataset - The dataset
+ * @returns `{ name }`, or an empty object
+ */
+function layerName(dataset: FrappeDataset): { name?: string } {
+  const name: unknown = dataset.name;
+  if (typeof name === 'number')
+    return { name: String(name) };
+  return typeof name === 'string' && name.trim() !== '' ? { name } : {};
 }
 
 /**
@@ -717,6 +743,10 @@ function buildDivergingLayer(
  * typed by the dataset's `chartType` (defaulting to bar). The canonical case
  * is a single bar series plus a single line series, navigable with PageUp /
  * PageDown.
+ *
+ * Each layer is named after its dataset, which PageUp / PageDown announce.
+ * The name is not the layer's `title`: MAIDR reads that as the chart's title,
+ * so "Sales" would have stood in for "Monthly Sales with Trend Line".
  */
 function buildMixedLayers(
   data: FrappeData,
@@ -741,7 +771,7 @@ function buildMixedLayers(
       return {
         id: nextId('layer'),
         type: TraceType.LINE,
-        ...(dataset.name ? { title: dataset.name } : {}),
+        ...layerName(dataset),
         selectors: [lineSelectorForDataset(containerId, datasetIndex)],
         axes: buildAxes(options),
         data: line,
@@ -755,7 +785,7 @@ function buildMixedLayers(
     return {
       id: nextId('layer'),
       type: TraceType.BAR,
-      ...(dataset.name ? { title: dataset.name } : {}),
+      ...layerName(dataset),
       orientation: Orientation.VERTICAL,
       selectors: barSelectorForDataset(containerId, datasetIndex),
       axes: buildAxes(options),

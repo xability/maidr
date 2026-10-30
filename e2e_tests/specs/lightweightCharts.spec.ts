@@ -75,11 +75,16 @@ test.describe('Lightweight Charts adapter', () => {
     await open(page, 'lightweight-charts.html');
 
     const layers = await page.evaluate(() => {
-      const binding = (window as unknown as { maidrBinding: { maidr: { subplots: { layers: { type: string; title: string }[] }[][] } } }).maidrBinding;
-      return binding.maidr.subplots.map(row => row[0].layers.map(layer => `${layer.type}:${layer.title}`));
+      const binding = (window as unknown as { maidrBinding: { maidr: { subplots: { layers: { type: string; name?: string; title?: string }[] }[][] } } }).maidrBinding;
+      return binding.maidr.subplots.map(row => row[0].layers.map(layer => [layer.type, layer.name ?? null, layer.title ?? null]));
     });
 
-    expect(layers).toEqual([['bar:Volume'], ['candlestick:ACME', 'line:10-day average']]);
+    // Each series names its layer; each pane is named once, after its first
+    // series, on the layer a subplot's title is read from.
+    expect(layers).toEqual([
+      [['bar', 'Volume', 'Volume']],
+      [['candlestick', 'ACME', 'ACME'], ['line', '10-day average', null]],
+    ]);
   });
 
   test('announces candles and highlights the one under the cursor', async ({ page }) => {

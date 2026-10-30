@@ -25,7 +25,7 @@ describe('highcharts lollipop series', () => {
     const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.LOLLIPOP);
-    expect(layer.title).toBe('Temperature');
+    expect(layer.name).toBe('Temperature');
     expect(layer.data as BarPoint[]).toEqual([
       { x: 'Jan', y: -3 },
       { x: 'Feb', y: -1 },

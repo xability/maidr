@@ -35,9 +35,10 @@ const OUTER_D = 'M 0 86.116 L 276.6 43.058 L 553.2 0M 0 86.116 L 0 258.348 L 276
 const INNER_D = 'M 0 129.174 L 276.6 86.116 L 553.2 43.058M 0 129.174 L 0 215.29 L 276.6 172.232 L 553.2 129.174 L 553.2 43.058';
 const MEDIAN_D = 'M 0 172.232 L 276.6 129.174 L 553.2 86.116';
 
-function fanChart(medianType = 'line') {
+function fanChart(medianType = 'line', title?: string) {
   return fakeChart({
     type: 'rangeArea',
+    ...(title === undefined ? {} : { config: { title: { text: title } } }),
     series: [
       { name: 'p5-p95', type: 'rangeArea', values: [2, 3, 4], x: [1, 2, 3] },
       { name: 'p25-p75', type: 'rangeArea', values: [1, 2, 3], x: [1, 2, 3] },
@@ -72,7 +73,7 @@ describe('apexcharts percentile band', () => {
 
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.PERCENTILE_BAND);
-    expect(layers[0].title).toBe('Median');
+    expect(layers[0].name).toBe('Median');
     expect((layers[0].data as PercentileBandPoint[])[1]).toEqual({
       x: 'b',
       quantiles: [
@@ -83,6 +84,26 @@ describe('apexcharts percentile band', () => {
         { level: 0.95, value: 3 },
       ],
     });
+  });
+
+  it('names the fan after its median series and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: "Title is Median" on a
+    // chart titled Forecast.
+    const maidr = apexchartsToMaidr(fanChart('line', 'Forecast'), { percentileBands: BANDS });
+    const layer = maidr.subplots[0][0].layers[0];
+
+    expect(maidr.title).toBe('Forecast');
+    expect(layer.title).toBeUndefined();
+    expect(layer.name).toBe('Median');
+  });
+
+  it('keeps the title and the name the page gave the fan', () => {
+    const layer = apexchartsToMaidr(fanChart('line', 'Forecast'), {
+      percentileBands: [{ ...BANDS[0], title: 'Forecast with intervals', name: 'Central estimate' }],
+    }).subplots[0][0].layers[0];
+
+    expect(layer.title).toBe('Forecast with intervals');
+    expect(layer.name).toBe('Central estimate');
   });
 
   it('marks each quantile on the edge of its band\'s filled path, outermost first, then on the median\'s line', () => {

@@ -188,7 +188,7 @@ describe('chart.js graph', () => {
     }));
 
     expect(layer.type).toBe(TraceType.DIRECTED_GRAPH);
-    expect(layer.title).toBe('Model');
+    expect(layer.name).toBe('Model');
     expect(layer.axes).toEqual({ x: { label: 'Node' } });
     expect(layer.data as DirectedGraphPoint[]).toEqual([
       { id: 0, label: 'root' },
@@ -303,10 +303,11 @@ describe('chart.js graph', () => {
     expect(network.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Links' } });
   });
 
-  it('takes the dataset name as the layer title', () => {
+  it('takes the dataset name as the layer name', () => {
     const layer = layerOf(graphChart('tree', FAMILY, { labels: NAMES, label: 'Org chart' }));
 
-    expect(layer.title).toBe('Org chart');
+    expect(layer.name).toBe('Org chart');
+    expect(layer.title).toBeUndefined();
   });
 
   it('stops a path at a node it has already walked through', () => {

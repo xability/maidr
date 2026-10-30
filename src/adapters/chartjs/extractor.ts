@@ -119,6 +119,8 @@ export function extractChartData(
   onNavigate?: NavigateCallback,
 ): ChartJsExtraction {
   const chartType = chart.config.type;
+  const title = pluginOptions?.title ?? getChartTitle(chart);
+  const titled = title !== undefined ? { title } : {};
 
   const layout = detectStackedPanels(chart);
   const paneled = layout === null
@@ -129,7 +131,7 @@ export function extractChartData(
     return {
       maidr: {
         id: `maidr-chartjs-${chart.canvas.id || 'chart'}-${nextId++}`,
-        title: pluginOptions?.title ?? getChartTitle(chart),
+        ...titled,
         subplots: paneled.subplots,
         ...(onNavigate ? { onNavigate } : {}),
       },
@@ -143,7 +145,7 @@ export function extractChartData(
   return {
     maidr: {
       id: `maidr-chartjs-${chart.canvas.id || 'chart'}-${nextId++}`,
-      title: pluginOptions?.title ?? getChartTitle(chart),
+      ...titled,
       subplots: [[{ layers }]],
       ...(onNavigate ? { onNavigate } : {}),
     },
@@ -511,12 +513,23 @@ function singleSubplotDatasetIndices(
 // Title & axis helpers
 // ---------------------------------------------------------------------------
 
-function getChartTitle(chart: ChartJsChart): string {
+/**
+ * The chart's title: `plugins.title`'s text, or `undefined` for a chart that
+ * has none.
+ *
+ * An untitled chart is left without a title, as every other adapter leaves
+ * one, so MAIDR says there is none ("No title available"). A placeholder
+ * such as "Chart" would be read as the chart's title: "Title is Chart".
+ *
+ * @param chart - The chart
+ * @returns The title's text, its lines joined by spaces
+ */
+function getChartTitle(chart: ChartJsChart): string | undefined {
   const titlePlugin = chart.options.plugins?.title as
     | { text?: string | string[] }
     | undefined;
   if (!titlePlugin?.text)
-    return 'Chart';
+    return undefined;
   return Array.isArray(titlePlugin.text) ? titlePlugin.text.join(' ') : titlePlugin.text;
 }
 
@@ -534,6 +547,24 @@ function getAxisLabel(
     return scale.title.text;
 
   return axisId.toUpperCase();
+}
+
+/**
+ * A dataset's label as the name of its layer, or `undefined` when it has none.
+ *
+ * Chart.js draws a label given as a number, a year say, as its digits, so it
+ * names the layer by them; anything else that is not text names nothing. The
+ * name has to be a string: MAIDR trims a layer's name as it reads the layer,
+ * and a number there would stop the chart from loading.
+ *
+ * @param dataset - The dataset
+ * @returns The label's text
+ */
+function datasetName(dataset: ChartJsDataset | undefined): string | undefined {
+  const label: unknown = dataset?.label;
+  if (typeof label === 'number')
+    return String(label);
+  return typeof label === 'string' && label.trim() !== '' ? label : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -1286,7 +1317,10 @@ function singleDatasetToBarLayer(
   return {
     id: String(id),
     type: traceType,
-    title: dataset.label,
+    // The dataset's label names the layer, as it does every layer below; a
+    // layer switch announces it. It is never the layer's `title`, which
+    // MAIDR reads as the chart's: that is `plugins.title`'s text.
+    name: datasetName(dataset),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: {
       x: { label: getAxisLabel(chart, 'x', pluginOptions) },
@@ -1453,7 +1487,7 @@ function extractDumbbellLayer(
   return {
     id: '0',
     type: TraceType.DUMBBELL,
-    title: dataset.label,
+    name: datasetName(dataset),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: {
       x: { label: getAxisLabel(chart, 'x', pluginOptions) },
@@ -1510,7 +1544,7 @@ function extractWaterfallLayer(
   return {
     id: '0',
     type: TraceType.WATERFALL,
-    title: chart.data.datasets[0].label,
+    name: datasetName(chart.data.datasets[0]),
     axes: {
       x: { label: getAxisLabel(chart, 'x', pluginOptions) },
       y: { label: getAxisLabel(chart, 'y', pluginOptions) },
@@ -2363,12 +2397,12 @@ function extractPercentileBandLayer(
   });
 
   const block = declarations[plan.median];
-  const title = block?.title ?? datasets[plan.median].label;
+  const name = block?.name ?? datasetName(datasets[plan.median]);
   return {
     id,
     type: TraceType.PERCENTILE_BAND,
-    ...(title !== undefined ? { title } : {}),
-    ...(block?.name !== undefined ? { name: block.name } : {}),
+    ...(block?.title !== undefined ? { title: block.title } : {}),
+    ...(name !== undefined ? { name } : {}),
     axes: {
       x: { label: getAxisLabel(chart, 'x', pluginOptions) },
       y: { label: getAxisLabel(chart, 'y', pluginOptions) },
@@ -2714,7 +2748,7 @@ function chartWidePointDeclaration(
 
 /** One emitted point layer: which datasets back it, and what they declare. */
 interface PointGroup {
-  /** The dataset the layer is identified and titled by. */
+  /** The dataset the layer is identified and named by. */
   index: number;
   /** Every dataset backing the layer, in chart order. */
   indices: number[];
@@ -2850,14 +2884,14 @@ function extractScatterLayers(
     const thresholds = named !== undefined ? thresholdOptionsOf(named) : undefined;
     // A merged layer's declaring dataset names one chromosome of a cloud, not
     // the cloud, so only a layer that really is one series takes its label.
-    const title = declaration?.title
-      ?? (group.indices.length === 1 ? chart.data.datasets[group.index].label : undefined);
+    const name = declaration?.name
+      ?? (group.indices.length === 1 ? datasetName(chart.data.datasets[group.index]) : undefined);
 
     return {
       id,
       type: declaration?.type ?? TraceType.SCATTER,
-      title,
-      ...(declaration?.name !== undefined ? { name: declaration.name } : {}),
+      ...(declaration?.title !== undefined ? { title: declaration.title } : {}),
+      ...(name !== undefined ? { name } : {}),
       axes: {
         x: { label: getAxisLabel(chart, 'x', pluginOptions) },
         y: { label: getAxisLabel(chart, 'y', pluginOptions) },
@@ -3093,7 +3127,7 @@ function extractGaugeLayer(
   return {
     id: '0',
     type: TraceType.GAUGE,
-    title: dataset.label,
+    name: datasetName(dataset),
     axes: getGaugeAxes(pluginOptions),
     data: point,
   };
@@ -3153,7 +3187,7 @@ function extractPieLayers(
     return {
       id,
       type: TraceType.PIE,
-      title: dataset.label,
+      name: datasetName(dataset),
       axes,
       data: points,
       ...(startAngle !== undefined && { startAngle }),
@@ -3326,7 +3360,7 @@ function extractErrorBarLayers(
       id: '0',
       type: TraceType.ERROR_BAR,
       ...(chart.data.datasets.length === 1 && chart.data.datasets[0]?.label !== undefined
-        ? { title: chart.data.datasets[0].label }
+        ? { name: datasetName(chart.data.datasets[0]) }
         : {}),
       ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
       axes: {
@@ -3789,7 +3823,7 @@ function extractTreemapLayers(
     {
       id: '0',
       type: TraceType.TREEMAP,
-      title: dataset.label,
+      name: datasetName(dataset),
       // A treemap has no scales, so `getAxisLabel`'s fallback would announce
       // the two dimensions of a hierarchy as "X" and "Y". The dataset says
       // what they actually are -- the fields it groups by name the nodes, and
@@ -3877,7 +3911,7 @@ function extractSankeyLayers(chart: ChartJsChart): MaidrLayer[] {
     {
       id: '0',
       type: TraceType.SANKEY,
-      title: dataset.label,
+      name: datasetName(dataset),
       data,
     },
   ];
@@ -3923,7 +3957,7 @@ function extractVennLayers(chart: ChartJsChart): MaidrLayer[] {
 
   if (data.length === 0)
     return [];
-  return [{ id: '0', type: TraceType.VENN, title: dataset.label, data }];
+  return [{ id: '0', type: TraceType.VENN, name: datasetName(dataset), data }];
 }
 
 /**
@@ -3973,7 +4007,7 @@ function extractWordCloudLayers(chart: ChartJsChart): MaidrLayer[] {
     {
       id: '0',
       type: TraceType.WORD_CLOUD,
-      title: dataset.label,
+      name: datasetName(dataset),
       data,
     },
   ];
@@ -4074,7 +4108,7 @@ function extractGraphLayers(
       type: directed
         ? TraceType.DIRECTED_GRAPH
         : chartType === 'forceDirectedGraph' ? TraceType.NETWORK : TraceType.TREE,
-      title: dataset.label,
+      name: datasetName(dataset),
       axes: directed
         ? { x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : GRAPH_NODE_AXIS } }
         : chartType === 'forceDirectedGraph'
@@ -4355,7 +4389,7 @@ function extractGeoLayers(
     layers.push({
       id: String(index),
       type: TraceType.CHOROPLETH,
-      title: dataset.label,
+      name: datasetName(dataset),
       axes: {
         x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : 'Region' },
         y: { label: geoValueLabel(chart, chartType, pluginOptions) },

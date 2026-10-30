@@ -101,7 +101,7 @@ describe('series kind inference', () => {
     const layer = maidr.subplots[0][0].layers[0];
     expect(layer.id).toBe('bar-1');
     expect(layer.type).toBe(TraceType.BAR);
-    expect(layer.title).toBe('Sales');
+    expect(layer.name).toBe('Sales');
     expect(layer.orientation).toBeUndefined();
     // A null bar is left out, and the source indices skip it.
     expect(layer.data as BarPoint[]).toEqual([{ x: 1, y: 4 }, { x: 3, y: 6 }]);
@@ -278,7 +278,7 @@ describe('faceted mode', () => {
     });
     const { maidr, sources } = extractUPlotData(u, 'chart');
     const layers = maidr.subplots[0][0].layers;
-    expect(layers.map(l => [l.id, l.type, l.title])).toEqual([
+    expect(layers.map(l => [l.id, l.type, l.name])).toEqual([
       ['scatter-1', TraceType.SCATTER, 'A'],
       ['scatter-2', TraceType.SCATTER, 'B'],
     ]);
@@ -310,6 +310,25 @@ describe('labels', () => {
     expect(maidr.subplots[0][0].layers[0].axes).toEqual({ x: { label: 'Hour' }, y: { label: 'Percent' } });
   });
 
+  it('names a series in its layer\'s name and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: a bar chart titled
+    // "Requests per day" was announced as "Title is Requests".
+    const u = fakeUPlot({
+      title: 'Requests per day',
+      data: [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+      series: [{}, { label: 'Requests', _paths: BAR_PATHS }, { label: 'Latency (ms)', _paths: POINT_PATHS }],
+    });
+
+    const { maidr } = extractUPlotData(u, 'chart');
+    const layers = maidr.subplots[0][0].layers;
+
+    expect(maidr.title).toBe('Requests per day');
+    expect(layers.map(layer => [layer.type, layer.name, layer.title])).toEqual([
+      [TraceType.BAR, 'Requests', undefined],
+      [TraceType.SCATTER, 'Latency (ms)', undefined],
+    ]);
+  });
+
   it('falls back to the x series label, then X', () => {
     const labelled = fakeUPlot({ data: [[1], [2]], series: [{ label: 'Time' }, {}] });
     expect(layersOf(labelled)[0].axes?.x).toEqual({ label: 'Time' });
@@ -327,7 +346,9 @@ describe('labels', () => {
     });
     const layers = layersOf(u);
     expect((layers[0].data as LinePoint[][]).map(row => row[0].z)).toEqual(['Series 1', 'Series 3']);
-    expect(layers[1].title).toBe('Series 2');
+    // The bar series' own layer is left unnamed, so a layer switch says its
+    // plot type: "Series 2" is MAIDR's, and uPlot draws "Value" there.
+    expect(layers[1]).not.toHaveProperty('name');
     expect(layers[1].axes).toEqual({ x: { label: 'X' }, y: { label: 'Value' } });
   });
 
@@ -875,6 +896,8 @@ describe('percentile bands', () => {
 
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.PERCENTILE_BAND);
+    expect(layers[0].name).toBe('Median');
+    expect(layers[0].title).toBeUndefined();
     expect((layers[0].data as PercentileBandPoint[])[0]).toEqual({
       x: 1,
       quantiles: [

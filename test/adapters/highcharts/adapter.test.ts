@@ -160,7 +160,7 @@ describe('highchartsToMaidr', () => {
 
       const layers = highchartsToMaidr(chart).subplots[0][0].layers;
 
-      expect(layers.map(layer => [layer.type, layer.stepDirection, layer.title])).toEqual([
+      expect(layers.map(layer => [layer.type, layer.stepDirection, layer.name])).toEqual([
         [TraceType.LINE, undefined, 'Trend'],
         [TraceType.STEP, 'hv', 'Left'],
         [TraceType.STEP, 'vh', 'Right'],
@@ -181,6 +181,73 @@ describe('highchartsToMaidr', () => {
       expect(layers).toHaveLength(1);
       expect(layers[0].type).toBe(TraceType.STEP);
       expect(layers[0].data).toHaveLength(2);
+    });
+  });
+
+  describe('layer names', () => {
+    it('names a series in its layer\'s name and leaves the title to the chart', () => {
+      // MAIDR reads a layer's title as the chart's: the bar chart titled
+      // "Number of Tips by Day" was announced as "Title is Tips".
+      const chart = fakeChart({
+        type: 'column',
+        title: 'Number of Tips by Day',
+        series: [fakeSeries({ index: 0, name: 'Tips', data: categoryPoints([20, 14], ['Mon', 'Tue']) })],
+      });
+
+      const result = highchartsToMaidr(chart);
+      const layer = result.subplots[0][0].layers[0];
+
+      expect(result.title).toBe('Number of Tips by Day');
+      expect(layer.title).toBeUndefined();
+      expect(layer.name).toBe('Tips');
+    });
+
+    it('names a layer by the digits of a series named with a number', () => {
+      // A layer's name has to be a string: MAIDR trims it as it reads the
+      // layer, so the number 2024 would stop the chart from loading.
+      const chart = fakeChart({
+        type: 'column',
+        title: 'Visits',
+        series: [fakeSeries({ index: 0, name: 2024 as unknown as string, data: categoryPoints([20, 14], ['Mon', 'Tue']) })],
+      });
+
+      const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
+
+      expect(layer.name).toBe('2024');
+    });
+
+    it('names no layer of grouped bars after the first of its series', () => {
+      // A dodged layer holds every product; "Product A" names one of them.
+      const chart = fakeChart({
+        type: 'column',
+        title: 'Quarterly Sales by Product',
+        series: [
+          fakeSeries({ index: 0, name: 'Product A', data: categoryPoints([1, 2], ['Q1', 'Q2']) }),
+          fakeSeries({ index: 1, name: 'Product B', data: categoryPoints([3, 4], ['Q1', 'Q2']) }),
+        ],
+      });
+
+      const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.DODGED);
+      expect(layer.title).toBeUndefined();
+      expect(layer.name).toBeUndefined();
+    });
+
+    it('names a layer of several lines after all of them', () => {
+      const chart = fakeChart({
+        type: 'line',
+        title: 'Weekly Sales Comparison',
+        series: [
+          fakeSeries({ index: 0, type: 'line', name: 'Series A', data: categoryPoints([1, 2], ['W1', 'W2']) }),
+          fakeSeries({ index: 1, type: 'line', name: 'Series B', data: categoryPoints([3, 4], ['W1', 'W2']) }),
+        ],
+      });
+
+      const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
+
+      expect(layer.title).toBeUndefined();
+      expect(layer.name).toBe('Series A, Series B');
     });
   });
 
@@ -212,7 +279,7 @@ describe('highchartsToMaidr', () => {
       expect(layer.type).toBe(TraceType.LINE);
       // Only the real series remains in the multi-line layer.
       expect((layer.data as LinePoint[][])).toHaveLength(1);
-      expect(layer.title).toBe('Price');
+      expect(layer.name).toBe('Price');
     });
 
     it('converts a user series literally named "Navigator" in a plain chart', () => {
@@ -444,6 +511,38 @@ describe('highchartsToMaidr', () => {
       expect(topLayer.type).toBe(TraceType.DODGED);
       expect((topLayer.data as SegmentedPoint[][])).toHaveLength(2);
       expect(result.subplots[1][0].layers[0].type).toBe(TraceType.BAR);
+    });
+
+    it('names a pane after its first series, and no other layer of it', () => {
+      // MAIDR reads a subplot's name from its first layer's title. The
+      // second series of the pane names its own layer, not the pane.
+      const xAxis = fakeAxis({ left: 60, width: 600 });
+      const priceAxis = fakeAxis({ top: 40, height: 250, options: { title: { text: 'Price ($)' } } });
+      const chart = fakeChart({
+        type: 'line',
+        title: 'ACME Stock',
+        series: [
+          fakeSeries({ index: 0, type: 'column', name: 'Price', xAxis, yAxis: priceAxis, data: categoryPoints([1, 2], ['a', 'b']) }),
+          fakeSeries({ index: 1, type: 'line', name: 'Average', xAxis, yAxis: priceAxis, data: categoryPoints([1, 1.5], ['a', 'b']) }),
+          fakeSeries({
+            index: 2,
+            type: 'column',
+            name: 'Volume',
+            xAxis,
+            yAxis: fakeAxis({ top: 310, height: 100, options: { title: { text: 'Shares' } } }),
+            data: categoryPoints([3, 4], ['a', 'b']),
+          }),
+        ],
+      });
+
+      const result = highchartsToMaidr(chart);
+      const panes = result.subplots.map(row => row[0].layers.map(layer => [layer.title, layer.name]));
+
+      expect(result.title).toBe('ACME Stock');
+      expect(panes).toEqual([
+        [['Price', 'Price'], [undefined, 'Average']],
+        [['Volume', 'Volume']],
+      ]);
     });
 
     it('uses the pane yAxis title as panel name when the series is unnamed', () => {

@@ -302,7 +302,7 @@ new uPlot({
 
 uPlot fills in `Value` (and `Time` for a time scale's x series) as the label of every series you leave unlabelled. The adapter treats those as unlabelled, so two unnamed lines are announced as `Series 1` and `Series 2` rather than both as `Value`.
 
-In a multi-line layer the series name is announced as the group ("Group is CPU %").
+In a multi-line layer the series name is announced as the group ("Group is CPU %"). A bar, scatter or fan chart layer, which holds one series, takes the series name as its own: Page Up and Page Down announce it ("Layer 2 of 2: Latency (ms)"), and the chart title stays the chart's.
 
 ## Time Axes
 

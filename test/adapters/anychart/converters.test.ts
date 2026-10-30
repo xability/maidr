@@ -1424,6 +1424,47 @@ describe('anyChartToMaidr (declared percentile band)', () => {
     });
   });
 
+  it('names the fan after its median series and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: "Title is median" on a
+    // chart titled Forecast.
+    const chart = createChart({
+      title: 'Forecast',
+      series: [
+        range('p5-95', 2),
+        range('p25-75', 1),
+        declaringSeries('line', XS.map(x => ({ x, value: Number(x) })), 'median', { type: 'percentile_band', bands: BANDS }),
+      ],
+    });
+
+    const maidr = anyChartToMaidr(chart)!;
+    const [layer] = maidr.subplots[0][0].layers;
+
+    expect(maidr.title).toBe('Forecast');
+    expect(layer.title).toBeUndefined();
+    expect(layer.name).toBe('median');
+  });
+
+  it('keeps the title and the name the page gave the fan', () => {
+    const chart = createChart({
+      title: 'Forecast',
+      series: [
+        range('p5-95', 2),
+        range('p25-75', 1),
+        declaringSeries('line', XS.map(x => ({ x, value: Number(x) })), 'median', {
+          type: 'percentile_band',
+          bands: BANDS,
+          title: 'Forecast with intervals',
+          name: 'Central estimate',
+        }),
+      ],
+    });
+
+    const [layer] = anyChartToMaidr(chart)!.subplots[0][0].layers;
+
+    expect(layer.title).toBe('Forecast with intervals');
+    expect(layer.name).toBe('Central estimate');
+  });
+
   it('reports a band naming no range series, and keeps the rest', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const chart = createChart({

@@ -262,7 +262,8 @@ describe('chart.js volcano and manhattan extraction', () => {
       expect(layers[0].type).toBe(TraceType.MANHATTAN);
       expect((layers[0].data as VolcanoPoint[]).map(point => point.x)).toEqual([1, 2, 3]);
       // The declaring dataset names one chromosome, not the cloud, so the
-      // merged layer does not wear its label as the figure's title.
+      // merged layer is not named after it.
+      expect(layers[0].name).toBeUndefined();
       expect(layers[0].title).toBeUndefined();
     });
 
@@ -282,7 +283,7 @@ describe('chart.js volcano and manhattan extraction', () => {
         TraceType.MANHATTAN,
         TraceType.SCATTER,
       ]);
-      expect(layers[0].title).toBe('chr1');
+      expect(layers[0].name).toBe('chr1');
     });
 
     it('leaves a volcano\'s siblings alone unless it asks for them', () => {

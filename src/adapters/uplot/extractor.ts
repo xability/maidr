@@ -228,7 +228,7 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
       layers.push({
         id: layerId,
         type: TraceType.PERCENTILE_BAND,
-        title: name,
+        ...layerName(series),
         axes: layerAxes(u, toX.axis, yScale, series, options),
         data: points,
       });
@@ -350,7 +350,7 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
     layers.push({
       id: layerId,
       type: kind === 'bar' ? TraceType.BAR : TraceType.SCATTER,
-      title: name,
+      ...layerName(series),
       ...(kind === 'bar' && horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
       axes: kind === 'bar' && horizontal ? { x: axes.y, y: axes.x } : axes,
       data: points as BarPoint[] | ScatterPoint[],
@@ -414,7 +414,6 @@ function readFaceted(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
     const xScale = series.facets?.[0]?.scale ?? 'x';
     const yScale = series.facets?.[1]?.scale ?? 'y';
     const toX = xReader(u, xScale, Array.from(xs, v => toFinite(v)), options);
-    const name = seriesName(series, i);
 
     const points: ScatterPoint[] = [];
     const idxs: number[] = [];
@@ -434,7 +433,7 @@ function readFaceted(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
     layers.push({
       id: layerId,
       type: TraceType.SCATTER,
-      title: name,
+      ...layerName(series),
       axes: layerAxes(u, toX.axis, yScale, series, options, xScale),
       data: points,
     });
@@ -786,8 +785,31 @@ function axisLabel(u: UPlotInstance, scale: string): string | undefined {
   return undefined;
 }
 
+/**
+ * What a series is called in its points' `z`: its label, or "Series 2" for
+ * the second series when it has none, so two unlabelled series stay tellable
+ * apart within one layer.
+ */
 function seriesName(series: UPlotSeries, i: number): string {
   return authoredLabel(series.label, false) ?? `Series ${i}`;
+}
+
+/**
+ * The `name` of a layer of the series' own, spread into the layer: its label,
+ * or nothing when it has none.
+ *
+ * Never a layer's `title`: MAIDR reads that as the chart's title, which the
+ * chart's own `.u-title` or the `title` option gives. And never the "Series 2"
+ * {@link seriesName} falls back to: uPlot draws "Value" for an unlabelled
+ * series, not that, so a layer named by it would be announced by a name the
+ * chart never shows. Left unnamed, the layer is announced by its plot type.
+ *
+ * @param series - The series
+ * @returns `{ name }`, or an empty object
+ */
+function layerName(series: UPlotSeries): { name?: string } {
+  const label = authoredLabel(series.label, false);
+  return label === undefined ? {} : { name: label };
 }
 
 /**

@@ -22,7 +22,7 @@ describe('highcharts networkgraph series', () => {
     const layer = highchartsToMaidr(chart).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.NETWORK);
-    expect(layer.title).toBe('People');
+    expect(layer.name).toBe('People');
     // Where the force solver dropped each node is a fact about its seed, so
     // no position is carried.
     expect(layer.data as NetworkPoint[]).toEqual([

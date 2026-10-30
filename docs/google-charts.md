@@ -135,7 +135,8 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 > January — a chart covering 2012 and 2013 draws fourteen cell rows, not seven.
 > Each layer is seven weekday rows (Sunday first, as drawn) by one column per
 > week, named by the Sunday the week begins on; <kbd>Page Up</kbd> moves to the
-> next year and <kbd>Page Down</kbd> back to the one before. Two absences meet
+> next year and <kbd>Page Down</kbd> back to the one before, each saying the
+> year it lands on ("Layer 2 of 2: 2013"). Two absences meet
 > in the grid and mean different things: a day inside the year with no row in
 > the table is drawn as a white cell — no value, but an element to outline —
 > while the slots before January's first weekday and after December's last are

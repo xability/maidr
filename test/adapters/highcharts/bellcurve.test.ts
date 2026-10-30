@@ -101,7 +101,7 @@ describe('highcharts bellcurve', () => {
     const layer = highchartsToMaidr(bellChart()).subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.SMOOTH);
-    expect(layer.title).toBe('Bell curve');
+    expect(layer.name).toBe('Bell curve');
   });
 
   it('carries the curve as the samples it was evaluated at', () => {

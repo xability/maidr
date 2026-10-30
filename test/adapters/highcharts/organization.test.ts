@@ -88,7 +88,7 @@ describe('highcharts organization', () => {
     const layer = layerOf(ORG);
 
     expect(layer.type).toBe(TraceType.TREE);
-    expect(layer.title).toBe('Org');
+    expect(layer.name).toBe('Org');
     expect(layer.data).toHaveLength(6);
   });
 

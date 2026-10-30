@@ -91,6 +91,53 @@ describe('createMaidrFromFrappeChart (single chart)', () => {
     ]);
   });
 
+  it('names each dataset of a mixed chart in its layer\'s name and leaves the title to the chart', () => {
+    // MAIDR reads a layer's title as the chart's: "Monthly Sales with Trend
+    // Line" was announced as "Title is Sales".
+    const { containers } = makeDom(1);
+    const chart: FrappeChart = {
+      data: {
+        labels: ['Jan', 'Feb'],
+        datasets: [
+          { name: 'Sales', chartType: 'bar', values: [1, 2] },
+          { name: 'Trend', chartType: 'line', values: [3, 4] },
+        ],
+      },
+    };
+
+    const maidr = createMaidrFromFrappeChart(chart, containers[0], {
+      chartType: 'axis-mixed',
+      title: 'Monthly Sales with Trend Line',
+    });
+    const layers = maidr.subplots[0][0].layers;
+
+    expect(maidr.title).toBe('Monthly Sales with Trend Line');
+    expect(layers.map(layer => [layer.type, layer.name, layer.title])).toEqual([
+      [TraceType.BAR, 'Sales', undefined],
+      [TraceType.LINE, 'Trend', undefined],
+    ]);
+  });
+
+  it('names a dataset named with a number by its digits, and an unnamed one not at all', () => {
+    // A layer's name has to be a string: MAIDR trims it as it reads the
+    // layer, so the number 2024 would stop the chart from loading.
+    const { containers } = makeDom(1);
+    const chart: FrappeChart = {
+      data: {
+        labels: ['Jan', 'Feb'],
+        datasets: [
+          { name: 2024 as unknown as string, chartType: 'bar', values: [1, 2] },
+          { chartType: 'line', values: [3, 4] },
+        ],
+      },
+    };
+
+    const maidr = createMaidrFromFrappeChart(chart, containers[0], { chartType: 'axis-mixed' });
+    const layers = maidr.subplots[0][0].layers;
+
+    expect(layers.map(layer => layer.name)).toEqual(['2024', undefined]);
+  });
+
   it('generates a container id when missing and uses it as the figure id', () => {
     const { containers } = makeDom(1);
     const container = containers[0];
@@ -826,6 +873,27 @@ describe('createMaidrFromFrappeCharts (multi-panel)', () => {
       .toBe(`#${secondId} svg.frappe-chart .dataset-units.dataset-bars.dataset-0 rect.bar`);
   });
 
+  it('names a panel with no title after its first dataset', () => {
+    const { wrapper, containers } = makeDom(1);
+    const mixed: FrappePanel = {
+      chart: {
+        data: {
+          labels: ['A', 'B'],
+          datasets: [
+            { name: 'Sales', chartType: 'bar', values: [1, 2] },
+            { name: 'Trend', chartType: 'line', values: [3, 4] },
+          ],
+        },
+      },
+      container: containers[0],
+      chartType: 'axis-mixed',
+    };
+
+    const layers = createMaidrFromFrappeCharts([[mixed]], wrapper).subplots[0][0].layers;
+
+    expect(layers.map(layer => layer.title)).toEqual(['Sales', undefined]);
+  });
+
   it('puts the panel title on the first layer only', () => {
     const { wrapper, containers } = makeDom(1);
     const mixed: FrappePanel = {
@@ -848,7 +916,8 @@ describe('createMaidrFromFrappeCharts (multi-panel)', () => {
 
     expect(layers).toHaveLength(2);
     expect(layers[0].title).toBe('Store One');
-    expect(layers[1].title).toBe('Trend');
+    expect(layers[1].title).toBeUndefined();
+    expect(layers.map(layer => layer.name)).toEqual(['Sales', 'Trend']);
   });
 
   it('assigns figure-unique layer ids across all panels', () => {

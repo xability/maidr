@@ -140,7 +140,7 @@ describe('highcharts survival declaration', () => {
     // the comparison the figure exists for behind a layer switch.
     expect(layers).toHaveLength(1);
     expect(layers[0].id).toBe('0-1');
-    expect(layers[0].title).toBe('Treated, Control');
+    expect(layers[0].name).toBe('Treated, Control');
     expect((layers[0].data as SurvivalPoint[][]).map(curve => curve.length)).toEqual([2, 2]);
     expect(layers[0].selectors).toEqual([
       expect.stringContaining('highcharts-series-0'),

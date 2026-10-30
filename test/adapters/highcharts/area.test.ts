@@ -35,7 +35,7 @@ describe('highcharts area series', () => {
     const layer = result.subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.AREA);
-    expect(layer.title).toBe('Tokyo');
+    expect(layer.name).toBe('Tokyo');
     expect(layer.data as LinePoint[][]).toEqual([[
       { x: 'Jan', y: 49, z: 'Tokyo' },
       { x: 'Feb', y: 71, z: 'Tokyo' },
@@ -71,7 +71,7 @@ describe('highcharts area series', () => {
     expect(layers).toHaveLength(1);
     expect(layers[0].type).toBe(TraceType.AREA);
     expect(layers[0].id).toBe('0-1');
-    expect(layers[0].title).toBe('Tokyo, Berlin');
+    expect(layers[0].name).toBe('Tokyo, Berlin');
     expect(layers[0].data).toHaveLength(2);
   });
 
@@ -88,7 +88,7 @@ describe('highcharts area series', () => {
 
     const layers = highchartsToMaidr(chart).subplots[0][0].layers;
 
-    expect(layers.map(layer => [layer.type, layer.title])).toEqual([
+    expect(layers.map(layer => [layer.type, layer.name])).toEqual([
       [TraceType.AREA, 'Band'],
       [TraceType.LINE, 'Trend'],
     ]);
