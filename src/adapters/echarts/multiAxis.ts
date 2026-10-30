@@ -38,9 +38,13 @@ export const PARALLEL: ReadonlySet<string> = new Set(['parallel']);
  *              B@2020-01-01=5   B@2020-01-02=8   B@2020-01-03=20
  *
  * `getName(i)` answers the band's name rather than a category label, so the
- * grouping this reading does is the only way the bands come apart. They are
- * emitted in first-appearance order, which is the order the chart stacks
- * them in.
+ * grouping this reading does is the only way the bands come apart. The chart
+ * stacks them in first-appearance order from the top of the river down: the
+ * first band to appear is drawn on top and each later one under it. A stacked
+ * area's bands are read from the base of the stack up, Up moving to the band
+ * drawn above, so on the default horizontal axis they are emitted last to
+ * appear first. A vertical axis lays the bands out from left to right, and
+ * they are emitted in the order they appear.
  *
  * **`time` is epoch milliseconds.** Announced raw it would read as
  * "1577836800000", so it is turned back into the date it is -- see
@@ -73,7 +77,8 @@ export function themeRiverLayer(
   const data = seriesModel.getData();
   const dated = axisType(model, 'singleAxis') === 'time';
 
-  // First-appearance order, which is the order the bands are stacked in.
+  // First-appearance order, which is the order the bands are stacked in
+  // from the top of the river down.
   const order: string[] = [];
   const bands = new Map<string, SegmentedPoint[]>();
 
@@ -98,6 +103,10 @@ export function themeRiverLayer(
 
   const name = text(seriesModel.get('name'));
   const when = axisName(model, 'singleAxis');
+  // From the base of the river up on a horizontal axis, and each band's
+  // outline with it: the marks are drawn in first-appearance order.
+  const fromBase = text(firstOf(model, 'singleAxis')?.get('orient')) !== 'vertical';
+  const inOrder = <T>(list: T[]): T[] => (fromBase ? [...list].reverse() : list);
 
   return {
     id: nextId('layer'),
@@ -110,11 +119,11 @@ export function themeRiverLayer(
       // not make.
       y: {},
     },
-    // One per band, in the order the bands are stacked -- `AreaTrace`
+    // One per band, in the order the bands are listed -- `AreaTrace`
     // inherits `LineTrace`'s pairing, which takes the list row by row.
-    ...(selectors && selectors.length === order.length ? { selectors } : {}),
+    ...(selectors && selectors.length === order.length ? { selectors: inOrder(selectors) } : {}),
     // A row per band; the series hands over a flat list.
-    data: order.map(band => bands.get(band) ?? []),
+    data: inOrder(order).map(band => bands.get(band) ?? []),
   };
 }
 

@@ -35,7 +35,7 @@ function january(day: number): number {
 
 function themeRiverChart(
   rows: Band[],
-  options: { axisName?: string; axisType?: string; seriesName?: string } = {},
+  options: { axisName?: string; axisType?: string; orient?: string; seriesName?: string } = {},
 ): EChartsInstance {
   const list: EChartsList = {
     dimensions: ['time', 'value', 'name'],
@@ -56,6 +56,7 @@ function themeRiverChart(
     singleAxis: [{
       name: options.axisName,
       type: options.axisType ?? 'time',
+      orient: options.orient,
     }],
   });
 }
@@ -167,8 +168,8 @@ describe('an eCharts theme river', () => {
     const data = layersOf(themeRiverChart(RIVER))[0].data as SegmentedPoint[][];
 
     expect(data).toHaveLength(2);
-    expect(data[0].map(point => point.y)).toEqual([10, 15, 12]);
-    expect(data[1].map(point => point.y)).toEqual([5, 8, 20]);
+    expect(data[0].map(point => point.y)).toEqual([5, 8, 20]);
+    expect(data[1].map(point => point.y)).toEqual([10, 15, 12]);
   });
 
   it('names each band on every one of its points', () => {
@@ -176,20 +177,29 @@ describe('an eCharts theme river', () => {
     // the only place the name lives.
     const data = layersOf(themeRiverChart(RIVER))[0].data as SegmentedPoint[][];
 
-    expect(data[0].every(point => point.z === 'A')).toBe(true);
-    expect(data[1].every(point => point.z === 'B')).toBe(true);
+    expect(data[0].every(point => point.z === 'B')).toBe(true);
+    expect(data[1].every(point => point.z === 'A')).toBe(true);
   });
 
-  it('stacks the bands in the order they first appear', () => {
-    // Not alphabetical: the order the rows arrive in is the order the chart
-    // stacks them, and sorting would announce a different chart.
-    const rows: Band[] = [
-      { time: january(1), value: 3, name: 'zeta' },
-      { time: january(1), value: 4, name: 'alpha' },
-      { time: january(2), value: 5, name: 'zeta' },
-      { time: january(2), value: 6, name: 'alpha' },
-    ];
-    const data = layersOf(themeRiverChart(rows))[0].data as SegmentedPoint[][];
+  /** Two bands that first appear in the opposite of alphabetical order. */
+  const UNSORTED: Band[] = [
+    { time: january(1), value: 3, name: 'zeta' },
+    { time: january(1), value: 4, name: 'alpha' },
+    { time: january(2), value: 5, name: 'zeta' },
+    { time: january(2), value: 6, name: 'alpha' },
+  ];
+
+  it('lists the bands from the base of the river up, the last to appear first', () => {
+    // The chart stacks the bands in the order they first appear, from the top
+    // down -- not alphabetically -- and a stacked area is read from its base
+    // up, so Up moves to the band drawn above.
+    const data = layersOf(themeRiverChart(UNSORTED))[0].data as SegmentedPoint[][];
+
+    expect(data.map(band => band[0].z)).toEqual(['alpha', 'zeta']);
+  });
+
+  it('keeps the order they appear in on a vertical axis, which lays them out left to right', () => {
+    const data = layersOf(themeRiverChart(UNSORTED, { orient: 'vertical' }))[0].data as SegmentedPoint[][];
 
     expect(data.map(band => band[0].z)).toEqual(['zeta', 'alpha']);
   });
@@ -254,6 +264,16 @@ describe('an eCharts theme river', () => {
     const layer = layersOf(themeRiverChart(RIVER), drawnRiver(2))[0];
 
     expect(layer.selectors).toHaveLength(2);
+  });
+
+  it('moves each band\'s outline with it', () => {
+    // The marks are drawn in the order the bands appear, so the outlines are
+    // listed last first along with the bands.
+    const fromBase = layersOf(themeRiverChart(RIVER), drawnRiver(2))[0].selectors as string[];
+    const asDrawn = layersOf(themeRiverChart(RIVER, { orient: 'vertical' }), drawnRiver(2))[0].selectors as string[];
+
+    expect(fromBase[0]).not.toBe(fromBase[1]);
+    expect(fromBase).toEqual([...asDrawn].reverse());
   });
 
   it('withholds the selectors when they do not line up with the bands', () => {
