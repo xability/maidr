@@ -135,6 +135,14 @@ export interface VegaLiteSpec {
    */
   name?: string;
   layer?: VegaLiteSpec[];
+  /**
+   * Whether a composite spec's children share a channel's scale or axis.
+   * A channel left out is shared, as Vega-Lite shares it.
+   */
+  resolve?: {
+    scale?: Partial<Record<string, 'shared' | 'independent'>>;
+    axis?: Partial<Record<string, 'shared' | 'independent'>>;
+  };
   hconcat?: VegaLiteSpec[];
   vconcat?: VegaLiteSpec[];
   concat?: VegaLiteSpec[];

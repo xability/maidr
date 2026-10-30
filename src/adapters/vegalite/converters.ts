@@ -173,7 +173,7 @@ export function vegaLiteToMaidr(
     // layers whenever the compiled view could not supply rows -- and every
     // spec-only test of one was asserting against no data at all (#1126).
     // The facet path already did this; the plain layered path did not.
-    const layerSpecs = inheritData(spec.layer ?? [], spec.data);
+    const layerSpecs = withSharedAxisTitles(inheritData(spec.layer ?? [], spec.data), spec);
     // Which `text` layers label another, and what each labelled layer should
     // be told to call its points. Computed once, before conversion, because
     // a layer has to know its names while its data is being read.
@@ -255,6 +255,71 @@ export function vegaLiteToMaidr(
     return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
   return buildMaidr(id, title, subtitle, caption, [[{ layers: [layer] }]]);
+}
+
+/**
+ * Give a layered chart's layers the title their shared axes are drawn with,
+ * where they do not title the axis themselves.
+ *
+ * The layers share their x and y axes unless `resolve` makes one independent,
+ * and Vega-Lite draws a shared axis once, titled by merging the layers' own:
+ * a `title` written on the channel beats one derived from its field, and two
+ * written ones are joined with ", " (vega-lite 5.23, `mergeTitleComponent`).
+ * Each layer was read for its own channel alone, so a layer that left the
+ * title to a sibling was announced under its field's name: py-maidr's Altair
+ * bar + line chart titles the bars' x "X values" and not the line's, and the
+ * line was read as "x is 1" under an axis drawn "X values".
+ *
+ * An empty title gives way to a written one as a missing one does, but a
+ * layer that writes the title away with `null` -- Altair's `title=None` --
+ * has the shared axis drawn with no title at all, so then no layer is given
+ * one and each is read as before.
+ *
+ * @param layers - The layered spec's children
+ * @param parent - The layered spec, whose encoding they inherit
+ * @returns The children, each untitled shared channel titled as drawn
+ */
+function withSharedAxisTitles(layers: VegaLiteSpec[], parent: VegaLiteSpec): VegaLiteSpec[] {
+  let titled = layers;
+  for (const channel of ['x', 'y'] as const) {
+    if (parent.resolve?.axis?.[channel] === 'independent'
+      || parent.resolve?.scale?.[channel] === 'independent') {
+      continue;
+    }
+    const channelOf = (layer: VegaLiteSpec): VegaLiteChannelDef | undefined =>
+      layer.encoding?.[channel] ?? parent.encoding?.[channel];
+    if (titled.some(layer => writesTitleAway(channelOf(layer))))
+      continue;
+    const written = titled
+      .map(layer => authoredLabel(channelOf(layer)))
+      .filter((title): title is string => typeof title === 'string' && title !== '');
+    if (written.length === 0)
+      continue;
+    const drawn = [...new Set(written)].join(', ');
+    titled = titled.map((layer) => {
+      const own = channelOf(layer);
+      if (!own || authoredLabel(own))
+        return layer;
+      // `axis.title` is read before `title`, so an empty one is titled too.
+      const titledOwn = own.axis
+        ? { ...own, title: drawn, axis: { ...own.axis, title: drawn } }
+        : { ...own, title: drawn };
+      return { ...layer, encoding: { ...layer.encoding, [channel]: titledOwn } };
+    });
+  }
+  return titled;
+}
+
+/**
+ * Whether a channel writes its axis title away: `title: null`, or
+ * `axis: { title: null }`.
+ *
+ * @param channel - The channel, when the layer has one
+ * @returns Whether its title is written as `null`
+ */
+function writesTitleAway(channel: VegaLiteChannelDef | undefined): boolean {
+  const written = channel as { title?: unknown; axis?: { title?: unknown } | null } | undefined;
+  return written?.title === null || written?.axis?.title === null;
 }
 
 /**
