@@ -4583,7 +4583,7 @@ function besideEachOther(grids: PanelGrid[]): PanelGrid {
     panels.push(...grid.panels.map(panel => ({ ...panel, col: panel.col + cols })));
     cols += grid.cols;
   }
-  return { panels, rows: Math.max(0, ...grids.map(grid => grid.rows)), cols };
+  return { panels, rows: grids.reduce((most, grid) => Math.max(most, grid.rows), 0), cols };
 }
 
 /**
@@ -4599,7 +4599,7 @@ function underEachOther(grids: PanelGrid[]): PanelGrid {
     panels.push(...grid.panels.map(panel => ({ ...panel, row: panel.row + rows })));
     rows += grid.rows;
   }
-  return { panels, rows, cols: Math.max(0, ...grids.map(grid => grid.cols)) };
+  return { panels, rows, cols: grids.reduce((most, grid) => Math.max(most, grid.cols), 0) };
 }
 
 /**
@@ -4620,7 +4620,10 @@ function underEachOther(grids: PanelGrid[]): PanelGrid {
  * @param path - The child indices leading to this concat; empty at the top
  * @param view - The compiled view, when bound
  * @param domOrder - A caller-supplied DOM order for segmented layers
- * @param counter - The running layer count Vega numbers datasets by
+ * @param counter - The running layer count each layer's dataset is guessed
+ * by. Vega names datasets in sequence across the whole compiled spec, in the
+ * order Vega-Lite parses its views, depth first, so one count shared by
+ * every level keeps that order.
  * @param counter.layer - Its current value
  * @returns The panels, or `null` when a child has no layer to read
  */
@@ -4756,9 +4759,6 @@ function buildConcatMaidr(
   domOrder?: 'series-major' | 'subject-major',
   columns?: number,
 ): Maidr {
-  // Track a global layer counter so that each concat child resolves
-  // dataset names independently (Vega names datasets sequentially
-  // across the entire compiled spec, not per-child).
   const grid = placeConcatPanels(specs, direction, columns, [], view, domOrder, { layer: 0 });
 
   // A subplot with zero layers inside a grid crashes MAIDR core's Subplot
