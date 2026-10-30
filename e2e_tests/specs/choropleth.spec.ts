@@ -102,6 +102,25 @@ test.describe('Choropleth map', () => {
       .toBe('Washington');
   });
 
+  test('should jump to the highest region and to the lowest', async ({ page }) => {
+    // ] and [ used to say there was no maximum or minimum value to go to in
+    // this layer, on a map whose every region carries one.
+    const regions = maidrData.subplots[0][0].layers[0].data as { x: string; y: number }[];
+    const highest = regions.reduce((best, region) => (region.y > best.y ? region : best));
+    const lowest = regions.reduce((best, region) => (region.y < best.y ? region : best));
+    const plot = new ChoroplethPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+
+    await plot.goToMaximumValue();
+    const top = normalizeText(await plot.getInstructionText());
+    await plot.goToMinimumValue();
+    const bottom = normalizeText(await plot.getInstructionText());
+
+    expect(top).toContain(highest.x);
+    expect(bottom).toContain(lowest.x);
+  });
+
   test('should move north on up and east on right', async ({ page }) => {
     const plot = new ChoroplethPage(page);
     await plot.activateMaidr();

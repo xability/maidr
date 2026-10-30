@@ -106,6 +106,26 @@ test.describe('Treemap', () => {
     expect(announcement).toContain('Children');
   });
 
+  test('should jump to the largest leaf and to the smallest', async ({ page }) => {
+    // ] and [ used to say there was no maximum or minimum value to go to in
+    // this layer. A continent's total is always larger than its countries,
+    // so the keys go to the leaves, as the description's largest leaf does.
+    const leaves = maidrData.subplots[0][0].layers[0].data as { x: string; y: number }[];
+    const largest = leaves.reduce((best, leaf) => (leaf.y > best.y ? leaf : best));
+    const smallest = leaves.reduce((best, leaf) => (leaf.y < best.y ? leaf : best));
+    const plot = new TreemapPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+
+    await plot.goToMaximumValue();
+    const top = normalizeText(await plot.getInstructionText());
+    await plot.goToMinimumValue();
+    const bottom = normalizeText(await plot.getInstructionText());
+
+    expect(top).toContain(largest.x);
+    expect(bottom).toContain(smallest.x);
+  });
+
   test('should go down into a child and up back to its parent', async ({ page }) => {
     const plot = new TreemapPage(page);
     await plot.activateMaidr();

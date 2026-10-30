@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { ChoroplethPoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type {
@@ -24,6 +25,7 @@ import {
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { missingText } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /** The rotor unit's key, which the trace recognises a move request by. */
@@ -114,16 +116,12 @@ interface Region {
  * something guessed.
  */
 export class ChoroplethTrace extends AbstractTrace {
-  // The go-to-extrema *dialog*, which is a list of named targets a trace
-  // offers under `g`. A map has none: every region is already one arrow-step
-  // from its neighbours, and the highest and lowest are named in the
-  // description. Leaving this true without overriding `getExtremaTargets`
-  // would put the reader in a scope showing an empty dialog with the arrow
-  // keys no longer answering -- a keyboard trap.
-  //
-  // Unrelated to `moveToExtreme`, the Ctrl+arrow jump to the end of a band,
-  // which runs through the movable and keeps working either way.
-  protected readonly supportsExtrema = false;
+  /**
+   * `]` and `[` go to the highest and the lowest region, and the Go To dialog
+   * lists them: see {@link ChoroplethTrace.getExtremaTargets}. Unrelated to
+   * `moveToExtreme`, the Ctrl+arrow jump to the end of a band.
+   */
+  protected readonly supportsExtrema = true;
   protected readonly movable: MovableGrid<Region>;
 
   /** Regions in the shape the cursor addresses them: bands, then west to east. */
@@ -907,5 +905,50 @@ export class ChoroplethTrace extends AbstractTrace {
     // and points the pointer helpers measure against, and a centroid is not
     // inside every region that owns it -- a horseshoe's is in the gap.
     return null;
+  }
+
+  /**
+   * The highest and the lowest regions, for `]`, `[` and the Go To dialog:
+   * the ones the description names as `Highest` and `Lowest`. Every region
+   * holding an extreme is offered, band by band from the south and west to
+   * east within a band, as the arrows walk them, so a tie is walked. A region
+   * the layer gave no value is never one.
+   *
+   * @returns The targets, or none for a map with no valued region
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    if (!Number.isFinite(this.max) || !Number.isFinite(this.min)) {
+      return [];
+    }
+    const at = (value: number, type: 'max' | 'min'): ExtremaTarget[] =>
+      this.regions.flatMap((band, row) => band.flatMap((region, col) => (
+        region.value !== value
+          ? []
+          : [{
+              ...extremumAt(
+                t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+                region.name,
+              ),
+              value,
+              pointIndex: col,
+              segment: region.name,
+              type,
+              groupIndex: row,
+              categoryIndex: col,
+              navigationType: 'group' as const,
+            }]
+      )));
+    return [...at(this.max, 'max'), ...at(this.min, 'min')];
+  }
+
+  /**
+   * Moves to the region a target names, as any jump does.
+   *
+   * @param target - A target from {@link ChoroplethTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 }

@@ -78,6 +78,14 @@ go to the reading of the observation you are on that is drawn lowest or
 highest on its own axis, which is also the one played lowest or highest,
 rather than to its smallest or largest number.
 
+On a choropleth map, ] goes to the highest region and [ to the lowest, the two
+the description names. On a treemap, sunburst, icicle, circle packing or tree
+diagram, ] goes to the largest leaf and [ to the smallest, named by their
+paths: a branch's value is its children's total, so the largest node of all
+would always be a top-level one. A tree whose nodes carry no values has nothing
+to go to. Where several regions or leaves hold the value, a further press goes
+to the next of them.
+
 On a ROC curve, ] goes to the best operating point, the point furthest above
 the chance diagonal, and on a precision-recall curve to the point with the best
 F1, rather than to a rate of 1, which every complete curve reaches. MAIDR says
