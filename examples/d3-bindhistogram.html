@@ -36,10 +36,13 @@
         .domain([0, 100])
         .range([0, width]);
 
-      // Create bins
+      // Create bins, with their edges on the axis ticks short of the domain's
+      // end. d3.bin closes its last bin at the end of the domain itself, so a
+      // threshold there adds a bin from 100 to 100, empty and drawn 0 px wide,
+      // which MAIDR would read as a 21st bin the chart does not show.
       const bins = d3.bin()
         .domain(x.domain())
-        .thresholds(x.ticks(20))(rawData);
+        .thresholds(x.ticks(20).filter(tick => tick < x.domain()[1]))(rawData);
 
       const y = d3.scaleLinear()
         .domain([0, d3.max(bins, d => d.length)])
