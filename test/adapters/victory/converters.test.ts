@@ -43,6 +43,7 @@ const VictoryScatter = stub('VictoryScatter');
 const VictoryStack = stub('VictoryStack');
 const VictoryGroup = stub('VictoryGroup');
 const VictoryPie = stub('VictoryPie');
+const VictoryPolarAxis = stub('VictoryPolarAxis');
 
 const barData = [
   { x: 'A', y: 1 },
@@ -877,6 +878,32 @@ describe('polar area', () => {
     );
 
     expect(toMaidrLayer(info).type).toBe(TraceType.BAR);
+  });
+
+  it('names a wedge and its value rather than X and Y', () => {
+    // A polar chart is drawn against `VictoryPolarAxis`, not `VictoryAxis`,
+    // so there was no label to read, and the core's fallback announced
+    // "X is N, Y is 3", as it would on a pie.
+    const [info] = extractVictoryLayers(chart(
+      { polar: true },
+      createElement(VictoryPolarAxis, { key: 'axis' }),
+      createElement(VictoryBar, { key: 'bar', data: wedges }),
+    ));
+
+    expect(toMaidrLayer(info).axes).toEqual({ x: { label: 'Category' }, y: { label: 'Value' } });
+  });
+
+  it('names the value after the radial axis, the one polar axis victory labels', () => {
+    // Victory draws the label of a dependent polar axis and never that of the
+    // angular one, so only the first is a name the chart shows.
+    const [info] = extractVictoryLayers(chart(
+      { polar: true },
+      createElement(VictoryPolarAxis, { key: 'angle', label: 'Direction' }),
+      createElement(VictoryPolarAxis, { key: 'radius', dependentAxis: true, label: 'Hours' }),
+      createElement(VictoryBar, { key: 'bar', data: wedges }),
+    ));
+
+    expect(toMaidrLayer(info).axes).toEqual({ x: { label: 'Category' }, y: { label: 'Hours' } });
   });
 
   it('carries the chart polar flag into each panel of a multi-panel figure', () => {

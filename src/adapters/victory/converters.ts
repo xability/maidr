@@ -261,6 +261,12 @@ interface VictoryAxisInfo {
  * `label` is read only when there is one; `invertAxis` is read whether or not
  * there is, since an axis is commonly inverted without being labelled.
  *
+ * A polar chart's axes are `<VictoryPolarAxis>` children, and Victory draws
+ * the label of only one of them, the dependent, radial axis the values are
+ * measured along: `VictoryPolarAxis` renders no label for an angular axis
+ * (victory-polar-axis, `renderLabel`). So that one label is read, as the y
+ * label, and an angular axis' is left as undrawn.
+ *
  * @param children - The chart's children
  * @returns The labels, and whether the independent axis is inverted
  */
@@ -272,11 +278,13 @@ function extractAxisInfo(children: ReactNode): VictoryAxisInfo {
     if (!isValidElement(child))
       return;
     const name = getVictoryDisplayName(child.type);
-    if (name !== 'VictoryAxis')
+    if (name !== 'VictoryAxis' && name !== 'VictoryPolarAxis')
       return;
 
     const props = child.props as Record<string, unknown>;
     const dependent = Boolean(props.dependentAxis);
+    if (name === 'VictoryPolarAxis' && !dependent)
+      return;
     if (!dependent && props.invertAxis === true) {
       invertedIndependent = true;
     }
@@ -1795,7 +1803,15 @@ export function toMaidrLayer(
       return {
         id: layer.id,
         type: TraceType.POLAR_AREA,
-        axes,
+        // A coxcomb's wedges run round an angular axis Victory never labels,
+        // and the core's "X"/"Y" fallback would announce "X is N, Y is 18",
+        // naming neither, as on a pie. Name what the two positions mean
+        // instead; a label the chart does draw, on its radial axis, still
+        // names the value.
+        axes: {
+          x: { label: layer.xAxisLabel ?? 'Category' },
+          y: { label: layer.yAxisLabel ?? 'Value' },
+        },
         selectors: toSeriesSelectors(selector),
         data: data.points,
       };
