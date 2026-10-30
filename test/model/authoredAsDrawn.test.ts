@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import type { Maidr, MaidrLayer } from '@type/grammar';
+import type { CandlestickPoint, Maidr, MaidrLayer } from '@type/grammar';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
@@ -254,5 +254,21 @@ describe('an authored example declares what it draws', () => {
     for (const [index, count] of counts.entries()) {
       expect(Math.abs(drawn[index] - count * scale)).toBeLessThanOrEqual(1);
     }
+  });
+
+  it.each([
+    ['vertical-candlestick.html'],
+    ['candlestick_multilayer.html'],
+  ])('%s reads its prices to the cent its data gives them in', (page) => {
+    // A whole-dollar format read Jan 4's open, high, low and close, 125.13,
+    // 125.18, 124.55 and 124.60, as $125 four times.
+    const [layer] = layersOf(specOf(read(page)));
+    const candles = layer.data as CandlestickPoint[];
+
+    const places = Math.max(...candles.flatMap(candle =>
+      [candle.open, candle.high, candle.low, candle.close].map(price => (String(price).split('.')[1] ?? '').length)));
+    const format = layer.axes?.y?.format as { decimals?: number } | undefined;
+
+    expect(format?.decimals ?? 2).toBeGreaterThanOrEqual(places);
   });
 });
