@@ -24,6 +24,13 @@ export interface LineRequest {
   readonly edge: Edge;
 }
 
+/** An element's paint as {@link Svg.markerPaintOf} reads it. */
+export interface MarkerPaint {
+  stroke: string;
+  fill: string;
+  strokeWidth: string;
+}
+
 /**
  * One whisker to draw between a cap and the box it belongs to.
  */
@@ -450,6 +457,21 @@ export abstract class Svg {
   private static readonly MIN_MARKER_RADIUS = 4;
 
   /**
+   * The paint of an element that {@link createCircleElements} gives the
+   * markers drawn beside it, read now, as plain values.
+   *
+   * @param element - The element the markers are to stand on
+   * @returns Its computed stroke, fill and stroke width
+   */
+  public static markerPaintOf(element: SVGElement): MarkerPaint {
+    // The element's own window, which on a page is the page's: a chart built
+    // in a document of its own, as the adapters' tests build theirs, has no
+    // page-global `window`.
+    const style = (element.ownerDocument.defaultView ?? window).getComputedStyle(element);
+    return { stroke: style.stroke, fill: style.fill, strokeWidth: style.strokeWidth };
+  }
+
+  /**
    * Creates one circle element per centre, styled to match the parent
    * element's stroke or fill.
    *
@@ -459,7 +481,10 @@ export abstract class Svg {
    * and the insertion is one fragment. Reading a style back after inserting
    * an element is what forces the browser to recalculate it, so a loop
    * alternating the two paid a recalculation per point of every line, at
-   * construction and again on every live-data rebuild.
+   * construction and again on every live-data rebuild. A caller marking
+   * several elements can read each one's paint first, with
+   * {@link markerPaintOf}, and pass it in, so that no element's style is
+   * read after another's markers are inserted.
    *
    * A marker's radius is twice the width the line it stands on is drawn at,
    * and never less than {@link MIN_MARKER_RADIUS}. Sized from the stroke
@@ -470,17 +495,18 @@ export abstract class Svg {
    *
    * @param centres - Where to put each circle, in order
    * @param parent - The SVG element to inherit styling from and sit beside
+   * @param paint - The parent's paint, when the caller read it beforehand
    * @returns The circles, in the order the centres were given
    */
   public static createCircleElements(
     centres: readonly { cx: string | number; cy: string | number }[],
     parent: SVGElement,
+    paint: MarkerPaint = this.markerPaintOf(parent),
   ): SVGElement[] {
-    // The parent's own document and window, which on a page are the page's:
-    // a chart built in a document of its own, as the adapters' tests build
-    // theirs, has no page-global `window`.
+    // The markers are made in the parent's own document, for the reason its
+    // paint is read through that document's window in markerPaintOf.
     const page = parent.ownerDocument;
-    const style = (page.defaultView ?? window).getComputedStyle(parent);
+    const style = paint;
     const color = style.stroke || style.fill;
     const strokeWidth = style.strokeWidth || '2';
     const stroked = style.stroke !== '' && style.stroke !== 'none';

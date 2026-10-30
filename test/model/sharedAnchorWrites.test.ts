@@ -211,9 +211,19 @@ describe('a plotly violin box, drawn as one element', () => {
   }
 
   test.each([
-    ['box', (): BoxTrace => new BoxTrace(layer(TraceType.BOX, selector()))],
-    ['violin box', (): ViolinBoxTrace => new ViolinBoxTrace(layer(TraceType.VIOLIN_BOX, selector()))],
-  ])('leaves a %s\'s derived edges between the element and its clones', (_name, make) => {
+    {
+      name: 'box',
+      make: (): BoxTrace => new BoxTrace(layer(TraceType.BOX, selector())),
+      copies: ['path#box0 owned', 'path#box0 owned', 'path#box0 owned'],
+    },
+    {
+      // A violin's minimum and maximum, which name the one element both, are
+      // each marked by a dot at its own end, put last in the group.
+      name: 'violin box',
+      make: (): ViolinBoxTrace => new ViolinBoxTrace(layer(TraceType.VIOLIN_BOX, selector())),
+      copies: ['path#box0 owned', 'circle#y1=null owned', 'circle#y1=null owned'],
+    },
+  ])('leaves a $name\'s derived edges between the element and its clones', ({ make, copies }) => {
     const trace = make();
 
     // q3 (the box's top edge) and q1 (its bottom edge) first, then the
@@ -221,9 +231,7 @@ describe('a plotly violin box, drawn as one element', () => {
     expect(siblingsAfter(document.getElementById('box0')!)).toEqual([
       'line#y1=40 owned',
       'line#y1=70 owned',
-      'path#box0 owned',
-      'path#box0 owned',
-      'path#box0 owned',
+      ...copies,
     ]);
     // Every clone's previous sibling is a derived line or another clone, so
     // the box is reported no differently than a box drawn as five elements.
