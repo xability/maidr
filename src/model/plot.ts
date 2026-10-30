@@ -7,9 +7,9 @@ import type { ChartObjectList } from '@type/objectList';
 import type { Observable } from '@type/observable';
 import type {
   FigureState,
-  HighlightState,
   LayerSummary,
   LayerSwitchTraceState,
+  PanelHighlightState,
   PlotState,
   PointerGuidanceState,
   SubplotState,
@@ -167,12 +167,6 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   private invertVertical: boolean;
 
   /**
-   * Total number of axes groups in the SVG.
-   * Set by {@link applyLayout}; used by the highlight getter.
-   */
-  private totalAxesCount: number;
-
-  /**
    * Creates a new Figure instance from MAIDR data.
    *
    * After construction, call {@link applyLayout} with the result of
@@ -226,7 +220,6 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     // Defaults until applyLayout() is called.
     this.visualOrderMap = new Map<string, number>();
     this.invertVertical = false;
-    this.totalAxesCount = 0;
     this.movable = new MovableGrid<Subplot>(this.subplots);
   }
 
@@ -241,13 +234,13 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   public applyLayout(layout: SubplotLayout): void {
     this.visualOrderMap = layout.visualOrderMap;
     this.invertVertical = layout.invertVertical;
-    this.totalAxesCount = layout.totalAxesCount;
 
-    // Propagate axes element references to each subplot.
+    // Propagate axes and panel element references to each subplot.
     for (let r = 0; r < this.subplots.length; r++) {
       for (let c = 0; c < this.subplots[r].length; c++) {
         const axesEl = layout.axesElements.get(`${r},${c}`) ?? null;
         this.subplots[r][c].setAxesElement(axesEl);
+        this.subplots[r][c].setPanelElement(layout.panelElements.get(`${r},${c}`) ?? null);
       }
     }
 
@@ -355,26 +348,18 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     };
   }
 
-  protected get highlight(): HighlightState {
-    if (this.totalAxesCount <= 1) {
-      return {
-        empty: true,
-        type: 'trace',
-        audio: {
-          y: this.row,
-          x: this.col,
-          rows: this.subplots.length,
-          cols: this.subplots[this.row].length,
-        },
-      };
-    }
-
-    // Use the pre-resolved axes element (set by applyLayout).
-    const axesElement = this.activeSubplot.axesElement;
-    if (axesElement) {
+  /**
+   * The panel the lobby is on, for its outline: whatever
+   * {@link resolveSubplotLayout} found to draw it round, for every producer
+   * that draws or names one, rather than only the matplotlib axes groups
+   * this used to wait for.
+   */
+  protected get highlight(): PanelHighlightState {
+    const panel = this.activeSubplot.panelElement;
+    if (panel !== null) {
       return {
         empty: false,
-        elements: axesElement,
+        elements: panel,
       };
     }
 
@@ -457,15 +442,35 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   public readonly primaryTitle: string;
 
   private readonly size: number;
-  private readonly highlightValue: SVGElement | null;
+  /**
+   * The element the subplot's own `selector` names, as the chart drew it.
+   *
+   * Not a hidden copy beside it, as this was. Nothing outlines the copy, and
+   * a copy of a panel drawn as an `<svg>` of its own, as Victory draws one,
+   * kept the room the panel takes up: every panel was followed by a blank of
+   * its own height, and the figure grew to three times its size on focus.
+   */
+  private readonly highlightValue: Element | null;
   private readonly isViolinPlot: boolean;
   private readonly layerSelector: string | null;
+  /**
+   * Every selector the first layer names, whatever their shape, for finding
+   * the panel that holds its marks.
+   */
+  private readonly layerMarkSelectors: readonly string[];
 
   /**
    * The pre-resolved parent `<g id="axes_*">` SVG element for this subplot.
    * Set by {@link Figure.applyLayout} after construction; `null` until then.
    */
   private _axesElement: SVGElement | null = null;
+
+  /**
+   * The element the subplot's outline is drawn round in the lobby. Set by
+   * {@link Figure.applyLayout} after construction; `null` until then, and
+   * when no panel is known.
+   */
+  private _panelElement: Element | null = null;
 
   /**
    * Creates a new Subplot instance from MAIDR subplot data
@@ -491,6 +496,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       : Array.isArray(firstLayerSelectors) && typeof firstLayerSelectors[0] === 'string'
         ? firstLayerSelectors[0]
         : null;
+    this.layerMarkSelectors = [...new Set(Subplot.selectorsIn(firstLayerSelectors))];
 
     // Violin detection: explicit layer types (VIOLIN_KDE / VIOLIN_BOX)
     const layerTypes = layers.map(layer => layer.type);
@@ -519,16 +525,13 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     // on every construction (including every live-data rebuild).
     this.traceTypes = this.traces.flat().map(trace => trace.traceType);
 
-    this.highlightValue = this.mapToSvgElement(subplot?.selector);
+    this.highlightValue = Subplot.findOwnElement(subplot?.selector);
     this.movable = new MovableGrid<Trace>(this.traces);
   }
 
   public override dispose(): void {
     this.traces.forEach(row => row.forEach(trace => trace.dispose()));
     this.traces.length = 0;
-    // Remove the cloned highlight element to avoid stale DOM nodes
-    // accumulating after live data updates.
-    this.highlightValue?.remove();
     super.dispose();
   }
 
@@ -897,8 +900,8 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     };
   }
 
-  private get highlight(): HighlightState {
-    if (this.highlightValue === null) {
+  private get highlight(): PanelHighlightState {
+    if (this._panelElement === null) {
       return {
         empty: true,
         type: 'trace',
@@ -913,7 +916,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
 
     return {
       empty: false,
-      elements: this.highlightValue,
+      elements: this._panelElement,
     };
   }
 
@@ -931,11 +934,12 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   }
 
   /**
-   * Returns the subplot's own SVG highlight element (resolved from `subplot.selector`).
-   * Used by the layout utility to locate the parent axes group.
-   * @returns The SVG element, or `null` if the subplot has no selector.
+   * Returns the element the subplot's own `selector` names.
+   * Used by the layout utility to locate the parent axes group and the panel.
+   * @returns The element, or `null` if the subplot has no selector or it
+   *   matches nothing.
    */
-  public getHighlightElement(): SVGElement | null {
+  public getHighlightElement(): Element | null {
     return this.highlightValue;
   }
 
@@ -946,6 +950,17 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    */
   public getLayerSelector(): string | null {
     return this.layerSelector;
+  }
+
+  /**
+   * Returns every selector the first layer names, whatever their shape.
+   * Used by the layout utility to find the panel that holds the subplot's
+   * marks, and to keep another subplot's panel from taking it in.
+   * @returns The selectors, in the order the layer gives them; none when it
+   *   names none.
+   */
+  public getLayerMarkSelectors(): readonly string[] {
+    return this.layerMarkSelectors;
   }
 
   /**
@@ -967,8 +982,58 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     this._axesElement = element;
   }
 
-  private mapToSvgElement(selector?: string): SVGElement | null {
-    return selector ? Svg.selectElement(selector) ?? null : null;
+  /**
+   * The element the subplot's outline is drawn round in the lobby, resolved
+   * by the layout; `null` when none is known.
+   */
+  public get panelElement(): Element | null {
+    return this._panelElement;
+  }
+
+  /**
+   * Sets the element the subplot's outline is drawn round.
+   * Called by {@link Figure.applyLayout} during initialization.
+   * @param element - The panel, or its background, or null.
+   */
+  public setPanelElement(element: Element | null): void {
+    this._panelElement = element;
+  }
+
+  /**
+   * The element a subplot's own selector names, as drawn.
+   * @param selector - The subplot's `selector`, when it has one
+   * @returns The element, or null
+   */
+  private static findOwnElement(selector?: string): Element | null {
+    return typeof selector === 'string' && selector.trim() !== ''
+      ? Svg.queryAll<Element>(selector)[0] ?? null
+      : null;
+  }
+
+  /**
+   * Every selector a layer's `selectors` holds: a string, a list or a grid of
+   * them, or the parts of a box or a candlestick.
+   *
+   * The lobby found a subplot's panel only from a string, so a subplot whose
+   * first layer was a box, a candlestick or a heat map's grid had none, and
+   * the panel of the one beside it grew over it: on r-maidr's patchwork of a
+   * box plot over a bar chart, or its pheatmap with a row tree alone, the
+   * outline went round the whole figure.
+   *
+   * @param value - A layer's `selectors`
+   * @returns Its selectors, in order
+   */
+  private static selectorsIn(value: unknown): string[] {
+    if (typeof value === 'string') {
+      return value.trim() === '' ? [] : [value];
+    }
+    if (Array.isArray(value)) {
+      return value.flatMap(item => Subplot.selectorsIn(item));
+    }
+    if (value !== null && typeof value === 'object') {
+      return Object.values(value).flatMap(item => Subplot.selectorsIn(item));
+    }
+    return [];
   }
 }
 

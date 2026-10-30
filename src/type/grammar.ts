@@ -152,13 +152,25 @@ export interface ViolinKdePoint {
  *   `col` are both `-1`, because no row/column pair can name the selection, and
  *   a consumer that bounds-checks them (as it must) then clears the overlay
  *   rather than outlining an arbitrary mark.
+ * @param panel - With `null`, the subplot the lobby is on, which a consumer
+ *   can outline once it has cleared the point: MAIDR outlines a panel itself
+ *   only where it can find one in the page, and a canvas chart draws its
+ *   panels where MAIDR finds nothing.
  */
 export type NavigateCallback = (info: {
   layerId: string;
   row: number;
   col: number;
   pointIndices?: readonly number[];
-} | null) => void;
+} | null, panel?: LobbyPanel) => void;
+
+/**
+ * The subplot the figure lobby is on, as {@link NavigateCallback} reports it.
+ */
+export interface LobbyPanel {
+  /** The ids of the subplot's layers, in order, which name its panel. */
+  layerIds: readonly string[];
+}
 
 /**
  * A position a host asks MAIDR to move its cursor to.

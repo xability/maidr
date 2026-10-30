@@ -155,12 +155,13 @@ describe('createMaidrFromGoogleCharts × resolveSubplotLayout (vertical navigati
     const subplots: Subplot[][] = maidr.subplots.map((row, r) => row.map((subplot, c) => {
       const el = document.querySelector(subplot.selector!) as SVGElement;
       mockRect(el, rects[r][c]);
-      // Stand-in exposing the two accessors the layout utility consumes; the
+      // Stand-in exposing the accessors the layout utility consumes; the
       // real Subplot resolves the same selector to a hidden clone with
       // equivalent geometry.
       return {
         getHighlightElement: () => el,
         getLayerSelector: () => subplot.layers[0].selectors as string,
+        getLayerMarkSelectors: () => [subplot.layers[0].selectors as string],
       } as unknown as Subplot;
     }));
 

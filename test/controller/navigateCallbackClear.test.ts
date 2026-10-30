@@ -2,13 +2,13 @@
  * @jest-environment jsdom
  */
 
-import type { Maidr, NavigateCallback } from '@type/grammar';
+import type { LobbyPanel, Maidr, NavigateCallback } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
-import { createNavigateObserver } from '@util/navigateObserver';
+import { createLobbyObserver, createNavigateObserver } from '@util/navigateObserver';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 
 /** What the callback is handed, mirroring `NavigateCallback`'s parameter. */
@@ -65,6 +65,7 @@ describe('the navigate callback reports the selection ending', () => {
   let figure: Figure;
   let context: Context;
   let seen: NavEvent[];
+  let panels: (LobbyPanel | undefined)[];
 
   /** Registers what `Controller.registerNavigateCallback` registers. */
   function register(callback: NavigateCallback): void {
@@ -73,7 +74,7 @@ describe('the navigate callback reports the selection ending', () => {
         trace.addObserver(createNavigateObserver(trace, callback));
       }));
     }));
-    figure.addObserver({ update: () => callback(null) } as never);
+    figure.addObserver(createLobbyObserver(figure, callback));
   }
 
   beforeEach(() => {
@@ -81,7 +82,11 @@ describe('the navigate callback reports the selection ending', () => {
     figure.applyLayout(resolveSubplotLayout(figure.subplots));
     context = new Context(figure);
     seen = [];
-    register(event => void seen.push(event));
+    panels = [];
+    register((event, panel) => {
+      seen.push(event);
+      panels.push(panel);
+    });
   });
 
   afterEach(() => {
@@ -141,5 +146,34 @@ describe('the navigate callback reports the selection ending', () => {
 
     // The second panel's own layer, so the highlight lands on this chart.
     expect(seen.at(-1)).toEqual({ layerId: '1', row: 0, col: 0 });
+  });
+
+  it('names the subplot the lobby is on beside the null', () => {
+    context.enterSubplot();
+    context.exitSubplot();
+
+    // A canvas chart has nothing in the page MAIDR can outline, so the
+    // adapter is told which panel to draw its own outline round.
+    expect(panels.at(-1)).toEqual({ layerIds: ['0'] });
+
+    context.moveOnce(FORWARD);
+    context.moveOnce(FORWARD);
+
+    expect(seen.at(-1)).toBeNull();
+    expect(panels.at(-1)).toEqual({ layerIds: ['1'] });
+  });
+});
+
+describe('the navigate callback on a figure of one subplot', () => {
+  it('reports null with no panel, since there is no lobby to outline', () => {
+    const calls: Parameters<NavigateCallback>[] = [];
+    const observer = createLobbyObserver(
+      { size: 1, activeSubplot: { traces: [[{ getId: () => '0' }]] } },
+      (...args) => void calls.push(args),
+    );
+
+    observer.update({} as never);
+
+    expect(calls).toEqual([[null]]);
   });
 });

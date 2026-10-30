@@ -36,7 +36,7 @@ export type FigureState
     index: number;
     subplot: SubplotState;
     traceTypes: string[];
-    highlight: HighlightState; // Figure manages subplot highlighting
+    highlight: PanelHighlightState; // Figure manages subplot highlighting
   };
 
 /**
@@ -54,7 +54,7 @@ export type SubplotState
     size: number;
     index: number;
     trace: TraceState;
-    highlight: HighlightState;
+    highlight: PanelHighlightState;
   };
 
 /**
@@ -753,3 +753,16 @@ export type HighlightState
     empty: false;
     elements: SVGElement | SVGElement[];
   };
+
+/**
+ * What a figure or a subplot outlines: the panel the reader is on. A panel is
+ * whatever the producer drew it as or named it by, which need not be SVG --
+ * py-maidr names each panel of a Bokeh figure, drawn on canvases, by an HTML
+ * element laid over it.
+ */
+export type PanelHighlightState
+  = | Extract<HighlightState, { empty: true }>
+    | {
+      empty: false;
+      elements: Element;
+    };
