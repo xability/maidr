@@ -467,7 +467,7 @@ AnyChart's SVG output uses opaque, internally-generated ids (`ac_path_*`, `ac_re
 |------------|-----------|--------------|
 | Bar / column / diverging | `data-maidr-anychart-bar` | `"<seriesIndex>-<pointIndex>"` |
 | Line / area / spline / step / stick | `data-maidr-anychart-line-point` | `"<seriesIndex>-<pointIndex>"` |
-| Scatter / marker / bubble / dot plot | `data-maidr-anychart-scatter-point` | `"<seriesIndex>-<pointIndex>"` |
+| Scatter / marker / bubble / dot plot | `data-maidr-anychart-point` | `"<seriesIndex>-<pointIndex>"` |
 | Dumbbell (`range-column` / `range-bar`) | `data-maidr-anychart-pair` | `"<seriesIndex>-<pairIndex>"` |
 | Box plot | `data-maidr-anychart-box` | `"<seriesIndex>-<pointIndex>"` |
 | Heatmap | `data-maidr-anychart-heatmap-cell` | `"<rowIndex>-<colIndex>"` |
