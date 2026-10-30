@@ -1236,6 +1236,129 @@ function readXAxisLabelsInVisualOrder(root: Element): string[] {
 }
 
 /**
+ * The layers whose points sit at a value on the y axis, which can be one of
+ * the levels the axis names.
+ */
+const READ_AGAINST_Y_AXIS = new Set<TraceType>([
+  TraceType.LINE,
+  TraceType.STEP,
+  TraceType.AREA,
+  TraceType.SMOOTH,
+  TraceType.BUMP,
+]);
+
+/**
+ * Whether an axis label is a number as d3-format writes one: grouping
+ * separators and the typographic minus sign allowed.
+ *
+ * @param text - The label
+ * @returns True for a plain numeral
+ */
+function isNumeral(text: string): boolean {
+  const plain = text.replace(/\u2212/g, '-').replace(/[,\s]/g, '');
+  return plain !== '' && Number.isFinite(Number(plain));
+}
+
+/**
+ * The names a chart's one vertical axis gives its tick values, when they are
+ * names rather than numerals.
+ *
+ * Vega binds each axis label to its tick, whose `value` is what the label
+ * stands for; the text is what the axis draws for it, after any `labelExpr`.
+ * An axis whose labels are all numerals names nothing. With more than one
+ * vertical axis -- a dual-axis chart, a grid of panels -- there is no telling
+ * which one a layer is read against, so none is used.
+ *
+ * @param root - The chart's SVG, or one panel of it
+ * @returns The names by tick value, or `null`
+ */
+function axisLevelNames(root: Element): Map<number, string> | null {
+  const vertical: Array<Array<{ value: number; text: string }>> = [];
+  for (const axis of Array.from(root.querySelectorAll('g.role-axis'))) {
+    const texts = Array.from(axis.querySelectorAll<SVGTextElement>('g.role-axis-label text'));
+    if (texts.length < 2 || !isLaidOutForSort(texts[0]))
+      continue;
+    const labels = texts.map((text) => {
+      const tick = (text as { __data__?: { datum?: { value?: unknown } } }).__data__?.datum;
+      const box = text.getBoundingClientRect();
+      return {
+        value: tick?.value,
+        text: (text.textContent ?? '').trim(),
+        x: box.left + box.width / 2,
+        y: box.top + box.height / 2,
+      };
+    });
+    const spread = (pick: (label: { x: number; y: number }) => number): number =>
+      Math.max(...labels.map(pick)) - Math.min(...labels.map(pick));
+    if (spread(label => label.y) <= spread(label => label.x))
+      continue;
+    const named = labels.filter((label): label is typeof label & { value: number } =>
+      typeof label.value === 'number' && label.text !== '');
+    if (named.length !== labels.length)
+      return null;
+    vertical.push(named);
+  }
+  if (vertical.length !== 1 || vertical[0].every(label => isNumeral(label.text)))
+    return null;
+  return new Map(vertical[0].map(label => [label.value, label.text]));
+}
+
+/**
+ * For a line read against a y axis that names its levels, give every point
+ * the name of the level it sits on.
+ *
+ * A chart whose y is a category coded as a number -- a hypnogram's sleep
+ * stages, a Likert scale -- draws the codes as names, with Vega-Lite's
+ * `labelExpr` or explicit axis `values`. `LinePoint.label` carries such a name
+ * beside the numeric `y` that sonification, braille and the range read, and
+ * the converter cannot fill it: the names exist only once Vega has drawn the
+ * axis. py-maidr's Altair hypnogram, whose axis reads N3, N2, N1, REM, Awake,
+ * was announced as "Sleep stage is 3".
+ *
+ * Only when every point sits on a named tick, so a line that merely passes
+ * through tick values on a continuous axis keeps its numbers. A name the
+ * layer already carries stays.
+ *
+ * @param svg - The chart's SVG
+ * @param layers - Every layer of the chart
+ * @param cellDomMap - Each panel layer's own root, for charts of panels
+ */
+function nameLevelsFromAxis(
+  svg: SVGSVGElement,
+  layers: MaidrLayer[],
+  cellDomMap?: Map<MaidrLayer, CellDomInfo>,
+): void {
+  let chartLevels: Map<number, string> | null | undefined;
+  for (const layer of layers) {
+    if (!READ_AGAINST_Y_AXIS.has(layer.type) || !Array.isArray(layer.data)
+      || !layer.data.every(Array.isArray)) {
+      continue;
+    }
+    const panel = cellDomMap?.get(layer)?.root;
+    let levels = panel ? axisLevelNames(panel) : null;
+    if (!levels) {
+      if (chartLevels === undefined)
+        chartLevels = axisLevelNames(svg);
+      levels = chartLevels;
+    }
+    if (!levels)
+      continue;
+
+    const points = (layer.data as LinePoint[][]).flat().filter(
+      (point): point is LinePoint & { y: number } => typeof point.y === 'number',
+    );
+    const names = levels;
+    if (points.length === 0 || !points.every(point => names.has(point.y)))
+      continue;
+    for (const point of points) {
+      if (point.label === undefined || point.label === '')
+        point.label = names.get(point.y);
+    }
+    debugLog(`${layer.type} layer "${layer.id}": named its points by the y axis' levels`);
+  }
+}
+
+/**
  * The layers `extractLineData` emits, which all share one geometry: one
  * `<path>` per series, whose vertices Vega writes in the order it drew them.
  *
@@ -2154,6 +2277,10 @@ export function bindVegaLite(
   // single string instead of the per-group structure
   // BoxTrace.mapToSvgElements expects.
   buildBoxPlotSelectorsFromDom(svg as SVGSVGElement, layers, cellDomMap, containerScope);
+
+  // For lines read against a y axis that names its levels (a hypnogram's
+  // stages drawn through `labelExpr`), carry each point's level name.
+  nameLevelsFromAxis(svg as SVGSVGElement, layers, cellDomMap);
 
   initMaidrOnElement(maidr, svg);
 }
