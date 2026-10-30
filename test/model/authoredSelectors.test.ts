@@ -3,7 +3,7 @@
  */
 
 import type { Trace } from '@model/plot';
-import type { Maidr, MaidrLayer, MosaicPoint } from '@type/grammar';
+import type { Maidr, MaidrLayer, MosaicPoint, ScatterPoint } from '@type/grammar';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/globals';
@@ -210,5 +210,27 @@ describe('an authored example\'s selectors name the marks its data is drawn as',
 
     expect(readings).toHaveLength(4);
     expect(wrong).toEqual([]);
+  });
+
+  it('reads the iris species the legend draws, each layer outlining its own points', () => {
+    // The scatter colours its points by species under a "species" legend,
+    // and declared one layer whose points carried a "Petal Length (cm)" that
+    // was neither plotted nor the iris data's petal length.
+    const { html, layers } = load('scatter_plot.html');
+
+    const colours = layers.map((layer) => {
+      const drawn = [...document.querySelectorAll(layer.selectors as string)];
+      return [...new Set(drawn.map(mark => mark.getAttribute('style')?.match(/fill: (#[0-9a-f]+)/)?.[1]))];
+    });
+    // A legend entry is the swatch drawn just before its name.
+    const swatch = (name: string): string | undefined => {
+      const before = html.slice(0, html.indexOf(`<!-- ${name} -->`));
+      return [...before.matchAll(/<use [^>]*style="fill: (#[0-9a-f]+)/g)].at(-1)?.[1];
+    };
+
+    expect(layers.map(layer => layer.name)).toEqual(['setosa', 'versicolor', 'virginica']);
+    expect(layers.map(layer => (layer.data as ScatterPoint[]).length)).toEqual([50, 50, 50]);
+    expect(layers.flatMap(layer => (layer.data as ScatterPoint[]).filter(point => point.z !== undefined))).toEqual([]);
+    expect(colours).toEqual(layers.map(layer => [swatch(layer.name ?? '')]));
   });
 });
