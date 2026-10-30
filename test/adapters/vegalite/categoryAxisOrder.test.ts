@@ -155,6 +155,22 @@ describe('a vega-lite error bar', () => {
     expect([...whips.children].map(line => line.getAttribute('data-variety')))
       .toEqual(['Glabron', 'Manchuria', 'Velvet']);
   });
+
+  it('is left as it is when the rows already come in the drawn order', () => {
+    const { container, svg } = canvas();
+    const whips = group(svg, 'mark-rule role-mark marks');
+    const drawnInOrder: Record<string, number> = { Manchuria: 114, Glabron: 247, Velvet: 380 };
+    for (const variety of ['Manchuria', 'Glabron', 'Velvet']) {
+      drawn(whips, 'line', { x: drawnInOrder[variety], y: 100, width: 0, height: 50 })
+        .setAttribute('data-variety', variety);
+    }
+    const before = [...whips.children];
+
+    const layer = boundLayer(viewOf(container), spec);
+
+    expect((layer.data as ErrorBarPoint[]).map(point => point.x)).toEqual(['Manchuria', 'Glabron', 'Velvet']);
+    expect([...whips.children]).toEqual(before);
+  });
 });
 
 describe('a vega-lite dot plot', () => {
@@ -265,6 +281,24 @@ describe('a vega-lite dumbbell', () => {
     const layer = boundLayer(view, upright);
 
     expect((layer.data as DumbbellData).points.map(point => point.x)).toEqual(['Canada', 'Chile', 'Mexico']);
+  });
+
+  it('keeps marks and points in the drawn order when two marks share a group', () => {
+    // Chile's and Mexico's connectors nested in one group cannot be moved
+    // apart, so sorting the points alone would pair them with other marks.
+    const { container, svg } = canvas();
+    const content = group(svg);
+    const shared = group(content, 'mark-group role-scope layer_0_pathgroup');
+    const own = group(content, 'mark-group role-scope layer_0_pathgroup');
+    for (const [country, parent] of [['Chile', shared], ['Mexico', shared], ['Canada', own]] as const) {
+      const marks = group(group(parent), 'mark-line role-mark layer_0_marks');
+      drawn(marks, 'path', { x: 70, y: drawnAt[country], width: 100, height: 0 });
+    }
+    group(content, 'mark-symbol role-mark layer_1_marks');
+
+    const layer = boundLayer(viewOf(container), spec);
+
+    expect((layer.data as DumbbellData).points.map(point => point.x)).toEqual(['Chile', 'Mexico', 'Canada']);
   });
 
   it('keeps the connectors where they are drawn, under the dots', () => {
