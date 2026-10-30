@@ -333,6 +333,35 @@ describe('createHighlightElement colour', () => {
 
     expect(highlight.style.stroke).toBe(highlight.style.fill);
   });
+
+  it.each(['#FFFFFF', '#D3D3D3'])('draws a mark of %s, which has no hue, in a shade of the highlight colour', (fill) => {
+    // A Recharts line's dot is filled white inside a ring in the line's
+    // colour. A darker shade of white is a mid grey, and the dot read was
+    // grey inside its ring where every bar of the chart turned green.
+    const mark = renderMark('circle', `fill: ${fill}; stroke: #8884d8; stroke-width: 1px`);
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+    const color = Color.parse(highlight.getAttribute('fill') ?? '') as Rgb;
+
+    // Green, as the highlight colour is, and still 3:1 against the mark.
+    expect(color.g).toBeGreaterThan(color.r + 100);
+    expect(color.g).toBeGreaterThan(color.b + 100);
+    expect(contrast(Color.rgbToString(color), fill)).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each([
+    { what: 'a ribbon stroked at 20%', tag: 'path', style: 'fill: none; stroke: #82ca9d; stroke-width: 40px; stroke-opacity: 0.2' },
+    { what: 'a bar filled at 30%', tag: 'rect', style: 'fill: #1f77b4; fill-opacity: 0.3' },
+  ])('draws the copy of $what opaque', ({ tag, style }) => {
+    // A Recharts sankey ribbon's copy kept its 20%, and the ribbon read was a
+    // slightly deeper tint of the same pale green as the ribbons beside it.
+    const mark = renderMark(tag, style);
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.style.fillOpacity).toBe('1');
+    expect(highlight.style.strokeOpacity).toBe('1');
+  });
 });
 
 describe('createHighlightElement on a mark too small to see', () => {
