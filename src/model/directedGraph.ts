@@ -237,10 +237,22 @@ interface GraphEnds {
 export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighlightable {
   /**
    * No go-to-extrema dialog: the graph inputs and outputs are named in the
-   * description and every item is one arrow from its siblings. Leaving it true
-   * without targets is the keyboard trap `extremaContract` guards against.
+   * description and every item is one arrow from its siblings, and its nodes
+   * carry no values to rank, which {@link DirectedGraphTrace.noExtremaReason}
+   * says. Leaving it true without targets is the keyboard trap
+   * `extremaContract` guards against.
    */
   protected readonly supportsExtrema = false;
+
+  /**
+   * Why `[`, `]` and `G` have nothing to go to here.
+   *
+   * @returns That the nodes carry no values
+   */
+  public override noExtremaReason(): string {
+    return t('model.noExtremaNodesCarryNoValues');
+  }
+
   protected readonly movable: MovableGraph;
 
   /** The declared points, in declared order. */

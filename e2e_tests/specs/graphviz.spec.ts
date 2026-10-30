@@ -127,14 +127,14 @@ test.describe('Graphviz adapter', () => {
     await expect(page.locator(`${OUTLINE} title`)).toHaveText('pick');
   });
 
-  test('should say the graph has no extrema rather than ignore g', async ({ page }) => {
+  test('should say the graph has no extrema, and why, rather than ignore g', async ({ page }) => {
     const plot = new GraphvizPage(page);
     await plot.activateMaidr();
     await plot.moveToNextDataPoint();
     await page.keyboard.press('g');
 
     await expect.poll(async () => normalizeText(await plot.getInstructionText()))
-      .toContain('No extrema to go to in this layer');
+      .toContain('No extrema to go to in this layer: its nodes carry no values');
   });
 
   test('should show the graph on the braille display', async ({ page }) => {

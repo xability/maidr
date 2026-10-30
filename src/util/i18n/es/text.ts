@@ -155,6 +155,7 @@ export const text = {
   'text.noMinimumValue': 'No hay un valor mínimo al que ir en esta capa',
   'text.noMaximumValue': 'No hay un valor máximo al que ir en esta capa',
   'text.noExtrema': 'No hay valores extremos a los que ir en esta capa',
+  'text.unavailableBecause': '{message}: {reason}',
   'text.pointPosition': '{point}, {position} de {total}',
   'text.noObjectList': 'Esta capa no tiene lista de objetos. Recórrela con las flechas.',
 } satisfies Partial<Record<MessageKey, string>>;

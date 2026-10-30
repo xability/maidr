@@ -462,7 +462,7 @@ describe('a point that stands in for the maximum', () => {
 });
 
 describe('bracket key commands', () => {
-  function commandFixture(landed: { position: number; total: number; name?: string } | null): {
+  function commandFixture(landed: { position: number; total: number; name?: string } | null, reason: string | null = null): {
     context: Context;
     service: GoToExtremaService;
     notification: NotificationService;
@@ -470,7 +470,10 @@ describe('bracket key commands', () => {
     audio: AudioService;
   } {
     return {
-      context: { state: { type: 'trace', empty: false } } as unknown as Context,
+      context: {
+        state: { type: 'trace', empty: false },
+        noExtremaReason: (): string | null => reason,
+      } as unknown as Context,
       service: { goToExtremeValue: jest.fn(() => landed) } as unknown as GoToExtremaService,
       notification: { notify: jest.fn() } as unknown as NotificationService,
       textService: {
@@ -572,6 +575,20 @@ describe('bracket key commands', () => {
 
     expect(min.notification.notify).toHaveBeenCalledWith('No minimum value to go to in this layer');
     expect(max.notification.notify).toHaveBeenCalledWith('No maximum value to go to in this layer');
+  });
+
+  test('says why, where the layer has nothing to go to by design', () => {
+    // A sequence diagram never has a maximum. Refused bare, the press read
+    // the same as on a chart whose data happened to hold none.
+    const min = commandFixture(null, 'its messages carry no values');
+    new GoToMinValueCommand(min.context, min.service, min.notification, min.textService, min.audio).execute();
+
+    const max = commandFixture(null, 'its messages carry no values');
+    new GoToMaxValueCommand(max.context, max.service, max.notification, max.textService, max.audio).execute();
+
+    expect(min.notification.notify).toHaveBeenCalledWith('No minimum value to go to in this layer: its messages carry no values');
+    expect(max.notification.notify).toHaveBeenCalledWith('No maximum value to go to in this layer: its messages carry no values');
+    expect(max.audio.playWarningToneIfEnabled).toHaveBeenCalledTimes(1);
   });
 
   test('plays the warning tone with the refusal, as g and o do', () => {

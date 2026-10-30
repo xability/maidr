@@ -2822,6 +2822,24 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
+   * Why `[`, `]` and `G` have nothing to go to in grid and intersecting point
+   * navigation: the one moves between cells rather than points, and the other
+   * only among the points at the same x or y, so neither has a point of the
+   * whole plot to go to.
+   *
+   * @returns The reason in those two modes, null in the others
+   */
+  public override noExtremaReason(): string | null {
+    if (this.isInGridMode) {
+      return t('model.noExtremaGridCells');
+    }
+    if (this.isInIntersectionMode) {
+      return t('model.noExtremaIntersectionStack');
+    }
+    return null;
+  }
+
+  /**
    * Walks one step forward through the current stack — y values at the
    * current x in COL mode, x values at the current y in ROW mode. Returns
    * false at the top of the stack so the rotor can announce the boundary;

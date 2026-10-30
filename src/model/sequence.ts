@@ -114,10 +114,21 @@ function printedNumber(message: SequenceMessage): number | undefined {
  */
 export class SequenceTrace extends AbstractTrace {
   /**
-   * No go-to-extrema dialog: a message has no magnitude to rank, and the
-   * dialog without targets is the keyboard trap `extremaContract` guards.
+   * No go-to-extrema dialog: a message has no magnitude to rank, which
+   * {@link SequenceTrace.noExtremaReason} says, and the dialog without targets
+   * is the keyboard trap `extremaContract` guards.
    */
   protected readonly supportsExtrema = false;
+
+  /**
+   * Why `[`, `]` and `G` have nothing to go to here.
+   *
+   * @returns That the messages carry no values
+   */
+  public override noExtremaReason(): string {
+    return t('model.noExtremaMessagesCarryNoValues');
+  }
+
   protected readonly movable: MovableGraph;
 
   private readonly lanes: Lane[];

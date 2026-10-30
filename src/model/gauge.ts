@@ -124,7 +124,22 @@ function describeBands(bands: GaugeBand[]): string {
  * unreadable is unusable however good the charts beside them are.
  */
 export class GaugeTrace extends AbstractTrace {
+  /**
+   * No go-to-extrema dialog: a gauge shows one value, which is both its
+   * lowest and its highest and is where the reader already is, as
+   * {@link GaugeTrace.noExtremaReason} says.
+   */
   protected readonly supportsExtrema = false;
+
+  /**
+   * Why `[`, `]` and `G` have nothing to go to here.
+   *
+   * @returns That a gauge shows one value
+   */
+  public override noExtremaReason(): string {
+    return t('model.noExtremaGaugeOneValue');
+  }
+
   protected readonly movable: Movable;
 
   private readonly point: GaugePoint;

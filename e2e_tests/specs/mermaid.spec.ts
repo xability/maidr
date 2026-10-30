@@ -1034,12 +1034,22 @@ test.describe('Mermaid adapter', () => {
     await expect(page.locator('[id^="extrema-target-"][aria-label*="x=English"]')).toHaveCount(0);
   });
 
-  test('says a flowchart has no extrema to go to, rather than ignoring g', async ({ page }) => {
+  test('says a flowchart has no extrema to go to, and why, rather than ignoring g', async ({ page }) => {
     await openExample(page, 'flowchart');
     await press(page, 'ArrowRight');
 
-    expect(await press(page, 'g')).toContain('No extrema to go to in this layer');
+    expect(await press(page, 'g')).toContain('No extrema to go to in this layer: its nodes carry no values');
     await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+  });
+
+  test('says why [ has nowhere to go on a sequence diagram', async ({ page }) => {
+    // Refused bare, the press read the same as on a chart whose data
+    // happened to hold no minimum.
+    await openExample(page, 'sequence');
+    await press(page, 'ArrowRight');
+
+    expect(await press(page, '['))
+      .toContain('No minimum value to go to in this layer: its messages carry no values');
   });
 
   test('offers a flowchart\'s outputs first in the rotor, not values its nodes lack', async ({ page }) => {

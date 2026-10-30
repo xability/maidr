@@ -122,6 +122,20 @@ test.describe('Gauge', () => {
     });
   });
 
+  test.describe('Extrema', () => {
+    test('should say why ] has nowhere to go', async ({ page }) => {
+      // A gauge is its one value, so there is no other point to go to. Refused
+      // bare, the press read as a shortcut broken on this chart.
+      const gaugePage = new GaugePlotPage(page);
+      await gaugePage.activateMaidr();
+      await gaugePage.moveToNextDataPoint();
+      await page.keyboard.press(']');
+
+      await expect.poll(async () => normalizeText(await gaugePage.getInstructionText()))
+        .toContain('No maximum value to go to in this layer: a gauge shows one value');
+    });
+  });
+
   test.describe('Braille Output', () => {
     // Braille is the modality that fails silently for a new trace type: an
     // unregistered encoder leaves the display blank while text and audio keep

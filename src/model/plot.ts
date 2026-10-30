@@ -1317,6 +1317,14 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   extremeRefusal?: (direction: 'FORWARD' | 'BACKWARD') => string | null;
 
   /**
+   * Why the trace has no extremum for `[`, `]` and `G` to go to, where that
+   * is by design. Optional, and null where it has extrema or lacks them only
+   * because of its data.
+   * @returns The reason, as a phrase, or null
+   */
+  noExtremaReason?: () => string | null;
+
+  /**
    * Every object the `o` list offers, or null on a chart walked along axes.
    * @returns The list, or null
    */

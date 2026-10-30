@@ -341,6 +341,16 @@ export class VennTrace extends AbstractTrace {
   }
 
   /**
+   * Why `[`, `]` and `G` have nothing to go to on a diagram drawn without
+   * sizes: its regions have no magnitude to rank, only their items.
+   *
+   * @returns That the regions carry no sizes, or null on a sized diagram
+   */
+  public override noExtremaReason(): string | null {
+    return this.sized ? null : t('model.noExtremaRegionsCarryNoSizes');
+  }
+
+  /**
    * A jump -- the object list, a pointer, Go To -- forgets the way down.
    *
    * @param row - The row to go to
