@@ -66,6 +66,7 @@
       const svgElement = document.getElementById('d3-candlestick-chart');
       const result = maidrD3.bindD3Candlestick(svgElement, {
         selector: 'rect.candle',
+        wickSelector: 'line.wick',
         title: 'Weekly Stock Price',
         axes: { x: 'Day', y: 'Price ($)' },
         value: 'date',

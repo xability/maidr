@@ -5,12 +5,15 @@
  * the MAIDR JSON schema for accessible candlestick chart interaction.
  */
 
-import type { CandlestickPoint, CandlestickTrend, MaidrLayer } from '../../../type/grammar';
+import type { CandlestickPoint, CandlestickSelector, CandlestickTrend, MaidrLayer } from '../../../type/grammar';
 import type { D3PanelScope } from '../selectors';
 import type { D3BinderResult, D3BuiltLayer, D3CandlestickConfig } from '../types';
 import { TraceType } from '../../../type/grammar';
-import { scopeSelector } from '../selectors';
+import { scopeSelector, stampOrderedSelectors } from '../selectors';
 import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
+
+/** The attribute each candle's wick is stamped with, by its candle's index. */
+const WICK_ATTRIBUTE = 'data-maidr-wick';
 
 /**
  * Binds a D3.js candlestick chart to MAIDR.
@@ -44,6 +47,7 @@ import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart
  * ```ts
  * const result = bindD3Candlestick(svgElement, {
  *   selector: 'rect.candle',
+ *   wickSelector: 'line.wick',
  *   title: 'Stock Price',
  *   axes: { x: 'Date', y: 'Price ($)' },
  *   value: 'date',
@@ -78,6 +82,7 @@ export function buildCandlestickLayer(root: Element, config: D3CandlestickConfig
     close: closeAccessor = 'close',
     volume: volumeAccessor = 'volume',
     trend: trendAccessor,
+    wickSelector,
   } = config;
 
   const elements = queryD3Elements(root, selector);
@@ -132,10 +137,81 @@ export function buildCandlestickLayer(root: Element, config: D3CandlestickConfig
     id: generateId(),
     type: TraceType.CANDLESTICK,
     title,
-    selectors: scopeSelector(root, selector, panel),
+    selectors: candleSelectors(root, selector, wickSelector, elements, panel),
     axes: buildAxes(axes, format),
     data,
   };
 
   return { layer };
+}
+
+/**
+ * The layer's selectors: the bodies alone, or the bodies and their wicks.
+ *
+ * A string is one element per candle, and the core outlines it for every
+ * price of the candle -- so the high and the low, read off the ends of the
+ * wick, outlined the body, and moving between a candle's prices moved nothing.
+ * Given the wicks, the core outlines the wick for the high and the low and
+ * draws the open and the close on the edges of the body
+ * (`CandlestickSelector`).
+ *
+ * The core pairs the n-th wick with the n-th candle, so the wicks are stamped
+ * in the candles' order. A wick selector matching another number of lines
+ * than there are candles would mark another candle's prices, and is left out.
+ *
+ * @param root - The extraction root
+ * @param selector - The bodies' selector
+ * @param wickSelector - The wicks' selector, when the chart names one
+ * @param bodies - The bodies, in the order the candles are listed
+ * @param panel - Optional panel scope for multi-panel binds
+ * @returns The selectors to emit
+ */
+function candleSelectors(
+  root: Element,
+  selector: string,
+  wickSelector: string | undefined,
+  bodies: { datum: unknown }[],
+  panel?: D3PanelScope,
+): string | CandlestickSelector {
+  const body = scopeSelector(root, selector, panel);
+  if (wickSelector === undefined) {
+    return body;
+  }
+
+  const wicks = queryD3Elements(root, wickSelector);
+  if (wicks.length !== bodies.length) {
+    console.warn(
+      `[maidr/d3] "${wickSelector}" matched ${wicks.length} wicks for `
+      + `${bodies.length} candles, so each candle's high and low are outlined `
+      + `on its body. Name one wick per candle.`,
+    );
+    return body;
+  }
+
+  return {
+    body,
+    wick: stampOrderedSelectors(root, wickSelector, WICK_ATTRIBUTE, wicksInCandleOrder(bodies, wicks), panel),
+  };
+}
+
+/**
+ * The wicks, in the order the candles are listed.
+ *
+ * A wick drawn by a join over the same rows as the bodies is bound to its
+ * candle's row, whichever order the two joins put their marks in, so each
+ * wick goes with the candle whose row it carries. Wicks bound to other rows,
+ * copies of them or none at all, go in the order they are drawn.
+ *
+ * @param bodies - The bodies, in the order the candles are listed
+ * @param wicks - The wicks, one per candle, in the order they are drawn
+ * @returns The wick elements, one per candle
+ */
+function wicksInCandleOrder(
+  bodies: { datum: unknown }[],
+  wicks: { element: Element; datum: unknown }[],
+): Element[] {
+  const byRow = bodies.map(({ datum }) => wicks.filter(wick => wick.datum === datum));
+  return byRow.every(found => found.length === 1)
+    ? byRow.map(([found]) => found.element)
+    : wicks.map(wick => wick.element);
 }
