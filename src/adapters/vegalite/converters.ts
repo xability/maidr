@@ -753,7 +753,7 @@ function buildMaidr(
 /**
  * The text a title is drawn with, as a reader hears it: a string as written,
  * a multi-line title -- an array of lines -- with its lines joined by a
- * space.
+ * space, an empty line left out.
  *
  * @param text - A title, a title's `text` or `subtitle`, or a header title
  * @returns The text, or `undefined` for anything else, such as an expression
@@ -762,18 +762,25 @@ function titleText(text: unknown): string | undefined {
   if (typeof text === 'string')
     return text;
   if (Array.isArray(text))
-    return text.filter((line): line is string => typeof line === 'string').join(' ');
+    return text.filter((line): line is string => typeof line === 'string' && line !== '').join(' ');
   return undefined;
 }
 
 /**
  * A title's `text`: the title itself when it is written as text alone.
  *
+ * Vega-Lite reads an array as lines of text only when its first entry is a
+ * string (`isText`). Any other array, an empty one among them, is read as a
+ * title object with no text, which a layered spec then passes over for its
+ * layers' titles.
+ *
  * @param title - A spec node's `title`
  * @returns What the title's text is written as
  */
 function textOf(title: VegaLiteSpec['title']): unknown {
-  return typeof title === 'object' && title !== null && !Array.isArray(title) ? title.text : title;
+  if (Array.isArray(title))
+    return typeof title[0] === 'string' ? title : undefined;
+  return typeof title === 'object' && title !== null ? title.text : title;
 }
 
 /**

@@ -120,6 +120,29 @@ describe('a vega-lite title with no text', () => {
     });
   });
 
+  it('passes over an empty array for a layer\'s title, as Vega-Lite does', () => {
+    // vega-lite 5.23 draws 'Drawn title' here: an array whose first entry is
+    // not a string is not read as lines of text.
+    const spec = { title: [], layer: [bars('Drawn title')] };
+
+    // Before the fix: 'Vega-Lite Chart'.
+    expect(titles(spec).title).toBe('Drawn title');
+  });
+
+  it.each([
+    ['an array of one empty line', ['']],
+    ['a text of no lines', { text: [] }],
+    ['a text written as an expression', { text: { expr: '\'Dynamic\'' } }],
+  ])('reads %s as a title of its own, so no layer\'s title is read in its place', (_name, title) => {
+    // vega-lite 5.23 draws these instead of the layer's title: the first two
+    // as an empty title, the last as whatever the expression gives.
+    expect(titles({ title, layer: [bars('Layer title')] }).title).toBe('Vega-Lite Chart');
+  });
+
+  it('leaves an empty line out of a title of several lines', () => {
+    expect(titles(bars(['Yield', '', 'by site'])).title).toBe('Yield by site');
+  });
+
   it('still lets a titled composite\'s own title and subtitle win', () => {
     const spec = {
       title: { text: 'Own title', subtitle: 'Own subtitle' },
