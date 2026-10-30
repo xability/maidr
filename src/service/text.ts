@@ -1022,9 +1022,9 @@ export class TextService implements Observer<PlotState>, Disposable {
     // LOCAL to this edge branch (not from format()) so the wording applies only
     // to edge navigation — the warning/rotor-bounds path (excluded by
     // `!state.warning`) still flows through format() and keeps its original,
-    // mode-independent "No plot info to display" wording. Returning early also
-    // avoids firing `first_navigation` for an empty state, keeping
-    // announce-gating intact.
+    // mode-independent "No plot info to display" wording. The edge is an
+    // answer to the reader's key press, and opens the announcement gate as a
+    // move does (see markFirstNavigation).
     if (
       state
       && state.empty
@@ -1032,6 +1032,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       && !state.warning
     ) {
       if (this.mode !== TextMode.OFF) {
+        this.markFirstNavigation();
         const text = this.mode === TextMode.TERSE ? t('text.noMoreData') : t('text.noMoreDataVerbose');
         this.onChangeEmitter.fire({ value: text });
       }
@@ -1050,6 +1051,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       && !state.warning
     ) {
       if (this.mode !== TextMode.OFF) {
+        this.markFirstNavigation();
         const text = this.mode === TextMode.TERSE ? t('text.noMoreSubplots') : t('text.noMoreSubplotsVerbose');
         this.onChangeEmitter.fire({ value: text });
       }
@@ -1071,6 +1073,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       && !state.warning
     ) {
       if (this.mode !== TextMode.OFF) {
+        this.markFirstNavigation();
         const text = this.format(state);
         if (text) {
           this.notification.notify(text);
@@ -1112,9 +1115,8 @@ export class TextService implements Observer<PlotState>, Disposable {
     // of the announcement region — while rotor/notification messages (which ignore
     // `announce`) still spoke. Firing on the first non-empty update of ANY
     // level fixes single-panel plots and keeps multi-panel behavior identical.
-    if (!this.hasHadFirstNavigation && !state.empty) {
-      this.hasHadFirstNavigation = true;
-      this.onNavigationEmitter.fire({ type: 'first_navigation' });
+    if (!state.empty) {
+      this.markFirstNavigation();
     }
 
     // Use the type guard and formatter for layer switches
@@ -1136,6 +1138,22 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (text) {
       this.onChangeEmitter.fire({ value: text });
     }
+  }
+
+  /**
+   * Opens the announcement gate at the reader's first navigation: the first
+   * update that answers a key press, whether it lands on a point or meets an
+   * edge. On a layer with data the first press always lands, so an edge only
+   * ever followed a move; on a layer with no data there is nothing to land on,
+   * every press meets the edge, and when only a landing opened the gate the
+   * reader heard the boundary chord and never a word.
+   */
+  private markFirstNavigation(): void {
+    if (this.hasHadFirstNavigation) {
+      return;
+    }
+    this.hasHadFirstNavigation = true;
+    this.onNavigationEmitter.fire({ type: 'first_navigation' });
   }
 
   /**
