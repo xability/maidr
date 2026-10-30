@@ -725,6 +725,15 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    * being entered: both X and Y where the two traces can express both, and X
    * alone otherwise.
    *
+   * A number is carried only between layers drawn along one x axis. It is a
+   * place on the axis it was read on, and the nearest x of a layer drawn
+   * along another is a different measurement that happens to be close: a
+   * bell curve over the measurements it was fitted to took 2.48 cm of sepal
+   * length to observation 2, and observation 3 back to 3.06 cm. The layer
+   * entered keeps its own place then -- where the reader last was on it, or
+   * its first point -- as it does when an x cannot be found on it. A name is
+   * the same thing on any layer, and is carried whatever the axes.
+   *
    * Shared by {@link switchLayer} and {@link selectLayer} so a keyboard step
    * and a description-dialog jump land the cursor in the same place. Static
    * because it is a function of the two traces, not of the subplot.
@@ -735,6 +744,42 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    */
   private static carryPosition(from: Trace, to: Trace, xValue: XValue | null): void {
     const fromXValue = Subplot.carriedXValue(from, to, xValue);
+    if (typeof fromXValue !== 'number' || Subplot.sharesXAxis(from, to)) {
+      Subplot.moveToCarried(from, to, fromXValue);
+    }
+
+    // A layer the position could not be carried into, and never visited, is
+    // entered where the switch announces it. Left in initial entry it showed
+    // no highlight, and the first arrow re-announced the same point instead of
+    // moving. Not where (0, 0) holds nothing to enter, as on a graph whose
+    // first depth is empty.
+    if (to.isInitialEntry && to.isMovable([to.row, to.col])) {
+      to.isInitialEntry = false;
+    }
+  }
+
+  /**
+   * Whether two layers are drawn along one x axis, as far as the labels they
+   * authored for it tell: the same label, or none on one of them, which
+   * says nothing and leaves the switch carrying the x as it always has.
+   *
+   * @param from - The trace being left
+   * @param to - The trace being entered
+   * @returns False when both label their x axis, differently
+   */
+  private static sharesXAxis(from: Trace, to: Trace): boolean {
+    return from.xAxisLabel === '' || to.xAxisLabel === '' || from.xAxisLabel === to.xAxisLabel;
+  }
+
+  /**
+   * Moves the layer being entered to the position carried from the layer
+   * being left; see {@link carryPosition}.
+   *
+   * @param from - The trace being left
+   * @param to - The trace being entered
+   * @param fromXValue - The X to carry, as {@link carriedXValue} chose it
+   */
+  private static moveToCarried(from: Trace, to: Trace, fromXValue: XValue | null): void {
     let positioned = false;
 
     // Two sectioned traces (the sub-groups of a box plot): keep the mark and
@@ -764,15 +809,6 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     // Default: preserve X value when changing layers
     if (!positioned) {
       to.moveToXValue(fromXValue);
-    }
-
-    // A layer the position could not be carried into, and never visited, is
-    // entered where the switch announces it. Left in initial entry it showed
-    // no highlight, and the first arrow re-announced the same point instead of
-    // moving. Not where (0, 0) holds nothing to enter, as on a graph whose
-    // first depth is empty.
-    if (to.isInitialEntry && to.isMovable([to.row, to.col])) {
-      to.isInitialEntry = false;
     }
   }
 
@@ -1003,6 +1039,16 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * an audio, braille, text and highlight snapshot per layer per keypress.
    */
   readonly layerLabel: string;
+
+  /**
+   * The label of the x axis a layer switch finds this layer's place along:
+   * the label the layer authored for its x axis, trimmed, or '' when it
+   * authored none or is found along both of its axes, as a horizontal bar is.
+   * Exposed for the same reason {@link Trace.traceType} is: a layer switch
+   * asks it of the layer it leaves and the one it enters, to tell whether a
+   * number read on one is a place on the other.
+   */
+  readonly xAxisLabel: string;
 
   /**
    * Which level of the figure this element is, for the same reason

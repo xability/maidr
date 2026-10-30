@@ -952,6 +952,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return this.name ?? this.getChartTypeLabel();
   }
 
+  /** @see Trace.xAxisLabel */
+  public get xAxisLabel(): string {
+    return this.layer.axes?.x?.label?.trim() ?? '';
+  }
+
   /**
    * A plain-language introduction to this layer's chart type, for the
    * description dialog. See {@link chartGuide}.
