@@ -735,20 +735,21 @@ describe('convertRechartsToMaidr', () => {
       yLabel: 'Users',
     };
 
-    it('converts the stage counts to BarPoint[] in draw order', () => {
+    it('converts the stage counts to BarPoint[] in draw order, each count across', () => {
       const layer = convertRechartsToMaidr(funnelConfig).subplots[0][0].layers[0];
 
       expect(layer.type).toBe(TraceType.FUNNEL);
 
       // The counts, untouched: FunnelTrace computes the retention and the
       // share it announces from them, so a pre-computed ratio here would be
-      // a second source of truth for the same numbers.
+      // a second source of truth for the same numbers. Each is a width, so it
+      // is written in `x` and its stage in `y`, as a horizontal bar is read.
       const data = layer.data as BarPoint[];
       expect(data).toEqual([
-        { x: 'Visited', y: 10000 },
-        { x: 'Signed up', y: 2400 },
-        { x: 'Activated', y: 2300 },
-        { x: 'Paid', y: 100 },
+        { x: 10000, y: 'Visited' },
+        { x: 2400, y: 'Signed up' },
+        { x: 2300, y: 'Activated' },
+        { x: 100, y: 'Paid' },
       ]);
     });
 
@@ -760,17 +761,19 @@ describe('convertRechartsToMaidr', () => {
       );
     });
 
-    it('never emits an orientation, even when the config declares one', () => {
-      const layer = convertRechartsToMaidr({
-        ...funnelConfig,
-        orientation: Orientation.HORIZONTAL,
-      }).subplots[0][0].layers[0];
+    it.each([undefined, Orientation.VERTICAL, Orientation.HORIZONTAL])(
+      'is horizontal, its counts across and its stages down, when the config says %s',
+      (orientation) => {
+        const layer = convertRechartsToMaidr({ ...funnelConfig, orientation }).subplots[0][0].layers[0];
 
-      // FunnelTrace is a BarTrace, and a horizontal bar reads its category
-      // off `y`. The stage label is always emitted as `x`, so a leaked
-      // HORIZONTAL would have every stage announced by its count.
-      expect(layer.orientation).toBeUndefined();
-    });
+        // Recharts draws a funnel one row per stage, each as wide as its
+        // count, and has no other layout, so what the config says changes
+        // nothing.
+        expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+        expect(layer.axes).toEqual({ x: { label: 'Users' }, y: { label: 'Stage' } });
+        expect((layer.data as BarPoint[])[0]).toEqual({ x: 10000, y: 'Visited' });
+      },
+    );
   });
 
   describe('histogram', () => {
