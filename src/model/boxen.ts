@@ -1,5 +1,5 @@
 import type { BoxenPoint, LetterValueLevel, MaidrLayer } from '@type/grammar';
-import type { Movable } from '@type/movable';
+import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
@@ -20,6 +20,8 @@ interface Rung {
   value: number;
   /** What the announcement calls it. */
   label: string;
+  /** The quantile it is, from 0 to 1: `p` below the median, `1 - p` above. */
+  quantile: number;
 }
 
 /**
@@ -93,6 +95,12 @@ export class BoxenTrace extends AbstractTrace {
   private readonly min: number;
   private readonly max: number;
 
+  /**
+   * The quantile a walk across distributions is holding, or null when the
+   * reader last moved along a ladder or jumped to a position.
+   */
+  private heldQuantile: number | null = null;
+
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -145,17 +153,134 @@ export class BoxenTrace extends AbstractTrace {
     const lower = levels.map(level => ({
       value: Number(level.lo),
       label: percentileLabel(level.p),
+      quantile: level.p,
     }));
     const upper = [...levels].reverse().map(level => ({
       value: Number(level.hi),
       label: percentileLabel(1 - level.p),
+      quantile: 1 - level.p,
     }));
 
     return [
       ...lower,
-      { value: Number(point.median), label: t('model.boxenMedianRung') },
+      { value: Number(point.median), label: t('model.boxenMedianRung'), quantile: 0.5 },
       ...upper,
     ];
+  }
+
+  /**
+   * Moves the cursor, holding the quantile when it changes distribution.
+   *
+   * Along a ladder the index is the position, so a move along it is the
+   * grid's own. Between distributions the index is not a position: ladders
+   * differ in depth, and the third rung of a three-level ladder is its 25th
+   * percentile while the third of a four-level one is its 12.5th. So the
+   * distribution is stepped and the rung re-chosen as the one nearest the
+   * quantile the reader is on -- the same percentile where the next ladder
+   * has it, and its nearest rung where the ladder stops short of it.
+   *
+   * @param direction - Which way to move
+   * @returns True if the cursor moved
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
+      const moved = super.moveOnce(direction);
+      if (moved) {
+        // Choosing a new rung is choosing a new quantile to hold.
+        this.heldQuantile = null;
+      }
+      return moved;
+    }
+
+    if (this.isInitialEntry) {
+      // The first arrow press enters the grid rather than stepping through it.
+      return super.moveOnce(direction);
+    }
+
+    const target = this.row + (direction === 'UPWARD' ? 1 : -1);
+    if (target < 0 || target >= this.rungs.length) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    return this.moveHoldingQuantile(target);
+  }
+
+  /**
+   * Jumps to the first or last distribution, holding the quantile.
+   *
+   * A jump between distributions has the step's problem: the grid would carry
+   * the rung index into the far ladder. A jump along a ladder is the grid's
+   * own, and lets go of the held quantile as a step along it does.
+   *
+   * @param direction - Which edge to jump to
+   * @returns True if the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
+      const moved = super.moveToExtreme(direction);
+      if (moved) {
+        this.heldQuantile = null;
+      }
+      return moved;
+    }
+
+    if (this.isInitialEntry || this.rungs.length === 0) {
+      return super.moveToExtreme(direction);
+    }
+    return this.moveHoldingQuantile(direction === 'UPWARD' ? this.rungs.length - 1 : 0);
+  }
+
+  public override moveToIndex(row: number, col: number): boolean {
+    const moved = super.moveToIndex(row, col);
+    if (moved) {
+      // A jump to a position is a new starting point, not a continuation.
+      this.heldQuantile = null;
+    }
+    return moved;
+  }
+
+  /**
+   * Moves to a distribution, onto its rung nearest the quantile being held.
+   *
+   * The quantile is the one the reader set out from, not the one the last
+   * ladder landed on: walking from a deep ladder through a shallow one to
+   * another deep one, the shallow one has to settle for its deepest rung,
+   * and the deep one after it still has the percentile the reader started at.
+   *
+   * @param row - The distribution to move to
+   * @returns True if the cursor moved
+   */
+  private moveHoldingQuantile(row: number): boolean {
+    const held = this.heldQuantile ?? this.rungs[this.row]?.[this.col]?.quantile ?? 0.5;
+    const moved = this.moveToIndex(row, BoxenTrace.nearestRung(this.rungs[row], held));
+    if (moved) {
+      // Set after the move, since moveToIndex clears it.
+      this.heldQuantile = held;
+    }
+    return moved;
+  }
+
+  /**
+   * The rung of a ladder whose quantile is nearest a given one.
+   *
+   * Ties take the rung nearer the bottom of the ladder, so a reader stepping
+   * to a distribution and straight back lands where they started.
+   *
+   * @param ladder - The ladder to search
+   * @param quantile - The quantile to stay nearest, from 0 to 1
+   * @returns The index of the nearest rung
+   */
+  private static nearestRung(ladder: Rung[], quantile: number): number {
+    let best = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    ladder.forEach((rung, index) => {
+      const distance = Math.abs(rung.quantile - quantile);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = index;
+      }
+    });
+    return best;
   }
 
   /**

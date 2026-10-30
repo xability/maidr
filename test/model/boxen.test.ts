@@ -351,3 +351,122 @@ describe('the selector guard matches the union it narrows', () => {
     expect(highlightsFor(undefined)).toBeNull();
   });
 });
+
+describe('moving between distributions keeps the percentile', () => {
+  /**
+   * Three ladders of different depth: `heavy` has four rungs, `light` two and
+   * `tail` four again. The same rung index is a different percentile at each
+   * depth -- the third position is light's median and heavy's 12.5th
+   * percentile -- which a reader moving between them must not be handed.
+   */
+  const LADDERS: BoxenPoint[] = [
+    DISTRIBUTIONS[1],
+    DISTRIBUTIONS[0],
+    {
+      z: 'tail',
+      median: 52,
+      levels: [
+        { p: 0.25, lo: 47, hi: 57 },
+        { p: 0.125, lo: 41, hi: 63 },
+        { p: 0.0625, lo: 28, hi: 78 },
+        { p: 0.03125, lo: 9, hi: 99 },
+      ],
+    },
+  ];
+
+  /**
+   * Where the cursor is, as the reader hears it.
+   * @param trace The trace to read
+   * @returns The distribution, the rung's name and its value
+   */
+  function heard(trace: BoxenTrace): [unknown, string | undefined, unknown] {
+    const { text } = nonEmptyState(trace);
+    return [text.main.value, text.section, text.cross?.value];
+  }
+
+  test('lands on the same percentile of the next distribution', () => {
+    // light's 25th percentile is its second rung; heavy's is its fourth.
+    const trace = boxen(1, 1, LADDERS);
+
+    trace.moveOnce('DOWNWARD');
+
+    expect(heard(trace)).toEqual(['heavy', '25th percentile', 46]);
+  });
+
+  test('lands on the median from a median', () => {
+    const trace = boxen(0, 4, LADDERS);
+
+    trace.moveOnce('UPWARD');
+
+    expect(heard(trace)).toEqual(['light', 'median', 50]);
+  });
+
+  test('lands on the same percentile above the median', () => {
+    const trace = boxen(1, 4, LADDERS);
+
+    trace.moveOnce('UPWARD');
+
+    expect(heard(trace)).toEqual(['tail', '87.5th percentile', 63]);
+  });
+
+  test('settles on the nearest rung where the next ladder stops short', () => {
+    // heavy's 6.25th percentile is deeper than light goes, so light's
+    // 12.5th is the nearest it has -- not its 25th, the second rung.
+    const trace = boxen(0, 1, LADDERS);
+
+    trace.moveOnce('UPWARD');
+
+    expect(heard(trace)).toEqual(['light', '12.5th percentile', 42]);
+  });
+
+  test('keeps the percentile it set out from across a shallower ladder', () => {
+    // Holding light's 12.5th would put the reader on tail's 12.5th; they
+    // set out from the 6.25th, and tail has it.
+    const trace = boxen(0, 1, LADDERS);
+
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('UPWARD');
+
+    expect(heard(trace)).toEqual(['tail', '6.25th percentile', 28]);
+  });
+
+  test('comes back to the rung it started on', () => {
+    // From heavy's second rung from the top, light has to settle for its
+    // own top rung, and the way back finds heavy's again -- not its median,
+    // where the index light left it on points.
+    const trace = boxen(0, 7, LADDERS);
+
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('DOWNWARD');
+
+    const [group, , value] = heard(trace);
+    expect([group, value]).toEqual(['heavy', 75]);
+  });
+
+  test('holds the percentile on a jump to the far distribution', () => {
+    const trace = boxen(1, 1, LADDERS);
+
+    trace.moveToExtreme('UPWARD');
+
+    expect(heard(trace)).toEqual(['tail', '25th percentile', 47]);
+  });
+
+  test('holds the percentile a move along the ladder chose', () => {
+    // A step along the ladder chooses a new percentile, so the deep one the
+    // walk began with is not carried past it.
+    const trace = boxen(0, 0, LADDERS);
+
+    trace.moveOnce('UPWARD');
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('UPWARD');
+
+    expect(heard(trace)).toEqual(['tail', '25th percentile', 47]);
+  });
+
+  test('gives the edge signal past the last distribution, staying put', () => {
+    const trace = boxen(2, 3, LADDERS);
+
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+    expect(heard(trace)).toEqual(['tail', '25th percentile', 47]);
+  });
+});
