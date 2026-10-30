@@ -1074,6 +1074,11 @@ function convertRadar(props: MuiChartProps, scope: string): MuiConvertedChart {
     layers: [{
       id: '0',
       type: TraceType.RADAR,
+      // A radar has no axes to read labels off, so the core's "X"/"Y"
+      // fallback would announce "X is Speed, Y is 80". Name what the two
+      // positions are instead: a spoke, which MUI calls a metric, and its
+      // value.
+      axes: { x: { label: 'Metric' }, y: { label: 'Value' } },
       selectors: all.map((series, index) => radarSeriesSelector(scope, muiSeriesId(series, index))),
       data: rows,
     }],
