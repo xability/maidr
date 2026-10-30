@@ -329,7 +329,7 @@ Nest two or more `<VictoryChart>` components inside one `<MaidrVictory>` to buil
 </MaidrVictory>
 ```
 
-By default the panels form a single navigable row in children order. The `layout` prop chunks them row-major into a grid: `columns` fixes the panels per row (the last row may be shorter), or `rows` derives the column count when `columns` is omitted. Match `layout` to how you visually arrange the charts with CSS.
+By default the panels form a single navigable row in children order. The `layout` prop chunks them row-major into a grid: `columns` fixes the panels per row (the last row may be shorter), or `rows` derives the column count when `columns` is omitted. Match `layout` to how you visually arrange the charts with CSS. A `<VictoryChart>` is a block, so charts your CSS does not place side by side stand one below the other: pass `layout={{ columns: 1 }}` for them, and Up and Down move between the panels as they are drawn.
 
 Each panel keeps its own axis labels (from its own `<VictoryAxis>` children), its own layers (a chart with several data components stays a multi-layer panel, switchable with `Page Up`/`Page Down` after drilling in), and its own highlight scope — one panel's highlighting can never bleed into another.
 
