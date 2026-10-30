@@ -149,11 +149,8 @@ describe('vega-Lite lines over a fold', () => {
 
     // Vega draws one `<path>` per `detail` group, all under the layer's
     // own class; the caller resolves the rth in document order.
-    expect(layer.selectors).toEqual([
-      'g.mark-line.role-mark.layer_1_marks > path',
-      'g.mark-line.role-mark.layer_1_marks > path',
-      'g.mark-line.role-mark.layer_1_marks > path',
-    ]);
+    expect(layer.selectors).toEqual(Array.from({ length: 3 }, () =>
+      'g.mark-line.role-mark.layer_1_marks > path, g.mark-line.role-mark.layer_1_layer_0_marks > path'));
   });
 
   it('skips the axis layer\'s tally table when resolving its rows', () => {

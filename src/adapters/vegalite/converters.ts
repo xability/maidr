@@ -797,31 +797,6 @@ function extractSubtitle(spec: VegaLiteSpec): string | undefined {
   return title.subtitle;
 }
 
-/**
- * Whether a `line`, `area` or `trail` is drawn with an overlay: points on it,
- * or a line along the top of an area.
- *
- * Vega-Lite compiles one by turning the mark into a layer of its own, the
- * path first and the overlay beside it (`normalize/pathoverlay.js`), which
- * moves the path's mark group one level down. Points are on when `point` is
- * `true`, a mark def or `'transparent'`, and, when `point` is left unset,
- * when a `shape` channel is bound; an area's line when `line` is `true` or a
- * mark def. A `config` that turns either on for every mark is not read here.
- *
- * @param spec - The layer
- * @param encoding - Its encoding, merged with any parent's
- * @returns Whether the path is drawn with an overlay
- */
-function drawsOverlay(spec: VegaLiteSpec, encoding: VegaLiteEncoding): boolean {
-  const type = getMarkType(spec);
-  if (type !== 'line' && type !== 'area' && type !== 'trail')
-    return false;
-  const markDef = typeof spec.mark === 'object' ? spec.mark : undefined;
-  const point = markDef?.point;
-  const points = point === undefined ? encoding.shape != null : Boolean(point);
-  return points || (type === 'area' && Boolean(markDef?.line));
-}
-
 function getMarkType(spec: VegaLiteSpec): string | null {
   if (!spec.mark)
     return null;
@@ -4317,14 +4292,7 @@ function convertLayerSpec(
       const lineData = extractLineData(rows, encoding);
       data = lineData;
       // Line/area traces expect selectors as string[] (one per series).
-      selectors = buildLineSelectors(
-        mark,
-        lineData.length,
-        selectorLayerIndex,
-        layered,
-        markGroupPrefix,
-        drawsOverlay(spec, encoding),
-      );
+      selectors = buildLineSelectors(mark, lineData.length, selectorLayerIndex, layered, markGroupPrefix);
       // A precision-recall curve is drawn as an ordinary line, and nothing
       // but what its axes measure says so. `PrCurveTrace` reads the same
       // `LinePoint[][]`, one array per curve, so only the announced type
@@ -4354,7 +4322,6 @@ function convertLayerSpec(
         selectorLayerIndex,
         layered,
         markGroupPrefix,
-        drawsOverlay(spec, encoding),
       );
       // The x channel carries the folded key, so it already names what the
       // columns are. The y channel does not name what the numbers are: it
