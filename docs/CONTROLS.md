@@ -99,6 +99,14 @@ emptied, and a tactile display shows the chart with nothing focused. Past the fi
 last layer, or on a chart with only one, you hear the same edge signal as at the
 end of the data.
 
+Two layers that label differently the axis their points are placed along --
+the x axis, or the y axis for a chart drawn on its side, such as a horizontal
+box plot -- are drawn along different axes, as a bell curve drawn over the
+measurements it was fitted to is, and have no place in common. A switch
+between them keeps the place you had on the layer you switch to, or enters it
+where a switch first would. Labels that differ only in letter case or spacing
+count as the same.
+
 **Navigation modes (the rotor).** The arrow keys normally move one data point at
 a time. Alt + Shift + Up and Alt + Shift + Down (Option + Shift + Up and Down on
 a Mac) step through the other ways a chart can be read, and each is announced as

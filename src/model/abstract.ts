@@ -952,6 +952,12 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     return this.name ?? this.getChartTypeLabel();
   }
 
+  /** @see Trace.placeAxisLabel */
+  public get placeAxisLabel(): string {
+    const sideways = resolveOrientation(this.type, this.layer.orientation) === Orientation.HORIZONTAL;
+    return this.layer.axes?.[sideways ? 'y' : 'x']?.label?.trim() ?? '';
+  }
+
   /**
    * A plain-language introduction to this layer's chart type, for the
    * description dialog. See {@link chartGuide}.

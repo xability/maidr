@@ -272,6 +272,19 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 
   /**
+   * A horizontal bar is found by a layer switch along both of its axes, by
+   * magnitude along x and by category along y (see
+   * {@link getAlternateXValue} and {@link moveToXValue}), so no one label
+   * says which axis a number carried to or from it lies on. It gives none,
+   * and a switch carries the number as it always has.
+   *
+   * @returns The x label of a vertical bar, and '' for a horizontal one
+   */
+  public override get placeAxisLabel(): string {
+    return this.orientation === Orientation.HORIZONTAL ? '' : super.placeAxisLabel;
+  }
+
+  /**
    * Whether a horizontal bar has exactly this category.
    *
    * @param xValue - The X a layer switch would carry
