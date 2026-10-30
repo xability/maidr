@@ -1146,7 +1146,30 @@ function buildSubplotLayers(
       layers.push(layer);
   }
 
-  return layers;
+  return inTraceOrder(layers);
+}
+
+/**
+ * A panel's layers in the order of the first trace each reads.
+ *
+ * The layers are built kind by kind -- every line, then every bar -- so they
+ * came out in that order whatever order the page drew the traces in: a bar
+ * drawn before a line was read after it, the reverse of plotly's legend. They
+ * are listed in trace order instead, the order plotly draws the traces in and
+ * lists them in its legend. A layer's id starts with the index of the first
+ * trace it reads (a fan chart's with its median's), which is what they are
+ * sorted by; the sort is stable, so the two layers a violin plot is read as
+ * keep theirs.
+ *
+ * @param layers - The panel's layers, as built
+ * @returns The same layers, in trace order
+ */
+function inTraceOrder(layers: MaidrLayer[]): MaidrLayer[] {
+  const firstTrace = (layer: MaidrLayer): number => {
+    const index = Number.parseInt(layer.id, 10);
+    return Number.isFinite(index) ? index : Number.POSITIVE_INFINITY;
+  };
+  return [...layers].sort((a, b) => firstTrace(a) - firstTrace(b));
 }
 
 // ---------------------------------------------------------------------------
