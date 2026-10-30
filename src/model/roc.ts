@@ -176,7 +176,7 @@ export class RocTrace extends RateCurveTrace {
 
     const threshold = RocTrace.thresholdOf(point);
     if (threshold !== undefined) {
-      asides.push({ label: t('model.asideThreshold'), value: defaultFormat(threshold) });
+      asides.push({ label: t('model.asideThreshold'), value: this.thresholdText(threshold) });
     }
 
     const height = this.aboveChance[this.row]?.[this.col];

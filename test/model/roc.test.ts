@@ -211,6 +211,24 @@ describe('each point says its threshold and where it stands against chance', () 
     expect(text.cross?.value).toBeNaN();
     expect(text.asides).toEqual([{ label: 'Threshold', value: '0.5' }]);
   });
+
+  test('a threshold reads with the digits that tell it from its neighbours', () => {
+    // Thresholds 1/126 apart, as TensorBoard writes them. At two decimals
+    // 114/126 and 113/126 both read 0.9, so a press of Right announced the
+    // same threshold as the point it left.
+    const dense: RocPoint[] = [115, 114, 113, 112].map((step, index) => ({
+      x: 0.1 + index * 0.01,
+      y: 0.8 + index * 0.01,
+      threshold: step / 126,
+      z: 'good',
+    }));
+    const threshold = (col: number): unknown => stateOf(roc(0, col, [dense])).text.asides?.[0];
+
+    expect(threshold(1)).toEqual({ label: 'Threshold', value: '0.905' });
+    expect(threshold(2)).toEqual({ label: 'Threshold', value: '0.897' });
+    // Already apart from its one neighbour at two decimals, so read as before.
+    expect(threshold(0)).toEqual({ label: 'Threshold', value: '0.91' });
+  });
 });
 
 describe('the description gives the numbers the chart is quoted by', () => {
