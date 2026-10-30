@@ -78,4 +78,19 @@ describe('a multi-series line on the braille display', () => {
   test('writes a layer of nothing but gaps as blank cells', () => {
     expect(brailleOf([[{ x: 0, y: null }, { x: 1, y: null }]])).toBe('  \n');
   });
+
+  test('writes a series of nothing but gaps as blank cells beside a measured one, which reads as it would alone', () => {
+    // The gaps take no part in the range, so the measured series is written
+    // against its own 10 to 100, as the second row of the first case is.
+    const measured = series('Measured', [10, 40, 70, 100]);
+    const missing = measured.map(point => ({ ...point, y: null, z: 'Missing' }));
+
+    expect(brailleOf([missing, measured])).toBe('    \n⣀⡠⠔⠊\n');
+  });
+
+  test('writes a flat layer, every series one value, as the lowest cells', () => {
+    // A range of zero width puts all four of the encoder's thresholds at the
+    // value, and a value at or below the lowest one is the bottom cell.
+    expect(brailleOf([series('A', [5, 5, 5]), series('B', [5, 5, 5])])).toBe('⣀⣀⣀\n⣀⣀⣀\n');
+  });
 });

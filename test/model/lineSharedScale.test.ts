@@ -114,6 +114,13 @@ const LINE_FAMILY: TraceType[] = [
   TraceType.CONTOUR,
 ];
 
+/**
+ * The types whose one series is pitched on the values it is given. A 100%
+ * stacked area of one series is 100% at every point, so its own range and
+ * the layer's are one value either way.
+ */
+const SINGLE_SERIES = LINE_FAMILY.filter(type => type !== TraceType.NORMALIZED_AREA);
+
 describe('the series of a line-family layer share one register', () => {
   test.each(LINE_FAMILY)('%s pitches every series against the layer\'s range', (type) => {
     const trace = build(layer(type));
@@ -178,6 +185,15 @@ describe('the series of a line-family layer share one register', () => {
 
     expect(audio.freq).toEqual({ min: 3, max: 7, raw: 3 });
     expect(braille).toMatchObject({ min: [3, 3], max: [7, 7] });
+  });
+
+  test.each(SINGLE_SERIES)('%s hears and writes a single series on its own range, as before', (type) => {
+    // One series' own range is the layer's, so a chart of one series sounds
+    // and reads as it did when every series was scaled to its own.
+    const { audio, braille } = stateAt(build(layer(type, [rows()[0]])), 0, 3);
+
+    expect([audio.freq.min, audio.freq.max]).toEqual([10, 25]);
+    expect(braille).toMatchObject({ min: [10], max: [25] });
   });
 
   test('a layer of nothing but gaps has no value to pitch', () => {
