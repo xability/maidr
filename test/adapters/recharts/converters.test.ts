@@ -562,52 +562,77 @@ describe('convertRechartsToMaidr', () => {
       yKeys: ['people'],
     };
 
-    it('flattens the hierarchy depth-first, ancestors named', () => {
+    /** Every node, depth-first pre-order: what a sunburst and an icicle draw. */
+    const everyNode: TreemapPoint[] = [
+      { x: 'Europe' },
+      { x: 'France', path: ['Europe'], y: 67.4 },
+      { x: 'Spain', path: ['Europe'], y: 47.4 },
+      { x: 'Oceania' },
+      { x: 'Fiji', path: ['Oceania'], y: 0.9 },
+    ];
+
+    it('declares a treemap\'s leaves depth-first, ancestors named', () => {
       const result = convertRechartsToMaidr(hierarchyConfig);
 
       const layer = result.subplots[0][0].layers[0];
       expect(layer.type).toBe(TraceType.TREEMAP);
 
+      // A branch is drawn under its leaves, so it is derived from their paths
+      // and outlined through them rather than declared with a rectangle of
+      // its own that nobody can see.
       const data = layer.data as TreemapPoint[];
       expect(data).toEqual([
-        { x: 'Europe' },
         { x: 'France', path: ['Europe'], y: 67.4 },
         { x: 'Spain', path: ['Europe'], y: 47.4 },
-        { x: 'Oceania' },
         { x: 'Fiji', path: ['Oceania'], y: 0.9 },
       ]);
+    });
+
+    it('declares every node of a treemap whose author names the elements', () => {
+      // A `selectorOverride` names one element per node, as it always has.
+      const result = convertRechartsToMaidr({ ...hierarchyConfig, selectorOverride: '.node' });
+
+      expect(result.subplots[0][0].layers[0].data).toEqual(everyNode);
+    });
+
+    it('declares a leaf at the top level of a treemap as it is', () => {
+      const result = convertRechartsToMaidr({
+        ...hierarchyConfig,
+        data: [...hierarchyConfig.data as Record<string, unknown>[], { name: 'Antarctica', people: 0, children: [] }],
+      });
+
+      const data = result.subplots[0][0].layers[0].data as TreemapPoint[];
+      expect(data.at(-1)).toEqual({ x: 'Antarctica', y: 0 });
     });
 
     it('drops an interior node\'s declared value', () => {
       // Recharts computes an interior node's value as the sum of its children
       // and ignores any value declared on it, so passing Europe's 999 through
       // would announce a magnitude the chart never drew.
-      const result = convertRechartsToMaidr(hierarchyConfig);
+      const result = convertRechartsToMaidr({ ...hierarchyConfig, chartType: 'sunburst' });
       const data = result.subplots[0][0].layers[0].data as TreemapPoint[];
 
-      expect(data[0].y).toBeUndefined();
+      expect(data[0]).toEqual({ x: 'Europe' });
     });
 
-    it('targets the treemap rectangles below the synthetic root', () => {
+    it('targets the treemap\'s leaf rectangles below the synthetic root', () => {
       const result = convertRechartsToMaidr(hierarchyConfig);
 
       expect(result.subplots[0][0].layers[0].selectors).toBe(
-        '#maidr-article-regions g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g > g > path.recharts-rectangle',
+        '#maidr-article-regions g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g:only-child > g > path.recharts-rectangle',
       );
     });
 
-    it('reads a sunburst as the same hierarchy, drawn as sectors', () => {
+    it('reads a sunburst as the same hierarchy, drawn as sectors, every node declared', () => {
       const result = convertRechartsToMaidr({ ...hierarchyConfig, chartType: 'sunburst' });
 
       const layer = result.subplots[0][0].layers[0];
       expect(layer.type).toBe(TraceType.SUNBURST);
       expect(layer.selectors).toBe('#maidr-article-regions .recharts-sunburst .recharts-sector');
-      expect(layer.data).toEqual(
-        convertRechartsToMaidr(hierarchyConfig).subplots[0][0].layers[0].data,
-      );
+      expect(layer.data).toEqual(everyNode);
     });
 
-    it('reads an icicle as the same hierarchy, drawn as floating bands', () => {
+    it('reads an icicle as the same hierarchy, drawn as floating bands, every node declared', () => {
       const result = convertRechartsToMaidr({ ...hierarchyConfig, chartType: 'icicle' });
 
       const layer = result.subplots[0][0].layers[0];
@@ -617,9 +642,7 @@ describe('convertRechartsToMaidr', () => {
       expect(layer.selectors).toBe(
         '#maidr-article-regions .recharts-bar-rectangle .recharts-rectangle',
       );
-      expect(layer.data).toEqual(
-        convertRechartsToMaidr(hierarchyConfig).subplots[0][0].layers[0].data,
-      );
+      expect(layer.data).toEqual(everyNode);
     });
 
     it('never orients an icicle, however its bands happen to run', () => {

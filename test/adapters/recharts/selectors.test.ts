@@ -106,11 +106,12 @@ describe('getRechartsSelector', () => {
       expect(getRechartsSelector('gauge')).toBe('.recharts-radial-bar-sectors .recharts-radial-bar-sector');
     });
 
-    it('excludes the synthetic root rectangle for treemap type', () => {
+    it('names the leaves of a treemap, and not its synthetic root', () => {
       // Recharts wraps the data array in a root node and draws it full-plot;
-      // counting it would be one element more than the layer has nodes.
+      // counting it would be one element more than the layer has nodes. A
+      // branch's rectangle is drawn under its children and is not declared.
       expect(getRechartsSelector('treemap')).toBe(
-        'g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g > g > path.recharts-rectangle',
+        'g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g:only-child > g > path.recharts-rectangle',
       );
     });
 

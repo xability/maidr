@@ -1609,8 +1609,12 @@ function convertData(
     case 'waterfall':
       return convertToWaterfallPoints(data, xKey, yKey, config.waterfallConfig);
     // A treemap, a sunburst and an icicle are the same hierarchy, and differ
-    // only in whether it is drawn as nested area, as rings or as bands.
+    // only in whether it is drawn as nested area, as rings or as bands. A
+    // treemap's branch is drawn under its leaves, so the treemap declares the
+    // leaves alone; see `convertToTreemapPoints`. A `selectorOverride` names
+    // one element per node, as it always has, so every node is declared then.
     case 'treemap':
+      return convertToTreemapPoints(data, xKey, yKey, config.selectorOverride !== undefined);
     case 'sunburst':
     case 'icicle':
       return convertToTreemapPoints(data, xKey, yKey);
@@ -2085,15 +2089,27 @@ function convertToWaterfallPoints(
  * announce a magnitude the chart did not draw — and MAIDR keeps a declared
  * value in preference to the sum precisely because it trusts the producer.
  *
+ * A treemap declares its leaves alone. `<Treemap>` draws a branch's own
+ * rectangle first and its children over it, edge to edge, so a branch is seen
+ * only as the block of its leaves, and the outline of the branch's rectangle
+ * was drawn underneath them, where nobody could see it -- on the top level,
+ * where the reader enters. A branch left undeclared is derived from its
+ * leaves' paths, with the same name, place among its siblings and total, and
+ * is outlined through the leaves drawn over it (`TreemapTrace.highlight`). A
+ * sunburst's ring and an icicle's band are drawn where they can be seen, so
+ * those declare every node.
+ *
  * @param data - The top-level nodes, as the chart itself is given them
  * @param xKey - Key holding a node's name (the `<Treemap nameKey>`)
  * @param yKey - Key holding a leaf's magnitude (the `<Treemap dataKey>`)
- * @returns Every node, depth-first pre-order, each with its ancestors named
+ * @param branches - Whether the nodes with children are declared too
+ * @returns The nodes, depth-first pre-order, each with its ancestors named
  */
 function convertToTreemapPoints(
   data: Record<string, unknown>[],
   xKey: string,
   yKey: string,
+  branches = true,
 ): TreemapPoint[] {
   const points: TreemapPoint[] = [];
 
@@ -2118,7 +2134,9 @@ function convertToTreemapPoints(
       if (value !== undefined) {
         point.y = value;
       }
-      points.push(point);
+      if (branches || children.length === 0) {
+        points.push(point);
+      }
 
       walk(children, [...path, name]);
     }
