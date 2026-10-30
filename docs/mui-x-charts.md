@@ -87,7 +87,7 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Stacked area [experimental] | `LineChart` | ✅ | Series sharing a `stack` id, filled or not: MUI draws each at the running total. |
 | 100% stacked area [experimental] | `LineChart` | ✅ | A stack whose `stackOffset` is `'expand'`. |
 | Gauge [experimental] | `Gauge` | ✅ | `value` on a dial from `valueMin` (0) to `valueMax` (100); the filled arc is outlined. |
-| Radar chart [experimental] | `RadarChart` | ✅ | One row per series, one column per `radar.metrics` spoke. A radar draws no axis titles, so each point is read as its metric and its value: "Metric is Speed, Value is 80". |
+| Radar chart [experimental] | `RadarChart` | ✅ | One row per series, one column per `radar.metrics` spoke. A radar draws no axis titles, so each point is read as its metric and its value: "Metric is Speed, Value is 80". Each point names its series by its `label`, or as `Series 1`, `Series 2` and so on when there are several; a lone series without a `label` names none. |
 | Funnel chart [experimental] | `FunnelChart` (Pro) | ✅ | One layer per series, stages in data order, named by each item's `label` or else `categoryAxis.categories`. The default vertical funnel draws each value as a width. |
 | Sankey [experimental] | `SankeyChart` (Pro) | ✅ | One flow per link, named by its nodes' `label`s (or ids; a label two nodes share is followed by the id). Two links between the same pair of nodes are both read, but not outlined. |
 | Percentile band (fan chart) [experimental] | `LineChart` | ✅ | A median line and bands drawn as stacked `area` series, named in `percentileBands`; see [Fan Chart](#fan-chart-experimental). |

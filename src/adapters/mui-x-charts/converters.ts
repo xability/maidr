@@ -1071,9 +1071,14 @@ function convertRadar(props: MuiChartProps, scope: string): MuiConvertedChart {
       : (metric as MuiRadarMetric | undefined)?.name ?? `Metric ${i + 1}`);
   const all = seriesList(props);
   const rows: LinePoint[][] = all.map((series, index) => {
-    const label = seriesLabel(series, index);
+    // Each spoke names its series, which is how a reader tells several apart.
+    // A lone series drawn with no label has no name anywhere on the chart,
+    // and the "Series 1" standing in for one was read out on every spoke.
+    const group = all.length > 1 || drawnLabel(series) !== undefined
+      ? { z: seriesLabel(series, index) }
+      : {};
     const values = Array.isArray(series.data) ? series.data : [];
-    return metrics.map((name, i) => ({ x: name, y: toValue(values[i]), z: label }));
+    return metrics.map((name, i) => ({ x: name, y: toValue(values[i]), ...group }));
   });
   if (rows.length === 0 || metrics.length === 0)
     return { layers: [] };
