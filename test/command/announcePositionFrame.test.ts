@@ -121,6 +121,72 @@ describe('a gantt chart', () => {
   });
 });
 
+describe('an interval chart drawn sideways', () => {
+  test('is at a study of the studies and a section of its interval, as when drawn upright', () => {
+    // Left and Right walk the studies and Up and Down the lower bound, the
+    // estimate and the upper bound in either orientation. Read from the pan,
+    // which turns on its side for the drawing, the first study's estimate
+    // was "column 2 of 5, row 1 of 3".
+    const studies = [
+      { x: 'Silva 2018', y: 0.62, yMin: 0.41, yMax: 0.94 },
+      { x: 'Nguyen 2020', y: 1.34, yMin: 0.98, yMax: 1.83 },
+      { x: 'Okafor 2022', y: 1.71, yMin: 1.22, yMax: 2.4 },
+      { x: 'Haddad 2023', y: 1.05, yMin: 0.6, yMax: 1.84 },
+      { x: 'Pooled', y: 1.28, yMin: 1.02, yMax: 1.61, pooled: true },
+    ];
+    const forest = {
+      id: 'forest',
+      type: TraceType.FOREST,
+      orientation: Orientation.HORIZONTAL,
+      axes: { x: { label: 'Odds ratio' }, y: { label: 'Study' } },
+      data: studies,
+    } as unknown as MaidrLayer;
+    const upright = { ...forest, orientation: Orientation.VERTICAL } as MaidrLayer;
+
+    expect(announce(at(forest, 1, 0))).toBe('Position is column 1 of 5, row 2 of 3');
+    expect(announce(at(forest, 2, 3))).toBe('Position is column 4 of 5, row 3 of 3');
+    expect(announce(at(forest, 2, 3))).toBe(announce(at(upright, 2, 3)));
+    expect(announce(at(forest, 0, 4), 'terse')).toBe('100%, 0%');
+  });
+
+  test('of error bars is at a sample of the samples', () => {
+    const layer = {
+      id: 'errors',
+      type: TraceType.ERROR_BAR,
+      orientation: Orientation.HORIZONTAL,
+      data: [
+        { x: 'A', y: 1.24, yMin: 0.9, yMax: 1.6 },
+        { x: 'B', y: 0.8, yMin: 0.5, yMax: 1.1 },
+        { x: 'C', y: 1.5, yMin: 1.1, yMax: 2 },
+        { x: 'D', y: 1.1, yMin: 0.7, yMax: 1.5 },
+      ],
+    } as unknown as MaidrLayer;
+
+    expect(announce(at(layer, 1, 0))).toBe('Position is column 1 of 4, row 2 of 3');
+  });
+
+  test('of dumbbells is at a category of the categories and an end of the pair', () => {
+    // "row 3 of 2" before, on Malta's 1990 end: the category read as the row.
+    const layer = {
+      id: 'dumbbell',
+      type: TraceType.DUMBBELL,
+      orientation: Orientation.HORIZONTAL,
+      data: {
+        startLabel: '1990',
+        endLabel: '2020',
+        points: [
+          { x: 'Denmark', start: 71.2, end: 78.4 },
+          { x: 'Latvia', start: 74.6, end: 69.5 },
+          { x: 'Malta', start: 76.0, end: 76.0 },
+        ],
+      },
+    } as unknown as MaidrLayer;
+
+    expect(announce(at(layer, 0, 2))).toBe('Position is column 3 of 3, row 1 of 2');
+    expect(announce(at(layer, 1, 0))).toBe('Position is column 1 of 3, row 2 of 2');
+  });
+});
+
 describe('a sequence diagram', () => {
   test('is at a message of the messages, not at the lane it arrives at', () => {
     const layer = {

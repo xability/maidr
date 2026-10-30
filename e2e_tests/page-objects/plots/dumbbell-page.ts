@@ -116,6 +116,14 @@ export class DumbbellPlotPage extends BasePage {
   }
 
   /**
+   * Presses P, which announces where the cursor is.
+   * @throws KeypressError if the key press fails
+   */
+  public async announcePosition(): Promise<void> {
+    await this.pressKeyAwaitingAnnouncement('p', 'announce position');
+  }
+
+  /**
    * Checks if text mode is active
    * @param textMode - The text mode to check
    * @returns Promise resolving to true if text mode is active, false otherwise

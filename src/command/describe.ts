@@ -686,6 +686,14 @@ const GRID_FRAME_TRACES: ReadonlySet<TraceType> = new Set([
   // `values[curve][point]`, the line's.
   TraceType.ROC,
   TraceType.PR_CURVE,
+  // Left and Right walk the samples and Up and Down the sections, or a
+  // dumbbell's two ends, however the chart is drawn, and the braille grid is
+  // `values[section][sample]` in both orientations. The pan turns on its
+  // side for a horizontal chart, so the first study's estimate on a forest
+  // of five read "column 2 of 5, row 1 of 3".
+  TraceType.ERROR_BAR,
+  TraceType.FOREST,
+  TraceType.DUMBBELL,
 ]);
 
 /**

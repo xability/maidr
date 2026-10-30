@@ -232,6 +232,7 @@ export class DumbbellTrace extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     return {
       freq: {
         // One scale across both rows, not per row: the two ends are the same
@@ -246,11 +247,14 @@ export class DumbbellTrace extends AbstractTrace {
         // The grid stays ends-by-categories whichever way the chart is drawn,
         // so panning has to swap here instead: stereo position tracks where a
         // point sits on screen, and a dumbbell is commonly drawn with its
-        // categories running down the page rather than across it.
-        x: this.orientation === Orientation.HORIZONTAL ? this.row : this.col,
-        y: this.orientation === Orientation.HORIZONTAL ? this.col : this.row,
-        rows: ENDS.length,
-        cols: this.points.length,
+        // categories running down the page rather than across it. The counts
+        // swap with the indices. Swapping the indices alone read an end
+        // against the number of categories, so on a chart of four countries
+        // both ends sounded left of centre, the start hard left.
+        x: isHorizontal ? this.row : this.col,
+        y: isHorizontal ? this.col : this.row,
+        rows: isHorizontal ? this.points.length : ENDS.length,
+        cols: isHorizontal ? ENDS.length : this.points.length,
       },
     };
   }

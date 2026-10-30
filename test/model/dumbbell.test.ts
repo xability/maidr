@@ -230,11 +230,12 @@ describe('orientation', () => {
 
   test('swaps the stereo position instead', () => {
     // Panning tracks where a point sits on screen, and a horizontal chart's
-    // categories run down the page rather than across it.
+    // categories run down the page rather than across it. The counts swap
+    // with the indices: read against the three categories, the end sounded
+    // at the centre rather than at the right.
     const { audio } = nonEmptyState(dumbbell(1, 2, GAINS, Orientation.HORIZONTAL));
 
-    expect(audio.panning.x).toBe(1);
-    expect(audio.panning.y).toBe(2);
+    expect(audio.panning).toEqual({ x: 1, y: 2, rows: 3, cols: 2 });
   });
 });
 

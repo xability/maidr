@@ -366,6 +366,11 @@ export class ErrorBarTrace extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    // The grid's two counts: a row per section (of every group), and a column
+    // per sample of the current row's group -- the count `dimension` gives.
+    const sections = this.sectionValues.length;
+    const samples = this.sectionValues[this.row]?.length ?? 0;
     return {
       freq: {
         // One scale across every section, not per row: the bounds and the
@@ -380,11 +385,15 @@ export class ErrorBarTrace extends AbstractTrace {
         // The grid stays sections-by-samples whichever way the chart is
         // drawn, so panning has to swap here instead: stereo position tracks
         // where a point sits on screen, and on a horizontal chart the samples
-        // run down the page rather than across it.
-        x: this.orientation === Orientation.HORIZONTAL ? this.row : this.col,
-        y: this.orientation === Orientation.HORIZONTAL ? this.col : this.row,
-        rows: this.sectionValues.length,
-        cols: this.sectionValues[this.row]?.length ?? 0,
+        // run down the page and the sections across it. The counts swap with
+        // the indices. Swapping the indices alone read a section against the
+        // number of samples, so on a forest of five studies the lower bound,
+        // the estimate and the upper bound sounded hard left, half left and
+        // centre, and nothing to the right.
+        x: isHorizontal ? this.row : this.col,
+        y: isHorizontal ? this.col : this.row,
+        rows: isHorizontal ? samples : sections,
+        cols: isHorizontal ? sections : samples,
       },
     };
   }
