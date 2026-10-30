@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, VennPoint } from '@type/grammar';
 import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type {
@@ -21,6 +22,7 @@ import {
 } from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGraph } from './movable';
 
 /** How many items a region's announcement names before it counts the rest. */
@@ -96,8 +98,12 @@ interface Region {
  * many items are written in it, so a crowded overlap sounds crowded.
  */
 export class VennTrace extends AbstractTrace {
-  /** No extrema dialog: the largest set and overlap are in the description. */
-  protected readonly supportsExtrema = false;
+  /**
+   * `]` and `[` go to the largest and the smallest region by the sizes the
+   * diagram declares, and the Go To dialog lists them: see
+   * {@link VennTrace.getExtremaTargets}.
+   */
+  protected readonly supportsExtrema = true;
   protected readonly movable: MovableGraph;
 
   private readonly sets: string[];
@@ -736,5 +742,53 @@ export class VennTrace extends AbstractTrace {
       }
     }
     return null;
+  }
+
+  /**
+   * The largest and the smallest regions, for `]`, `[` and the Go To dialog,
+   * by the sizes the diagram declares: a set and an overlap alike, since an
+   * overlap's size is declared the same way. A region declared without a size
+   * is never one, and a diagram drawn for its membership alone, with no size
+   * anywhere, offers none. Every region holding an extreme is offered, row by
+   * row, so a tie is walked. Each is named by its sets, as a move names it.
+   *
+   * @returns The targets, or none for a diagram that declares no size
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const sized = this.levels.flatMap((level, row) => level.flatMap((region, col) => (
+      region.size === undefined ? [] : [{ region, size: region.size, row, col }]
+    )));
+    if (sized.length === 0) {
+      return [];
+    }
+    const sizes = sized.map(({ size }) => size);
+    const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => sized
+      .filter(({ size }) => size === extreme)
+      .map(({ region, size, row, col }) => ({
+        ...extremumAt(
+          t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+          this.setsOf(region),
+        ),
+        value: size,
+        pointIndex: col,
+        segment: this.setsOf(region),
+        type,
+        groupIndex: row,
+        categoryIndex: col,
+        navigationType: 'group',
+      }));
+    return [...at(MathUtil.safeMax(sizes), 'max'), ...at(MathUtil.safeMin(sizes), 'min')];
+  }
+
+  /**
+   * Moves to the region a target names. A jump, so the way down is
+   * forgotten, as {@link VennTrace.moveToIndex} forgets it.
+   *
+   * @param target - A target from {@link VennTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 }
