@@ -774,10 +774,19 @@ export class ViolinBoxTrace extends AbstractTrace {
       }
     });
 
+    // Measured here with the rest, before anything is inserted; see
+    // `whiskerEnds`.
+    const sharedEnds = originals.map(original =>
+      original.min !== null && original.min === original.max
+        ? ViolinBoxTrace.whiskerEnds(original.min, isVertical, isIqrReversed)
+        : null);
+
     // Phase 2: Clone elements
     originals.forEach((original, boxIdx) => {
-      const min = this.cloneElementOrEmpty(original.min);
-      const max = this.cloneElementOrEmpty(original.max);
+      const ends = sharedEnds[boxIdx];
+      const [min, max] = ends !== null && original.min !== null
+        ? Svg.createCircleElements(ends, original.min)
+        : [this.cloneElementOrEmpty(original.min), this.cloneElementOrEmpty(original.max)];
       const q2 = this.cloneElementOrEmpty(original.q2);
       const mean = this.cloneElementOrEmpty(original.mean);
 
@@ -834,6 +843,57 @@ export class ViolinBoxTrace extends AbstractTrace {
     });
 
     return svgElements;
+  }
+
+  /**
+   * Where the minimum and the maximum are drawn on a whisker that runs from
+   * one to the other.
+   *
+   * seaborn draws a violin's whiskers as one line from the minimum to the
+   * maximum, and Plotly draws the whole inner box as one path, so a chart
+   * names the same element for both. Outlined, it showed the reader the
+   * whole line whichever end they were reading. The end each is read at is
+   * marked instead: the lower end of the line for the minimum and the upper
+   * end for the maximum -- the same ends the quartiles' edges are taken
+   * from, so a chart whose vertical axis is flipped (`iqrDirection:
+   * 'reverse'`) has them swapped -- and the left and right ends on a violin
+   * lying on its side.
+   *
+   * @param whisker - The element both name
+   * @param isVertical - Whether the violin stands upright
+   * @param isReversed - Whether its axis runs downwards in the element's
+   *   own coordinates
+   * @returns The centres of the minimum's and the maximum's markers, in the
+   *   element's own coordinates, or null when it cannot be measured or does
+   *   not run along the violin
+   */
+  private static whiskerEnds(
+    whisker: SVGElement,
+    isVertical: boolean,
+    isReversed: boolean,
+  ): [{ cx: number; cy: number }, { cx: number; cy: number }] | null {
+    // `getBBox` throws on an element the document cannot measure; the
+    // element is then outlined, as before.
+    let box: DOMRect;
+    try {
+      box = (whisker as SVGGraphicsElement).getBBox();
+    } catch {
+      return null;
+    }
+    if (isVertical) {
+      if (!(box.height > 0)) {
+        return null;
+      }
+      const cx = box.x + box.width / 2;
+      const bottom = { cx, cy: box.y + box.height };
+      const top = { cx, cy: box.y };
+      return isReversed ? [top, bottom] : [bottom, top];
+    }
+    if (!(box.width > 0)) {
+      return null;
+    }
+    const cy = box.y + box.height / 2;
+    return [{ cx: box.x, cy }, { cx: box.x + box.width, cy }];
   }
 
   private cloneElementOrEmpty(original: SVGElement | null): SVGElement {
