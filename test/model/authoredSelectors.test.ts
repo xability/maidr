@@ -4,7 +4,7 @@
 
 import type { Trace } from '@model/plot';
 import type { Maidr, MaidrLayer, MosaicPoint, ScatterPoint } from '@type/grammar';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
@@ -232,5 +232,18 @@ describe('an authored example\'s selectors name the marks its data is drawn as',
     expect(layers.map(layer => (layer.data as ScatterPoint[]).length)).toEqual([50, 50, 50]);
     expect(layers.flatMap(layer => (layer.data as ScatterPoint[]).filter(point => point.z !== undefined))).toEqual([]);
     expect(colours).toEqual(layers.map(layer => [swatch(layer.name ?? '')]));
+  });
+
+  it('names a point layer\'s marks with the one selector string its type reads', () => {
+    // A list reaches these types as the pre-4.0 shape, joined into one
+    // selector with a console warning on every load (docs/SCHEMA.md).
+    const listed = readdirSync(EXAMPLES)
+      .filter(name => name.endsWith('.html'))
+      .flatMap(name => layersOf(readFileSync(join(EXAMPLES, name), 'utf8'))
+        .filter(layer => ['point', 'sunflower', 'volcano', 'manhattan'].includes(layer.type)
+          && Array.isArray(layer.selectors))
+        .map(layer => `${name} (${layer.type})`));
+
+    expect(listed).toEqual([]);
   });
 });
