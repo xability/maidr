@@ -567,6 +567,26 @@ function extractBoxData(
 }
 
 /**
+ * The volume a candlestick datum records: a finite number, or a string that
+ * spells one, such as `'900'`.
+ *
+ * Anything else records none. `Number()` alone read a blank string and
+ * `false` as a volume of 0 and `true` as 1, which is the zero this reading
+ * exists to keep out of a chart without volume.
+ *
+ * @param value - The datum's `volume`, as Victory received it
+ * @returns The volume, or undefined when the datum records none
+ */
+function readVolume(value: unknown): number | undefined {
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'string' || value.trim() === '')
+    return undefined;
+  const volume = Number(value);
+  return Number.isFinite(volume) ? volume : undefined;
+}
+
+/**
  * Extracts data from a VictoryCandlestick element.
  *
  * Victory candlestick data: `{ x, open, close, high, low }`
@@ -593,7 +613,7 @@ function extractCandlestickData(
     // Absent rather than 0 when the datum records none -- Victory draws no
     // volume either way -- so `Candlestick` can leave the Volume column out
     // of a chart that has none.
-    const volume = d.volume === undefined || d.volume === null ? Number.NaN : Number(d.volume);
+    const volume = readVolume(d.volume);
 
     return {
       value: String(d.x),
@@ -601,7 +621,7 @@ function extractCandlestickData(
       high,
       low,
       close,
-      ...(Number.isFinite(volume) ? { volume } : {}),
+      ...(volume === undefined ? {} : { volume }),
       trend,
       volatility: high - low,
     };

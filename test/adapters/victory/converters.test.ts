@@ -722,6 +722,17 @@ describe('candlestick', () => {
     expect(candles[1].volume).toBe(900);
   });
 
+  it.each([
+    ['a blank string', ''],
+    ['true', true],
+    ['false', false],
+  ])('leaves out a volume of %s, which spells no number', (_given, volume) => {
+    // `Number()` reads these as 0, 1 and 0.
+    const layer = layerOf([{ ...days[0], volume }, days[1]]);
+
+    expect('volume' in (layer.data as CandlestickPoint[])[0]).toBe(false);
+  });
+
   it('keeps the volume on the candles that declare one and leaves it off the rest', () => {
     const layer = layerOf([{ ...days[0], volume: 1200 }, days[1]]);
 
