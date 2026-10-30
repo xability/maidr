@@ -1527,6 +1527,67 @@ function resolveMarkItemData(
   return rows;
 }
 
+/** A mark of the drawn scenegraph, as far as the adapter reads one. */
+interface SceneMark {
+  marktype?: string;
+  name?: string;
+  items?: Array<{ datum?: unknown; items?: SceneMark[] }>;
+}
+
+/**
+ * The rows the marks of one name are drawn from, read off the view's
+ * scenegraph.
+ *
+ * A concat child's marks are drawn inside its group, and their datasets are
+ * out of `view.data()`'s reach, so its rows were found by guessing the name
+ * of its data pipeline from its position. That guess goes wrong where the
+ * children share the top-level data and each filters it: Vega-Lite numbers
+ * their datasets from `data_1`, so the first child was read from the
+ * unfiltered source and every other from the child before it. Each drawn
+ * item carries the row it was drawn from, as a layered spec's
+ * `layer_<i>_marks` dataset does. The marks of a series drawn one group
+ * apiece share the name, and are read in turn.
+ *
+ * @param view - The compiled view
+ * @param markName - The marks' name, such as `concat_0_marks`
+ * @returns The rows in drawn order, or `undefined` when no mark of that name
+ * is drawn or one of its items carries no row
+ */
+function resolveSceneMarkData(view: VegaView, markName: string): Record<string, unknown>[] | undefined {
+  let root: unknown;
+  try {
+    root = view.scenegraph?.()?.root;
+  } catch {
+    return undefined;
+  }
+  const found: SceneMark[] = [];
+  const walk = (mark: SceneMark): void => {
+    if (mark.name === markName) {
+      found.push(mark);
+      return;
+    }
+    if (mark.marktype !== 'group')
+      return;
+    for (const item of mark.items ?? []) {
+      for (const child of item.items ?? [])
+        walk(child);
+    }
+  };
+  if (typeof root === 'object' && root !== null)
+    walk(root as SceneMark);
+
+  const rows: Record<string, unknown>[] = [];
+  for (const mark of found) {
+    for (const item of mark.items ?? []) {
+      const datum = item.datum;
+      if (typeof datum !== 'object' || datum === null || Array.isArray(datum))
+        return undefined;
+      rows.push(datum as Record<string, unknown>);
+    }
+  }
+  return rows.length > 0 ? rows : undefined;
+}
+
 /**
  * Enumerate every dataset registered on a compiled Vega view, keyed by name.
  *
@@ -1711,6 +1772,7 @@ function resolveData(
   view?: VegaView,
   markDatasetName?: string,
   requiredFields?: readonly string[],
+  sceneMarkName?: string,
 ): Record<string, unknown>[] {
   // Exact path first: a layer's own mark dataset. See
   // `resolveMarkItemData` — the name-guessing below is a fallback.
@@ -1718,6 +1780,13 @@ function resolveData(
     const markRows = resolveMarkItemData(view, markDatasetName);
     if (markRows && rowsCarryFields(markRows, requiredFields))
       return markRows;
+  }
+  // A concat child's marks, read where they are drawn. See
+  // `resolveSceneMarkData`.
+  if (view && sceneMarkName) {
+    const drawnRows = resolveSceneMarkData(view, sceneMarkName);
+    if (drawnRows && rowsCarryFields(drawnRows, requiredFields))
+      return drawnRows;
   }
 
   // Common Vega dataset names produced by the VL compiler.
@@ -4229,6 +4298,13 @@ function convertLayerSpec(
   // from its position, and a child whose sibling compiles to several tables
   // -- a box plot's eight -- guesses one of the sibling's. Requiring the
   // columns the child reads skips those.
+  //
+  // A concat child's own marks are read first, where they are drawn: only a
+  // plain mark is drawn under the name, a composite's parts being named one
+  // level down, so a box plot or an error bar keeps the guessing below.
+  const ownMarks = layered
+    ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks`
+    : `${markGroupPrefix}marks`;
   const rows = rowsOverride ?? resolveData(
     spec,
     index,
@@ -4237,6 +4313,7 @@ function convertLayerSpec(
     folded && traceType === TraceType.PARALLEL
       ? [folded.keyColumn, folded.valueColumn]
       : markGroupPrefix ? columnsReadAsIs(encoding) : undefined,
+    markGroupPrefix.startsWith('concat_') ? ownMarks : undefined,
   );
 
   let data: MaidrLayer['data'];
