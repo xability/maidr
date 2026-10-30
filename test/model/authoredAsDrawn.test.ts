@@ -276,4 +276,37 @@ describe('an authored example declares what it draws', () => {
 
     expect(format?.decimals ?? 2).toBeGreaterThanOrEqual(places);
   });
+
+  it('reads each AAPL candle under the day its data gives, west of UTC too', () => {
+    // `new Date('2023-01-03')` is midnight UTC, the evening before in the
+    // Americas, and the page formatted it in the reader's own zone: a reader
+    // west of UTC heard every candle under the day before, "Jan 2" for
+    // 2023-01-03. Evaluated with a Date whose own zone is Los Angeles, as a
+    // reader's there would be.
+    const [layer] = layersOf(specOf(read('vertical-candlestick.html')));
+    const body = (layer.axes?.x?.format as { function: string }).function;
+    class LosAngelesDate extends Date {
+      public override toLocaleDateString(locales?: Intl.LocalesArgument, options?: Intl.DateTimeFormatOptions): string {
+        return super.toLocaleDateString(locales, { timeZone: 'America/Los_Angeles', ...options });
+      }
+    }
+    // eslint-disable-next-line no-new-func -- the page's own formatter, run as MAIDR runs it
+    const format = new Function('Date', 'value', body) as (date: new (value: string) => Date, value: string) => string;
+
+    const days = (layer.data as CandlestickPoint[]).slice(0, 3).map(candle => format(LosAngelesDate, candle.value));
+
+    expect(days).toEqual(['Jan 3', 'Jan 4', 'Jan 5']);
+  });
+
+  it('declares no volume on the AAPL candlestick, which draws none', () => {
+    // Every candle carried a volume of 0, read out with it and tabulated as
+    // a Volume column of zeros.
+    const html = read('vertical-candlestick.html');
+    const [layer] = layersOf(specOf(html));
+
+    const withVolume = (layer.data as CandlestickPoint[]).filter(candle => candle.volume !== undefined);
+
+    expect(draws(html, 'Volume')).toBe(false);
+    expect(withVolume).toEqual([]);
+  });
 });
