@@ -422,8 +422,47 @@ describe('ranking by something other than the value', () => {
   });
 });
 
+describe('a point that stands in for the maximum', () => {
+  /**
+   * Two classifiers' ROC curves. `]` goes to the best operating point, the
+   * point furthest above chance, rather than to a true positive rate of 1.
+   */
+  function rocLayer(): MaidrLayer {
+    return {
+      id: 'roc',
+      type: TraceType.ROC,
+      axes: { x: { label: 'False positive rate' }, y: { label: 'True positive rate' } },
+      data: [
+        [{ x: 0, y: 0, z: 'Logistic' }, { x: 0.1, y: 0.75, z: 'Logistic' }, { x: 1, y: 1, z: 'Logistic' }],
+        [{ x: 0, y: 0, z: 'Forest' }, { x: 0.25, y: 0.6, z: 'Forest' }, { x: 1, y: 1, z: 'Forest' }],
+      ],
+    };
+  }
+
+  test('is reported with its name, so the bracket key can say what it found', () => {
+    const trace = TraceFactory.create(rocLayer());
+    trace.moveToIndex(1, 0);
+    const service = serviceFor(trace);
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1, name: 'Best operating point' });
+    expect(trace.col).toBe(1);
+  });
+
+  test('a precision-recall curve\'s best F1 is reported by its name', () => {
+    const trace = TraceFactory.create({
+      ...rocLayer(),
+      type: TraceType.PR_CURVE,
+      axes: { x: { label: 'Recall' }, y: { label: 'Precision' } },
+      data: [[{ x: 0, y: 1 }, { x: 0.8, y: 0.7 }, { x: 1, y: 0.3 }]],
+    });
+    const service = serviceFor(trace);
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1, name: 'Best F1' });
+  });
+});
+
 describe('bracket key commands', () => {
-  function commandFixture(landed: { position: number; total: number } | null): {
+  function commandFixture(landed: { position: number; total: number; name?: string } | null): {
     context: Context;
     service: GoToExtremaService;
     notification: NotificationService;
@@ -468,6 +507,41 @@ describe('bracket key commands', () => {
     new GoToMaxValueCommand(context, service, notification, textService, audio).execute();
 
     expect(notification.notify).toHaveBeenCalledWith('Fri, 19, 2 of 3');
+  });
+
+  test('] names a point that stands in for the maximum', () => {
+    // A ROC curve's `]` lands on its best operating point. Unnamed, the
+    // reader took it for the curve's highest true positive rate.
+    const { context, service, notification, textService, audio } = commandFixture({
+      position: 1,
+      total: 1,
+      name: 'Best operating point',
+    });
+
+    new GoToMaxValueCommand(context, service, notification, textService, audio).execute();
+
+    expect(notification.notify).toHaveBeenCalledWith('Best operating point, Fri, 19');
+  });
+
+  test('names a tied stand-in before its position among the ties', () => {
+    const { context, service, notification, textService, audio } = commandFixture({
+      position: 2,
+      total: 2,
+      name: 'Best F1',
+    });
+
+    new GoToMaxValueCommand(context, service, notification, textService, audio).execute();
+
+    expect(notification.notify).toHaveBeenCalledWith('Best F1, Fri, 19, 2 of 2');
+  });
+
+  test('does not speak the name over a reader who turned text off', () => {
+    const fixture = commandFixture({ position: 1, total: 1, name: 'Best F1' });
+    const textService = { isOff: (): boolean => true, format: (): string => 'Fri, 19' } as unknown as TextService;
+
+    new GoToMaxValueCommand(fixture.context, fixture.service, fixture.notification, textService, fixture.audio).execute();
+
+    expect(fixture.notification.notify).not.toHaveBeenCalled();
   });
 
   test('stays quiet about a position when only one point holds the value', () => {

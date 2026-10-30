@@ -78,6 +78,12 @@ go to the reading of the observation you are on that is drawn lowest or
 highest on its own axis, which is also the one played lowest or highest,
 rather than to its smallest or largest number.
 
+On a ROC curve, ] goes to the best operating point, the point furthest above
+the chance diagonal, and on a precision-recall curve to the point with the best
+F1, rather than to a rate of 1, which every complete curve reaches. MAIDR says
+which before the point, as G lists it: "Best operating point, False positive
+rate is 0.25, ...". [ says there is no minimum value to go to.
+
 **Layers.** A chart drawn in more than one layer — a bar chart with a line over
 it, or a violin plot's box and density curve — moves between its
 layers with Page Up and Page Down. A switch keeps your place where the other

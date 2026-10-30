@@ -108,6 +108,12 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
    * there are and which one they are on. The live region holds one message at
    * a time, so the position is appended to the point text rather than sent on
    * its own — announcing the position alone would cost the reader the point.
+   *
+   * A point that is not the layer's lowest or highest value but stands in for
+   * it -- a ROC curve's best operating point, a precision-recall curve's best
+   * F1 -- is re-announced the same way with its name before it. Landed on
+   * unnamed, "Go to Maximum Value" read as though it had found the curve's
+   * highest value.
    */
   public execute(): void {
     const landed = this.goToExtremaService.goToExtremeValue(this.type);
@@ -119,7 +125,7 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
 
     // A value held by one point needs no disambiguation: the move already
     // announced itself through the observer chain, and "1 of 1" is noise.
-    if (landed.total < 2) {
+    if (landed.total < 2 && landed.name === undefined) {
       return;
     }
 
@@ -131,11 +137,12 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
     }
 
     const point = this.textService.format(this.context.state);
-    this.notification.notify(t('text.pointPosition', {
-      point,
-      position: landed.position,
-      total: landed.total,
-    }));
+    const located = landed.total < 2
+      ? point
+      : t('text.pointPosition', { point, position: landed.position, total: landed.total });
+    this.notification.notify(landed.name === undefined
+      ? located
+      : t('model.nameWithValue', { name: landed.name, value: located }));
   }
 }
 
