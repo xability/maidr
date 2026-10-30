@@ -4794,6 +4794,30 @@ function resolveFacetLayerDatasets(
 }
 
 /**
+ * A facet panel's name: the value it shows, under the title the facet's
+ * header gives the field it splits by.
+ *
+ * Vega-Lite titles the header with the channel's `header.title` or its
+ * `title`, falling back to the field only when neither is written, and draws
+ * no title at all for one written `null`. Read by the field alone, the
+ * barley example's panels, drawn under "Site", were announced as
+ * "site: Crookston", and a field such as `loc_id` would have been read out
+ * as written.
+ *
+ * @param channel - The facet channel
+ * @param field - The field it splits by
+ * @param value - The panel's value of it
+ * @returns The panel's name
+ */
+function panelName(channel: VegaLiteChannelDef | undefined, field: string, value: string): string {
+  const header = (channel as { header?: { title?: unknown } | null } | undefined)?.header;
+  const written = header?.title !== undefined ? header.title : (channel as { title?: unknown } | undefined)?.title;
+  if (written === null)
+    return value;
+  return `${typeof written === 'string' && written !== '' ? written : field}: ${value}`;
+}
+
+/**
  * Build a multi-subplot Maidr for a faceted spec.
  *
  * Grid construction: row facet values become grid rows and column facet
@@ -4886,7 +4910,7 @@ function buildFacetMaidr(
     const keys = resolveDomainKeys(field, allRows, view, 'facet_domain');
     const cells = keys.map(key => ({
       filters: [[field, key]] as FacetCellDef['filters'],
-      title: `${field}: ${key}`,
+      title: panelName(descriptor.wrapChannel, field, key),
     }));
     grid.push(...chunkIntoRows(cells, descriptor.columns));
   } else {
@@ -4922,11 +4946,11 @@ function buildFacetMaidr(
         const titleParts: string[] = [];
         if (rowField && rowKey !== null) {
           filters.push([rowField, rowKey]);
-          titleParts.push(`${rowField}: ${rowKey}`);
+          titleParts.push(panelName(descriptor.rowChannel, rowField, rowKey));
         }
         if (colField && colKey !== null) {
           filters.push([colField, colKey]);
-          titleParts.push(`${colField}: ${colKey}`);
+          titleParts.push(panelName(descriptor.columnChannel, colField, colKey));
         }
         cellsInRow.push({ filters, title: titleParts.join(', ') });
       }
