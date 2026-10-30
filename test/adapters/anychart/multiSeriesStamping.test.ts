@@ -86,20 +86,21 @@ function createChart(series: AnyChartSeries[], container: HTMLElement): AnyChart
 
 /**
  * A rendered chart: one marker-sized shape per entry in `markerXs`, plus the
- * optional oversized rects a column series draws, which the marker filter
- * must reject on size.
+ * rects a column series draws, `barHeight` tall: at the default the marker
+ * filter rejects them on size, and a short bar is as small as a marker.
  *
  * jsdom implements no `getBBox`, so each shape is given the box the geometric
  * filter reads. AnyChart draws each line series' markers into a layer of its
  * own, so `layerSizes` splits the markers, in order, into one layer per series;
- * left out, they share one layer.
+ * left out, they share one layer. The bars go into the first layer.
  */
 function createRenderedChart(
   id: string,
   markerXs: number[],
   barWidths: number[] = [],
   layerSizes: number[] = [markerXs.length],
-): { container: HTMLElement; markers: SVGElement[] } {
+  barHeight = 200,
+): { container: HTMLElement; markers: SVGElement[]; bars: SVGElement[] } {
   const container = document.createElement('div');
   container.id = id;
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -119,12 +120,13 @@ function createRenderedChart(
     });
   };
 
-  barWidths.forEach((width, i) => {
+  const bars = barWidths.map((width, i) => {
     const rect = document.createElementNS(SVG_NS, 'rect');
     rect.id = `ac_path_bar_${i}`;
     rect.setAttribute('fill', '#888888');
-    box(rect, i * 100, width, 200);
+    box(rect, i * 100, width, barHeight);
     layer.appendChild(rect);
+    return rect as unknown as SVGElement;
   });
 
   // The layer each marker goes into: the first `layerSizes[0]` into the first.
@@ -138,7 +140,7 @@ function createRenderedChart(
     return path as unknown as SVGElement;
   });
 
-  return { container, markers };
+  return { container, markers, bars };
 }
 
 /** The stamp each marker carries, in the order the markers were listed. */
@@ -174,6 +176,32 @@ describe('bindAnyChart (multi-series line stamping)', () => {
     bindAnyChart(chart);
 
     expect(stamps(markers, LINE_ATTR)).toEqual(['1-0', '1-1', '1-2', '1-3']);
+
+    cleanUp(container);
+  });
+
+  it('leaves the short bars of a column series beside a line to the column', () => {
+    // Measured on AnyChart 8.13: a column series' bars 30 px wide and 7 to 10
+    // px tall pass the marker filter. They are drawn in a layer of their own
+    // ahead of the line's markers, so the line took them for its markers,
+    // outlined bars, and left its own markers unstamped.
+    const { container, markers, bars } = createRenderedChart(
+      'combo-short-bars',
+      [15, 115, 215, 315],
+      [30, 30, 30, 30],
+      [0, 4],
+      7,
+    );
+    const chart = createChart(
+      [createSeries('column', 4, 'Units'), createSeries('line', 4, 'Margin')],
+      container,
+    );
+
+    bindAnyChart(chart);
+
+    expect(stamps(markers, LINE_ATTR)).toEqual(['1-0', '1-1', '1-2', '1-3']);
+    expect(stamps(bars, LINE_ATTR)).toEqual([null, null, null, null]);
+    expect(stamps(bars, 'data-maidr-anychart-bar')).toEqual(['0-0', '0-1', '0-2', '0-3']);
 
     cleanUp(container);
   });
