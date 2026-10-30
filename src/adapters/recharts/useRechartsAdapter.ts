@@ -41,6 +41,32 @@ import type { RechartsAdapterConfig } from './types';
 import { useMemo } from 'react';
 import { convertRechartsToMaidr } from './converters';
 
+/** The charts already told to name a ridgeline's drawn key, so each is told once. */
+const askedForPlottedKey = new Set<string>();
+
+/**
+ * Says, once per chart, that a ridgeline given through this hook without
+ * `ridgelineConfig.plottedKey` is read in the order its groups first appear.
+ *
+ * `<MaidrRecharts>` reads the key off the chart's `<Area dataKey>` and lists
+ * the ridges bottom first, as they are drawn; this hook reads nothing off the
+ * chart, so without the key the first group is read as the lowest ridge,
+ * which the recipe draws at the top.
+ *
+ * @param id - The chart's id
+ */
+function askForPlottedKey(id: string): void {
+  if (askedForPlottedKey.has(id)) {
+    return;
+  }
+  askedForPlottedKey.add(id);
+  console.warn(
+    `[maidr/recharts] Ridgeline "${id}" has no ridgelineConfig.plottedKey, so its ridges are `
+    + 'read in the order their groups first appear in data, the first as the lowest. Set it to '
+    + 'the key the <Area>s draw, and they are read bottom first, as drawn.',
+  );
+}
+
 /**
  * Converts Recharts configuration into MAIDR data format.
  *
@@ -111,6 +137,9 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
     boxenConfig,
     selectorOverride,
   } = config;
+  if (chartType === 'ridgeline' && ridgelineConfig !== undefined && ridgelineConfig.plottedKey === undefined) {
+    askForPlottedKey(id);
+  }
   // Serialised, as `<MaidrRecharts>` serialises what it reads off its
   // children: the list is usually written inline, a new array on every
   // render, and a new MAIDR object makes `<Maidr>` forget the place a reader

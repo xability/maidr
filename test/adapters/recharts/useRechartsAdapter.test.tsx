@@ -12,7 +12,7 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
 import type { MaidrLayer } from '@type/grammar';
 import { useRechartsAdapter } from '@adapters/recharts/useRechartsAdapter';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -96,6 +96,36 @@ describe('useRechartsAdapter', () => {
     rerender();
 
     expect(result.current).toBe(first);
+  });
+
+  it('says once that a ridgeline given without its drawn key is read in first-appearance order', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const ridges = [
+      { month: 'Jan', temp: 0, density: 0.1, plotted: 1.1 },
+      { month: 'Feb', temp: 0, density: 0.3, plotted: 0.3 },
+    ];
+    try {
+      const { rerender } = renderHook(() => useRechartsAdapter({
+        id: 'hook-ridges',
+        data: ridges,
+        chartType: 'ridgeline',
+        xKey: 'temp',
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+      }));
+      rerender();
+      renderHook(() => useRechartsAdapter({
+        id: 'hook-ridges-keyed',
+        data: ridges,
+        chartType: 'ridgeline',
+        xKey: 'temp',
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted' },
+      }));
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain('Ridgeline "hook-ridges"');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('keeps forwarding the fields it already did', () => {

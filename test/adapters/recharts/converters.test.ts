@@ -2054,6 +2054,25 @@ describe('convertRechartsToMaidr', () => {
       ]);
     });
 
+    it('lists the ridges from the largest offset down on a reversed axis, where it is drawn lowest', () => {
+      const layer = convertRechartsToMaidr({
+        ...ridgelineConfig,
+        ridgelineConfig: {
+          groupKey: 'month',
+          valueKey: 'temp',
+          densityKey: 'density',
+          plottedKey: 'plotted',
+          plottedAxisReversed: true,
+        },
+      }).subplots[0][0].layers[0];
+
+      expect((layer.data as ViolinKdePoint[][]).map(curve => curve[0].x)).toEqual(['Jan', 'Feb']);
+      expect(layer.selectors).toEqual([
+        '#maidr-article-temps g.recharts-area:not(g.recharts-area ~ g.recharts-area) .recharts-area-area',
+        '#maidr-article-temps g.recharts-area ~ g.recharts-area:not(g.recharts-area ~ g.recharts-area ~ g.recharts-area) .recharts-area-area',
+      ]);
+    });
+
     it('keeps first-appearance order when a group has no drawn height to place it by', () => {
       const layer = convertRechartsToMaidr({
         ...ridgelineConfig,
