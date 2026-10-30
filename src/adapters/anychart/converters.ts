@@ -4311,12 +4311,13 @@ function resolveGanttScale(lanes: GanttLane[]): GanttScale {
  * So the schedule's own interval count is what picks them out. When the whole
  * SVG holds exactly that many filled paths they are the bars; otherwise the
  * search narrows to the LAYER holding exactly that many, since AnyChart draws
- * each family into a layer of its own. Two layers answering to the same count
- * — the stripes behind a one-interval-per-row project chart are exactly that —
- * are separated by the one property a schedule has and a background does not:
- * its bars begin and end in different places. Anything still ambiguous is left
- * unstamped and said out loud, because a bar highlighted for the wrong task is
- * worse than none at all.
+ * each family into a layer of its own — once the progress fills, which share
+ * the bars' layer, are set aside (see {@link withoutProgressFills}). Two layers
+ * answering to the same count — the stripes behind a one-interval-per-row
+ * project chart are exactly that — are separated by the one property a
+ * schedule has and a background does not: its bars begin and end in different
+ * places. Anything still ambiguous is left unstamped and said out loud,
+ * because a bar highlighted for the wrong task is worse than none at all.
  *
  * On any other chart type this is a no-op.
  */
@@ -4595,9 +4596,12 @@ function resolveGanttBars(
       byLayer.set(layer, [candidate]);
   }
 
-  const matching = Array.from(byLayer.values()).filter(
-    group => group.length === expected,
-  );
+  // Only a layer holding more shapes than there are intervals can be the bars
+  // with their progress fills; one holding as many or fewer is taken as it is.
+  const matching = Array.from(
+    byLayer.values(),
+    group => (group.length > expected ? withoutProgressFills(group) : group),
+  ).filter(group => group.length === expected);
   if (matching.length === 1)
     return matching[0];
   if (matching.length === 0)
@@ -4608,6 +4612,65 @@ function resolveGanttBars(
   // repeated down the chart, and that is the difference.
   const varied = matching.filter(hasVaryingSpans);
   return varied.length === 1 ? varied[0] : null;
+}
+
+/**
+ * A layer's shapes, leaving out the progress fills drawn over its bars.
+ *
+ * AnyChart draws a task's progress as a second filled bar over the task's own,
+ * from the task's start, into the same layer and after every bar of it.
+ * Measured on AnyChart 8.13, a progress of 0% is a bar of no width at the
+ * task's start, 50% covers half the task bar and 100% all of it, so a fill
+ * starts where an earlier shape of its layer starts and lies within it. Counted
+ * as bars, the fills put a schedule with a summary row and a milestone at eight
+ * shapes for five intervals, and the whole chart lost its highlight.
+ *
+ * A shape inside another that does not start where it does, such as a short
+ * booking drawn over a long one in a resource's row, is kept, and so is a shape
+ * that cannot be measured, since nothing says it is a fill.
+ *
+ * @param group - One layer's filled shapes, in document order
+ * @returns The same shapes without the fills
+ */
+function withoutProgressFills(group: SVGElement[]): SVGElement[] {
+  const boxes = group.map(readShapeBox);
+  return group.filter((_, j) => {
+    const inner = boxes[j];
+    return inner === undefined || !boxes.slice(0, j).some(
+      outer => outer !== undefined && isProgressFillOf(inner, outer),
+    );
+  });
+}
+
+/**
+ * The box a rendered shape occupies, including one of no width or height —
+ * the progress fill of a task with no progress is one.
+ */
+function readShapeBox(element: SVGElement): RegionBox | undefined {
+  let bbox: DOMRect | null = null;
+  try {
+    bbox = (element as unknown as SVGGraphicsElement).getBBox?.() ?? null;
+  } catch {
+    bbox = null;
+  }
+  if (!bbox)
+    return undefined;
+  const { x, y, width, height } = bbox;
+  if (![x, y, width, height].every(Number.isFinite) || width < 0 || height < 0)
+    return undefined;
+  return { left: x, top: y, width, height };
+}
+
+/**
+ * Whether one box is drawn as another's progress: from the same left edge and
+ * within it, give or take rounding.
+ */
+function isProgressFillOf(inner: RegionBox, outer: RegionBox): boolean {
+  const slack = DRAWN_BOX_TOLERANCE_PX;
+  return Math.abs(inner.left - outer.left) <= slack
+    && inner.top >= outer.top - slack
+    && inner.left + inner.width <= outer.left + outer.width + slack
+    && inner.top + inner.height <= outer.top + outer.height + slack;
 }
 
 /**
