@@ -326,7 +326,9 @@ export class RocTrace extends RateCurveTrace {
    * The line's own targets are its minimum and maximum, which on a ROC curve
    * are the two ends -- (0, 0) and (1, 1) -- and a reader who asks to be
    * taken to the extreme of a ROC curve means the point furthest above
-   * chance, not the corner every curve shares.
+   * chance, not the corner every curve shares. `]` lands on it and says its
+   * name, as the Go To dialog does, so it is not taken for the curve's
+   * highest rate.
    *
    * @returns The targets, the best operating point first
    */
@@ -341,6 +343,7 @@ export class RocTrace extends RateCurveTrace {
       segment: 'line',
       type: 'max',
       navigationType: 'point',
+      announceName: true,
       xValue: this.rocPoints[point.row][point.col].x,
     }));
 

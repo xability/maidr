@@ -66,6 +66,16 @@ export interface ExtremaTarget {
   xValue?: number | string;
 
   /**
+   * Whether `[` and `]` say the target's name (`display.name`) with the point
+   * they land on. Set on a target that is not the layer's lowest or highest
+   * value but the point its chart is read for in their place -- a ROC curve's
+   * best operating point, a precision-recall curve's best F1 -- so that a
+   * reader who pressed "Go to Maximum Value" is not left to take it for the
+   * curve's highest value. The Go To dialog names every target already.
+   */
+  announceName?: boolean;
+
+  /**
    * For intersection targets: indices of all lines that intersect at this point
    * Used for multiline plots to track which lines are involved in the intersection
    */

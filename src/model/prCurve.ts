@@ -405,7 +405,9 @@ export class PrCurveTrace extends RateCurveTrace {
    * precision-recall curve are the loosest threshold (the prevalence) and the
    * strictest (a precision of 1 at almost no recall) -- the two ends every
    * curve shares in kind. A reader asking for the extreme of a PR curve
-   * means the threshold that balances the two rates.
+   * means the threshold that balances the two rates. `]` lands on it and
+   * says its name, as the Go To dialog does, so it is not taken for the
+   * curve's highest precision.
    *
    * @returns The targets, the best F1 point first
    */
@@ -420,6 +422,7 @@ export class PrCurveTrace extends RateCurveTrace {
       segment: 'line',
       type: 'max',
       navigationType: 'point',
+      announceName: true,
       xValue: this.prPoints[point.row][point.col].x,
     }));
 

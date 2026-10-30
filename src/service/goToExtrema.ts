@@ -15,6 +15,11 @@ export interface ExtremeJump {
   position: number;
   /** How many points share the value. */
   total: number;
+  /**
+   * What the point landed on is, when the layer asks for it to be said:
+   * "Best operating point". See {@link ExtremaTarget.announceName}.
+   */
+  name?: string;
 }
 
 export class GoToExtremaService {
@@ -113,15 +118,17 @@ export class GoToExtremaService {
       : tied.findIndex(target => GoToExtremaService.isCursorAt(activeTrace, target));
     const next = at === -1 ? 0 : (at + 1) % tied.length;
 
+    const target = tied[next];
     try {
-      activeTrace.navigateToExtrema(tied[next]);
+      activeTrace.navigateToExtrema(target);
     } catch {
       // A trace can advertise extrema support without implementing the jump
       // (the base `navigateToExtrema` throws). Report failure so the caller
       // announces it instead of leaving the press silent.
       return null;
     }
-    return { position: next + 1, total: tied.length };
+    const name = target.announceName === true ? target.display?.name : undefined;
+    return { position: next + 1, total: tied.length, ...(name ? { name } : {}) };
   }
 
   /**
