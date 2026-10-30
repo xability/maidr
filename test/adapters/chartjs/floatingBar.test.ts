@@ -160,6 +160,33 @@ describe('chart.js floating bar extraction', () => {
 
       expect(layer.type).toBe(TraceType.GANTT);
       expect(layer.orientation).toBeUndefined();
+      // Its lanes stand side by side, so there is no top lane to name.
+      expect((layer.data as GanttData).firstLane).toBeUndefined();
+    });
+
+    it('says the first lane is drawn at the top, which a canvas cannot show', () => {
+      // MAIDR measures which way a schedule's lanes run from the highlight,
+      // and a canvas has none: Up walked down a Chart.js schedule.
+      const chart = barChart(
+        ['Design', 'Build', 'Ship'],
+        [{ label: 'Phase', data: [[0, 5], [5, 12], [12, 14]] }],
+        horizontal,
+      );
+
+      expect((layersOf(chart)[0].data as GanttData).firstLane).toBe('top');
+    });
+
+    it('says the same of a reversed axis, whose top lane is listed first', () => {
+      const chart = barChart(
+        ['Design', 'Build', 'Ship'],
+        [{ label: 'Phase', data: [[0, 5], [5, 12], [12, 14]] }],
+        { indexAxis: 'y', scales: { y: { reverse: true } } },
+      );
+
+      const data = layersOf(chart)[0].data as GanttData;
+
+      expect(data.lanes?.[0]).toBe('Ship');
+      expect(data.firstLane).toBe('top');
     });
   });
 

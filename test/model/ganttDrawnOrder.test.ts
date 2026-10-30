@@ -38,13 +38,17 @@ function draw(laneTops: number[]): void {
 }
 
 /** Null rather than undefined for no selectors, since undefined selects the default. */
-function layer(orientation = Orientation.HORIZONTAL, selectors: string | null = '.task'): MaidrLayer {
+function layer(
+  orientation = Orientation.HORIZONTAL,
+  selectors: string | null = '.task',
+  firstLane?: 'top' | 'bottom',
+): MaidrLayer {
   return {
     id: 'gantt',
     type: TraceType.GANTT,
     orientation,
     axes: { x: { label: 'Day' }, y: { label: 'Section' } },
-    data: { points: LANES, unit: 'days' },
+    data: { points: LANES, unit: 'days', ...(firstLane ? { firstLane } : {}) },
     ...(selectors === null ? {} : { selectors }),
   };
 }
@@ -158,6 +162,62 @@ describe('where there is nothing to measure, the grid keeps its rule', () => {
       { top: 0, height: 0, width: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect,
     );
     const trace = new GanttTrace(layer());
+    trace.moveOnce('FORWARD');
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(trace.row).toBe(1);
+  });
+});
+
+describe('where there is nothing to measure, the producer says which lane is on top', () => {
+  // Chart.js and amCharts draw to a canvas, so there is no highlight to
+  // measure. A Chart.js schedule draws its first lane at the top, and there
+  // Up walked down the drawing and Down from the first lane said "No more
+  // data to display".
+
+  test('down moves to the lane drawn below, and up from the first lane is the boundary', () => {
+    const trace = new GanttTrace(layer(Orientation.HORIZONTAL, null, 'top'));
+    trace.moveOnce('FORWARD');
+
+    expect(trace.isMovable('UPWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(lane(trace)).toBe('Build, Adapter');
+  });
+
+  test('control and down reaches the last lane, control and up the first', () => {
+    const trace = new GanttTrace(layer(Orientation.HORIZONTAL, null, 'top'));
+    trace.moveOnce('FORWARD');
+
+    trace.moveToExtreme('DOWNWARD');
+    const bottom = trace.row;
+    trace.moveToExtreme('UPWARD');
+    const top = trace.row;
+
+    expect([bottom, top]).toEqual([2, 0]);
+  });
+
+  test('a multiline braille display lays the lanes out the same way', () => {
+    const trace = new GanttTrace(layer(Orientation.HORIZONTAL, null, 'top'));
+    trace.moveOnce('FORWARD');
+
+    const state = trace.state;
+
+    expect(state.empty || state.type !== 'trace' || state.braille.empty
+      ? null
+      : state.braille.rowsTopFirst).toBe(true);
+  });
+
+  test('a first lane said to be at the bottom keeps the grid\'s rule', () => {
+    const trace = new GanttTrace(layer(Orientation.HORIZONTAL, null, 'bottom'));
+    trace.moveOnce('FORWARD');
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(trace.row).toBe(1);
+  });
+
+  test('a drawing that can be measured is measured, whatever is said', () => {
+    draw([50, 30, 10]);
+    const trace = new GanttTrace(layer(Orientation.HORIZONTAL, '.task', 'top'));
     trace.moveOnce('FORWARD');
 
     expect(trace.moveOnce('UPWARD')).toBe(true);

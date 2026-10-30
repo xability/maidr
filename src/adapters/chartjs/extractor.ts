@@ -1596,6 +1596,10 @@ function extractGanttLayer(
     // statement about a schedule and has no interval to name itself with.
     lanes: drawn.map(lane => labels[lane] ?? lane),
     ...(unit ? { unit } : {}),
+    // A category y axis is drawn from the top, and `drawn` lists the topmost
+    // lane first whether or not it is reversed. MAIDR cannot measure a
+    // canvas, so without this Up walked down the schedule.
+    ...(isHorizontal ? { firstLane: 'top' as const } : {}),
   };
 
   // Epoch milliseconds are what a time scale parses its bounds to, and
