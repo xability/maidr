@@ -443,6 +443,56 @@ describe('bindAnyChart (gantt stamping)', () => {
     cleanUp(container);
   });
 
+  it('picks the bars out of the row stripes when the bars carry progress', () => {
+    // One stripe and one bar per row, and a progress fill in the first bar.
+    // Counted with its fill, the bars' layer held three shapes for two
+    // intervals, and the stripes were the one layer of two left to stamp.
+    const { container, paths } = createRenderedGantt('gantt-stripes-progress', [
+      [{ left: 0, width: 300 }, { left: 0, width: 300 }],
+      [{ left: 10, width: 40 }, { left: 50, width: 60 }, { left: 10, width: 20, top: 0 }],
+    ]);
+
+    bindAnyChart(createGanttChart(TASKS, { container }));
+
+    expect(paths[0].every(p => !p.hasAttribute('data-maidr-anychart-task-bar')))
+      .toBe(true);
+    expect(paths[1].map(p => p.getAttribute('data-maidr-anychart-task-bar')))
+      .toEqual(['0-0', '1-0', null]);
+
+    cleanUp(container);
+  });
+
+  it('keeps a booking drawn inside a longer one in the same row', () => {
+    // A fill starts where its task starts. A short booking over a long one in
+    // a resource's row starts elsewhere, and is a bar of its own.
+    const { container, paths } = createRenderedGantt('gantt-overlap', [
+      [
+        { left: 10, width: 300, top: 20, height: 14 },
+        { left: 100, width: 50, top: 20, height: 14 },
+        { left: 10, width: 150, top: 20, height: 14 },
+      ],
+    ]);
+    const chart = createGanttChart(
+      [
+        {
+          name: 'Alice',
+          periods: [
+            { id: 'p1', start: Date.UTC(2024, 0, 1), end: Date.UTC(2024, 0, 31) },
+            { id: 'p2', start: Date.UTC(2024, 0, 10), end: Date.UTC(2024, 0, 15) },
+          ],
+        },
+      ],
+      { chartType: 'gantt-resource', container },
+    );
+
+    bindAnyChart(chart);
+
+    expect(paths[0].map(p => p.getAttribute('data-maidr-anychart-task-bar')))
+      .toEqual(['0-0', '0-1', null]);
+
+    cleanUp(container);
+  });
+
   it('stamps nothing when no layer holds the right number of shapes', () => {
     const { container, paths } = createRenderedGantt('gantt-mismatch', [
       [{ left: 10, width: 40 }, { left: 50, width: 60 }, { left: 90, width: 20 }],

@@ -4271,7 +4271,7 @@ function resolveGanttScale(lanes: GanttLane[]): GanttScale {
  * SVG holds exactly that many filled paths they are the bars; otherwise the
  * search narrows to the LAYER holding exactly that many, since AnyChart draws
  * each family into a layer of its own — once the progress fills, which share
- * the bars' layer, are set aside (see {@link withoutInsetShapes}). Two layers
+ * the bars' layer, are set aside (see {@link withoutProgressFills}). Two layers
  * answering to the same count — the stripes behind a one-interval-per-row
  * project chart are exactly that — are separated by the one property a
  * schedule has and a background does not: its bars begin and end in different
@@ -4555,9 +4555,12 @@ function resolveGanttBars(
       byLayer.set(layer, [candidate]);
   }
 
-  const matching = Array.from(byLayer.values(), withoutInsetShapes).filter(
-    group => group.length === expected,
-  );
+  // Only a layer holding more shapes than there are intervals can be the bars
+  // with their progress fills; one holding as many or fewer is taken as it is.
+  const matching = Array.from(
+    byLayer.values(),
+    group => (group.length > expected ? withoutProgressFills(group) : group),
+  ).filter(group => group.length === expected);
   if (matching.length === 1)
     return matching[0];
   if (matching.length === 0)
@@ -4571,28 +4574,29 @@ function resolveGanttBars(
 }
 
 /**
- * A layer's shapes, leaving out each one drawn inside a shape before it.
+ * A layer's shapes, leaving out the progress fills drawn over its bars.
  *
  * AnyChart draws a task's progress as a second filled bar over the task's own,
  * from the task's start, into the same layer and after every bar of it.
  * Measured on AnyChart 8.13, a progress of 0% is a bar of no width at the
- * task's start, 50% covers half the task bar and 100% all of it, so each fill
- * lies within its own task's box; task bars, summary bars and milestones sit
- * in rows of their own and never lie within one another. Counted as bars, the
- * fills put a schedule with a summary row and a milestone at eight shapes for
- * five intervals, and the whole chart lost its highlight.
+ * task's start, 50% covers half the task bar and 100% all of it, so a fill
+ * starts where an earlier shape of its layer starts and lies within it. Counted
+ * as bars, the fills put a schedule with a summary row and a milestone at eight
+ * shapes for five intervals, and the whole chart lost its highlight.
  *
- * A shape that cannot be measured is kept, since nothing says it is a fill.
+ * A shape inside another that does not start where it does, such as a short
+ * booking drawn over a long one in a resource's row, is kept, and so is a shape
+ * that cannot be measured, since nothing says it is a fill.
  *
  * @param group - One layer's filled shapes, in document order
- * @returns The same shapes without the ones lying inside an earlier one
+ * @returns The same shapes without the fills
  */
-function withoutInsetShapes(group: SVGElement[]): SVGElement[] {
+function withoutProgressFills(group: SVGElement[]): SVGElement[] {
   const boxes = group.map(readShapeBox);
   return group.filter((_, j) => {
     const inner = boxes[j];
     return inner === undefined || !boxes.slice(0, j).some(
-      outer => outer !== undefined && liesWithin(inner, outer),
+      outer => outer !== undefined && isProgressFillOf(inner, outer),
     );
   });
 }
@@ -4616,10 +4620,13 @@ function readShapeBox(element: SVGElement): RegionBox | undefined {
   return { left: x, top: y, width, height };
 }
 
-/** Whether one box lies inside another, give or take rounding. */
-function liesWithin(inner: RegionBox, outer: RegionBox): boolean {
+/**
+ * Whether one box is drawn as another's progress: from the same left edge and
+ * within it, give or take rounding.
+ */
+function isProgressFillOf(inner: RegionBox, outer: RegionBox): boolean {
   const slack = DRAWN_BOX_TOLERANCE_PX;
-  return inner.left >= outer.left - slack
+  return Math.abs(inner.left - outer.left) <= slack
     && inner.top >= outer.top - slack
     && inner.left + inner.width <= outer.left + outer.width + slack
     && inner.top + inner.height <= outer.top + outer.height + slack;
