@@ -5308,13 +5308,17 @@ function buildCandlestickLayer(
       trend = 'Bear';
 
     const midpoint = (high + low) / 2;
+    // Only a row that records a volume carries one. Read as zero, a missing
+    // volume filled the description's table with a Volume column of zeros on
+    // a chart that draws none; left out, core lists no Volume column at all.
+    const volume = finiteOrNull(r.volume);
     return {
       value: asString(r.x ?? r.name ?? r._index),
       open,
       high,
       low,
       close,
-      volume: asNumber(r.volume),
+      ...(volume === null ? {} : { volume }),
       trend,
       volatility: midpoint > 0 ? (high - low) / midpoint : 0,
     };
