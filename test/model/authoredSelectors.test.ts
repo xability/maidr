@@ -84,6 +84,17 @@ function outlinedAt(trace: Trace, row: number, col: number): Element[] {
   return Array.isArray(elements) ? elements : [elements];
 }
 
+/**
+ * The numbers a path's `d` begins with: where it starts drawing.
+ *
+ * @param element - A `<path>`
+ * @returns Its first `x` and `y`
+ */
+function startOf(element: Element): { x: number; y: number } {
+  const [x, y] = (element.getAttribute('d') ?? '').match(/-?[\d.]+/g)?.map(Number) ?? [];
+  return { x, y };
+}
+
 afterEach(() => {
   document.body.innerHTML = '';
 });
@@ -116,5 +127,33 @@ describe('an authored example\'s selectors name the marks its data is drawn as',
 
     expect(wrong).toEqual([]);
     expect(climbs).toBe(true);
+  });
+
+  it.each([
+    // An icicle's bands are 90 high from y 60, one per depth.
+    ['icicle.html', (mark: Element) => (startOf(mark).y - 60) / 90],
+    // A sunburst's rings start their arcs on their outer edges, 90 and 160
+    // from the centre at 200, 200.
+    ['sunburst.html', (mark: Element) => Math.hypot(startOf(mark).x - 200, startOf(mark).y - 200) > 100 ? 1 : 0],
+  ])('outlines every node of %s with the mark drawn for it, on its own level', (page, depthOf) => {
+    // Only the leaves were declared, so a continent had no selector: the
+    // level the reader enters on outlined no mark of its own (since #1520,
+    // the leaves below it instead).
+    const { layers: [layer] } = load(page);
+    const trace = TraceFactory.create(layer);
+    const levels = [3, 10];
+
+    const wrong: string[] = [];
+    for (const [depth, count] of levels.entries()) {
+      for (let index = 0; index < count; index++) {
+        const outlined = outlinedAt(trace, depth, index);
+        if (outlined.length !== 1 || depthOf(outlined[0]) !== depth) {
+          wrong.push(`${depth},${index}: ${outlined.length} marks`);
+        }
+      }
+    }
+    trace.dispose();
+
+    expect(wrong).toEqual([]);
   });
 });
