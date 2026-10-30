@@ -2459,6 +2459,21 @@ function isPieChart(chart: AnyChartInstance): boolean {
 }
 
 /**
+ * Whether a chart is a heat map.
+ *
+ * The same substring match {@link stampHeatmapAttributes} and the heat map
+ * route in {@link buildSubplot} use: production builds report `'heat-map'`,
+ * and older builds have been seen reporting `'heatmap'` or `'heat'`.
+ */
+function isHeatmapChart(chart: AnyChartInstance): boolean {
+  try {
+    return chart.getType?.().includes('heat') ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Whether a chart is a funnel or a pyramid.
  *
  * AnyChart draws both from one class — `anychart.funnel()` and
@@ -2893,6 +2908,11 @@ function resolveStampers(
 ): [string, typeof stampPieAttributes][] {
   if (isPieChart(chart))
     return [['pie', stampPieAttributes]];
+  // A heat map has no series API either, so the bar, line, scatter and box
+  // stampers each threw on one and logged a warning before its cells were
+  // stamped.
+  if (isHeatmapChart(chart))
+    return [['heatmap', stampHeatmapAttributes]];
   if (isFunnelChart(chart))
     return [['funnel', stampFunnelAttributes]];
   if (isWordCloudChart(chart))
@@ -2928,7 +2948,6 @@ function resolveStampers(
     ['line', stampLineAttributes],
     ['scatter', stampScatterAttributes],
     ['box', stampBoxAttributes],
-    ['heatmap', stampHeatmapAttributes],
     ['candlestick', stampCandlestickAttributes],
     ['waterfall', stampWaterfallAttributes],
     ['marimekko', stampMosaicAttributes],
