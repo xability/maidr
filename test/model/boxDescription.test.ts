@@ -106,18 +106,48 @@ describe('boxTrace description summary', () => {
     expect(stat(trace, 'Highest maximum')).toBe('25 (A)');
   });
 
-  test('names the first group in navigation order when boxes tie', () => {
+  test('names every group that ties for an extreme, in navigation order', () => {
     const trace = new BoxTrace(makeBoxLayer([
       group('A', 1, 10, 15, 20, 25),
       group('B', 1, 4, 6, 8, 25),
       group('C', 7, 9, 14, 22, 19),
     ]));
 
-    // Boxes bottoming out at the same floor is the ordinary case, so the rule
-    // has to be stated: the earliest group wins, which is the first one the
-    // user reaches by navigating.
-    expect(stat(trace, 'Lowest minimum')).toBe('1 (A)');
-    expect(stat(trace, 'Highest maximum')).toBe('25 (A)');
+    // Boxes bottoming out at the same floor is the ordinary case. Naming only
+    // the first told the reader A alone reached the floor.
+    expect(stat(trace, 'Lowest minimum')).toBe('1 (A, B)');
+    expect(stat(trace, 'Highest maximum')).toBe('25 (A, B)');
+  });
+
+  test('names both species whose medians tie for the lowest', () => {
+    // plotnine's penguins: Adelie and Chinstrap both have a median body mass
+    // of 3700, and the summary read "Lowest median: 3700 (Adelie)".
+    const trace = new BoxTrace(makeBoxLayer([
+      group('Adelie', 2850, 3350, 3700, 4000, 4775),
+      group('Chinstrap', 2900, 3487.5, 3700, 3950, 4550),
+      group('Gentoo', 3950, 4700, 5000, 5500, 6300),
+    ]));
+
+    expect(stat(trace, 'Lowest median')).toBe('3700 (Adelie, Chinstrap)');
+    expect(stat(trace, 'Highest median')).toBe('5000 (Gentoo)');
+  });
+
+  test('reads a tie between unnamed groups as the bare value', () => {
+    const trace = new BoxTrace(makeBoxLayer([
+      group('', 1, 10, 15, 20, 25),
+      group('', 1, 4, 6, 8, 12),
+    ]));
+
+    expect(stat(trace, 'Lowest minimum')).toBe(1);
+  });
+
+  test('names an unnamed group by its position when it ties with a named one', () => {
+    const trace = new BoxTrace(makeBoxLayer([
+      group('A', 1, 10, 15, 20, 25),
+      group('', 1, 4, 6, 8, 12),
+    ]));
+
+    expect(stat(trace, 'Lowest minimum')).toBe('1 (A, Group 2)');
   });
 
   test('still counts and names the groups', () => {

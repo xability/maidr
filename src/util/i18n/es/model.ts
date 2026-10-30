@@ -237,6 +237,7 @@ export const model = {
   'model.statModalBin': 'Intervalo modal',
   'model.statBinWidth': 'Ancho de intervalo',
   'model.statModalBinValue': '{range}, {count}',
+  'model.modalBinJoin': ' y ',
   'model.tableBinMin': 'Mínimo del intervalo',
   'model.tableBinMax': 'Máximo del intervalo',
   // Pie chart labels.

@@ -1433,7 +1433,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
     const highest = Math.max(...shares);
     const lowest = Math.min(...shares);
-    const densest = QUADRANTS.filter((_, index) => shares[index] === highest);
+    // The densest by count rather than by rounded share, so quadrants holding
+    // the same number of points are named together, with the share they
+    // were given.
+    const most = Math.max(...counts);
+    const densest = QUADRANTS.filter((_, index) => counts[index] === most);
 
     return [
       {
@@ -1441,7 +1445,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         value: highest - lowest <= EVEN_SPREAD_TOLERANCE
           ? t('model.quadrantsEvenSpread')
           : t('model.quadrantDensest', {
-              share: highest,
+              share: shares[counts.indexOf(most)],
               quadrants: densest
                 .map(q => t('model.quadrantNamed', { where: t(q.where), number: q.number }))
                 .join(t('model.quadrantJoin')),

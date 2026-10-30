@@ -423,3 +423,52 @@ describe('highlight', () => {
     expect(state.highlight.empty).toBe(true);
   });
 });
+
+describe('a percentile band whose spread changes evenly', () => {
+  /**
+   * One week of a forecast with the given quantile values.
+   * @param x - The week
+   * @param levels - The quantile levels, lowest first
+   * @param values - The value at each level
+   * @returns The point
+   */
+  function week(x: number, levels: number[], values: number[]): PercentileBandPoint {
+    return { x, quantiles: values.map((value, i) => ({ level: levels[i], value })) };
+  }
+
+  test('names the first step when every step widens by the same amount', () => {
+    // py-maidr's weekly demand forecast: the middle 50% is 2.8 units wider
+    // each week. The widths come from subtraction, so the steps differed in
+    // their last bits (2.8000000000000114 against 2.799999999999997), and
+    // the step with the largest error was named, from 4 to 5. Ties take the
+    // earlier x.
+    const levels = [0.05, 0.25, 0.5, 0.75, 0.95];
+    const forecast = [
+      week(1, levels, [116.7, 118.6, 120, 121.4, 123.3]),
+      week(2, levels, [119.4, 123.2, 126, 128.8, 132.6]),
+      week(3, levels, [121.1, 126.8, 131, 135.2, 140.9]),
+      week(4, levels, [121.8, 129.4, 135, 140.6, 148.2]),
+      week(5, levels, [125.5, 135, 142, 149, 158.5]),
+      week(6, levels, [127.2, 138.6, 147, 155.4, 166.8]),
+      week(7, levels, [126.9, 140.2, 150, 159.8, 173.1]),
+      week(8, levels, [129.6, 144.8, 156, 167.2, 182.4]),
+    ];
+    const trace = band(forecast, { axes: { x: { label: 'Week' }, y: { label: 'Units' } } });
+
+    expect(stat(trace, 'Middle 50% widens most')).toBe('from 1 to 2, by 2.8');
+  });
+
+  test('says nothing about widening or narrowing on a band of constant width', () => {
+    // Each edge is the median plus or minus 0.3, and the widths taken from
+    // them differ by 2e-16: the band was said to widen most by 2.22e-16.
+    const levels = [0.25, 0.5, 0.75];
+    const constant = [0.3, 0.7, 1.1, 1.9, 2.3].map((median, x) =>
+      week(x, levels, [median - 0.1 * 3, median, median + 0.1 * 3]));
+    const trace = band(constant);
+
+    expect(stat(trace, 'Middle 50% widens most')).toBeUndefined();
+    expect(stat(trace, 'Middle 50% narrows most')).toBeUndefined();
+    expect(stat(trace, 'Middle 50% at its widest')).toBe('0.6 at 0');
+    expect(stat(trace, 'Middle 50% at its narrowest')).toBe('0.6 at 0');
+  });
+});

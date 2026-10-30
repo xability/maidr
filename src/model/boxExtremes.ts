@@ -29,8 +29,11 @@ interface ExtremeLabels {
  * lone-group label with a group-suffixed value.
  *
  * Boxes tie on an end readily, several bottoming out at the same floor being
- * the ordinary case, and `beats` is strict, so the earliest group in navigation
- * order wins: the group named is the first one the user reaches.
+ * the ordinary case, so every group holding the winning value is named, in
+ * navigation order. Naming only the first told the reader that one group had
+ * the lowest median when two did. An unnamed group among them is named by its
+ * position, as the data table names it; when none of them has a name, the
+ * value is reported bare.
  *
  * @param points - The trace's groups, in navigation order.
  * @param labels - Row label for the one-group and the several-group case.
@@ -58,12 +61,15 @@ export function extremeStat(
     beats(valueOf(point), valueOf(best)) ? point : best,
   );
   const value = valueOf(winner);
-  const name = grouped ? groupName(winner) : null;
-  if (name === null) {
+  const holders = measured.filter(point => valueOf(point) === value);
+  if (!grouped || holders.every(point => groupName(point) === null)) {
     // A bare number travels on for DescriptionService to round.
     return { label, value };
   }
-  // Composing the group name onto the value makes this a string, past the
+  const name = holders
+    .map(point => groupNameAt(points, points.indexOf(point)))
+    .join(', ');
+  // Composing the group names onto the value makes this a string, past the
   // point where the service can round what is inside it, so the number is
   // rounded here with the same `defaultFormat` the service would have used.
   return {

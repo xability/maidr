@@ -106,6 +106,8 @@ describe('the heights of a histogram\'s bars', () => {
   test('still name the bin where the distribution peaks when they are densities', () => {
     const stats = statsOf(histogram(DENSITIES, 'Density'));
 
-    expect(stats).toContainEqual({ label: 'Modal bin', value: '0 to 0.5, 0.268' });
+    // Rounded as the dialog rounds every other number: the stat is composed
+    // into a string, which the description service passes through as it is.
+    expect(stats).toContainEqual({ label: 'Modal bin', value: '0 to 0.5, 0.27' });
   });
 });

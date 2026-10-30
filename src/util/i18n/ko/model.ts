@@ -237,6 +237,7 @@ export const model = {
   'model.statModalBin': '최빈 구간',
   'model.statBinWidth': '구간 너비',
   'model.statModalBinValue': '{range}, {count}',
+  'model.modalBinJoin': ' 및 ',
   'model.tableBinMin': '구간 최솟값',
   'model.tableBinMax': '구간 최댓값',
   // Pie chart labels.

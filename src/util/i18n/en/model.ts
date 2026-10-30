@@ -243,6 +243,7 @@ export const model = {
   'model.statModalBin': 'Modal bin',
   'model.statBinWidth': 'Bin width',
   'model.statModalBinValue': '{range}, {count}',
+  'model.modalBinJoin': ' and ',
   'model.tableBinMin': 'Bin Min',
   'model.tableBinMax': 'Bin Max',
   // Pie chart labels.

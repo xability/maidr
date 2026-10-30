@@ -1,6 +1,7 @@
 import type { HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { AbstractBarPlot, isMeasured, missingText } from './bar';
@@ -59,17 +60,24 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       // Where the distribution peaks -- the question a histogram is drawn to
       // answer, and one a reader could previously only get by walking every
       // bin. Named the way the sibling hexbin names its densest cell.
-      const peak = counts.indexOf(MathUtil.safeMax(measuredCounts));
-      const peakPoint = points[peak];
-      if (peakPoint !== undefined) {
+      //
+      // Every bin holding the largest count, not the first of them: two bins
+      // of 38 are two peaks, and `]` already offers both. The count is
+      // composed into the string, so it is rounded here; the description
+      // service rounds a bare number and passes a string through.
+      const peakCount = MathUtil.safeMax(measuredCounts);
+      const peaks = points.filter((_point, index) => counts[index] === peakCount);
+      if (peaks.length > 0) {
         stats.push({
           label: t('model.statModalBin'),
           value: t('model.statModalBinValue', {
-            range: MathUtil.spannedOrMissing(
-              Number(isVertical ? peakPoint.xMin : peakPoint.yMin),
-              Number(isVertical ? peakPoint.xMax : peakPoint.yMax),
-            ),
-            count: counts[peak],
+            range: peaks
+              .map(peak => MathUtil.spannedOrMissing(
+                Number(isVertical ? peak.xMin : peak.yMin),
+                Number(isVertical ? peak.xMax : peak.yMax),
+              ))
+              .join(t('model.modalBinJoin')),
+            count: defaultFormat(peakCount),
           }),
         });
       }

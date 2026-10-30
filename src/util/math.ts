@@ -257,13 +257,27 @@ export abstract class MathUtil {
    * The unit is handed to whichever share has the largest discarded fraction,
    * which is the standard rule and the one that moves each share least.
    *
+   * Equal counts get equal shares. They have equal fractions, so with fewer
+   * units left than equal counts the rule split them: four points each of
+   * eleven came out 37% and 36%, and the summary named one quadrant as
+   * holding the most. Each set of equal counts, largest fraction first, takes
+   * a unit apiece only when the units left cover all of it, and a set that
+   * would be split is passed over for the next. The next takes it only when
+   * that leaves its share no higher than any larger count's: a set passed
+   * over keeps its floor, and handing its unit on to a smaller count with the
+   * same floor read 271 points of a thousand as 28% beside 274 at 27%. When
+   * no set fits -- three equal thirds -- the shares add up to less than 100
+   * rather than read two equal counts as different, or a smaller count as the
+   * larger share.
+   *
    * An empty set of counts, or one summing to zero, comes back as zeroes:
    * there is no share of nothing, and the caller decides whether to say so.
    *
    * @param counts - The counts to apportion. Negative entries are not expected
    *   and are counted as given.
-   * @returns One whole percentage per count, summing to exactly 100 whenever
-   *   the counts sum to more than zero.
+   * @returns One whole percentage per count, equal for equal counts and never
+   *   larger for a smaller count, summing to 100 unless equal counts make that
+   *   impossible.
    */
   static sharePercentages(counts: readonly number[]): number[] {
     const total = counts.reduce((sum, count) => sum + count, 0);
@@ -271,23 +285,34 @@ export abstract class MathUtil {
       return counts.map(() => 0);
     }
 
-    const exact = counts.map(count => (count / total) * 100);
+    // Multiplied first, so a whole share is computed exactly: `7 / 100 * 100`
+    // is 7.000000000000001, and a fraction of noise would make it eligible
+    // for a unit below.
+    const exact = counts.map(count => (count * 100) / total);
     const shares = exact.map(share => Math.floor(share));
     let remaining = 100 - shares.reduce((sum, share) => sum + share, 0);
 
-    // Ties go to the earlier quadrant, which is the one the reader hears first
-    // -- an arbitrary rule, but a stable one, so the same chart always reads
-    // the same way.
-    const byRemainder = exact
-      .map((share, index) => ({ index, remainder: share - Math.floor(share) }))
-      .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+    // One entry per distinct count, holding every index with that count. A
+    // share with nothing discarded takes no unit: it is already exact.
+    const sets = [...new Set(counts)]
+      .map((count) => {
+        const indices = counts.flatMap((other, index) => (other === count ? [index] : []));
+        const share = exact[indices[0]];
+        return { count, indices, remainder: share - Math.floor(share) };
+      })
+      .filter(set => set.remainder > 0)
+      .sort((a, b) => b.remainder - a.remainder || a.indices[0] - b.indices[0]);
 
-    for (const { index } of byRemainder) {
-      if (remaining <= 0) {
-        break;
+    for (const { count, indices } of sets) {
+      const raised = shares[indices[0]] + 1;
+      const overtakes = counts.some((other, index) => other > count && shares[index] < raised);
+      if (indices.length > remaining || overtakes) {
+        continue;
       }
-      shares[index] += 1;
-      remaining -= 1;
+      for (const index of indices) {
+        shares[index] += 1;
+      }
+      remaining -= indices.length;
     }
 
     return shares;

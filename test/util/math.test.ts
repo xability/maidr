@@ -179,7 +179,29 @@ describe('MathUtil.sharePercentages', () => {
   });
 
   it('hands the odd unit to the largest discarded fraction', () => {
-    expect(MathUtil.sharePercentages([1, 1, 1])).toEqual([34, 33, 33]);
+    expect(MathUtil.sharePercentages([2, 1])).toEqual([67, 33]);
+  });
+
+  it('gives equal counts equal shares', () => {
+    // Four points each of eleven are 36.36% each. Handing the one spare unit
+    // to the first of them made one quadrant 37% and the other 36%.
+    expect(MathUtil.sharePercentages([0, 4, 3, 4])).toEqual([0, 36, 28, 36]);
+  });
+
+  it('never reads a smaller count as the larger share', () => {
+    // 27.4% twice, 27.1% and 18.1%, with one unit to spare. The two equal
+    // counts cannot share it, and handed on to the 271 it read 28% beside
+    // their 27%.
+    const shares = MathUtil.sharePercentages([274, 274, 271, 181]);
+
+    expect(shares).toEqual([27, 27, 27, 19]);
+  });
+
+  it('leaves the total short of a hundred rather than split equal counts', () => {
+    // Three equal thirds have no whole-percent shares that are equal and add
+    // up to 100.
+    expect(MathUtil.sharePercentages([1, 1, 1])).toEqual([33, 33, 33]);
+    expect(MathUtil.sharePercentages([3, 3, 3, 0])).toEqual([33, 33, 33, 0]);
   });
 
   it('keeps a zero count at zero rather than rounding it up', () => {
