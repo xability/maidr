@@ -229,7 +229,7 @@ Provide pre-computed quartile statistics. The adapter reads these directly and d
 </MaidrVictory>
 ```
 
-`<VictoryBoxPlot horizontal>` — or any box plot inside a `<VictoryChart horizontal>` — is announced as a horizontal box plot and read against the axes as drawn: the group off the y axis, the measurement off the x. The same is true of `<VictoryErrorBar>`. Neither payload changes with it; only the bar family exchanges its `x` and `y`.
+`<VictoryBoxPlot horizontal>` — or any box plot inside a `<VictoryChart horizontal>` — is announced as a horizontal box plot and read against the axes as drawn: the group off the y axis, the measurement off the x. The same is true of `<VictoryErrorBar>`. Neither payload's values change with it; only the bar family exchanges its `x` and `y`. A horizontal box plot is read from the box Victory draws lowest, its first datum, and Up moves up the chart.
 
 ### Candlestick
 

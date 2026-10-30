@@ -28,6 +28,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import {
   VictoryArea,
   VictoryBar,
+  VictoryBoxPlot,
   VictoryChart,
   VictoryErrorBar,
   VictoryGroup,
@@ -108,6 +109,116 @@ describe('victory stacked area', () => {
     const match = (path.getAttribute('d') ?? '').match(/M\s*-?[\d.]+[,\s]+(-?[\d.]+)/);
     return match ? Number.parseFloat(match[1]) : Number.NaN;
   }
+});
+
+describe('victory horizontal box plot', () => {
+  // The example page's summaries, drawn on their side: Victory puts A at the
+  // bottom of the chart and C at the top.
+  const BOXES = [
+    { x: 'A', min: 2, q1: 5, median: 8, q3: 12, max: 16 },
+    { x: 'B', min: 4, q1: 7, median: 10, q3: 14, max: 20 },
+    { x: 'C', min: 1, q1: 4, median: 6, q3: 9, max: 13 },
+  ];
+
+  /** The sections a reader steps through, by their column in the trace. */
+  const SECTIONS = { min: 1, q1: 2, q2: 3, q3: 4, max: 5 };
+
+  /** What the trace says and outlines at each box, in the order Up reads them. */
+  interface BoxReading {
+    group: string;
+    values: Record<keyof typeof SECTIONS, number>;
+    outlines: Record<keyof typeof SECTIONS, Element | null>;
+  }
+
+  function readBoxes(
+    chart: ReactElement = createElement(
+      VictoryChart,
+      { horizontal: true },
+      createElement(VictoryBoxPlot, { data: BOXES, boxWidth: 20 }),
+    ),
+  ): BoxReading[] {
+    const { doc, layers } = renderAndTag(chart);
+    expect(layers[0].type).toBe(TraceType.BOX);
+
+    return withPageDocument(doc.body, () => {
+      const trace = TraceFactory.create(layers[0]);
+      const readings = BOXES.map((_, row) => {
+        const reading = { group: '', values: {}, outlines: {} } as BoxReading;
+        for (const [section, col] of Object.entries(SECTIONS) as [keyof typeof SECTIONS, number][]) {
+          trace.moveToIndex(row, col);
+          const { state } = trace;
+          if (state.empty || state.type !== 'trace')
+            throw new Error('the box plot has no reading here');
+          reading.group = String(state.text.main.value);
+          reading.values[section] = Number(state.text.cross?.value);
+          const element = state.highlight.empty ? null : state.highlight.elements;
+          reading.outlines[section] = Array.isArray(element) ? element[0] : element;
+        }
+        return reading;
+      });
+      trace.dispose();
+      return readings;
+    });
+  }
+
+  /** Where a drawn part runs from left to right, and the screen y of its middle. */
+  function across(part: Element | null): { left: number; right: number; middle: number } {
+    const at = (name: string): number => Number(part?.getAttribute(name));
+    if (part?.tagName.toLowerCase() === 'rect') {
+      return { left: at('x'), right: at('x') + at('width'), middle: at('y') + at('height') / 2 };
+    }
+    return {
+      left: Math.min(at('x1'), at('x2')),
+      right: Math.max(at('x1'), at('x2')),
+      middle: (at('y1') + at('y2')) / 2,
+    };
+  }
+
+  it('outlines each section at the value announced for it', () => {
+    for (const { values, outlines } of readBoxes()) {
+      // Every section is outlined by a part the chart drew.
+      const parts = Object.values(outlines).map(across);
+      expect(parts.every(part => Number.isFinite(part.left) && Number.isFinite(part.middle))).toBe(true);
+      // The caps are drawn across the whisker, which runs along the page.
+      const min = across(outlines.min);
+      const max = across(outlines.max);
+      expect([min.right - min.left, max.right - max.left]).toEqual([0, 0]);
+      // Each part lies where its value does along the whisker's span: the
+      // caps at its ends, the 25% half of the box from the first quartile and
+      // the 75% half up to the third, the median line in between.
+      const along = (x: number): number => (x - min.left) / (max.left - min.left);
+      const share = (value: number): number => (value - values.min) / (values.max - values.min);
+      expect(along(across(outlines.q1).left)).toBeCloseTo(share(values.q1), 6);
+      expect(along(across(outlines.q2).left)).toBeCloseTo(share(values.q2), 6);
+      expect(along(across(outlines.q3).right)).toBeCloseTo(share(values.q3), 6);
+      // All on the one box.
+      expect(parts.every(part => Math.abs(part.middle - parts[0].middle) < 1e-6)).toBe(true);
+    }
+  });
+
+  it('reads a box plot turned by its own horizontal prop the same way', () => {
+    // `horizontal` on the box plot itself, in a chart that does not declare
+    // it, turns the boxes just as the chart's does.
+    const readings = readBoxes(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryBoxPlot, { data: BOXES, boxWidth: 20, horizontal: true }),
+    ));
+
+    expect(readings.map(reading => reading.group)).toEqual(['A', 'B', 'C']);
+    const parts = readings.flatMap(reading => Object.values(reading.outlines).map(across));
+    expect(parts.every(part => Number.isFinite(part.left) && Number.isFinite(part.middle))).toBe(true);
+  });
+
+  it('starts on the box drawn lowest and reads up the chart', () => {
+    const readings = readBoxes();
+
+    expect(readings.map(reading => reading.group)).toEqual(['A', 'B', 'C']);
+    // Screen y grows downward, so each next box sits higher up the page.
+    const heights = readings.map(reading => across(reading.outlines.q2).middle);
+    expect(heights[0]).toBeGreaterThan(heights[1]);
+    expect(heights[1]).toBeGreaterThan(heights[2]);
+  });
 });
 
 describe('victory error bar', () => {
