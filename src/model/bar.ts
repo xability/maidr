@@ -1,5 +1,5 @@
 import type { ExtremaTarget } from '@type/extrema';
-import type { BarPoint, MaidrLayer } from '@type/grammar';
+import type { BarPoint, FormatFunction, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
@@ -379,10 +379,26 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     const measured = values.flat().filter(isMeasured);
     const chartMin = MathUtil.safeMin(measured);
     const chartMax = MathUtil.safeMax(measured);
+    // In the value axis's declared format, as the table and the
+    // announcements read the bars; a bare number, which the description
+    // service rounds, when there is none.
+    const format = this.valueFormat;
+    const reading = (value: number): string | number => (format === null ? value : format(value));
     return [
-      { label: t(labels.min), value: isMeasured(chartMin) ? chartMin : missingText() },
-      { label: t(labels.max), value: isMeasured(chartMax) ? chartMax : missingText() },
+      { label: t(labels.min), value: isMeasured(chartMin) ? reading(chartMin) : missingText() },
+      { label: t(labels.max), value: isMeasured(chartMax) ? reading(chartMax) : missingText() },
     ];
+  }
+
+  /**
+   * The format the layer declares for the axis the bars' magnitudes are read
+   * on -- y for upright bars, x for bars drawn sideways -- or null when it
+   * declares none.
+   *
+   * @returns The value axis's format, or null
+   */
+  protected get valueFormat(): FormatFunction | null {
+    return this.authoredFormat(this.orientation === Orientation.VERTICAL ? 'y' : 'x');
   }
 
   /**
@@ -430,11 +446,15 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     // string and `DescriptionService` treats a string as finished display text
     // -- so a computed magnitude reached a reader as
     // `3333.3333333333335 at a`.
+    //
+    // The value reads in the value axis's declared format where there is one,
+    // as the two lines above it do.
+    const formatValue = this.valueFormat ?? defaultFormat;
     if (isMeasured(chartMax)) {
       stats.push({
         label: t('model.statLargest'),
         value: t('model.valueAtName', {
-          value: defaultFormat(chartMax),
+          value: formatValue(chartMax),
           name: nameAt(values.indexOf(chartMax)),
         }),
       });
@@ -443,7 +463,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       stats.push({
         label: t('model.statSmallest'),
         value: t('model.valueAtName', {
-          value: defaultFormat(chartMin),
+          value: formatValue(chartMin),
           name: nameAt(values.indexOf(chartMin)),
         }),
       });
