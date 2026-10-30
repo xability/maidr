@@ -41,6 +41,27 @@ describe('durationText', () => {
     expect(durationText(WEEK - 1e-7)).toBe('1 week');
   });
 
+  it('picks the unit on the span without its float noise', () => {
+    // Compared raw, a day a hair short read "24 hours", an hour "60 minutes"
+    // and a minute "60 seconds".
+    expect(durationText(DAY - 1e-7)).toBe('1 day');
+    expect(durationText(HOUR - 1e-7)).toBe('1 hour');
+    expect(durationText(MINUTE - 1e-7)).toBe('1 minute');
+    // One unit in the last place of a timestamp near 1.8e12, the noise two
+    // of today's timestamps leave when they are not whole milliseconds.
+    expect(durationText(MINUTE - 2 ** -12)).toBe('1 minute');
+    expect(durationText(DAY + 2 ** -12)).toBe('1 day');
+  });
+
+  it('reads the size of a span taken from edges listed high first', () => {
+    expect(durationText(-DAY)).toBe('1 day');
+  });
+
+  it('reads a span that is not a number as missing', () => {
+    expect(durationText(Number.NaN)).toBe('missing');
+    expect(durationText(Number.POSITIVE_INFINITY)).toBe('missing');
+  });
+
   it('reads the unit in the reader\'s language, singular for a count of one', () => {
     setLocale('de');
     expect(durationText(DAY)).toBe('1 Tag');

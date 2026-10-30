@@ -25,15 +25,20 @@ const UNITS: readonly DurationUnit[] = [
 
 /**
  * How many of a unit a span holds, without the float noise a subtraction of
- * two timestamps leaves: twelve significant figures, as the gantt keeps a
- * length.
+ * two timestamps leaves: a count within a millionth of a whole number is that
+ * number, the tolerance the histogram compares bin widths by. Twelve
+ * significant figures, which the gantt cleans a length to, are not enough
+ * here: timestamps near 1.8e12 carry noise in the fourth decimal of a
+ * millisecond, so a minute a hair short would read 60 seconds.
  *
  * @param ms - The span, in milliseconds
  * @param unit - The unit
  * @returns The count
  */
 function countOf(ms: number, unit: DurationUnit): number {
-  return Number((ms / unit.ms).toPrecision(12));
+  const count = ms / unit.ms;
+  const whole = Math.round(count);
+  return whole !== 0 && Math.abs(count - whole) <= Math.abs(whole) * 1e-6 ? whole : count;
 }
 
 /**
@@ -49,14 +54,24 @@ function countOf(ms: number, unit: DurationUnit): number {
  * There is no plural engine, so the count chooses between two messages, the
  * one for a count that reads exactly "1" and the one for any other.
  *
+ * The unit is chosen on the count without its float noise, as the count is
+ * read: a day a hair short from the subtraction of two timestamps is one day,
+ * not 24 hours. A span taken from edges listed high first comes out negative
+ * and is the same span, so it reads its size. One that is not a number reads
+ * as missing, as an extent with no ends does.
+ *
  * @param ms - The span, in milliseconds
  * @returns The span in words
  */
 export function durationText(ms: number): string {
-  const weeks = countOf(ms, WEEK);
+  if (!Number.isFinite(ms)) {
+    return t('common.missing');
+  }
+  const span = Math.abs(ms);
+  const weeks = countOf(span, WEEK);
   const unit = weeks >= 1 && Number.isInteger(weeks)
     ? WEEK
-    : UNITS.find(candidate => ms >= candidate.ms) ?? UNITS[UNITS.length - 1];
-  const count = defaultFormat(countOf(ms, unit));
+    : UNITS.find(candidate => countOf(span, candidate) >= 1) ?? UNITS[UNITS.length - 1];
+  const count = defaultFormat(countOf(span, unit));
   return t(count === '1' ? unit.one : unit.many, { count });
 }
