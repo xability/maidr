@@ -291,13 +291,14 @@ describe('the description reports what the figure is quoted by', () => {
   test('rounds the gap the way the rest of the dialog rounds', () => {
     // survfit's estimates arrive at full precision, so their difference is a
     // fifteen-digit number. Composed into the stat's text, it passed the
-    // dialog's rounding by and read "0.0475005732199 at 965".
+    // dialog's rounding by and read "0.0475005732199 at 965". Below 0.1 the
+    // dialog keeps three significant digits.
     const fitted: SurvivalPoint[][] = [
       [{ x: 0, y: 1, z: 'sex=1' }, { x: 965, y: 0.0506329113924051, z: 'sex=1' }],
       [{ x: 0, y: 1, z: 'sex=2' }, { x: 965, y: 0.0981334846123102, z: 'sex=2' }],
     ];
 
-    expect(survival(0, 0, fitted).description.stats.find(stat => stat.label === 'Separation at the end of shared follow-up')?.value).toBe('0.05 at 965, sex=2 above sex=1');
+    expect(survival(0, 0, fitted).description.stats.find(stat => stat.label === 'Separation at the end of shared follow-up')?.value).toBe('0.0475 at 965, sex=2 above sex=1');
   });
 
   test('says nothing when the times cannot be ordered', () => {
