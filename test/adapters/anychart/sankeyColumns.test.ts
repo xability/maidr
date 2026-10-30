@@ -113,4 +113,24 @@ describe('an anychart sankey', () => {
 
     expect(flowOptionsOf(chart)).toBeUndefined();
   });
+
+  it('leaves the columns to MAIDR when another text on the chart reads like a node', () => {
+    // A chart titled "Heat": the title cannot be told from the node's label.
+    const { chart } = drawSankey('sankey-title-clash', [...LABELS, ['Heat', 333, 32, 21.3, 18]]);
+
+    expect(flowOptionsOf(chart)).toBeUndefined();
+  });
+
+  it('leaves the columns to MAIDR when the labels are not centred on their nodes', () => {
+    // Drawn beside their nodes and left-aligned, the labels' centres move with
+    // their widths, and Electricity and Heat fall in different columns. Five
+    // columns cannot hold flows whose longest chain has three nodes.
+    const beside: typeof LABELS = LABELS.map(([name, x, y, width, height]) => {
+      const nodeRight = x < 100 ? 34.5 : x < 500 ? 387.5 : 740.5;
+      return name === 'Energy flow' ? [name, x, y, width, height] : [name, nodeRight + 4, y, width, height];
+    });
+    const { chart } = drawSankey('sankey-labels-beside', beside);
+
+    expect(flowOptionsOf(chart)).toBeUndefined();
+  });
 });

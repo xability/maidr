@@ -5640,13 +5640,16 @@ function buildSankeyLayer(
  * furthest feeder — put the example's Losses, fed only by Coal, in the middle
  * column beside Electricity and Heat, where AnyChart draws it in the last. So
  * the columns are read off the drawing: each node's label is drawn centred on
- * the node and names it, so the labels' centres place the nodes.
+ * the node and names it, so the labels' centres place the nodes. What they
+ * give is then checked against the flows (see {@link columnsFitFlows}).
  *
  * @param chart - The sankey, drawn
  * @param flows - Its flows, which between them name every node
  * @returns The columns, or `undefined` when some node's label is not found
- *   exactly once — the chart is not drawn yet, or its labels are off or
- *   reformatted — and MAIDR derives the columns itself
+ *   exactly once — the chart is not drawn yet, its labels are off or
+ *   reformatted, or another text on the chart reads the same — or when the
+ *   columns the labels give cannot be the chart's, and MAIDR derives the
+ *   columns itself
  */
 function readDrawnSankeyColumns(
   chart: AnyChartInstance,
@@ -5679,7 +5682,43 @@ function readDrawnSankeyColumns(
     else
       columns.push([node]);
   }
-  return columns.map(column => column.sort((a, b) => a.y - b.y).map(node => node.name));
+  const drawn = columns.map(column => column.sort((a, b) => a.y - b.y).map(node => node.name));
+  return columnsFitFlows(drawn, flows) ? drawn : undefined;
+}
+
+/**
+ * Whether columns read off a sankey's labels can be the ones it drew.
+ *
+ * A sankey draws each node at least one column past every node feeding it and
+ * leaves no column empty between the first and the last, so every flow runs
+ * from one column to a later one, and there are as many columns as the longest
+ * chain of flows has nodes. Labels moved off the middle of their nodes, which
+ * split a column by the widths of its labels, or measured in a transformed
+ * group, give columns that fail one of the two.
+ *
+ * @param columns - The columns, left to right
+ * @param flows - The flows between their nodes
+ * @returns True when the columns agree with the flows
+ */
+function columnsFitFlows(columns: string[][], flows: FlowPoint[]): boolean {
+  const columnOf = new Map<string, number>();
+  columns.forEach((column, c) => column.forEach(name => columnOf.set(name, c)));
+  const runsRight = flows.every(flow =>
+    (columnOf.get(String(flow.source)) ?? Number.POSITIVE_INFINITY)
+    < (columnOf.get(String(flow.target)) ?? Number.NEGATIVE_INFINITY));
+  if (!runsRight)
+    return false;
+
+  // Every flow runs right, so a node's feeders all sit in earlier columns and
+  // the longest chain to it is known by the time it is reached.
+  const chain = new Map<string, number>();
+  for (const name of columns.flat()) {
+    const fed = flows
+      .filter(flow => String(flow.target) === name)
+      .map(flow => chain.get(String(flow.source)) ?? 0);
+    chain.set(name, 1 + Math.max(0, ...fed));
+  }
+  return columns.length === Math.max(...chain.values());
 }
 
 /**
