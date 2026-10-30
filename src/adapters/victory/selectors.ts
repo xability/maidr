@@ -1,5 +1,6 @@
 import type { BoxSelector, CandlestickSelector, SegmentedPoint } from '@type/grammar';
 import type { VictoryLayerInfo } from './types';
+import { Orientation } from '@type/grammar';
 
 /**
  * Data-attribute prefix used to tag Victory-rendered SVG elements so that
@@ -213,7 +214,8 @@ export function tagLayerElements(
   // whisker line-pairs with no semantic classes — classify by geometry and
   // tag as a per-box BoxSelector[].
   if (victoryType === 'VictoryBoxPlot') {
-    return tagBoxElements(svg, attrName, claimed, scope, panelIndex);
+    const horizontal = layer.orientation === Orientation.HORIZONTAL;
+    return tagBoxElements(svg, attrName, claimed, scope, panelIndex, horizontal);
   }
 
   // Discrete-element charts: one <path role="presentation"> per data point.
@@ -645,18 +647,24 @@ function tagCandlestickElements(
  * Tags the elements of a VictoryBoxPlot layer.
  *
  * Victory renders boxes as component-grouped siblings with no semantic
- * classes: two `<rect>`s per box (q1 lower half, q3 upper half), a median
- * `<line>`, and whisker `<line>` pairs (vertical stem + horizontal cap). We
- * classify by geometry:
- *   - Group rects by centre-x → one box per bucket; the larger-y rect is q1,
- *     the smaller-y rect is q3. Their shared edge is the median y.
- *   - Among horizontal lines within a box's x-range: one inside the box
- *     [q3.top, q1.bottom] is the median; above the box is the max cap; below
- *     is the min cap. (Vertical whisker stems are ignored.)
+ * classes: two `<rect>`s per box (the halves either side of the median), a
+ * median `<line>`, and whisker `<line>` pairs (a stem along the box and a cap
+ * across it). We classify by geometry, measured in each box's own terms (see
+ * {@link BoxSpan}), so a box drawn on its side reads as an upright one does:
+ *   - Group rects by centre across the boxes → one box per bucket; the half
+ *     lower in value is q1, the higher q3. Their shared edge is the median.
+ *   - Among the lines drawn across a box, within its breadth: one inside the
+ *     box is the median; beyond its upper end is the max cap; beyond its lower
+ *     end is the min cap. (Whisker stems, which run along it, are ignored.)
  *
- * Returns one {@link BoxSelector} per box. Unmatched sections are emitted as
- * selectors that match nothing, so highlighting degrades gracefully per
- * section rather than mis-highlighting.
+ * Only upright boxes were measured until this read `horizontal`. On their
+ * side, the two halves of a box sit side by side rather than one above the
+ * other, so a box's halves came out in buckets of one and the layer had no
+ * highlight at all.
+ *
+ * Returns one {@link BoxSelector} per box, in data order. Unmatched sections
+ * are emitted as selectors that match nothing, so highlighting degrades
+ * gracefully per section rather than mis-highlighting.
  */
 function tagBoxElements(
   svg: SVGElement,
@@ -664,71 +672,71 @@ function tagBoxElements(
   claimed: Set<Element>,
   scope: string,
   panelIndex: number | null,
+  horizontal: boolean,
 ): BoxSelector[] | undefined {
   const boxIndexAttr = victoryAttr(panelIndex, 'bidx');
   const boxPartAttr = victoryAttr(panelIndex, 'bpart');
 
   const rects = Array.from(
     svg.querySelectorAll('rect[role="presentation"]'),
-  ).filter(el => !claimed.has(el) && !isMaidrOwned(el)) as SVGElement[];
+  ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
 
   // Each box is two rects (q1/q3 halves); bail if the shape is unexpected.
   if (rects.length === 0 || rects.length % 2 !== 0) {
     return undefined;
   }
 
-  // Group rects by rounded centre-x → one bucket per box.
-  const byX = new Map<number, SVGElement[]>();
+  // Group rects by rounded centre across the boxes → one bucket per box.
+  const byCentre = new Map<number, { rect: Element; span: BoxSpan }[]>();
   for (const rect of rects) {
-    const x = num(rect.getAttribute('x'));
-    const w = num(rect.getAttribute('width'));
-    if (x === null || w === null) {
+    const span = rectSpan(rect, horizontal);
+    if (span === null) {
       return undefined;
     }
-    const cx = Math.round(x + w / 2);
-    const bucket = byX.get(cx);
+    const centre = Math.round((span.acrossFrom + span.acrossTo) / 2);
+    const bucket = byCentre.get(centre);
     if (bucket) {
-      bucket.push(rect);
+      bucket.push({ rect, span });
     } else {
-      byX.set(cx, [rect]);
+      byCentre.set(centre, [{ rect, span }]);
     }
   }
 
-  const boxCenters = Array.from(byX.keys()).sort((a, b) => a - b);
-  const horizontalLines = Array.from(
-    svg.querySelectorAll('line[role="presentation"]'),
-  ).filter(el => !claimed.has(el) && !isMaidrOwned(el) && isHorizontalLine(el));
+  const boxCentres = Array.from(byCentre.keys()).sort((a, b) => a - b);
+  const crossLines = Array.from(svg.querySelectorAll('line[role="presentation"]'))
+    .filter(el => !claimed.has(el) && !isMaidrOwned(el))
+    .map(line => ({ line, span: lineSpan(line, horizontal) }))
+    .filter((cross): cross is { line: Element; span: BoxSpan } =>
+      cross.span !== null && runsAcross(cross.span));
 
   const selectors: BoxSelector[] = [];
 
-  for (let i = 0; i < boxCenters.length; i++) {
-    const bucket = byX.get(boxCenters[i])!;
-    if (bucket.length !== 2) {
+  for (let i = 0; i < boxCentres.length; i++) {
+    const bucket = byCentre.get(boxCentres[i]);
+    if (!bucket || bucket.length !== 2) {
       return undefined;
     }
 
-    // Smaller y = q3 (upper half); larger y = q1 (lower half).
-    bucket.sort((a, b) => num(a.getAttribute('y'))! - num(b.getAttribute('y'))!);
-    const [q3Rect, q1Rect] = bucket;
-    const boxTop = num(q3Rect.getAttribute('y'))!;
-    const boxBottom = num(q1Rect.getAttribute('y'))! + num(q1Rect.getAttribute('height'))!;
-    const xMin = num(q1Rect.getAttribute('x'))!;
-    const xMax = xMin + num(q1Rect.getAttribute('width'))!;
+    // The half lower in value is q1, the higher q3.
+    bucket.sort((a, b) => a.span.valueFrom - b.span.valueFrom);
+    const [q1, q3] = bucket;
+    const low = q1.span.valueFrom;
+    const high = q3.span.valueTo;
 
-    tagBoxPart(q1Rect, attrName, boxIndexAttr, boxPartAttr, i, 'q1', claimed);
-    tagBoxPart(q3Rect, attrName, boxIndexAttr, boxPartAttr, i, 'q3', claimed);
+    tagBoxPart(q1.rect, attrName, boxIndexAttr, boxPartAttr, i, 'q1', claimed);
+    tagBoxPart(q3.rect, attrName, boxIndexAttr, boxPartAttr, i, 'q3', claimed);
 
-    for (const line of horizontalLines) {
-      const geom = horizontalLineGeom(line);
-      if (!geom || geom.left < xMin - 2 || geom.right > xMax + 2) {
+    for (const { line, span } of crossLines) {
+      if (span.acrossFrom < q1.span.acrossFrom - 2 || span.acrossTo > q1.span.acrossTo + 2) {
         continue;
       }
-      if (geom.y >= boxTop - 1 && geom.y <= boxBottom + 1) {
+      const at = (span.valueFrom + span.valueTo) / 2;
+      if (at >= low - 1 && at <= high + 1) {
         tagBoxPart(line, attrName, boxIndexAttr, boxPartAttr, i, 'q2', claimed); // median, inside the box
-      } else if (geom.y < boxTop) {
-        tagBoxPart(line, attrName, boxIndexAttr, boxPartAttr, i, 'max', claimed); // cap above the box
-      } else if (geom.y > boxBottom) {
-        tagBoxPart(line, attrName, boxIndexAttr, boxPartAttr, i, 'min', claimed); // cap below the box
+      } else if (at > high) {
+        tagBoxPart(line, attrName, boxIndexAttr, boxPartAttr, i, 'max', claimed); // cap beyond the upper end
+      } else if (at < low) {
+        tagBoxPart(line, attrName, boxIndexAttr, boxPartAttr, i, 'min', claimed); // cap beyond the lower end
       }
     }
 
@@ -746,6 +754,72 @@ function tagBoxElements(
   }
 
   return selectors.length > 0 ? selectors : undefined;
+}
+
+/**
+ * Where a box plot mark lies, in its box's own terms: `value` grows with the
+ * value the mark is drawn at, and `across` with the order of the data the
+ * boxes are drawn from.
+ *
+ * An upright box's values run up the page, where screen y falls, and Victory
+ * draws upright boxes left to right in data order. A box on its side runs its
+ * values rightward, and Victory stacks those boxes from the bottom up. So
+ * `value` is screen y negated and `across` is x for the first, and the other
+ * way round for the second.
+ */
+interface BoxSpan {
+  valueFrom: number;
+  valueTo: number;
+  acrossFrom: number;
+  acrossTo: number;
+}
+
+/**
+ * A screen-space box as a {@link BoxSpan}.
+ *
+ * @param left       - Its smallest x
+ * @param right      - Its largest x
+ * @param top        - Its smallest screen y
+ * @param bottom     - Its largest screen y
+ * @param horizontal - Whether the boxes are drawn on their side
+ * @returns The same extent in the box's own terms
+ */
+function boxSpan(left: number, right: number, top: number, bottom: number, horizontal: boolean): BoxSpan {
+  return horizontal
+    ? { valueFrom: left, valueTo: right, acrossFrom: -bottom, acrossTo: -top }
+    : { valueFrom: -bottom, valueTo: -top, acrossFrom: left, acrossTo: right };
+}
+
+/** The {@link BoxSpan} of a `<rect>`, or null when its geometry is absent. */
+function rectSpan(rect: Element, horizontal: boolean): BoxSpan | null {
+  const x = num(rect.getAttribute('x'));
+  const y = num(rect.getAttribute('y'));
+  const width = num(rect.getAttribute('width'));
+  const height = num(rect.getAttribute('height'));
+  if (x === null || y === null || width === null || height === null) {
+    return null;
+  }
+  return boxSpan(x, x + width, y, y + height, horizontal);
+}
+
+/** The {@link BoxSpan} of a `<line>`, or null when its endpoints are absent. */
+function lineSpan(line: Element, horizontal: boolean): BoxSpan | null {
+  const x1 = num(line.getAttribute('x1'));
+  const x2 = num(line.getAttribute('x2'));
+  const y1 = num(line.getAttribute('y1'));
+  const y2 = num(line.getAttribute('y2'));
+  if (x1 === null || x2 === null || y1 === null || y2 === null) {
+    return null;
+  }
+  return boxSpan(Math.min(x1, x2), Math.max(x1, x2), Math.min(y1, y2), Math.max(y1, y2), horizontal);
+}
+
+/**
+ * True when a line runs across the boxes rather than along their values: a
+ * cap or a median, not a whisker stem.
+ */
+function runsAcross(span: BoxSpan): boolean {
+  return span.valueTo - span.valueFrom <= span.acrossTo - span.acrossFrom;
 }
 
 // ---------------------------------------------------------------------------
@@ -792,28 +866,4 @@ function lineMidY(line: Element): number | null {
     return null;
   }
   return (y1 + y2) / 2;
-}
-
-/** True when a `<line>` is (near-)horizontal. */
-function isHorizontalLine(line: Element): boolean {
-  const y1 = num(line.getAttribute('y1'));
-  const y2 = num(line.getAttribute('y2'));
-  const x1 = num(line.getAttribute('x1'));
-  const x2 = num(line.getAttribute('x2'));
-  if (y1 === null || y2 === null || x1 === null || x2 === null) {
-    return false;
-  }
-  return Math.abs(y1 - y2) <= Math.abs(x1 - x2);
-}
-
-/** Returns the left/right x-extent and y of a horizontal `<line>`. */
-function horizontalLineGeom(line: Element): { left: number; right: number; y: number } | null {
-  const x1 = num(line.getAttribute('x1'));
-  const x2 = num(line.getAttribute('x2'));
-  const y1 = num(line.getAttribute('y1'));
-  const y2 = num(line.getAttribute('y2'));
-  if (x1 === null || x2 === null || y1 === null || y2 === null) {
-    return null;
-  }
-  return { left: Math.min(x1, x2), right: Math.max(x1, x2), y: (y1 + y2) / 2 };
 }
