@@ -573,6 +573,8 @@ describe('createLabelHighlights', () => {
     const mark = document.getElementById('wedge') as unknown as SVGElement;
     const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
     const outlined = document.querySelector('#wedge-label tspan') as Element;
+    // jsdom's CSS parser drops colour functions it does not know, so the
+    // value Chromium reports is handed back by a stand-in for the style.
     const computed = window.getComputedStyle.bind(window);
     jest.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
       const style = computed(element, pseudo);
@@ -584,6 +586,33 @@ describe('createLabelHighlights', () => {
     const [copy] = Svg.createLabelHighlights(mark, highlight, BLACK_AND_WHITE);
 
     expect((copy.querySelector('tspan') as SVGElement).style.getPropertyValue('stroke')).toBe('#000000');
+  });
+
+  it('draws the outline black round white glyphs when the reader\'s two colours are the same', () => {
+    // With both high contrast colours set to white, the only colour on offer
+    // for the outline was the glyphs' own, and the letters filled in.
+    renderDiagram('<path id="wedge" data-box="0,0,100,60" style="fill: #00e272"></path>'
+      + '<text id="wedge-label" data-box="30,20,40,12" style="fill: #000000">'
+      + '<tspan class="highcharts-text-outline" style="fill: #ffffff; stroke: #ffffff; stroke-width: 2px">Renewable</tspan>'
+      + 'Renewable</text>');
+    const mark = document.getElementById('wedge') as unknown as SVGElement;
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    const [copy] = Svg.createLabelHighlights(mark, highlight, ['#ffffff', '#ffffff']);
+
+    expect(copy.style.getPropertyValue('fill')).toBe('#ffffff');
+    expect((copy.querySelector('tspan') as SVGElement).style.getPropertyValue('stroke')).toBe('#000000');
+  });
+
+  it('draws a stroke the label\'s own text draws in the other colour too', () => {
+    renderDiagram('<path id="wedge" data-box="0,0,100,60" style="fill: #00e272"></path>'
+      + '<text id="wedge-label" data-box="30,20,40,12" style="fill: #000000; stroke: #ffffff; stroke-width: 1px">Renewable</text>');
+    const mark = document.getElementById('wedge') as unknown as SVGElement;
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    const [copy] = Svg.createLabelHighlights(mark, highlight, BLACK_AND_WHITE);
+
+    expect([copy.style.getPropertyValue('fill'), copy.style.getPropertyValue('stroke')]).toEqual(['#ffffff', '#000000']);
   });
 
   it('leaves a label that already reads on the highlight', () => {

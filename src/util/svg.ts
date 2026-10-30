@@ -1031,10 +1031,7 @@ export abstract class Svg {
     // span, or a stroke painted under the text -- is redrawn in the other
     // colour. Left in its own, a white outline round the white glyphs of a
     // copy filled the letters in, and the label was a white smear.
-    const outline = colors.reduce(
-      (chosen, color) => (this.contrastBetween(color, best) > this.contrastBetween(chosen, best) ? color : chosen),
-      best,
-    );
+    const outline = this.outlineColor(best, colors);
 
     return labels.map((label) => {
       const copy = this.markOwned(label.cloneNode(true) as SVGElement);
@@ -1043,17 +1040,43 @@ export abstract class Svg {
       }
       copy.setAttribute('aria-hidden', 'true');
       copy.style.pointerEvents = 'none';
-      // The copy's spans are the label's own, in the same order.
+      // The copy's spans are the label's own, in the same order: a deep
+      // clone keeps them so.
       const drawn = [label, ...Array.from(label.querySelectorAll<SVGElement>('tspan, textPath'))];
       [copy, ...Array.from(copy.querySelectorAll<SVGElement>('tspan, textPath'))].forEach((glyphs, at) => {
         glyphs.style.setProperty(Constant.FILL, best, 'important');
-        if (this.drawsOutline(drawn[at])) {
+        const source = drawn[at];
+        if (source !== undefined && this.drawsOutline(source)) {
           glyphs.style.setProperty(Constant.STROKE, outline, 'important');
         }
       });
       label.insertAdjacentElement(Constant.AFTER_END, copy);
       return copy;
     });
+  }
+
+  /**
+   * The colour a label copy's outline is drawn in: whichever of `colors`
+   * contrasts most with its glyphs, or, where none contrasts at all, black
+   * round light glyphs and white round dark ones.
+   *
+   * A reader can set both high contrast colours to the same one, and then
+   * the only colour on offer was the glyphs' own: the outline filled the
+   * letters in, as Highcharts' white outline did.
+   *
+   * @param glyphs - The colour the copy's glyphs are drawn in
+   * @param colors - The colours a label may take
+   * @returns The outline's colour
+   */
+  private static outlineColor(glyphs: string, colors: readonly string[]): string {
+    const other = colors.reduce(
+      (chosen, color) => (this.contrastBetween(color, glyphs) > this.contrastBetween(chosen, glyphs) ? color : chosen),
+      glyphs,
+    );
+    if (this.contrastBetween(other, glyphs) > 1) {
+      return other;
+    }
+    return this.contrastBetween(glyphs, '#ffffff') > this.contrastBetween(glyphs, '#000000') ? '#ffffff' : '#000000';
   }
 
   /**
