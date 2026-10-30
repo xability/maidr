@@ -497,6 +497,12 @@ export interface HighchartsAxis {
     /** Declares {@link HighchartsAxis.reversed}; read as its fallback. */
     reversed?: boolean;
     /**
+     * Whether the first series of a stack is drawn at the top of it rather
+     * than at its base. Highcharts defaults it to true on a y axis, so a
+     * stacked chart that never mentions it draws its first series on top.
+     */
+    reversedStacks?: boolean;
+    /**
      * Reference lines drawn across the plot — the significance cutoff of a
      * volcano or Manhattan plot, which is the only place either chart states
      * where its threshold is.

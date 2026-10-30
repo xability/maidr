@@ -1219,11 +1219,38 @@ function nameSegmentedCells(
 }
 
 /**
+ * The series of a stacked group in the order they are stacked, the one at the
+ * baseline first.
+ *
+ * `SegmentedTrace` reads its first row as the segment on the baseline: Up
+ * moves to the next row and ends on the total above the stack. Highcharts
+ * stacks the other way round unless told otherwise — `yAxis.reversedStacks`
+ * defaults to true, which draws the first series at the top of each stack and
+ * the last at its base — so a group emitted in declared order was walked
+ * upside down, Up moving to the segment drawn below. A chart that turns
+ * `reversedStacks` off stacks in declared order, and is read in it.
+ *
+ * The first series' y axis decides for the whole group. Highcharts keeps a
+ * stack per y axis, so series that stack together share one; a group gathered
+ * from two axes is not one stack, and no order read from either axis would
+ * make it one.
+ *
+ * @param seriesList - The group's series, in declared order
+ * @returns The same series, baseline first
+ */
+function inStackOrder(seriesList: HighchartsSeries[]): HighchartsSeries[] {
+  return seriesList[0]?.yAxis?.options?.reversedStacks === false
+    ? seriesList
+    : [...seriesList].reverse();
+}
+
+/**
  * Converts multiple bar/column series with `stacking: 'normal'` or `'percent'`
  * into a MAIDR segmented (stacked/normalized) layer.
  *
  * MAIDR expects `SegmentedPoint[][]` where each inner array is one group
- * (one fill/category level) and points within share x-axis categories.
+ * (one fill/category level) and points within share x-axis categories. The
+ * groups run baseline first, the order {@link inStackOrder} puts them in.
  */
 function convertStackedBar(
   seriesList: HighchartsSeries[],
@@ -1232,9 +1259,10 @@ function convertStackedBar(
   traceType: TraceType.STACKED | TraceType.NORMALIZED,
 ): MaidrLayer {
   // Each series is one "group" (fill level). Points within share x-categories.
-  const rows = buildSegmentedRows(seriesList, orientation, traceType);
+  const stack = inStackOrder(seriesList);
+  const rows = buildSegmentedRows(stack, orientation, traceType);
   const { data, selectors }
-    = nameSegmentedCells(seriesList, containerId, orientation, rows);
+    = nameSegmentedCells(stack, containerId, orientation, rows);
 
   const first = seriesList[0];
 
