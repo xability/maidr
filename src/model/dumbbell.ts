@@ -479,61 +479,79 @@ export class DumbbellTrace extends AbstractTrace {
   }
 
   /**
-   * Offers the biggest mover in each direction as extrema targets.
+   * Offers the chart's largest and smallest values as extrema targets, at
+   * whichever end of whichever pair holds them.
    *
-   * "Extreme" on a dumbbell is the largest change, not the largest value: the
-   * chart is drawn to show which rows moved and which way, and the tallest
-   * dot is a fact about the category rather than about the comparison. Ranking
-   * both under one menu would leave the reader unable to tell which sense they
-   * had just jumped to.
+   * `]` is Go to Maximum Value and `[` Go to Minimum Value on every chart. A
+   * dumbbell used to rank its rows by change instead, so `]` landed on the
+   * finishing end of the largest rise and announced it like any other value:
+   * on a chart of life expectancies, Korea's 83.5 for the maximum while
+   * Japan's 84.6, the description's `Max value`, was higher. On a chart where
+   * every row rose, `[` went to the smallest rise, which can be the highest
+   * value on the chart. The largest rise and fall are still named in the
+   * description.
    *
-   * Both land on the finishing end, where the change has completed.
+   * Every end holding the value is a target, in the order the categories are
+   * drawn, so a value several ends share is walked by pressing again.
    *
-   * @returns The largest rise and the largest fall, when the chart has them
+   * @returns The ends holding the largest value, then those holding the
+   *   smallest, when the chart has a value at all
    */
   public override getExtremaTargets(): ExtremaTarget[] {
-    const largest = this.extremeChange('max');
-    const smallest = this.extremeChange('min');
-    if (largest === null || smallest === null) {
+    const ends = this.points
+      .flatMap((_point, col) => ENDS.map((_end, row) => ({
+        value: this.endValues[row][col],
+        row,
+        col,
+      })))
+      .filter(({ value }) => isMeasured(value));
+    if (ends.length === 0) {
       return [];
     }
 
-    const targets: ExtremaTarget[] = [{
-      ...extremumAt(rankLabel('max', largest.change), this.points[largest.index].x),
-      value: largest.change,
-      pointIndex: largest.index,
-      segment: 'end',
-      type: 'max',
-      navigationType: 'point',
-      xValue: this.points[largest.index].x,
-    }];
+    const values = ends.map(({ value }) => value);
+    const highest = MathUtil.safeMax(values);
+    const lowest = MathUtil.safeMin(values);
+    const targetAt = (
+      { value, row, col }: { value: number; row: number; col: number },
+      type: 'max' | 'min',
+    ): ExtremaTarget => ({
+      ...extremumAt(
+        t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+        this.points[col].x,
+        this.endLabels[ENDS[row]],
+      ),
+      value,
+      pointIndex: col,
+      segment: ENDS[row],
+      type,
+      groupIndex: row,
+      categoryIndex: col,
+      navigationType: 'group',
+      xValue: this.points[col].x,
+    });
 
-    // A chart that moved one way only, or one whose rows all moved equally,
-    // has a single extreme. Naming the same row as both would report a spread
-    // the chart does not have.
-    if (smallest.index !== largest.index) {
-      targets.push({
-        ...extremumAt(rankLabel('min', smallest.change), this.points[smallest.index].x),
-        value: smallest.change,
-        pointIndex: smallest.index,
-        segment: 'end',
-        type: 'min',
-        navigationType: 'point',
-        xValue: this.points[smallest.index].x,
-      });
+    const targets = ends
+      .filter(({ value }) => value === highest)
+      .map(end => targetAt(end, 'max'));
+    // A chart whose ends all hold one value has a single extreme. Naming the
+    // same ends as both would report a spread the chart does not have.
+    if (lowest !== highest) {
+      targets.push(...ends
+        .filter(({ value }) => value === lowest)
+        .map(end => targetAt(end, 'min')));
     }
-
     return targets;
   }
 
   /**
-   * Moves the cursor to a chosen extrema target, on the finishing end.
+   * Moves the cursor to a chosen extrema target, on the end holding it.
    *
    * @param target - The extrema target to navigate to
    */
   public override navigateToExtrema(target: ExtremaTarget): void {
-    this.row = ENDS.indexOf('end');
-    this.col = target.pointIndex;
+    this.row = target.groupIndex ?? ENDS.indexOf('end');
+    this.col = target.categoryIndex ?? target.pointIndex;
     this.finalizeNavigation();
   }
 
