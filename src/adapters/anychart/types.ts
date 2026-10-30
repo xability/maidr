@@ -72,6 +72,11 @@ export interface AnyChartMarkers {
    * With a boolean argument, enables or disables marker rendering.
    */
   enabled: ((value: boolean) => AnyChartMarkers) & (() => boolean);
+  /**
+   * The z-index the markers are drawn at. AnyChart sets it just above the
+   * series' own unless the chart sets it.
+   */
+  zIndex?: () => number;
 }
 
 /** An individual series within a chart. */
@@ -107,6 +112,11 @@ export interface AnyChartSeries {
    * nothing, its markers included.
    */
   enabled?: () => boolean;
+  /**
+   * The series' z-index, which AnyChart sets by series type and order unless
+   * the chart sets it. Layers are written into the SVG in z-index order.
+   */
+  zIndex?: () => number;
 }
 
 /**

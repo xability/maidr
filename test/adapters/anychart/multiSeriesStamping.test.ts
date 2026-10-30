@@ -10,8 +10,9 @@
  *
  * The shapes of chart exercised here break the split in different directions:
  * a combined chart whose first series is not line-like at all, series of
- * unequal length, series whose marks share every x position, and a series
- * that draws no marks at all.
+ * unequal length, series whose marks share every x position, a series that
+ * draws no marks at all, and a line or area beside a marker series, whose
+ * layers AnyChart writes in z-index order rather than series order.
  */
 
 import type {
@@ -337,6 +338,78 @@ describe('bindAnyChart (multi-series scatter stamping)', () => {
 
     expect(stamps(markers, POINT_ATTR))
       .toEqual(['0-0', '0-1', '0-2', '2-0', '2-1', '2-2']);
+
+    cleanUp(container);
+  });
+});
+
+describe('bindAnyChart (a line or area beside a marker series)', () => {
+  // Measured on AnyChart 8.13: layers are written in z-index order. A marker
+  // or area series is drawn at 30 and a line at 31, plus 0.00001 for each
+  // series added before it, and a line or area draws its markers 0.000012
+  // above itself.
+  const at = (zIndex: number): Partial<AnyChartSeries> => ({ zIndex: () => zIndex });
+  const withMarkersAt = (zIndex: number, markersZIndex: number): Partial<AnyChartSeries> => ({
+    zIndex: () => zIndex,
+    markers: () => ({ enabled: () => true, zIndex: () => markersZIndex }) as unknown as AnyChartMarkers,
+  });
+  const ofSeries = (s: number): string[] => [0, 1, 2, 3].map(i => `${s}-${i}`);
+
+  it('gives a line or an area and a marker series each their own marks', () => {
+    // The marker series' points are drawn first on each of these charts, and
+    // the line or area took them for its markers.
+    const charts: Array<[string, AnyChartSeries[]]> = [
+      ['line-then-marker', [
+        createSeries('line', 4, 'Trend', withMarkersAt(31, 31.000012)),
+        createSeries('marker', 4, 'Measured', at(30.00001)),
+      ]],
+      ['marker-then-line', [
+        createSeries('marker', 4, 'Measured', at(30)),
+        createSeries('line', 4, 'Trend', withMarkersAt(31.00001, 31.000022)),
+      ]],
+      ['area-then-marker', [
+        createSeries('area', 4, 'Visits', withMarkersAt(30, 30.000012)),
+        createSeries('marker', 4, 'Measured', at(30.00001)),
+      ]],
+    ];
+    for (const [id, series] of charts) {
+      const { container, markers } = createRenderedChart(id, [10, 20, 30, 40, 10, 20, 30, 40], [], [4, 4]);
+      const points = markers.slice(0, 4);
+      const lineMarkers = markers.slice(4);
+      const line = series.findIndex(s => s.seriesType() !== 'marker');
+
+      bindAnyChart(createChart(series, container));
+
+      expect(stamps(lineMarkers, LINE_ATTR)).toEqual(ofSeries(line));
+      expect(stamps(points, POINT_ATTR)).toEqual(ofSeries(1 - line));
+      expect(stamps(points, LINE_ATTR)).toEqual([null, null, null, null]);
+      expect(stamps(lineMarkers, POINT_ATTR)).toEqual([null, null, null, null]);
+
+      cleanUp(container);
+    }
+  });
+
+  it('follows a z-index that raises a marker series above a line', () => {
+    // At `zIndex(40)` the marker series is drawn after the line's markers,
+    // and it took them for its points.
+    const { container, markers } = createRenderedChart(
+      'marker-raised',
+      [10, 20, 30, 40, 10, 20, 30, 40],
+      [],
+      [4, 4],
+    );
+    const chart = createChart(
+      [
+        createSeries('line', 4, 'Trend', withMarkersAt(31, 31.000012)),
+        createSeries('marker', 4, 'Measured', at(40)),
+      ],
+      container,
+    );
+
+    bindAnyChart(chart);
+
+    expect(stamps(markers, LINE_ATTR)).toEqual([...ofSeries(0), null, null, null, null]);
+    expect(stamps(markers, POINT_ATTR)).toEqual([null, null, null, null, ...ofSeries(1)]);
 
     cleanUp(container);
   });
