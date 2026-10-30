@@ -61,3 +61,16 @@ describe('format() without a preceding update()', () => {
     expect(text.format(new BarTrace(plain).getStateAt(0, 0))).toBe('Quarter is Q1, Share is 57.14');
   });
 });
+
+describe('a layer that carries no id', () => {
+  test('announces its numbers rounded, as an axis without a format does', () => {
+    // `examples/multi-panel.html` gives its layers no `id`. The text service
+    // formats a value through the layer the state names, and with no id to
+    // name it fell back to `String(value)`: "Values is 9.09032520665641",
+    // where the dialog's table said 9.09.
+    const layer = { ...barLayer('unused'), id: undefined } as unknown as MaidrLayer;
+    const text = new TextService(createMockNotificationService(), new FormatterService(figureOf(layer)));
+
+    expect(text.format(new BarTrace(layer).getStateAt(0, 0))).toBe('Quarter is Q1, Share is 57.14');
+  });
+});

@@ -438,7 +438,10 @@ export class LineTrace extends AbstractTrace {
       return null;
     }
     if (numeric) {
-      return MathUtil.spannedOrMissing(min, max);
+      // Through the axis's own format where the layer declares one, as the
+      // table and the announcements read the same x: a date axis read
+      // "18,628 to 18,717", matplotlib's day numbers, over a table of dates.
+      return MathUtil.spannedOrMissing(min, max, this.authoredFormat('x') ?? defaultFormat);
     }
 
     // A `Set` keeps first-insertion order and re-adding an x does not move it,
@@ -515,11 +518,17 @@ export class LineTrace extends AbstractTrace {
     // silently, so the two stats vanished with nothing said in their place.
     // `missing` is the word the announcements already use, and the shape
     // `AbstractBarPlot.rangeStats` reports it in.
+    //
+    // Read through the y axis's own format where the layer declares one, as
+    // the table and the announcements are; a bare number otherwise, which the
+    // description service rounds.
     const chartMin = MathUtil.safeMin(this.min);
     const chartMax = MathUtil.safeMax(this.max);
+    const formatY = this.authoredFormat('y');
+    const reading = (value: number): string | number => (formatY === null ? value : formatY(value));
     stats.push(
-      { label: t('model.statMinValue'), value: isMeasured(chartMin) ? chartMin : missingText() },
-      { label: t('model.statMaxValue'), value: isMeasured(chartMax) ? chartMax : missingText() },
+      { label: t('model.statMinValue'), value: isMeasured(chartMin) ? reading(chartMin) : missingText() },
+      { label: t('model.statMaxValue'), value: isMeasured(chartMax) ? reading(chartMax) : missingText() },
     );
 
     // How much of the chart has no reading. A gap is not a zero (#925), and

@@ -2,6 +2,7 @@ import type { MaidrLayer, SurvivalPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import type { RotorFilterUnit } from './abstract';
+import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { StepTrace } from './step';
 
@@ -503,11 +504,16 @@ export class SurvivalTrace extends StepTrace {
             high: this.groupNameAt(separation.high),
             low: this.groupNameAt(separation.low),
           });
+      //
+      // Composed here, so rounded here: the description service rounds a bare
+      // number and passes a string through, and the gap -- a difference of
+      // two full-precision estimates -- read "0.0475005732199" beside stats
+      // rounded to two decimals. The time reads as the x axis reads it.
       stats.push({
         label: t('model.statSeparationAtEnd'),
         value: t('model.survivalSeparation', {
-          gap: separation.gap,
-          at: separation.at,
+          gap: defaultFormat(separation.gap),
+          at: (this.authoredFormat('x') ?? defaultFormat)(separation.at),
           between,
         }),
       });
