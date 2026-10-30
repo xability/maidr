@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import type { ChoroplethPoint, Maidr, MaidrLayer } from '@type/grammar';
+import type { ChoroplethPoint, HistogramPoint, Maidr, MaidrLayer } from '@type/grammar';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import * as maidrD3 from '@adapters/d3';
@@ -139,5 +139,16 @@ describe('the d3 example pages', () => {
     for (const [index, bar] of bars.entries()) {
       expect(Number(bar.getAttribute('width'))).toBeCloseTo(points[index].x * scale, 6);
     }
+  });
+
+  it('bind the histogram\'s twenty drawn bins and no empty one past the end', () => {
+    // A threshold at the end of the domain made d3.bin add a 21st bin from
+    // 100 to 100, drawn 0 px wide and read as "100 through 100".
+    const spec = runPage('d3-bindhistogram.html');
+    const bins = onlyLayer(spec).data as HistogramPoint[];
+
+    expect(bins).toHaveLength(20);
+    expect(bins.filter(bin => !(bin.xMin < bin.xMax))).toEqual([]);
+    expect(bins.at(-1)?.xMax).toBe(100);
   });
 });
