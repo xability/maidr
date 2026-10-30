@@ -607,7 +607,7 @@ describe('tagLayerElements: error bar', () => {
     };
   }
 
-  it('tags exactly one whisker per sample', () => {
+  it('tags exactly one group of lines per sample', () => {
     const { container, svg } = buildErrorBars(3);
 
     const selector = tagLayerElements(svg, errorBarLayer(3), 0, new Set(), '#mv-test ');
@@ -615,19 +615,21 @@ describe('tagLayerElements: error bar', () => {
     expect(selector).toBe('#mv-test [data-maidr-victory-0]');
     // The trace requires one element per sample: any more and it drops the
     // highlight entirely.
-    expect(container.ownerDocument.querySelectorAll(selector as string)).toHaveLength(3);
-    for (const group of Array.from(svg.querySelectorAll('g > g'))) {
-      expect(group.querySelectorAll('[data-maidr-victory-0]')).toHaveLength(1);
-    }
+    expect(Array.from(container.ownerDocument.querySelectorAll(selector as string)))
+      .toEqual(Array.from(svg.querySelectorAll('g > g')));
   });
 
-  it('never tags a cap line', () => {
+  it('tags the sample, so both whiskers and both caps are outlined', () => {
     const { svg } = buildErrorBars(2);
 
     tagLayerElements(svg, errorBarLayer(2), 0, new Set(), '#mv-test ');
 
     const tagged = Array.from(svg.querySelectorAll('[data-maidr-victory-0]'));
-    expect(tagged.every(el => el.getAttribute('data-type')?.startsWith('cross-'))).toBe(true);
+    expect(tagged.map(sample => Array.from(sample.querySelectorAll('line'), line => line.getAttribute('data-type'))))
+      .toEqual([
+        ['border-bottom', 'border-top', 'cross-bottom', 'cross-top'],
+        ['border-bottom', 'border-top', 'cross-bottom', 'cross-top'],
+      ]);
   });
 
   it('claims every line of a sample so a sibling layer cannot reuse them', () => {

@@ -516,7 +516,8 @@ function tagPolarWedgeElements(
 // ---------------------------------------------------------------------------
 
 /**
- * Tags one whisker `<line>` per sample of a VictoryErrorBar layer.
+ * Tags the group of lines Victory draws for each sample of a VictoryErrorBar
+ * layer.
  *
  * Victory draws each sample as a `<g>` holding up to four `<line>`s: two caps
  * (`data-type="border-*"`) and two whiskers running out from the estimate
@@ -526,16 +527,19 @@ function tagPolarWedgeElements(
  *
  * One element per sample is exactly what MAIDR's error bar trace asks for: it
  * highlights the same element for the estimate and for both bounds, because a
- * chart draws one whip per sample rather than one mark per bound. The first
- * whisker is the one tagged; the rest of the sample's lines are claimed so a
- * sibling layer that classifies bare `<line>`s cannot pick them up.
+ * chart draws one whip per sample rather than one mark per bound. The group is
+ * that whip, and a named group is outlined through every line it holds: both
+ * whiskers and both caps. Tagging the first whisker alone outlined the half of
+ * the interval above the estimate, and never the bound below it. Every line of
+ * the sample is claimed so a sibling layer that classifies bare `<line>`s
+ * cannot pick them up.
  *
  * @param svg       - The panel's root svg element
  * @param dataCount - Number of samples the layer extracted
  * @param attrName  - The layer's tracking attribute name
  * @param claimed   - Elements already claimed by prior layers of this panel
  * @param scope     - Per-chart (and per-panel) CSS scope prefix
- * @returns A CSS selector matching one whisker per sample, or undefined
+ * @returns A CSS selector matching one group per sample, or undefined
  */
 function tagErrorBarElements(
   svg: SVGElement,
@@ -548,29 +552,22 @@ function tagErrorBarElements(
     svg.querySelectorAll('line[data-type^="cross-"]'),
   ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
 
-  // Map preserves insertion order, so the samples come out in document order.
-  const bySample = new Map<Element, Element[]>();
+  // A Set keeps insertion order, so the samples come out in document order.
+  const bySample = new Set<Element>();
   for (const whisker of whiskers) {
-    const group = whisker.parentElement;
-    if (!group) {
-      continue;
-    }
-    const bucket = bySample.get(group);
-    if (bucket) {
-      bucket.push(whisker);
-    } else {
-      bySample.set(group, [whisker]);
+    if (whisker.parentElement) {
+      bySample.add(whisker.parentElement);
     }
   }
 
-  const samples = Array.from(bySample.entries()).slice(0, dataCount);
+  const samples = Array.from(bySample).slice(0, dataCount);
   if (samples.length !== dataCount) {
     return undefined;
   }
 
-  for (const [group, groupWhiskers] of samples) {
-    groupWhiskers[0].setAttribute(attrName, '');
-    for (const line of Array.from(group.querySelectorAll('line'))) {
+  for (const sample of samples) {
+    sample.setAttribute(attrName, '');
+    for (const line of Array.from(sample.querySelectorAll('line'))) {
       claimed.add(line);
     }
   }
