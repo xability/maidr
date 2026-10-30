@@ -83,6 +83,7 @@ function stubFromEmitted(subplot: MaidrSubplot): Subplot {
   return {
     getHighlightElement: () => highlight,
     getLayerSelector: () => layerSelector,
+    getLayerMarkSelectors: () => (layerSelector === null ? [] : [layerSelector]),
   } as unknown as Subplot;
 }
 

@@ -475,15 +475,16 @@ function findPanel(
 }
 
 /**
- * The elements a subplot's first layer's first selector names.
+ * The elements a subplot's first layer names, through every selector it
+ * holds, whatever their shape.
  *
  * @param subplot - The subplot
  * @param roots - Where the chart is drawn
  * @returns Its marks, or none
  */
 function layerMarks(subplot: Subplot, roots: readonly QueryRoot[]): Element[] {
-  const selector = subplot.getLayerSelector();
-  return selector === null ? [] : Svg.queryAll<Element>(selector, roots);
+  const marks = subplot.getLayerMarkSelectors().flatMap(selector => Svg.queryAll<Element>(selector, roots));
+  return [...new Set(marks)];
 }
 
 /**
