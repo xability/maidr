@@ -566,6 +566,10 @@ export abstract class Svg {
       return null;
     }
     const { matrix, box } = measured;
+    // A quarter turn's off-diagonal terms outweigh its diagonal ones:
+    // rotate(±90) has b and c at ±1 and a and d at 0. A rotation nearer
+    // upright than 45°, or a skew that leaves the diagonal larger, is read
+    // as upright, as a box is otherwise drawn.
     if (matrix === null || Math.abs(matrix.b) + Math.abs(matrix.c) <= Math.abs(matrix.a) + Math.abs(matrix.d)) {
       return null;
     }

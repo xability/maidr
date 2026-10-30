@@ -51,6 +51,9 @@ const UPRIGHT = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 /** `translate(100, 200) rotate(-90)`: a point (x, y) is drawn at (100 + y, 200 - x). */
 const TURNED = { a: 0, b: -1, c: 1, d: 0, e: 100, f: 200 };
 
+/** `translate(300, 0) rotate(90)`, the other way: a point (x, y) is drawn at (300 - y, x). */
+const TURNED_BACK = { a: 0, b: 1, c: -1, d: 0, e: 300, f: 0 };
+
 function layer(): MaidrLayer {
   const point: BoxPoint = {
     z: 'Morning',
@@ -117,5 +120,17 @@ describe('the quartiles of a horizontal box', () => {
     // right, at x 200.
     expect(lineAt(trace, 2)).toEqual([-10, 40, 10, 40]);
     expect(lineAt(trace, 4)).toEqual([-10, 100, 10, 100]);
+  });
+  test('are the edges the opposite turn lays across the chart, the other way round', () => {
+    place('rect', 'body', { x: -10, y: 40, width: 20, height: 60 }, TURNED_BACK);
+    place('line', 'median', { x: -10, y: 66, width: 20, height: 0 }, TURNED_BACK);
+    place('line', 'low', { x: -5, y: 130, width: 10, height: 0 }, TURNED_BACK);
+    place('line', 'high', { x: -5, y: 10, width: 10, height: 0 }, TURNED_BACK);
+    const trace = new BoxTrace(layer());
+
+    // Its own bottom is drawn on the left, at x 200; its own top on the
+    // right, at x 260.
+    expect(lineAt(trace, 2)).toEqual([-10, 100, 10, 100]);
+    expect(lineAt(trace, 4)).toEqual([-10, 40, 10, 40]);
   });
 });
