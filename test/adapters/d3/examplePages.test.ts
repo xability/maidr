@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import type { Maidr, MaidrLayer } from '@type/grammar';
+import type { ChoroplethPoint, Maidr, MaidrLayer } from '@type/grammar';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import * as maidrD3 from '@adapters/d3';
@@ -104,5 +104,21 @@ describe('the d3 example pages', () => {
     expect(drawnTexts()).toContain('Example rate per 1,000 residents, by western state');
     expect(spec.title).toBe('Example rate per 1,000 residents, by western state');
     expect(onlyLayer(spec).axes?.y?.label).toBe('Rate per 1,000 residents');
+  });
+
+  it('bind the choropleth\'s states where they are on the map', () => {
+    // A ring wound the wrong way is the globe outside the state to d3-geo,
+    // and its centroid the state's antipode: Washington was bound at 59°E,
+    // 47°S, so the bands ran upside down and Up moved south.
+    const spec = runPage('d3-bindchoropleth.html');
+    const regions = onlyLayer(spec).data as ChoroplethPoint[];
+
+    expect(regions.map(region => region.x)).toHaveLength(7);
+    for (const region of regions) {
+      expect(region.lat).toBeGreaterThan(31);
+      expect(region.lat).toBeLessThan(49);
+      expect(region.lon).toBeGreaterThan(-125);
+      expect(region.lon).toBeLessThan(-109);
+    }
   });
 });
