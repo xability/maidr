@@ -507,8 +507,12 @@ export class BumpTrace extends LineTrace {
    * highlight that outlines a whole line, lines whose places never change --
    * the line's own rule is kept, Up moving to the next larger number, as it
    * always has. Measured when first asked rather than at construction, when
-   * the chart may not be laid out yet; until it is, the line's rule answers,
-   * and the next key measures again.
+   * the chart may not be laid out yet. Until it is, or while the drawing says
+   * nothing either way -- every mark drawn level, as in a chart still being
+   * laid out, or no line whose place changes -- the line's rule answers and
+   * the next key measures again. Only a reading that shows which way is kept:
+   * a rank axis does not turn over when the chart is resized, and marks still
+   * moving into place keep their order on the way.
    *
    * @returns True when Up and Down have to be turned round
    */
@@ -553,6 +557,11 @@ export class BumpTrace extends LineTrace {
         return false;
       }
       lean += ofWorst - ofBest;
+    }
+    if (lean === 0) {
+      // No evidence either way is not an answer: keep the line's rule for
+      // this key and measure again on the next.
+      return false;
     }
     this.measuredFirstPlaceOnTop = lean > 0;
     return this.measuredFirstPlaceOnTop;

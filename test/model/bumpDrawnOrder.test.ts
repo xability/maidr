@@ -40,8 +40,19 @@ const FIRST_AT_BOTTOM = (rank: number): number => 400 - rank * 100;
  */
 function draw(heightOf: (rank: number) => number): void {
   const markers = TABLE.flatMap((line, row) => line.map(point =>
-    `<circle class="line${row}" data-top="${heightOf(Number(point.y))}"></circle>`));
+    `<circle class="line${row}" data-rank="${point.y}" data-top="${heightOf(Number(point.y))}"></circle>`));
   document.body.innerHTML = `<svg><g>${markers.join('')}</g></svg>`;
+}
+
+/**
+ * Moves the markers already drawn to the height their rank is drawn at now,
+ * as a chart still being laid out moves its marks.
+ * @param heightOf - Where a rank is drawn, from the top of the page
+ */
+function place(heightOf: (rank: number) => number): void {
+  document.querySelectorAll('circle').forEach((marker) => {
+    marker.setAttribute('data-top', String(heightOf(Number(marker.getAttribute('data-rank')))));
+  });
 }
 
 /**
@@ -82,8 +93,10 @@ beforeEach(() => {
   laidOut = true;
   jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     measured++;
-    const top = laidOut ? Number(this.getAttribute('data-top') ?? 0) : 0;
-    const size = laidOut ? 4 : 0;
+    // A marker out of the page has no box, as in a browser.
+    const shown = laidOut && this.isConnected;
+    const top = shown ? Number(this.getAttribute('data-top') ?? 0) : 0;
+    const size = shown ? 4 : 0;
     return { top, left: 0, height: size, width: size, right: size, bottom: top + size, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
   });
 });
@@ -165,6 +178,47 @@ describe('what the layer says, and what is left when nothing can be measured', (
     expect(trace.moveOnce('UPWARD')).toBe(true);
     expect(competitor(trace)).toBe('Birch');
     expect(measured).toBe(0);
+  });
+
+  test('marks drawn level say nothing, so the next key measures again', () => {
+    // A chart still being laid out can draw every mark at one height. That is
+    // no evidence either way, and kept as an answer it would hold the line's
+    // rule for the trace's life once the marks moved into place.
+    draw(() => 50);
+    const trace = new BumpTrace(layer());
+    trace.moveToIndex(0, 0);
+
+    const level = trace.moveOnce('UPWARD');
+    const reached = competitor(trace);
+    place(FIRST_ON_TOP);
+    const placed = trace.moveOnce('UPWARD');
+
+    expect(level).toBe(true);
+    expect(reached).toBe('Birch');
+    expect(placed).toBe(true);
+    expect(competitor(trace)).toBe('Ash');
+  });
+
+  test('a marker taken out of the page reads as not laid out', () => {
+    // A detached or hidden marker has an empty box, as one not laid out does.
+    draw(FIRST_ON_TOP);
+    const svg = document.querySelector('svg');
+    if (svg === null) {
+      throw new Error('expected the drawing');
+    }
+    const trace = new BumpTrace(layer());
+    trace.moveToIndex(0, 0);
+
+    svg.remove();
+    const detached = trace.moveOnce('UPWARD');
+    const reached = competitor(trace);
+    document.body.appendChild(svg);
+    const attached = trace.moveOnce('UPWARD');
+
+    expect(detached).toBe(true);
+    expect(reached).toBe('Birch');
+    expect(attached).toBe(true);
+    expect(competitor(trace)).toBe('Ash');
   });
 
   test('a chart not laid out yet keeps the line\'s rule, and is measured on the next key', () => {
