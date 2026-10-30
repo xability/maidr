@@ -725,14 +725,15 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    * being entered: both X and Y where the two traces can express both, and X
    * alone otherwise.
    *
-   * A number is carried only between layers drawn along one x axis. It is a
-   * place on the axis it was read on, and the nearest x of a layer drawn
-   * along another is a different measurement that happens to be close: a
-   * bell curve over the measurements it was fitted to took 2.48 cm of sepal
-   * length to observation 2, and observation 3 back to 3.06 cm. The layer
-   * entered keeps its own place then -- where the reader last was on it, or
-   * its first point -- as it does when an x cannot be found on it. A name is
-   * the same thing on any layer, and is carried whatever the axes.
+   * A number is carried only between layers read along one axis (see
+   * {@link sharesPlaceAxis}). It is a place on the axis it was read on, and
+   * the nearest x of a layer drawn along another is a different measurement
+   * that happens to be close: a bell curve over the measurements it was
+   * fitted to took 2.48 cm of sepal length to observation 2, and observation
+   * 3 back to 3.06 cm. The layer entered keeps its own place then -- where
+   * the reader last was on it, or its first point -- as it does when an x
+   * cannot be found on it. A name is the same thing on any layer, and is
+   * carried whatever the axes.
    *
    * Shared by {@link switchLayer} and {@link selectLayer} so a keyboard step
    * and a description-dialog jump land the cursor in the same place. Static
@@ -744,7 +745,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    */
   private static carryPosition(from: Trace, to: Trace, xValue: XValue | null): void {
     const fromXValue = Subplot.carriedXValue(from, to, xValue);
-    if (typeof fromXValue !== 'number' || Subplot.sharesXAxis(from, to)) {
+    if (typeof fromXValue !== 'number' || Subplot.sharesPlaceAxis(from, to)) {
       Subplot.moveToCarried(from, to, fromXValue);
     }
 
@@ -759,19 +760,21 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   }
 
   /**
-   * Whether two layers are drawn along one x axis, as far as the labels they
-   * authored for it tell: the same label, or none on one of them, which
-   * says nothing and leaves the switch carrying the x as it always has.
-   * Labels that differ only in letter case or spacing are the same name to a
-   * listener, and the same label; a different word or unit is not.
+   * Whether two layers are read along one axis, as far as the labels they
+   * authored for it tell (see {@link Trace.placeAxisLabel}): the same label,
+   * or none on one of them, which says nothing and leaves the switch carrying
+   * the x as it always has. Labels that differ only in letter case or spacing
+   * are the same name to a listener, and the same label; a different word or
+   * unit is not.
    *
    * @param from - The trace being left
    * @param to - The trace being entered
-   * @returns False when both label their x axis, differently
+   * @returns False when both label that axis, differently
    */
-  private static sharesXAxis(from: Trace, to: Trace): boolean {
+  private static sharesPlaceAxis(from: Trace, to: Trace): boolean {
     const spoken = (label: string): string => label.replace(/\s+/g, ' ').toLowerCase();
-    return from.xAxisLabel === '' || to.xAxisLabel === '' || spoken(from.xAxisLabel) === spoken(to.xAxisLabel);
+    return from.placeAxisLabel === '' || to.placeAxisLabel === ''
+      || spoken(from.placeAxisLabel) === spoken(to.placeAxisLabel);
   }
 
   /**
@@ -1044,14 +1047,16 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   readonly layerLabel: string;
 
   /**
-   * The label of the x axis a layer switch finds this layer's place along:
-   * the label the layer authored for its x axis, trimmed, or '' when it
-   * authored none or is found along both of its axes, as a horizontal bar is.
-   * Exposed for the same reason {@link Trace.traceType} is: a layer switch
-   * asks it of the layer it leaves and the one it enters, to tell whether a
-   * number read on one is a place on the other.
+   * The label of the axis a layer switch reads this layer's place along --
+   * the place {@link Trace.getCurrentXValue} gives -- trimmed: the x axis's,
+   * or the y axis's for a layer drawn on its side, whose categories run up
+   * the side (a horizontal box plot, error bar or dumbbell); '' when the
+   * layer authored none, or is found along both of its axes, as a horizontal
+   * bar is. Exposed for the same reason {@link Trace.traceType} is: a layer
+   * switch asks it of the layer it leaves and the one it enters, to tell
+   * whether a number read on one is a place on the other.
    */
-  readonly xAxisLabel: string;
+  readonly placeAxisLabel: string;
 
   /**
    * Which level of the figure this element is, for the same reason

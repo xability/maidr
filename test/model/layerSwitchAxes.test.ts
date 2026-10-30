@@ -59,6 +59,26 @@ function subplotOf(...layers: MaidrLayer[]): Subplot {
   return new Figure({ id: 'chart', subplots: [[{ layers }]] }).activeSubplot;
 }
 
+/**
+ * A series of error bars drawn on its side: years up the y axis, and the
+ * response, whose name the series gives, across.
+ * @param response - What the x axis is labelled
+ * @returns The layer
+ */
+function errorBars(response: string): MaidrLayer {
+  return {
+    id: response,
+    type: TraceType.ERROR_BAR,
+    orientation: Orientation.HORIZONTAL,
+    axes: { x: { label: response }, y: { label: 'Year' } },
+    data: [
+      { x: 2019, y: 4, yMin: 3, yMax: 5 },
+      { x: 2020, y: 6, yMin: 5, yMax: 7 },
+      { x: 2021, y: 5, yMin: 4, yMax: 6 },
+    ],
+  };
+}
+
 describe('a layer switch between layers on different x axes', () => {
   test('enters the other layer at its first point, not at the nearest x', () => {
     const subplot = subplotOf(CURVE, MEASUREMENTS);
@@ -190,11 +210,17 @@ describe('a layer switch between layers that name what they draw', () => {
   });
 });
 
-describe('the x axis a layer switch finds a layer along', () => {
-  test('is the label the layer authored, trimmed', () => {
+describe('the axis a layer switch reads a layer\'s place along', () => {
+  test('is the x axis, by the label the layer authored, trimmed', () => {
     const subplot = subplotOf({ ...CURVE, axes: { x: { label: ' Sepal length (cm) ' } } });
 
-    expect(subplot.activeTrace?.xAxisLabel).toBe('Sepal length (cm)');
+    expect(subplot.activeTrace?.placeAxisLabel).toBe('Sepal length (cm)');
+  });
+
+  test('is the y axis for a layer drawn on its side, whose categories run up it', () => {
+    const subplot = subplotOf(errorBars('Response A'));
+
+    expect(subplot.activeTrace?.placeAxisLabel).toBe('Year');
   });
 
   test('is none for a horizontal bar, which a switch finds by magnitude or by category', () => {
@@ -206,6 +232,18 @@ describe('the x axis a layer switch finds a layer along', () => {
       data: [{ x: 3, y: 'Jan' }, { x: 5, y: 'Feb' }],
     });
 
-    expect(subplot.activeTrace?.xAxisLabel).toBe('');
+    expect(subplot.activeTrace?.placeAxisLabel).toBe('');
+  });
+});
+
+describe('a layer switch between layers drawn on their side', () => {
+  test('carries a numeric category up the axis they share, whatever their values are called', () => {
+    // Two series of horizontal error bars, years up the side and each
+    // series' own response across.
+    const subplot = subplotOf(errorBars('Response A'), errorBars('Response B'));
+    subplot.activeTrace?.moveToIndex(0, 1);
+    expect(xOf(subplot.activeTrace)).toBe(2020);
+
+    expect(xOf(subplot.switchLayer('UPWARD'))).toBe(2020);
   });
 });
