@@ -1078,7 +1078,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       });
     }
 
-    const { names: path, truncated } = this.dominantPath();
+    const { names: path, truncated, loopsTo } = this.dominantPath();
     if (path.length > 1) {
       // The route the eye takes: start at the biggest source and follow the
       // widest ribbon at every branch. It is the one thing a reader walking
@@ -1087,12 +1087,15 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       //
       // A route the cap cut short says so. Ending silently at the eighth hop
       // names a node the flow passes straight through as though it were where
-      // the chart ends, which is worse than the truncation it hides.
+      // the chart ends, which is worse than the truncation it hides. So does
+      // a route that comes back on itself: ending at the last node it had not
+      // passed named that node as the end of a route that goes on round.
+      const route = path.join(t('model.flowRouteJoin'));
       stats.push({
         label: t('model.statMainRoute'),
         value: truncated
-          ? t('model.flowRouteTruncated', { path: path.join(t('model.flowRouteJoin')) })
-          : path.join(t('model.flowRouteJoin')),
+          ? t('model.flowRouteTruncated', { path: route })
+          : loopsTo === null ? route : t('model.flowRouteLoops', { path: route, node: loopsTo }),
       });
     }
 
@@ -1123,19 +1126,21 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    * Capped, and guarded against revisiting so a cycle terminates.
    *
    * Whether the cap cut the walk short travels with the names, because the
-   * caller cannot tell the two endings apart from the names alone and a route
-   * that stopped at the cap would otherwise name a false last node.
+   * caller cannot tell the endings apart from the names alone and a route
+   * that stopped at the cap would otherwise name a false last node. So does
+   * the node the route goes back to when it stopped because its largest flow
+   * leads to a node it has already passed.
    *
-   * @returns The node names along the route, and whether it continues past
-   *   the last of them
+   * @returns The node names along the route, whether it continues past the
+   *   last of them, and the name of the node it goes back to, if it does
    */
-  private dominantPath(): { names: string[]; truncated: boolean } {
+  private dominantPath(): { names: string[]; truncated: boolean; loopsTo: string | null } {
     const sources = this.nodes.filter(node => node.in.length === 0);
     const start = (sources.length > 0 ? sources : this.nodes)
       .reduce<FlowNode | null>((best, node) =>
         (best === null || node.outTotal > best.outTotal ? node : best), null);
     if (start === null) {
-      return { names: [], truncated: false };
+      return { names: [], truncated: false, loopsTo: null };
     }
 
     const seen = new Set<FlowNode>([start]);
@@ -1156,9 +1161,14 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     }
 
     // Cut off rather than finished: the node the walk stopped on still has a
-    // ribbon leaving it for somewhere the route has not been.
+    // ribbon leaving it for somewhere the route has not been. Or back on
+    // itself: its largest ribbon leads to a node the route has passed.
     const beyond = at.out[0] === undefined ? undefined : this.nodes[at.out[0].to];
-    return { names: path, truncated: beyond !== undefined && !seen.has(beyond) };
+    return {
+      names: path,
+      truncated: beyond !== undefined && !seen.has(beyond),
+      loopsTo: beyond !== undefined && seen.has(beyond) ? beyond.name : null,
+    };
   }
 
   /**

@@ -755,6 +755,7 @@ export const model = {
   'model.statMainRoute': '주요 경로',
   'model.flowRouteJoin': ' 다음 ',
   'model.flowRouteTruncated': '{path}, 이후 계속',
+  'model.flowRouteLoops': '{path}, 다시 {node|으로}',
   'model.tableFrom': '출발',
   'model.tableTo': '도착',
   // Network diagram.

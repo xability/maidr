@@ -748,6 +748,7 @@ export const model = {
   'model.statMainRoute': 'मुख्य मार्ग',
   'model.flowRouteJoin': ' से ',
   'model.flowRouteTruncated': '{path}, और आगे',
+  'model.flowRouteLoops': '{path}, फिर वापस {node} तक',
   'model.tableFrom': 'से',
   'model.tableTo': 'तक',
   // Network diagram.

@@ -755,6 +755,7 @@ export const model = {
   'model.statMainRoute': '主要な経路',
   'model.flowRouteJoin': 'から',
   'model.flowRouteTruncated': '{path}、さらに続く',
+  'model.flowRouteLoops': '{path}、そこから{node}に戻る',
   'model.tableFrom': '始点',
   'model.tableTo': '終点',
   // Network diagram.

@@ -751,6 +751,7 @@ export const model = {
   'model.statMainRoute': '主要路径',
   'model.flowRouteJoin': ' 到 ',
   'model.flowRouteTruncated': '{path}，以此类推',
+  'model.flowRouteLoops': '{path}，再回到 {node}',
   'model.tableFrom': '来源',
   'model.tableTo': '目标',
   // Network diagram.

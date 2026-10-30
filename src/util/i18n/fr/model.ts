@@ -755,6 +755,7 @@ export const model = {
   'model.statMainRoute': 'Route principale',
   'model.flowRouteJoin': ' vers ',
   'model.flowRouteTruncated': '{path}, et au-delà',
+  'model.flowRouteLoops': '{path}, puis retour vers {node}',
   'model.tableFrom': 'De',
   'model.tableTo': 'Vers',
   // Network diagram.

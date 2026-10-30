@@ -638,6 +638,25 @@ describe('the description answers what tracing one ribbon cannot', () => {
     expect(stat('Main route')).toBe('Coal to Electricity to Homes');
   });
 
+  test('a route that comes back on itself says where it goes back to', () => {
+    // The Highcharts dependency wheel's migration: from Africa, the one
+    // region that only sends, the largest flows go to Europe and then North
+    // America, whose only flow goes back to Europe. Ending at North America
+    // named it as the end of a route that goes on round.
+    const wheel: FlowPoint[] = [
+      { source: 'Africa', target: 'Europe', value: 41 },
+      { source: 'Africa', target: 'Asia', value: 22 },
+      { source: 'Asia', target: 'Europe', value: 58 },
+      { source: 'Asia', target: 'North America', value: 47 },
+      { source: 'Europe', target: 'North America', value: 33 },
+      { source: 'Europe', target: 'Asia', value: 19 },
+      { source: 'North America', target: 'Europe', value: 15 },
+    ];
+
+    expect(stat('Main route', wheel))
+      .toBe('Africa to Europe to North America, then back to Europe');
+  });
+
   test('the data table is one row per flow', () => {
     const { headers, rows } = flow().description.dataTable;
 
