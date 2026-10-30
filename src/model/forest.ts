@@ -294,11 +294,14 @@ export class ForestTrace extends ErrorBarTrace {
     );
     const hasPooled = this.studies.some(study => study.pooled === true);
 
+    // In the reader's language, as the rest of the table is: written here in
+    // English, they were read out in English mid-table in every locale,
+    // though each locale already translates them.
     const headers = [
       ...base.headers,
-      ...(hasWeight ? ['Weight'] : []),
-      ...(this.nullValue === null ? [] : ['Crosses null']),
-      ...(hasPooled ? ['Row'] : []),
+      ...(hasWeight ? [t('model.tableWeight')] : []),
+      ...(this.nullValue === null ? [] : [t('model.tableCrossesNull')]),
+      ...(hasPooled ? [t('model.tableRow')] : []),
     ];
     // The parent's columns keep the axes it gave them, and the appended three
     // sit on none: the weight is a share of one computed here, the verdict a
