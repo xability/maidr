@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/grammar';
-import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
@@ -158,6 +158,29 @@ export class DivergingTrace extends SegmentedTrace {
         max: this.widest,
         raw: isMeasured(value) ? Math.abs(value) : value,
       },
+    };
+  }
+
+  protected override get braille(): BrailleState {
+    const base = super.braille;
+    if (base.empty) {
+      return base;
+    }
+
+    // Each bar's length against the widest bar on the chart, the scale the
+    // pitch plays on. The signed values, each row scaled to its own range,
+    // turned the left-hand row upside down: its longest bar is its most
+    // negative value, so it was the row's lowest cell, and its shortest bar
+    // the row's highest. One scale for every row also keeps a band's two
+    // bars comparable cell for cell, which is what a multiline display lays
+    // the rows out for.
+    const lengths = this.barValues.map(row =>
+      row.map(value => (isMeasured(value) ? Math.abs(value) : value)));
+    return {
+      ...base,
+      values: lengths,
+      min: lengths.map(() => 0),
+      max: lengths.map(() => this.widest),
     };
   }
 

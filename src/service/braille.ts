@@ -1287,18 +1287,19 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // The virtual delta layer reuses the candlestick encoding: height maps
       // |delta| and the 'Bear' trend adds dot 8 for below-line points.
       [TraceType.CANDLESTICK_DELTA, asGeneric(new CandlestickBrailleEncoder())],
-      // A diverging chart's rows are the two sides and its columns the shared
-      // categories, which is the bar encoder's input. The cells encode the
-      // SIGNED value, so a left-hand row reads low across its whole length --
-      // the inversion the pitch applies has no equivalent here, and
-      // `docs/BRAILLE.md` says so, because a reader cannot tell from the dots.
+      [TraceType.CHOROPLETH, asGeneric(new BarBrailleEncoder())],
       // Each curve is a line, which is what its cells carry. The LEVEL has
       // no representation: it is constant along a curve, so encoding it would
       // spend every cell of a row saying one number, and the shape the row is
       // there to convey would be gone. It is announced instead, alongside the
       // spacing to the next level. `docs/BRAILLE.md` says so.
-      [TraceType.CHOROPLETH, asGeneric(new BarBrailleEncoder())],
       [TraceType.CONTOUR, asGeneric(new LineBrailleEncoder())],
+      // A diverging chart's rows are its sides and the balance, and its
+      // columns the shared categories, which is the bar encoder's input. The
+      // trace hands it each bar's length against the widest bar on the chart,
+      // the scale the pitch plays on, rather than the signed values the
+      // producer drew: a row scaled to its own signed range read upside down
+      // on the left-hand side. `docs/BRAILLE.md` says so.
       [TraceType.DIVERGING, asGeneric(new BarBrailleEncoder())],
       // A dot plot and a lollipop carry a bar's braille state -- one row of
       // magnitudes -- because they carry a bar's data. The mark differs and
