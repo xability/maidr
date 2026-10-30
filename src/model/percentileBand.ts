@@ -512,7 +512,8 @@ export class PercentileBandTrace extends LineTrace {
     const widths = this.bandPoints.map((_point, col) => this.widthAt(band, col));
     const stats: DescriptionState['stats'] = [];
 
-    const tolerance = Math.max(Math.abs(this.bandMin), Math.abs(this.bandMax)) * 1e-9;
+    const { min, max } = this.valueRange;
+    const tolerance = Math.max(Math.abs(min), Math.abs(max)) * 1e-9;
     const widest = this.extremeColumn(widths, (a, b) => a > b + tolerance);
     const narrowest = this.extremeColumn(widths, (a, b) => a < b - tolerance);
     if (widest === -1 || narrowest === -1) {
