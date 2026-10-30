@@ -3386,11 +3386,16 @@ function extractRidgelineLayer(
   );
 
   // The value axis is plotly's x on a horizontal ridgeline, which is where the
-  // trace reads it from; a vertical one has the two exchanged.
+  // trace reads it from, and the axis the groups sit on is its y; a vertical
+  // one has the two exchanged. The trace names the value with the layer's x
+  // and the groups with its y, whichever way plotly drew them.
   const axes: MaidrLayer['axes'] = {};
   const valueLabel = isHorizontal ? xLabel : yLabel;
+  const groupLabel = isHorizontal ? yLabel : xLabel;
   if (valueLabel)
     axes.x = { label: valueLabel };
+  if (groupLabel)
+    axes.y = { label: groupLabel };
   axes.z = { label: RIDGELINE_DENSITY_AXIS };
 
   return {

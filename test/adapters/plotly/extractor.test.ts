@@ -3992,15 +3992,26 @@ describe('plotly extractor', () => {
       expect(data.map(curve => curve[0].x)).toEqual(['B', 'A']);
     });
 
-    it('names the value axis and the density, one selector per curve', () => {
+    it('names the value axis, the groups and the density, one selector per curve', () => {
       const layer = ridgeLayers()[0];
 
       expect(layer.axes?.x?.label).toBe('Score');
+      expect(layer.axes?.y?.label).toBe('Group');
       expect(layer.axes?.z?.label).toBe('Density');
       expect(layer.selectors).toEqual([
         '.subplot.xy .violinlayer > g:nth-child(1) > path.violin:nth-child(1)',
         '.subplot.xy .violinlayer > g:nth-child(2) > path.violin:nth-child(1)',
       ]);
+    });
+
+    it('names the groups after the axis they sit on when the curves stand upright', () => {
+      const layer = ridgeLayers(ridgeTraces({ orientation: 'v' }), {
+        xaxis: { domain: [0, 1], title: { text: 'Year' }, _categories: ['A', 'B'] },
+        yaxis: { domain: [0, 1], title: { text: 'Days' } },
+      })[0];
+
+      expect(layer.axes?.x?.label).toBe('Days');
+      expect(layer.axes?.y?.label).toBe('Year');
     });
 
     it('keeps the violin pair when only some of the violins are halved', () => {
