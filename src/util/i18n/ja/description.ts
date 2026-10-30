@@ -22,7 +22,7 @@ export const description = {
   'description.axisEntry': '{axis}軸: {label}',
   'description.summaryHeading': '概要',
   'description.subplotsHeading': 'サブプロット ({count})',
-  'description.subplotEmpty': '空',
+  'description.subplotEmpty': 'データなし',
   'description.subplotCurrent': ' (現在)',
 
   'description.layersHeading': 'レイヤー ({count})',
