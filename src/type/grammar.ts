@@ -2636,7 +2636,10 @@ export enum TraceType {
    * this is a type of its own rather than a line with a fill.
    *
    * The series are listed from the bottom of the stack up: the first is the
-   * bottom band, and Up moves to the next, the band drawn on top of it.
+   * bottom band, and Up moves to the next, the band drawn on top of it. A
+   * chart whose highlight can be measured is walked the way it is drawn
+   * whichever end of the list is on top, so a list in legend order, top band
+   * first, reads the same.
    */
   STACKED_AREA = 'stacked_area',
   STEP = 'step',
