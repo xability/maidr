@@ -2204,11 +2204,8 @@ function barAxes(
  * (`start`/`end`) and reads `orientation` as which way navigation and panning
  * run; neither has a magnitude in `x` to move.
  *
- * A funnel is listed even though {@link layerOrientation} never emits the key
- * for one today — it refuses precisely because the payload did not swap, and
- * says so. Whether a funnel should now declare itself horizontal is a separate
- * call about how it is announced; listing it here means that call cannot
- * silently reintroduce this bug.
+ * A funnel is listed because {@link layerOrientation} makes every funnel
+ * horizontal: its count is a width, so it goes in `x` and the stage in `y`.
  *
  * Getting this wrong is not a mislabelling the reader can work around. The
  * magnitude field ends up holding a category name, `toBarValue` answers
@@ -2242,10 +2239,11 @@ function swapsUnderHorizontal(chartType: RechartsChartType): boolean {
  * march one way only. An icicle is a hierarchy however it happens to be drawn:
  * the bars are the layout it was given, not an axis a reader walks.
  *
- * A funnel is left out for a different reason: `FunnelTrace` is a `BarTrace`,
- * and a horizontal bar carries its category in `y` rather than `x`. The
- * adapter always emits the stage label as `x`, so a leaked `HORIZONTAL` would
- * have every stage announced by its count.
+ * A funnel is always horizontal. Recharts draws a `<Funnel>` one row per
+ * stage, down the page, each trapezoid as wide as its count, and has no other
+ * layout -- so the count runs across, which is what `HORIZONTAL` says, and a
+ * config's `orientation` is not read. Left undeclared, the layer was described
+ * as a vertical funnel with its counts on the y axis.
  *
  * A gantt is the one type that defaults the other way. Its bars run left to
  * right, which puts the axis on x and the lanes on y — the `<BarChart
@@ -2256,10 +2254,11 @@ function layerOrientation(
   orientation?: Orientation,
 ): Orientation | undefined {
   switch (chartType) {
+    case 'funnel':
+      return Orientation.HORIZONTAL;
     case 'pie':
     case 'radar':
     case 'polar_area':
-    case 'funnel':
     case 'alluvial':
     case 'sankey':
     case 'gauge':

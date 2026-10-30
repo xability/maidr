@@ -582,7 +582,7 @@ const data = [
 
 Pass the counts, never a pre-computed ratio. MAIDR sonifies the **retention** — what fraction of the previous stage survived — because that is the number a funnel is read for and the one a listener cannot take by ear from two heights heard one at a time: 2,300 to 100 keeps 4% while 10,000 to 2,400 keeps 24%, and on a raw scale the second sounds like the bigger fall.
 
-A funnel is never given an `orientation`. `FunnelTrace` is a bar trace, and a horizontal bar reads its category off `y`, so a leaked `orientation` would have every stage announced by its count.
+A funnel is always read as horizontal. Recharts draws a `<Funnel>` one row per stage, down the page, each as wide as its count, so the adapter declares the layer horizontal and writes each stage's count in `x` and its name in `y`: the description names the counts as the x axis (`yLabel`) and the stages as the y axis (`xLabel`). Recharts has no other way to draw a funnel, so an `orientation` prop is not read for one.
 
 #### Area Chart [experimental]
 
