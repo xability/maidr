@@ -167,6 +167,16 @@ describe('a vega-lite line read against an axis that names its levels', () => {
     expect(labels(layer)).toEqual(['Awake', 'REM', 'N1', 'N2', 'N3', 'N3', 'N2', 'REM']);
     expect((layer.data as LinePoint[][])[0].map(point => point.y)).toEqual([4, 3, 2, 1, 0, 0, 1, 3]);
   });
+
+  it.each([
+    ['a layer of a layered chart', (line: VegaLiteSpec) => ({ layer: [line] })],
+    ['a panel of a concat', (line: VegaLiteSpec) => ({ hconcat: [line] })],
+  ])('names the points of %s, whose own axis writes the labelExpr', (_name, wrap) => {
+    bindVegaLite(chart(NAMED), wrap(hypnogram(NIGHT)) as unknown as VegaLiteSpec);
+    const layer = (initMock.mock.calls[0]?.[0] as Maidr).subplots[0][0].layers[0];
+
+    expect(labels(layer)).toEqual(['Awake', 'REM', 'N1', 'N2', 'N3', 'N3', 'N2', 'REM']);
+  });
 });
 
 describe('a vega-lite line whose axis names no levels', () => {
@@ -190,6 +200,19 @@ describe('a vega-lite line whose axis names no levels', () => {
     const dollars: Array<[number, string]> = [[0, '$0'], [1, '$1'], [2, '$2'], [3, '$3'], [4, '$4']];
 
     const layer = bound(NIGHT, chart(dollars), { format: '$,d' });
+
+    expect(labels(layer).every(label => label === undefined)).toBe(true);
+  });
+
+  it.each([
+    ['datum.value + \'%\'', (value: number) => `${value}%`],
+    ['\'$\' + format(datum.value, \',\')', (value: number) => `$${value}`],
+  ])('keeps its numbers when a labelExpr only formats them (%s)', (labelExpr, draw) => {
+    // Every point sits on a tick, and each tick's label writes its own value:
+    // the expression formats the numbers rather than naming levels.
+    const formatted = [0, 1, 2, 3, 4].map((value): [number, string] => [value, draw(value)]);
+
+    const layer = bound(NIGHT, chart(formatted), { values: [0, 1, 2, 3, 4], labelExpr });
 
     expect(labels(layer).every(label => label === undefined)).toBe(true);
   });

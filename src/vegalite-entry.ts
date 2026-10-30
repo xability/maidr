@@ -1260,14 +1260,29 @@ function isNumeral(text: string): boolean {
 }
 
 /**
+ * Whether an axis label writes its own tick's value, as a label that formats
+ * a number does: `50%` for 50 or for 0.5, `$1,000` for 1000.
+ *
+ * @param text - The label
+ * @param value - The value of its tick
+ * @returns True when the label carries the value's numeral
+ */
+function writesItsValue(text: string, value: number): boolean {
+  const plain = text.replace(/\u2212/g, '-').replace(/[,\s]/g, '');
+  return [value, Number((value * 100).toFixed(10))].some(numeral => plain.includes(String(numeral)));
+}
+
+/**
  * The names a chart's one vertical axis gives its tick values, when they are
  * names rather than numerals.
  *
  * Vega binds each axis label to its tick, whose `value` is what the label
  * stands for; the text is what the axis draws for it, after any `labelExpr`.
- * An axis whose labels are all numerals names nothing. With more than one
- * vertical axis -- a dual-axis chart, a grid of panels -- there is no telling
- * which one a layer is read against, so none is used.
+ * An axis whose labels are all numerals names nothing, and nor does one
+ * each of whose labels writes its own value: a `labelExpr` such as
+ * `datum.value + '%'` formats the numbers rather than naming levels. With
+ * more than one vertical axis -- a dual-axis chart, a grid of panels --
+ * there is no telling which one a layer is read against, so none is used.
  *
  * @param root - The chart's SVG, or one panel of it
  * @returns The names by tick value, or `null`
@@ -1298,8 +1313,10 @@ function axisLevelNames(root: Element): Map<number, string> | null {
       return null;
     vertical.push(named);
   }
-  if (vertical.length !== 1 || vertical[0].every(label => isNumeral(label.text)))
+  if (vertical.length !== 1
+    || vertical[0].every(label => isNumeral(label.text) || writesItsValue(label.text, label.value))) {
     return null;
+  }
   return new Map(vertical[0].map(label => [label.value, label.text]));
 }
 
@@ -1340,10 +1357,11 @@ function namesYAxisValues(spec: VegaLiteSpec | undefined): boolean {
  *
  * Only for a spec that writes a `labelExpr` for a y axis: an axis whose labels
  * are merely formatted (`$10`, `50%`, `2.5M`) measures its values rather than
- * naming them, and its points keep their numbers. And only when every point
- * sits on a named tick, so a line that passes through tick values on a
- * continuous axis keeps its numbers too. A name the layer already carries
- * stays.
+ * naming them, and its points keep their numbers -- as they do under a
+ * `labelExpr` that only formats them, whose every label writes its own value.
+ * And only when every point sits on a named tick, so a line that passes
+ * through tick values on a continuous axis keeps its numbers too. A name the
+ * layer already carries stays.
  *
  * @param svg - The chart's SVG
  * @param layers - Every layer of the chart
