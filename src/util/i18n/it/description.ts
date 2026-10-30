@@ -22,7 +22,7 @@ export const description = {
   'description.axisEntry': 'Asse {axis}: {label}',
   'description.summaryHeading': 'Riepilogo',
   'description.subplotsHeading': 'Sottografici ({count})',
-  'description.subplotUnknown': 'sconosciuto',
+  'description.subplotEmpty': 'vuoto',
   'description.subplotCurrent': ' (corrente)',
 
   'description.layersHeading': 'Livelli ({count})',

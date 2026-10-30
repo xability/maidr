@@ -29,7 +29,7 @@ export const description = {
   'description.axisEntry': 'Eje {axis}: {label}',
   'description.summaryHeading': 'Resumen',
   'description.subplotsHeading': 'Subgráficos ({count})',
-  'description.subplotUnknown': 'desconocido',
+  'description.subplotEmpty': 'vacío',
   'description.subplotCurrent': ' (actual)',
 
   // Layer tab strip.

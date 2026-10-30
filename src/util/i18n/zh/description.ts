@@ -22,7 +22,7 @@ export const description = {
   'description.axisEntry': '{axis} 轴：{label}',
   'description.summaryHeading': '摘要',
   'description.subplotsHeading': '子图（{count}）',
-  'description.subplotUnknown': '未知',
+  'description.subplotEmpty': '空',
   'description.subplotCurrent': '（当前）',
 
   'description.layersHeading': '图层（{count}）',

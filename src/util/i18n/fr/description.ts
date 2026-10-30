@@ -22,7 +22,7 @@ export const description = {
   'description.axisEntry': 'Axe {axis} : {label}',
   'description.summaryHeading': 'Résumé',
   'description.subplotsHeading': 'Sous-graphiques ({count})',
-  'description.subplotUnknown': 'inconnu',
+  'description.subplotEmpty': 'vide',
   'description.subplotCurrent': ' (actuel)',
 
   'description.layersHeading': 'Couches ({count})',
