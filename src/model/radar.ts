@@ -116,6 +116,18 @@ export class RadarTrace extends LineTrace {
   }
 
   /**
+   * A polar area's wedge is a magnitude, filled out from the centre as a bar
+   * is up from its baseline, so a wedge of 0 is no wedge and plays the null
+   * tone. A radar's outline is drawn at each value's place on the radial
+   * axis, as a line is on its value axis.
+   *
+   * @returns True for a radar, false for a polar area
+   */
+  protected override get valuesArePositions(): boolean {
+    return this.variant !== 'polar';
+  }
+
+  /**
    * The next series up or down at the cursor's spoke, in declared order.
    *
    * A line chart moves to the series with the next higher or lower value,

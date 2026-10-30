@@ -191,14 +191,21 @@ async function toneOf(
  * @param type - The layer type
  * @param data - The layer's data
  * @param col - The point
+ * @param row - The series
  * @returns The trace state
  */
-function stateOf(type: TraceType, data: MaidrLayer['data'], col: number): PlotState {
+function stateOf(type: TraceType, data: MaidrLayer['data'], col: number, row = 0): PlotState {
   const trace = TraceFactory.create({ id: 'zero', type, axes: { x: { label: 'X' }, y: { label: 'Y' } }, data });
-  return (trace as unknown as { getStateAt: (row: number, col: number) => PlotState }).getStateAt(0, col);
+  return (trace as unknown as { getStateAt: (row: number, col: number) => PlotState }).getStateAt(row, col);
 }
 
 const SIGNED = [{ x: 'a', y: -5 }, { x: 'b', y: 0 }, { x: 'c', y: 5 }];
+
+/** Two steps of a five-quantile band; the median is 0 at the first, the band runs from -1.5 to 1.6. */
+const BAND = [[-1, -0.4, 0, 0.4, 1], [-1.5, -0.8, 0.05, 0.9, 1.6]].map((values, x) => ({
+  x,
+  quantiles: values.map((value, i) => ({ level: [0, 0.25, 0.5, 0.75, 1][i], value })),
+}));
 
 describe('a value of 0', () => {
   it('is pitched where it lies when it is a position in a register that runs below zero', async () => {
@@ -253,4 +260,27 @@ describe('a value of 0 read from a real trace', () => {
 
     expect(tone).toMatchObject({ type: 'triangle', frequency: 100 });
   });
+
+  it('is pitched where it lies on a radar\'s outline', async () => {
+    const tone = await toneOf(stateOf(TraceType.RADAR, [SIGNED], 1));
+
+    expect(tone.frequency).toBe(600);
+  });
+
+  it('is pitched where it lies on a percentile band\'s median, whose own audio keeps the mark', async () => {
+    // 1.5 / 3.1 of the way up the band's range, as on `percentile-band.html`.
+    const tone = await toneOf(stateOf(TraceType.PERCENTILE_BAND, BAND, 0, 2));
+
+    expect(tone.frequency).toBeCloseTo(200 + (1.5 / 3.1) * 800);
+  });
+
+  it.each([TraceType.AREA, TraceType.STACKED_AREA, TraceType.POLAR_AREA])(
+    'plays the null tone for a band or wedge of 0 on a %s layer, as for a bar',
+    async (type) => {
+      // A filled mark of 0 is no band and no wedge, whatever the others hold.
+      const tone = await toneOf(stateOf(type, [SIGNED], 1));
+
+      expect(tone).toMatchObject({ type: 'triangle', frequency: 100 });
+    },
+  );
 });

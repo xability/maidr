@@ -258,8 +258,10 @@ export interface AudioState {
    * from zero, as a bar's height, a bin's count or a cell's value is. On an
    * axis that runs below zero a position of 0 lies between the values either
    * side of it, so it is pitched where it lies instead of played as the low
-   * "null" tone, which marks a magnitude of zero. Set by every point of a
-   * line-family layer.
+   * "null" tone, which marks a magnitude of zero. Set by the line-family
+   * layers whose values are positions -- a line, step, survival curve,
+   * contour, radar outline, percentile band and the rest -- and not by an
+   * area or a polar area, whose bands and wedges are magnitudes.
    */
   positional?: boolean;
   /**
