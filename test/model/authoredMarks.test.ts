@@ -2,7 +2,14 @@
  * @jest-environment jsdom
  */
 
-import type { BoxenPoint, Maidr, MaidrLayer } from '@type/grammar';
+import type {
+  BarPoint,
+  BoxenPoint,
+  CandlestickPoint,
+  CandlestickSelector,
+  Maidr,
+  MaidrLayer,
+} from '@type/grammar';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
@@ -105,6 +112,16 @@ function marks(selector: string): Element[] {
   return [...document.querySelectorAll(selector)];
 }
 
+/**
+ * The `y` coordinates a path's `M` and `L` commands visit.
+ *
+ * @param path - A `<path>` drawn with absolute moves and lines
+ * @returns Its vertices' `y`s
+ */
+function pathYs(path: Element): number[] {
+  return [...(path.getAttribute('d') ?? '').matchAll(/[ML]\s*[-\d.]+\s+([-\d.]+)/g)].map(match => Number(match[1]));
+}
+
 afterEach(() => {
   document.body.innerHTML = '';
 });
@@ -124,5 +141,34 @@ describe('an authored example\'s data is what its marks draw', () => {
 
     expect(distributions).toHaveLength(2);
     expect(undrawn).toEqual([]);
+  });
+
+  it('gives each candle the high and low its wicks are drawn to, and the volume its bar draws', () => {
+    // The bodies match each candle's open and close, so they give the price
+    // scale; every wick ended elsewhere than the declared high and low, and
+    // every candle carried a volume of 0 beside a volume bar.
+    const [candleLayer, volumeLayer] = loadLayers('candlestick_multilayer.html');
+    const candles = candleLayer.data as CandlestickPoint[];
+    const selectors = candleLayer.selectors as CandlestickSelector;
+    const bodies = marks(selectors.body as string);
+    const lows = marks(selectors.wickLow as string);
+    const highs = marks(selectors.wickHigh as string);
+
+    // Two bodies far apart fix the scale: a price is `a + b * y`.
+    const [first, last] = [0, candles.length - 1];
+    const top = (index: number): number => Math.min(...pathYs(bodies[index]));
+    const topPrice = (index: number): number => Math.max(candles[index].open ?? Number.NaN, candles[index].close);
+    const b = (topPrice(last) - topPrice(first)) / (top(last) - top(first));
+    const a = topPrice(first) - b * top(first);
+    const price = (y: number): number => a + b * y;
+
+    expect(bodies).toHaveLength(candles.length);
+    expect(lows).toHaveLength(candles.length);
+    expect(highs).toHaveLength(candles.length);
+    for (const [index, candle] of candles.entries()) {
+      expect(price(Math.max(...pathYs(lows[index])))).toBeCloseTo(candle.low, 1);
+      expect(price(Math.min(...pathYs(highs[index])))).toBeCloseTo(candle.high, 1);
+      expect(candle.volume).toBe((volumeLayer.data as BarPoint[])[index].y);
+    }
   });
 });
