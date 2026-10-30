@@ -4041,6 +4041,39 @@ function colorFieldLabel(encoding: VegaLiteEncoding): string | undefined {
   return channel?.title || channel?.field;
 }
 
+/**
+ * The marks Vega-Lite splits into series, or stacks, by any field a mark
+ * property channel is bound to.
+ */
+const SPLIT_BY_ANY_CHANNEL = new Set(['line', 'trail', 'area', 'bar']);
+
+/**
+ * An encoding whose marks are split by `stroke` or `strokeDash` rather than
+ * by colour, with that channel read as the colour channel.
+ *
+ * Vega-Lite draws a line per value of a field bound to `stroke` or
+ * `strokeDash`, stacks bars and areas by one, and gives it a legend, as it
+ * does for `color`. The converter reads a layer's series off `color` and
+ * `fill` alone, so a chart split by one of the other two only was read as
+ * one series: a line ran through every group's points in row order, and bars
+ * stacked by `stroke` were read as one bar per segment. Read as the colour
+ * channel, it splits the series, names each one, and names what it splits
+ * them by with its legend's title (`colorFieldLabel`).
+ *
+ * Left alone when `color` or `fill` already splits the marks, and for the
+ * marks a stroke only outlines.
+ *
+ * @param mark - The layer's mark
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns The encoding, `color` taken from the channel that splits it
+ */
+function withSeriesChannel(mark: string, encoding: VegaLiteEncoding): VegaLiteEncoding {
+  if (!SPLIT_BY_ANY_CHANNEL.has(mark) || hasField(encoding.color) || hasField(encoding.fill))
+    return encoding;
+  const split = [encoding.stroke, encoding.strokeDash].find(hasField);
+  return split ? { ...encoding, color: split } : encoding;
+}
+
 function convertLayerSpec(
   spec: VegaLiteSpec,
   index: number,
@@ -4057,10 +4090,10 @@ function convertLayerSpec(
     return null;
 
   // Merge parent encoding (from layered spec) with layer encoding.
-  const encoding: VegaLiteEncoding = {
+  const encoding = withSeriesChannel(mark, {
     ...parentEncoding,
     ...spec.encoding,
-  };
+  });
 
   // A layered spec's own transforms run before every layer's, so the two
   // together are what produced this layer's rows. Only trace resolution

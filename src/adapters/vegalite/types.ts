@@ -206,6 +206,13 @@ export interface VegaLiteEncoding {
   color?: VegaLiteChannelDef;
   fill?: VegaLiteChannelDef;
   /**
+   * A mark's outline colour. Bound to a field, it splits lines and stacks
+   * bars and areas as `color` does, and is given a legend.
+   */
+  stroke?: VegaLiteChannelDef;
+  /** A line's dash pattern, which splits the marks as `stroke` does. */
+  strokeDash?: VegaLiteChannelDef;
+  /**
    * Grouping without a visual channel: it splits one mark into several
    * without colouring or otherwise marking them apart. Vega-Lite's ranged
    * dot plot uses it to draw one connector per category.

@@ -322,6 +322,18 @@ function resolveFill(el: Element): string {
 }
 
 /**
+ * How a mark is painted: its fill, its stroke and its stroke's dashes. Bars
+ * split by colour differ in their fill, and bars split by `stroke` or
+ * `strokeDash` in the other two.
+ *
+ * @param el - The mark
+ * @returns The three, joined
+ */
+function resolvePaint(el: Element): string {
+  return [resolveFill(el), el.getAttribute('stroke') ?? '', el.getAttribute('stroke-dasharray') ?? ''].join('|');
+}
+
+/**
  * Detect the DOM emission order for a segmented (stacked / dodged /
  * normalised) bar layer by sampling the first two rendered elements.
  *
@@ -330,12 +342,12 @@ function resolveFill(el: Element): string {
  * `data[seriesIndex][barIndex]` 2-D grid.  Vega-Lite's actual emission
  * order, however, depends on the input row order — not the trace type —
  * so a static type-based default is unreliable.  We mirror the D3
- * adapter's runtime detection: compare the fill of the first two
- * rendered elements.
+ * adapter's runtime detection: compare how the first two rendered
+ * elements are painted ({@link resolvePaint}).
  *
- * - Same fill → DOM is **series-major** (`[A1, A2, A3, B1, B2, B3]`)
+ * - Same paint → DOM is **series-major** (`[A1, A2, A3, B1, B2, B3]`)
  *   → `{ order: 'row' }`.
- * - Different fill → DOM is **subject-major** (`[A1, B1, A2, B2, A3, B3]`)
+ * - Different paint → DOM is **subject-major** (`[A1, B1, A2, B2, A3, B3]`)
  *   → `{ order: 'column', groupDirection: 'forward' }`.
  *
  * Returns `undefined` when detection is impossible (fewer than 2
@@ -386,7 +398,9 @@ function detectSegmentedDomOrder(
     return undefined;
   }
 
-  const seriesMajor = fill0 === fill1;
+  // The whole paint rather than the fill alone: bars stacked by `stroke` or
+  // `strokeDash` are filled alike in every series.
+  const seriesMajor = resolvePaint(elements[0]) === resolvePaint(elements[1]);
   return seriesMajor
     ? { order: 'row' }
     : { order: 'column', groupDirection: 'forward' };
