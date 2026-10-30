@@ -1207,6 +1207,8 @@ const data = [{ measure: 'NPS', score: 73 }];
 
 "73" is not the reading. "73 out of 100, 7 below target, in the 'ok' band" is, and a sighted reader gets all of it from the dial's geometry — the needle's position, the marker beside it, the coloured arc it lands on. None of that is written anywhere a screen reader can reach, and none of it is inferable from a `<RadialBar>`, so the range mirrors the chart's `domain` and the target and bands are declared.
 
+Declare only what the dial draws. A `<RadialBar>` draws the value and its track and nothing else, so a gauge that declares a target and bands draws them too, or a reader is told of marks a sighted colleague cannot find: the gauge example draws its bands as arcs round the rim and its target as a mark across the dial, with a small component of plain SVG placed inside the `<RadialBarChart>`, where Recharts draws its children.
+
 Bands are **ascending and bounded above only**: a band starts where the previous one ended, and the first starts at `min`. A value above every band belongs to none rather than to the last one. There is deliberately no default range — a guessed maximum misreports the one number the chart draws.
 
 #### Treemap, Sunburst and Icicle [experimental]

@@ -12,6 +12,7 @@
 
 import type {
   GanttData,
+  GaugePoint,
   Maidr as MaidrData,
   MaidrLayer,
   TreemapPoint,
@@ -21,6 +22,7 @@ import { afterEach, beforeAll, describe, expect, it, jest } from '@jest/globals'
 import { cleanup, render } from '@testing-library/react';
 import { createElement } from 'react';
 import { GanttExample } from '../../../examples/recharts/examples/GanttExample';
+import { GaugeExample } from '../../../examples/recharts/examples/GaugeExample';
 import { IcicleExample } from '../../../examples/recharts/examples/IcicleExample';
 import { SunburstExample } from '../../../examples/recharts/examples/SunburstExample';
 
@@ -156,5 +158,19 @@ describe('the recharts example apps', () => {
 
     expect(arcs).toHaveLength(nodes);
     expect(arcs.filter(arc => /NaN/.test(arc.getAttribute('d') ?? ''))).toEqual([]);
+  });
+
+  it('draw the gauge\'s bands and target round its dial', () => {
+    // The dial drew the value arc alone while every move read "Target is 80"
+    // and the description listed the three bands.
+    const { chart, layer } = draw(GaugeExample);
+    const gauge = layer.data as GaugePoint;
+    const texts = [...chart.querySelectorAll('svg text')].map(text => text.textContent ?? '');
+
+    expect(gauge.bands?.length).toBe(3);
+    for (const band of gauge.bands ?? []) {
+      expect(texts).toContain(band.label);
+    }
+    expect(texts.some(text => text.includes(String(gauge.target)))).toBe(true);
   });
 });
