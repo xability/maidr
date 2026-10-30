@@ -490,7 +490,7 @@ The MAIDR extractor derives `trend` from `close` vs `open` and `volatility` from
 
 #### Heatmap (Matrix)
 
-Requires [`chartjs-chart-matrix`](https://github.com/kurkle/chartjs-chart-matrix). Matrix datasets use flat `{x, y, v}` entries — the MAIDR extractor collects unique X and Y labels in first-seen order and produces a `points[y][x]` grid.
+Requires [`chartjs-chart-matrix`](https://github.com/kurkle/chartjs-chart-matrix). Matrix datasets use flat `{x, y, v}` entries — the MAIDR extractor collects unique X and Y labels in first-seen order and produces a `points[y][x]` grid. A cell's value is announced under the dataset's `label` ("Task Performance is 92"), the name the matrix plugin's tooltip gives it; set `plugins.maidr.axes.z` to name it otherwise.
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
