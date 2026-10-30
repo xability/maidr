@@ -2264,10 +2264,12 @@ export interface MaidrLayer {
    * Optional. Left out, MAIDR reads where first place is drawn from the marks
    * the highlight resolves, and where it has nothing to measure -- a chart
    * drawn to a canvas, or no highlight -- Up moves to the next larger rank
-   * number, as on a line. Say it where the drawing cannot be measured: the
-   * Chart.js and amCharts adapters do, and Frappe, which cannot reverse an
-   * axis, says `'bottom'`. Read by `BumpTrace` and ignored by every other
-   * type.
+   * number, as on a line. A layer left without it whose drawing turns Up and
+   * Down round from that rule logs a console warning, once, asking for it.
+   * Say it where the drawing cannot be measured: the Chart.js and amCharts
+   * adapters do, Highcharts says it from its reversed axis, and Frappe, which
+   * cannot reverse an axis, says `'bottom'`. Read by `BumpTrace` and ignored
+   * by every other type.
    *
    * @example
    * // a bump chart whose rank axis runs up the page

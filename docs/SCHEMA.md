@@ -686,7 +686,8 @@ The data property is defined as a list of objects where each object is a record 
     //out, MAIDR reads where first place is drawn from the highlighted marks;
     //with nothing to measure (a canvas, no highlight), Up moves to the next
     //larger rank number, as on a line. Say it when the drawing cannot be
-    //measured.
+    //measured; a layer left without it whose drawing turns the keys round from
+    //that rule logs a console warning asking for it.
     maidr = {
       "type": "bump",
       "firstPlace": "top",

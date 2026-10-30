@@ -87,10 +87,13 @@ function competitor(trace: BumpTrace): unknown {
 
 let measured: number;
 let laidOut: boolean;
+let warned: jest.SpiedFunction<typeof console.warn>;
 
 beforeEach(() => {
   measured = 0;
   laidOut = true;
+  // A layer read as first place on top asks, once, to be told instead.
+  warned = jest.spyOn(console, 'warn').mockImplementation(() => {});
   jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     measured++;
     // A marker out of the page has no box, as in a browser.
@@ -236,5 +239,51 @@ describe('what the layer says, and what is left when nothing can be measured', (
     expect(reached).toBe('Birch');
     expect(afterLayout).toBe(true);
     expect(competitor(trace)).toBe('Ash');
+  });
+});
+
+describe('a layer that leaves it to be read is asked to say it', () => {
+  // Before the drawing was read, a layer that did not say moved Up to the
+  // next larger rank. Where the reading turns that round, the producer is
+  // told how to state it, once per layer.
+
+  test('a reading that turns the keys round warns once, naming the field', () => {
+    draw(FIRST_ON_TOP);
+    const trace = new BumpTrace(layer({ id: 'asked-once' }));
+    trace.moveToIndex(0, 0);
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('UPWARD');
+    new BumpTrace(layer({ id: 'asked-once' })).moveOnce('UPWARD');
+
+    expect(warned).toHaveBeenCalledTimes(1);
+    expect(String(warned.mock.calls[0]?.[0])).toContain('asked-once');
+    expect(String(warned.mock.calls[0]?.[0])).toContain('firstPlace');
+  });
+
+  test('a reading that keeps the line\'s rule says nothing', () => {
+    draw(FIRST_AT_BOTTOM);
+    const trace = new BumpTrace(layer({ id: 'kept-the-rule' }));
+    trace.moveToIndex(0, 0);
+    trace.moveOnce('UPWARD');
+
+    expect(warned).not.toHaveBeenCalled();
+  });
+
+  test('a layer that says says nothing more', () => {
+    draw(FIRST_ON_TOP);
+    const trace = new BumpTrace(layer({ id: 'said-it', firstPlace: 'top' }));
+    trace.moveToIndex(0, 0);
+    trace.moveOnce('DOWNWARD');
+
+    expect(warned).not.toHaveBeenCalled();
+  });
+
+  test('nothing to measure says nothing', () => {
+    draw(FIRST_ON_TOP);
+    const trace = new BumpTrace(layer({ id: 'no-highlight' }, false));
+    trace.moveToIndex(0, 0);
+    trace.moveOnce('UPWARD');
+
+    expect(warned).not.toHaveBeenCalled();
   });
 });

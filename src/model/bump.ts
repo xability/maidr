@@ -25,6 +25,34 @@ function rankRotorUnits(): readonly RotorFilterUnit[] {
   ];
 }
 
+/** The layers already told to say `firstPlace`, so a figure built twice warns once. */
+const askedForFirstPlace = new Set<string>();
+
+/**
+ * Says, once per layer, that Up and Down were turned round from the line's
+ * rule on a reading of the drawing alone, and how to say so instead.
+ *
+ * Asked of the producer because the reading changed the keys: before it was
+ * measured, a layer that did not say moved Up to the next larger rank, and a
+ * page or adapter that knows how it draws the chart can state it rather than
+ * leave it to be read.
+ *
+ * @param id - The layer's id
+ */
+function askForFirstPlace(id: string): void {
+  if (askedForFirstPlace.has(id)) {
+    return;
+  }
+  askedForFirstPlace.add(id);
+  console.warn(
+    `[BumpTrace] Layer "${id}" does not say where first place is drawn. Read `
+    + 'from the chart, first place is at the top, so Up moves to the place one '
+    + 'better rather than to the next larger rank number. Set '
+    + '`firstPlace: \'top\'` on the layer to say so, or `\'bottom\'` if the '
+    + 'reading is wrong.',
+  );
+}
+
 /**
  * How far down the page the centre of the marker the highlight holds for a
  * point is drawn.
@@ -564,6 +592,9 @@ export class BumpTrace extends LineTrace {
       return false;
     }
     this.measuredFirstPlaceOnTop = lean > 0;
+    if (this.measuredFirstPlaceOnTop) {
+      askForFirstPlace(this.id);
+    }
     return this.measuredFirstPlaceOnTop;
   }
 
