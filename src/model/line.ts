@@ -128,9 +128,6 @@ export class LineTrace extends AbstractTrace {
   /** The lowest and highest measured value of the whole layer; see {@link valueRange}. */
   private readonly layerRange: { readonly min: number; readonly max: number };
 
-  // Track previous row for intersection label ordering
-  private previousRow: number | null = null;
-
   // Cache for intersection results, keyed by row index
   // Invalidated when active row changes
   private intersectionCache: Map<number, Array<{
@@ -360,7 +357,7 @@ export class LineTrace extends AbstractTrace {
 
   /**
    * Label and name of the line the cursor sits on. Resolved from the row
-   * rather than from `text.z`, which is replaced by the intersection summary
+   * rather than from `text.z`, which carries the intersection summary as well
    * when several lines meet at the current point.
    */
   private get currentGroup(): { label: string; value: string } | undefined {
@@ -928,26 +925,28 @@ export class LineTrace extends AbstractTrace {
     const zLabel = this.groupLabel;
 
     if (intersections.length > 1) {
-      // Multiple lines intersect - create intersection text
-      // Named the way every other announcement names a series, so an unnamed
-      // line is "Line 2" here as well rather than an abbreviation the reader
-      // has never been given.
-      let lineTypes = intersections.map(intersection =>
-        this.groupNameAt(intersection.group!),
-      );
-
-      // If previousRow is in the intersection, put its label first
-      if (this.previousRow !== null) {
-        const prevZ = this.groupNameAt(this.previousRow);
-        if (lineTypes.includes(prevZ)) {
-          lineTypes = [prevZ, ...lineTypes.filter(l => l !== prevZ)];
-        }
-      }
-
+      // The line the cursor is on, and then every line that meets it here,
+      // that one first. Named the way every other announcement names a
+      // series, so an unnamed line is "Line 2" here as well rather than an
+      // abbreviation the reader has never been given.
+      //
+      // The list alone used to stand in for the line's name, led by the line
+      // the cursor came from. After Up or Down inside a tie that was the line
+      // just left, so the reader was never told which line they were now on:
+      // three trees meeting at one point read "intersection at (3, 1, 5)" on
+      // Tree 1 and "intersection at (1, 3, 5)" on Tree 5.
+      const here = this.groupNameAt(this.row);
+      const others = intersections
+        .map(intersection => intersection.group)
+        .filter((row): row is number => row !== undefined && row !== this.row)
+        .map(row => this.groupNameAt(row));
       zData = {
         z: {
           label: zLabel,
-          value: t('model.intersectionAtLines', { lines: lineTypes.join(', ') }),
+          value: t('model.nameWithValue', {
+            name: here,
+            value: t('model.intersectionAtLines', { lines: [here, ...others].join(', ') }),
+          }),
         },
       };
     } else {
@@ -1009,7 +1008,6 @@ export class LineTrace extends AbstractTrace {
   public override moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
       this.enterTrace();
-      this.previousRow = null;
       this.notifyStateUpdate();
       return true;
     }
@@ -1018,9 +1016,6 @@ export class LineTrace extends AbstractTrace {
       this.notifyOutOfBounds();
       return false;
     }
-
-    // Store previous row before moving
-    this.previousRow = this.row;
 
     // Enhanced navigation for UPWARD/DOWNWARD - consider y values at current x position
     if (direction === 'UPWARD' || direction === 'DOWNWARD') {
