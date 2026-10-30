@@ -106,3 +106,21 @@ describe('ReviewService at the figure lobby', () => {
     service.dispose();
   });
 });
+
+describe('ReviewService text', () => {
+  test('keeps the space a line break in a label stands for', () => {
+    // The review is shown in a single-line input, which drops line breaks
+    // without a space: "Adelie\nMean = 3700.66g" read as "AdelieMean".
+    const { notification, display } = createMocks();
+    const text = {
+      format: jest.fn(() => 'Species is Adelie\nMean = 3700.66g, Mass is 3700.66'),
+    } as unknown as TextService;
+    const service = new ReviewService(notification, display, text);
+    const onChange = jest.fn();
+    service.onChange(onChange);
+
+    service.toggle(FIGURE_LOBBY);
+
+    expect(onChange).toHaveBeenCalledWith({ value: 'Species is Adelie Mean = 3700.66g, Mass is 3700.66' });
+  });
+});
