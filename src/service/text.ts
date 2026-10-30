@@ -266,6 +266,20 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   /**
    * Formats a layer switch announcement from trace state.
+   *
+   * The point landed on is read as a verbose step onto it reads it, so the
+   * switch says what each value is: a box plot's or a candlestick's section
+   * ("close Price is 3,085.18"), an error bar's bound, a histogram bin's
+   * range. The switch used to compose its own reading of `main`, `cross` and
+   * `z`, which dropped all three -- a lower bound and a bin's centre were
+   * announced as though they were the point's value -- and left the violin's
+   * box layer with no value at all.
+   *
+   * What a step adds after the values stays for the next step, as it always
+   * has: the asides, except one that says which point this is (a scatter's
+   * point name is no value on an axis), the stack a point sits in, and the
+   * interval drawn around it.
+   *
    * @param state - The trace state representing the new layer
    * @returns Formatted announcement text for the layer switch
    */
@@ -276,54 +290,24 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Set currentLayerId for formatting
     this.currentLayerId = state.layerId;
 
-    let announcement = t('text.layerOfSize', {
+    const announcement = t('text.layerOfSize', {
       index: state.index,
       size: state.size,
       identity: TextService.layerIdentity(state),
     });
-    if (state.text) {
-      const parts: string[] = [];
-
-      // Use axis identity from TextState, fallback to default mapping
-      const mainAxisType = state.text.mainAxis ?? 'x';
-      const crossAxisType = state.text.crossAxis ?? 'y';
-
-      if (state.text.main && state.text.main.value !== undefined) {
-        const mainValue = Array.isArray(state.text.main.value)
-          ? this.formatArrayValue(state.text.main.value as (number | string)[], mainAxisType).join(', ')
-          : this.formatSingleValue(state.text.main.value as number | string, mainAxisType);
-        parts.push(t('text.labelIsValue', { label: state.text.main.label, value: mainValue }));
-      }
-      // Exclude cross value for violin box plots during layer switch.
-      // With explicit violin_box trace type, no heuristic is needed.
-      const isViolinBoxPlot = state.traceType === 'violin_box';
-      if (!isViolinBoxPlot && state.text.cross && state.text.cross.value !== undefined) {
-        const crossValue = Array.isArray(state.text.cross.value)
-          ? this.formatArrayValue(state.text.cross.value as (number | string)[], crossAxisType).join(', ')
-          : this.formatSingleValue(state.text.cross.value as number | string, crossAxisType);
-        parts.push(t('text.labelIsValue', { label: state.text.cross.label, value: crossValue }));
-      }
-      if (state.text.z && state.text.z.value !== undefined) {
-        const zValue = Array.isArray(state.text.z.value)
-          ? this.formatArrayValue(state.text.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE)
-          : this.formatSingleValue(state.text.z.value as number | string, 'z');
-        parts.push(t('text.labelIsValue', { label: state.text.z.label, value: zValue }));
-      }
-      // Which point this is, where an aside says so (a scatter's point name
-      // is no value on an axis). The other asides wait for the next step.
-      for (const aside of state.text.asides ?? []) {
-        if (aside.identifies === true) {
-          parts.push(t('text.labelIsValue', { label: aside.label, value: aside.value }));
-        }
-      }
-      if (parts.length > 0) {
-        announcement = t('text.layerSwitchAt', {
-          layer: announcement,
-          details: parts.join(Constant.COMMA_SPACE),
-        });
-      }
+    if (!state.text) {
+      return announcement;
     }
-    return announcement;
+
+    const details = this.formatVerboseTraceText({
+      ...state.text,
+      asides: state.text.asides?.filter(aside => aside.identifies === true),
+      stack: undefined,
+      interval: undefined,
+    });
+    return details === ''
+      ? announcement
+      : t('text.layerSwitchAt', { layer: announcement, details });
   }
 
   /**
