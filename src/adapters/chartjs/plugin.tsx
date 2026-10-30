@@ -67,6 +67,8 @@ interface MaidrChartBinding {
   overlay?: HighlightOverlay | null;
   /** Latest MAIDR navigation event, replayed on resize. */
   lastActive: NavEvent | null;
+  /** Stops clearing the highlight when focus leaves the chart. */
+  stopWatchingFocus: () => void;
 }
 
 const chartBindings = new WeakMap<ChartJsChart, MaidrChartBinding>();
@@ -217,6 +219,56 @@ export function createHighlightCallback(
     } catch {
       // Silently ignore highlight errors (e.g., after chart destruction)
     }
+  };
+}
+
+/**
+ * Clears the highlight once focus has left the chart.
+ *
+ * MAIDR says nothing through `onNavigate` when the reader leaves, so the box,
+ * and Chart.js's own active point and tooltip, stayed on the point they left:
+ * on a page of two charts, both were highlighted. The SVG adapters' highlight
+ * goes when MAIDR disposes its controller, which it does once focus is
+ * outside the figure; this asks the same question at the same moment. The
+ * figure's braille field, review field and dialogs are all inside
+ * `container`, so moving to them keeps the highlight.
+ *
+ * @param chart - The chart whose highlight to clear
+ * @param container - The element the plugin mounted MAIDR's figure in
+ * @param getOverlay - The overlay, once it exists
+ * @param forget - Drops the reader's last position, so a resize does not draw it again
+ * @returns Stops watching
+ */
+function clearHighlightWhenFocusLeaves(
+  chart: ChartJsChart,
+  container: HTMLElement,
+  getOverlay: () => HighlightOverlay | null,
+  forget: () => void,
+): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const onFocusOut = (): void => {
+    if (timer !== null)
+      clearTimeout(timer);
+    // Deferred, as MAIDR's own check is: focus moving between two places in
+    // the figure passes through the page's body on the way.
+    timer = setTimeout(() => {
+      timer = null;
+      if (container.contains(document.activeElement))
+        return;
+      forget();
+      try {
+        applyHighlight(chart, getOverlay(), []);
+      } catch {
+        // Ignore; the chart may be mid-destruction.
+      }
+    }, 0);
+  };
+
+  container.addEventListener('focusout', onFocusOut);
+  return () => {
+    container.removeEventListener('focusout', onFocusOut);
+    if (timer !== null)
+      clearTimeout(timer);
   };
 }
 
@@ -403,6 +455,12 @@ function initMaidrForChart(chart: ChartJsChart): void {
     targetMaps,
     overlayPromise,
     lastActive: null,
+    stopWatchingFocus: clearHighlightWhenFocusLeaves(
+      chart,
+      result.container,
+      () => overlay,
+      () => recordActive(null),
+    ),
   });
 }
 
@@ -442,6 +500,8 @@ function destroyMaidrForChart(chart: ChartJsChart): void {
   const binding = chartBindings.get(chart);
   if (!binding)
     return;
+
+  binding.stopWatchingFocus();
 
   // Tear down the overlay before unmounting React so its DOM node is
   // removed cleanly. The promise resolves synchronously if mount already
