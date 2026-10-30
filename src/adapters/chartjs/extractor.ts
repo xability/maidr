@@ -622,11 +622,20 @@ function isCandlestickValue(v: ChartJsDataValue): v is { x: number | string; o: 
  * The Chart.js financial plugin requires a time scale, so `x` is typically
  * epoch milliseconds (e.g. from Luxon). A bare `String(...)` would surface
  * "1704088800000" rather than a readable date. Detect epoch-ms values and
- * format as ISO date; otherwise pass through.
+ * format as a `YYYY-MM-DD` date; otherwise pass through.
+ *
+ * The date is the one in the reader's own time zone, because that is the zone
+ * Chart.js's date adapters draw a time scale in. `toISOString()` gave the UTC
+ * date instead: a candle built at local midnight, as Luxon's `fromISO` builds
+ * one, was announced a day early east of UTC.
  */
 function formatCandlestickValue(value: unknown): string {
-  if (typeof value === 'number' && Number.isFinite(value) && value > 1e11)
-    return new Date(value).toISOString().slice(0, 10);
+  if (typeof value === 'number' && Number.isFinite(value) && value > 1e11) {
+    const date = new Date(value);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+  }
   return String(value);
 }
 
