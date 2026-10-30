@@ -468,8 +468,12 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
           down: index < column.length - 1 ? { row: index + 1, col: stage } : null,
           right: this.addressOf(node.out[0]?.to),
           left: this.addressOf(node.in[0]?.from),
-          top: { row: 0, col: stage },
-          bottom: { row: column.length - 1, col: stage },
+          // None from the node already at the top or the bottom of its
+          // column, so the jump there gives the edge signal, as Up and Down
+          // do. Pointing at the node itself, the jump landed where it was
+          // and announced the node again.
+          top: index > 0 ? { row: 0, col: stage } : null,
+          bottom: index < column.length - 1 ? { row: column.length - 1, col: stage } : null,
           // The ribbon followed to its end, and back to its origin: the
           // sighted action this chart is read with, in one keystroke. A
           // route that goes round in a cycle has neither, and the jump is

@@ -461,6 +461,36 @@ describe('stages are derived, and a cycle is answered honestly', () => {
   });
 });
 
+describe('the jumps up and down a column stop at its ends', () => {
+  test('a jump up from the top of a column gives the edge signal', () => {
+    // Coal is the top of the first column. The jump used to land on Coal
+    // again and announce it, where Up gave the edge signal.
+    const trace = flow();
+
+    expect(trace.moveToExtreme('UPWARD')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Coal');
+  });
+
+  test('a jump down from the bottom of a column gives the edge signal', () => {
+    const trace = flow();
+    walk(trace, 'DOWNWARD');
+
+    expect(trace.moveToExtreme('DOWNWARD')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Gas');
+  });
+
+  test('a jump from inside a column still lands on its end', () => {
+    // Electricity sits between Losses and Heat in the middle column.
+    const trace = flow();
+    walk(trace, 'FORWARD');
+
+    expect(trace.moveToExtreme('UPWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Losses');
+    expect(trace.moveToExtreme('DOWNWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Heat');
+  });
+});
+
 describe('a route round a cycle has no end to jump to', () => {
   /** A ring, every node sending its largest flow on to the next. */
   const CIRCLE: FlowPoint[] = [
