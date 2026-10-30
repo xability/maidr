@@ -776,8 +776,8 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
-   * The range every series is pitched against: the lowest and the highest
-   * measured value of the whole layer.
+   * The range every series is pitched and brailled against: the lowest and
+   * the highest measured value of the whole layer.
    *
    * One range for the layer, as a bar layer has one, because the series of a
    * line chart are drawn against one value axis. Pitched each against its own
@@ -786,9 +786,11 @@ export class LineTrace extends AbstractTrace {
    * than a larger value on another, and unequal values on two lines played
    * the same note.
    *
-   * The tone at the cursor and the chord at a point several series share both
-   * read it, so a subclass heard on another register overrides this one
-   * getter and both follow.
+   * The tone at the cursor, the chord at a point several series share and
+   * the braille all read it, so a subclass heard on another register
+   * overrides this one getter and all three follow. A bump chart, whose
+   * register runs the other way round, keeps its braille the right way up
+   * with an override of its own.
    *
    * @returns The lowest and highest value of the register
    */

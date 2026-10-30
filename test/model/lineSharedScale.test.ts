@@ -168,6 +168,24 @@ describe('the series of a line-family layer share one register', () => {
 });
 
 describe('the chord at a point several series share', () => {
+  test('is inverted on a bump chart, as the single tone at the same cell is', () => {
+    // Ash and Birch tie for first in period 1, so they share a point there.
+    const tied: LinePoint[][] = [
+      [{ x: 1, y: 1, z: 'Ash' }, { x: 2, y: 2, z: 'Ash' }],
+      [{ x: 1, y: 1, z: 'Birch' }, { x: 2, y: 3, z: 'Birch' }],
+      [{ x: 1, y: 3, z: 'Cyan' }, { x: 2, y: 1, z: 'Cyan' }],
+    ];
+    const trace = build(layer(TraceType.BUMP, tied));
+
+    const state = stateAt(trace, 0, 0);
+
+    expect(state.audio.freq).toEqual({ min: 3, max: 1, raw: 1 });
+    expect(state.intersections?.map(tone => tone.freq)).toEqual([
+      { min: 3, max: 1, raw: 1 },
+      { min: 3, max: 1, raw: 1 },
+    ]);
+  });
+
   test('sounds every tone on the layer\'s register', () => {
     // The two lines meet at (1, 1). Each on its own range, the 1 was the top
     // of the first line's register and the bottom of the second's.
