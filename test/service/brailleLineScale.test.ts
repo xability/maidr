@@ -74,4 +74,8 @@ describe('a multi-series line on the braille display', () => {
 
     expect(brailleOf(lines)).toBe('⣀⣀⣀⡠\n⣀⡠⠔⠊\n');
   });
+
+  test('writes a layer of nothing but gaps as blank cells', () => {
+    expect(brailleOf([[{ x: 0, y: null }, { x: 1, y: null }]])).toBe('  \n');
+  });
 });

@@ -157,13 +157,38 @@ describe('the series of a line-family layer share one register', () => {
   });
 
   test('[ and ] still jump to the extremes of the series the cursor is on', () => {
+    // Series B's own 20 at week 6 and 5 at week 2, not the layer's 25 and 5
+    // on Series A.
     const trace = build(layer(TraceType.LINE));
     trace.moveToIndex(1, 0);
 
     const targets = trace.getExtremaTargets();
 
-    expect(targets.find(target => target.type === 'max')?.value).toBe(20);
-    expect(targets.find(target => target.type === 'min')?.value).toBe(5);
+    expect(targets.find(target => target.type === 'max')).toMatchObject({ value: 20, pointIndex: 5 });
+    expect(targets.find(target => target.type === 'min')).toMatchObject({ value: 5, pointIndex: 1 });
+  });
+
+  test('a series of nothing but gaps takes no part in the range', () => {
+    const trace = build(layer(TraceType.LINE, [
+      [{ x: 1, y: null }, { x: 2, y: null }],
+      [{ x: 1, y: 3 }, { x: 2, y: 7 }],
+    ]));
+
+    const { audio, braille } = stateAt(trace, 1, 0);
+
+    expect(audio.freq).toEqual({ min: 3, max: 7, raw: 3 });
+    expect(braille).toMatchObject({ min: [3, 3], max: [7, 7] });
+  });
+
+  test('a layer of nothing but gaps has no value to pitch', () => {
+    // The audio service plays the empty tone for a non-finite value, and the
+    // braille encoder writes a blank cell for one, so the infinite bounds an
+    // empty range leaves are never interpolated.
+    const trace = build(layer(TraceType.LINE, [[{ x: 1, y: null }, { x: 2, y: null }]]));
+
+    const { freq } = stateAt(trace, 0, 0).audio;
+
+    expect(Number.isNaN(freq.raw)).toBe(true);
   });
 });
 
