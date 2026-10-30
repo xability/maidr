@@ -560,7 +560,8 @@ export class BumpTrace extends LineTrace {
 
   /**
    * The best and the worst place the current competitor held, for `]`, `[`
-   * and the Go To dialog, and the crossings the line offers.
+   * and the Go To dialog, and whatever else the line offers, such as its
+   * crossings.
    *
    * A line's maximum is its largest value, which on a rank axis is the worst
    * place: the lowest note, and on a chart with first place at the top the
@@ -569,14 +570,16 @@ export class BumpTrace extends LineTrace {
    * drawn, and so does this: the best place is the maximum, the worst the
    * minimum, and every period the competitor held either is offered.
    *
-   * @returns The best places, the worst places, then the crossings
+   * @returns The best places, the worst places, then the line's other targets
    */
   public override getExtremaTargets(): ExtremaTarget[] {
-    const crossings = super.getExtremaTargets().filter(target => target.type === 'intersection');
+    // The line's own extremes are replaced; anything else it offers, such as
+    // its crossings, is kept.
+    const others = super.getExtremaTargets().filter(target => target.type !== 'max' && target.type !== 'min');
     const ranks = this.lineValues[this.row] ?? [];
     const measured = ranks.filter(isMeasured);
     if (measured.length === 0) {
-      return crossings;
+      return others;
     }
 
     const heldAt = (rank: number, type: 'max' | 'min', name: string): ExtremaTarget[] =>
@@ -598,7 +601,7 @@ export class BumpTrace extends LineTrace {
     return [
       ...heldAt(MathUtil.safeMin(measured), 'max', t('model.extremaBestRank')),
       ...heldAt(MathUtil.safeMax(measured), 'min', t('model.extremaWorstRank')),
-      ...crossings,
+      ...others,
     ];
   }
 
