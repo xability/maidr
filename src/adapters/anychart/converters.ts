@@ -1543,15 +1543,18 @@ const SCATTER_LIKE_SERIES_TYPES = new Set([
  *
  * Strategy mirrors {@link stampLineAttributes}: AnyChart does not expose
  * per-point DOM accessors, so we use {@link collectLineMarkerCandidates} to
- * geometrically filter point-sized shapes, then sort and partition by
- * series. Scatter points are visually identical to line markers (small,
- * roughly square), so the same filter applies.
+ * geometrically filter point-sized shapes. Scatter points are visually
+ * identical to line markers (small, roughly square), so the same filter
+ * applies, and AnyChart draws each series' points into a layer of its own, in
+ * series order, so the candidates are grouped by layer and each scatter-like
+ * series takes the next group. A hidden series takes none.
  *
- * Sort order is x-center primary, y-center secondary, matching
- * `ScatterTrace.groupSvgElements`'s X→Y grouping expectation. Multi-series
- * scatter charts hand the candidates out with the same running cursor as
- * line-series and emit the same one-time warning recommending an explicit
- * `selectors` entry.
+ * Within a group the sort order is x-center primary, y-center secondary,
+ * matching `ScatterTrace.groupSvgElements`'s X→Y grouping expectation.
+ * Splitting one sorted list into runs of `pointCount` instead gave a series
+ * whatever points came first along x, whichever series drew them: of two
+ * series measured at the same x values, the first took both series' points at
+ * the first half of the x values.
  *
  * Idempotent — re-running on a chart that has already been stamped is a
  * no-op.
@@ -1582,12 +1585,12 @@ function stampScatterAttributes(
     const y = bbox ? bbox.y + bbox.height / 2 : 0;
     return { el: c.el, x: c.x, y };
   });
-  candidates.sort((a, b) => (a.x - b.x) || (a.y - b.y));
+  // One group of candidates per layer, in the order the layers are drawn.
+  const groups = groupByLayer(candidates)
+    .map(group => group.sort((a, b) => (a.x - b.x) || (a.y - b.y)));
 
-  let multiSeriesWarned = false;
-  // See {@link stampLineAttributes}: a running cursor over the candidates the
-  // earlier series took, not `s * pointCount`, which counts the series this
-  // loop skipped and assumes every series is the same length.
+  // See {@link stampLineAttributes}: a running cursor over the groups the
+  // earlier series took, not `s`, which counts the series this loop skipped.
   let consumed = 0;
 
   for (let s = 0; s < seriesCount; s++) {
@@ -1605,37 +1608,26 @@ function stampScatterAttributes(
 
     const rows = extractRawRows(series);
     const pointCount = rows.length;
-    if (pointCount === 0)
+    // A hidden series draws no points, so it takes no layer. Its `markers()`
+    // say nothing here: measured on AnyChart 8.13, a marker series reports
+    // its markers as disabled while it draws every point.
+    if (pointCount === 0 || series.enabled?.() === false)
       continue;
 
-    if (seriesCount > 1 && !multiSeriesWarned) {
-      console.warn(
-        '[maidr/anychart] Multi-series scatter highlighting uses an '
-        + 'offset-based partition of marker candidates and may misattribute '
-        + 'points across series with overlapping geometry. For precise '
-        + 'highlighting, pass an explicit `selectors` entry to bindAnyChart().',
-      );
-      multiSeriesWarned = true;
-    }
-
-    const stampStart = consumed;
-    const stampEnd = Math.min(consumed + pointCount, candidates.length);
-    consumed = stampEnd;
-
-    if (stampEnd - stampStart < pointCount) {
+    const points = groups[consumed++] ?? [];
+    if (points.length !== pointCount) {
       console.warn(
         `[maidr/anychart] Expected ${pointCount} scatter marker shapes for `
-        + `series ${s} but found ${Math.max(0, stampEnd - stampStart)}. `
+        + `series ${s} but found ${points.length}. `
         + 'Highlighting may be incomplete; pass an explicit `selectors` entry '
         + 'to override.',
       );
     }
 
-    for (let i = stampStart; i < stampEnd; i++) {
-      const c = candidates[i];
+    for (const [i, c] of points.slice(0, pointCount).entries()) {
       if (c.el.hasAttribute(POINT_ATTR))
         continue;
-      c.el.setAttribute(POINT_ATTR, `${stampPrefix}${s}-${i - stampStart}`);
+      c.el.setAttribute(POINT_ATTR, `${stampPrefix}${s}-${i}`);
       // Stamp the bbox-center as `cx` / `cy` so MAIDR's
       // `ScatterTrace.groupSvgElements` can extract coordinates from these
       // <path> elements directly. AnyChart scatter markers render as

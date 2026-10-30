@@ -3,16 +3,15 @@
  *
  * `stampLineAttributes` and `stampScatterAttributes` collect every marker-sized
  * shape in the SVG geometrically — AnyChart 8.x gives them no class to aim at —
- * and then split them between the series: the line stamper by the layer each
- * series draws its markers into, the scatter stamper along one flat list. The
- * split is where the pairing between what is announced and what is outlined is
- * decided, and it fails silently: the announcements come from the series' own
- * rows and stay correct whatever the split does.
+ * and then split them between the series by the layer each series draws its
+ * marks into. The split is where the pairing between what is announced and
+ * what is outlined is decided, and it fails silently: the announcements come
+ * from the series' own rows and stay correct whatever the split does.
  *
- * Three shapes of chart are exercised here, because they break the split in
- * different directions: a combined chart whose first series is not line-like
- * at all, two line series of unequal length, and bands of a stacked area whose
- * markers share every x position.
+ * The shapes of chart exercised here break the split in different directions:
+ * a combined chart whose first series is not line-like at all, series of
+ * unequal length, series whose marks share every x position, and a series
+ * that draws no marks at all.
  */
 
 import type {
@@ -271,9 +270,12 @@ describe('bindAnyChart (multi-series line stamping)', () => {
 
 describe('bindAnyChart (multi-series scatter stamping)', () => {
   it('gives each of two unequal scatter series its own points', () => {
+    // Three points then five, each series' points in a layer of its own.
     const { container, markers } = createRenderedChart(
       'scatter-unequal',
       [10, 20, 30, 40, 50, 60, 70, 80],
+      [],
+      [3, 5],
     );
     const chart = createChart(
       [createSeries('marker', 3, 'A'), createSeries('marker', 5, 'B')],
@@ -284,6 +286,57 @@ describe('bindAnyChart (multi-series scatter stamping)', () => {
 
     expect(stamps(markers, POINT_ATTR))
       .toEqual(['0-0', '0-1', '0-2', '1-0', '1-1', '1-2', '1-3', '1-4']);
+
+    cleanUp(container);
+  });
+
+  it('gives each of two scatter series measured at the same x values its own points', () => {
+    // Split into runs of four along x, the first series took both series'
+    // points at the first two x values, and the second took the last two.
+    const { container, markers } = createRenderedChart(
+      'scatter-shared-x',
+      [10, 20, 30, 40, 10, 20, 30, 40],
+      [],
+      [4, 4],
+    );
+    const chart = createChart(
+      [createSeries('marker', 4, 'Control'), createSeries('marker', 4, 'Treated')],
+      container,
+    );
+
+    bindAnyChart(chart);
+
+    expect(stamps(markers, POINT_ATTR))
+      .toEqual(['0-0', '0-1', '0-2', '0-3', '1-0', '1-1', '1-2', '1-3']);
+
+    cleanUp(container);
+  });
+
+  it('stamps a marker series that says its markers are off, and skips a hidden one', () => {
+    // Measured on AnyChart 8.13: a marker series' `markers().enabled()` is
+    // false while it draws every point, so only `enabled()` says whether a
+    // series is drawn. The hidden series in the middle draws nothing and
+    // takes no layer.
+    const markersOff = { markers: () => ({ enabled: () => false }) as unknown as AnyChartMarkers };
+    const { container, markers } = createRenderedChart(
+      'scatter-hidden',
+      [10, 20, 30, 10, 20, 30],
+      [],
+      [3, 3],
+    );
+    const chart = createChart(
+      [
+        createSeries('marker', 3, 'A', markersOff),
+        createSeries('marker', 3, 'B', { ...markersOff, enabled: () => false }),
+        createSeries('marker', 3, 'C', markersOff),
+      ],
+      container,
+    );
+
+    bindAnyChart(chart);
+
+    expect(stamps(markers, POINT_ATTR))
+      .toEqual(['0-0', '0-1', '0-2', '2-0', '2-1', '2-2']);
 
     cleanUp(container);
   });
