@@ -5006,8 +5006,15 @@ function buildAreaLayer(
  * the layer itself precisely because charting libraries disagree about which
  * of the two their `y` is, and the accumulation belongs in one place.
  *
+ * The bands are listed from the bottom of the stack up, which is how a
+ * stacked area is read: Up moves to the band drawn above. AnyChart draws its
+ * first series on top unless the y scale stacks in reverse or is inverted
+ * ({@link stacksFirstSeriesOnTop}), so the series are then listed last first,
+ * each band's selector moving with it.
+ *
  * @param entries - The chart's area series, with their chart-wide indices
  * @param variant - {@link TraceType.STACKED_AREA} or {@link TraceType.NORMALIZED_AREA}
+ * @param firstOnTop - Whether the chart draws the first series at the top
  * @param options - Binder options, consulted for selector overrides
  * @param panel - The owning panel, in multi-panel mode
  * @returns The single MAIDR layer holding every band
@@ -5015,10 +5022,12 @@ function buildAreaLayer(
 function buildStackedAreaLayer(
   entries: Array<{ series: AnyChartSeries; index: number }>,
   variant: TraceType.STACKED_AREA | TraceType.NORMALIZED_AREA,
+  firstOnTop: boolean,
   options?: AnyChartBinderOptions,
   panel?: PanelContext,
 ): MaidrLayer {
-  const data: LinePoint[][] = entries.map(({ series }) => {
+  const bands = firstOnTop ? [...entries].reverse() : entries;
+  const data: LinePoint[][] = bands.map(({ series }) => {
     const name = readSeriesName(series);
     return extractRawRows(series).map(r => ({
       x: r.x !== undefined ? (typeof r.x === 'number' ? r.x : String(r.x)) : asNumber(r._index),
@@ -5031,7 +5040,7 @@ function buildStackedAreaLayer(
   // the array against its line count, so a shortfall would drop the highlight
   // for the whole layer rather than for the one band that could not be
   // resolved. Emit the array only when every band resolved to a plain string.
-  const resolved = entries.map(({ index }) =>
+  const resolved = bands.map(({ index }) =>
     resolveSelector(index, TraceType.AREA, options, panel));
   const selectors = resolved.filter((one): one is string => typeof one === 'string');
 
@@ -6199,14 +6208,17 @@ function readMosaicTable(
 }
 
 /**
- * Whether a marimekko draws its first series at the top of each column.
+ * Whether a marimekko or a stacked area chart draws its first series at the
+ * top of each stack.
  *
  * Measured on AnyChart 8.13: `mekko()`, `mosaic()` and `barmekko()` all do,
- * and an inverted y scale or `yScale().stackDirection('reverse')` each puts
- * the first series at the bottom instead.
+ * and so does a stacked `area()` (on the stacked area example Desktop,
+ * declared first, is the top band), and an inverted y scale or
+ * `yScale().stackDirection('reverse')` each puts the first series at the
+ * bottom instead.
  *
- * @param chart - The marimekko
- * @returns True when the first series is the top tile of a column
+ * @param chart - The marimekko or the stacked area chart
+ * @returns True when the first series is drawn at the top of a stack
  */
 function stacksFirstSeriesOnTop(chart: AnyChartInstance): boolean {
   let inverted = false;
@@ -6998,7 +7010,13 @@ function buildSubplot(
   }
 
   if (stackedVariant !== null && stackedAreas.length > 0) {
-    const layer = buildStackedAreaLayer(stackedAreas, stackedVariant, options, panel);
+    const layer = buildStackedAreaLayer(
+      stackedAreas,
+      stackedVariant,
+      stacksFirstSeriesOnTop(chart),
+      options,
+      panel,
+    );
     attachAxes(layer);
     layers.push(layer);
   }
