@@ -19,7 +19,8 @@
  * them against a document.
  */
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
-import type { BarPoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
+import type { AbstractTrace } from '@model/abstract';
+import type { BarPoint, GanttData, MaidrLayer, SegmentedPoint } from '@type/grammar';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
@@ -193,24 +194,92 @@ describe('a horizontal histogram', () => {
   });
 });
 
+/** The documented gantt recipe, from `types.ts`: horizontal by default. */
+const GANTT: RechartsAdapterConfig = {
+  id: 'plan-chart',
+  title: 'Release Plan',
+  data: [{ task: 'Design', from: 0, to: 5 }, { task: 'Build', from: 3, to: 12 }],
+  chartType: 'gantt',
+  xKey: 'task',
+  yKeys: ['from', 'to'],
+  ganttConfig: { lanes: ['Design', 'Build', 'Launch'], unit: 'days' },
+  xLabel: 'Task',
+  yLabel: 'Day',
+};
+
+/** The documented forest recipe, from `types.ts`. */
+const FOREST: RechartsAdapterConfig = {
+  id: 'meta-chart',
+  title: 'Effect of the intervention',
+  data: [{ study: 'Silva 2018', or: 0.62, lo: 0.41, hi: 0.94, weight: 0.12 }],
+  chartType: 'forest',
+  xKey: 'study',
+  yKeys: ['or'],
+  orientation: Orientation.HORIZONTAL,
+  errorConfig: { yMinKey: 'lo', yMaxKey: 'hi' },
+  forestConfig: { weightKey: 'weight', pooledKey: 'pooled', nullValue: 1 },
+  xLabel: 'Study',
+  yLabel: 'Odds ratio',
+};
+
+/** The documented error bar recipe, from `types.ts`, drawn on its side. */
+const HORIZONTAL_ERROR_BAR: RechartsAdapterConfig = {
+  id: 'yield-chart',
+  title: 'Yield by Treatment',
+  data: [{ treatment: 'Control', mean: 4.2, sd: 0.6 }],
+  chartType: 'error_bar',
+  xKey: 'treatment',
+  yKeys: ['mean'],
+  errorConfig: { errorKey: 'sd' },
+  orientation: Orientation.HORIZONTAL,
+  xLabel: 'Treatment',
+  yLabel: 'Yield (t/ha)',
+};
+
+/** The documented dumbbell recipe, from `types.ts`, drawn on its side. */
+const HORIZONTAL_DUMBBELL: RechartsAdapterConfig = {
+  id: 'life-chart',
+  title: 'Life Expectancy, 1990 against 2020',
+  data: [{ country: 'Japan', then: 78.9, now: 84.6 }],
+  chartType: 'dumbbell',
+  xKey: 'country',
+  yKeys: ['then', 'now'],
+  fillKeys: ['1990', '2020'],
+  orientation: Orientation.HORIZONTAL,
+  xLabel: 'Country',
+  yLabel: 'Years',
+};
+
+/** A letter-value plot drawn on its side. */
+const HORIZONTAL_BOXEN: RechartsAdapterConfig = {
+  id: 'boxen-chart',
+  title: 'Response times by region',
+  data: [{ region: 'East', median: 180, levels: [{ p: 0.25, lo: 150, hi: 240 }] }],
+  chartType: 'boxen',
+  xKey: 'region',
+  orientation: Orientation.HORIZONTAL,
+  boxenConfig: { medianKey: 'median', levelsKey: 'levels' },
+  xLabel: 'Region',
+  yLabel: 'Response time (ms)',
+};
+
 describe('types that carry orientation without swapping', () => {
-  it('leaves a horizontal gantt alone', () => {
+  it('leaves a horizontal gantt\'s schedule as written and names its axes as drawn', () => {
     // `GanttTrace` reads `orientation` as which way navigation and panning
     // run. Its points carry `start`/`end` rather than a magnitude in `y`, so
-    // there is nothing to exchange and a swap would corrupt the schedule.
-    const layer = layerFor({
-      id: 'schedule',
-      title: 'Release plan',
-      data: [{ task: 'Design', from: 0, to: 3 }],
-      chartType: 'gantt',
-      xKey: 'task',
-      yKeys: ['from', 'to'],
-      ganttConfig: { startKey: 'from', endKey: 'to' },
-      xLabel: 'Task',
-      yLabel: 'Day',
-    } as RechartsAdapterConfig);
+    // there is nothing to exchange and a swap would corrupt the schedule. Its
+    // axes are another matter: the trace reads `axes.x` as the time axis drawn
+    // across the schedule and `axes.y` as the lanes drawn down it.
+    const layer = layerFor(GANTT);
 
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect((layer.data as GanttData).points[0]).toEqual([{ x: 'Design', start: 0, end: 5 }]);
+    expect(layer.axes).toEqual({ x: { label: 'Day' }, y: { label: 'Task' } });
+  });
+
+  it('keeps a vertical gantt\'s labels where the config put them', () => {
+    const layer = layerFor({ ...GANTT, orientation: Orientation.VERTICAL });
+
     expect(layer.axes).toEqual({ x: { label: 'Task' }, y: { label: 'Day' } });
   });
 
@@ -224,5 +293,58 @@ describe('types that carry orientation without swapping', () => {
     const [series] = layer.data as BarPoint[][];
     expect(series[0]).toEqual({ x: 'Apples', y: 30 });
     expect(layer.axes).toEqual({ x: { label: 'Fruit' }, y: { label: 'Sales' } });
+  });
+});
+
+describe('a horizontal layer whose points stay as written', () => {
+  // Each of these traces announces a horizontal layer's category under
+  // `axes.y` and its value under `axes.x`, so the reading is what the core
+  // makes of the emitted layer at its first position. Before the labels were
+  // exchanged, the gantt announced "Day is Design, Task is 0 through 5".
+  const CASES: [string, RechartsAdapterConfig, string, string, string][] = [
+    ['gantt', GANTT, 'Task', 'Design', 'Day'],
+    ['forest', FOREST, 'Study', 'Silva 2018', 'Odds ratio'],
+    ['error bar', HORIZONTAL_ERROR_BAR, 'Treatment', 'Control', 'Yield (t/ha)'],
+    ['dumbbell', HORIZONTAL_DUMBBELL, 'Country', 'Japan', 'Years'],
+    ['boxen', HORIZONTAL_BOXEN, 'Region', 'East', 'Response time (ms)'],
+  ];
+
+  it.each(CASES)('announces a %s\'s category under its category axis', (_, config, categoryLabel, category, valueLabel) => {
+    const state = TraceFactory.create(layerFor(config)).getStateAt(0, 0);
+
+    expect(state.empty).toBe(false);
+    if (state.empty) {
+      return;
+    }
+    expect(state.text.main.label).toBe(categoryLabel);
+    expect(String(state.text.main.value)).toContain(category);
+    expect(state.text.cross?.label).toBe(valueLabel);
+  });
+
+  it.each(CASES)('describes a %s\'s axes as they are drawn', (_, config, categoryLabel, __, valueLabel) => {
+    const { axes } = (TraceFactory.create(layerFor(config)) as AbstractTrace).description;
+
+    expect(axes).toEqual(expect.objectContaining({ x: valueLabel, y: categoryLabel }));
+  });
+
+  it('keeps a vertical error bar\'s labels where the config put them', () => {
+    const layer = layerFor({ ...HORIZONTAL_ERROR_BAR, orientation: Orientation.VERTICAL });
+
+    expect(layer.axes).toEqual({ x: { label: 'Treatment' }, y: { label: 'Yield (t/ha)' } });
+  });
+
+  it('exchanges a composed error bar layer\'s labels as well', () => {
+    const layer = layerFor({
+      id: 'composed-yield',
+      data: [{ treatment: 'Control', mean: 4.2, sd: 0.6 }],
+      xKey: 'treatment',
+      layers: [{ yKey: 'mean', chartType: 'error_bar' }],
+      errorConfig: { errorKey: 'sd' },
+      orientation: Orientation.HORIZONTAL,
+      xLabel: 'Treatment',
+      yLabel: 'Yield (t/ha)',
+    });
+
+    expect(layer.axes).toEqual({ x: { label: 'Yield (t/ha)' }, y: { label: 'Treatment' } });
   });
 });

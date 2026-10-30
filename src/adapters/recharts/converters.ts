@@ -449,7 +449,11 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: turned ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
       orientation: resolvedOrientation,
-      axes: barAxes(xLabel, yLabel, horizontal),
+      axes: barAxes(
+        xLabel,
+        yLabel,
+        resolvedOrientation === Orientation.HORIZONTAL && swapsLabelsUnderHorizontal(chartType),
+      ),
       ...(turnedLine ? REVERSED_POINTS : {}),
       data: turned
         ? [...oriented].reverse()
@@ -837,16 +841,14 @@ function buildGanttLayer(
   // highlighting rather than a highlight on somebody else's task.
   const groupedInOrder = drawnOrder.every((lane, i) => i === 0 || lane >= drawnOrder[i - 1]);
   const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
+  const resolved = layerOrientation(chartType, orientation);
 
   return {
     id: '0',
     type: TraceType.GANTT,
     selectors: groupedInOrder ? selector : undefined,
-    orientation: layerOrientation(chartType, orientation),
-    axes: {
-      x: { label: xLabel },
-      y: { label: yLabel },
-    },
+    orientation: resolved,
+    axes: barAxes(xLabel, yLabel, resolved === Orientation.HORIZONTAL),
     data: payload,
   };
 }
@@ -889,16 +891,14 @@ function buildDumbbellLayer(
   if (fillKeys?.[1] !== undefined) {
     payload.endLabel = fillKeys[1];
   }
+  const resolved = layerOrientation(chartType, orientation);
 
   return {
     id: '0',
     type: TraceType.DUMBBELL,
     selectors: selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope),
-    orientation: layerOrientation(chartType, orientation),
-    axes: {
-      x: { label: xLabel },
-      y: { label: yLabel },
-    },
+    orientation: resolved,
+    axes: barAxes(xLabel, yLabel, resolved === Orientation.HORIZONTAL),
     data: payload,
   };
 }
@@ -1251,15 +1251,14 @@ function buildBoxenLayer(
     );
   }
 
+  const resolved = orientation ?? Orientation.VERTICAL;
+
   return {
     id: '0',
     type: TraceType.BOXEN,
     selectors: selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope),
-    orientation: orientation ?? Orientation.VERTICAL,
-    axes: {
-      x: { label: xLabel },
-      y: { label: yLabel },
-    },
+    orientation: resolved,
+    axes: barAxes(xLabel, yLabel, resolved === Orientation.HORIZONTAL),
     data: points,
   };
 }
@@ -1478,7 +1477,11 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: turned ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
       orientation: resolvedOrientation,
-      axes: barAxes(xLabel, yLabel, horizontal),
+      axes: barAxes(
+        xLabel,
+        yLabel,
+        resolvedOrientation === Orientation.HORIZONTAL && swapsLabelsUnderHorizontal(chartType),
+      ),
       ...(turnedLine ? REVERSED_POINTS : {}),
       data: turned
         ? [...oriented].reverse()
@@ -2175,12 +2178,13 @@ function swapBarFamilyPoints<T>(points: T): T {
 }
 
 /**
- * The `axes` block for a layer whose points may have been swapped.
+ * The `axes` block for a layer that may be read horizontally.
  *
  * @param xLabel     - The label the config gave the category axis
  * @param yLabel     - The label the config gave the value axis
- * @param horizontal - Whether the layer declares `horz`
- * @returns The two axis labels, paired with the fields they now describe
+ * @param horizontal - Whether the layer is read with its categories down the
+ *                     drawn y axis; see {@link swapsLabelsUnderHorizontal}
+ * @returns The two axis labels, each under the axis it is drawn on
  */
 function barAxes(
   xLabel: string | undefined,
@@ -2229,6 +2233,39 @@ function swapsUnderHorizontal(chartType: RechartsChartType): boolean {
     || chartType === 'lollipop'
     || chartType === 'histogram'
     || chartType === 'funnel';
+}
+
+/**
+ * Whether a `horz` layer of this type has its two axis labels exchanged.
+ *
+ * `xLabel` names the axis the config's `xKey` is on -- the categories -- and
+ * `yLabel` the values, whichever way round the chart is drawn. The core reads
+ * `axes.x` and `axes.y` as the axes drawn across and up the page, so a layer
+ * read horizontally, its categories down the y axis, names them the other way
+ * round from the config.
+ *
+ * Every type {@link swapsUnderHorizontal} names, whose points move with the
+ * labels, and the oriented types whose points stay as written: a gantt's
+ * lanes, a dumbbell's pairs, an error bar's and a forest's samples and a
+ * boxen's distributions are read from `x` in either orientation, and each of
+ * their traces announces them under `axes.y` on a horizontal layer. Left in
+ * the config's order, a horizontal gantt announced every task under the name
+ * of its time axis ("Day is Discovery, Task is 0 through 6"), and a forest
+ * every study under the name of its odds ratio.
+ *
+ * A line, a scatter and the other types `src/util/orientation.ts` gives no
+ * orientation ignore the key, and keep their labels where the config put them.
+ *
+ * @param chartType - The declared Recharts chart type
+ * @returns Whether the layer's axis labels change places when horizontal
+ */
+function swapsLabelsUnderHorizontal(chartType: RechartsChartType): boolean {
+  return swapsUnderHorizontal(chartType)
+    || chartType === 'gantt'
+    || chartType === 'dumbbell'
+    || chartType === 'error_bar'
+    || chartType === 'forest'
+    || chartType === 'boxen';
 }
 
 /**
