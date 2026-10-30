@@ -658,6 +658,14 @@ export abstract class Svg {
   }
 
   /**
+   * Minimum opacity value for fill to be considered visible.
+   */
+  private static readonly MIN_VISIBLE_FILL_OPACITY = 0.01;
+  /**
+   * Minimum opacity value for stroke to be considered visible.
+   */
+  private static readonly MIN_VISIBLE_STROKE_OPACITY = 0.01;
+  /**
    * Amount to increase stroke width for highlighting line elements, and the
    * shapes a highlighted group is outlined through.
    */
@@ -671,6 +679,20 @@ export abstract class Svg {
    * text.
    */
   private static readonly LABEL_CONTRAST_RATIO = 4.5;
+
+  /**
+   * Adjusts opacity values to ensure visibility, returning '1' if below threshold.
+   * @param value - The opacity value string to adjust
+   * @param minThreshold - The minimum threshold for visibility
+   * @returns Adjusted opacity value as a string
+   */
+  private static getAdjustedOpacity(value: string | null, minThreshold: number): string {
+    const parsed = value ? Number.parseFloat(value) : Number.NaN;
+    if (!Number.isNaN(parsed) && parsed > minThreshold) {
+      return parsed.toString();
+    }
+    return '1';
+  }
 
   /**
    * Creates a highlighted clone of an SVG element with enhanced visibility.
@@ -727,12 +749,10 @@ export abstract class Svg {
 
     const clone = this.markOwned(element.cloneNode(true) as SVGElement);
     const computed = window.getComputedStyle(element);
-    // Opaque, whatever the mark's own opacity. The copy kept any opacity
-    // above 1%, so a Recharts sankey ribbon, stroked at 20%, was highlighted
-    // as a slightly deeper tint of the same pale colour, at 1.2:1 against
-    // the ribbons beside it.
-    clone.style.fillOpacity = '1';
-    clone.style.strokeOpacity = '1';
+    const fillOpacity = computed.getPropertyValue('fill-opacity');
+    const strokeOpacity = computed.getPropertyValue('stroke-opacity');
+    clone.style.fillOpacity = this.getAdjustedOpacity(fillOpacity, this.MIN_VISIBLE_FILL_OPACITY);
+    clone.style.strokeOpacity = this.getAdjustedOpacity(strokeOpacity, this.MIN_VISIBLE_STROKE_OPACITY);
     clone.setAttribute(Constant.VISIBILITY, Constant.VISIBLE);
 
     if (this.outlineShapes(element, clone, fallbackColor)) {
@@ -748,6 +768,14 @@ export abstract class Svg {
     const tag = element.tagName.toLowerCase();
     const drawnByStroke = this.isDrawnByStroke(element, computed);
     const isLineElement = tag === Constant.POLYLINE || tag === Constant.LINE || drawnByStroke;
+    // A mark drawn by its stroke alone is all stroke, and its copy is drawn
+    // opaque: a Recharts sankey ribbon, stroked at 20%, was highlighted as a
+    // slightly deeper tint of the same pale colour, at 1.2:1 against the
+    // ribbons beside it. A filled mark keeps its opacity, so that the marks a
+    // translucent point or bar is drawn over still show through its copy.
+    if (isLineElement) {
+      clone.style.strokeOpacity = '1';
+    }
     const originalColor = isLineElement
       ? computed.getPropertyValue(Constant.STROKE)
       : computed.getPropertyValue(Constant.FILL);
