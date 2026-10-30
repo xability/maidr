@@ -78,6 +78,16 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
+   * One row as `[` and `]` rank it: its values as the chart draws them.
+   *
+   * @param row - Which row
+   * @returns The row's values
+   */
+  protected rankedRow(row: number): number[] {
+    return this.barValues[row] ?? [];
+  }
+
+  /**
    * Get extrema targets for the current segmented bar plot trace
    * Returns min and max values within the current group the user is navigating
    * @returns Array of extrema targets for navigation
@@ -90,14 +100,14 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       return targets;
     }
 
-    // Use pre-computed min/max values instead of recalculating
-    const groupMin = this.min[currentGroup];
-    const groupMax = this.max[currentGroup];
-    const groupValues = this.barValues[currentGroup];
-
-    if (!groupValues || groupValues.length === 0) {
+    const groupValues = this.rankedRow(currentGroup);
+    if (groupValues.length === 0) {
       return targets;
     }
+
+    const measured = groupValues.filter(isMeasured);
+    const groupMin = MathUtil.safeMin(measured);
+    const groupMax = MathUtil.safeMax(measured);
 
     // A row of nothing but gaps leaves the range empty, so safeMin/safeMax
     // return ±Infinity, which indexOf cannot find. There is no extreme to

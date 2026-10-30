@@ -564,3 +564,73 @@ describe('the highlight lands on the bar the reader is on', () => {
     expect(highlights![1][0].getAttribute('data-side')).toBe('Women');
   });
 });
+
+describe('[ and ] rank a bar by its length, not by its sign', () => {
+  /**
+   * The bands the trace offers as one kind of extreme on the row it is on.
+   * @param trace The positioned trace
+   * @param type Which extreme
+   * @returns The band of each target
+   */
+  function bandsOf(trace: DivergingTrace, type: 'max' | 'min'): unknown[] {
+    return trace.getExtremaTargets()
+      .filter(target => target.type === type)
+      .map(target => target.xValue);
+  }
+
+  test('the longest left-hand bar is the maximum, and the shortest the minimum', () => {
+    // The men's bars arrive as -1,200, -900 and -700. Ranked by sign, the
+    // shortest bar was the largest number, so ] went to 45-64 and [ to 0-24,
+    // against the pitch and the description's `Max bar size`.
+    expect(bandsOf(diverging(0, 1), 'max')).toEqual(['0-24']);
+    expect(bandsOf(diverging(0, 1), 'min')).toEqual(['45-64']);
+  });
+
+  test('a right-hand row ranks as it did', () => {
+    expect(bandsOf(diverging(1, 1), 'max')).toEqual(['0-24']);
+    expect(bandsOf(diverging(1, 1), 'min')).toEqual(['45-64']);
+  });
+
+  test('offers the size the announcement reads, not a negative number', () => {
+    // The Go To dialog prints this value beside the target.
+    const max = diverging(0, 1).getExtremaTargets().find(target => target.type === 'max');
+
+    expect(max?.value).toBe(1200);
+  });
+
+  test('ranks the balance by the size of the lead, whichever side has it', () => {
+    // Men lead `a` by 100 and women lead `b` by 50. Signed, the balance row
+    // is -100 and 50, so ] went to the smaller lead.
+    const mixed: SegmentedPoint[][] = [
+      [{ x: 'a', y: -500, z: 'Men' }, { x: 'b', y: -400, z: 'Men' }],
+      [{ x: 'a', y: 400, z: 'Women' }, { x: 'b', y: 450, z: 'Women' }],
+    ];
+
+    expect(bandsOf(diverging(2, 0, mixed), 'max')).toEqual(['a']);
+    expect(bandsOf(diverging(2, 0, mixed), 'min')).toEqual(['b']);
+  });
+
+  test('keeps a sum signed on a chart that is not two-sided', () => {
+    // There the summary is a sum, announced signed, so -300 is its smallest
+    // value and not one of two tied largest.
+    const threeSided: SegmentedPoint[][] = [
+      [{ x: 'a', y: -900, z: 'Against' }, { x: 'b', y: -100, z: 'Against' }],
+      [{ x: 'a', y: 400, z: 'For' }, { x: 'b', y: 300, z: 'For' }],
+      [{ x: 'a', y: 200, z: 'Strongly for' }, { x: 'b', y: 100, z: 'Strongly for' }],
+    ];
+
+    expect(bandsOf(diverging(3, 0, threeSided), 'max')).toEqual(['b']);
+    expect(bandsOf(diverging(3, 0, threeSided), 'min')).toEqual(['a']);
+  });
+
+  test('a row of nothing but gaps offers no extreme', () => {
+    // Every bar's length is a gap, so there is no longest or shortest bar
+    // to go to, rather than a target at a column the row does not hold.
+    const noMen: SegmentedPoint[][] = [
+      [{ x: 'a', y: null as unknown as number, z: 'Men' }, { x: 'b', y: null as unknown as number, z: 'Men' }],
+      [{ x: 'a', y: 400, z: 'Women' }, { x: 'b', y: 450, z: 'Women' }],
+    ];
+
+    expect(diverging(0, 0, noMen).getExtremaTargets()).toEqual([]);
+  });
+});

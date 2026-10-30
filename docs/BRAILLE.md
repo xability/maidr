@@ -684,22 +684,30 @@ table's season can be felt at once rather than by toggling between rows.
 ### Diverging bar and population pyramid [experimental]
 
 One row per side plus the balance row, one cell per category -- the bar
-encoding unchanged.
+encoding, with each cell a bar's **length**.
 
-**The cells encode the signed value, so a left-hand row reads low across its
-whole length.** That is the opposite of what the pitch does, which takes the
-magnitude so a bar of the same size sounds the same on either side.
+**A bar of the same size has the same height on either side.** A producer
+emits the left-hand side as negative values, because that is the way it is
+drawn, and the announcements and the pitch take the sign out: the side is
+said in words, and the size is what is read and heard. The braille does the
+same, and scales every row against the widest bar on the chart, as the pitch
+does.
 
-The two disagree on purpose. Audio is given a direction to invert and nothing
-else about the tone changes. Braille is given values, and the encoder maps a
-value to a dot height; flipping the left side's sign before encoding would put
-numbers in the display that the chart does not contain, and every other reading
-of the same state would then contradict it.
+Encoded signed, with each row scaled to its own range, the left-hand row read
+upside down: its longest bar is its most negative value, so it was the row's
+lowest cell, and its shortest bar the highest.
 
-So the display stays literal, and what it adds is the *silhouette*: the two
-sides read as a low band and a high band, and the taper of a pyramid -- wide at
-the young bands, narrow at the old -- is legible as a run of dots rising on one
-row while falling on the other.
+One scale for every row is also what makes the rows comparable. The taper of a
+pyramid -- wide at the young bands, narrow at the old -- reads as cells falling
+along both rows, and at any band the two sides' cells can be compared
+directly.
+
+On a two-sided chart the last row is the balance, each band's lead on the same
+scale, so it reads low unless one side leads by about as much as a bar is long.
+Which side leads is in the announcement, not in the dots. A chart that is not
+two-sided -- three sides, or two that grow the same way -- keeps the segmented
+bar's plain sum in that row instead. Its cells, like its pitch, show the sum's
+size whatever its sign, and the sign is in the announcement.
 
 #### Multiline Displays
 

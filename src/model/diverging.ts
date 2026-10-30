@@ -1,5 +1,5 @@
 import type { MaidrLayer } from '@type/grammar';
-import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
@@ -159,6 +159,54 @@ export class DivergingTrace extends SegmentedTrace {
         raw: isMeasured(value) ? Math.abs(value) : value,
       },
     };
+  }
+
+  protected override get braille(): BrailleState {
+    const base = super.braille;
+    if (base.empty) {
+      return base;
+    }
+
+    // Each bar's length against the widest bar on the chart, the scale the
+    // pitch plays on. The signed values, each row scaled to its own range,
+    // turned the left-hand row upside down: its longest bar is its most
+    // negative value, so it was the row's lowest cell, and its shortest bar
+    // the row's highest. One scale for every row also keeps a band's two
+    // bars comparable cell for cell, which is what a multiline display lays
+    // the rows out for. The last row goes the same way: the balance on a
+    // two-sided chart, and on any other a signed sum, whose size is what the
+    // cell shows, as the pitch plays it, while the sign is announced.
+    const lengths = this.barValues.map(row =>
+      row.map(value => (isMeasured(value) ? Math.abs(value) : value)));
+    return {
+      ...base,
+      values: lengths,
+      min: lengths.map(() => 0),
+      max: lengths.map(() => this.widest),
+    };
+  }
+
+  /**
+   * One row as `[` and `]` rank it, which is as the announcements read it.
+   *
+   * A bar's length rather than its signed value: the longest bar on the
+   * left-hand side is its most negative value, so ranked by sign `]` went to
+   * the shortest bar there and `[` to the longest, while the pitch, the text
+   * and the description's `Max bar size` all named the longest. The balance
+   * is ranked by the size of the lead, which side it is to, as `Widest gap`
+   * reports it. The summary of a chart that is not two-sided keeps its sign,
+   * as `get text` does: there it is a sum, and a minus sign there really is
+   * a smaller number.
+   *
+   * @param row - Which row
+   * @returns The row's readings
+   */
+  protected override rankedRow(row: number): number[] {
+    const values = super.rankedRow(row);
+    if (this.isBalanceRow(row) && !this.isTwoSided) {
+      return values;
+    }
+    return values.map(value => (isMeasured(value) ? Math.abs(value) : value));
   }
 
   protected override get text(): TextState {
