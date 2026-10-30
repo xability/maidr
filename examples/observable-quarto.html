@@ -190,10 +190,13 @@
           { year: 2024, region: 'South', sales: 41 },
         ];
 
+        // Plot sorts an ordinal axis by its values unless told the domain, which
+        // would draw the week as Fri, Mon, Thu, Tue, Wed; the rows' order is
+        // the week's.
         fill('ojs-cell-1', Plot.plot({
           title: 'Daily visitors',
           caption: 'Visits to the documentation site, weekdays only.',
-          x: { label: 'Day' },
+          x: { label: 'Day', domain: visitors.map(d => d.day) },
           y: { label: 'Visitors' },
           marks: [Plot.barY(visitors, { x: 'day', y: 'count' })],
         }));
