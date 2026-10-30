@@ -329,3 +329,43 @@ export function areaDataKeyFor(children: ReactNode): string | undefined {
   walk(children);
   return found;
 }
+
+/**
+ * Where a bump chart draws first place, read off its rank axis.
+ *
+ * A bump chart is a `<LineChart>` of ranks, and Recharts draws an ordinary
+ * `<YAxis>` with its smallest number at the bottom. Rank 1 goes at the top
+ * by `<YAxis reversed>`, which is how a bump chart is usually drawn, and how
+ * the Recharts example draws it. The layer said neither, and with no
+ * highlight to measure the drawing by, Up moved to the next larger rank
+ * number: down the page, to the place one worse.
+ *
+ * Depth-first for the same reason the other walks are, and stops at the
+ * first `<YAxis>`. A tree with none answers `undefined`, which leaves the
+ * core to read the drawing rather than be told on a guess.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns `'top'` under a reversed `<YAxis>`, `'bottom'` under any other,
+ *   `undefined` when there is none
+ */
+export function firstPlaceFor(children: ReactNode): 'top' | 'bottom' | undefined {
+  let found: 'top' | 'bottom' | undefined;
+
+  const walk = (nodes: ReactNode): void => {
+    if (found !== undefined)
+      return;
+    Children.forEach(nodes, (child) => {
+      if (found !== undefined || !isValidElement(child))
+        return;
+      const props = child.props as { reversed?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'YAxis') {
+        found = props.reversed === true ? 'top' : 'bottom';
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
+}

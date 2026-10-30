@@ -203,6 +203,9 @@ function buildPanelSubplot(
     yLabel: panel.yLabel ?? config.yLabel,
     orientation: panel.orientation ?? config.orientation,
     stepDirection: panel.stepDirection ?? config.stepDirection,
+    // Declared, never read off the panels' axes (see `MaidrRecharts`), so a
+    // grid of bump charts says it once for all of them.
+    firstPlace: config.firstPlace,
     // Each panel's own axis, not the grid's: a panel draws its own chart, so
     // one verdict for all of them would read the first panel's axis onto every
     // other (#1017).
@@ -411,7 +414,7 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
 
   // Line with multiple series: single layer with 2D LinePoint[][] data
   if (isLineType(chartType) && hasMultipleSeries) {
-    return [buildMultiSeriesLineLayer(
+    const layer = buildMultiSeriesLineLayer(
       data,
       xKey,
       yKeys,
@@ -423,7 +426,11 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       config.dotSeries,
       config.id,
       panelScope,
-    )];
+    );
+    // The loop below spreads a type's options onto each layer it builds; this
+    // layer is built apart from it, so a bump chart's first place is added
+    // here.
+    return [chartType === 'bump' ? { ...layer, ...layerOptions(chartType, config) } : layer];
   }
 
   const maidrType = toLayerTraceType(chartType, hasMultipleSeries);
@@ -2433,6 +2440,11 @@ function layerOptions(
     case 'survival':
       // Only reachable from composed mode; buildSurvivalLayer sets its own.
       return { stepDirection: config.survivalConfig?.stepDirection ?? 'hv' };
+    // Read off the chart's `<YAxis reversed>` by `MaidrRecharts`, so Up and
+    // Down move to the place drawn above and below even where the core has no
+    // highlight to measure the drawing by.
+    case 'bump':
+      return config.firstPlace === undefined ? {} : { firstPlace: config.firstPlace };
     // Recharts measures a pie's angles counterclockwise from 3 o'clock and
     // sweeps from `startAngle` (0) to `endAngle` (360), so a `<Pie>` left at
     // its defaults runs counterclockwise from the right -- and MAIDR walks a

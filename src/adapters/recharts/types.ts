@@ -1268,6 +1268,19 @@ export interface RechartsAdapterConfig {
    */
   dotSeries?: (string | null)[];
 
+  /**
+   * Where a `'bump'` chart draws first place: `'top'` on a chart whose rank
+   * axis is `<YAxis reversed>`, as a bump chart is usually drawn, `'bottom'`
+   * on one whose rank axis runs up the page, as an ordinary `<YAxis>` does.
+   * Up and Down move to the place drawn above and below.
+   *
+   * Read off the `<YAxis>` in `children` by {@link MaidrRecharts} when not
+   * given, in simple and composed mode; through {@link useRechartsAdapter}
+   * it is yours to state. Left out, MAIDR reads it from the highlighted dots
+   * where it can, and otherwise moves Up to the next larger rank number.
+   */
+  firstPlace?: 'top' | 'bottom';
+
   /** Key in data objects for x-axis values. */
   xKey: string;
 

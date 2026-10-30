@@ -128,6 +128,20 @@ describe('useRechartsAdapter', () => {
     }
   });
 
+  it('forwards where a bump chart draws first place', () => {
+    const layer = layerFor({
+      id: 'k',
+      data: [{ round: 1, ash: 1, birch: 2 }, { round: 2, ash: 2, birch: 1 }],
+      chartType: 'bump',
+      xKey: 'round',
+      yKeys: ['ash', 'birch'],
+      firstPlace: 'top',
+    });
+
+    expect(layer.type).toBe(TraceType.BUMP);
+    expect(layer.firstPlace).toBe('top');
+  });
+
   it('keeps forwarding the fields it already did', () => {
     const layer = layerFor({
       id: 'b',

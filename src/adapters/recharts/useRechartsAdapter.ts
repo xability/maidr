@@ -89,11 +89,12 @@ function askForPlottedKey(id: string): void {
  *
  * It reads nothing out of your chart's own elements either, which
  * `<MaidrRecharts>` does: `stepDirection`, `categoryAxisReversed`,
- * `categoryAxisReversedPerPanel`, `pieAngles` and `dotSeries` are derived
- * there from the `<Line>`, `<Area>`, `<Radar>`, `<Pie>` and
- * `<XAxis reversed>` inside its children. Through this hook they are yours to
- * state, and every field of the config is forwarded — a field left out of the
- * rebuilt object below is one silently discarded from a caller's config.
+ * `categoryAxisReversedPerPanel`, `pieAngles`, `dotSeries` and `firstPlace`
+ * are derived there from the `<Line>`, `<Area>`, `<Radar>`, `<Pie>`,
+ * `<XAxis reversed>` and `<YAxis reversed>` inside its children. Through this
+ * hook they are yours to state, and every field of the config is forwarded —
+ * a field left out of the rebuilt object below is one silently discarded from
+ * a caller's config.
  *
  * @param config - Recharts adapter configuration
  * @returns MaidrData ready to pass to `<Maidr data={...}>`
@@ -111,6 +112,7 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
     stepDirection,
     pieAngles,
     dotSeries,
+    firstPlace,
     xKey,
     yKeys,
     layers,
@@ -161,6 +163,7 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       dotSeries: dotSeriesKey === undefined
         ? undefined
         : (JSON.parse(dotSeriesKey) as (string | null)[]),
+      firstPlace,
       xKey,
       yKeys,
       layers,
@@ -187,6 +190,6 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       boxenConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, categoryAxisReversed, categoryAxisReversedPerPanel, stepDirection, pieAngles, dotSeriesKey, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, categoryAxisReversed, categoryAxisReversedPerPanel, stepDirection, pieAngles, dotSeriesKey, firstPlace, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
   );
 }
