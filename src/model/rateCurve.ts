@@ -1,4 +1,5 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
+import type { MovableDirection } from '@type/movable';
 import type { AudioState, DescriptionState } from '@type/state';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
@@ -357,6 +358,52 @@ export abstract class RateCurveTrace extends LineTrace {
       }
     }
     return bestCol;
+  }
+
+  /**
+   * Control + Up and Down go where Up and Down stop: to the curve the cursor
+   * reaches by pressing that arrow until it is refused.
+   *
+   * Inherited, they went to the highest or lowest curve at the cursor's
+   * column. The column is an index, and each curve is sampled at its own
+   * thresholds, so one column is a different rate on every curve: the
+   * curve found there could lie below the cursor at its own rate. And where
+   * curves are level, the column read the later curve as the higher one,
+   * the reverse of {@link RateCurveTrace.findVerticalTarget}: at a point two
+   * curves share, Up said there was no more data while Control + Up moved,
+   * and the Up after Control + Up moved again instead of sounding the edge.
+   *
+   * Each step lands on a sample of the next curve, whose x need not be the
+   * cursor's, so the walk stops at a point it has already been on rather
+   * than going round again. On the top curve already, Control + Up stays
+   * and says the point again, as a jump to an end does on every other chart.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
+      return super.moveToExtreme(direction);
+    }
+    if (this.isInitialEntry) {
+      this.enterTrace();
+    }
+    if (this.points[this.row]?.[this.col] === undefined) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    const visited = new Set<string>([`${this.row},${this.col}`]);
+    for (let target = this.findVerticalTarget(direction); target !== null; target = this.findVerticalTarget(direction)) {
+      const key = `${target.row},${target.col}`;
+      if (visited.has(key)) {
+        break;
+      }
+      visited.add(key);
+      this.row = target.row;
+      this.col = target.col;
+    }
+    this.notifyStateUpdate();
+    return true;
   }
 
   protected override get groupFallbackLabel(): string {
