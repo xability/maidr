@@ -22,7 +22,7 @@ export const description = {
   'description.axisEntry': '{axis}-Achse: {label}',
   'description.summaryHeading': 'Zusammenfassung',
   'description.subplotsHeading': 'Teildiagramme ({count})',
-  'description.subplotUnknown': 'unbekannt',
+  'description.subplotEmpty': 'leer',
   'description.subplotCurrent': ' (aktuell)',
 
   'description.layersHeading': 'Ebenen ({count})',

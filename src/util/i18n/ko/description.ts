@@ -22,7 +22,7 @@ export const description = {
   'description.axisEntry': '{axis}축: {label}',
   'description.summaryHeading': '요약',
   'description.subplotsHeading': '서브플롯 ({count})',
-  'description.subplotUnknown': '알 수 없음',
+  'description.subplotEmpty': '비어 있음',
   'description.subplotCurrent': ' (현재)',
 
   'description.layersHeading': '레이어 ({count})',

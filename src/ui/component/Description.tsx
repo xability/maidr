@@ -461,7 +461,7 @@ const Description: React.FC = () => {
                   {subplot.index}
                   .
                   {' '}
-                  {subplot.traceTypes.filter(isDisplayable).join(', ') || t('description.subplotUnknown')}
+                  {subplot.traceTypes.filter(isDisplayable).join(', ') || t('description.subplotEmpty')}
                   {isDisplayable(subplot.title) && ` — ${subplot.title}`}
                   {subplot.isActive && t('description.subplotCurrent')}
                 </Typography>

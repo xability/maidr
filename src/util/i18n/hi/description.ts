@@ -22,7 +22,7 @@ export const description = {
   'description.axisEntry': '{axis} अक्ष: {label}',
   'description.summaryHeading': 'सारांश',
   'description.subplotsHeading': 'सबप्लॉट ({count})',
-  'description.subplotUnknown': 'अज्ञात',
+  'description.subplotEmpty': 'खाली',
   'description.subplotCurrent': ' (वर्तमान)',
 
   'description.layersHeading': 'लेयर ({count})',
