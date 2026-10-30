@@ -91,17 +91,19 @@ layer has it: the point at the same x or, where both layers name what they
 draw, the same thing by its name. From a column of several named points, a
 switch takes the top one, where point navigation would start; onto a named
 point that shares its column, it lands on the point's row, which names it,
-where no other point shares that row. Two layers whose x axes are labelled
-differently are drawn along different axes, as a bell curve drawn over the
-measurements it was fitted to is, and have no x in common: a switch between
-them keeps the place you had on the layer you switch to, or starts it at its
-first point. Each switch says which layer of how many you
+where no other point shares that row. Each switch says which layer of how many you
 are on and the values of the point you landed on, with its name where the
 chart names its points, as a Wardley map's components are named. A layer with
 no data is named and said to be empty, with no tone; the braille display is
 emptied, and a tactile display shows the chart with nothing focused. Past the first or
 last layer, or on a chart with only one, you hear the same edge signal as at the
 end of the data.
+
+Two layers whose x axes are labelled differently are drawn along different
+axes, as a bell curve drawn over the measurements it was fitted to is, and
+have no x in common. A switch between them keeps the place you had on the
+layer you switch to, or starts it at its first point. Labels that differ only
+in letter case or spacing count as the same.
 
 **Navigation modes (the rotor).** The arrow keys normally move one data point at
 a time. Alt + Shift + Up and Alt + Shift + Down (Option + Shift + Up and Down on

@@ -762,13 +762,16 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    * Whether two layers are drawn along one x axis, as far as the labels they
    * authored for it tell: the same label, or none on one of them, which
    * says nothing and leaves the switch carrying the x as it always has.
+   * Labels that differ only in letter case or spacing are the same name to a
+   * listener, and the same label; a different word or unit is not.
    *
    * @param from - The trace being left
    * @param to - The trace being entered
    * @returns False when both label their x axis, differently
    */
   private static sharesXAxis(from: Trace, to: Trace): boolean {
-    return from.xAxisLabel === '' || to.xAxisLabel === '' || from.xAxisLabel === to.xAxisLabel;
+    const spoken = (label: string): string => label.replace(/\s+/g, ' ').toLowerCase();
+    return from.xAxisLabel === '' || to.xAxisLabel === '' || spoken(from.xAxisLabel) === spoken(to.xAxisLabel);
   }
 
   /**

@@ -2,7 +2,7 @@ import type { Subplot, Trace } from '@model/plot';
 import type { MaidrLayer } from '@type/grammar';
 import { describe, expect, test } from '@jest/globals';
 import { Figure } from '@model/plot';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 /**
  * Page Up and Page Down between layers drawn along different x axes.
@@ -118,6 +118,20 @@ describe('a layer switch between layers on one x axis', () => {
 
     expect(xOf(subplot.switchLayer('UPWARD'))).toBe(2);
   });
+
+  test('still goes to the nearest x where the labels differ only in case and spacing', () => {
+    // The same name to a listener, and so the same axis.
+    const sameName: MaidrLayer = {
+      ...MEASUREMENTS,
+      axes: { x: { label: '  sepal  Length (CM) ' }, y: { label: 'Sepal width (cm)' } },
+      data: [{ x: 2.3, y: 3.5 }, { x: 2.5, y: 3 }, { x: 3.1, y: 3.2 }],
+    };
+    const subplot = subplotOf(CURVE, sameName);
+    subplot.activeTrace?.moveOnce('FORWARD');
+    subplot.activeTrace?.moveOnce('FORWARD');
+
+    expect(xOf(subplot.switchLayer('UPWARD'))).toBe(2.5);
+  });
 });
 
 describe('a layer switch between layers that name what they draw', () => {
@@ -152,5 +166,46 @@ describe('a layer switch between layers that name what they draw', () => {
     const graph = subplot.switchLayer('UPWARD');
 
     expect(xOf(graph)).toBe('Cup of Tea');
+  });
+
+  test('carries a category whatever the axes are called', () => {
+    // A category names a bar, not a place on an axis.
+    const bars: MaidrLayer = {
+      id: 'bars',
+      type: TraceType.BAR,
+      axes: { x: { label: 'Month' }, y: { label: 'Sales' } },
+      data: [{ x: 'Jan', y: 3 }, { x: 'Feb', y: 5 }, { x: 'Mar', y: 4 }],
+    };
+    const target: MaidrLayer = {
+      id: 'target',
+      type: TraceType.LINE,
+      axes: { x: { label: 'Period' }, y: { label: 'Target' } },
+      data: [[{ x: 'Jan', y: 4 }, { x: 'Feb', y: 4 }, { x: 'Mar', y: 4 }]],
+    };
+    const subplot = subplotOf(bars, target);
+    subplot.activeTrace?.moveOnce('FORWARD');
+    subplot.activeTrace?.moveOnce('FORWARD');
+
+    expect(xOf(subplot.switchLayer('UPWARD'))).toBe('Feb');
+  });
+});
+
+describe('the x axis a layer switch finds a layer along', () => {
+  test('is the label the layer authored, trimmed', () => {
+    const subplot = subplotOf({ ...CURVE, axes: { x: { label: ' Sepal length (cm) ' } } });
+
+    expect(subplot.activeTrace?.xAxisLabel).toBe('Sepal length (cm)');
+  });
+
+  test('is none for a horizontal bar, which a switch finds by magnitude or by category', () => {
+    const subplot = subplotOf({
+      id: 'bars',
+      type: TraceType.BAR,
+      orientation: Orientation.HORIZONTAL,
+      axes: { x: { label: 'Sales' }, y: { label: 'Month' } },
+      data: [{ x: 3, y: 'Jan' }, { x: 5, y: 'Feb' }],
+    });
+
+    expect(subplot.activeTrace?.xAxisLabel).toBe('');
   });
 });
