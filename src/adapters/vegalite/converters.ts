@@ -4610,111 +4610,247 @@ function convertLayerSpec(
 // Composite views (concat)
 // ---------------------------------------------------------------------------
 
+/** How a concat lays its children out. */
+type ConcatDirection = 'horizontal' | 'vertical' | 'wrap';
+
+/** A concat's panel, at the row and column of the grid it is read in. */
+interface PlacedPanel {
+  subplot: MaidrSubplot;
+  row: number;
+  col: number;
+}
+
+/** The panels of a concat, and how many rows and columns they span. */
+interface PanelGrid {
+  panels: PlacedPanel[];
+  rows: number;
+  cols: number;
+}
+
+/**
+ * The children of a concat spec node and how it lays them out, when it is
+ * one.
+ *
+ * @param spec - A spec node
+ * @returns Its children and direction, or `undefined` for any other node
+ */
+function concatChildren(spec: VegaLiteSpec): { specs: VegaLiteSpec[]; direction: ConcatDirection; columns?: number } | undefined {
+  if (spec.hconcat)
+    return { specs: spec.hconcat, direction: 'horizontal' };
+  if (spec.vconcat)
+    return { specs: spec.vconcat, direction: 'vertical' };
+  if (spec.concat)
+    return { specs: spec.concat, direction: 'wrap', columns: spec.columns };
+  return undefined;
+}
+
+/**
+ * Grids placed side by side, their first rows level.
+ *
+ * @param grids - The grids, left to right
+ * @returns The grid they make
+ */
+function besideEachOther(grids: PanelGrid[]): PanelGrid {
+  const panels: PlacedPanel[] = [];
+  let cols = 0;
+  for (const grid of grids) {
+    panels.push(...grid.panels.map(panel => ({ ...panel, col: panel.col + cols })));
+    cols += grid.cols;
+  }
+  return { panels, rows: grids.reduce((most, grid) => Math.max(most, grid.rows), 0), cols };
+}
+
+/**
+ * Grids placed one under another, their first columns level.
+ *
+ * @param grids - The grids, top to bottom
+ * @returns The grid they make
+ */
+function underEachOther(grids: PanelGrid[]): PanelGrid {
+  const panels: PlacedPanel[] = [];
+  let rows = 0;
+  for (const grid of grids) {
+    panels.push(...grid.panels.map(panel => ({ ...panel, row: panel.row + rows })));
+    rows += grid.rows;
+  }
+  return { panels, rows, cols: grids.reduce((most, grid) => Math.max(most, grid.cols), 0) };
+}
+
+/**
+ * Convert a concat's children to panels, each where the concat draws it.
+ *
+ * A child that is itself a concat is read the same way, its own children
+ * under the class prefix Vega-Lite gives them (`concat_<i>_concat_<j>_`), and
+ * its grid takes the child's place in the parent's. A nesting need not make
+ * a plain grid -- a column of two charts beside a single one -- so the panels
+ * are read in the rows of the grid the nesting makes, as a page is read:
+ * left to right along the top row, then the next row down. The column beside
+ * a single chart is read as the column's top chart and the single one, then
+ * the column's second chart.
+ *
+ * @param specs - The concat's children
+ * @param direction - How the concat lays them out
+ * @param columns - For a wrapping `concat`, how many panels make a row
+ * @param path - The child indices leading to this concat; empty at the top
+ * @param view - The compiled view, when bound
+ * @param domOrder - A caller-supplied DOM order for segmented layers
+ * @param counter - The running layer count each layer's dataset is guessed
+ * by. Vega names datasets in sequence across the whole compiled spec, in the
+ * order Vega-Lite parses its views, depth first, so one count shared by
+ * every level keeps that order.
+ * @param counter.layer - Its current value
+ * @returns The panels, or `null` when a child has no layer to read
+ */
+function placeConcatPanels(
+  specs: VegaLiteSpec[],
+  direction: ConcatDirection,
+  columns: number | undefined,
+  path: number[],
+  view: VegaView | undefined,
+  domOrder: 'series-major' | 'subject-major' | undefined,
+  counter: { layer: number },
+): PanelGrid | null {
+  const grids: PanelGrid[] = [];
+  for (const [i, childSpec] of specs.entries()) {
+    // A concat child is a spec node `vegaLiteToMaidr` never sees, so a
+    // declaration written on one that is itself composite is caught here or
+    // not at all. Once per child, not once per layer.
+    warnCompositeDeclaration(childSpec);
+    const childPath = [...path, i];
+    const nested = concatChildren(childSpec);
+    const grid = nested
+      ? placeConcatPanels(nested.specs, nested.direction, nested.columns, childPath, view, domOrder, counter)
+      : concatPanel(childSpec, childPath, view, domOrder, counter);
+    if (!grid)
+      return null;
+    grids.push(grid);
+  }
+
+  if (direction === 'horizontal')
+    return besideEachOther(grids);
+  if (direction === 'vertical')
+    return underEachOther(grids);
+  // A wrapping `concat` lays its children out in rows of `columns`; without
+  // it, Vega-Lite's default, in a single unbounded row.
+  return underEachOther(chunkIntoRows(grids, columns).map(besideEachOther));
+}
+
+/**
+ * Convert one chart of a concat to its panel.
+ *
+ * @param childSpec - The chart: a single view or a layered one
+ * @param path - The child indices leading to it
+ * @param view - The compiled view, when bound
+ * @param domOrder - A caller-supplied DOM order for segmented layers
+ * @param counter - The running layer count Vega numbers datasets by
+ * @param counter.layer - Its current value
+ * @returns A grid of the one panel, or `null` when it has no layer to read
+ */
+function concatPanel(
+  childSpec: VegaLiteSpec,
+  path: number[],
+  view: VegaView | undefined,
+  domOrder: 'series-major' | 'subject-major' | undefined,
+  counter: { layer: number },
+): PanelGrid | null {
+  // Vega-Lite names a concat child's groups after the path to it:
+  // `concat_<i>_`, and `concat_<i>_concat_<j>_` for a child of a child.
+  const markGroupPrefix = path.map(i => `concat_${i}_`).join('');
+  const id = path.join('_');
+  // Each concat child compiles to a per-cell Vega scope group
+  // (`concat_<i>_group`) wrapping the panel's background path. Pointing
+  // the subplot selector at that background gives MAIDR core a real
+  // per-panel element to measure, which is what lets it compute the
+  // visual panel order (and vertical arrow direction) for multi-row
+  // vconcat / wrapped-concat grids — Vega SVGs carry no `axes_*` ids.
+  const selector = `g.mark-group.role-scope.${markGroupPrefix}group > g > path.background`;
+  // Each child is drawn with its own title above it, and the first layer's
+  // title is the panel's name in MAIDR's subplot announcements, as a facet
+  // or repeat panel names its cell there. Left unread, the gallery's
+  // 'Test Scores' and 'Product Ratings' were announced as 'Subplot 1 of 2'
+  // and 'Subplot 2 of 2' alone. A title the layer declares for itself
+  // (`usermeta.maidr.title`) is the author's and stays.
+  const panelTitle = drawnTitle(childSpec);
+  let layers: MaidrLayer[];
+  if (childSpec.layer) {
+    layers = inheritData(childSpec.layer, childSpec.data)
+      .map((layerSpec, j) => {
+        // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
+        // (local layer index `j`, not the global data index), so drive the
+        // selector off those while keeping the running layer count for the
+        // data lookup, which follows Vega's sequential dataset numbering.
+        const layer = convertLayerSpec(
+          layerSpec,
+          counter.layer,
+          view,
+          childSpec.encoding,
+          true,
+          domOrder,
+          { layerIndex: j, markGroupPrefix },
+        );
+        // Assign a unique ID that encodes both the concat path and the
+        // layer index within the child to avoid duplicates across subplots.
+        if (layer)
+          layer.id = `${id}_${j}`;
+        counter.layer++;
+        return layer;
+      })
+      .filter(Boolean) as MaidrLayer[];
+  } else {
+    // A single-view concat child renders under `concat_<i>_marks` (or the
+    // sugar-expanded `concat_<i>_layer_0_marks`).
+    const layer = convertLayerSpec(
+      childSpec,
+      counter.layer,
+      view,
+      undefined,
+      false,
+      domOrder,
+      { layerIndex: 0, markGroupPrefix },
+    );
+    if (layer)
+      layer.id = `${id}_0`;
+    counter.layer++;
+    layers = layer ? [layer] : [];
+  }
+  // A subplot with zero layers inside a grid crashes MAIDR core's Subplot
+  // model on focus, so the caller collapses the whole chart instead.
+  if (layers.length === 0)
+    return null;
+  if (panelTitle && layers[0].title === undefined)
+    layers[0].title = panelTitle;
+  return { panels: [{ subplot: { layers, selector }, row: 0, col: 0 }], rows: 1, cols: 1 };
+}
+
 function buildConcatMaidr(
   id: string,
   title: string,
   subtitle: string | undefined,
   caption: string | undefined,
   specs: VegaLiteSpec[],
-  direction: 'horizontal' | 'vertical' | 'wrap',
+  direction: ConcatDirection,
   view?: VegaView,
   domOrder?: 'series-major' | 'subject-major',
   columns?: number,
 ): Maidr {
-  // Track a global layer counter so that each concat child resolves
-  // dataset names independently (Vega names datasets sequentially
-  // across the entire compiled spec, not per-child).
-  let globalLayerIndex = 0;
-
-  const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
-    // A concat child is a spec node `vegaLiteToMaidr` never sees, so a
-    // declaration written on one that is itself composite is caught here or
-    // not at all. Once per child, not once per layer.
-    warnCompositeDeclaration(childSpec);
-    // Each concat child compiles to a per-cell Vega scope group
-    // (`concat_<i>_group`) wrapping the panel's background path. Pointing
-    // the subplot selector at that background gives MAIDR core a real
-    // per-panel element to measure, which is what lets it compute the
-    // visual panel order (and vertical arrow direction) for multi-row
-    // vconcat / wrapped-concat grids — Vega SVGs carry no `axes_*` ids.
-    const selector = `g.mark-group.role-scope.concat_${i}_group > g > path.background`;
-    // Each child is drawn with its own title above it, and the first layer's
-    // title is the panel's name in MAIDR's subplot announcements, as a facet
-    // or repeat panel names its cell there. Left unread, the gallery's
-    // 'Test Scores' and 'Product Ratings' were announced as 'Subplot 1 of 2'
-    // and 'Subplot 2 of 2' alone. A title the layer declares for itself
-    // (`usermeta.maidr.title`) is the author's and stays.
-    const panelTitle = drawnTitle(childSpec);
-    if (childSpec.layer) {
-      const layers = inheritData(childSpec.layer, childSpec.data)
-        .map((layerSpec, j) => {
-          // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
-          // (local layer index `j`, not the global data index), so drive the
-          // selector off those while keeping `globalLayerIndex` for the data
-          // lookup, which follows Vega's sequential dataset numbering.
-          const layer = convertLayerSpec(
-            layerSpec,
-            globalLayerIndex,
-            view,
-            childSpec.encoding,
-            true,
-            domOrder,
-            { layerIndex: j, markGroupPrefix: `concat_${i}_` },
-          );
-          // Assign a unique ID that encodes both the concat index and the
-          // layer index within the child to avoid duplicates across subplots.
-          if (layer)
-            layer.id = `${i}_${j}`;
-          globalLayerIndex++;
-          return layer;
-        })
-        .filter(Boolean) as MaidrLayer[];
-      if (panelTitle && layers.length > 0 && layers[0].title === undefined)
-        layers[0].title = panelTitle;
-      return { layers, selector };
-    }
-    // A single-view concat child renders under `concat_<i>_marks` (or the
-    // sugar-expanded `concat_<i>_layer_0_marks`).
-    const layer = convertLayerSpec(
-      childSpec,
-      globalLayerIndex,
-      view,
-      undefined,
-      false,
-      domOrder,
-      { layerIndex: 0, markGroupPrefix: `concat_${i}_` },
-    );
-    if (layer) {
-      layer.id = `${i}_0`;
-      if (panelTitle && layer.title === undefined)
-        layer.title = panelTitle;
-    }
-    globalLayerIndex++;
-    return { layers: layer ? [layer] : [], selector };
-  });
+  const grid = placeConcatPanels(specs, direction, columns, [], view, domOrder, { layer: 0 });
 
   // A subplot with zero layers inside a grid crashes MAIDR core's Subplot
   // model on focus; collapse to the same single empty figure other
   // unsupported specs produce (bindVegaLite skips mounting that shape).
-  if (subplotEntries.some(entry => entry.layers.length === 0)) {
+  if (!grid) {
     console.warn('[maidr/vegalite] Concat spec contains a child with an unsupported mark type.');
     return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
 
-  // vconcat produces one subplot per row (column layout).
-  // hconcat produces all subplots in a single row.
-  // General `concat` wraps into rows of `columns` panels (Vega-Lite's
-  // default when `columns` is omitted is a single unbounded row).
-  let subplots: MaidrSubplot[][];
-  if (direction === 'vertical') {
-    subplots = subplotEntries.map(s => [s]);
-  } else if (direction === 'wrap') {
-    subplots = chunkIntoRows(subplotEntries, columns);
-  } else {
-    subplots = [subplotEntries];
-  }
+  // vconcat produces one subplot per row (column layout), hconcat all
+  // subplots in a single row, and a wrapping `concat` rows of `columns`
+  // panels; a nested concat's panels take their places in those rows.
+  const subplots: MaidrSubplot[][] = Array.from({ length: grid.rows }, () => []);
+  for (const panel of [...grid.panels].sort((a, b) => a.row - b.row || a.col - b.col))
+    subplots[panel.row].push(panel.subplot);
 
-  return buildMaidr(id, title, subtitle, caption, subplots);
+  return buildMaidr(id, title, subtitle, caption, subplots.filter(row => row.length > 0));
 }
 
 // ---------------------------------------------------------------------------
