@@ -664,7 +664,10 @@ function tagCandlestickElements(
  *
  * Returns one {@link BoxSelector} per box, in data order. Unmatched sections
  * are emitted as selectors that match nothing, so highlighting degrades
- * gracefully per section rather than mis-highlighting.
+ * gracefully per section rather than mis-highlighting. Two boxes whose
+ * centres round to the same pixel, upright or on their side, share a bucket
+ * of four rects, and the layer is then left without a highlight rather than
+ * outlined on the wrong box.
  */
 function tagBoxElements(
   svg: SVGElement,
