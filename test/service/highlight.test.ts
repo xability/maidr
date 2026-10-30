@@ -21,7 +21,9 @@
 import type { SettingsService } from '@service/settings';
 import type { SubplotState, TraceState } from '@type/state';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { Figure } from '@model/plot';
 import { HighlightService } from '@service/highlight';
+import { TraceType } from '@type/grammar';
 import { DEFAULT_SETTINGS } from '@type/settings';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
@@ -377,5 +379,38 @@ describe('HighlightService and the labels drawn over a mark', () => {
     expect(document.querySelectorAll('text')).toHaveLength(2);
     service.dispose();
     expect(document.querySelectorAll('text')).toHaveLength(1);
+  });
+});
+
+describe('HighlightService across a layer switch onto a layer with no data', () => {
+  it('should take away the highlight of the layer just left', () => {
+    // py-maidr's legacy candlestick example sends its candlestick layer with
+    // no data beside a volume line. Page Down from the line onto it left the
+    // line's point outlined, as though the reader were still on it.
+    document.body.innerHTML = `<div><svg xmlns="${SVG_NAMESPACE}">`
+      + '<circle id="point" cx="10" cy="10" r="3" style="fill: #1f77b4"/></svg></div>';
+    const service = new HighlightService(settingsStub(), () => [document.body]);
+    const figure = new Figure({
+      id: 'chart',
+      subplots: [[{
+        layers: [
+          { id: 'candles', type: TraceType.CANDLESTICK, data: [] },
+          { id: 'volume', type: TraceType.LINE, data: [[{ x: 1, y: 10 }, { x: 2, y: 30 }]] },
+        ],
+      }]],
+    });
+    const subplot = figure.activeSubplot;
+    subplot.switchLayer('UPWARD');
+    subplot.addObserver(service);
+    subplot.traces.flat().forEach(trace => trace.addObserver(service));
+    service.highlight(document.getElementById('point') as unknown as SVGElement);
+    const highlights = (): Element[] => Array.from(document.querySelectorAll('[id^="maidr-highlight"]'));
+    expect(highlights()).toHaveLength(1);
+
+    subplot.switchLayer('DOWNWARD');
+
+    expect(highlights()).toHaveLength(0);
+    service.dispose();
+    figure.dispose();
   });
 });

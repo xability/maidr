@@ -86,6 +86,16 @@ describe('a layer switch onto a layer with no data', () => {
     expect(notified).toEqual(['Layer 1 of 2: Prices, empty']);
   });
 
+  test.each(['', '  '])('names a layer whose name is blank (%j) by its type', (blank) => {
+    // A blank name is no name: the trace drops it, rather than announcing
+    // "Layer 1 of 2: , empty".
+    const { context, notified } = chart(emptyLayer(TraceType.CANDLESTICK, blank));
+
+    context.stepTrace('DOWNWARD');
+
+    expect(notified).toEqual(['Layer 1 of 2: candlestick plot, empty']);
+  });
+
   test('names the layer\'s type in words', () => {
     const { context, notified } = chart(emptyLayer(TraceType.ERROR_BAR));
 
