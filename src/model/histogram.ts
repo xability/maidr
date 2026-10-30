@@ -31,9 +31,15 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     const highs = points
       .map(point => Number(isVertical ? point.xMax : point.yMax))
       .filter(Number.isFinite);
+    // Bin edges are positions on the binned axis, so they read in its declared
+    // format, as the table's bin columns and the announced bin already do. The
+    // bin width below does not: it is a length along the axis, and an axis of
+    // dates would print a span of days as a date.
+    const binFormat = this.authoredFormat(isVertical ? 'x' : 'y') ?? defaultFormat;
     const binRange = MathUtil.spannedOrMissing(
       MathUtil.safeMin(lows),
       MathUtil.safeMax(highs),
+      binFormat,
     );
 
     // A bar's height is a count only when it is a whole number. A density, a
@@ -77,6 +83,7 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
               .map(peak => MathUtil.spannedOrMissing(
                 Number(isVertical ? peak.xMin : peak.yMin),
                 Number(isVertical ? peak.xMax : peak.yMax),
+                binFormat,
               ))
               .join(t('model.modalBinJoin')),
             count: (this.valueFormat ?? defaultFormat)(peakCount),
