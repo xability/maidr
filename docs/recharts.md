@@ -1455,6 +1455,8 @@ const distributions = [
 
 A rung whose three numbers are not all finite is dropped rather than announced as a quantile the data never contained, and a row with no median is dropped entirely: the median is the ladder's centre and a navigable position in its own right.
 
+Name outliers only where the chart draws them. `lowerOutliersKey` and `upperOutliersKey` name the values beyond the deepest rung, and each is read out in the description and listed in its table. The stacked `<Bar>`s above draw none: `slow` is there to show the key, and a chart that declares it draws its points too, for instance as a `<Scatter>` in a `<ComposedChart>` whose axis reaches them. The boxen example draws no outliers and declares none.
+
 No highlight selector is generated. A rung is a rectangle and a distribution is not, and no class name says which rung is which — so a chart that wants highlighting puts a `className` on the single `<Bar>` that can stand for the whole distribution and passes it as `selectorOverride`, as above.
 
 ## Multi-Panel (Faceted) Charts

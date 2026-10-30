@@ -11,6 +11,7 @@
  */
 
 import type {
+  BoxenPoint,
   GanttData,
   GaugePoint,
   Maidr as MaidrData,
@@ -21,6 +22,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import { cleanup, render } from '@testing-library/react';
 import { createElement } from 'react';
+import { BoxenExample } from '../../../examples/recharts/examples/BoxenExample';
 import { GanttExample } from '../../../examples/recharts/examples/GanttExample';
 import { GaugeExample } from '../../../examples/recharts/examples/GaugeExample';
 import { IcicleExample } from '../../../examples/recharts/examples/IcicleExample';
@@ -172,5 +174,16 @@ describe('the recharts example apps', () => {
       expect(texts).toContain(band.label);
     }
     expect(texts.some(text => text.includes(String(gauge.target)))).toBe(true);
+  });
+
+  it('declare no boxen outlier the chart does not draw', () => {
+    // Three outliers were declared, two of them above the 0-500 axis, and
+    // the stacked bars draw no point at all.
+    const { chart, layer } = draw(BoxenExample);
+    const outliers = (layer.data as BoxenPoint[])
+      .flatMap(box => [...(box.lowerOutliers ?? []), ...(box.upperOutliers ?? [])]);
+
+    expect(chart.querySelectorAll('.recharts-scatter-symbol')).toHaveLength(0);
+    expect(outliers).toEqual([]);
   });
 });
