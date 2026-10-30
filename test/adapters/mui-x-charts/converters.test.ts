@@ -512,6 +512,16 @@ describe('second-pass kinds', () => {
     expect(step.type).toBe(TraceType.STEP);
   });
 
+  it('names a radar\'s spokes and values rather than X and Y', () => {
+    // A radar draws no axis titles. MUI calls its spokes metrics.
+    const [layer] = convertMuiChart('radar', {
+      series: [{ data: [80, 65], label: 'Alex' }],
+      radar: { max: 100, metrics: ['Speed', 'Power'] },
+    }, SCOPE).layers;
+
+    expect(layer.axes).toEqual({ x: { label: 'Metric' }, y: { label: 'Value' } });
+  });
+
   it('reads nothing from a gauge with no value', () => {
     expect(convertMuiChart('gauge', { value: null }, SCOPE).layers).toEqual([]);
   });

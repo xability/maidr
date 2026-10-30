@@ -72,6 +72,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 | `VictoryBoxPlot` | Box plot | ✅ | Per-section highlight (min, Q1, median, Q3, max). Requires pre-computed statistics. |
 | `VictoryCandlestick` | Candlestick chart | ✅ | Per-section highlight (open, high, low, close, volatility). |
 | `VictoryPie` | Pie chart | ✅ | A doughnut is the same component with an `innerRadius`. Standing alone it has no `VictoryAxis` to read labels from, so the axes are named `Category` and `Value`; wrap it in a `<VictoryChart>` with axis labels to override. |
+| `VictoryBar` in a `<VictoryChart polar>` | Polar area chart [experimental] | ✅ | A coxcomb: one wedge per datum. Victory labels no angular axis, so the wedges are named `Category`, and their values `Value` unless a `<VictoryPolarAxis dependentAxis label="...">` names them. |
 | `VictoryLine` + `VictoryArea` with `y0` | Percentile band (fan chart) [experimental] | ✅ | Only when named in `percentileBands`; see [Fan Chart](#fan-chart-experimental). |
 | `VictoryLine` | Precision-recall curve [experimental] | ✅ | Read off the axes: the x `VictoryAxis` labelled exactly `Recall`, the dependent axis `Precision` (case aside), and every point from 0 to 1. Anything else, rates in percent included, stays a line. |
 
