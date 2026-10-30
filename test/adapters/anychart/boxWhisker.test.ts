@@ -78,7 +78,15 @@ const SET_E: BoxPaths = {
   caps: 'M 619.1 212.018 L 619.1 212.018 M 619.1 166.57 L 619.1 166.57',
 };
 
-function drawBoxes(id: string, boxes: BoxPaths[]): HTMLElement {
+/**
+ * Draw boxes into one clipped layer, each box's paths in `order`: AnyChart
+ * draws the body, the median, the stems and then the caps.
+ */
+function drawBoxes(
+  id: string,
+  boxes: BoxPaths[],
+  order: Array<keyof BoxPaths> = ['body', 'median', 'stems', 'caps'],
+): HTMLElement {
   const container = document.createElement('div');
   container.id = id;
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -98,10 +106,11 @@ function drawBoxes(id: string, boxes: BoxPaths[]): HTMLElement {
         el.setAttribute(name, value);
       layer.appendChild(el);
     };
-    path(box.body, { 'fill': '#64b5f6', 'fill-opacity': '0.85', 'stroke': '#64b5f6' });
-    path(box.median, { fill: 'none', stroke: '#467fac' });
-    path(box.stems, { fill: 'none', stroke: '#467fac' });
-    path(box.caps, { fill: 'none', stroke: '#467fac' });
+    for (const part of order) {
+      path(box[part], part === 'body'
+        ? { 'fill': '#64b5f6', 'fill-opacity': '0.85', 'stroke': '#64b5f6' }
+        : { fill: 'none', stroke: '#467fac' });
+    }
   });
   return container;
 }
@@ -174,6 +183,28 @@ describe('an anychart box plot whisker', () => {
     expect(partOf(container, '0-0', 'max')).toEqual(['M 497.3 189.892 L 497.3 142.65']);
     // Each cap is a point at the far end of its stem, and no part of a box.
     for (const caps of [SET_D.caps, SET_E.caps]) {
+      const path = Array.from(container.querySelectorAll('path'))
+        .find(el => el.getAttribute('d') === caps);
+      expect(path?.hasAttribute('data-maidr-anychart-box')).toBe(false);
+    }
+
+    cleanUp(container);
+  });
+
+  it('still passes over caps drawn across the stems, even ahead of them', () => {
+    // With a whisker width set, each cap is a flat stroke across the end of
+    // its stem. Drawn before the stems, it is looked at first.
+    const boxes: BoxPaths[] = [
+      { ...SET_D, caps: 'M 487.3 277.798 L 507.3 277.798 M 487.3 142.65 L 507.3 142.65' },
+      { ...SET_E, caps: 'M 609.1 212.018 L 629.1 212.018 M 609.1 166.57 L 629.1 166.57' },
+    ];
+    const container = drawBoxes('box-wide-caps', boxes, ['body', 'median', 'caps', 'stems']);
+
+    bindAnyChart(boxChart(container));
+
+    expect(partOf(container, '0-0', 'min')).toEqual(['M 497.3 277.798 L 497.3 231.154']);
+    expect(partOf(container, '0-1', 'min')).toEqual(['M 619.1 212.018 L 619.1 210.822']);
+    for (const { caps } of boxes) {
       const path = Array.from(container.querySelectorAll('path'))
         .find(el => el.getAttribute('d') === caps);
       expect(path?.hasAttribute('data-maidr-anychart-box')).toBe(false);
