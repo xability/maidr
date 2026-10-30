@@ -297,4 +297,16 @@ describe('an authored example declares what it draws', () => {
 
     expect(days).toEqual(['Jan 3', 'Jan 4', 'Jan 5']);
   });
+
+  it('declares no volume on the AAPL candlestick, which draws none', () => {
+    // Every candle carried a volume of 0, read out with it and tabulated as
+    // a Volume column of zeros.
+    const html = read('vertical-candlestick.html');
+    const [layer] = layersOf(specOf(html));
+
+    const withVolume = (layer.data as CandlestickPoint[]).filter(candle => candle.volume !== undefined);
+
+    expect(draws(html, 'Volume')).toBe(false);
+    expect(withVolume).toEqual([]);
+  });
 });
