@@ -31,12 +31,16 @@
 import type { VegaLiteSpec, VegaView } from '@adapters/vegalite/types';
 import type { BoxPoint, Maidr } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { initMaidrOnElement } from '@util/initMaidr';
 import { bindVegaLite } from '../../../src/vegalite-entry';
 
 jest.mock('@util/initMaidr', () => ({ initMaidrOnElement: jest.fn() }));
 const initMock = initMaidrOnElement as unknown as jest.Mock;
+
+// The converter warns on purpose when a box plot's rows hold nothing to read.
+const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+afterAll(() => warn.mockRestore());
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -111,6 +115,26 @@ describe('a vega-lite box plot whose data is named, as Altair names it', () => {
     // Before the fix: q2 0, min = q1 and max = q3 for both boxes, and every
     // value outside the box an outlier.
     expect(boxes).toEqual(EXPECTED);
+  });
+});
+
+describe('a vega-lite box plot whose rows hold neither every statistic nor the raw values', () => {
+  beforeEach(() => {
+    warn.mockClear();
+  });
+
+  it('says its boxes cannot be read from them', () => {
+    // The whisker table: no median, no observations.
+    const maidr = vegaLiteToMaidr(ALTAIR_SPEC, viewWith({ data_0: altairTables().data_3 }));
+
+    expect(maidr.subplots[0][0].layers[0].type).toBe('box');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('neither every statistic of "v" nor its raw values'));
+  });
+
+  it('stays quiet when the rows hold the raw values', () => {
+    vegaLiteToMaidr(ALTAIR_SPEC, viewWith(altairTables()));
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 

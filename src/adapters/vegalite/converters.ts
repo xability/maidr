@@ -2610,7 +2610,16 @@ function extractBoxData(
     return result;
   }
 
-  // Fall back to computing from raw values.
+  // Fall back to computing from raw values. A table holding neither every
+  // statistic nor the raw values -- one of the partial stages, such as the
+  // whisker table -- leaves nothing to compute from: every box would be
+  // announced as zeros, so say so rather than let it pass unnoticed.
+  if (rows.length > 0 && !rows.some(row => isRawValue(row[valField]))) {
+    console.warn(
+      `[maidr/vegalite] The box plot's rows carry neither every statistic of "${valField}" `
+      + 'nor its raw values, so its boxes cannot be read from them.',
+    );
+  }
   const groups = new Map<string, number[]>();
   for (const row of rows) {
     const key = String(row[catField] ?? '');
@@ -2648,6 +2657,16 @@ function extractBoxData(
   }
 
   return result;
+}
+
+/**
+ * Whether a cell holds a raw observation a box plot can be computed from.
+ * @param value - The cell
+ * @returns `true` for a finite number, or text that reads as one
+ */
+function isRawValue(value: unknown): boolean {
+  return (typeof value === 'number' || (typeof value === 'string' && value.trim() !== ''))
+    && Number.isFinite(Number(value));
 }
 
 function percentile(sorted: number[], p: number): number {
