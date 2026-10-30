@@ -43,7 +43,9 @@
         mark: 'rect',
         encoding: {
           x: { field: 'day', type: 'ordinal', title: 'Day' },
-          y: { field: 'hour', type: 'ordinal', title: 'Time of Day' },
+          // `sort: null` keeps the times of day in the rows' order; an
+          // ordinal axis is otherwise sorted: Afternoon, Evening, Morning.
+          y: { field: 'hour', type: 'ordinal', sort: null, title: 'Time of Day' },
           color: {
             field: 'value',
             type: 'quantitative',

@@ -383,7 +383,8 @@ const spec = {
   mark: 'rect',
   encoding: {
     x: { field: 'day',   type: 'ordinal', title: 'Day' },
-    y: { field: 'hour',  type: 'ordinal', title: 'Time of Day' },
+    // `sort: null` keeps the rows' order; Vega-Lite sorts an ordinal axis.
+    y: { field: 'hour',  type: 'ordinal', title: 'Time of Day', sort: null },
     color: { field: 'value', type: 'quantitative', title: 'Activity Level' },
   },
 };
