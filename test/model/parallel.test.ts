@@ -682,3 +682,24 @@ describe('[ and ] judge a reading by its place on its own axis', () => {
     expect(targets.every(target => Number.isFinite(target.value))).toBe(true);
   });
 });
+
+describe('the Go To dialog places a crossing by the axes either side of it', () => {
+  test('a crossing between two axes is named by them, without a value in two units', () => {
+    // Car A is drawn at the top of mpg, the foot of hp and the top of weight,
+    // and car B the other way round, so the two cross between each pair of
+    // axes. The value at a crossing was taken along a segment from a reading
+    // in one unit to a reading in another: part horsepower, part pounds.
+    const crossing: LinePoint[][] = [
+      [{ x: 'mpg', y: 33, z: 'car A' }, { x: 'hp', y: 65, z: 'car A' }, { x: 'weight', y: 3200, z: 'car A' }],
+      [{ x: 'mpg', y: 21, z: 'car B' }, { x: 'hp', y: 230, z: 'car B' }, { x: 'weight', y: 1800, z: 'car B' }],
+    ];
+    const crossings = parallel(0, 0, crossing)
+      .getExtremaTargets()
+      .filter(target => target.type === 'intersection');
+
+    expect(crossings.map(target => target.display?.coords).sort())
+      .toEqual(['x between hp and weight', 'x between mpg and hp']);
+    expect(crossings.map(target => target.label).sort())
+      .toEqual(['Slope intersection at x between hp and weight', 'Slope intersection at x between mpg and hp']);
+  });
+});

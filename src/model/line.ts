@@ -2517,8 +2517,21 @@ export class LineTrace extends AbstractTrace {
       && Math.abs(intersection.x - this.numericX(from.x)) >= LineTrace.INTERSECTION_EPSILON
       && Math.abs(intersection.x - this.numericX(to.x)) >= LineTrace.INTERSECTION_EPSILON;
     return between
-      ? t('model.intersectionCoordsBetween', { from: String(from.x), to: String(to.x), y })
+      ? this.crossingBetween(String(from.x), String(to.x), y)
       : t('model.intersectionCoords', { x: String(nearestX), y });
+  }
+
+  /**
+   * Where a crossing strictly between two categories is, as the Go To dialog
+   * says it: the two categories and the value at the crossing.
+   *
+   * @param from - The category before the crossing
+   * @param to - The category after it
+   * @param y - The value at the crossing, formatted
+   * @returns The coordinates, in the reader's language
+   */
+  protected crossingBetween(from: string, to: string, y: string): string {
+    return t('model.intersectionCoordsBetween', { from, to, y });
   }
 
   /**

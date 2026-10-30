@@ -485,6 +485,25 @@ export class ParallelTrace extends LineTrace {
     ];
   }
 
+  /**
+   * Where two observations cross between two axes: the two axes alone.
+   *
+   * `LineTrace` adds the value at the crossing, taken along the segment
+   * between the readings either side of it. Here those readings are on two
+   * axes in different units, so the number was in neither: the Go To dialog
+   * gave a crossing between hp and weight a "y" part horsepower and part
+   * pounds. That two lines cross between two axes is what the chart shows
+   * -- the observations rank the other way round on the next axis -- and
+   * the axes say it.
+   *
+   * @param from - The axis before the crossing
+   * @param to - The axis after it
+   * @returns The coordinates, in the reader's language
+   */
+  protected override crossingBetween(from: string, to: string): string {
+    return t('model.intersectionCoordsBetweenAxes', { from, to });
+  }
+
   public override get state(): TraceState {
     const base = super.state;
     if (base.empty) {
