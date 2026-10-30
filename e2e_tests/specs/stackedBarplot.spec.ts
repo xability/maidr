@@ -343,9 +343,8 @@ test.describe('Stacked Barplot', () => {
     });
 
     test('should name the series by one word on a move and on P', async ({ page }) => {
-      // The example declares no z label. The moves said "Level is 0" and P
-      // said "Level is 0" while the dialog's table headed the column
-      // `Series`; all three now use the table's word.
+      // The moves and P name the series by the layer's z label, "survived",
+      // the title the legend draws, as the dialog's table heads its column.
       const stackedBarplotPage = await setupStackedBarplotPage(page);
 
       await stackedBarplotPage.moveToNextDataPoint();
@@ -353,8 +352,8 @@ test.describe('Stacked Barplot', () => {
       await stackedBarplotPage.announcePosition();
       const position = await stackedBarplotPage.getInstructionText();
 
-      expect(move).toContain('Series is 0');
-      expect(position).toBe('Position is 1 of 3, Series is 0');
+      expect(move).toContain('survived is 0');
+      expect(position).toBe('Position is 1 of 3, survived is 0');
     });
   });
 
