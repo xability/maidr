@@ -745,6 +745,51 @@ describe('tagLayerElements: dot plot', () => {
   });
 });
 
+describe('tagLayerElements: stacked bar', () => {
+  function stackLayer(): VictoryLayerInfo {
+    return {
+      id: '0',
+      victoryType: 'VictoryStack',
+      data: {
+        kind: 'segmented',
+        points: [
+          [{ x: 'Q1', y: 2400, z: 'Product A' }, { x: 'Q2', y: 3100, z: 'Product A' }],
+          [{ x: 'Q1', y: 1800, z: 'Product B' }, { x: 'Q2', y: 2700, z: 'Product B' }],
+        ],
+      },
+      dataCount: 4,
+      legend: ['Product A', 'Product B'],
+    };
+  }
+
+  it('names each segment in a grid, the series drawn back to front', () => {
+    const { container, doc, svg } = buildSvg();
+    // VictoryStack paints its last series first: Product B's bars, then A's.
+    const [b1, b2, a1, a2] = [0, 1, 0, 1].map(i => appendPath(doc, svg, { d: `M ${i * 40}, 150 L ${i * 40}, 60 z` }));
+
+    const selectors = tagLayerElements(svg, stackLayer(), 0, new Set(), '#mv-test ');
+
+    expect(selectors).toEqual([
+      ['#mv-test [data-maidr-victory-0-segment-0-0]', '#mv-test [data-maidr-victory-0-segment-0-1]'],
+      ['#mv-test [data-maidr-victory-0-segment-1-0]', '#mv-test [data-maidr-victory-0-segment-1-1]'],
+    ]);
+    const found = (selectors as string[][]).map(row => row.map(selector =>
+      Array.from(container.ownerDocument.querySelectorAll(selector))));
+    expect(found).toEqual([[[a1], [a2]], [[b1], [b2]]]);
+  });
+
+  it('clears the segment tags along with the layer tag', () => {
+    const { container, doc, svg } = buildSvg();
+    [0, 1, 2, 3].forEach(i => appendPath(doc, svg, { d: `M ${i * 40}, 150 L ${i * 40}, 60 z` }));
+    tagLayerElements(svg, stackLayer(), 0, new Set(), '#mv-test ');
+
+    clearTaggedElements(container);
+
+    expect(getTaggedElements(container)).toHaveLength(0);
+    expect(container.querySelectorAll('[data-maidr-victory-0-segment-0-0]')).toHaveLength(0);
+  });
+});
+
 describe('tagLayerElements: diverging bar', () => {
   it('tags every bar of both sides under one selector', () => {
     const { doc, svg } = buildSvg();

@@ -20,6 +20,7 @@ import type { ReactElement } from 'react';
 import { extractVictoryLayers, toMaidrLayer } from '@adapters/victory/converters';
 import { tagLayerElements } from '@adapters/victory/selectors';
 import { describe, expect, it } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 import { createElement } from 'react';
@@ -35,6 +36,7 @@ import {
   VictoryScatter,
   VictoryStack,
 } from 'victory';
+import { withPageDocument } from '../d3/pageDocument';
 
 const SCOPE = '#mv ';
 
@@ -241,6 +243,147 @@ describe('victory dot plot', () => {
       { x: 'Iceland', y: 7.5 },
     ]);
   });
+});
+
+describe('victory stacked bar', () => {
+  it('outlines the segment of the series being read', () => {
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(
+        VictoryStack,
+        null,
+        createElement(VictoryBar, {
+          key: 'a',
+          name: 'Product A',
+          data: [{ x: 'Q1', y: 2400 }, { x: 'Q2', y: 3100 }],
+        }),
+        createElement(VictoryBar, {
+          key: 'b',
+          name: 'Product B',
+          data: [{ x: 'Q1', y: 1800 }, { x: 'Q2', y: 2700 }],
+        }),
+      ),
+    ));
+
+    expect(layers[0].type).toBe(TraceType.STACKED);
+
+    // The segment the reader is shown at each series and quarter, through the
+    // trace itself. `VictoryStack` paints its last child first, so Product B's
+    // bars come before Product A's in the DOM, while Product A is the first
+    // series and the bottom segment of every bar.
+    const outlined = withPageDocument(doc.body, () => {
+      const trace = TraceFactory.create(layers[0]);
+      const segments = [0, 1].map(series => [0, 1].map((quarter) => {
+        trace.moveToIndex(series, quarter);
+        const { state } = trace;
+        const element = state.empty || state.type !== 'trace' || state.highlight.empty
+          ? null
+          : state.highlight.elements;
+        return Array.isArray(element) ? element[0] : element;
+      }));
+      trace.dispose();
+      return segments.map(row => row.map(element => barExtent(element)));
+    });
+
+    for (const quarter of [0, 1]) {
+      const [productA, productB] = [outlined[0][quarter], outlined[1][quarter]];
+      // Screen y grows downward: the first series sits below the second.
+      expect(productA.bottom).toBeGreaterThan(productB.bottom);
+      // And each outline is as tall as its own series' value.
+      const [a, b] = [[2400, 1800], [3100, 2700]][quarter];
+      expect(productA.height / productB.height).toBeCloseTo(a / b, 2);
+    }
+  });
+
+  it('outlines the segment of the series being read on a horizontal stack', () => {
+    // `swapSeries` turns each point round for the horizontal payload, after
+    // the tagging, and Victory paints the series back to front either way.
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      { horizontal: true },
+      createElement(
+        VictoryStack,
+        null,
+        createElement(VictoryBar, {
+          key: 'a',
+          name: 'Product A',
+          data: [{ x: 'Q1', y: 2400 }, { x: 'Q2', y: 3100 }],
+        }),
+        createElement(VictoryBar, {
+          key: 'b',
+          name: 'Product B',
+          data: [{ x: 'Q1', y: 1800 }, { x: 'Q2', y: 2700 }],
+        }),
+      ),
+    ));
+
+    const outlined = withPageDocument(doc.body, () => {
+      const trace = TraceFactory.create(layers[0]);
+      const segments = [0, 1].map(series => [0, 1].map((quarter) => {
+        trace.moveToIndex(series, quarter);
+        const { state } = trace;
+        const element = state.empty || state.type !== 'trace' || state.highlight.empty
+          ? null
+          : state.highlight.elements;
+        return barSpanX(Array.isArray(element) ? element[0] : element);
+      }));
+      trace.dispose();
+      return segments;
+    });
+
+    for (const quarter of [0, 1]) {
+      const [productA, productB] = [outlined[0][quarter], outlined[1][quarter]];
+      // The first series runs out from the axis, the second on from its end.
+      expect(productA.right).toBeCloseTo(productB.left, 6);
+      const [a, b] = [[2400, 1800], [3100, 2700]][quarter];
+      expect(productA.width / productB.width).toBeCloseTo(a / b, 2);
+    }
+  });
+
+  it('outlines nothing on a stack whose series miss a category, rather than another segment', () => {
+    // Product B has no Q2. `VictoryStack` fills it in with a bar of no
+    // height, so B is drawn with three bars for its two points, and no
+    // position pairs the bars with the points any more.
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(
+        VictoryStack,
+        null,
+        createElement(VictoryBar, {
+          key: 'a',
+          name: 'Product A',
+          data: [{ x: 'Q1', y: 2400 }, { x: 'Q2', y: 3100 }, { x: 'Q3', y: 2200 }],
+        }),
+        createElement(VictoryBar, {
+          key: 'b',
+          name: 'Product B',
+          data: [{ x: 'Q1', y: 1800 }, { x: 'Q3', y: 1700 }],
+        }),
+      ),
+    ));
+
+    expect(doc.querySelectorAll('path[role="presentation"]')).toHaveLength(6);
+    expect(layers[0].type).toBe(TraceType.STACKED);
+    expect(layers[0].data).toHaveLength(2);
+    expect(layers[0].selectors).toBeUndefined();
+  });
+
+  /** The left and right edges of a horizontal Victory bar, and its width. */
+  function barSpanX(bar: Element | null): { left: number; right: number; width: number } {
+    const xs = Array.from((bar?.getAttribute('d') ?? '').matchAll(/[ML]\s*(-?[\d.]+),/g))
+      .map(match => Number.parseFloat(match[1]));
+    return { left: Math.min(...xs), right: Math.max(...xs), width: Math.max(...xs) - Math.min(...xs) };
+  }
+
+  /** The bottom and the height of a Victory bar `<path>`, from its own `d`. */
+  function barExtent(bar: Element | null): { bottom: number; height: number } {
+    const ys = Array.from((bar?.getAttribute('d') ?? '').matchAll(/[\s,](-?[\d.]+)\s*(?:[a-z]|$)/gi))
+      .map(match => Number.parseFloat(match[1]))
+      .filter(y => Number.isFinite(y));
+    return { bottom: Math.max(...ys), height: Math.max(...ys) - Math.min(...ys) };
+  }
 });
 
 describe('victory diverging bar', () => {
