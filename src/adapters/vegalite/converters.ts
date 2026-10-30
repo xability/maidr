@@ -678,18 +678,51 @@ function buildMaidr(
   return maidr;
 }
 
+/**
+ * The spec node whose title the chart draws.
+ *
+ * A layered spec without a title of its own draws the first title among its
+ * layers, depth first -- Vega-Lite's `LayerModel.assembleTitle`. Altair writes
+ * its charts that way: `heatmap + text` keeps the `.properties(title=...)` of
+ * the heatmap on `layer[0]` and gives the composite none, so reading the top
+ * level alone announced the drawn title as 'Vega-Lite Chart'.
+ *
+ * @param spec - The spec, or a layer of it
+ * @returns The node carrying the drawn title, or `undefined` when none does
+ */
+function titledNode(spec: VegaLiteSpec): VegaLiteSpec | undefined {
+  if (spec.title)
+    return spec;
+  for (const layer of spec.layer ?? []) {
+    const titled = titledNode(layer);
+    if (titled)
+      return titled;
+  }
+  return undefined;
+}
+
+/**
+ * The title a spec is drawn with, when it is drawn with one.
+ *
+ * @param spec - The spec, a layer of it, or a composite's child
+ * @returns The text of the title {@link titledNode} finds, or `undefined`
+ */
+function drawnTitle(spec: VegaLiteSpec): string | undefined {
+  const title = titledNode(spec)?.title;
+  if (!title)
+    return undefined;
+  return typeof title === 'string' ? title : title.text || undefined;
+}
+
 function extractTitle(spec: VegaLiteSpec): string {
-  if (!spec.title)
-    return 'Vega-Lite Chart';
-  if (typeof spec.title === 'string')
-    return spec.title;
-  return spec.title.text ?? 'Vega-Lite Chart';
+  return drawnTitle(spec) ?? 'Vega-Lite Chart';
 }
 
 function extractSubtitle(spec: VegaLiteSpec): string | undefined {
-  if (!spec.title || typeof spec.title === 'string')
+  const title = titledNode(spec)?.title;
+  if (!title || typeof title === 'string')
     return undefined;
-  return spec.title.subtitle;
+  return title.subtitle;
 }
 
 function getMarkType(spec: VegaLiteSpec): string | null {
@@ -4381,6 +4414,13 @@ function buildConcatMaidr(
     // visual panel order (and vertical arrow direction) for multi-row
     // vconcat / wrapped-concat grids — Vega SVGs carry no `axes_*` ids.
     const selector = `g.mark-group.role-scope.concat_${i}_group > g > path.background`;
+    // Each child is drawn with its own title above it, and the first layer's
+    // title is the panel's name in MAIDR's subplot announcements, as a facet
+    // or repeat panel names its cell there. Left unread, the gallery's
+    // 'Test Scores' and 'Product Ratings' were announced as 'Subplot 1 of 2'
+    // and 'Subplot 2 of 2' alone. A title the layer declares for itself
+    // (`usermeta.maidr.title`) is the author's and stays.
+    const panelTitle = drawnTitle(childSpec);
     if (childSpec.layer) {
       const layers = inheritData(childSpec.layer, childSpec.data)
         .map((layerSpec, j) => {
@@ -4405,6 +4445,8 @@ function buildConcatMaidr(
           return layer;
         })
         .filter(Boolean) as MaidrLayer[];
+      if (panelTitle && layers.length > 0 && layers[0].title === undefined)
+        layers[0].title = panelTitle;
       return { layers, selector };
     }
     // A single-view concat child renders under `concat_<i>_marks` (or the
@@ -4418,8 +4460,11 @@ function buildConcatMaidr(
       domOrder,
       { layerIndex: 0, markGroupPrefix: `concat_${i}_` },
     );
-    if (layer)
+    if (layer) {
       layer.id = `${i}_0`;
+      if (panelTitle && layer.title === undefined)
+        layer.title = panelTitle;
+    }
     globalLayerIndex++;
     return { layers: layer ? [layer] : [], selector };
   });
