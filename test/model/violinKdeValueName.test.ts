@@ -64,6 +64,21 @@ describe('a violin sent as widths', () => {
     expect(dataTable.headers).toEqual(['Cut Quality', 'Price (USD)', 'Width']);
     expect(dataTable.rows[0]).toEqual(['Premium', 326, 0.34626145828903687]);
   });
+
+  test('fills every sampled row of that column with the width', () => {
+    // Thirty points are tabled every other one and then the last: the rows
+    // in between and the last one read the width of the point they sample.
+    const curve: ViolinKdePoint[] = Array.from({ length: 30 }, (_, i) => ({
+      x: 'Premium',
+      y: 326 + i * 100,
+      width: 0.5 - i * 0.01,
+    }));
+
+    const { rows } = new ViolinKdeTrace(kdeLayer(curve)).description.dataTable;
+
+    expect(rows[1]).toEqual(['Premium', 526, curve[2].width]);
+    expect(rows[rows.length - 1]).toEqual(['Premium', 3226, curve[29].width]);
+  });
 });
 
 describe('a violin sent as densities', () => {

@@ -493,7 +493,7 @@ Format: `{xAxisLabel} is {categoryLabel}, {yAxisLabel} is {yValue}, width is {wi
 - `yValue`: Rounded to 4 decimal places
 - `widthValue`: The point's `width`, rounded to 4 decimal places. Only shown when the point carries a `width` greater than 0.
 
-The data table's last column holds `density`, or `width` where the layer sends no `density`, and is headed "Density" or "Width" to match.
+The data table's last column holds `density`, or `width` where the layer sends no `density`, and is headed "Density" or "Width" to match. A layer that sends both is announced by its `width` ("width is …") and tabled by its `density` (headed "Density").
 
 **Terse mode:**
 ```
