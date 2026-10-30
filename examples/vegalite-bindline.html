@@ -43,7 +43,9 @@
         },
         mark: 'line',
         encoding: {
-          x: { field: 'month', type: 'ordinal', title: 'Month' },
+          // `sort: null` keeps the months in the rows' order; an ordinal
+          // axis is otherwise sorted, which would draw Apr, Aug, Dec, ...
+          x: { field: 'month', type: 'ordinal', sort: null, title: 'Month' },
           y: { field: 'temp', type: 'quantitative', title: 'Temperature (F)' },
         },
       };

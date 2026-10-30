@@ -323,7 +323,8 @@ const spec = {
   },
   mark: 'line',
   encoding: {
-    x: { field: 'month', type: 'ordinal',     title: 'Month' },
+    // `sort: null` keeps the rows' order; Vega-Lite sorts an ordinal axis.
+    x: { field: 'month', type: 'ordinal',     title: 'Month', sort: null },
     y: { field: 'temp',  type: 'quantitative', title: 'Temperature (F)' },
   },
 };
@@ -382,7 +383,8 @@ const spec = {
   mark: 'rect',
   encoding: {
     x: { field: 'day',   type: 'ordinal', title: 'Day' },
-    y: { field: 'hour',  type: 'ordinal', title: 'Time of Day' },
+    // `sort: null` keeps the rows' order; Vega-Lite sorts an ordinal axis.
+    y: { field: 'hour',  type: 'ordinal', title: 'Time of Day', sort: null },
     color: { field: 'value', type: 'quantitative', title: 'Activity Level' },
   },
 };
