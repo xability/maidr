@@ -871,19 +871,20 @@ const data = [
 
 There is no default cutoff, deliberately: -log10(p) puts the line at 1.3 for p < 0.05 and at 7.3 for genome-wide significance, and a guessed line sorts every point on the figure onto the wrong side silently. A **raw p axis runs the other way** and must declare `significanceDirection: 'below'` — fixed to `above` it would select exactly the points that failed to reach significance and announce them as the result.
 
-A Manhattan plot uses `chartType="manhattan"` with the same config, plus `groupKey` for the chromosome. Point `xKey` at the **per-chromosome position, not the cumulative offset the chart plots**: the offset keeps the chromosomes side by side on screen, and "position 249,388,120" answers nothing a reader asked.
+A Manhattan plot uses `chartType="manhattan"` with the same config, plus `groupKey` for the chromosome. Point `xKey` at the **position the chart plots**, the cumulative offset that lays the chromosomes end to end, not the position within each chromosome: MAIDR walks the points left to right by `x`, pairs each point with its mark in that order and pans it by it, and a per-chromosome position, which starts again at every chromosome, sends the reader back and forth across the genome with the outline on other points. Plotting the offset in megabases keeps the number a reader hears short, and the chromosome is named by `groupKey`.
 
 ```tsx
 <MaidrRecharts
   id="manhattan-example"
   data={data}
   chartType="manhattan"
-  xKey="bp"                   // announced
+  xKey="cumulativeMb"           // drawn, and announced
   yKeys={['negLog10P']}
   volcanoConfig={{ labelKey: 'snp', groupKey: 'chr', significance: 7.3 }}
+  xLabel="Genomic position (Mb)"
 >
   <ScatterChart width={600} height={350}>
-    <XAxis dataKey="cumulative" type="number" tick={false} />  {/* drawn */}
+    <XAxis dataKey="cumulativeMb" type="number" tick={false} />
     <YAxis dataKey="negLog10P" type="number" />
     <Scatter data={data} fill="#8884d8" />
   </ScatterChart>
