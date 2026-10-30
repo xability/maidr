@@ -73,6 +73,11 @@ values, [ and ] say there is no minimum or maximum value to go to, and G says
 there are no extrema to go to. All three play the warning tone with their
 message.
 
+On a parallel coordinates plot, whose axes measure different things, [ and ]
+go to the reading of the observation you are on that is drawn lowest or
+highest on its own axis, which is also the one played lowest or highest,
+rather than to its smallest or largest number.
+
 **Layers.** A chart drawn in more than one layer — a bar chart with a line over
 it, or a violin plot's box and density curve — moves between its
 layers with Page Up and Page Down. A switch keeps your place where the other

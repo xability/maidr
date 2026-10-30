@@ -20,6 +20,23 @@ describe('MathUtil.clamp', () => {
   });
 });
 
+describe('MathUtil.nearlyEqual', () => {
+  it('treats numbers equal on paper as equal, whatever their last bit', () => {
+    // 22.15 placed on an axis from 10.4 to 33.9, against 50 on one from 0 to
+    // 100: 0.49999999999999994 and 0.5.
+    expect(MathUtil.nearlyEqual((22.15 - 10.4) / (33.9 - 10.4), 50 / 100)).toBe(true);
+  });
+
+  it('tells apart numbers a reader could tell apart', () => {
+    expect(MathUtil.nearlyEqual(0.5, 0.5001)).toBe(false);
+  });
+
+  it('scales the margin with the numbers compared', () => {
+    expect(MathUtil.nearlyEqual(3_000_000_000, 3_000_000_001)).toBe(true);
+    expect(MathUtil.nearlyEqual(3_000, 3_001)).toBe(false);
+  });
+});
+
 describe('MathUtil.interpolate', () => {
   it('maps the source minimum to the target minimum', () => {
     expect(MathUtil.interpolate(0, 0, 10, 100, 200)).toBe(100);

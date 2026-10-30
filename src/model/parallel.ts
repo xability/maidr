@@ -1,9 +1,11 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { named } from './abstract';
 import { isMeasured } from './bar';
+import { extremumAt } from './extremaTarget';
 import { LineTrace } from './line';
 
 /**
@@ -423,6 +425,89 @@ export class ParallelTrace extends LineTrace {
         ? {}
         : { cross: { ...base.cross, label: this.valueColumnLabel } }),
     };
+  }
+
+  /**
+   * The observation's highest and lowest readings, each judged on its own
+   * axis, and the crossings `LineTrace` finds.
+   *
+   * `LineTrace` ranks a row by its raw numbers, and a row here crosses axes
+   * measured in different units: a car's weight in pounds outranked every
+   * other reading it has, so `]` always went to the weight axis and `[` to
+   * whichever axis counts in the smallest numbers, wherever the car sat on
+   * either. Ranked by its place on its own axis -- what the pitch plays, the
+   * braille shows and the chart draws -- `]` goes to the reading drawn
+   * highest and `[` to the one drawn lowest. Readings level with it on other
+   * axes are ties, which further presses walk.
+   *
+   * Places are compared without float noise. A place is a quotient, so 22.15
+   * on an axis from 10.4 to 33.9 is 0.49999999999999994 and 50 on one from 0
+   * to 100 is 0.5: compared exactly, `]` went to the 50 alone, though the two
+   * are drawn at one height and played at one pitch. The service that walks
+   * the ties compares the places the same way.
+   *
+   * Each target keeps the raw reading as its value, which is what the Go To
+   * dialog shows; the place on the axis is only what it is ranked by. A gap
+   * is no reading, so it is never a target, even on an axis with no spread,
+   * where every place is the midpoint.
+   *
+   * @returns The targets for the observation under the cursor
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const crossings = super.getExtremaTargets().filter(target => target.type === 'intersection');
+
+    const row = this.row;
+    const readings = (this.normalized[row] ?? [])
+      .map((place, col) => ({ place, col }))
+      .filter(({ col }) => isMeasured(this.lineValues[row][col]));
+    if (readings.length === 0) {
+      return crossings;
+    }
+
+    const places = readings.map(({ place }) => place);
+    const highest = MathUtil.safeMax(places);
+    const lowest = MathUtil.safeMin(places);
+    const targetAt = (col: number, type: 'max' | 'min'): ExtremaTarget => {
+      const point = this.points[row][col];
+      return {
+        ...extremumAt(
+          t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+          point.x,
+        ),
+        value: this.lineValues[row][col],
+        rankValue: this.normalized[row][col],
+        pointIndex: col,
+        segment: 'line',
+        type,
+        navigationType: 'point',
+        xValue: point.x,
+      };
+    };
+
+    return [
+      ...readings.filter(({ place }) => MathUtil.nearlyEqual(place, highest)).map(({ col }) => targetAt(col, 'max')),
+      ...readings.filter(({ place }) => MathUtil.nearlyEqual(place, lowest)).map(({ col }) => targetAt(col, 'min')),
+      ...crossings,
+    ];
+  }
+
+  /**
+   * Where two observations cross between two axes: the two axes alone.
+   *
+   * `LineTrace` adds the value at the crossing, taken along the segment
+   * between the readings either side of it. Here those readings are on two
+   * axes in different units, so the number was in neither: the Go To dialog
+   * gave a crossing between hp and weight a "y" part horsepower and part
+   * pounds. That two lines cross between two axes is what the chart shows
+   * -- the observations rank the other way round on the next axis -- and
+   * the axes say it.
+   *
+   * @param from - The axis before the crossing
+   * @param to - The axis after it
+   * @returns The coordinates, in the reader's language
+   */
+  protected override crossingBetween(from: string, to: string): string {
+    return t('model.intersectionCoordsBetweenAxes', { from, to });
   }
 
   public override get state(): TraceState {

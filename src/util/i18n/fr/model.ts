@@ -348,6 +348,7 @@ export const model = {
   'model.extremaIntersectionAt': '{kind} à {coords}',
   'model.intersectionCoords': 'x={x}, y={y}',
   'model.intersectionCoordsBetween': 'x entre {from} et {to}, y={y}',
+  'model.intersectionCoordsBetweenAxes': 'x entre {from} et {to}',
   'model.intersectionAtLines': 'intersection à ({lines})',
   'model.nounBand': 'Bande',
   'model.statNumberOfBands': 'Nombre de bandes',

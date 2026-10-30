@@ -6,12 +6,13 @@ import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
 import type { Keys } from '@type/event';
 import type { ExtremaTarget } from '@type/extrema';
-import type { MaidrLayer } from '@type/grammar';
+import type { LinePoint, MaidrLayer } from '@type/grammar';
 import { CommandFactory } from '@command/factory';
 import { GoToMaxValueCommand, GoToMinValueCommand } from '@command/goTo';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BarTrace } from '@model/bar';
 import { BumpTrace } from '@model/bump';
+import { TraceFactory } from '@model/factory';
 import { Heatmap } from '@model/heatmap';
 import { GoToExtremaService as RealGoToExtremaService } from '@service/goToExtrema';
 import { getKeymapForScope } from '@service/keybinding';
@@ -348,6 +349,76 @@ describe('walking the cells tied at a heatmap extreme', () => {
 
     expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1 });
     expect(cellOf(trace)).toBe('b/bottom');
+  });
+});
+
+describe('ranking by something other than the value', () => {
+  test('compares a target by its rankValue when it carries one', () => {
+    // A target whose value is not comparable with its neighbours' -- a
+    // reading in another unit -- says what it ranks by instead.
+    const trace = new BarTrace(barLayer([30, 90, 50, 10, 70]));
+    jest.spyOn(trace, 'getExtremaTargets').mockReturnValue([
+      { label: 'Max of A', value: 3200, rankValue: 0.5, pointIndex: 1, segment: 'line', type: 'max', navigationType: 'point' },
+      { label: 'Max of B', value: 33, rankValue: 1, pointIndex: 4, segment: 'line', type: 'max', navigationType: 'point' },
+    ]);
+    const service = serviceFor(trace);
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1 });
+    expect(trace.getCurrentXValue()).toBe('Q5');
+  });
+
+  test('walks a parallel coordinates observation\'s readings at the tops of their axes', () => {
+    // The car is the most powerful and the heaviest of the three: 230 hp and
+    // 3,200 lb are each the top of their own axis, so both are its highest
+    // reading, and neither is its 15 mpg, the foot of the economy axis.
+    const cars: LinePoint[][] = [
+      [{ x: 'mpg', y: 33 }, { x: 'hp', y: 65 }, { x: 'weight', y: 1800 }],
+      [{ x: 'mpg', y: 21 }, { x: 'hp', y: 110 }, { x: 'weight', y: 2600 }],
+      [{ x: 'mpg', y: 15 }, { x: 'hp', y: 230 }, { x: 'weight', y: 3200 }],
+    ];
+    const trace = TraceFactory.create({
+      id: 'cars',
+      type: TraceType.PARALLEL,
+      axes: { x: { label: 'Variable' }, y: { label: 'Value' } },
+      data: cars,
+    });
+    trace.moveToIndex(2, 0);
+    const service = serviceFor(trace);
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 2 });
+    expect(trace.getCurrentXValue()).toBe('hp');
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 2, total: 2 });
+    expect(trace.getCurrentXValue()).toBe('weight');
+
+    expect(service.goToExtremeValue('min')).toEqual({ position: 1, total: 1 });
+    expect(trace.getCurrentXValue()).toBe('mpg');
+  });
+
+  test('walks readings drawn level part way up axes of different extents', () => {
+    // 22.15 on an axis from 10.4 to 33.9 and 50 on one from 0 to 100 are
+    // both halfway up, but their places compute to 0.49999999999999994 and
+    // 0.5. Compared exactly, `]` went to the 50 alone and a further press
+    // stayed on it.
+    const level: LinePoint[][] = [
+      [{ x: 'a', y: 22.15 }, { x: 'b', y: 50 }, { x: 'c', y: 0 }],
+      [{ x: 'a', y: 10.4 }, { x: 'b', y: 0 }, { x: 'c', y: 10 }],
+      [{ x: 'a', y: 33.9 }, { x: 'b', y: 100 }, { x: 'c', y: 5 }],
+    ];
+    const trace = TraceFactory.create({
+      id: 'level',
+      type: TraceType.PARALLEL,
+      axes: { x: { label: 'Variable' }, y: { label: 'Value' } },
+      data: level,
+    });
+    trace.moveToIndex(0, 2);
+    const service = serviceFor(trace);
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 2 });
+    expect(trace.getCurrentXValue()).toBe('a');
+
+    expect(service.goToExtremeValue('max')).toEqual({ position: 2, total: 2 });
+    expect(trace.getCurrentXValue()).toBe('b');
   });
 });
 

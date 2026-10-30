@@ -348,6 +348,7 @@ export const model = {
   'model.extremaIntersectionAt': '{coords}의 {kind}',
   'model.intersectionCoords': 'x는 {x}, y는 {y}',
   'model.intersectionCoordsBetween': 'x는 {from|과와} {to} 사이, y는 {y}',
+  'model.intersectionCoordsBetweenAxes': 'x는 {from|과와} {to} 사이',
   'model.intersectionAtLines': '{lines} 교차 지점',
   'model.nounBand': '띠',
   'model.statNumberOfBands': '띠 개수',
