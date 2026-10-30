@@ -162,6 +162,17 @@ describe('Page Up and Page Down, heard', () => {
     expect(ctx.oscillators.length - before).toBe(EMPTY_TONE_OSCILLATORS);
   });
 
+  it('sounds no boundary chord for a switch onto a layer with no data', async () => {
+    // The switch happened; the chord says the key went nowhere. The layer is
+    // announced in words, as an empty panel in a figure's lobby is.
+    const { context, ctx } = await chart([BARS, { id: 'empty', type: TraceType.CANDLESTICK, data: [] }]);
+
+    const before = ctx.oscillators.length;
+    context.stepTrace('UPWARD');
+
+    expect(ctx.oscillators.length - before).toBe(0);
+  });
+
   // Focus that lands programmatically -- a screen reader's virtual cursor,
   // `autofocus`, a host page calling `.focus()` -- leaves the context
   // suspended, and the service sounds the key's cue once `resume()` settles.

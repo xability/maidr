@@ -13,6 +13,7 @@ export const text = {
   // Layer navigation and the states with nothing to read.
   'text.layerOfSize': '第 {index} 个图层，共 {size} 个：{identity}',
   'text.layerSwitchAt': '{layer}，位于 {details}',
+  'text.layerEmpty': '{layer}，空',
   'text.noAdditionalLayer': '没有其他图层',
   'text.noPlotInfo': '没有可显示的图表信息',
   'text.noFigureInfo': '没有可显示的图形信息',

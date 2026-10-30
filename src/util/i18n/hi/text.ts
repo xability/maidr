@@ -13,6 +13,7 @@ export const text = {
   // Layer navigation and the states with nothing to read.
   'text.layerOfSize': '{size} में से लेयर {index}: {identity}',
   'text.layerSwitchAt': '{layer}, {details} पर',
+  'text.layerEmpty': '{layer}, खाली',
   'text.noAdditionalLayer': 'कोई और लेयर नहीं',
   'text.noPlotInfo': 'दिखाने के लिए कोई प्लॉट जानकारी नहीं',
   'text.noFigureInfo': 'दिखाने के लिए कोई फ़िगर जानकारी नहीं',

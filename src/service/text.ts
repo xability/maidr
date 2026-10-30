@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { NonEmptyTraceState, PlotState, TextAside, TextState, TraceState } from '@type/state';
+import type { PlotState, TextAside, TextState, TraceState } from '@type/state';
 import type { AxisType, FormatterService } from './formatter';
 import type { NotificationService } from './notification';
 import { focusedSubplotTitle } from '@model/plot';
@@ -511,6 +511,11 @@ export class TextService implements Observer<PlotState>, Disposable {
 
   /**
    * Formats subplot-level text with layer information.
+   *
+   * A subplot reads its layer this way when the layer has nothing to read: a
+   * layer switch onto a layer with no data names it as it names any other
+   * layer, and says it is empty.
+   *
    * @param index - Current layer index
    * @param size - Total number of layers
    * @param traceType - The type of trace being displayed
@@ -518,10 +523,11 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns Formatted subplot description text
    */
   private formatSubplotText(index: number, size: number, traceType: string, traceState?: TraceState): string {
-    const identity = traceState && !traceState.empty
+    const identity = traceState
       ? TextService.layerIdentity(traceState)
       : t('text.plotOfType', { type: traceType });
-    return t('text.layerOfSize', { index, size, identity });
+    const layer = t('text.layerOfSize', { index, size, identity });
+    return traceState?.empty ? t('text.layerEmpty', { layer }) : layer;
   }
 
   /**
@@ -536,13 +542,15 @@ export class TextService implements Observer<PlotState>, Disposable {
    * Shared by both announcement sites rather than written twice. They compose
    * the same sentence from different states, and the reason to make that
    * explicit is that duplicated formatting is exactly how the two would come
-   * to disagree about the same layer.
+   * to disagree about the same layer. A layer with no data names itself in
+   * its empty state; a state that does not say its type is named by the type
+   * in words.
    *
    * @param state - The trace state of the layer being announced
    * @returns The layer's name, or a phrase naming its type
    */
-  private static layerIdentity(state: NonEmptyTraceState): string {
-    return state.name ?? t('text.plotOfType', { type: state.plotType || state.traceType });
+  private static layerIdentity(state: TraceState): string {
+    return state.name ?? t('text.plotOfType', { type: state.plotType || plotTypeLabel(state.traceType) });
   }
 
   /**

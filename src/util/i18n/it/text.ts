@@ -11,6 +11,7 @@ export const text = {
 
   'text.layerOfSize': 'Livello {index} di {size}: {identity}',
   'text.layerSwitchAt': '{layer} in {details}',
+  'text.layerEmpty': '{layer}, vuoto',
   'text.noAdditionalLayer': 'Nessun altro livello',
   'text.noPlotInfo': 'Nessuna informazione sul grafico da mostrare',
   'text.noFigureInfo': 'Nessuna informazione sulla figura da mostrare',

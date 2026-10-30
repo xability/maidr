@@ -16,6 +16,7 @@ export const text = {
   // Layer navigation (Page Up / Page Down) and the states with nothing to read.
   'text.layerOfSize': 'Ebene {index} von {size}: {identity}',
   'text.layerSwitchAt': '{layer} bei {details}',
+  'text.layerEmpty': '{layer}, leer',
   'text.noAdditionalLayer': 'Keine weitere Ebene',
   'text.noPlotInfo': 'Keine Diagramminformationen zum Anzeigen',
   'text.noFigureInfo': 'Keine Abbildungsinformationen zum Anzeigen',

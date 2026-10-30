@@ -103,6 +103,40 @@ describe('stepping between layers', () => {
     expect(log).toEqual(['trace0:empty', 'subplot:empty']);
   });
 
+  test('a switch onto a layer with no data is announced by the subplot, not as an edge', () => {
+    // The trace's empty state is what a step off the edge of the data sends,
+    // and every observer read the switch as one: the boundary chord, "No
+    // more data to display", and the last layer's highlight left drawn.
+    const figure = new Figure({
+      id: 'empty-layer',
+      subplots: [[{
+        layers: [
+          { id: 'candles', type: TraceType.CANDLESTICK, data: [] },
+          { id: 'volume', type: TraceType.LINE, data: [[{ x: 1, y: 3 }, { x: 2, y: 4 }]] },
+        ],
+      }]],
+    });
+    const subplot = figure.activeSubplot;
+    subplot.switchLayer('UPWARD');
+    const states: PlotState[] = [];
+    subplot.addObserver({ update: (state: SubplotState) => states.push(state) });
+    subplot.traces.flat().forEach(trace => trace.addObserver({
+      update: (state: TraceState | PlotState) => states.push(state),
+    }));
+
+    const result = subplot.switchLayer('DOWNWARD');
+
+    expect(result).toBe(subplot.traces[0][0]);
+    expect(states).toHaveLength(1);
+    expect(states[0]).toMatchObject({
+      empty: false,
+      type: 'subplot',
+      index: 1,
+      size: 2,
+      trace: { empty: true, traceType: TraceType.CANDLESTICK },
+    });
+  });
+
   test('builds the announced layer state once', () => {
     // The state getter rebuilds audio, braille, text and highlight -- and on
     // some trace types scans every row -- so the layer announcement a

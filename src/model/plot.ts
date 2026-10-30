@@ -850,6 +850,13 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    * Announces the trace a layer switch landed on, tagged as a switch so the
    * announcement names which layer of how many the reader is now on.
    *
+   * A layer with nothing to read is announced by the subplot instead, whose
+   * state is the layer of how many with no point in it. The trace's own empty
+   * state is the one a step off the edge of the data sends, and every
+   * observer took it for that: the boundary chord, "No more data to display"
+   * for a switch that had happened, and the highlight of the layer just left
+   * still drawn.
+   *
    * @param trace - The newly active trace
    */
   private notifyLayerSwitch(trace: Trace): void {
@@ -866,7 +873,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       };
       trace.notifyObserversWithState(state);
     } else {
-      trace.notifyStateUpdate();
+      this.notifyStateUpdate();
     }
   }
 

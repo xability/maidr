@@ -14,6 +14,7 @@ export const text = {
   // Layer navigation and the states with nothing to read.
   'text.layerOfSize': '레이어 {size}개 중 {index}: {identity}',
   'text.layerSwitchAt': '{layer}, {details}',
+  'text.layerEmpty': '{layer}, 비어 있음',
   'text.noAdditionalLayer': '추가 레이어가 없습니다',
   'text.noPlotInfo': '표시할 그래프 정보가 없습니다',
   'text.noFigureInfo': '표시할 그림 정보가 없습니다',

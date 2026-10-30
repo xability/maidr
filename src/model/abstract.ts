@@ -641,8 +641,14 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     // Guarded here rather than in each accessor because this is the single
     // funnel they are all reached through, and because a producer can always
     // emit an empty series -- the core cannot assume otherwise.
+    //
+    // The layer still says what it is, so a switch onto it can name it.
     if (this.isEmptyAtCursor) {
-      return this.outOfBoundsState;
+      return {
+        ...this.outOfBoundsState,
+        plotType: this.spokenPlotType(plotTypeLabel(this.type)),
+        name: this.name,
+      };
     }
     return {
       empty: false,
