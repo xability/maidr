@@ -4,7 +4,7 @@
 
 import type { MaidrLayer, PercentileBandPoint } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
-import { afterEach, describe, expect, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { PercentileBandTrace } from '@model/percentileBand';
 import { TraceType } from '@type/grammar';
@@ -351,6 +351,7 @@ describe('description', () => {
 describe('highlight', () => {
   afterEach(() => {
     document.body.innerHTML = '';
+    jest.restoreAllMocks();
   });
 
   /** Where a step is drawn across the page. */
@@ -506,6 +507,34 @@ describe('highlight', () => {
     const highlight = stateOf(trace).highlight;
 
     expect(highlight.empty ? [] : highlight.elements).toEqual([bands[2]]);
+  });
+
+  test('a band that dropped a vertex on a log axis is outlined whole, not marked where a linear axis would put the step', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // The four steps drawn at 100, 250, 330 and 400, as a log axis spaces
+    // them, and every band drawn without its vertex at the second step, as
+    // Plotly drops a vertex a straight run does not need. The median's line
+    // keeps all four.
+    const at = [100, 250, 330, 400];
+    const edge = (level: number, steps: number[]): string[] =>
+      steps.map(i => `${at[i]},${down(Number(STEPS[i].quantiles[level].value))}`);
+    const bands = [0, 1, 2, 3].map(k =>
+      `<polygon points="${[...edge(k, [0, 2, 3]), ...edge(8 - k, [0, 2, 3]).reverse()].join(' ')}"></polygon>`);
+    document.body.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <g id="bands">${bands.join('')}</g>
+        <polyline id="median" fill="none" points="${edge(4, [0, 1, 2, 3]).join(' ')}" />
+      </svg>`;
+    const trace = band(STEPS, { selectors: [...BAND_SELECTORS, '#median'] });
+    trace.moveOnce('FORWARD');
+
+    expect(markedAt(trace)).toEqual([250, down(0.02)]);
+
+    trace.moveOnce('DOWNWARD');
+    trace.moveOnce('DOWNWARD');
+    const highlight = stateOf(trace).highlight;
+
+    expect(highlight.empty ? [] : highlight.elements).toEqual([document.querySelectorAll('#bands > *')[2]]);
   });
 
   test('reads without an outline when the selectors match nothing', () => {

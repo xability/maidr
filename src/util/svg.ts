@@ -88,15 +88,23 @@ export abstract class Svg {
    * Where along an outline's x each of a series of points is drawn.
    *
    * An outline drawn through every point has a vertex at each one's x, and
-   * those are the places, in order. Otherwise -- a renderer that dropped the
-   * vertices a straight run did not need, or drew a curve through more -- the
-   * points are spread over the outline's extent by their own x, which is
-   * where a linear axis draws them, or evenly where an x is not a number,
-   * which is a guess, and says so with a warning.
+   * those are the places, in order. One with fewer -- Plotly drops each
+   * vertex within a fraction of a pixel of the line through its neighbours,
+   * and a smooth fan of fifty steps drawn by Plotly 2.35.2 kept 37 -- has
+   * its points spread over
+   * its extent by their own x, as a linear axis draws them, or evenly, as a
+   * category axis does, but only when every vertex it kept between its ends
+   * stands at one of those places. Otherwise -- a log axis, an outline with
+   * no vertex kept between its ends, a curve that does not pass through its
+   * points -- where each point is drawn cannot be read, and none is given,
+   * with a warning: the caller outlines the whole shape, coarse but never
+   * away from the point. Spread without that check, as this did, a log
+   * axis's markers stood where a linear one would have drawn its points.
    *
    * @param outline - The outline, from {@link outlineOf}
    * @param keys - Each point's x, in the order the points are drawn
-   * @returns The x each point is drawn at, in the outline's units
+   * @returns The x each point is drawn at, in the outline's units, or none
+   *   when the outline does not say
    */
   public static columnsAlong(outline: ShapeOutline, keys: readonly (number | string)[]): number[] {
     return columnsAlong(outline, keys);
@@ -1825,42 +1833,78 @@ function crossingsAt(outline: ShapeOutline, x: number): number[] {
 function columnsAlong(outline: ShapeOutline, keys: readonly (number | string)[]): number[] {
   const xs = outline.vertices.map(vertex => vertex.x).sort((a, b) => a - b);
   const distinct = xs.filter((x, i) => i === 0 || x - xs[i - 1] > COLUMN_TOLERANCE);
-  if (distinct.length === keys.length || distinct.length === 0) {
+  if (distinct.length === keys.length) {
     return distinct;
   }
-  const min = distinct[0];
-  const span = distinct[distinct.length - 1] - min;
-  const first = keys[0];
-  const last = keys[keys.length - 1];
-  if (typeof first === 'number' && typeof last === 'number' && last !== first
-    && keys.every(key => typeof key === 'number' && Number.isFinite(key))) {
-    return keys.map(key => min + ((Number(key) - first) / (last - first)) * span);
+  const placed = placeByKeptVertices(distinct, keys);
+  if (placed !== null) {
+    return placed;
   }
-  warnSpreadEvenly(distinct.length, keys.length);
-  return keys.map((_, i) => (keys.length > 1 ? min + (i / (keys.length - 1)) * span : min + span / 2));
+  if (keys.length > 0) {
+    warnNotOnePerPoint(distinct.length, keys.length);
+  }
+  return [];
 }
 
-/** The shapes, as `columns:points`, {@link warnSpreadEvenly} has told of. */
-const spreadEvenly = new Set<string>();
+/**
+ * How far a vertex an outline kept may stand from where a point is placed and
+ * still be taken for that point's, in the outline's units: over the rounding
+ * a renderer writes coordinates with, Plotly's two decimals among them, and
+ * far under the gap between two points a reader could tell apart.
+ */
+const KEPT_VERTEX_TOLERANCE = 0.05;
 
 /**
- * Tells a producer, once per shape of outline, that a band's or a ridge's
- * markers are spread evenly along it: its x positions are not one per point,
- * and the points' own x are not numbers, so where each is drawn is a guess.
+ * Where each point is drawn along an outline that kept fewer vertices than it
+ * has points: spread over the outline's extent by the points' own x, as a
+ * linear axis draws them, or evenly, as a category axis does -- whichever
+ * puts a point at every vertex the outline kept.
+ *
+ * @param columns - The outline's distinct x, in order
+ * @param keys - Each point's x, in the order the points are drawn
+ * @returns The x of each point, or null when the outline kept more vertices
+ *   than points, kept none between its ends, or kept one at neither placing
+ */
+function placeByKeptVertices(columns: readonly number[], keys: readonly (number | string)[]): number[] | null {
+  if (columns.length < 3 || columns.length >= keys.length) {
+    return null;
+  }
+  const min = columns[0];
+  const span = columns[columns.length - 1] - min;
+  const placings = [keys.map((_, i) => min + (i / (keys.length - 1)) * span)];
+  const first = keys[0];
+  const last = keys[keys.length - 1];
+  if (typeof first === 'number' && typeof last === 'number' && first !== last
+    && keys.every(key => typeof key === 'number' && Number.isFinite(key))) {
+    placings.unshift(keys.map(key => min + ((Number(key) - first) / (last - first)) * span));
+  }
+  return placings.find(places => columns.every(column =>
+    places.some(place => Math.abs(place - column) <= KEPT_VERTEX_TOLERANCE))) ?? null;
+}
+
+/** The shapes, as `columns:points`, {@link warnNotOnePerPoint} has told of. */
+const toldOf = new Set<string>();
+
+/**
+ * Tells a producer, once per shape of outline, that a band or a ridge is
+ * outlined whole at every point, because its outline has not one vertex per
+ * point to say where each is drawn. Once: the trace is built again each time
+ * the chart takes focus, and a second chart of the same shape is drawn the
+ * same way.
  *
  * @param columns - How many distinct x the outline has
- * @param points - How many points are marked along it
+ * @param points - How many points it was to mark
  */
-function warnSpreadEvenly(columns: number, points: number): void {
+function warnNotOnePerPoint(columns: number, points: number): void {
   const key = `${columns}:${points}`;
-  if (spreadEvenly.has(key)) {
+  if (toldOf.has(key)) {
     return;
   }
-  spreadEvenly.add(key);
+  toldOf.add(key);
   console.warn(
-    `[MAIDR] An outline drawn at ${columns} distinct x positions marks ${points} points whose x are not `
-    + 'numbers, so its markers are spread evenly along it and may not stand at the points they mark. '
-    + 'Draw the outline with a vertex at each point.',
+    `[MAIDR] An outline drawn at ${columns} distinct x positions is to mark ${points} points, so where `
+    + 'each is drawn cannot be read from it, and it is outlined whole at every point. '
+    + 'Draw the outline with a vertex at each point to mark them one by one.',
   );
 }
 
