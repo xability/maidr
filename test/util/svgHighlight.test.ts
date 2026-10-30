@@ -257,10 +257,11 @@ describe('createHighlightElement on a group', () => {
  * one style jsdom computes.
  * @param tag - The mark's element
  * @param style - Its inline style
+ * @param attributes - Its other attributes, such as its geometry
  * @returns The mark
  */
-function renderMark(tag: string, style: string): SVGElement {
-  document.body.innerHTML = `<svg xmlns="${SVG_NAMESPACE}"><${tag} style="${style}"></${tag}></svg>`;
+function renderMark(tag: string, style: string, attributes = ''): SVGElement {
+  document.body.innerHTML = `<svg xmlns="${SVG_NAMESPACE}"><${tag} ${attributes} style="${style}"></${tag}></svg>`;
   return document.querySelector(tag) as SVGElement;
 }
 
@@ -331,6 +332,115 @@ describe('createHighlightElement colour', () => {
     const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
 
     expect(highlight.style.stroke).toBe(highlight.style.fill);
+  });
+});
+
+describe('createHighlightElement on a mark too small to see', () => {
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    document.body.innerHTML = '';
+  });
+
+  /**
+   * Draws one mark and gives it the boxes a browser would measure, which
+   * jsdom, laying nothing out, does not.
+   * @param tag - The mark's element
+   * @param attributes - Its geometry
+   * @param box - Its box in its own user units, as `getBBox` reports it
+   * @param box.x - The box's left edge
+   * @param box.y - The box's top edge
+   * @param box.width - The box's width
+   * @param box.height - The box's height
+   * @param screen - Its size on the page
+   * @param screen.width - Its width on the page
+   * @param screen.height - Its height on the page
+   * @returns The mark
+   */
+  function measuredMark(
+    tag: string,
+    attributes: string,
+    box: { x: number; y: number; width: number; height: number },
+    screen: { width: number; height: number },
+  ): SVGElement {
+    const mark = renderMark(tag, 'fill: #808080; stroke: #000000; stroke-width: 1px', attributes);
+    Object.defineProperty(mark, 'getBBox', { value: () => box });
+    Object.defineProperty(mark, 'getBoundingClientRect', {
+      value: () => ({ x: 0, y: 0, left: 0, top: 0, right: screen.width, bottom: screen.height, ...screen }),
+    });
+    return mark;
+  }
+
+  it('marks a wick shorter than a pixel with a circle at its middle', () => {
+    // mplfinance drew an upper wick 0.04 price units long, a tenth of a pixel.
+    const wick = measuredMark(
+      'path',
+      'd="M 209.5 302.99 L 209.5 303.09"',
+      { x: 209.5, y: 302.99, width: 0, height: 0.1 },
+      { width: 0, height: 0.13 },
+    );
+
+    const highlight = Svg.createHighlightElement(wick, FALLBACK_COLOR);
+
+    expect(highlight.tagName.toLowerCase()).toBe('circle');
+    expect(Number(highlight.getAttribute('cx'))).toBeCloseTo(209.5);
+    expect(Number(highlight.getAttribute('cy'))).toBeCloseTo(303.04);
+    expect(Number(highlight.getAttribute('r'))).toBeGreaterThanOrEqual(4);
+    expect(highlight.getAttribute('fill')).toBe(FALLBACK_COLOR);
+    expect(wick.nextElementSibling).toBe(highlight);
+    expect(Svg.isOwned(highlight)).toBe(true);
+  });
+
+  it('marks a rect with no height, which is not drawn at all, at its middle', () => {
+    // A spine plot's empty tile is drawn 52 px wide and 0 high.
+    const tile = measuredMark(
+      'rect',
+      'x="447" y="91" width="52" height="0"',
+      { x: 447, y: 91, width: 52, height: 0 },
+      { width: 52, height: 0 },
+    );
+
+    const highlight = Svg.createHighlightElement(tile, FALLBACK_COLOR);
+
+    expect(highlight.tagName.toLowerCase()).toBe('circle');
+    expect(Number(highlight.getAttribute('cx'))).toBe(473);
+    expect(Number(highlight.getAttribute('cy'))).toBe(91);
+  });
+
+  it('marks a point drawn as a zero-length path where it is, as before', () => {
+    const point = measuredMark('path', 'd="M 40 60"', { x: 40, y: 60, width: 0, height: 0 }, { width: 0, height: 0 });
+
+    const highlight = Svg.createHighlightElement(point, FALLBACK_COLOR);
+
+    expect(highlight.tagName.toLowerCase()).toBe('circle');
+    expect([highlight.getAttribute('cx'), highlight.getAttribute('cy')]).toEqual(['40', '60']);
+  });
+
+  it.each([
+    { what: 'a path with no height, which strokes a line', tag: 'path', attributes: 'd="M 0 10 L 52 10"', box: { x: 0, y: 10, width: 52, height: 0 } },
+    { what: 'a wick a pixel long', tag: 'path', attributes: 'd="M 5 10 L 5 11"', box: { x: 5, y: 10, width: 0, height: 1 } },
+  ])('copies $what', ({ tag, attributes, box }) => {
+    const mark = measuredMark(tag, attributes, box, box);
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.tagName.toLowerCase()).toBe(tag);
+  });
+
+  it.each([
+    { what: 'that is hidden itself', group: '', mark: 'display: none' },
+    { what: 'in a group that is hidden', group: 'display: none', mark: '' },
+  ])('copies a mark $what, which measures as nothing, rather than drawing a marker for it', ({ group, mark: hidden }) => {
+    // A mark that is not drawn reports an empty box, which passes for one too
+    // small to see; a marker for it would be drawn, visible, at that box.
+    document.body.innerHTML = `<svg xmlns="${SVG_NAMESPACE}"><g style="${group}">`
+      + `<path d="M 209.5 302.99 L 209.5 303.09" style="stroke: #000000; ${hidden}"></path></g></svg>`;
+    const mark = document.querySelector('path') as SVGElement;
+    Object.defineProperty(mark, 'getBBox', { value: () => ({ x: 0, y: 0, width: 0, height: 0 }) });
+
+    const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
+
+    expect(highlight.tagName.toLowerCase()).toBe('path');
+    expect(document.querySelector('circle')).toBeNull();
   });
 });
 

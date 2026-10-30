@@ -697,9 +697,9 @@ export abstract class Svg {
   /**
    * Creates a highlighted clone of an SVG element with enhanced visibility.
    *
-   * When the element has a zero-size bounding box (e.g. a single-point
-   * ``<path d="M x y">`` used for median markers in violin plots), a
-   * visible ``<circle>`` is created at that position instead.
+   * When the element is too small to see (see {@link isTooSmallToSee}), a
+   * visible ``<circle>`` is created at its centre instead: a copy of it would
+   * be as invisible as it is.
    *
    * A group that holds shapes, as a Mermaid or Graphviz node, edge or cluster
    * does, is outlined through those shapes instead of painted whole (see
@@ -720,17 +720,16 @@ export abstract class Svg {
     fallbackColor: string,
     options: { useColorAsIs?: boolean } = {},
   ): SVGElement {
-    // Handle zero-size elements (e.g. single-point <path> for median markers
-    // in violin plots). Create a circle marker instead of cloning.
+    // A mark too small to see gets a circle marker instead of a copy.
     try {
       const bbox = (element as SVGGraphicsElement).getBBox();
-      if (bbox.width === 0 && bbox.height === 0) {
+      if (this.isTooSmallToSee(element, bbox) && this.isRendered(element)) {
         const style = window.getComputedStyle(element);
         const strokeWidth = Number.parseFloat(style.strokeWidth || '2');
         const radius = Math.max(strokeWidth * 1.5, 4);
         const circle = document.createElementNS(this.SVG_NAMESPACE, 'circle') as SVGElement;
-        circle.setAttribute('cx', String(bbox.x));
-        circle.setAttribute('cy', String(bbox.y));
+        circle.setAttribute('cx', String(bbox.x + bbox.width / 2));
+        circle.setAttribute('cy', String(bbox.y + bbox.height / 2));
         circle.setAttribute('r', String(radius));
         circle.setAttribute(Constant.FILL, fallbackColor);
         circle.setAttribute(Constant.STROKE, fallbackColor);
@@ -810,6 +809,65 @@ export abstract class Svg {
 
     element.insertAdjacentElement(Constant.AFTER_END, clone);
     return clone;
+  }
+
+  /**
+   * The shapes SVG draws nothing of, fill or stroke, once their width or
+   * height is zero.
+   */
+  private static readonly AREA_SHAPES: ReadonlySet<string> = new Set(['rect', 'circle', 'ellipse']);
+
+  /**
+   * The size on the page, in CSS pixels, under which a mark that is that
+   * small both ways is too small to see.
+   */
+  private static readonly MIN_VISIBLE_PX = 1;
+
+  /**
+   * Whether a mark is too small to see, so that a copy of it would be too.
+   *
+   * A point drawn as a zero-length path, such as a violin's median, has no
+   * box at all. A mark under a pixel both ways draws a speck at most: a
+   * candle's upper wick 0.04 price units long was a tenth of a pixel, and its
+   * copy showed nothing, while the zero-length wick of the same candle got a
+   * marker. And a rect, circle or ellipse with no width or no height is not
+   * drawn at all, stroke included: a spine plot's empty tile, 52 px wide and
+   * 0 high, was copied as an invisible rect.
+   *
+   * @param element - The mark, in the document
+   * @param bbox - Its box, in its own user units
+   * @returns True when a marker should stand in for the mark
+   */
+  private static isTooSmallToSee(element: SVGElement, bbox: DOMRect): boolean {
+    if (bbox.width === 0 && bbox.height === 0) {
+      return true;
+    }
+    if (this.AREA_SHAPES.has(element.tagName.toLowerCase()) && (bbox.width === 0 || bbox.height === 0)) {
+      return true;
+    }
+    const box = element.getBoundingClientRect();
+    return box.width < this.MIN_VISIBLE_PX && box.height < this.MIN_VISIBLE_PX;
+  }
+
+  /**
+   * Whether a mark is drawn at all: neither it nor anything it is drawn in is
+   * `display: none`.
+   *
+   * A mark that is not drawn measures as nothing -- an empty box on the page,
+   * and `getBBox` reporting zeros or throwing -- so it would pass for one too
+   * small to see, and the marker standing in for it would be drawn, visible,
+   * at that empty box. Its copy is not drawn either, as it never was.
+   *
+   * @param element - The mark, in the document
+   * @returns False when it or an element it is in has `display: none`
+   */
+  private static isRendered(element: Element): boolean {
+    for (let node: Element | null = element; node !== null; node = node.parentElement) {
+      if (window.getComputedStyle(node).display === 'none') {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
