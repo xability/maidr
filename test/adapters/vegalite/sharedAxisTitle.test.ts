@@ -134,6 +134,37 @@ describe('a layered vega-lite chart with a layer that writes its title away', ()
   });
 });
 
+describe('sibling vega-lite line layers that share an axis one of them titles', () => {
+  it('are read as one line of two series, each named as its legend entry', () => {
+    // Titled alike, the two lines describe the same axes, and the sibling-line
+    // merge reads them as the one chart they are drawn as.
+    const rows = [1, 2, 3].map(x => ({ x, a: x * 2, b: x * 3 }));
+    const line = (y: string, name: string, titled: boolean): unknown => ({
+      mark: 'line',
+      encoding: {
+        x: { field: 'x', type: 'quantitative', ...(titled ? { title: 'Day' } : {}) },
+        y: { field: y, type: 'quantitative', ...(titled ? { title: 'Count' } : {}) },
+        color: { datum: name },
+      },
+    });
+
+    const maidr = vegaLiteToMaidr({
+      data: { values: rows },
+      layer: [line('a', 'Alpha', true), line('b', 'Beta', false)],
+    } as unknown as VegaLiteSpec);
+
+    const layers = maidr.subplots[0][0].layers;
+    expect(layers).toHaveLength(1);
+    const series = layers[0].data as Array<Array<{ y: number; z?: string }>>;
+    expect(series.map(points => points.map(point => point.z))).toEqual([
+      ['Alpha', 'Alpha', 'Alpha'],
+      ['Beta', 'Beta', 'Beta'],
+    ]);
+    expect(series.map(points => points.map(point => point.y))).toEqual([[2, 4, 6], [3, 6, 9]]);
+    expect(labels(maidr)).toEqual([['Day', 'Count']]);
+  });
+});
+
 describe('a layered vega-lite chart none of whose layers titles an axis', () => {
   it('names each layer\'s axis by its own field, as before', () => {
     const spec = barAndLine();
