@@ -3165,22 +3165,33 @@ function isFilledDataPath(path: SVGElement): boolean {
 }
 
 /**
- * The filled data paths a layer holds itself rather than through a layer
- * nested inside it.
+ * The `ac_path_` paths a layer holds itself rather than through a layer nested
+ * inside it.
  *
  * AnyChart nests its layers: the whole chart is drawn inside one root layer,
  * and each legend item inside the legend's. Counted with their descendants,
- * the root layer — background, marks and legend icons together — always held
- * the most filled paths.
+ * the root layer always holds the most paths of any kind, so every lookup that
+ * scores layers by a count scores them by these.
+ *
+ * @param layer - The `ac_layer_*` group, or the SVG itself when it has none
+ * @returns Its own `ac_path_*` paths, in document order
+ */
+function ownLayerPaths(layer: Element): SVGElement[] {
+  return Array.from(
+    layer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
+  ).filter(path => path.closest('g[id^="ac_layer_"], svg') === layer);
+}
+
+/**
+ * The filled data paths a layer holds itself (see {@link ownLayerPaths}).
+ * Counted with their descendants, the root layer — background, marks and
+ * legend icons together — always held the most filled paths.
  *
  * @param layer - The `ac_layer_*` group, or the SVG itself when it has none
  * @returns Its own filled `ac_path_*` paths, in document order
  */
 function ownFilledDataPaths(layer: Element): SVGElement[] {
-  return Array.from(
-    layer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-  ).filter(path =>
-    path.closest('g[id^="ac_layer_"], svg') === layer && isFilledDataPath(path));
+  return ownLayerPaths(layer).filter(isFilledDataPath);
 }
 
 /**
@@ -3414,7 +3425,11 @@ function isCurvedPath(path: SVGElement): boolean {
  * Same density lookup as {@link findFilledMarkLayer}, with the curve test in
  * place of the funnel's fill test: a ribbon's layer also holds the node
  * rectangles, which are filled too, so only its shape tells a ribbon apart (see
- * {@link isCurvedPath}).
+ * {@link isCurvedPath}). A layer is scored by the curves it holds itself (see
+ * {@link ownLayerPaths}). Scored with its descendants, the chart's root layer
+ * always won, so the candidates were every curve on the chart: one drawn
+ * outside the ribbons' layer counted as one more ribbon, and the count check
+ * withdrew the highlight.
  *
  * Returns the parent SVG itself when the SVG has no AnyChart layer structure at
  * all, so the caller falls back to whole-SVG querying, and `null` when layers
@@ -3427,9 +3442,7 @@ function findSankeyRibbonLayer(svg: SVGElement): Element | null {
   let bestLayer: Element | null = null;
   let bestCount = 0;
   for (const layer of Array.from(layers)) {
-    const ribbons = Array.from(
-      layer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-    ).filter(isCurvedPath);
+    const ribbons = ownLayerPaths(layer).filter(isCurvedPath);
     if (ribbons.length > bestCount) {
       bestCount = ribbons.length;
       bestLayer = layer;
@@ -3482,9 +3495,7 @@ function stampSankeyAttributes(
     return;
   }
 
-  const candidates = Array.from(
-    ribbonLayer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-  ).filter(path =>
+  const candidates = ownLayerPaths(ribbonLayer).filter(path =>
     // Idempotency — skip ribbons stamped on a prior bind.
     !path.hasAttribute(SANKEY_ATTR) && isCurvedPath(path));
 
