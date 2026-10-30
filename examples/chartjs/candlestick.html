@@ -28,8 +28,8 @@
       // OHLC data: each row carries open (o), high (h), low (l), close (c)
       // for one trading day. The MAIDR extractor derives `trend` from
       // (close vs open) and `volatility` from (high - low). Volume is
-      // not provided by the Chart.js financial plugin and is recorded as
-      // 0 in the MAIDR payload.
+      // not provided by the Chart.js financial plugin, so the MAIDR
+      // payload records none.
       const day = (n) => luxon.DateTime.fromISO('2024-01-' + String(n).padStart(2, '0')).toMillis();
 
       new Chart(document.getElementById('candlestick-chart'), {
