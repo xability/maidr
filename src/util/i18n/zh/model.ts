@@ -739,6 +739,8 @@ export const model = {
   'model.statNumberOfFlows': '流的数量',
   'model.statStages': '阶段',
   'model.flowCycle': '无，流形成循环',
+  'model.flowNoEndCycle': '没有可跳转的终点：沿从 {node} 流出的最大的流前进会形成循环',
+  'model.flowNoStartCycle': '没有可跳转的起点：沿流入 {node} 的最大的流回溯会形成循环',
   'model.statTotalFlow': '总流量',
   'model.statTotalOfAllFlows': '所有流的总和',
   'model.statSourcesAndSinks': '源与汇',
@@ -749,6 +751,7 @@ export const model = {
   'model.statMainRoute': '主要路径',
   'model.flowRouteJoin': ' 到 ',
   'model.flowRouteTruncated': '{path}，以此类推',
+  'model.flowRouteLoops': '{path}，再回到 {node}',
   'model.tableFrom': '来源',
   'model.tableTo': '目标',
   // Network diagram.

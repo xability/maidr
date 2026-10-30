@@ -598,6 +598,19 @@ export class Context implements Disposable {
     this.active.moveToExtreme(direction);
   }
 
+  /**
+   * What a jump to the left or right extreme is refused with on the active
+   * trace, when the trace has a reason the edge signal would misstate.
+   *
+   * @param direction - Which way the jump goes
+   * @returns What to tell the reader, or null at the figure and subplot
+   *   levels and wherever the jump is made as usual
+   */
+  public extremeRefusal(direction: 'FORWARD' | 'BACKWARD'): string | null {
+    const active = this.active;
+    return active.level === 'trace' ? active.extremeRefusal?.(direction) ?? null : null;
+  }
+
   public moveToIndex(row: number, col: number): void {
     this.active.moveToIndex(row, col);
   }

@@ -736,6 +736,8 @@ export const model = {
   'model.statNumberOfFlows': 'प्रवाहों की संख्या',
   'model.statStages': 'चरण',
   'model.flowCycle': 'कोई नहीं, प्रवाह एक चक्र बनाते हैं',
+  'model.flowNoEndCycle': 'जाने के लिए कोई अंत नहीं: {node} से बाहर जाने वाले सबसे बड़े प्रवाह के साथ चलने पर रास्ता एक चक्र में घूमता है',
+  'model.flowNoStartCycle': 'जाने के लिए कोई शुरुआत नहीं: {node} में आने वाले सबसे बड़े प्रवाह के साथ पीछे चलने पर रास्ता एक चक्र में घूमता है',
   'model.statTotalFlow': 'कुल प्रवाह',
   'model.statTotalOfAllFlows': 'सभी प्रवाहों का कुल',
   'model.statSourcesAndSinks': 'स्रोत और गंतव्य',
@@ -746,6 +748,7 @@ export const model = {
   'model.statMainRoute': 'मुख्य मार्ग',
   'model.flowRouteJoin': ' से ',
   'model.flowRouteTruncated': '{path}, और आगे',
+  'model.flowRouteLoops': '{path}, फिर वापस {node} तक',
   'model.tableFrom': 'से',
   'model.tableTo': 'तक',
   // Network diagram.

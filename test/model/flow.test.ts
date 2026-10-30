@@ -456,8 +456,117 @@ describe('stages are derived, and a cycle is answered honestly', () => {
     ];
     const trace = flow(circle);
 
+    expect(trace.moveToExtreme('FORWARD')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('A');
+  });
+});
+
+describe('the jumps up and down a column stop at its ends', () => {
+  test('a jump up from the top of a column gives the edge signal', () => {
+    // Coal is the top of the first column. The jump used to land on Coal
+    // again and announce it, where Up gave the edge signal.
+    const trace = flow();
+
+    expect(trace.moveToExtreme('UPWARD')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Coal');
+  });
+
+  test('a jump down from the bottom of a column gives the edge signal', () => {
+    const trace = flow();
+    walk(trace, 'DOWNWARD');
+
+    expect(trace.moveToExtreme('DOWNWARD')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('Gas');
+  });
+
+  test('a jump from inside a column still lands on its end', () => {
+    // Electricity sits between Losses and Heat in the middle column.
+    const trace = flow();
+    walk(trace, 'FORWARD');
+
+    expect(trace.moveToExtreme('UPWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Losses');
+    expect(trace.moveToExtreme('DOWNWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Heat');
+  });
+});
+
+describe('a route round a cycle has no end to jump to', () => {
+  /** A ring, every node sending its largest flow on to the next. */
+  const CIRCLE: FlowPoint[] = [
+    { source: 'A', target: 'B', value: 3 },
+    { source: 'B', target: 'C', value: 2 },
+    { source: 'C', target: 'A', value: 1 },
+  ];
+
+  /**
+   * A source feeding a ring: the route out of it loops, and the route into
+   * the ring's first node goes back to the source, where it ends.
+   */
+  const TETHERED: FlowPoint[] = [
+    { source: 'Source', target: 'A', value: 5 },
+    { source: 'A', target: 'B', value: 3 },
+    { source: 'B', target: 'C', value: 2 },
+    { source: 'C', target: 'A', value: 1 },
+  ];
+
+  test('the jump right says the largest flows go round in a cycle', () => {
+    // It used to land on C, the last node before the route came back to A,
+    // and the next Right went on to A as if C were not the end.
+    expect(flow(CIRCLE).extremeRefusal('FORWARD'))
+      .toBe('No end to go to: following the largest flow out of A goes round in a cycle');
+  });
+
+  test('so does the jump left', () => {
+    expect(flow(CIRCLE).extremeRefusal('BACKWARD'))
+      .toBe('No start to go to: following the largest flow into A goes round in a cycle');
+  });
+
+  test('a route that loops is refused wherever the cursor is on it', () => {
+    // The old landing depended on where the jump began, so two jumps from
+    // two nodes of one ring landed on two different "ends".
+    const trace = flow(CIRCLE);
+    walk(trace, 'FORWARD');
+
+    expect(trace.moveToExtreme('FORWARD')).toBe(false);
+    expect(nonEmptyState(trace).text.main.value).toBe('B');
+    expect(trace.extremeRefusal('FORWARD')).not.toBeNull();
+  });
+
+  test('the arrows still go round the cycle', () => {
+    expect(walk(flow(CIRCLE), 'FORWARD', 'FORWARD', 'FORWARD')).toEqual(['B', 'C', 'A']);
+  });
+
+  test('a route back out of a cycle to a source still ends there', () => {
+    // A's largest inflow is the source's 5, and nothing flows into the
+    // source: an end the edge signal follows, on a chart with a cycle.
+    const trace = flow(TETHERED);
+    walk(trace, 'FORWARD');
+
+    expect(trace.extremeRefusal('BACKWARD')).toBeNull();
+    expect(trace.moveToExtreme('BACKWARD')).toBe(true);
+    expect(nonEmptyState(trace).text.main.value).toBe('Source');
+    expect(trace.moveOnce('BACKWARD')).toBe(false);
+  });
+
+  test('a route into a cycle from a source has no end either', () => {
+    expect(flow(TETHERED).extremeRefusal('FORWARD'))
+      .toBe('No end to go to: following the largest flow out of Source goes round in a cycle');
+  });
+
+  test('a route that runs out is jumped to as before', () => {
+    expect(flow().extremeRefusal('FORWARD')).toBeNull();
+    expect(flow().extremeRefusal('BACKWARD')).toBeNull();
+  });
+
+  test('before the reader has entered the chart, the jump lands on the first node', () => {
+    // As on every chart: the first press enters, whether or not the jump
+    // goes on from there.
+    const trace = TraceFactory.create(createLayer(CIRCLE, TraceType.CHORD)) as FlowTrace;
+
+    expect(trace.extremeRefusal('FORWARD')).toBeNull();
     expect(trace.moveToExtreme('FORWARD')).toBe(true);
-    expect(nonEmptyState(trace).text.main.value).toBe('C');
+    expect(nonEmptyState(trace).text.main.value).toBe('A');
   });
 });
 
@@ -486,6 +595,21 @@ describe('the description answers what tracing one ribbon cannot', () => {
     expect(stat('Total of all flows', circle)).toBe(6);
   });
 
+  test('a cyclic chart with a source is totalled by its ribbons too', () => {
+    // The source sends 5 into a ring that carries 3, 2 and 1 round it. The
+    // flows do not pass through once, so the source's 5 is not the total:
+    // that was the Highcharts dependency wheel's 63 of 235.
+    const tethered: FlowPoint[] = [
+      { source: 'Source', target: 'A', value: 5 },
+      { source: 'A', target: 'B', value: 3 },
+      { source: 'B', target: 'C', value: 2 },
+      { source: 'C', target: 'A', value: 1 },
+    ];
+
+    expect(stat('Total flow', tethered)).toBeUndefined();
+    expect(stat('Total of all flows', tethered)).toBe(11);
+  });
+
   test('names the two ends of the chart and the node the ribbons meet at', () => {
     // Coal and Gas feed it; Losses, Homes and Industry are where it stops.
     // The busiest node is what the pitch is scaled against and what a reader
@@ -512,6 +636,25 @@ describe('the description answers what tracing one ribbon cannot', () => {
     // a fact about the succession of choices rather than about any node, so a
     // reader walking node by node cannot assemble it.
     expect(stat('Main route')).toBe('Coal to Electricity to Homes');
+  });
+
+  test('a route that comes back on itself says where it goes back to', () => {
+    // The Highcharts dependency wheel's migration: from Africa, the one
+    // region that only sends, the largest flows go to Europe and then North
+    // America, whose only flow goes back to Europe. Ending at North America
+    // named it as the end of a route that goes on round.
+    const wheel: FlowPoint[] = [
+      { source: 'Africa', target: 'Europe', value: 41 },
+      { source: 'Africa', target: 'Asia', value: 22 },
+      { source: 'Asia', target: 'Europe', value: 58 },
+      { source: 'Asia', target: 'North America', value: 47 },
+      { source: 'Europe', target: 'North America', value: 33 },
+      { source: 'Europe', target: 'Asia', value: 19 },
+      { source: 'North America', target: 'Europe', value: 15 },
+    ];
+
+    expect(stat('Main route', wheel))
+      .toBe('Africa to Europe to North America, then back to Europe');
   });
 
   test('the data table is one row per flow', () => {

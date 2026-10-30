@@ -743,6 +743,8 @@ export const model = {
   'model.statNumberOfFlows': 'Nombre de flux',
   'model.statStages': 'Étapes',
   'model.flowCycle': 'aucune, les flux forment un cycle',
+  'model.flowNoEndCycle': 'Aucune fin vers laquelle aller : suivre le plus grand flux sortant de {node} fait tourner en cycle',
+  'model.flowNoStartCycle': 'Aucun début vers lequel aller : suivre le plus grand flux entrant dans {node} fait tourner en cycle',
   'model.statTotalFlow': 'Flux total',
   'model.statTotalOfAllFlows': 'Total de tous les flux',
   'model.statSourcesAndSinks': 'Sources et puits',
@@ -753,6 +755,7 @@ export const model = {
   'model.statMainRoute': 'Route principale',
   'model.flowRouteJoin': ' vers ',
   'model.flowRouteTruncated': '{path}, et au-delà',
+  'model.flowRouteLoops': '{path}, puis retour vers {node}',
   'model.tableFrom': 'De',
   'model.tableTo': 'Vers',
   // Network diagram.

@@ -743,6 +743,8 @@ export const model = {
   'model.statNumberOfFlows': 'Numero di flussi',
   'model.statStages': 'Fasi',
   'model.flowCycle': 'nessuna, i flussi formano un ciclo',
+  'model.flowNoEndCycle': 'Nessuna fine da raggiungere: seguendo il flusso più grande in uscita da {node} si gira in un ciclo',
+  'model.flowNoStartCycle': 'Nessun inizio da raggiungere: seguendo il flusso più grande in entrata in {node} si gira in un ciclo',
   'model.statTotalFlow': 'Flusso totale',
   'model.statTotalOfAllFlows': 'Totale di tutti i flussi',
   'model.statSourcesAndSinks': 'Sorgenti e pozzi',
@@ -753,6 +755,7 @@ export const model = {
   'model.statMainRoute': 'Percorso principale',
   'model.flowRouteJoin': ', poi ',
   'model.flowRouteTruncated': '{path}, e oltre',
+  'model.flowRouteLoops': '{path}, poi di nuovo {node}',
   'model.tableFrom': 'Da',
   'model.tableTo': 'A',
   // Network diagram.

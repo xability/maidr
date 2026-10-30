@@ -743,6 +743,8 @@ export const model = {
   'model.statNumberOfFlows': 'フローの数',
   'model.statStages': 'ステージ',
   'model.flowCycle': 'なし。フローが循環しています',
+  'model.flowNoEndCycle': '移動できる終点がありません。{node}から出ていく最大のフローをたどると循環します',
+  'model.flowNoStartCycle': '移動できる始点がありません。{node}に入ってくる最大のフローをさかのぼると循環します',
   'model.statTotalFlow': 'フローの合計',
   'model.statTotalOfAllFlows': 'すべてのフローの合計',
   'model.statSourcesAndSinks': '始点と終点',
@@ -753,6 +755,7 @@ export const model = {
   'model.statMainRoute': '主要な経路',
   'model.flowRouteJoin': 'から',
   'model.flowRouteTruncated': '{path}、さらに続く',
+  'model.flowRouteLoops': '{path}、そこから{node}に戻る',
   'model.tableFrom': '始点',
   'model.tableTo': '終点',
   // Network diagram.

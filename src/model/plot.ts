@@ -1172,6 +1172,16 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   navigateToExtrema?: (target: ExtremaTarget) => void;
 
   /**
+   * What a jump to the left or right extreme is refused with, when the trace
+   * has a reason the edge signal would misstate: on a flow whose largest
+   * flows go round in a cycle, there is no end to jump to, and the next
+   * arrow still moves. Optional, and null where the jump is made as usual.
+   * @param direction - Which way the jump goes
+   * @returns What to tell the reader, or null
+   */
+  extremeRefusal?: (direction: 'FORWARD' | 'BACKWARD') => string | null;
+
+  /**
    * Every object the `o` list offers, or null on a chart walked along axes.
    * @returns The list, or null
    */

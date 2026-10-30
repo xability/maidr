@@ -468,12 +468,18 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
           down: index < column.length - 1 ? { row: index + 1, col: stage } : null,
           right: this.addressOf(node.out[0]?.to),
           left: this.addressOf(node.in[0]?.from),
-          top: { row: 0, col: stage },
-          bottom: { row: column.length - 1, col: stage },
+          // None from the node already at the top or the bottom of its
+          // column, so the jump there gives the edge signal, as Up and Down
+          // do. Pointing at the node itself, the jump landed where it was
+          // and announced the node again.
+          top: index > 0 ? { row: 0, col: stage } : null,
+          bottom: index < column.length - 1 ? { row: column.length - 1, col: stage } : null,
           // The ribbon followed to its end, and back to its origin: the
-          // sighted action this chart is read with, in one keystroke.
-          end: this.addressOf(this.followFrom(node, 'out')),
-          start: this.addressOf(this.followFrom(node, 'in')),
+          // sighted action this chart is read with, in one keystroke. A
+          // route that goes round in a cycle has neither, and the jump is
+          // refused there: see `extremeRefusal`.
+          end: this.addressOf(this.followFrom(node, 'out') ?? undefined),
+          start: this.addressOf(this.followFrom(node, 'in') ?? undefined),
         };
       }));
   }
@@ -495,15 +501,20 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   /**
    * Follows the largest flow repeatedly until it runs out.
    *
-   * Guarded against revisiting, because a cyclic graph would otherwise walk
-   * forever -- and a chord diagram is cyclic by construction.
+   * On a graph with a cycle -- a chord diagram is cyclic by construction --
+   * the route can come back to a node it has already passed, and then it
+   * never runs out: every node on the loop has a largest flow onward, so the
+   * arrows go round it for as long as they are pressed. Such a route has no
+   * end. Answering with the last node before the loop closed named an end
+   * that the next arrow walked straight past, so the route is reported as
+   * looping instead.
    *
    * @param from - Where to start
    * @param along - Whether to run with the flow or against it
-   * @returns The last node reached, or undefined when the first step is not
-   *   available
+   * @returns The last node reached; undefined when the first step is not
+   *   available; null when the route comes back on itself
    */
-  private followFrom(from: FlowNode, along: 'out' | 'in'): number | undefined {
+  private followFrom(from: FlowNode, along: 'out' | 'in'): number | null | undefined {
     const seen = new Set<FlowNode>([from]);
     let at = from;
     let last: number | undefined;
@@ -513,13 +524,49 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
         return last;
       }
       const next = this.nodes[along === 'out' ? edge.to : edge.from];
-      if (next === undefined || seen.has(next)) {
+      if (next === undefined) {
         return last;
+      }
+      if (seen.has(next)) {
+        return null;
       }
       seen.add(next);
       last = along === 'out' ? edge.to : edge.from;
       at = next;
     }
+  }
+
+  /**
+   * Why there is no end, or no start, to jump to from the node the cursor is
+   * on, when that is because the largest flows go round in a cycle.
+   *
+   * Control + Right follows the largest flow out of each node to where the
+   * flows run out, and Control + Left the largest flow in. Where that route
+   * loops, nothing ends it, and Right and Left go round the loop for as long
+   * as they are pressed -- so the jump says so rather than landing on a node
+   * the next arrow moves on from. The edge signal would be no better: it
+   * says the cursor is at the end, and the next arrow moves.
+   *
+   * Before the reader has entered the chart the jump lands on the first
+   * node, as on every other chart, so there is no refusal to make yet.
+   *
+   * @param direction - Which way the jump goes
+   * @returns What to tell the reader, or null when the route has an end, or
+   *   no first step, which the edge signal answers
+   */
+  public extremeRefusal(direction: 'FORWARD' | 'BACKWARD'): string | null {
+    const node = this.isInitialEntry ? null : this.current;
+    if (node === null) {
+      return null;
+    }
+    const along = direction === 'FORWARD' ? 'out' : 'in';
+    if (this.followFrom(node, along) !== null) {
+      return null;
+    }
+    return t(
+      along === 'out' ? 'model.flowNoEndCycle' : 'model.flowNoStartCycle',
+      { node: node.name },
+    );
   }
 
   /** The node the cursor is on, when it is on one. */
@@ -968,12 +1015,19 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     // construction -- and there the ribbons are disjoint, so their sum is the
     // total and the source reading is 0. Taking the source sum unconditionally
     // dropped the stat on the one layout whose ribbons are the whole chart.
-    const total = sources.length > 0
+    //
+    // Flows that form a cycle -- one stage -- do not pass through once from
+    // their sources even where there are sources: they go round. So the
+    // ribbons' sum is the total there too. Taken from the sources, a chord
+    // diagram with one node that only sends reported that node's outflow
+    // alone, 63 of the 235 its seven ribbons carry.
+    const throughSources = sources.length > 0 && this.stages.length > 1;
+    const total = throughSources
       ? sources.reduce((sum, node) => sum + node.outTotal, 0)
       : this.nodes.reduce((sum, node) => sum + node.outTotal, 0);
     if (total > 0) {
       stats.push({
-        label: t(sources.length > 0 ? 'model.statTotalFlow' : 'model.statTotalOfAllFlows'),
+        label: t(throughSources ? 'model.statTotalFlow' : 'model.statTotalOfAllFlows'),
         value: total,
       });
     }
@@ -1024,7 +1078,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       });
     }
 
-    const { names: path, truncated } = this.dominantPath();
+    const { names: path, truncated, loopsTo } = this.dominantPath();
     if (path.length > 1) {
       // The route the eye takes: start at the biggest source and follow the
       // widest ribbon at every branch. It is the one thing a reader walking
@@ -1033,12 +1087,15 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       //
       // A route the cap cut short says so. Ending silently at the eighth hop
       // names a node the flow passes straight through as though it were where
-      // the chart ends, which is worse than the truncation it hides.
+      // the chart ends, which is worse than the truncation it hides. So does
+      // a route that comes back on itself: ending at the last node it had not
+      // passed named that node as the end of a route that goes on round.
+      const route = path.join(t('model.flowRouteJoin'));
       stats.push({
         label: t('model.statMainRoute'),
         value: truncated
-          ? t('model.flowRouteTruncated', { path: path.join(t('model.flowRouteJoin')) })
-          : path.join(t('model.flowRouteJoin')),
+          ? t('model.flowRouteTruncated', { path: route })
+          : loopsTo === null ? route : t('model.flowRouteLoops', { path: route, node: loopsTo }),
       });
     }
 
@@ -1069,19 +1126,21 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    * Capped, and guarded against revisiting so a cycle terminates.
    *
    * Whether the cap cut the walk short travels with the names, because the
-   * caller cannot tell the two endings apart from the names alone and a route
-   * that stopped at the cap would otherwise name a false last node.
+   * caller cannot tell the endings apart from the names alone and a route
+   * that stopped at the cap would otherwise name a false last node. So does
+   * the node the route goes back to when it stopped because its largest flow
+   * leads to a node it has already passed.
    *
-   * @returns The node names along the route, and whether it continues past
-   *   the last of them
+   * @returns The node names along the route, whether it continues past the
+   *   last of them, and the name of the node it goes back to, if it does
    */
-  private dominantPath(): { names: string[]; truncated: boolean } {
+  private dominantPath(): { names: string[]; truncated: boolean; loopsTo: string | null } {
     const sources = this.nodes.filter(node => node.in.length === 0);
     const start = (sources.length > 0 ? sources : this.nodes)
       .reduce<FlowNode | null>((best, node) =>
         (best === null || node.outTotal > best.outTotal ? node : best), null);
     if (start === null) {
-      return { names: [], truncated: false };
+      return { names: [], truncated: false, loopsTo: null };
     }
 
     const seen = new Set<FlowNode>([start]);
@@ -1102,9 +1161,14 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     }
 
     // Cut off rather than finished: the node the walk stopped on still has a
-    // ribbon leaving it for somewhere the route has not been.
+    // ribbon leaving it for somewhere the route has not been. Or back on
+    // itself: its largest ribbon leads to a node the route has passed.
     const beyond = at.out[0] === undefined ? undefined : this.nodes[at.out[0].to];
-    return { names: path, truncated: beyond !== undefined && !seen.has(beyond) };
+    return {
+      names: path,
+      truncated: beyond !== undefined && !seen.has(beyond),
+      loopsTo: beyond !== undefined && seen.has(beyond) ? beyond.name : null,
+    };
   }
 
   /**

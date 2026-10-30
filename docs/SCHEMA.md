@@ -1112,7 +1112,9 @@ step with them:
 Right follows the largest flow out of a node and left the largest flow into
 it, each step announcing the flow it went along; up and down walk the nodes of
 the column. The rotor's **Outgoing** and **Incoming** units page through the
-rest of a node's flows.
+rest of a node's flows. Control + Right and Control + Left follow the largest
+flows to where they run out; where they go round in a cycle, there is no end
+to go to, and the jump says so (see [Controls](CONTROLS.md)).
 
 ### Directed graph (`directed_graph`) [experimental]
 
