@@ -247,6 +247,28 @@ describe('anyChartToMaidr (gantt)', () => {
     expect(hour).toBe(start.toLocaleString(undefined, { timeZone: 'UTC' }));
   });
 
+  it('announces the dates in the zone the page sets with anychart.format.outputTimezone()', () => {
+    // AnyChart counts the offset as `getTimezoneOffset()` does: 300 is UTC-5,
+    // where a UTC midnight on 8 January is drawn on the evening of the 7th,
+    // and -180 is UTC+3, where 22:00 UTC on the 7th is drawn on the 8th.
+    const formatAt = (offset: number, instant: number): string => {
+      Object.assign(globalThis, { anychart: { format: { outputTimezone: () => offset } } });
+      const layer = anyChartToMaidr(createGanttChart([
+        { name: 'Design', actualStart: instant, actualEnd: instant + 28 * MS_PER_DAY },
+      ]))!.subplots[0][0].layers[0];
+      return xFormatInNewYork(layer)(instant / MS_PER_DAY);
+    };
+
+    try {
+      expect(formatAt(300, Date.UTC(2024, 0, 8)))
+        .toBe(new Date(Date.UTC(2024, 0, 7)).toLocaleDateString(undefined, { timeZone: 'UTC' }));
+      expect(formatAt(-180, Date.UTC(2024, 0, 7, 22)))
+        .toBe(new Date(Date.UTC(2024, 0, 8)).toLocaleDateString(undefined, { timeZone: 'UTC' }));
+    } finally {
+      delete (globalThis as { anychart?: unknown }).anychart;
+    }
+  });
+
   it('reads a schedule shorter than two days in hours', () => {
     const chart = createGanttChart([
       {
