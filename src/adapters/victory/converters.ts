@@ -590,13 +590,18 @@ function extractCandlestickData(
     else if (close < open)
       trend = 'Bear';
 
+    // Absent rather than 0 when the datum records none -- Victory draws no
+    // volume either way -- so `Candlestick` can leave the Volume column out
+    // of a chart that has none.
+    const volume = d.volume === undefined || d.volume === null ? Number.NaN : Number(d.volume);
+
     return {
       value: String(d.x),
       open,
       high,
       low,
       close,
-      volume: Number(d.volume ?? 0),
+      ...(Number.isFinite(volume) ? { volume } : {}),
       trend,
       volatility: high - low,
     };
