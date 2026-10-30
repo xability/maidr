@@ -189,6 +189,18 @@ describe('a composed chart of bump layers', () => {
 
     expect(maidr.subplots[0][0].layers.map(layer => layer.firstPlace)).toEqual(['top', 'top', 'top']);
   });
+
+  it('reads first place off the rank axis of the chart it is drawn from', () => {
+    render(createElement(MaidrRecharts, {
+      id: 'composed',
+      data: RANKS,
+      xKey: 'matchday',
+      layers: CLUBS.map(yKey => ({ chartType: 'bump' as const, yKey })),
+      children: chart({ reversed: true }),
+    }));
+
+    expect(seen.at(-1)?.subplots[0][0].layers.map(layer => layer.firstPlace)).toEqual(['top', 'top', 'top']);
+  });
 });
 
 describe('a grid of Recharts bump charts', () => {
@@ -239,5 +251,35 @@ describe('firstPlaceFor', () => {
     );
 
     expect(firstPlaceFor(twoAxes)).toBe('top');
+  });
+
+  it('passes over a hidden axis placed ahead of the rank axis', () => {
+    const hiddenFirst = createElement(
+      LineChart,
+      { width: 400, height: 300, data: RANKS },
+      createElement(YAxis, { yAxisId: 'other', hide: true }),
+      createElement(YAxis, { yAxisId: 'rank', reversed: true }),
+    );
+
+    expect(firstPlaceFor(hiddenFirst)).toBe('top');
+  });
+
+  it('reads no hidden axis while the chart draws one', () => {
+    const hiddenReversed = createElement(
+      LineChart,
+      { width: 400, height: 300, data: RANKS },
+      createElement(YAxis, { yAxisId: 'other', hide: true, reversed: true }),
+      createElement(YAxis, { yAxisId: 'rank' }),
+    );
+
+    expect(firstPlaceFor(hiddenReversed)).toBeUndefined();
+  });
+
+  it('reads the first axis when every axis is hidden', () => {
+    expect(firstPlaceFor(chart({ reversed: true, hide: true }))).toBe('top');
+  });
+
+  it('says nothing under reversed={false}', () => {
+    expect(firstPlaceFor(chart({ reversed: false }))).toBeUndefined();
   });
 });
