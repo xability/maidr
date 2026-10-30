@@ -5895,13 +5895,17 @@ function convertCandlestickSeries(
         trend = close > open ? 'Bull' : close < open ? 'Bear' : 'Neutral';
       }
 
+      // Absent rather than 0 when undeclared, so `Candlestick` can leave the
+      // Volume column out of a chart that records none.
+      const volume = p.options?.volume;
+
       return {
         value: p.category ?? p.name ?? String(p.x),
         ...(open === undefined ? {} : { open }),
         high,
         low,
         close,
-        volume: typeof p.options?.volume === 'number' ? p.options.volume : 0,
+        ...(typeof volume === 'number' ? { volume } : {}),
         trend,
         volatility: high - low,
       };
