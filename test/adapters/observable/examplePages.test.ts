@@ -9,7 +9,8 @@ import { describe, expect, it } from '@jest/globals';
  * The adapter reads a chart in the order Plot drew it, which is right, so a
  * page that draws its weekdays alphabetically is walked and announced
  * alphabetically: nothing in the adapter's tests, which draw their own
- * charts, can see that.
+ * charts, can see that. Nor can they see a page telling the reader to press
+ * keys that do something else.
  */
 
 const ROOT = resolve(__dirname, '../../..');
@@ -61,5 +62,21 @@ describe('the observable example pages', () => {
 
     expect(PAGES.map(page => plotCalls(page.html).some(call => /x:\s*'day'/.test(call)))).toEqual([true, true]);
     expect(unordered).toEqual([]);
+  });
+
+  it('name the keys that move between a faceted chart\'s panels', () => {
+    // A faceted chart opens on its panels, where the arrows choose one, Enter
+    // goes in and Escape comes out (docs/CONTROLS.md); inside a panel Page Up
+    // and Page Down move between layers, so they answered "No additional
+    // layer".
+    const quarto = PAGES.find(page => page.name === 'observable-quarto.html')?.html ?? '';
+    const guide = readFileSync(join(ROOT, 'docs', 'observable.md'), 'utf8');
+
+    const pageUpForPanels = [quarto, guide]
+      .filter(text => /Page\s+Up(?:<\/kbd>)?\s*(?:and|\/)\s*(?:<kbd>)?Page\s+Down[^.|\n]*panel|panels[^|\n]*\|\s*Page Up/i.test(text));
+
+    expect(pageUpForPanels).toEqual([]);
+    expect(quarto).toMatch(/faceted chart[\s\S]{0,200}<kbd>Enter<\/kbd>[\s\S]{0,80}<kbd>Escape<\/kbd>/);
+    expect(guide).toMatch(/\| Choose a panel \(facets\)[^\n]*Enter and Escape/);
   });
 });
