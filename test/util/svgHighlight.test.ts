@@ -349,9 +349,22 @@ describe('createHighlightElement colour', () => {
     expect(contrast(Color.rgbToString(color), fill)).toBeGreaterThanOrEqual(3);
   });
 
+  it('still reaches 3:1 against a white mark when the highlight colour is a grey', () => {
+    // A grey highlight colour has no hue to give the shade, but the shade is
+    // still taken far enough to read against the mark.
+    const mark = renderMark('circle', 'fill: #FFFFFF; stroke: #8884d8; stroke-width: 1px');
+
+    const highlight = Svg.createHighlightElement(mark, '#C0C0C0');
+
+    expect(contrast(highlight.getAttribute('fill') ?? '', '#FFFFFF')).toBeGreaterThanOrEqual(3);
+  });
+
   it.each([
     { what: 'a ribbon stroked at 20%', tag: 'path', style: 'fill: none; stroke: #82ca9d; stroke-width: 40px; stroke-opacity: 0.2' },
     { what: 'a bar filled at 30%', tag: 'rect', style: 'fill: #1f77b4; fill-opacity: 0.3' },
+    // A hit target drawn with no fill to see: its copy is opaque too, as it
+    // was before, when an opacity under 1% was raised to 1.
+    { what: 'a mark filled at 0%', tag: 'rect', style: 'fill: #1f77b4; fill-opacity: 0' },
   ])('draws the copy of $what opaque', ({ tag, style }) => {
     // A Recharts sankey ribbon's copy kept its 20%, and the ribbon read was a
     // slightly deeper tint of the same pale green as the ribbons beside it.

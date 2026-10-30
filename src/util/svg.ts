@@ -1259,7 +1259,9 @@ export abstract class Svg {
 
   /**
    * The most a colour's channels may differ for it to count as a grey: a
-   * white or a grey a little off true, as `#fafaf5` is.
+   * white or a grey a little off true, as `#fafaf5` is. A cut-off, chosen by
+   * eye: a pale tint whose channels spread further, as `#f0f0ff`'s do, is
+   * read as having a hue, and keeps a darker shade of its own colour.
    */
   private static readonly GREY_CHANNEL_SPREAD = 8;
 
@@ -1273,8 +1275,8 @@ export abstract class Svg {
   }
 
   /**
-   * The lightest shade of a colour that reaches a contrast against a light
-   * colour: the colour itself, unless said otherwise.
+   * The lightest shade of a colour that reaches a given contrast against a
+   * light colour, which is the colour itself unless another is given.
    *
    * Every channel is scaled by the same factor, so the hue is kept; the
    * factor is found by halving, since once the shade is darker than the
