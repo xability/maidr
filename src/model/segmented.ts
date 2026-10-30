@@ -1,7 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { DescriptionState, HighlightState, TextState } from '@type/state';
-import { Orientation } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { joinSelectorList, legacyListProblem, warnSelectors } from '@util/selectors';
@@ -297,10 +297,22 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       },
     ];
 
+    // The extremes of the Sum level. On a stacked chart a sum is a bar's
+    // height; a dodged chart draws its series side by side, so no bar is
+    // that tall, and "Largest bar total" named a bar the chart does not have.
+    // There they are the sums of a category's bars, which is what the Sum
+    // level holds (docs/CONTROLS.md, "Segmented Bar Controls").
     const measuredTotals = totals.filter(isMeasured);
     if (measuredTotals.length > 0) {
-      stats.push({ label: t('model.statLargestBarTotal'), value: MathUtil.safeMax(measuredTotals) });
-      stats.push({ label: t('model.statSmallestBarTotal'), value: MathUtil.safeMin(measuredTotals) });
+      const dodged = this.type === TraceType.DODGED;
+      stats.push({
+        label: t(dodged ? 'model.statLargestCategorySum' : 'model.statLargestBarTotal'),
+        value: MathUtil.safeMax(measuredTotals),
+      });
+      stats.push({
+        label: t(dodged ? 'model.statSmallestCategorySum' : 'model.statSmallestBarTotal'),
+        value: MathUtil.safeMin(measuredTotals),
+      });
     }
 
     const gaps = segmentValues.flat().filter(value => !isMeasured(value)).length;

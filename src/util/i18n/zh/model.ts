@@ -490,6 +490,8 @@ export const model = {
   'model.statNumberOfSegments': '分段数量',
   'model.statLargestBarTotal': '最大条形总计',
   'model.statSmallestBarTotal': '最小条形总计',
+  'model.statLargestCategorySum': '最大类别总和',
+  'model.statSmallestCategorySum': '最小类别总和',
   'model.statSegmentsWithNoValue': '无值的分段',
   // Mosaic plot.
   'model.asideShareOfAll': '占全体比例',
@@ -560,7 +562,8 @@ export const model = {
   'model.forestEstimate': '估计值',
   'model.forestCrossesNull': '，跨越无效线',
   'model.forestDoesNotCrossNull': '，未跨越无效线',
-  'model.forestSection': '{kind}{verdict}',
+  'model.forestVerdictCrosses': '跨越无效线',
+  'model.forestVerdictDoesNotCross': '未跨越无效线',
   'model.asideWeight': '权重',
   'model.statNumberOfStudies': '研究数量',
   'model.statPooledEstimate': '合并估计值',
@@ -634,7 +637,7 @@ export const model = {
   'model.statPeakOfEachGroup': '各组的峰值',
   'model.statPeaksSpan': '峰值范围',
   'model.statTallestRidge': '最高的山脊',
-  'model.ridgelinePeakDensity': '{group}，峰值密度 {density}',
+  'model.ridgelinePeakDensity': '{group}，最大 {label} {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': '间距',
   'model.contourSpacingValue': '距级别 {level} {distance}',

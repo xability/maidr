@@ -3,6 +3,8 @@ import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { ForestTrace } from '@model/forest';
+import { NotificationService } from '@service/notification';
+import { TextService } from '@service/text';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -81,6 +83,20 @@ function forest(
   return trace;
 }
 
+/**
+ * What a reader hears on the trace's current row.
+ * @param trace The positioned trace
+ * @param terse Whether text mode is terse rather than verbose
+ * @returns The announcement
+ */
+function heard(trace: ForestTrace, terse = false): string {
+  const text = new TextService(new NotificationService());
+  if (terse) {
+    text.toggle();
+  }
+  return text.format(trace.state);
+}
+
 describe('forest registration', () => {
   test('the factory builds a ForestTrace', () => {
     expect(TraceFactory.create(createLayer())).toBeInstanceOf(ForestTrace);
@@ -102,29 +118,39 @@ describe('forest registration', () => {
 describe('whether an interval crosses the null is the result', () => {
   test('says so when it does', () => {
     // Nguyen 2020: 0.98 to 1.83 spans 1.
-    expect(nonEmptyState(forest(1, 1)).text.section)
-      .toBe('estimate, crosses the null');
+    expect(heard(forest(1, 1)))
+      .toBe('Study is Nguyen 2020, estimate Odds ratio is 1.34, Weight is 8.0%, crosses the null');
   });
 
   test('says so when it does not', () => {
     // Okafor 2022: 1.22 to 2.40, entirely above 1.
-    expect(nonEmptyState(forest(1, 2)).text.section)
-      .toBe('estimate, does not cross the null');
+    expect(heard(forest(1, 2)))
+      .toBe('Study is Okafor 2022, estimate Odds ratio is 1.71, Weight is 55.0%, does not cross the null');
   });
 
   test('a finding below the null does not read as a crossing', () => {
     // Silva 2018: 0.41 to 0.94, entirely *below* 1. A reading that only
     // asked whether the upper bound cleared the null would call this a
     // crossing and report a real protective effect as no effect at all.
-    expect(nonEmptyState(forest(1, 0)).text.section)
-      .toBe('estimate, does not cross the null');
+    expect(heard(forest(1, 0)))
+      .toBe('Study is Silva 2018, estimate Odds ratio is 0.62, Weight is 12.0%, does not cross the null');
+  });
+
+  test('keeps the verdict apart from the axis label', () => {
+    // Read as the section before the label, the verdict ran into it:
+    // "estimate, does not cross the null Odds ratio is 0.62", which can be
+    // heard as "the null odds ratio is 0.62". It is a clause of its own
+    // after the reading now, in terse mode as well.
+    expect(nonEmptyState(forest(1, 0)).text.section).toBe('estimate');
+    expect(heard(forest(1, 2), true)).toBe('Okafor 2022, estimate 1.71, 55.0%, does not cross the null');
   });
 
   test('claims nothing when the layer declares no null', () => {
     // A ratio chart guessed at 0 reports every study as not crossing, since
     // odds ratios are all positive -- a confident wrong answer on every row.
     // Silence is the only honest alternative.
-    expect(nonEmptyState(forest(1, 1, null)).text.section).toBe('estimate');
+    expect(heard(forest(1, 1, null)))
+      .toBe('Study is Nguyen 2020, estimate Odds ratio is 1.34, Weight is 8.0%');
   });
 
   test('a one-sided interval is answered on the bound it has', () => {
@@ -134,11 +160,11 @@ describe('whether an interval crosses the null is the result', () => {
     ];
 
     // Unbounded below, so 1 lies inside it.
-    expect(nonEmptyState(forest(1, 0, 1, oneSided)).text.section)
-      .toBe('estimate, crosses the null');
+    expect(heard(forest(1, 0, 1, oneSided)))
+      .toBe('Study is Upper only, estimate Odds ratio is 1.4, crosses the null');
     // Bounded at 1.1 and unbounded above, so 1 lies outside it.
-    expect(nonEmptyState(forest(1, 1, 1, oneSided)).text.section)
-      .toBe('estimate, does not cross the null');
+    expect(heard(forest(1, 1, 1, oneSided)))
+      .toBe('Study is Lower only, estimate Odds ratio is 1.4, does not cross the null');
   });
 });
 
@@ -163,8 +189,8 @@ describe('the weight is a magnitude the reader is otherwise never told', () => {
 
 describe('the pooled row is not a study', () => {
   test('names itself as the pooled estimate', () => {
-    expect(nonEmptyState(forest(1, 4)).text.section)
-      .toBe('pooled estimate, does not cross the null');
+    expect(heard(forest(1, 4)))
+      .toBe('Study is Pooled, pooled estimate Odds ratio is 1.28, does not cross the null');
   });
 
   test('names its bounds as pooled too', () => {

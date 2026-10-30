@@ -494,6 +494,8 @@ export const model = {
   'model.statNumberOfSegments': 'Número de segmentos',
   'model.statLargestBarTotal': 'Mayor total de barra',
   'model.statSmallestBarTotal': 'Menor total de barra',
+  'model.statLargestCategorySum': 'Mayor suma de categoría',
+  'model.statSmallestCategorySum': 'Menor suma de categoría',
   'model.statSegmentsWithNoValue': 'Segmentos sin valor',
   // Mosaic plot.
   'model.asideShareOfAll': 'Fracción del total',
@@ -565,7 +567,8 @@ export const model = {
   'model.forestEstimate': 'estimación',
   'model.forestCrossesNull': ', cruza el valor nulo',
   'model.forestDoesNotCrossNull': ', no cruza el valor nulo',
-  'model.forestSection': '{kind}{verdict}',
+  'model.forestVerdictCrosses': 'cruza el valor nulo',
+  'model.forestVerdictDoesNotCross': 'no cruza el valor nulo',
   'model.asideWeight': 'Peso',
   'model.statNumberOfStudies': 'Número de estudios',
   'model.statPooledEstimate': 'Estimación global',
@@ -639,7 +642,7 @@ export const model = {
   'model.statPeakOfEachGroup': 'Pico de cada grupo',
   'model.statPeaksSpan': 'Rango de los picos',
   'model.statTallestRidge': 'Cresta más alta',
-  'model.ridgelinePeakDensity': '{group}, densidad máxima {density}',
+  'model.ridgelinePeakDensity': '{group}, máximo de {label} {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': 'Separación',
   'model.contourSpacingValue': '{distance} hasta el nivel {level}',

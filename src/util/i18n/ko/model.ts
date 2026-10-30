@@ -494,6 +494,8 @@ export const model = {
   'model.statNumberOfSegments': '구간 개수',
   'model.statLargestBarTotal': '가장 큰 막대 합계',
   'model.statSmallestBarTotal': '가장 작은 막대 합계',
+  'model.statLargestCategorySum': '가장 큰 범주 합',
+  'model.statSmallestCategorySum': '가장 작은 범주 합',
   'model.statSegmentsWithNoValue': '값이 없는 구간',
   // Mosaic plot.
   'model.asideShareOfAll': '전체 대비 비율',
@@ -564,7 +566,8 @@ export const model = {
   'model.forestEstimate': '추정치',
   'model.forestCrossesNull': ', 귀무값 포함',
   'model.forestDoesNotCrossNull': ', 귀무값 미포함',
-  'model.forestSection': '{kind}{verdict}',
+  'model.forestVerdictCrosses': '귀무값 포함',
+  'model.forestVerdictDoesNotCross': '귀무값 미포함',
   'model.asideWeight': '가중치',
   'model.statNumberOfStudies': '연구 개수',
   'model.statPooledEstimate': '통합 추정치',
@@ -638,7 +641,7 @@ export const model = {
   'model.statPeakOfEachGroup': '그룹별 최빈 위치',
   'model.statPeaksSpan': '최빈 위치 범위',
   'model.statTallestRidge': '가장 높은 능선',
-  'model.ridgelinePeakDensity': '{group}, 최대 밀도 {density}',
+  'model.ridgelinePeakDensity': '{group}, {label} 최댓값 {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': '간격',
   'model.contourSpacingValue': '{level} 수준까지 {distance}',

@@ -456,12 +456,17 @@ export class RidgelineTrace extends AbstractTrace {
       // drawn for, and the half the positions above cannot answer. The pitch
       // is scaled across the whole chart so that half is answerable by ear at
       // all, but only by walking every sample of every group to find it.
+      //
+      // The height is named by the axis it is read on, as the announcements
+      // and the table name it: a ridgeline of TensorBoard histograms measures
+      // counts, and its tallest count was called a "peak density".
       const tallest = modes.reduce((a, b) =>
         (a.mode.density > b.mode.density ? a : b));
       stats.push({
         label: t('model.statTallestRidge'),
         value: t('model.ridgelinePeakDensity', {
           group: this.groupNameAt(tallest.group),
+          label: this.densityLabel,
           density: defaultFormat(tallest.mode.density),
         }),
       });

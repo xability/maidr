@@ -405,7 +405,20 @@ describe('the description reports where each group peaks', () => {
     const stats = ridgeline().description.stats;
 
     expect(stats.find(stat => stat.label === 'Tallest ridge')?.value)
-      .toBe('middle, peak density 0.9');
+      .toBe('middle, peak Density 0.9');
+  });
+
+  test('names the height by the axis the chart labels it with', () => {
+    // TensorBoard's histograms drawn as ridgelines measure their height in
+    // counts, under a z axis labelled `Count`; the stat called the tallest
+    // count a "peak density" while every announcement said "Count is".
+    const trace = TraceFactory.create({
+      ...createLayer(),
+      axes: { x: { label: 'Days' }, y: { label: 'Cohort' }, z: { label: 'Count' } },
+    }) as RidgelineTrace;
+
+    expect(trace.description.stats.find(stat => stat.label === 'Tallest ridge')?.value)
+      .toBe('middle, peak Count 0.9');
   });
 
   test('says how long a walk along one ridge is', () => {

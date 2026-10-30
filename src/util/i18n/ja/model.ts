@@ -494,6 +494,8 @@ export const model = {
   'model.statNumberOfSegments': 'セグメントの数',
   'model.statLargestBarTotal': '最大の棒の合計',
   'model.statSmallestBarTotal': '最小の棒の合計',
+  'model.statLargestCategorySum': '最大のカテゴリ合計',
+  'model.statSmallestCategorySum': '最小のカテゴリ合計',
   'model.statSegmentsWithNoValue': '値のないセグメント',
   // Mosaic plot.
   'model.asideShareOfAll': '全体に占める割合',
@@ -564,7 +566,8 @@ export const model = {
   'model.forestEstimate': '推定値',
   'model.forestCrossesNull': '、帰無値をまたぐ',
   'model.forestDoesNotCrossNull': '、帰無値をまたがない',
-  'model.forestSection': '{kind}{verdict}',
+  'model.forestVerdictCrosses': '帰無値をまたぐ',
+  'model.forestVerdictDoesNotCross': '帰無値をまたがない',
   'model.asideWeight': '重み',
   'model.statNumberOfStudies': '研究の数',
   'model.statPooledEstimate': '統合推定値',
@@ -638,7 +641,7 @@ export const model = {
   'model.statPeakOfEachGroup': '各グループのピーク',
   'model.statPeaksSpan': 'ピークの範囲',
   'model.statTallestRidge': '最も高い尾根',
-  'model.ridgelinePeakDensity': '{group}、ピーク密度 {density}',
+  'model.ridgelinePeakDensity': '{group}、{label}の最大値 {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': '間隔',
   'model.contourSpacingValue': 'レベル{level}まで{distance}',

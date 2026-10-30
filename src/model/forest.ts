@@ -123,14 +123,21 @@ export class ForestTrace extends ErrorBarTrace {
 
     const crosses = this.crossesNull(point);
     const kind = t(point.pooled === true ? 'model.forestPooledEstimate' : 'model.forestEstimate');
-    const verdict = crosses === null
-      ? ''
-      : t(crosses ? 'model.forestCrossesNull' : 'model.forestDoesNotCrossNull');
-
-    const state: TextState = { ...base, section: t('model.forestSection', { kind, verdict }) };
+    const state: TextState = { ...base, section: kind };
 
     if (typeof point.weight === 'number' && Number.isFinite(point.weight)) {
       state.z = { label: t('model.asideWeight'), value: asPercent(point.weight) };
+    }
+
+    // The verdict is a clause of its own, after the reading. As part of the
+    // section it was read straight into the axis label -- "estimate, does
+    // not cross the null Odds ratio is 0.62", heard as "the null odds ratio
+    // is 0.62" -- and a statement has no label to be read before it.
+    if (crosses !== null) {
+      state.asides = [
+        ...(state.asides ?? []),
+        { value: t(crosses ? 'model.forestVerdictCrosses' : 'model.forestVerdictDoesNotCross') },
+      ];
     }
 
     return state;

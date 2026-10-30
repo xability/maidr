@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { NonEmptyTraceState, PlotState, TextState, TraceState } from '@type/state';
+import type { NonEmptyTraceState, PlotState, TextAside, TextState, TraceState } from '@type/state';
 import type { AxisType, FormatterService } from './formatter';
 import type { NotificationService } from './notification';
 import { focusedSubplotTitle } from '@model/plot';
@@ -578,6 +578,20 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   /**
+   * How an aside reads in verbose mode: "Weight is 12.0%", or its value
+   * alone when it carries no label -- a statement such as a forest study's
+   * "does not cross the null", which has no label to be read before it.
+   *
+   * @param aside - The aside to read
+   * @returns Its clause
+   */
+  private static asideClause(aside: TextAside): string {
+    return aside.label === undefined
+      ? aside.value
+      : t('text.labelIsValue', { label: aside.label, value: aside.value });
+  }
+
+  /**
    * Formats trace text in verbose mode with full descriptions.
    * @param state - The text state to format
    * @returns Verbose formatted text with complete coordinate information
@@ -732,7 +746,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // cross axis's format would be the wrong one to apply.
     if (state.asides !== undefined) {
       for (const aside of state.asides) {
-        verbose.push(t('text.labelIsValue', { label: aside.label, value: aside.value }));
+        verbose.push(TextService.asideClause(aside));
       }
     }
 

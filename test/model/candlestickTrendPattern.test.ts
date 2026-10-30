@@ -10,7 +10,7 @@
  */
 
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
-import type { TraceState } from '@type/state';
+import type { TextAside, TraceState } from '@type/state';
 import type { Ohlc } from '@util/candlePattern';
 import { describe, expect, it } from '@jest/globals';
 import { Candlestick } from '@model/candlestick';
@@ -59,7 +59,7 @@ function trace(prices: Ohlc[]): Candlestick {
 function asidesAt(
   subject: Candlestick,
   steps: number,
-): { label: string; value: string }[] | undefined {
+): TextAside[] | undefined {
   subject.moveOnce('FORWARD');
   for (let i = 0; i < steps; i++) {
     subject.moveOnce('FORWARD');

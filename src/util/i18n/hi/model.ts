@@ -487,6 +487,8 @@ export const model = {
   'model.statNumberOfSegments': 'खंडों की संख्या',
   'model.statLargestBarTotal': 'सबसे बड़ा बार कुल',
   'model.statSmallestBarTotal': 'सबसे छोटा बार कुल',
+  'model.statLargestCategorySum': 'सबसे बड़ा श्रेणी योग',
+  'model.statSmallestCategorySum': 'सबसे छोटा श्रेणी योग',
   'model.statSegmentsWithNoValue': 'बिना मान वाले खंड',
   // Mosaic plot.
   'model.asideShareOfAll': 'सबका हिस्सा',
@@ -557,7 +559,8 @@ export const model = {
   'model.forestEstimate': 'अनुमान',
   'model.forestCrossesNull': ', शून्य रेखा को पार करता है',
   'model.forestDoesNotCrossNull': ', शून्य रेखा को पार नहीं करता',
-  'model.forestSection': '{kind}{verdict}',
+  'model.forestVerdictCrosses': 'शून्य रेखा को पार करता है',
+  'model.forestVerdictDoesNotCross': 'शून्य रेखा को पार नहीं करता',
   'model.asideWeight': 'भार',
   'model.statNumberOfStudies': 'अध्ययनों की संख्या',
   'model.statPooledEstimate': 'संयुक्त अनुमान',
@@ -631,7 +634,7 @@ export const model = {
   'model.statPeakOfEachGroup': 'हर समूह का शिखर',
   'model.statPeaksSpan': 'शिखरों का विस्तार',
   'model.statTallestRidge': 'सबसे ऊँची रिज',
-  'model.ridgelinePeakDensity': '{group}, शिखर घनत्व {density}',
+  'model.ridgelinePeakDensity': '{group}, अधिकतम {label} {density}',
   // Contour plot: the levels of a field and how far apart they run.
   'model.asideSpacing': 'दूरी',
   'model.contourSpacingValue': 'स्तर {level} तक {distance}',
