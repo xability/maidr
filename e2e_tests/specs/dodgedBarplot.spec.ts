@@ -381,14 +381,15 @@ test.describe('Dodged Barplot', () => {
     });
 
     test('should name the series by the z label on P, as the moves do', async ({ page }) => {
-      // Each move said "Cats is Below"; P said "Level is Below".
+      // Each move names the series by the z label, the legend's title
+      // "Category"; P said "Level is Below".
       const dodgedBarplotPage = await setupDodgedBarplotPage(page);
 
       await dodgedBarplotPage.moveToNextDataPoint();
       await dodgedBarplotPage.announcePosition();
       const position = await dodgedBarplotPage.getInstructionText();
 
-      expect(position).toBe('Position is 1 of 3, Cats is Below');
+      expect(position).toBe('Position is 1 of 3, Category is Below');
     });
   });
 

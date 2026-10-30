@@ -194,4 +194,31 @@ describe('an authored example declares what it draws', () => {
     expect(spec.title).toBe('Facet Plot: Bar Charts by Condition');
     expect(misnamed).toEqual([]);
   });
+
+  // The legend title is the name a sighted reader has for the series; every
+  // segment is announced as "<z label> is <series>".
+  it.each([
+    ['dodged-barplot.html', 'Category'],
+    ['stacked-barplot.html', 'survived'],
+    ['stacked_bar.html', 'survived'],
+  ])('%s names its series "%s", the title its legend draws', (page, legendTitle) => {
+    const html = read(page);
+
+    const labels = layersOf(specOf(html)).map(layer => layer.axes?.z?.label);
+
+    expect(draws(html, legendTitle)).toBe(true);
+    expect(labels).toEqual([legendTitle]);
+  });
+
+  it('names the alluvial\'s nodes by what they are, not by the years its columns are headed with', () => {
+    // A flow trace announces every node as "<x label> is <node>". The nodes
+    // are "2019 Car", "2022 Transit": a commute mode in a year. "Year is 2019
+    // Car" told the reader each one was a year.
+    const html = read('alluvial.html');
+
+    const label = layersOf(specOf(html))[0].axes?.x?.label;
+
+    expect(draws(html, '2019 Car')).toBe(true);
+    expect(label).toBe('Mode');
+  });
 });
