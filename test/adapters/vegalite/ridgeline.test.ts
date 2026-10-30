@@ -118,15 +118,16 @@ describe('vega-Lite row-faceted density plots', () => {
     ]);
   });
 
-  it('orders the curves the way Vega laid the panels out', () => {
+  it('lists the curves bottom first, as Vega laid the panels out', () => {
     const layer = onlyLayer(RIDGELINE_SPEC);
 
     // Vega sorts the facet domain before laying the cells out, so the
-    // rendered order is Apr, Jan, Jul — not the `row_domain` order the
-    // rows arrive in. One selector resolves every ridge in DOM order, so
-    // taking `row_domain` would light the wrong curve for two of three.
+    // panels run Apr, Jan, Jul down the page — not the `row_domain` order
+    // the rows arrive in. `RidgelineTrace` reads its first curve as the
+    // lowest ridge and steps Up to the next, so the list runs up the page.
+    // Before: Apr, Jan, Jul, and Up moved down the page.
     expect((layer.data as ViolinKdePoint[][]).map(curve => curve[0].x))
-      .toEqual(['Apr', 'Jan', 'Jul']);
+      .toEqual(['Jul', 'Jan', 'Apr']);
   });
 
   it('falls back to a sorted domain when the view cannot say', () => {
@@ -135,20 +136,33 @@ describe('vega-Lite row-faceted density plots', () => {
     const layer = onlyLayer(RIDGELINE_SPEC, { data_0: DENSITY_ROWS });
 
     expect((layer.data as ViolinKdePoint[][]).map(curve => curve[0].x))
-      .toEqual(['Apr', 'Jan', 'Jul']);
+      .toEqual(['Jul', 'Jan', 'Apr']);
   });
 
-  it('highlights one element per ridge', () => {
+  it('highlights each ridge in its own cell', () => {
     const layer = onlyLayer(RIDGELINE_SPEC);
 
     // Vega draws each cell's area as a single `<path>` under the shared
-    // `child_marks` class — one element per group, which is what
-    // `RidgelineTrace` pairs its curves with. No per-cell scoping: the
-    // layer is the whole chart rather than one panel of it.
-    expect(layer.selectors).toBe(
-      'g.mark-area.role-mark.child_marks path, '
-      + 'g.mark-area.role-mark.child_layer_0_marks path',
-    );
+    // `child_marks` class, and the cells as the cell group's children, top
+    // first. `RidgelineTrace` pairs its curves with the elements in the
+    // order of this list, so each curve names its own cell. No
+    // `data-maidr-cell` scoping: the layer is the whole chart rather than
+    // one panel of it.
+    const cell = (n: number): string =>
+      `g.mark-group.role-scope.cell > g:nth-child(${n}) g.mark-area.role-mark.child_marks path, `
+      + `g.mark-group.role-scope.cell > g:nth-child(${n}) g.mark-area.role-mark.child_layer_0_marks path`;
+    expect(layer.selectors).toEqual([cell(3), cell(2), cell(1)]);
+  });
+
+  it('pairs a curve with the cell of its own key when a cell has no samples', () => {
+    // A cell this layer's rows say nothing about is dropped from the
+    // curves, and the cells around it keep their own places.
+    const withoutJan = DENSITY_ROWS.filter(row => row.month !== 'Jan');
+    const layer = onlyLayer(RIDGELINE_SPEC, { data_0: withoutJan, cell: CELL_ITEMS });
+
+    expect((layer.data as ViolinKdePoint[][]).map(curve => curve[0].x)).toEqual(['Jul', 'Apr']);
+    expect((layer.selectors as string[]).map(selector => selector.match(/nth-child\((\d)\)/)?.[1]))
+      .toEqual(['3', '1']);
   });
 
   it('names the value axis and the dimension the groups vary along', () => {
@@ -189,7 +203,7 @@ describe('vega-Lite row-faceted density plots', () => {
 
     expect(layer.type).toBe(TraceType.RIDGELINE);
     expect(layer.axes?.x?.label).toBe('Temperature');
-    expect((layer.data as ViolinKdePoint[][])[0][1])
+    expect((layer.data as ViolinKdePoint[][])[2][1])
       .toEqual({ x: 'Apr', y: 7.5, density: 0.0000000074 });
   });
 
@@ -213,7 +227,7 @@ describe('vega-Lite row-faceted density plots', () => {
     );
 
     expect(layer.type).toBe(TraceType.RIDGELINE);
-    expect((layer.data as ViolinKdePoint[][])[0][2])
+    expect((layer.data as ViolinKdePoint[][])[2][2])
       .toEqual({ x: 'Apr', y: 15, density: 0.1822 });
   });
 });
