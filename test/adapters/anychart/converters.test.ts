@@ -1615,6 +1615,40 @@ describe('bindAnyChart (sankey stamping)', () => {
     container.closest('[data-maidr-anychart-host]')?.remove();
   });
 
+  it('finds the ribbons inside the root layer AnyChart draws the whole chart in', () => {
+    // Scored with its descendants, the root layer always won, and its
+    // candidates were every curve on the chart: a curve outside the ribbons'
+    // layer, here one in a layer of its own, counted as one more ribbon, and
+    // nothing was stamped.
+    const container = createContainerWithSvg('sankey-root-layer');
+    const ribbons = appendSankeyRibbons(container, 3);
+    const root = document.createElementNS(SVG_NS, 'g');
+    root.id = 'ac_layer_root';
+    container.querySelector('svg')?.appendChild(root);
+    root.appendChild(ribbons[0].parentNode as Node);
+    const other = document.createElementNS(SVG_NS, 'g');
+    other.id = 'ac_layer_other';
+    root.appendChild(other);
+    const curve = document.createElementNS(SVG_NS, 'path');
+    curve.id = 'ac_path_other';
+    curve.setAttribute('d', 'M 0 0 C 10 0 20 10 30 10');
+    curve.setAttribute('fill', 'none');
+    other.appendChild(curve);
+    const chart = createSankeyChart(
+      'Energy',
+      [['Coal', 'Electricity', 34], ['Coal', 'Heat', 14], ['Gas', 'Heat', 12]],
+      { container },
+    );
+
+    bindAnyChart(chart);
+
+    expect(ribbons.map(r => r.getAttribute('data-maidr-anychart-flow')))
+      .toEqual(['0-0', '0-1', '0-2']);
+    expect(curve.hasAttribute('data-maidr-anychart-flow')).toBe(false);
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
   it('stamps nothing when the ribbon count disagrees with the flow count', () => {
     // The extra ribbon is a dropoff, which is drawn but is not a flow. Pairing
     // by position past it would name the wrong flow for every later ribbon, and
