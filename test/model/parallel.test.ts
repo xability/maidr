@@ -620,3 +620,65 @@ describe('navigation is the multi-line model', () => {
     expect(text.cross?.value).toBe(3200);
   });
 });
+
+describe('[ and ] judge a reading by its place on its own axis', () => {
+  /**
+   * The axes the trace offers as one kind of extreme, in the order it lists
+   * them.
+   * @param trace The trace to read
+   * @param type Which extreme
+   * @returns One axis name per target
+   */
+  function axesOf(trace: ParallelTrace, type: 'max' | 'min'): string[] {
+    return trace.getExtremaTargets()
+      .filter(target => target.type === type)
+      .map(target => String(target.xValue));
+  }
+
+  test('the highest is the reading drawn highest, not the largest number', () => {
+    // Car A has the best economy on the chart and the least power and
+    // weight. Its largest number is its weight, 1,800 pounds, drawn at the
+    // foot of the weight axis -- which is where `]` used to send a reader.
+    expect(axesOf(parallel(0, 1), 'max')).toEqual(['mpg']);
+  });
+
+  test('the lowest are every reading drawn lowest, however large the number', () => {
+    expect(axesOf(parallel(0, 0), 'min')).toEqual(['hp', 'weight']);
+  });
+
+  test('a reading part way up its axis is ranked by how far, not by its size', () => {
+    // Car B is a third of the way up mpg (21, from 15 to 33) and under a
+    // third of the way up hp (110, from 65 to 230). Its smallest number is
+    // the 21, but its power is the reading drawn lowest.
+    expect(axesOf(parallel(1, 0), 'min')).toEqual(['hp']);
+    expect(axesOf(parallel(1, 0), 'max')).toEqual(['weight']);
+  });
+
+  test('ranks a target by its place and shows its reading', () => {
+    // The Go To dialog prints `value` beside the label; the place on the
+    // axis is only what the bracket keys compare.
+    const [highest] = parallel(0, 1).getExtremaTargets();
+
+    expect(highest).toMatchObject({
+      label: 'Max point at mpg',
+      value: 33,
+      rankValue: 1,
+      pointIndex: 0,
+      type: 'max',
+    });
+  });
+
+  test('a gap is never a target, even where its place is the midpoint', () => {
+    // An axis with no readings places everything at the midpoint, gaps
+    // included. Ranked by place alone, the gap was the lowest reading of an
+    // observation whose only reading sits at the top of its axis.
+    const unmeasured: LinePoint[][] = [
+      [{ x: 'mpg', y: 33 }, { x: 'hp', y: null }],
+      [{ x: 'mpg', y: 21 }, { x: 'hp', y: null }],
+    ];
+    const targets = parallel(0, 0, unmeasured).getExtremaTargets();
+
+    expect(targets.map(target => target.pointIndex)).toEqual([0, 0]);
+    expect(targets.every(target => Number.isFinite(target.value))).toBe(true);
+  });
+});

@@ -115,6 +115,37 @@ test.describe('Parallel coordinates', () => {
     expect(announcement).toContain('33');
   });
 
+  test('should jump to the reading drawn highest on its own axis, not the largest number', async ({ page }) => {
+    // The Honda Civic has the best economy of the four cars and the least
+    // power and weight. Its largest number is its 1,800 pounds, the foot of
+    // the weight axis, which is where ] used to go; its highest reading is
+    // its 33 mpg, the top of the economy axis.
+    const plot = new ParallelPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+
+    await plot.goToMaximumValue();
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('mpg');
+    expect(announcement).toContain('33');
+  });
+
+  test('should jump to the readings drawn lowest, however large their numbers', async ({ page }) => {
+    // 65 hp and 1,800 lb are each the foot of their axis, and the 33 mpg
+    // that [ used to go to, the smallest number, is the top of its own.
+    const plot = new ParallelPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+
+    await plot.goToMinimumValue();
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('hp');
+    expect(announcement).toContain('1 of 2');
+  });
+
   test('should render one braille row per observation', async ({ page }) => {
     // Braille is the modality that fails silently for a new trace type: an
     // unregistered encoder leaves the display blank while text and audio keep

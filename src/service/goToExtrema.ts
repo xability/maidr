@@ -139,6 +139,9 @@ export class GoToExtremaService {
    * holds that value. Counted per target, a maximum held by one cell was
    * announced as "1 of 2", and once the cursor stood on a cell every target
    * named, each further press stayed on it.
+   *
+   * A target that carries a `rankValue` is compared by it rather than by its
+   * value: see {@link ExtremaTarget.rankValue}.
    * @param targets - The extrema targets reported by the trace.
    * @param type - Which extreme to collect.
    * @returns The tied targets, one per place, or an empty array when the
@@ -148,8 +151,9 @@ export class GoToExtremaService {
     targets: ExtremaTarget[],
     type: 'min' | 'max',
   ): ExtremaTarget[] {
+    const rank = (target: ExtremaTarget): number => target.rankValue ?? target.value;
     const candidates = targets.filter(
-      target => target.type === type && Number.isFinite(target.value),
+      target => target.type === type && Number.isFinite(rank(target)),
     );
     if (candidates.length === 0) {
       return [];
@@ -157,14 +161,14 @@ export class GoToExtremaService {
 
     const extreme = candidates.reduce(
       (best, target) => (type === 'min'
-        ? Math.min(best, target.value)
-        : Math.max(best, target.value)),
-      candidates[0].value,
+        ? Math.min(best, rank(target))
+        : Math.max(best, rank(target))),
+      rank(candidates[0]),
     );
     const places = new Set<string>();
     return candidates.filter((target) => {
       const place = GoToExtremaService.placeOf(target);
-      if (target.value !== extreme || places.has(place)) {
+      if (rank(target) !== extreme || places.has(place)) {
         return false;
       }
       places.add(place);

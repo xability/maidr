@@ -1,9 +1,11 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { named } from './abstract';
 import { isMeasured } from './bar';
+import { extremumAt } from './extremaTarget';
 import { LineTrace } from './line';
 
 /**
@@ -423,6 +425,64 @@ export class ParallelTrace extends LineTrace {
         ? {}
         : { cross: { ...base.cross, label: this.valueColumnLabel } }),
     };
+  }
+
+  /**
+   * The observation's highest and lowest readings, each judged on its own
+   * axis, and the crossings `LineTrace` finds.
+   *
+   * `LineTrace` ranks a row by its raw numbers, and a row here crosses axes
+   * measured in different units: a car's weight in pounds outranked every
+   * other reading it has, so `]` always went to the weight axis and `[` to
+   * whichever axis counts in the smallest numbers, wherever the car sat on
+   * either. Ranked by its place on its own axis -- what the pitch plays, the
+   * braille shows and the chart draws -- `]` goes to the reading drawn
+   * highest and `[` to the one drawn lowest. Readings level with it on other
+   * axes are ties, which further presses walk.
+   *
+   * Each target keeps the raw reading as its value, which is what the Go To
+   * dialog shows; the place on the axis is only what it is ranked by. A gap
+   * is no reading, so it is never a target, even on an axis with no spread,
+   * where every place is the midpoint.
+   *
+   * @returns The targets for the observation under the cursor
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const crossings = super.getExtremaTargets().filter(target => target.type === 'intersection');
+
+    const row = this.row;
+    const readings = (this.normalized[row] ?? [])
+      .map((place, col) => ({ place, col }))
+      .filter(({ col }) => isMeasured(this.lineValues[row][col]));
+    if (readings.length === 0) {
+      return crossings;
+    }
+
+    const places = readings.map(({ place }) => place);
+    const highest = MathUtil.safeMax(places);
+    const lowest = MathUtil.safeMin(places);
+    const targetAt = (col: number, type: 'max' | 'min'): ExtremaTarget => {
+      const point = this.points[row][col];
+      return {
+        ...extremumAt(
+          t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+          point.x,
+        ),
+        value: this.lineValues[row][col],
+        rankValue: this.normalized[row][col],
+        pointIndex: col,
+        segment: 'line',
+        type,
+        navigationType: 'point',
+        xValue: point.x,
+      };
+    };
+
+    return [
+      ...readings.filter(({ place }) => place === highest).map(({ col }) => targetAt(col, 'max')),
+      ...readings.filter(({ place }) => place === lowest).map(({ col }) => targetAt(col, 'min')),
+      ...crossings,
+    ];
   }
 
   public override get state(): TraceState {

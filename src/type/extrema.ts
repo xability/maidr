@@ -26,6 +26,16 @@ export interface ExtremaTarget {
   /** The actual numeric value of the extrema */
   value: number;
 
+  /**
+   * What `[` and `]` rank the target by, when that is not `value`.
+   *
+   * `value` is the reading the Go To dialog shows. A parallel coordinates
+   * observation crosses axes measured in different units, so its readings
+   * are ranked by where each sits on its own axis, from 0 to 1, rather than
+   * by which number is largest.
+   */
+  rankValue?: number;
+
   /** Index of the point to navigate to */
   pointIndex: number;
 
