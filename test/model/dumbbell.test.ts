@@ -298,74 +298,91 @@ describe('braille', () => {
 });
 
 describe('extrema', () => {
-  test('ranks the biggest mover each way, not the biggest value', () => {
-    // The chart is drawn to show which rows moved and which way; the tallest
-    // dot is a fact about the category rather than about the comparison.
-    const targets = dumbbell().getExtremaTargets();
+  /**
+   * Three rows whose biggest movers hold neither extreme value: `a` rose the
+   * most and `c` fell, but the highest value is `b`'s finish and the lowest
+   * `a`'s start.
+   */
+  const SPREAD: DumbbellData = {
+    startLabel: '1990',
+    endLabel: '2020',
+    points: [
+      { x: 'a', start: 60, end: 70 },
+      { x: 'b', start: 75, end: 80 },
+      { x: 'c', start: 72, end: 71 },
+    ],
+  };
 
-    expect(targets.map(target => target.label)).toEqual([
-      'Largest increase at Denmark',
-      'Largest decrease at Latvia',
-    ]);
+  test('the maximum is the largest value, not the largest rise', () => {
+    // `]` is Go to Maximum Value. It used to go to `a`, the largest rise,
+    // whose 70 is not the chart's maximum.
+    const max = dumbbell(0, 0, SPREAD).getExtremaTargets().filter(target => target.type === 'max');
+
+    expect(max).toHaveLength(1);
+    expect(max[0]).toMatchObject({ value: 80, label: 'Max point at b, 2020' });
   });
 
-  test('lands on the finishing end, where the change completed', () => {
+  test('the minimum is the smallest value, at whichever end holds it', () => {
+    // It used to go to the finishing end of `c`, the largest fall.
+    const min = dumbbell(0, 0, SPREAD).getExtremaTargets().filter(target => target.type === 'min');
+
+    expect(min).toHaveLength(1);
+    expect(min[0]).toMatchObject({ value: 60, label: 'Min point at a, 1990' });
+  });
+
+  test('lands on the end holding the value', () => {
     // `supportsExtrema` is true, so the base implementation throws: a trace
     // that advertises extrema without overriding both halves is worse than
     // one that does not advertise them.
-    const trace = dumbbell();
-    const [increase] = trace.getExtremaTargets();
+    const trace = dumbbell(1, 2, SPREAD);
+    const min = trace.getExtremaTargets().find(target => target.type === 'min');
+    if (min === undefined) {
+      throw new Error('Expected a minimum');
+    }
 
-    trace.navigateToExtrema(increase);
+    trace.navigateToExtrema(min);
 
     const state = nonEmptyState(trace);
-    expect(state.text.main.value).toBe('Denmark');
-    expect(state.text.section).toBe('2020');
+    expect(state.text.main.value).toBe('a');
+    expect(state.text.section).toBe('1990');
+    expect(state.text.cross?.value).toBe(60);
   });
 
-  test('does not report a rise on a chart where everything fell', () => {
-    // `extremeChange('max')` takes the most *positive* change, which on an
-    // all-declining chart is the row that fell least. Naming that "largest
-    // increase" reports a rise the chart does not contain; naming it "largest
-    // decrease" reports the wrong row as the biggest faller.
-    //
-    // The label is what the go-to-extrema menu renders as its option text and
-    // its `aria-label`, so it is read out as a claim rather than shown beside
-    // the number that would correct it.
-    const allFalling: DumbbellData = {
+  test('offers every end that holds the value, in the order the categories are drawn', () => {
+    // A further press walks them, as on a bar chart.
+    const tied: DumbbellData = {
       points: [
-        { x: 'a', start: 10, end: 5 },
-        { x: 'b', start: 20, end: 1 },
+        { x: 'a', start: 50, end: 90 },
+        { x: 'b', start: 90, end: 70 },
       ],
     };
+    const max = dumbbell(0, 0, tied).getExtremaTargets().filter(target => target.type === 'max');
 
-    expect(dumbbell(0, 0, allFalling).getExtremaTargets().map(t => t.label))
-      .toEqual(['Smallest decrease at a', 'Largest decrease at b']);
+    expect(max.map(target => [target.categoryIndex, target.groupIndex])).toEqual([[0, 1], [1, 0]]);
   });
 
-  test('does not report a fall on a chart where everything rose', () => {
-    const allRising: DumbbellData = {
-      points: [
-        { x: 'a', start: 1, end: 20 },
-        { x: 'b', start: 5, end: 10 },
-      ],
-    };
-
-    expect(dumbbell(0, 0, allRising).getExtremaTargets().map(t => t.label))
-      .toEqual(['Largest increase at a', 'Smallest increase at b']);
-  });
-
-  test('offers one target when every row moved the same way', () => {
-    // Naming the same row as both extremes would report a spread the chart
+  test('offers one extreme when every end holds the same value', () => {
+    // Naming the same ends as both extremes would report a spread the chart
     // does not have.
-    const rising: DumbbellData = {
+    const level: DumbbellData = {
       points: [
-        { x: 'a', start: 1, end: 2 },
-        { x: 'b', start: 1, end: 2 },
+        { x: 'a', start: 1, end: 1 },
+        { x: 'b', start: 1, end: 1 },
       ],
     };
 
-    expect(dumbbell(0, 0, rising).getExtremaTargets()).toHaveLength(1);
+    expect(dumbbell(0, 0, level).getExtremaTargets().every(target => target.type === 'max')).toBe(true);
+  });
+
+  test('a gap is never an extreme', () => {
+    const gappy: DumbbellData = {
+      points: [
+        { x: 'a', start: Number.NaN, end: 5 },
+        { x: 'b', start: 3, end: 4 },
+      ],
+    };
+
+    expect(dumbbell(0, 0, gappy).getExtremaTargets().map(target => target.value)).toEqual([5, 3]);
   });
 });
 
