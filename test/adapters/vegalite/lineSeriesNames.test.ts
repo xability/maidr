@@ -85,11 +85,8 @@ describe('vega-Lite merged multi-series line layers', () => {
     it('keeps one highlight selector per merged series', () => {
       const layer = onlyLayer(densitySpec, view);
 
-      expect(layer.selectors).toEqual([
-        'g.mark-line.role-mark.layer_0_marks > path',
-        'g.mark-line.role-mark.layer_1_marks > path',
-        'g.mark-line.role-mark.layer_2_marks > path',
-      ]);
+      expect(layer.selectors).toEqual([0, 1, 2].map(i =>
+        `g.mark-line.role-mark.layer_${i}_marks > path, g.mark-line.role-mark.layer_${i}_layer_0_marks > path`));
     });
   });
 
