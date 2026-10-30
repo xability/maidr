@@ -245,6 +245,26 @@ export interface AudioState {
    */
   zeroClick?: boolean;
   /**
+   * When true, the value is an ordinal level's code -- a sleep stage, a
+   * Likert response -- rather than a magnitude. A code of 0 is then the
+   * lowest level, not the absence of one, so it is pitched like any other
+   * value instead of played as the low "null" tone. Set by a line point that
+   * carries a `label`.
+   */
+  ordinal?: boolean;
+  /**
+   * When true, the value is a position on the value axis -- where a line, a
+   * contour or a quantile is drawn -- rather than a magnitude measured up
+   * from zero, as a bar's height, a bin's count or a cell's value is. On an
+   * axis that runs below zero a position of 0 lies between the values either
+   * side of it, so it is pitched where it lies instead of played as the low
+   * "null" tone, which marks a magnitude of zero. Set by the line-family
+   * layers whose values are positions -- a line, step, survival curve,
+   * contour, radar outline, percentile band and the rest -- and not by an
+   * area or a polar area, whose bands and wedges are magnitudes.
+   */
+  positional?: boolean;
+  /**
    * Pitch-glide direction for the tone. When set, the tone glides its pitch
    * over the note duration to convey a direction while `freq.raw` still sets
    * the base pitch: `'up'` sweeps upward (a rising "whoosh"), `'down'` sweeps

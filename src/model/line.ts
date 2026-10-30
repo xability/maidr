@@ -773,7 +773,27 @@ export class LineTrace extends AbstractTrace {
       },
       panning: this.panningFor(this.row, this.col),
       group: this.row,
+      // A line's value is a place on the value axis (see
+      // `valuesArePositions`). A point that names its level is an ordinal
+      // code (see `text`), so a code of 0 is the lowest level, pitched as one.
+      ...(this.valuesArePositions ? { positional: true } : {}),
+      ...(this.points[this.row]?.[this.col]?.label ? { ordinal: true } : {}),
     };
+  }
+
+  /**
+   * Whether a value is where the series is drawn on the value axis, rather
+   * than a magnitude measured out from a baseline.
+   *
+   * True of a line: a 0 between negative and positive values is a place on
+   * the axis, and is pitched there. A filled mark -- an area's band, a polar
+   * area's wedge -- is a magnitude, as a bar is, and its 0 is no band and no
+   * wedge, which the null tone marks; those traces answer false.
+   *
+   * @returns True when the layer's values are positions
+   */
+  protected get valuesArePositions(): boolean {
+    return true;
   }
 
   /**

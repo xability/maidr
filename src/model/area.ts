@@ -671,6 +671,19 @@ export class AreaTrace extends LineTrace {
   }
 
   /**
+   * A band's value is how far it is filled out from what it stands on -- the
+   * baseline, or the band below it in a stack -- which is a magnitude, as a
+   * bar's height is. A band of 0 is no band, and plays the null tone whatever
+   * the other bands hold, where a line's 0 between negative and positive
+   * values is pitched where it lies.
+   *
+   * @returns False: an area's values are magnitudes
+   */
+  protected override get valuesArePositions(): boolean {
+    return false;
+  }
+
+  /**
    * Adds the range of the running total to the chart description of a stacked
    * layer.
    *
