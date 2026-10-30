@@ -1448,12 +1448,30 @@ function readSeriesField(
   ref: FieldRef | undefined,
   canonical: string,
 ): unknown[] {
-  const values = series.data.map(point =>
-    resolveFieldRef<unknown>(point.options, ref, canonical));
+  const values = readRowField(series, ref, canonical);
   if (ref !== undefined && values.length > 0 && values.every(value => value === undefined)) {
     warnUnresolvedRef(declarationContext(series), ref, canonical);
   }
   return values;
+}
+
+/**
+ * Reads one declared fact off every point of a series, as
+ * {@link readSeriesField} does, without reporting a field name no row
+ * carries — for a reader that judges that across several series.
+ *
+ * @param series - The series whose rows are read
+ * @param ref - The field the author named, or undefined to default
+ * @param canonical - The grammar field being filled, e.g. `'yMin'`
+ * @returns One reading per point, aligned with `series.data`
+ */
+function readRowField(
+  series: HighchartsSeries,
+  ref: FieldRef | undefined,
+  canonical: string,
+): unknown[] {
+  return series.data.map(point =>
+    resolveFieldRef<unknown>(point.options, ref, canonical));
 }
 
 /**
@@ -1994,6 +2012,7 @@ function convertSurvivalSeries(
   const arms = survivalArms(series, declaration, seriesList, chart, consumed);
   const data: SurvivalPoint[][] = arms.map(arm =>
     survivalCurve(arm, declaration, seriesList, chart, consumed));
+  warnUnreadSurvivalFields(series, declaration, arms);
 
   // Highcharts states the convention on the series; the declaration is how a
   // curve drawn interpolated still says which way its steps go.
@@ -2373,9 +2392,12 @@ function survivalCurve(
     bandAt.set(point.x, { low: finiteNumber(point.low), high: finiteNumber(point.high) });
   }
 
-  const censored = readSeriesField(arm, declaration.censored, 'censored');
-  const lower = readSeriesField(arm, declaration.yMin, 'yMin');
-  const upper = readSeriesField(arm, declaration.yMax, 'yMax');
+  // Read without a report: the field names are the declaring series', lent
+  // to every arm, so whether one resolves is the layer's question rather than
+  // this arm's, and `warnUnreadSurvivalFields` asks it once for the layer.
+  const censored = readRowField(arm, declaration.censored, 'censored');
+  const lower = readRowField(arm, declaration.yMin, 'yMin');
+  const upper = readRowField(arm, declaration.yMax, 'yMax');
 
   const curve: SurvivalPoint[] = [];
   arm.data.forEach((point, index) => {
@@ -2398,6 +2420,42 @@ function survivalCurve(
     });
   });
   return curve;
+}
+
+/**
+ * Reports a field name the survival declaration gives that no arm's rows
+ * carry, naming the series the declaration is written on.
+ *
+ * The names are read off every arm merged into the layer, and an arm whose
+ * rows lack one has simply none of that fact: a control arm with no censored
+ * subjects carries no censoring flag. Judged per arm, that arm was reported as
+ * though it declared the field itself, and a reader of the console was sent
+ * looking for a declaration on a series that has none. A name no arm carries
+ * is still the typo it usually is, and is reported once.
+ *
+ * @param series - The declaring series
+ * @param declaration - What the author said
+ * @param arms - The curves the layer reads, declaring series first
+ */
+function warnUnreadSurvivalFields(
+  series: HighchartsSeries,
+  declaration: SurvivalDeclaration,
+  arms: HighchartsSeries[],
+): void {
+  const fields: [FieldRef | undefined, string][] = [
+    [declaration.censored, 'censored'],
+    [declaration.yMin, 'yMin'],
+    [declaration.yMax, 'yMax'],
+  ];
+  for (const [ref, canonical] of fields) {
+    if (ref === undefined) {
+      continue;
+    }
+    const values = arms.flatMap(arm => readRowField(arm, ref, canonical));
+    if (values.length > 0 && values.every(value => value === undefined)) {
+      warnUnresolvedRef(declarationContext(series), ref, canonical);
+    }
+  }
 }
 
 /**
