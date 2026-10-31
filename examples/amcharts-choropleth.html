@@ -131,7 +131,13 @@
           max: am5.color(0x1f3f8f),
         }]);
 
-        series.data.setAll(STATES);
+        // Each map gets rows of its own. amCharts writes a region's GeoJSON
+        // geometry into the row it joins the region to, and gives a region
+        // its geometry only when the row has none yet, so a second map handed
+        // the same rows drew none of their states.
+        series.data.setAll(STATES.map(function (row) {
+          return Object.assign({}, row);
+        }));
         return root;
       }
 
