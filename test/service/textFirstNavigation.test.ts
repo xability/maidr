@@ -104,6 +104,18 @@ function createNoMoreLayersState(): PlotState {
   } as PlotState;
 }
 
+/**
+ * Builds the empty figure state the figure pushes from notifyOutOfBounds():
+ * an arrow past the edge of a multi-panel chart's grid of subplots.
+ * @returns An out-of-bounds figure-type PlotState.
+ */
+function createNoMoreSubplotsState(): PlotState {
+  return {
+    empty: true,
+    type: 'figure',
+  };
+}
+
 describe('textService first-navigation announcement gate', () => {
   test('fires first_navigation on the first trace-level navigation', () => {
     const text = new TextService(createMockNotificationService());
@@ -141,15 +153,74 @@ describe('textService first-navigation announcement gate', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  test('does not fire first_navigation for an out-of-bounds empty trace state', () => {
+  test('fires first_navigation for the first edge a key press meets', () => {
+    // On a layer with no data every key press meets the edge, and while only
+    // a landing opened the gate, the reader heard the boundary chord and
+    // never "No more data to display".
     const text = new TextService(createMockNotificationService());
     const listener = jest.fn();
     text.onNavigation(listener);
 
     // Pure out-of-bounds events are empty trace states with no `warning`.
     text.update(createOutOfBoundsState());
+    text.update(createOutOfBoundsState());
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({ type: 'first_navigation' });
+  });
+
+  test('fires first_navigation for the first layer edge a key press meets', () => {
+    // Page Down past the first layer can be the first key pressed on a chart
+    // that opens on a layer with no data.
+    const events: string[] = [];
+    const notification = { notify: (text: string) => events.push(text) } as unknown as NotificationService;
+    const text = new TextService(notification);
+    text.onNavigation(event => events.push(event.type));
+
+    text.update(createNoMoreLayersState());
+    text.update(createNoMoreLayersState());
+
+    expect(events).toEqual(['first_navigation', 'No additional layer', 'No additional layer']);
+  });
+
+  test('fires first_navigation for the first subplot edge a key press meets', () => {
+    const text = new TextService(createMockNotificationService());
+    const events: string[] = [];
+    text.onNavigation(event => events.push(event.type));
+    text.onChange(event => events.push(event.value));
+
+    text.update(createNoMoreSubplotsState());
+    text.update(createNoMoreSubplotsState());
+
+    expect(events).toEqual(['first_navigation', 'No more subplots to display', 'No more subplots to display']);
+  });
+
+  test('does not fire first_navigation for an edge met while text mode is off', () => {
+    const text = new TextService(createMockNotificationService());
+    const listener = jest.fn();
+    text.onNavigation(listener);
+    text.toggle();
+    text.toggle();
+    expect(text.isOff()).toBe(true);
+
+    text.update(createOutOfBoundsState());
 
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  test('opens the gate before the first key press on a layer with no data is answered', () => {
+    // py-maidr's legacy candlestick example sends its candlestick layer, the
+    // one the chart opens on, with no data.
+    const trace = new BarTrace({ ...createBarLayer(), data: [] });
+    const text = new TextService(createMockNotificationService());
+    const events: string[] = [];
+    text.onNavigation(event => events.push(event.type));
+    text.onChange(event => events.push(event.value));
+    trace.addObserver(text);
+
+    trace.moveOnce('FORWARD');
+
+    expect(events).toEqual(['first_navigation', 'No more data to display']);
   });
 
   test('does not fire first_navigation for a warning empty trace state', () => {
@@ -181,12 +252,11 @@ describe('textService first-navigation announcement gate', () => {
   });
 
   test('flips the gate on the first key press even in a boundary direction', () => {
-    // Refutes the "first interaction is out-of-bounds -> silent" concern: the
-    // model's initial-entry guard (MovableGrid/MovableGraph/LineTrace moveOnce)
-    // makes the FIRST move succeed with a non-empty state regardless of
-    // direction, so first_navigation fires and announcements un-gate. A genuine
-    // boundary (empty) event can therefore only occur after >=1 successful move,
-    // by which point `announce` is already true.
+    // The model's initial-entry guard (MovableGrid/MovableGraph/LineTrace
+    // moveOnce) makes the FIRST move on a layer with data succeed with a
+    // non-empty state regardless of direction, so first_navigation fires and
+    // announcements un-gate. A layer with no data has no first move to
+    // succeed, and its edge opens the gate instead (above).
     const trace = new BarTrace(createBarLayer()); // single row of bars
     const text = new TextService(createMockNotificationService());
     const listener = jest.fn();
