@@ -65,7 +65,7 @@ import { clockFromCounterclockwiseOf3, pieGeometry } from '@adapters/shared/pieG
 import { cssEscape } from '@adapters/shared/selectorUtil';
 import { resolveFieldRef, validateDeclaration } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
-import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors } from './selectors';
+import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors, ridgeSelectors, seriesDotSelectors } from './selectors';
 
 /**
  * What a layer carries when its marks run opposite to its payload.
@@ -203,6 +203,9 @@ function buildPanelSubplot(
     yLabel: panel.yLabel ?? config.yLabel,
     orientation: panel.orientation ?? config.orientation,
     stepDirection: panel.stepDirection ?? config.stepDirection,
+    // Declared, never read off the panels' axes (see `MaidrRecharts`), so a
+    // grid of bump charts says it once for all of them.
+    firstPlace: config.firstPlace,
     // Each panel's own axis, not the grid's: a panel draws its own chart, so
     // one verdict for all of them would read the first panel's axis onto every
     // other (#1017).
@@ -357,7 +360,7 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
   // or several. The censoring marks and the confidence band ride on the
   // points, and the plain line builders have nowhere to put them.
   if (chartType === 'survival') {
-    return [buildSurvivalLayer(data, xKey, yKeys, chartType, xLabel, yLabel, fillKeys, config.survivalConfig, selectorOverride, config.id, panelScope)];
+    return [buildSurvivalLayer(data, xKey, yKeys, chartType, xLabel, yLabel, fillKeys, config.survivalConfig, selectorOverride, config.id, panelScope, config.dotSeries)];
   }
 
   // A precision-recall figure is one layer of curves, read against each
@@ -369,7 +372,9 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
     return [{
       id: '0',
       type: TraceType.PR_CURVE,
-      selectors: selector ? yKeys.map(() => selector) : undefined,
+      selectors: selector
+        ? yKeys.map(() => selector)
+        : seriesDotSelectors(chartType, yKeys, config.dotSeries, config.id, panelScope),
       axes: { x: { label: xLabel }, y: { label: yLabel } },
       data: yKeys.map((yKey, curve) => convertToPrCurveRow(
         data,
@@ -409,7 +414,7 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
 
   // Line with multiple series: single layer with 2D LinePoint[][] data
   if (isLineType(chartType) && hasMultipleSeries) {
-    return [buildMultiSeriesLineLayer(
+    const layer = buildMultiSeriesLineLayer(
       data,
       xKey,
       yKeys,
@@ -418,7 +423,14 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       yLabel,
       selectorOverride,
       reversesLinePoints(config, chartType, selectorOverride),
-    )];
+      config.dotSeries,
+      config.id,
+      panelScope,
+    );
+    // The loop below spreads a type's options onto each layer it builds; this
+    // layer is built apart from it, so a bump chart's first place is added
+    // here.
+    return [chartType === 'bump' ? { ...layer, ...layerOptions(chartType, config) } : layer];
   }
 
   const maidrType = toLayerTraceType(chartType, hasMultipleSeries);
@@ -633,6 +645,9 @@ function buildMultiSeriesLineLayer(
   yLabel?: string,
   selectorOverride?: string,
   reversed = false,
+  dotSeries?: (string | null)[],
+  chartId?: string,
+  panelScope?: string,
 ): MaidrLayer {
   const written: LinePoint[][] = yKeys.map(yKey =>
     data.map(item => ({
@@ -644,11 +659,12 @@ function buildMultiSeriesLineLayer(
   // Every series of one chart shares its axis, so they turn round together.
   const lineData = reversed ? reversedLineSeries(written) : written;
 
-  // Multi-series: CSS selectors are unreliable, so omit them unless the
-  // consumer provides a selectorOverride with custom class names.
+  // One class selector matches every series' dots at once, so each series'
+  // dots are named by their place among the series that draw dots. A
+  // selectorOverride is the consumer's own, and is used as given.
   const selectors = selectorOverride
     ? yKeys.map(() => selectorOverride)
-    : undefined;
+    : seriesDotSelectors(chartType, yKeys, dotSeries, chartId, panelScope);
 
   return {
     id: '0',
@@ -658,9 +674,8 @@ function buildMultiSeriesLineLayer(
       x: { label: xLabel },
       y: { label: yLabel },
     },
-    // Inert while `selectors` is undefined -- there is nothing resolved to
-    // pair -- and carried anyway, so the two halves stay one statement
-    // should this builder ever name its marks.
+    // The dots of a reversed axis come out in data order, so the trace pairs
+    // them with the turned payload from the far end.
     ...(reversed ? REVERSED_POINTS : {}),
     data: lineData,
   };
@@ -687,6 +702,7 @@ function buildSurvivalLayer(
   selectorOverride?: string,
   chartId?: string,
   panelScope?: string,
+  dotSeries?: (string | null)[],
 ): MaidrLayer {
   const hasMultipleArms = yKeys.length > 1;
   const survivalData: SurvivalPoint[][] = yKeys.map((yKey, arm) =>
@@ -702,9 +718,9 @@ function buildSurvivalLayer(
     ),
   );
 
-  // Same honest degrade as the other multi-series line families: CSS cannot
-  // tell one <Line> from another, so highlighting is off unless the consumer
-  // named the arms with their own classes.
+  // One class selector matches every arm's dots at once, so several arms are
+  // named by their places among the series that draw dots, as the other line
+  // families are, unless the consumer named them with their own classes.
   const selector = selectorOverride
     ?? getRechartsSelector(chartType, hasMultipleArms ? 0 : undefined, chartId, panelScope);
 
@@ -712,7 +728,9 @@ function buildSurvivalLayer(
     id: '0',
     type: TraceType.SURVIVAL,
     // A SurvivalTrace is a LineTrace: one selector per arm, never a bare string.
-    selectors: selector ? yKeys.map(() => selector) : undefined,
+    selectors: selector
+      ? yKeys.map(() => selector)
+      : seriesDotSelectors(chartType, yKeys, dotSeries, chartId, panelScope),
     stepDirection: survivalConfig?.stepDirection ?? 'hv',
     axes: {
       x: { label: xLabel },
@@ -995,8 +1013,18 @@ const RIDGELINE_DENSITY_AXIS = 'Density';
  * loudness would be a function of where it was stacked and the lowest ridge
  * would be the loudest thing on the chart.
  *
- * The groups come out in first-appearance order, which is the order the
- * `<Area>`s have to be declared in for the highlight to land on the right one.
+ * `RidgelineTrace` reads its first curve as the lowest ridge and steps Up to
+ * the next one listed, while a ridgeline drawn as the recipe draws it puts its
+ * first group on top: listed in first-appearance order, Up moved down the page
+ * and Down up it. So where `plottedKey` places every group, the curves are
+ * listed bottom first, by the offset each is drawn at -- its drawn height less
+ * its density, a larger one drawn lower on a reversed axis
+ * (`plottedAxisReversed`) -- and each is paired with its own `<Area>` by the
+ * place that `<Area>` is declared at, which is the group's first appearance
+ * in `data`.
+ * Otherwise, and whenever a `selectorOverride` names the bands, the groups come
+ * out in first-appearance order, which is the order the `<Area>`s have to be
+ * declared in for the highlight to land on the right one.
  */
 function buildRidgelineLayer(
   data: Record<string, unknown>[],
@@ -1013,8 +1041,11 @@ function buildRidgelineLayer(
     throw new Error('RechartsAdapter: ridgelineConfig with a groupKey is required when chartType is "ridgeline"');
   }
 
-  const { valueKey, densityKey } = ridgelineConfig ?? {};
+  const { valueKey, densityKey, plottedKey, plottedAxisReversed } = ridgelineConfig ?? {};
   const curves = new Map<string, ViolinKdePoint[]>();
+  // How far up the page each group's ridge is drawn, read off the first of
+  // its samples to carry a drawn height.
+  const offsets = new Map<string, number>();
 
   for (const item of data) {
     const group = toText(item[groupKey]);
@@ -1025,6 +1056,11 @@ function buildRidgelineLayer(
     // put a trough in the curve where the data said nothing.
     if (group === undefined || value === undefined || density === undefined) {
       continue;
+    }
+
+    const plotted = plottedKey === undefined ? undefined : toOptionalNumber(item[plottedKey]);
+    if (plotted !== undefined && !offsets.has(group)) {
+      offsets.set(group, plotted - density);
     }
 
     const point: ViolinKdePoint = { x: group, y: value, density };
@@ -1043,19 +1079,31 @@ function buildRidgelineLayer(
     );
   }
 
+  const declared = [...curves.keys()];
+  const placed = selectorOverride === undefined && declared.every(group => offsets.has(group));
+  // Stable, so ridges drawn at one offset keep the order they appear in. On a
+  // reversed axis a larger offset is drawn lower, so the bottom ridge is the
+  // one offset most.
+  const upward = plottedAxisReversed === true ? -1 : 1;
+  const listed = placed
+    ? [...declared].sort((a, b) => upward * ((offsets.get(a) ?? 0) - (offsets.get(b) ?? 0)))
+    : declared;
+
   return {
     id: '0',
     type: TraceType.RIDGELINE,
     // One element per group, which is what the chart draws: `RidgelineTrace`
-    // resolves the selector to a flat list, requires exactly one entry per
+    // resolves the selectors to a flat list, requires exactly one entry per
     // ridge, and then lights that ridge's whole curve from any of its samples.
-    selectors: selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope),
+    selectors: selectorOverride ?? (placed
+      ? ridgeSelectors(listed.map(group => declared.indexOf(group)), chartId, panelScope)
+      : getRechartsSelector(chartType, undefined, chartId, panelScope)),
     axes: {
       x: { label: xLabel },
       y: { label: yLabel },
       z: { label: RIDGELINE_DENSITY_AXIS },
     },
-    data: [...curves.values()],
+    data: listed.map(group => curves.get(group) ?? []),
   };
 }
 
@@ -1561,8 +1609,12 @@ function convertData(
     case 'waterfall':
       return convertToWaterfallPoints(data, xKey, yKey, config.waterfallConfig);
     // A treemap, a sunburst and an icicle are the same hierarchy, and differ
-    // only in whether it is drawn as nested area, as rings or as bands.
+    // only in whether it is drawn as nested area, as rings or as bands. A
+    // treemap's branch is drawn under its leaves, so the treemap declares the
+    // leaves alone; see `convertToTreemapPoints`. A `selectorOverride` names
+    // one element per node, as it always has, so every node is declared then.
     case 'treemap':
+      return convertToTreemapPoints(data, xKey, yKey, config.selectorOverride !== undefined);
     case 'sunburst':
     case 'icicle':
       return convertToTreemapPoints(data, xKey, yKey);
@@ -2037,15 +2089,27 @@ function convertToWaterfallPoints(
  * announce a magnitude the chart did not draw — and MAIDR keeps a declared
  * value in preference to the sum precisely because it trusts the producer.
  *
+ * A treemap declares its leaves alone. `<Treemap>` draws a branch's own
+ * rectangle first and its children over it, edge to edge, so a branch is seen
+ * only as the block of its leaves, and the outline of the branch's rectangle
+ * was drawn underneath them, where nobody could see it -- on the top level,
+ * where the reader enters. A branch left undeclared is derived from its
+ * leaves' paths, with the same name, place among its siblings and total, and
+ * is outlined through the leaves drawn over it (`TreemapTrace.highlight`). A
+ * sunburst's ring and an icicle's band are drawn where they can be seen, so
+ * those declare every node.
+ *
  * @param data - The top-level nodes, as the chart itself is given them
  * @param xKey - Key holding a node's name (the `<Treemap nameKey>`)
  * @param yKey - Key holding a leaf's magnitude (the `<Treemap dataKey>`)
- * @returns Every node, depth-first pre-order, each with its ancestors named
+ * @param branches - Whether the nodes with children are declared too
+ * @returns The nodes, depth-first pre-order, each with its ancestors named
  */
 function convertToTreemapPoints(
   data: Record<string, unknown>[],
   xKey: string,
   yKey: string,
+  branches = true,
 ): TreemapPoint[] {
   const points: TreemapPoint[] = [];
 
@@ -2070,7 +2134,9 @@ function convertToTreemapPoints(
       if (value !== undefined) {
         point.y = value;
       }
-      points.push(point);
+      if (branches || children.length === 0) {
+        points.push(point);
+      }
 
       walk(children, [...path, name]);
     }
@@ -2392,6 +2458,11 @@ function layerOptions(
     case 'survival':
       // Only reachable from composed mode; buildSurvivalLayer sets its own.
       return { stepDirection: config.survivalConfig?.stepDirection ?? 'hv' };
+    // Read off the chart's `<YAxis reversed>` by `MaidrRecharts`, so Up and
+    // Down move to the place drawn above and below even where the core has no
+    // highlight to measure the drawing by.
+    case 'bump':
+      return config.firstPlace === undefined ? {} : { firstPlace: config.firstPlace };
     // Recharts measures a pie's angles counterclockwise from 3 o'clock and
     // sweeps from `startAngle` (0) to `endAngle` (360), so a `<Pie>` left at
     // its defaults runs counterclockwise from the right -- and MAIDR walks a
