@@ -65,7 +65,7 @@ drawing.setAttribute('maidr', JSON.stringify(maidr));
 
 Both leave the drawing at the size Mermaid gave it. By default Mermaid draws a diagram `width="100%"`, up to an inline `max-width` of the width it laid it out at; MAIDR's figure is only as wide as the chart it holds, so that percentage would have nothing to resolve against and the browser would draw the diagram at 300px. The adapter writes the same size the other way round, `width: <max-width>; max-width: 100%`: as wide as Mermaid laid it out, and no wider than the page. A width you set yourself is left alone.
 
-They also pad the drawing by 6px inside that size (`padding: 6px; box-sizing: border-box`). MAIDR's focus ring is drawn 5px into the chart, and Mermaid crops a diagram to what it drew, so without the padding the ring would cover a railroad's rule names, a packet's bit numbers or a sankey's node bars while the reader is in the diagram; the pixel to spare is for text drawn at the very edge, which a browser paints a pixel past the box it lays it out in. A padding you set on the drawing yourself is left alone.
+They also pad the drawing by 6px inside that size (`padding: 6px; box-sizing: border-box`). MAIDR's focus ring is drawn 5px into the chart, and Mermaid crops a diagram to what it drew, so without the padding the ring would cover a railroad's rule names, a packet's bit numbers or a sankey's node bars while the reader is in the diagram; the pixel to spare is for text drawn at the very edge, which a browser paints a pixel past the box it lays it out in. A padding you give the drawing yourself, on it or in a stylesheet, is left alone.
 
 ## Quarto
 
