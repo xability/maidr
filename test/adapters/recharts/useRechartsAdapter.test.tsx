@@ -12,9 +12,16 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
 import type { MaidrLayer } from '@type/grammar';
 import { useRechartsAdapter } from '@adapters/recharts/useRechartsAdapter';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { Orientation, TraceType } from '@type/grammar';
+
+/** Defined once, as the hook asks of the arrays it compares by reference. */
+const LINE_KEYS = ['v', 'w'];
+const LINE_ROWS = [
+  { t: 1, v: 10, w: 5 },
+  { t: 2, v: 20, w: 15 },
+];
 
 const SAMPLES = [
   { t: 1, v: 10 },
@@ -71,6 +78,68 @@ describe('useRechartsAdapter', () => {
     const layer = result.current.subplots[0][0].layers[0];
 
     expect(layer.data).toEqual([{ x: 'Q2', y: 20 }, { x: 'Q1', y: 10 }]);
+  });
+
+  it('hands back the same data on the next render when the dot-drawing series are written inline', () => {
+    // A new MAIDR object is a data change to `<Maidr>`, which forgets the
+    // point a reader who stepped away would come back to.
+    const { result, rerender } = renderHook(() => useRechartsAdapter({
+      id: 'inline-dots',
+      data: LINE_ROWS,
+      chartType: 'line',
+      xKey: 't',
+      yKeys: LINE_KEYS,
+      dotSeries: ['v', 'w'],
+    }));
+    const first = result.current;
+
+    rerender();
+
+    expect(result.current).toBe(first);
+  });
+
+  it('says once that a ridgeline given without its drawn key is read in first-appearance order', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const ridges = [
+      { month: 'Jan', temp: 0, density: 0.1, plotted: 1.1 },
+      { month: 'Feb', temp: 0, density: 0.3, plotted: 0.3 },
+    ];
+    try {
+      const { rerender } = renderHook(() => useRechartsAdapter({
+        id: 'hook-ridges',
+        data: ridges,
+        chartType: 'ridgeline',
+        xKey: 'temp',
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+      }));
+      rerender();
+      renderHook(() => useRechartsAdapter({
+        id: 'hook-ridges-keyed',
+        data: ridges,
+        chartType: 'ridgeline',
+        xKey: 'temp',
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted' },
+      }));
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain('Ridgeline "hook-ridges"');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('forwards where a bump chart draws first place', () => {
+    const layer = layerFor({
+      id: 'k',
+      data: [{ round: 1, ash: 1, birch: 2 }, { round: 2, ash: 2, birch: 1 }],
+      chartType: 'bump',
+      xKey: 'round',
+      yKeys: ['ash', 'birch'],
+      firstPlace: 'top',
+    });
+
+    expect(layer.type).toBe(TraceType.BUMP);
+    expect(layer.firstPlace).toBe('top');
   });
 
   it('keeps forwarding the fields it already did', () => {

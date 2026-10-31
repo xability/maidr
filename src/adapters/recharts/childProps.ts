@@ -1,10 +1,10 @@
 /**
  * Reading what a Recharts chart is drawn like out of the elements it was given.
  *
- * Two things live here, and both are things Recharts states on a child element
- * and the converter -- which is handed a config, not a React tree -- cannot
- * otherwise see: which end the categories start from, and which way a step
- * curve's riser goes.
+ * Everything here is something Recharts states on a child element and the
+ * converter -- which is handed a config, not a React tree -- cannot otherwise
+ * see: which end the categories start from, which way a step curve's riser
+ * goes, where a pie starts, and which series draw their dots.
  *
  * Lives apart from {@link MaidrRecharts} because these are pure functions over
  * React elements and nothing else -- importing the component to reach them
@@ -13,7 +13,7 @@
  */
 import type { StepDirection } from '@type/grammar';
 import type { ReactNode } from 'react';
-import type { RechartsPieAngles, RechartsSubplotConfig } from './types';
+import type { RechartsChartType, RechartsPieAngles, RechartsSubplotConfig } from './types';
 import { Orientation } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
@@ -220,4 +220,158 @@ export function pieAnglesFor(children: ReactNode): RechartsPieAngles | undefined
 
   walk(children);
   return found;
+}
+
+/**
+ * The component that draws each series of a line-family chart type, and
+ * whether it draws its dots when `dot` is not set: a `<Line>` does, an
+ * `<Area>` and a `<Radar>` do not. The types are those `SERIES_DOTS` in
+ * `selectors.ts` names the dots of: a type added to one belongs in the other.
+ */
+const SERIES_COMPONENT: Partial<Record<RechartsChartType, { name: string; dotsByDefault: boolean }>> = {
+  line: { name: 'Line', dotsByDefault: true },
+  step: { name: 'Line', dotsByDefault: true },
+  bump: { name: 'Line', dotsByDefault: true },
+  survival: { name: 'Line', dotsByDefault: true },
+  pr_curve: { name: 'Line', dotsByDefault: true },
+  area: { name: 'Area', dotsByDefault: false },
+  stacked_area: { name: 'Area', dotsByDefault: false },
+  normalized_area: { name: 'Area', dotsByDefault: false },
+  radar: { name: 'Radar', dotsByDefault: false },
+};
+
+/**
+ * The series of a line-family chart that draw their dots, by `dataKey`, in
+ * the order the chart draws them.
+ *
+ * Recharts writes nothing on a series' dots that says which series they
+ * belong to, so a chart of several series names each series' dots by their
+ * place among the series that draw dots (`seriesDotSelectors`). A series
+ * drawn without dots -- `dot={false}`, an `<Area>` or `<Radar>` left at its
+ * default, or `hide` -- has no place, and leaving it out keeps every series
+ * after it at its own. A series whose `dataKey` is not a string still draws
+ * its dots, so it holds its place as `null`.
+ *
+ * Depth-first in the order the elements are written, which is the order
+ * Recharts draws the series in, and every series is collected rather than the
+ * first. Anything that is not a series element of the chart type is walked
+ * through, as the other walks do.
+ *
+ * @param children - The chart subtree this component was given
+ * @param chartType - The chart type, which decides the series component
+ * @returns The series that draw dots, or `undefined` for a type that draws none
+ */
+export function dotSeriesFor(
+  children: ReactNode,
+  chartType: RechartsChartType | undefined,
+): (string | null)[] | undefined {
+  const component = chartType === undefined ? undefined : SERIES_COMPONENT[chartType];
+  if (component === undefined)
+    return undefined;
+  const found: (string | null)[] = [];
+
+  const walk = (nodes: ReactNode): void => {
+    Children.forEach(nodes, (child) => {
+      if (!isValidElement(child))
+        return;
+      const props = child.props as { dataKey?: unknown; dot?: unknown; hide?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === component.name) {
+        const drawsDots = props.dot === undefined ? component.dotsByDefault : Boolean(props.dot);
+        if (props.hide !== true && drawsDots)
+          found.push(typeof props.dataKey === 'string' ? props.dataKey : null);
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
+}
+
+/**
+ * The key a ridgeline's `<Area>`s draw: each group's density with its ridge's
+ * offset added.
+ *
+ * Every `<Area>` of a ridgeline draws the same key, over its own group's
+ * rows, so the first one names it. Read so the ridges can be placed where
+ * they are drawn: the offset that key adds is how far up the page each ridge
+ * sits, and that is the order `RidgelineTrace` walks them in.
+ *
+ * Depth-first for the same reason the other walks are, and stops at the
+ * first `<Area>`. A tree with none, or an `<Area>` whose `dataKey` is not a
+ * string, answers `undefined`, and the groups are then read in the order they
+ * first appear in `data`.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns The key, or `undefined`
+ */
+export function areaDataKeyFor(children: ReactNode): string | undefined {
+  let found: string | undefined;
+  let done = false;
+
+  const walk = (nodes: ReactNode): void => {
+    if (done)
+      return;
+    Children.forEach(nodes, (child) => {
+      if (done || !isValidElement(child))
+        return;
+      const props = child.props as { dataKey?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'Area') {
+        done = true;
+        found = typeof props.dataKey === 'string' ? props.dataKey : undefined;
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
+}
+
+/**
+ * Where a bump chart draws first place, when its rank axis says so.
+ *
+ * A bump chart is a `<LineChart>` of ranks, and Recharts draws an ordinary
+ * `<YAxis>` with its smallest number at the bottom. Rank 1 goes at the top
+ * by `<YAxis reversed>`, which is how a bump chart is usually drawn, and how
+ * the Recharts example draws it. The layer said nothing, and with no
+ * highlight to measure the drawing by, Up moved to the next larger rank
+ * number: down the page, to the place one worse.
+ *
+ * Only `reversed` is read, on the first `<YAxis>` the chart draws, found
+ * depth-first as the other walks find their element. An axis under `hide`
+ * is passed over, as one placed ahead of the rank axis to scale another
+ * series is; when every axis is hidden, as on a bump chart that labels its
+ * lines rather than its axis, the first is read. An axis without `reversed`
+ * may still be turned another way, by its `domain` or a scale of its own,
+ * which the core can measure from the highlighted dots where it has them
+ * and this cannot, so it answers `undefined` and leaves the core to read the
+ * drawing. A chart whose rank axis is not the first it draws, or is turned
+ * some other way, says where first place is through the config's
+ * `firstPlace`.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns `'top'` when that `<YAxis>` is reversed, otherwise `undefined`
+ */
+export function firstPlaceFor(children: ReactNode): 'top' | undefined {
+  const axes: { reversed?: unknown; hide?: unknown }[] = [];
+
+  const walk = (nodes: ReactNode): void => {
+    Children.forEach(nodes, (child) => {
+      if (!isValidElement(child))
+        return;
+      const props = child.props as { reversed?: unknown; hide?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'YAxis') {
+        axes.push(props);
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  const rankAxis = axes.find(axis => axis.hide !== true) ?? axes[0];
+  return rankAxis?.reversed === true ? 'top' : undefined;
 }
