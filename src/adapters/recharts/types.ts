@@ -538,10 +538,32 @@ export interface ParallelAxesConfig {
 export interface RidgelineCurveConfig {
   /**
    * Key holding the group a sample's curve belongs to. Rows are grouped by it
-   * in first-appearance order, which is the order the ridges are announced in
-   * and the order the `<Area>`s have to be declared in for highlighting.
+   * in first-appearance order, which is the order the `<Area>`s have to be
+   * declared in for highlighting, and the order the ridges are read in when
+   * {@link plottedKey} cannot place them.
    */
   groupKey: string;
+  /**
+   * Key holding the height the `<Area>`s draw: the density with the group's
+   * ridge offset added.
+   *
+   * Read only for where each ridge is drawn, never as data: a group's offset
+   * is its drawn height less its density. With it the ridges are read bottom
+   * first, as `RidgelineTrace` takes them, so Up moves to the ridge drawn
+   * above. {@link MaidrRecharts} reads it off the `<Area dataKey>` in its
+   * children when not given; through {@link useRechartsAdapter} it is yours
+   * to state. Without it, or when a group has no sample to read an offset
+   * from, the groups are read in first-appearance order, the first as the
+   * lowest.
+   */
+  plottedKey?: string;
+  /**
+   * Whether the drawn heights are plotted on a reversed axis
+   * (`<YAxis reversed>`), where a larger offset is drawn lower on the page,
+   * so the ridges are read from the largest offset down. {@link MaidrRecharts}
+   * reads it off the first `<YAxis>` in its children when not given.
+   */
+  plottedAxisReversed?: boolean;
   /**
    * Key holding the position along the shared value axis.
    *
@@ -1226,6 +1248,25 @@ export interface RechartsAdapterConfig {
    * it is yours to state. Left out, Recharts' defaults are assumed.
    */
   pieAngles?: RechartsPieAngles;
+
+  /**
+   * The series of a line-family chart that draw their dots, by `dataKey`, in
+   * the order the chart draws them; `null` for one whose `dataKey` is not a
+   * string.
+   *
+   * Recharts writes nothing on a series' dots that says which series they
+   * belong to, so on a chart of several series -- lines, areas, radars, bump
+   * and survival charts and precision-recall curves -- each series' dots are
+   * named by their place among the series that draw dots, and the highlight
+   * marks the dot of the point being read. A series drawn without dots has no
+   * place, which is why this lists the ones that do.
+   *
+   * Read off the `<Line>`, `<Area>` or `<Radar>` elements in `children` by
+   * {@link MaidrRecharts} when not given, in simple mode; through
+   * {@link useRechartsAdapter} it is yours to state. Left out, or naming a
+   * series twice or not at all, a chart of several series is not highlighted.
+   */
+  dotSeries?: (string | null)[];
 
   /** Key in data objects for x-axis values. */
   xKey: string;
