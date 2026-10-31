@@ -194,6 +194,12 @@ interface GraphItem {
   attributes: [string, string][];
 }
 
+/** Whether an item is where data enters the graph, and where it leaves it. */
+interface GraphEnds {
+  input: boolean;
+  output: boolean;
+}
+
 /**
  * Trace implementation for directed graphs nested in scopes -- the
  * architecture of a neural network, or any other computation graph.
@@ -1044,25 +1050,54 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   }
 
   /**
+   * Whether an item is where data enters the graph, and whether it is where
+   * data leaves it.
+   *
+   * An item no edge arrives at, seen from its scope, is a graph input when a
+   * declared node inside it is one of the graph's own inputs, fed by nothing
+   * and feeding something, as the description counts them; and an item no
+   * edge leaves is a graph output when one inside it is fed and feeds
+   * nothing. A node is its only member, so it is one whenever no edge arrives
+   * or leaves. A closed scope is one only when it holds one: Mermaid's
+   * architecture group, entered from its gateway, holds a database and a
+   * storage joined by a line, declared as an edge each way, so no edge
+   * leaves it and none of its nodes is a graph output, and it was announced
+   * as one while the description named none.
+   *
+   * @param item - The item
+   * @returns Whether it is a graph input, and whether it is a graph output
+   */
+  private graphEnds(item: GraphItem): GraphEnds {
+    const holds = (end: (member: number) => boolean): boolean => item.members.some(end);
+    return {
+      input: item.inputs.length === 0 && item.outputs.length > 0
+        && holds(member => this.predecessors[member].length === 0 && this.successors[member].length > 0),
+      output: item.outputs.length === 0 && item.inputs.length > 0
+        && holds(member => this.successors[member].length === 0 && this.predecessors[member].length > 0),
+    };
+  }
+
+  /**
    * What an item is in the flow: where data enters or leaves the graph, and
    * where it branches or merges. Nothing for a link in a chain, nor for a
    * scope whose edges all stay inside it.
    *
    * @param item - The item to describe
    * @param isolated - Whether nothing inside it has an edge at all
+   * @param ends - Whether it is a graph input or a graph output
    * @returns The role, or null
    */
-  private static roleOf(item: GraphItem, isolated: boolean): string | null {
+  private static roleOf(item: GraphItem, isolated: boolean, ends: GraphEnds): string | null {
     const inputs = item.inputs.length;
     const outputs = item.outputs.length;
     if (inputs === 0 && outputs === 0) {
       return isolated ? t('model.dagRoleIsolated') : null;
     }
     const roles: string[] = [];
-    if (inputs === 0) {
+    if (ends.input) {
       roles.push(t('model.dagRoleSource'));
     }
-    if (outputs === 0) {
+    if (ends.output) {
       roles.push(t('model.dagRoleSink'));
     }
     if (inputs > 1 && outputs > 1) {
@@ -1180,7 +1215,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       value: DirectedGraphTrace.degreePhrase(item.inputs.length, item.outputs.length),
     });
 
-    const role = DirectedGraphTrace.roleOf(item, this.isolated(item));
+    const role = DirectedGraphTrace.roleOf(item, this.isolated(item), this.graphEnds(item));
     if (role !== null) {
       asides.push({ label: t('model.asideRole'), value: role });
     }
@@ -1401,7 +1436,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
         row: item.depth,
         col: item.index,
         measures,
-        groups: DirectedGraphTrace.objectGroups(item, this.isolated(item), upstream, downstream, filtered),
+        groups: DirectedGraphTrace.objectGroups(item, this.isolated(item), this.graphEnds(item), upstream, downstream, filtered),
       };
     });
 
@@ -1551,7 +1586,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
       }));
     }
     parts.push(DirectedGraphTrace.degreePhrase(item.inputs.length, item.outputs.length));
-    const role = DirectedGraphTrace.roleOf(item, this.isolated(item));
+    const role = DirectedGraphTrace.roleOf(item, this.isolated(item), this.graphEnds(item));
     if (role !== null) {
       parts.push(role);
     }
@@ -1567,6 +1602,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
    *
    * @param item - The item
    * @param isolated - Whether nothing inside it has an edge at all
+   * @param ends - Whether it is a graph input or a graph output
    * @param upstream - What feeds the item under the cursor, however far back
    * @param downstream - What it feeds, however far on
    * @param filtered - The attributes the list filters by
@@ -1575,6 +1611,7 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
   private static objectGroups(
     item: GraphItem,
     isolated: boolean,
+    ends: GraphEnds,
     upstream: ReadonlySet<GraphItem>,
     downstream: ReadonlySet<GraphItem>,
     filtered: ReadonlySet<string>,
@@ -1588,10 +1625,10 @@ export class DirectedGraphTrace extends AbstractTrace implements PointCloudHighl
     }
     const inputs = item.inputs.length;
     const outputs = item.outputs.length;
-    if (inputs === 0 && outputs > 0) {
+    if (ends.input) {
       groups.push(GRAPH_INPUTS);
     }
-    if (outputs === 0 && inputs > 0) {
+    if (ends.output) {
       groups.push(GRAPH_OUTPUTS);
     }
     if (outputs > 1) {
