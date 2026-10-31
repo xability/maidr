@@ -253,22 +253,27 @@ function seriesLabel(series: MuiSeriesConfig, index: number): string {
  * a label the chart never shows is left unnamed, and a layer switch says its
  * plot type.
  *
+ * A label that is empty or only whitespace counts as none. MUI X draws it as
+ * a legend swatch with no name beside it, so it names the series no more than
+ * a missing label does, and kept as a name it was read out blank. A padded
+ * label is read without its padding, as the legend shows it.
+ *
  * @param series - The series
- * @returns The label's text
+ * @returns The label's text, trimmed
  */
-function drawnLabel(series: MuiSeriesConfig): string | undefined {
+function drawnLabel(series: Pick<MuiSeriesConfig, 'label'>): string | undefined {
   const { label } = series;
+  let text: unknown = label;
   if (typeof label === 'function') {
     try {
-      const text = label('legend');
-      if (typeof text === 'string' && text !== '')
-        return text;
+      text = label('legend');
     } catch {
       // A label callback that throws outside MUI's own render names nothing.
+      return undefined;
     }
-    return undefined;
   }
-  return typeof label === 'string' && label !== '' ? label : undefined;
+  const trimmed = typeof text === 'string' ? text.trim() : '';
+  return trimmed === '' ? undefined : trimmed;
 }
 
 /**
@@ -1306,7 +1311,7 @@ function convertSankey(props: MuiChartProps, scope: string, chartId: string): Mu
     layers: [{
       id: '0',
       type: TraceType.SANKEY,
-      ...(series?.label ? { name: series.label } : {}),
+      ...nameOf(series ? drawnLabel(series) : undefined),
       axes: {},
       // One selector per flow, each naming exactly one ribbon; with a
       // repeated pair a selector names two and the trace would decline the
