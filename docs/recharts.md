@@ -342,6 +342,8 @@ const data = [
 
 > **Tip:** Always include `dot` on the `<Line>` component. MAIDR uses the rendered dot elements for visual highlighting during keyboard navigation.
 
+On a chart of several series — lines, areas, radars, bump and survival charts — Recharts draws every series' dots in one layer, with nothing on them that says which series they belong to, so MAIDR names each series' dots by their place among the series drawn with dots, read off the `dataKey` and `dot` of each `<Line>`, `<Area>` or `<Radar>` in `children`. The highlight then marks the dot of the point being read. Every series in `yKeys` needs its dots and a `dataKey` written as a string; a chart where one is drawn without dots is left without a highlight rather than outlining another series' dots. This needs Recharts 3.4 or later, which draws the dots in that one layer; through `useRechartsAdapter`, pass the dot-drawing series' `dataKey`s, in the order they are drawn, as `dotSeries`. Give `dotSeries` to `<MaidrRecharts>` too when a series is drawn by a component of your own that wraps `<Line>`, `<Area>` or `<Radar>`: it is not found among the children, and the dots of every series after it would be counted one place early.
+
 #### Step Chart
 
 A `<Line>` or `<Area>` drawn with `type="stepAfter"`, `"stepBefore"` or
@@ -749,6 +751,8 @@ const data = [
 
 > **Warning:** MAIDR inverts the pitch for a bump chart so rank 1 is the highest note, and announces the places gained or lost since the previous period. Declaring a chart of *values* as `'bump'` therefore sonifies it upside down — every rise heard as a fall. The adapter cannot tell the two apart, so this one is on you.
 
+Up and Down move to the place drawn above and below. `<MaidrRecharts>` reads the first `<YAxis>` the chart draws, passing over one under `hide` unless every one is: under `<YAxis reversed>` it says first place is at the top (`firstPlace: 'top'`). Under any other axis it says nothing, and MAIDR reads where first place is from the highlighted dots, or, with none to read, moves Up to the next larger rank number, which is where an ordinary axis draws it. Give `firstPlace: 'top'` or `'bottom'` yourself when the rank axis is turned another way, by its `domain` or a scale of its own, or is not the first `<YAxis>` the chart draws. A grid reads no panel's axis: give `firstPlace` on the grid and it reaches every panel. Through `useRechartsAdapter` it is always yours to give.
+
 #### Survival Curve [experimental]
 
 A Kaplan-Meier curve is a `<Line type="stepAfter">`. One `yKeys` entry per arm, and the per-arm keys in `survivalConfig` line up with it the way `fillKeys` does:
@@ -809,7 +813,7 @@ A precision-recall curve is a `<Line>` of precision against recall: `xKey` is th
 </MaidrRecharts>
 ```
 
-`prevalence` — the share of positives, which sets the chance baseline — and `ap`, the average precision as the producer computed it, are fractions from 0 to 1; a percentage is refused with a warning rather than rescaled, and a curve given none says none. A row missing either rate is skipped. A lone curve highlights through its line dots; several degrade the way every multi-series line does.
+`prevalence` — the share of positives, which sets the chance baseline — and `ap`, the average precision as the producer computed it, are fractions from 0 to 1; a percentage is refused with a warning rather than rescaled, and a curve given none says none. A row missing either rate is skipped. Each curve highlights through its own line dots, as the lines of a multi-series line chart do.
 
 #### Percentile Band [experimental]
 
@@ -1374,7 +1378,7 @@ const samples = [
 </MaidrRecharts>
 ```
 
-Groups are announced in the order they first appear in `data`. Highlighting places a marker on top of the group's ridge, where the sample being read is drawn — a chart draws a filled band per group, not an element per sample, so the marker is placed on that band — and the `<Area>`s have to be declared in that same order; otherwise pass `selectorOverride`.
+The ridges are read bottom first, the way they are drawn: Up moves to the ridge above and Down to the one below. `<MaidrRecharts>` places each ridge by the key its `<Area>`s draw (`plotted` above), a group's offset being its drawn height less its density, and under `<YAxis reversed>` reads the larger offset as the lower ridge; through `useRechartsAdapter`, name that key as `ridgelineConfig.plottedKey`, and a reversed axis as `plottedAxisReversed: true`. Without it the groups are read in the order they first appear in `data`, the first as the lowest. Highlighting places a marker on top of the group's ridge, where the sample being read is drawn — a chart draws a filled band per group, not an element per sample, so the marker is placed on that band — and the `<Area>`s have to be declared in the order the groups first appear in `data`; otherwise pass `selectorOverride`, which names the bands in that order and keeps the groups in it.
 
 Arrowing up and down moves between groups **holding the value**, which is the comparison a ridgeline exists for and the one a listener cannot make by holding a dozen numbers in their head.
 
