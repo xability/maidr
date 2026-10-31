@@ -68,5 +68,5 @@ So a change to what any layer type reads from a producer:
 - Never commit to `main` directly; work on a branch.
 - Run `npm run lint:fix`, `npm run type-check`, and the relevant tests before
   committing.
-- Do not hand-edit `CHANGELOG.md` or the `version` field in `package.json` —
-  semantic-release owns both.
+- Do not hand-edit `CHANGELOG.md` or the `version` field in `package.json` and `package-lock.json` —
+  semantic-release owns them.
