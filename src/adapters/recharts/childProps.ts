@@ -458,3 +458,39 @@ export function firstPlaceFor(children: ReactNode): 'top' | undefined {
   const rankAxis = axes.find(axis => axis.hide !== true) ?? axes[0];
   return rankAxis?.reversed === true ? 'top' : undefined;
 }
+
+/**
+ * Where a sankey draws a node nothing flows out of, when its `<Sankey>` says.
+ *
+ * `<Sankey align>` is `'justify'` by default, which draws every such node in
+ * the last column, or `'left'`, which draws it one column past the furthest
+ * node feeding it. Read off the first `<Sankey>`, found depth-first as the
+ * other walks find their element; anything else answers `undefined`, and the
+ * converter takes Recharts' default.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns The alignment the `<Sankey>` declares, or `undefined`
+ */
+export function sankeyAlignFor(children: ReactNode): 'justify' | 'left' | undefined {
+  let found: 'justify' | 'left' | undefined;
+  let done = false;
+
+  const walk = (nodes: ReactNode): void => {
+    if (done)
+      return;
+    Children.forEach(nodes, (child) => {
+      if (done || !isValidElement(child))
+        return;
+      const props = child.props as { align?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'Sankey') {
+        done = true;
+        found = props.align === 'left' || props.align === 'justify' ? props.align : undefined;
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
+}

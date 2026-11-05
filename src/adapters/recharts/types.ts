@@ -214,6 +214,16 @@ export interface FlowLinkConfig {
   nodes?: Record<string, unknown>[];
   /** Key in node objects for the node's name. Mirrors `<Sankey nameKey>`, and defaults to `'name'`. */
   nodeNameKey?: string;
+  /**
+   * Where `<Sankey>` draws a node nothing flows out of: `'justify'`, Recharts'
+   * default, draws every such node in the last column, and `'left'` one
+   * column past the furthest node feeding it. Mirrors `<Sankey align>`, which
+   * {@link MaidrRecharts} reads when this is not given; through
+   * {@link useRechartsAdapter}, give it when the chart sets `align="left"`.
+   * With `nodes`, the columns are declared from it, so MAIDR reads each node
+   * in the column it is drawn in.
+   */
+  align?: 'justify' | 'left';
 }
 
 /**

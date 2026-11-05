@@ -2606,9 +2606,112 @@ function layerOptions(
       const direction = layerStepDirection ?? config.stepDirection;
       return direction === undefined ? {} : { stepDirection: direction };
     }
+    // Both are a `<Sankey>`, which places its nodes in columns by its own
+    // rule, one MAIDR cannot derive from the flows alone.
+    case 'alluvial':
+    case 'sankey': {
+      const columns = sankeyColumns(config);
+      return columns === undefined ? {} : { flowOptions: { columns } };
+    }
     default:
       return {};
   }
+}
+
+/**
+ * Whether a link's end names a node by its place in the node list.
+ *
+ * @param value - The link's source or target
+ * @param count - How many nodes the list holds
+ * @returns True for an index into the list
+ */
+function isNodeIndex(value: unknown, count: number): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < count;
+}
+
+/**
+ * The columns `<Sankey>` draws a flow's nodes in, left to right.
+ *
+ * Recharts places a node one column past the furthest node feeding it, as
+ * MAIDR does when a layer declares no columns, but under its default
+ * `align="justify"` it draws every node nothing flows out of in the last
+ * column (`getNodesTree` in Recharts' `Sankey`). Left to derive them, MAIDR
+ * read such a node beside the nodes one step from its source, so Left,
+ * Right, Up and Down and the stage filters ran against the drawing. The
+ * columns are worked out as Recharts works them out, from the links and the
+ * node list it is given, and declared (`flowOptions.columns`).
+ *
+ * Each column lists its nodes in the order of `nodes`, the order `<Sankey
+ * sort={false}>` draws them in, top to bottom. Under its default `sort` the
+ * layout reorders a column to shorten the ribbons, which nothing knows
+ * before it is drawn.
+ *
+ * Read only with the node list Recharts draws from (`flowConfig.nodes`) and
+ * links naming its nodes by their place in it, as `<Sankey>` reads them.
+ * Without them, or for a graph that cycles, which `<Sankey>` cannot lay out,
+ * no columns are declared and MAIDR derives them. A node no link names is
+ * left out, since MAIDR knows a flow's nodes only from its links.
+ *
+ * @param config - The adapter config, with the links as `data`
+ * @returns Node names per column, or `undefined`
+ */
+function sankeyColumns(config: RechartsAdapterConfig): (string | number)[][] | undefined {
+  const { data, xKey, flowConfig } = config;
+  const nodes = flowConfig?.nodes;
+  if (!data || !flowConfig || !nodes || nodes.length === 0) {
+    return undefined;
+  }
+
+  const targets: number[][] = nodes.map(() => []);
+  const feeding = nodes.map(() => 0);
+  const linked = new Set<number>();
+  for (const link of data) {
+    const source = link[xKey];
+    const target = link[flowConfig.targetKey];
+    if (!isNodeIndex(source, nodes.length) || !isNodeIndex(target, nodes.length)) {
+      return undefined;
+    }
+    targets[source].push(target);
+    feeding[target]++;
+    linked.add(source).add(target);
+  }
+
+  // A node's depth is its longest distance from a node nothing feeds, taken
+  // in topological order; a node left unreached sits on a cycle.
+  const depth = nodes.map(() => 0);
+  const ready = nodes.map((_, index) => index).filter(index => feeding[index] === 0);
+  for (let head = 0; head < ready.length; head++) {
+    const at = ready[head];
+    for (const target of targets[at]) {
+      depth[target] = Math.max(depth[target], depth[at] + 1);
+      feeding[target]--;
+      if (feeding[target] === 0) {
+        ready.push(target);
+      }
+    }
+  }
+  if (ready.length < nodes.length) {
+    return undefined;
+  }
+
+  const deepest = Math.max(...depth);
+  if (deepest >= 1 && (flowConfig.align ?? 'justify') === 'justify') {
+    targets.forEach((out, index) => {
+      if (out.length === 0) {
+        depth[index] = deepest;
+      }
+    });
+  }
+
+  const columns: (string | number)[][] = Array.from({ length: deepest + 1 }, () => []);
+  nodes.forEach((_, index) => {
+    if (linked.has(index)) {
+      columns[depth[index]].push(resolveFlowNode(index, nodes, flowConfig.nodeNameKey));
+    }
+  });
+  // A column left empty, every node of it drawn further right, is a gap in
+  // the drawing rather than a column to read.
+  return columns.filter(column => column.length > 0);
 }
 
 /**
