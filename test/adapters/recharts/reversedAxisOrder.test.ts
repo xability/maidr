@@ -230,6 +230,19 @@ describe('reading the axis out of the children', () => {
     expect(readAxis(tree, false)).toBe(false);
     expect(readAxis(tree, true)).toBe(true);
   });
+
+  it('answers for the first axis the categories are on, not a reversed one after it', () => {
+    // A second `<YAxis>`, reversed for another series, says nothing of the
+    // first, which the categories -- or a ridgeline's ridges -- are drawn on.
+    const tree = createElement(
+      BarChart,
+      null,
+      createElement(YAxis, { yAxisId: 'left' }),
+      createElement(YAxis, { yAxisId: 'right', orientation: 'right', reversed: true }),
+    );
+
+    expect(readAxis(tree, true)).toBe(false);
+  });
 });
 
 describe('the highlight follows the categories', () => {

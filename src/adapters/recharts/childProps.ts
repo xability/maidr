@@ -81,17 +81,21 @@ function displayNameOf(type: unknown): string | undefined {
  */
 export function categoryAxisReversedFor(children: ReactNode, horizontal: boolean): boolean {
   const wanted = horizontal ? 'YAxis' : 'XAxis';
-  let found = false;
+  let reversed = false;
+  let done = false;
 
   const walk = (nodes: ReactNode): void => {
-    if (found)
+    if (done)
       return;
     Children.forEach(nodes, (child) => {
-      if (found || !isValidElement(child))
+      if (done || !isValidElement(child))
         return;
       const props = child.props as { reversed?: unknown; children?: ReactNode };
       if (displayNameOf(child.type) === wanted) {
-        found = props.reversed === true;
+        // The first matching axis answers, reversed or not: one walked past
+        // read a reversed second axis -- another series' -- as this one.
+        done = true;
+        reversed = props.reversed === true;
         return;
       }
       walk(props.children);
@@ -99,7 +103,7 @@ export function categoryAxisReversedFor(children: ReactNode, horizontal: boolean
   };
 
   walk(children);
-  return found;
+  return reversed;
 }
 
 /**

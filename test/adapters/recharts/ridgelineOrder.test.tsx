@@ -132,4 +132,39 @@ describe('a Recharts ridgeline drawn on a reversed axis', () => {
 
     expect((layer?.data as ViolinKdePoint[][]).map(curve => curve[0].x)).toEqual(['Jan', 'Feb']);
   });
+
+  it('reads the ridges bottom first on an ordinary axis drawn before a reversed one', () => {
+    // The ridges are drawn on the first `<YAxis>`; the reversed one after it
+    // belongs to something else. Feb, offset 0, is the bottom ridge.
+    const rows = [
+      { month: 'Jan', temp: 0, density: 0.1, plotted: 1.1 },
+      { month: 'Jan', temp: 5, density: 0.2, plotted: 1.2 },
+      { month: 'Feb', temp: 0, density: 0.3, plotted: 0.3 },
+      { month: 'Feb', temp: 5, density: 0.1, plotted: 0.1 },
+    ];
+    render(createElement(MaidrRecharts, {
+      id: 'two-axis-ridges',
+      data: rows,
+      chartType: 'ridgeline',
+      xKey: 'temp',
+      ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+      children: createElement(
+        AreaChart,
+        { width: 400, height: 300 },
+        createElement(XAxis, { dataKey: 'temp', type: 'number' }),
+        createElement(YAxis, { type: 'number' }),
+        createElement(YAxis, { yAxisId: 'other', type: 'number', orientation: 'right', reversed: true }),
+        ...['Jan', 'Feb'].map(month => createElement(Area, {
+          key: month,
+          data: rows.filter(row => row.month === month),
+          dataKey: 'plotted',
+          name: month,
+          isAnimationActive: false,
+        })),
+      ),
+    }));
+    const layer = seen.at(-1)?.subplots[0][0].layers[0];
+
+    expect((layer?.data as ViolinKdePoint[][]).map(curve => curve[0].x)).toEqual(['Feb', 'Jan']);
+  });
 });
