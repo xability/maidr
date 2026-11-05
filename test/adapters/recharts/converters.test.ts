@@ -2073,6 +2073,28 @@ describe('convertRechartsToMaidr', () => {
       ]);
     });
 
+    it('names each ridge\'s band by its group\'s place among every group drawn, a group with no sample included', () => {
+      // Jan's rows carry no density, so Jan has no curve to read, but its
+      // <Area> is drawn, first: Feb's band is the second and Mar's the third.
+      const layer = convertRechartsToMaidr({
+        ...ridgelineConfig,
+        data: [
+          { month: 'Jan', temp: -4, plotted: 3.06 },
+          { month: 'Jan', temp: 0, plotted: 3.11 },
+          ...samples.filter(sample => sample.month === 'Feb'),
+          { month: 'Mar', temp: 1, density: 0.1, plotted: 0.1 },
+          { month: 'Mar', temp: 5, density: 0.2, plotted: 0.2 },
+        ],
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted' },
+      }).subplots[0][0].layers[0];
+
+      expect((layer.data as ViolinKdePoint[][]).map(curve => curve[0].x)).toEqual(['Mar', 'Feb']);
+      expect(layer.selectors).toEqual([
+        '#maidr-article-temps g.recharts-area ~ g.recharts-area ~ g.recharts-area:not(g.recharts-area ~ g.recharts-area ~ g.recharts-area ~ g.recharts-area) .recharts-area-area',
+        '#maidr-article-temps g.recharts-area ~ g.recharts-area:not(g.recharts-area ~ g.recharts-area ~ g.recharts-area) .recharts-area-area',
+      ]);
+    });
+
     it('keeps first-appearance order when a group has no drawn height to place it by', () => {
       const layer = convertRechartsToMaidr({
         ...ridgelineConfig,

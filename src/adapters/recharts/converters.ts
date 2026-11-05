@@ -1039,9 +1039,16 @@ function buildRidgelineLayer(
   // How far up the page each group's ridge is drawn, read off the first of
   // its samples to carry a drawn height.
   const offsets = new Map<string, number>();
+  // Each group's place in the order the groups first appear, whether or not
+  // any of its rows is a sample: that is the order the `<Area>`s are declared
+  // in, one for each group the chart draws, so it is where its band is.
+  const bands = new Map<string, number>();
 
   for (const item of data) {
     const group = toText(item[groupKey]);
+    if (group !== undefined && !bands.has(group)) {
+      bands.set(group, bands.size);
+    }
     const value = toOptionalNumber(resolveFieldRef(item, valueKey, 'value'));
     const density = toOptionalNumber(resolveFieldRef(item, densityKey, 'density'));
     // A sample needs both a place on the value axis and a height there. One
@@ -1089,7 +1096,7 @@ function buildRidgelineLayer(
     // resolves the selectors to a flat list, requires exactly one entry per
     // ridge, and then lights that ridge's whole curve from any of its samples.
     selectors: selectorOverride ?? (placed
-      ? ridgeSelectors(listed.map(group => declared.indexOf(group)), chartId, panelScope)
+      ? ridgeSelectors(listed.map(group => bands.get(group) ?? 0), chartId, panelScope)
       : getRechartsSelector(chartType, undefined, chartId, panelScope)),
     axes: {
       x: { label: xLabel },
