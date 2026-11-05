@@ -1268,6 +1268,61 @@ describe('fromAmCharts (network)', () => {
     ]);
   });
 
+  it('reads only the nodes and lines topDepth: 2 leaves drawn', () => {
+    // What amCharts 5.21.4 draws for this graph at `topDepth: 2` with the
+    // root selected: no line from a parent above depth 2 to its children,
+    // so of the tree's lines only A1-A1a; the root, A and B hidden; and of the
+    // cross-links only A2-B1, since A-B and B1-A each reach a hidden node.
+    const series = fakeForceDirectedSeries('People', {
+      category: 'Root',
+      children: [
+        {
+          category: 'A',
+          row: { name: 'A', linkWith: ['B'] },
+          children: [
+            { category: 'A1', row: { name: 'A1' }, children: [{ category: 'A1a', row: { name: 'A1a' } }] },
+            { category: 'A2', row: { name: 'A2', linkWith: ['B1'] } },
+          ],
+        },
+        {
+          category: 'B',
+          row: { name: 'B' },
+          children: [{ category: 'B1', row: { name: 'B1', linkWith: ['A'] } }],
+        },
+      ],
+    }, { linkWithField: 'linkWith', idField: 'name', topDepth: 2 });
+
+    const data = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data as NetworkPoint[];
+
+    expect(data).toEqual([
+      { source: 'A1', target: 'A1a' },
+      { source: 'A2', target: 'B1' },
+    ]);
+  });
+
+  it('reads no node for a root with no category, and no line to it', () => {
+    // amCharts draws such a root at the default `topDepth` of 0, as a node
+    // with no label and a line to each child. There is nothing to announce it
+    // by, so neither it nor its lines are read; the rest is read as drawn.
+    const series = fakeForceDirectedSeries('People', {
+      children: [
+        {
+          category: 'Ada',
+          row: { name: 'Ada', linkWith: ['Grace'] },
+          children: [{ category: 'Alan', row: { name: 'Alan' } }],
+        },
+        { category: 'Grace', row: { name: 'Grace' } },
+      ],
+    }, { linkWithField: 'linkWith', idField: 'name' });
+
+    const data = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data as NetworkPoint[];
+
+    expect(data).toEqual([
+      { source: 'Ada', target: 'Alan' },
+      { source: 'Ada', target: 'Grace' },
+    ]);
+  });
+
   it('adds the cross-links a row names, and skips one naming no node', () => {
     // `linkWith` is the only place a force-directed graph's non-tree edges
     // live. An entry the walk never saw names nothing amCharts drew either, so
