@@ -492,9 +492,9 @@ describe('plotly extractor', () => {
       expect(layer.type).toBe(TraceType.STEP);
       expect(layer.stepDirection).toBe(direction);
       expect(layer.data).toEqual([[
-        { x: 1, y: 10, z: 'Series 1' },
-        { x: 2, y: 10, z: 'Series 1' },
-        { x: 3, y: 20, z: 'Series 1' },
+        { x: 1, y: 10 },
+        { x: 2, y: 10 },
+        { x: 3, y: 20 },
       ]]);
     });
 
@@ -2461,8 +2461,8 @@ describe('plotly extractor', () => {
       expect(layers).toHaveLength(1);
       expect(layers[0].type).toBe(TraceType.AREA);
       expect(layers[0].data).toEqual([[
-        { x: 'Q1', y: 120, z: 'East' },
-        { x: 'Q2', y: 80, z: 'East' },
+        { x: 'Q1', y: 120 },
+        { x: 'Q2', y: 80 },
       ]]);
     });
 
@@ -2611,8 +2611,8 @@ describe('plotly extractor', () => {
       }));
 
       expect(layers[0].data).toEqual([[
-        { x: 'Q1', y: 120, z: 'East' },
-        { x: 'Q2', y: 80, z: 'East' },
+        { x: 'Q1', y: 120 },
+        { x: 'Q2', y: 80 },
       ]]);
     });
 
