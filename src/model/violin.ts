@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, ViolinKdePoint } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
@@ -10,6 +11,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -53,7 +55,12 @@ const MIN_DENSITY_RANGE = 0.001;
  * Extends AbstractTrace directly (no SmoothTrace/LineTrace dependency).
  */
 export class ViolinKdeTrace extends AbstractTrace {
-  protected readonly supportsExtrema = false;
+  /**
+   * `]` goes to where the violin the reader is on is widest and `[` to where
+   * it is narrowest, and the Go To dialog lists both: see
+   * {@link ViolinKdeTrace.getExtremaTargets}.
+   */
+  protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
 
   private readonly orientation: Orientation;
@@ -223,12 +230,7 @@ export class ViolinKdeTrace extends AbstractTrace {
    * @returns The description state containing chart metadata and data table
    */
   public get description(): DescriptionState {
-    const violinNames = this.points.map((row, i) => {
-      const firstPoint = row[0];
-      return typeof firstPoint?.x === 'string'
-        ? firstPoint.x
-        : t('model.fallbackNumbered', { noun: t('model.nounViolin'), index: i + 1 });
-    });
+    const violinNames = this.points.map((_, violin) => this.violinName(violin));
 
     // Across every curve, not the first one's length: every other read in the
     // class asks per row, and a chart whose curves are sampled at different
@@ -321,6 +323,76 @@ export class ViolinKdeTrace extends AbstractTrace {
       stats,
       dataTable: { headers, columnAxes, rows },
     };
+  }
+
+  /**
+   * What a violin is called: its category, or its place among the violins.
+   *
+   * @param violin - Which violin
+   * @returns Its name
+   */
+  private violinName(violin: number): string {
+    const firstPoint = this.points[violin]?.[0];
+    return typeof firstPoint?.x === 'string'
+      ? firstPoint.x
+      : t('model.fallbackNumbered', { noun: t('model.nounViolin'), index: violin + 1 });
+  }
+
+  /**
+   * Where the violin the reader is on is widest and where it is narrowest,
+   * for `]`, `[` and the Go To dialog.
+   *
+   * Per violin, as a ridgeline's are per ridge: each violin is one group's
+   * curve, walked along, and `]` answers where that group's values bunch
+   * most, the peak the description names for each violin. `[` goes to where
+   * the same curve is narrowest, usually a tail. Each target is a level, a
+   * value the curve is read at, however many edges it is drawn on. Every
+   * level holding an extreme is offered, so a tie is walked; a level drawn
+   * with neither a density nor a width is never one.
+   *
+   * @returns The targets on the current violin, or none for a violin with no
+   *   measured width
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const violin = this.row;
+    const levels = (this.points[violin] ?? [])
+      .map((point, col) => ({ y: Number(point.y), size: point.density ?? point.width, col }))
+      .filter((level): level is { y: number; size: number; col: number } => Number.isFinite(level.size));
+    if (levels.length === 0) {
+      return [];
+    }
+
+    const sizes = levels.map(({ size }) => size);
+    const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => levels
+      .filter(({ size }) => size === extreme)
+      .map(({ y, size, col }) => ({
+        ...extremumAt(
+          t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+          defaultFormat(y),
+        ),
+        value: size,
+        pointIndex: col,
+        segment: this.violinName(violin),
+        type,
+        groupIndex: violin,
+        categoryIndex: col,
+        navigationType: 'group',
+      }));
+    return [
+      ...at(MathUtil.safeMax(sizes), 'max'),
+      ...at(MathUtil.safeMin(sizes), 'min'),
+    ];
+  }
+
+  /**
+   * Moves to the level a target names, as any jump does.
+   *
+   * @param target - A target from {@link ViolinKdeTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 
   /**

@@ -130,8 +130,10 @@ to go to. On a boxen plot, ] and [ go to the two ends of the description's
 quantile range, the highest and the lowest rung any distribution reaches. On a
 ridgeline, ] goes to the peak of the ridge you are on and [ to where it is
 thinnest, as on a line chart they go to the highest and lowest point of the
-line you are on. Where several places hold the value, a further press goes to
-the next of them.
+line you are on. On a violin plot's density layer, likewise, ] goes to where
+the violin you are on is widest, the peak the description names, and [ to
+where it is narrowest. Where several places hold the value, a further press
+goes to the next of them.
 
 **Layers.** A chart drawn in more than one layer — a bar chart with a line over
 it, or a violin plot's box and density curve — moves between its
