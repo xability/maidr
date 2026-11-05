@@ -47,13 +47,34 @@ const DATA: MaidrData = {
 const REGION = '[id^="maidr-announcement-"]';
 
 /**
+ * A chart that opens on a layer with no data, as py-maidr's legacy
+ * candlestick example does: its candlestick layer comes first and empty,
+ * beside a volume line.
+ */
+const EMPTY_FIRST_LAYER: MaidrData = {
+  id: 'announcement-empty-first',
+  subplots: [[{
+    layers: [
+      { id: 'candles', type: TraceType.CANDLESTICK, data: [] },
+      {
+        id: 'volume',
+        type: TraceType.LINE,
+        axes: { x: { label: 'Day' }, y: { label: 'Volume' } },
+        data: [[{ x: 1, y: 10 }, { x: 2, y: 30 }]],
+      },
+    ],
+  }]],
+};
+
+/**
  * Renders the chart beside another control on the page, without activating it.
+ * @param data - The chart, the bar chart unless another is given.
  * @returns The figure.
  */
-function renderChart(): HTMLElement {
+function renderChart(data: MaidrData = DATA): HTMLElement {
   render(
     <>
-      <Maidr data={DATA}>
+      <Maidr data={data}>
         <svg />
       </Maidr>
       <button type="button">Elsewhere</button>
@@ -332,5 +353,23 @@ describe('the announcement region', () => {
     });
 
     expect(region().getAttribute('aria-live')).toBe('polite');
+  });
+});
+
+describe('a chart that opens on a layer with no data', () => {
+  it('should announce nothing as it takes focus, and the edge the first key meets', () => {
+    renderChart(EMPTY_FIRST_LAYER);
+    const announcements = watch(region());
+
+    focusIn();
+    // Nothing on the way in sends an edge, so the gate stays shut and the
+    // instruction is shown without being read out a second time.
+    expect(announcements()).toEqual([]);
+
+    press('ArrowRight', 'ArrowRight', 39);
+
+    expect(announcements().map(element => element.textContent)).toEqual([
+      'No more data to display',
+    ]);
   });
 });
