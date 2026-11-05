@@ -1,4 +1,4 @@
-import { getRechartsSelector } from '@adapters/recharts/selectors';
+import { getRechartsSelector, seriesDotSelectors } from '@adapters/recharts/selectors';
 
 describe('getRechartsSelector', () => {
   describe('single series (no seriesIndex)', () => {
@@ -136,5 +136,49 @@ describe('getRechartsSelector', () => {
       expect(getRechartsSelector('bar', 2)).toBeUndefined();
       expect(getRechartsSelector('line', 5)).toBeUndefined();
     });
+  });
+});
+
+describe('seriesDotSelectors', () => {
+  const LAYER = 'g[class*="recharts-zIndex-layer_"] > ';
+  const DOTS = 'g.recharts-line-dots';
+
+  it('names each series\' dots by their place among the series drawn with dots', () => {
+    expect(seriesDotSelectors('bump', ['a', 'b', 'c'], ['a', 'b', 'c'])).toEqual([
+      `${LAYER}${DOTS}:not(${DOTS} ~ ${DOTS}) .recharts-line-dot`,
+      `${LAYER}${DOTS} ~ ${DOTS}:not(${DOTS} ~ ${DOTS} ~ ${DOTS}) .recharts-line-dot`,
+      `${LAYER}${DOTS} ~ ${DOTS} ~ ${DOTS}:not(${DOTS} ~ ${DOTS} ~ ${DOTS} ~ ${DOTS}) .recharts-line-dot`,
+    ]);
+  });
+
+  it('follows each series to the place its dots are drawn at', () => {
+    const [first] = seriesDotSelectors('line', ['b'], ['a', 'b']) ?? [];
+
+    expect(first).toBe(`${LAYER}${DOTS} ~ ${DOTS}:not(${DOTS} ~ ${DOTS} ~ ${DOTS}) .recharts-line-dot`);
+  });
+
+  it('uses each family\'s own dot classes', () => {
+    expect(seriesDotSelectors('stacked_area', ['a'], ['a'])).toEqual([
+      `${LAYER}g.recharts-area-dots:not(g.recharts-area-dots ~ g.recharts-area-dots) .recharts-area-dot`,
+    ]);
+    expect(seriesDotSelectors('radar', ['a'], ['a'])).toEqual([
+      `${LAYER}g.recharts-radar-dots:not(g.recharts-radar-dots ~ g.recharts-radar-dots) .recharts-radar-dot`,
+    ]);
+  });
+
+  it('scopes each selector to the chart and its panel', () => {
+    const [first] = seriesDotSelectors('line', ['a'], ['a'], 'chart', '.maidr-panel-0-1') ?? [];
+
+    expect(first?.startsWith(`#maidr-article-chart .maidr-panel-0-1 ${LAYER}`)).toBe(true);
+  });
+
+  it('names nothing when a series draws no dots, or two series would share them', () => {
+    expect(seriesDotSelectors('line', ['a', 'b'], ['a'])).toBeUndefined();
+    expect(seriesDotSelectors('line', ['a', 'a'], ['a', 'b'])).toBeUndefined();
+    expect(seriesDotSelectors('line', ['a'], undefined)).toBeUndefined();
+  });
+
+  it('names nothing for a chart type that draws no dots', () => {
+    expect(seriesDotSelectors('polar_area', ['a'], ['a'])).toBeUndefined();
   });
 });

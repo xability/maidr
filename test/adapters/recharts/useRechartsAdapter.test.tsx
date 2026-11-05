@@ -16,6 +16,13 @@ import { describe, expect, it } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { Orientation, TraceType } from '@type/grammar';
 
+/** Defined once, as the hook asks of the arrays it compares by reference. */
+const LINE_KEYS = ['v', 'w'];
+const LINE_ROWS = [
+  { t: 1, v: 10, w: 5 },
+  { t: 2, v: 20, w: 15 },
+];
+
 const SAMPLES = [
   { t: 1, v: 10 },
   { t: 2, v: 20 },
@@ -71,6 +78,24 @@ describe('useRechartsAdapter', () => {
     const layer = result.current.subplots[0][0].layers[0];
 
     expect(layer.data).toEqual([{ x: 'Q2', y: 20 }, { x: 'Q1', y: 10 }]);
+  });
+
+  it('hands back the same data on the next render when the dot-drawing series are written inline', () => {
+    // A new MAIDR object is a data change to `<Maidr>`, which forgets the
+    // point a reader who stepped away would come back to.
+    const { result, rerender } = renderHook(() => useRechartsAdapter({
+      id: 'inline-dots',
+      data: LINE_ROWS,
+      chartType: 'line',
+      xKey: 't',
+      yKeys: LINE_KEYS,
+      dotSeries: ['v', 'w'],
+    }));
+    const first = result.current;
+
+    rerender();
+
+    expect(result.current).toBe(first);
   });
 
   it('keeps forwarding the fields it already did', () => {
