@@ -118,6 +118,17 @@ describe('a violin sent as densities', () => {
     expect(nonEmptyState(trace).text.z?.label).toBe('density');
   });
 
+  test('reads a density of 0 as the density, not the width sent beside it', () => {
+    // The table, the pitch and braille read `density ?? width`, which is 0
+    // here; reading the width instead gave the reader a number none of them
+    // has.
+    const tip: ViolinKdePoint[] = [{ x: 'Premium', y: 326, density: 0, width: 0.35 }];
+    const trace = new ViolinKdeTrace(kdeLayer(tip));
+    trace.moveOnce('UPWARD');
+
+    expect(nonEmptyState(trace).text.z).toBeUndefined();
+  });
+
   test('heads the table\'s column of densities as densities', () => {
     const { dataTable } = new ViolinKdeTrace(kdeLayer(BY_DENSITY)).description;
 

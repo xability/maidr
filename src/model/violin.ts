@@ -656,10 +656,17 @@ export class ViolinKdeTrace extends AbstractTrace {
     // Plotly, Chart.js and D3 charts do, and otherwise the width the violin
     // is drawn at. Only the width was read, so a curve sent as densities
     // announced no number at all.
-    if (currentPoint.density !== undefined && currentPoint.density > 0) {
-      // Left a number for the text service to format: a density per unit of
-      // a wide axis, 0.00012 a dollar, rounded to four decimals read as 0.
-      textState.z = { label: t('model.asideDensity'), value: currentPoint.density };
+    //
+    // Chosen as `densityValues` chooses, `density ?? width`, so the text reads
+    // what the table, the pitch and braille read: a density of 0 beside a
+    // width is a density of 0, and the width is not read in its place.
+    const density = currentPoint.density ?? null;
+    if (density !== null) {
+      if (density > 0) {
+        // Left a number for the text service to format: a density per unit
+        // of a wide axis, 0.00012 a dollar, rounded to four decimals read as 0.
+        textState.z = { label: t('model.asideDensity'), value: density };
+      }
     } else if (currentPoint.width !== undefined && currentPoint.width > 0) {
       textState.z = { label: t('model.asideWidth'), value: String(roundTo4(currentPoint.width)) };
     }
