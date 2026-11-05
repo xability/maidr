@@ -92,4 +92,42 @@ describe('focus leaving an amCharts chart', () => {
     expect(draws).toHaveBeenCalledTimes(1);
     binding?.dispose();
   });
+
+  it('keeps the highlight when focus passes through the page and comes back', async () => {
+    // What closing MAIDR's description dialog does: the focused tab leaves
+    // the page, so focus goes nowhere, and MAIDR then puts it back on the
+    // chart. Read off the focusout event, that was the reader leaving; the
+    // position was forgotten, and the box did not come back with focus.
+    const parent = document.createElement('div');
+    const dom = document.createElement('div');
+    dom.id = 'chartdiv';
+    parent.appendChild(dom);
+    document.body.appendChild(parent);
+    const root = { dom, container: { values: [] } } as unknown as AmRoot;
+    const chart = fakeChart({ series: [fakeBarSeries('A', [{ categoryX: 'a', valueY: 1 }])] });
+
+    let binding: ReturnType<typeof bindXYChart> | undefined;
+    act(() => {
+      binding = bindXYChart(chart, root);
+    });
+    await settle();
+    const draws = jest.spyOn(HighlightOverlay.prototype, 'setPlotArea');
+
+    const onNavigate = renders[renders.length - 1].onNavigate!;
+    const layerId = renders[renders.length - 1].subplots[0][0].layers[0].id;
+    const inside = document.createElement('button');
+    dom.appendChild(inside);
+    inside.focus();
+    act(() => onNavigate({ layerId, row: 0, col: 0 }));
+
+    inside.blur();
+    inside.focus();
+    await settle();
+    resizeCallbacks.forEach(callback => callback());
+    await settle();
+
+    // Drawn on the move, and again on the resize: the position was kept.
+    expect(draws).toHaveBeenCalledTimes(2);
+    binding?.dispose();
+  });
 });
