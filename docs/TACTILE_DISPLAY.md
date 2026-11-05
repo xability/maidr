@@ -74,12 +74,19 @@ own:
   implemented in Firefox or Safari, and WebHID, which reaches a Monarch, is not
   in Chromium on Android either.
 - **A page permitted to use it.** Inside an iframe — which is how charts are
-  embedded in notebooks — the frame needs `allow="bluetooth"` for a Dot Pad's
-  wireless path, `allow="serial"` for its cabled one, and `allow="hid"` for a
-  Monarch. A frame without them cannot reach the device however the page is
-  served. Each is gated separately, so a page may permit one and not another;
-  MAIDR greys out whichever button cannot work rather than letting you press it
-  and fail.
+  embedded in notebooks — what the frame needs depends on its origin. Bluetooth
+  reaches a Dot Pad wirelessly, Serial reaches it over the cable, and HID
+  reaches a Monarch. A frame on the page's own origin, such as a `srcdoc`
+  frame, needs no `allow` attribute: each feature defaults to the page's own
+  origin. A frame that may end up on another origin needs each feature
+  delegated with both origins named,
+  `allow="bluetooth 'self' 'src'; serial 'self' 'src'; hid 'self' 'src'"`.
+  Do not write the bare `allow="bluetooth; serial; hid"`: a feature without an
+  allowlist goes only to the origin the frame was loaded from, and a page
+  opened from disk (`file:`) has an opaque origin that matches nothing, so the
+  frame is denied the device. Each feature is gated separately, so a page may
+  permit one and not another; MAIDR greys out whichever button cannot work
+  rather than letting you press it and fail.
 - **A click.** The browser only opens its picker while a user gesture is in
   progress, which is why connecting is a button in Settings and cannot happen
   automatically on load.
