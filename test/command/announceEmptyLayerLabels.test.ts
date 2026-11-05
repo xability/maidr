@@ -55,7 +55,7 @@ function announce(Command: LabelCommand, state: TraceState): { text: string; war
     context,
     { update } as unknown as TextViewModel,
     { playWarningToneIfEnabled: warn } as unknown as AudioService,
-    { isTerse: () => false } as unknown as TextService,
+    { isTerse: () => false, markFirstNavigation: () => {} } as unknown as TextService,
     { exitLabelScope: jest.fn() } as unknown as DisplayService,
   );
   command.execute();

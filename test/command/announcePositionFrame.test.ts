@@ -36,7 +36,7 @@ function announce(state: PlotState, mode: 'verbose' | 'terse' = 'verbose'): stri
   const update = jest.fn();
   const command = new AnnouncePositionCommand(
     { state } as unknown as Context,
-    { isTerse: () => mode === 'terse', isOff: () => false } as unknown as TextService,
+    { isTerse: () => mode === 'terse', isOff: () => false, markFirstNavigation: () => {} } as unknown as TextService,
     { update, warnIfTextOff: () => false } as unknown as TextViewModel,
     {} as unknown as AudioService,
     {} as unknown as DisplayService,

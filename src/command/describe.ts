@@ -5,7 +5,7 @@ import type { HighlightService } from '@service/highlight';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { BarBrailleState, BoxBrailleState, BrailleState, FigureState, LineBrailleState, NonEmptyTraceState, TraceState } from '@type/state';
+import type { BarBrailleState, BoxBrailleState, BrailleState, FigureState, LineBrailleState, NonEmptyTraceState, PlotState, TraceState } from '@type/state';
 import type { Command } from './command';
 import { focusedSubplotTitle } from '@model/plot';
 import { Scope } from '@type/event';
@@ -66,6 +66,23 @@ abstract class AnnounceCommand implements Command {
    * @param {Event} [event] - Optional event that triggered the command.
    */
   protected abstract run(event?: Event): void;
+
+  /**
+   * Shows the answer to what the reader asked for, and has it spoken.
+   *
+   * What the chart says is held back until the reader's first navigation, so
+   * the instruction shown when the chart takes focus is not read out twice. A
+   * move opens that gate as it is answered, but these answers go to the text
+   * view directly: asked for before the first move -- P, or L then X -- they
+   * were shown and not spoken. The gate opens in the same turn as the text
+   * changes, so what is spoken is the answer, never the instruction it
+   * replaces.
+   * @param text - The answer, or a state for the text view to format
+   */
+  protected answer(text: string | PlotState): void {
+    this.textService.markFirstNavigation();
+    this.textViewModel.update(text);
+  }
 
   /**
    * Restores the scope to the previous scope before entering label mode.
@@ -196,7 +213,7 @@ abstract class AnnounceCommand implements Command {
       const text = this.textService.isTerse()
         ? figureLabel
         : t('text.figureAxisLabelIs', { axis: axisName, label: figureLabel });
-      this.textViewModel.update(text);
+      this.answer(text);
       return;
     }
 
@@ -210,12 +227,12 @@ abstract class AnnounceCommand implements Command {
       const text = this.textService.isTerse()
         ? label
         : `${this.labelSourcePrefix()}${t('text.axisLabelIs', { axis: axisName, label })}`;
-      this.textViewModel.update(text);
+      this.answer(text);
     } else {
       const text = this.textService.isTerse()
         ? t('text.unavailable')
         : t('text.axisLabelUnavailable', { axis: axisName });
-      this.textViewModel.update(text);
+      this.answer(text);
       this.audioService.playWarningToneIfEnabled();
     }
   }
@@ -349,12 +366,12 @@ export class AnnounceZCommand extends AnnounceCommand {
       const text = this.textService.isTerse()
         ? zLabel
         : `${this.labelSourcePrefix()}${t('text.axisLabelIs', { axis: 'Z', label: zLabel })}`;
-      this.textViewModel.update(text);
+      this.answer(text);
     } else {
       const text = this.textService.isTerse()
         ? t('text.unavailable')
         : t('text.axisLabelUnavailable', { axis: 'Z' });
-      this.textViewModel.update(text);
+      this.answer(text);
       this.audioService.playWarningToneIfEnabled();
     }
   }
@@ -448,7 +465,7 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     const text = this.textService.isTerse()
       ? title
       : t('text.labelIsValue', { label, value: title });
-    this.textViewModel.update(text);
+    this.answer(text);
   }
 
   /**
@@ -488,7 +505,7 @@ export class AnnounceTitleCommand extends AnnounceCommand {
     const text = this.textService.isTerse()
       ? t('text.unavailable')
       : t('text.noTitleAvailable');
-    this.textViewModel.update(text);
+    this.answer(text);
     this.audioService.playWarningToneIfEnabled();
   }
 }
@@ -529,12 +546,12 @@ export class AnnounceSubtitleCommand extends AnnounceCommand {
       const text = this.textService.isTerse()
         ? subtitle
         : t('text.labelIsValue', { label: t('text.subtitle'), value: subtitle });
-      this.textViewModel.update(text);
+      this.answer(text);
     } else {
       const text = this.textService.isTerse()
         ? t('text.unavailable')
         : t('text.noSubtitleAvailable');
-      this.textViewModel.update(text);
+      this.answer(text);
       this.audioService.playWarningToneIfEnabled();
     }
   }
@@ -576,12 +593,12 @@ export class AnnounceCaptionCommand extends AnnounceCommand {
       const text = this.textService.isTerse()
         ? caption
         : t('text.labelIsValue', { label: t('text.caption'), value: caption });
-      this.textViewModel.update(text);
+      this.answer(text);
     } else {
       const text = this.textService.isTerse()
         ? t('text.unavailable')
         : t('text.noCaptionAvailable');
-      this.textViewModel.update(text);
+      this.answer(text);
       this.audioService.playWarningToneIfEnabled();
     }
   }
@@ -635,11 +652,11 @@ export class AnnouncePointCommand extends AnnounceCommand {
     switch (state.type) {
       case 'figure':
       case 'subplot':
-        this.textViewModel.update(state);
+        this.answer(state);
         break;
 
       case 'trace':
-        this.textViewModel.update(state);
+        this.answer(state);
         this.audio.update(state);
         this.brailleViewModel.update(state);
         this.highlight.update(state);
@@ -783,7 +800,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     // Handle no data case
     if (state.empty || (state.type !== 'trace' && state.type !== 'figure')) {
-      this.textViewModel.update(t('text.notInChart'));
+      this.answer(t('text.notInChart'));
       return;
     }
 
@@ -901,7 +918,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     const percent = (at: number, of: number): string => `${of > 1 ? Math.round((at / (of - 1)) * 100) : 0}%`;
 
     if (this.textService.isTerse() || this.textService.isOff()) {
-      this.textViewModel.update(levels > 1
+      this.answer(levels > 1
         ? `${percent(index, count)}, ${percent(level, levels)}`
         : percent(index, count));
       return;
@@ -909,7 +926,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     const place = parent === undefined
       ? t('text.positionIs', { position: index + 1, total: count })
       : t('text.positionInSection', { position: index + 1, total: count, section: parent });
-    this.textViewModel.update(levels > 1
+    this.answer(levels > 1
       ? [t('text.seriesOfTotal', { noun: t('text.level'), index: level + 1, total: levels }), place].join(', ')
       : place);
   }
@@ -925,9 +942,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    */
   private announceFigurePosition(state: Extract<FigureState, { empty: false }>): void {
     if (this.textService.isTerse() || this.textService.isOff()) {
-      this.textViewModel.update(t('text.indexOfSize', { index: state.index, size: state.size }));
+      this.answer(t('text.indexOfSize', { index: state.index, size: state.size }));
     } else {
-      this.textViewModel.update(t('text.subplotOfSize', { index: state.index, size: state.size }));
+      this.answer(t('text.subplotOfSize', { index: state.index, size: state.size }));
     }
   }
 
@@ -1019,9 +1036,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
-      this.textViewModel.update(`${percent}%`);
+      this.answer(`${percent}%`);
     } else {
-      this.textViewModel.update(t('text.positionIs', { position, total }));
+      this.answer(t('text.positionIs', { position, total }));
     }
   }
 
@@ -1035,9 +1052,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     if (this.textService.isTerse() || this.textService.isOff()) {
       const colPercent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
       const rowPercent = rows > 1 ? Math.round((y / (rows - 1)) * 100) : 0;
-      this.textViewModel.update(`${colPercent}%, ${rowPercent}%`);
+      this.answer(`${colPercent}%, ${rowPercent}%`);
     } else {
-      this.textViewModel.update(
+      this.answer(
         t('text.positionIsColumnRow', { col: colPos, cols, row: rowPos, rows }),
       );
     }
@@ -1053,14 +1070,14 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     const yRange = text.crossRange!;
 
     if (this.textService.isTerse()) {
-      this.textViewModel.update([
+      this.answer([
         t('text.rangeThrough', { min: xRange.min, max: xRange.max }),
         t('text.rangeThrough', { min: yRange.min, max: yRange.max }),
       ].join(', '));
     } else {
       const xLabel = text.main.label || 'x';
       const yLabel = text.cross?.label || 'y';
-      this.textViewModel.update([
+      this.answer([
         t('text.labelIsRange', { label: xLabel, min: xRange.min, max: xRange.max }),
         t('text.labelIsRange', { label: yLabel, min: yRange.min, max: yRange.max }),
       ].join(', '));
@@ -1088,9 +1105,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = totalBoxes > 1 ? Math.round((boxIndex / (totalBoxes - 1)) * 100) : 0;
-      this.textViewModel.update(`${percent}%, ${section}`);
+      this.answer(`${percent}%, ${section}`);
     } else {
-      this.textViewModel.update(t('text.positionInSection', { position, total: totalBoxes, section }));
+      this.answer(t('text.positionInSection', { position, total: totalBoxes, section }));
     }
   }
 
@@ -1115,9 +1132,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = totalCandles > 1 ? Math.round((candleIndex / (totalCandles - 1)) * 100) : 0;
-      this.textViewModel.update(`${percent}%, ${section}`);
+      this.answer(`${percent}%, ${section}`);
     } else {
-      this.textViewModel.update(t('text.positionOfTotalWith', { position, total: totalCandles, detail: section }));
+      this.answer(t('text.positionOfTotalWith', { position, total: totalCandles, detail: section }));
     }
   }
 
@@ -1157,7 +1174,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (basis === 0) {
       // Nothing is drawn, so there is no dial to place anything on.
-      this.textViewModel.update(t('text.positionIs', { position, total }));
+      this.answer(t('text.positionIs', { position, total }));
       return;
     }
 
@@ -1195,9 +1212,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     }
 
     if (this.textService.isTerse() || this.textService.isOff()) {
-      this.textViewModel.update(where);
+      this.answer(where);
     } else {
-      this.textViewModel.update(t('text.positionOfTotalWith', { position, total, detail: where }));
+      this.answer(t('text.positionOfTotalWith', { position, total, detail: where }));
     }
   }
 
@@ -1218,11 +1235,11 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const percent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
-      this.textViewModel.update(`${percent}%, ${level}`);
+      this.answer(`${percent}%, ${level}`);
     } else if (series === undefined) {
-      this.textViewModel.update(t('text.positionIs', { position, total }));
+      this.answer(t('text.positionIs', { position, total }));
     } else {
-      this.textViewModel.update(t('text.positionOfTotalWith', {
+      this.answer(t('text.positionOfTotalWith', {
         position,
         total,
         detail: t('text.labelIsValue', { label: series.label, value: level }),
@@ -1258,9 +1275,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
-      this.textViewModel.update(`${violinPrefix}, ${posPercent}%`);
+      this.answer(`${violinPrefix}, ${posPercent}%`);
     } else {
-      this.textViewModel.update([
+      this.answer([
         violinPrefix,
         t('text.positionIs', { position: pos, total: totalPos }),
       ].join(', '));
@@ -1296,14 +1313,14 @@ export class AnnouncePositionCommand extends AnnounceCommand {
 
     if (this.textService.isTerse() || this.textService.isOff()) {
       const posPercent = totalPos > 1 ? Math.round((posIndex / (totalPos - 1)) * 100) : 0;
-      this.textViewModel.update(`${group ? group.value : linePrefix}, ${posPercent}%`);
+      this.answer(`${group ? group.value : linePrefix}, ${posPercent}%`);
     } else {
       const clauses = [linePrefix];
       if (group) {
         clauses.push(t('text.labelIsValue', { label: group.label, value: group.value }));
       }
       clauses.push(t('text.positionIs', { position: pos, total: totalPos }));
-      this.textViewModel.update(clauses.join(', '));
+      this.answer(clauses.join(', '));
     }
   }
 
@@ -1317,9 +1334,9 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     if (this.textService.isTerse() || this.textService.isOff()) {
       const colPercent = cols > 1 ? Math.round((x / (cols - 1)) * 100) : 0;
       const rowPercent = rows > 1 ? Math.round((y / (rows - 1)) * 100) : 0;
-      this.textViewModel.update(`${colPercent}%, ${rowPercent}%`);
+      this.answer(`${colPercent}%, ${rowPercent}%`);
     } else {
-      this.textViewModel.update(
+      this.answer(
         t('text.columnRowPosition', { col: colPos, cols, row: rowPos, rows }),
       );
     }

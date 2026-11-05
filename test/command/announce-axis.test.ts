@@ -46,7 +46,7 @@ function createMockTextViewModel(): TextViewModel {
 }
 
 function createMockTextService(terse = false): TextService {
-  return { isTerse: () => terse } as unknown as TextService;
+  return { isTerse: () => terse, markFirstNavigation: () => {} } as unknown as TextService;
 }
 
 function createMockAudioService(): AudioService {

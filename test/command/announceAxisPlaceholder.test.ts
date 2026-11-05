@@ -49,7 +49,7 @@ function announce(
     { scope: Scope.TRACE_LABEL, state } as unknown as Context,
     { update } as unknown as TextViewModel,
     { playWarningToneIfEnabled: warn } as unknown as AudioService,
-    { isTerse: () => terse } as unknown as TextService,
+    { isTerse: () => terse, markFirstNavigation: () => {} } as unknown as TextService,
     { exitLabelScope: jest.fn() } as unknown as DisplayService,
   );
   command.execute();

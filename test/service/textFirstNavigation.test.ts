@@ -206,6 +206,23 @@ describe('textService first-navigation announcement gate', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
+  test('keeps the gate shut when an answer asks to open it while text mode is off', () => {
+    // P and the label keys open the gate through markFirstNavigation; with
+    // text off it stays shut, as it does for a move, until text is back on.
+    const text = new TextService(createMockNotificationService());
+    const listener = jest.fn();
+    text.onNavigation(listener);
+    text.setMode(TextMode.OFF);
+
+    text.markFirstNavigation();
+    expect(listener).not.toHaveBeenCalled();
+    text.setMode(TextMode.VERBOSE);
+    text.markFirstNavigation();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({ type: 'first_navigation' });
+  });
+
   test('opens the gate before the first key press on a layer with no data is answered', () => {
     // py-maidr's legacy candlestick example sends its candlestick layer, the
     // one the chart opens on, with no data.
