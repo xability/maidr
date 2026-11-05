@@ -428,9 +428,10 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       panelScope,
     );
     // The loop below spreads a type's options onto each layer it builds; this
-    // layer is built apart from it, so a bump chart's first place is added
-    // here.
-    return [chartType === 'bump' ? { ...layer, ...layerOptions(chartType, config) } : layer];
+    // layer is built apart from it, so they are added here: a bump chart's
+    // first place, and the convention a staircase's risers are drawn with,
+    // which `StepTrace` and `AreaTrace` read for one series or several.
+    return [{ ...layer, ...layerOptions(chartType, config) }];
   }
 
   const maidrType = toLayerTraceType(chartType, hasMultipleSeries);
