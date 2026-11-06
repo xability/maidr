@@ -274,10 +274,15 @@ function buildChartLayers(
   containerEl: HTMLElement,
   options?: AmChartsBinderOptions,
 ): MaidrLayer[] {
-  // A pie chart is bound to no axis, so both reads find nothing and fall back;
-  // the pie layer names its own dimensions rather than using these.
-  const xLabel = options?.axisLabels?.x ?? readAxisLabel(chart.xAxes?.values[0], 'x');
-  const yLabel = options?.axisLabels?.y ?? readAxisLabel(chart.yAxes?.values[0], 'y');
+  // A pie chart is bound to no axis, so both reads find nothing; the pie
+  // layer names its own dimensions rather than using these.
+  //
+  // An axis that draws no title is given none. The placeholders `x` and `y`
+  // used to be, and MAIDR then read them as the author's own: "x is Jan",
+  // "X label is x", "X axis: x" in the description. An empty label is how a
+  // layer says it has no name for an axis, and MAIDR then says so.
+  const xLabel = options?.axisLabels?.x ?? readAxisLabel(chart.xAxes?.values[0], '');
+  const yLabel = options?.axisLabels?.y ?? readAxisLabel(chart.yAxes?.values[0], '');
 
   const layers: MaidrLayer[] = [];
   // Line, step, area and radar series each merge into one layer of their own
@@ -1309,8 +1314,8 @@ function buildHistogramLayer(
 
 /**
  * What a pie's two dimensions are called. A pie series is bound to no axis, so
- * the chart-level `readAxisLabel` fallback would name them `x` and `y` — after
- * coordinates a pie does not have. These name what each one actually holds.
+ * the chart-level `readAxisLabel` read finds no title for either. These name
+ * what each one actually holds.
  */
 const PIE_LABEL_AXIS = 'Label';
 const PIE_VALUE_AXIS = 'Value';
