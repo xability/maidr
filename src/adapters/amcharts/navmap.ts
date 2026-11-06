@@ -44,12 +44,13 @@ import {
  *
  * `kind` tells the overlay which geometry to read: a column's box, a line
  * point, the wedge-shaped sprite of a pie slice, funnel stage or polar column,
- * the glyph of a word cloud's term, or the drawn polygon of a map region.
+ * the glyph of a word cloud's term, the drawn polygon of a map region, or a
+ * gauge's needle.
  */
 export interface NavItemTarget {
   series: AmXYSeries;
   dataItem: AmDataItem;
-  kind: 'column' | 'point' | 'slice' | 'label' | 'region';
+  kind: 'column' | 'point' | 'slice' | 'label' | 'region' | 'needle';
 }
 
 /**
@@ -433,10 +434,15 @@ function buildHierarchyResolver(
  * The plumbing is the only wrinkle. A {@link NavTarget} names a series and a
  * data item, and a ClockHand has neither: it is a bullet on an *axis*. Rather
  * than widen the target for one layer, the hand is handed to the overlay
- * through a data item that answers `graphics` with it — which is exactly the
- * read `kind: 'column'` already makes — and a stand-in series that nothing on
- * that path asks anything of. The same trick `asStandalonePanel` uses to give
- * a bare series the shape of a chart.
+ * through a data item that answers `graphics` with it, as a column's does,
+ * and a stand-in series that nothing on that path asks anything of. The same
+ * trick `asStandalonePanel` uses to give a bare series the shape of a chart.
+ *
+ * It is measured as a needle rather than as a column, though. A column's box
+ * is mapped from its own corners, and a ClockHand is a container turned to the
+ * reading with the hand drawn out from its origin: its corners described a box
+ * hanging below and right of the pivot whichever way the needle pointed, on
+ * amcharts-gauge.html over the red band while the needle pointed up at 73.
  *
  * If the hand reports no usable box the overlay clears rather than falling
  * back to the chart. An outline around the whole dial would say nothing about
@@ -457,7 +463,7 @@ function buildGaugeResolver(chart: AmChart): Resolver {
     dataItems: [],
   } as unknown as AmXYSeries;
 
-  return () => [{ series, dataItem, kind: 'column' }];
+  return () => [{ series, dataItem, kind: 'needle' }];
 }
 
 /**

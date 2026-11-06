@@ -179,6 +179,8 @@ function readRect(target: NavTarget): OverlayRect | null {
       return regionRect(target);
     case 'column':
       return columnRect(target);
+    case 'needle':
+      return needleRect(target);
     case 'ribbon':
       return ribbonRect(target);
   }
@@ -360,11 +362,32 @@ function sliceRect(target: NavItemTarget): OverlayRect | null {
  */
 function labelRect(target: NavItemTarget): OverlayRect | null {
   const label = target.dataItem.get('label') as AmSprite | undefined;
-  if (!label) {
-    return null;
-  }
+  return label ? turnedSpriteRect(label) : null;
+}
 
-  const bounds = label.globalBounds?.();
+/**
+ * Rectangle for a gauge's needle — the `ClockHand` the navigation map hands
+ * over as `graphics`.
+ *
+ * Measured from the box it reports, for the reason a word cloud's term is. A
+ * ClockHand is a container turned to the reading, with the hand drawn out
+ * from its origin to its tip and the pin round the origin. Its own corners,
+ * which a column is measured from, are two corners of a box turned with it:
+ * the box they made hung below and right of the pivot whichever way the
+ * needle pointed. amCharts measures the hand and the pin, so the box it
+ * reports runs from the pin to the tip, turned or not.
+ */
+function needleRect(target: NavItemTarget): OverlayRect | null {
+  const hand = target.dataItem.get('graphics') as AmSprite | undefined;
+  return hand ? turnedSpriteRect(hand) : null;
+}
+
+/**
+ * The box a sprite that may be turned is drawn in: the box it reports when
+ * that has area, else the one its own corners map to, else `null`.
+ */
+function turnedSpriteRect(sprite: AmSprite): OverlayRect | null {
+  const bounds = sprite.globalBounds?.();
   if (bounds) {
     const box = boundsToRect(bounds);
     if (box.width > 0 && box.height > 0) {
@@ -372,7 +395,7 @@ function labelRect(target: NavItemTarget): OverlayRect | null {
     }
   }
 
-  const box = spriteBoxRect(label);
+  const box = spriteBoxRect(sprite);
   return box && box.width > 0 && box.height > 0 ? box : null;
 }
 

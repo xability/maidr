@@ -559,7 +559,7 @@ The payload is a **single object**, not an array of one: the chart draws exactly
 
 Bands are read from the axis' ranges: any range with a finite `endValue` becomes one, sorted ascending, and a band amCharts leaves unnamed is numbered by its position (`Band 1`, `Band 2`). The needle's own range carries a value and no end, which is exactly what keeps it out of the band list. A chart carrying several hands is read as its first, with a console warning.
 
-Two things are **not** read. A bullet chart's `target` marker is omitted: amCharts has no unambiguous construct for one, and a guessed target is a number the chart never stated. And the highlight outlines the `ClockHand` sprite itself — if that sprite reports no measurable box, the overlay **clears** rather than falling back to the chart, because a box drawn around the whole dial says nothing about where the needle is.
+Two things are **not** read. A bullet chart's `target` marker is omitted: amCharts has no unambiguous construct for one, and a guessed target is a number the chart never stated. And the highlight outlines the `ClockHand` sprite itself, by the box amCharts reports for it, which runs from the pin to the needle's tip however far the needle is turned — not by the hand's own corners, which turn with it — and if that sprite reports no measurable box, the overlay **clears** rather than falling back to the chart, because a box drawn around the whole dial says nothing about where the needle is.
 
 #### Diverging Bar / Population Pyramid [experimental]
 
