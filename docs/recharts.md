@@ -1376,7 +1376,7 @@ const samples = [
 </MaidrRecharts>
 ```
 
-Through `useRechartsAdapter`, nothing is read off the chart, so name the key the `<Area>`s draw:
+Through `useRechartsAdapter`, nothing is read off the chart, so state the key the `<Area>`s draw and the `<Area>`s themselves:
 
 ```tsx
 const maidrData = useRechartsAdapter({
@@ -1384,11 +1384,21 @@ const maidrData = useRechartsAdapter({
   data: samples,
   chartType: 'ridgeline',
   xKey: 'temp',
-  ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted' },
+  ridgelineConfig: {
+    groupKey: 'month',
+    valueKey: 'temp',
+    densityKey: 'density',
+    plottedKey: 'plotted',
+    areas: [{ name: 'Jan' }, { name: 'Feb' }],
+  },
 });
 ```
 
-The ridges are read bottom first, the way they are drawn: Up moves to the ridge above and Down to the one below. `<MaidrRecharts>` places each ridge by the key its `<Area>`s draw (`plotted` above), a group's offset being its drawn height less its density, and under `<YAxis reversed>` reads the larger offset as the lower ridge; through `useRechartsAdapter`, name that key as `ridgelineConfig.plottedKey`, and a reversed axis as `plottedAxisReversed: true`. Without it the groups are read in the order they first appear in `data`, the first as the lowest, and the console says so once per chart. `<MaidrRecharts>` says the same when it finds no key to read: a `dataKey` written as a function, or an `<Area>` wrapped in a component of your own, names none, so give `plottedKey` there too. Highlighting places a marker on top of the group's ridge, where the sample being read is drawn — a chart draws a filled band per group, not an element per sample, so the marker is placed on that band — and the `<Area>`s have to be declared in the order the groups first appear in `data`; otherwise pass `selectorOverride`, which names the bands in that order and keeps the groups in it.
+The ridges are read bottom first, the way they are drawn. Up moves to the ridge above, and Down to the one below. `<MaidrRecharts>` finds where each ridge is drawn from the key its `<Area>`s draw (`plotted` above): a group's offset is its drawn height less its density. On `<YAxis reversed>` a larger offset is drawn lower, and the ridges are read that way. Through `useRechartsAdapter`, give the key as `ridgelineConfig.plottedKey`, and a reversed axis as `plottedAxisReversed: true`.
+
+Without the key, the groups are read in the order they first appear in `data`, the first as the lowest, and the console says so once for each chart. `<MaidrRecharts>` finds no key when the `<Area>`'s `dataKey` is a function, or when the `<Area>` is wrapped in a component of your own. Give `plottedKey` for those charts too.
+
+Highlighting marks the band of the ridge being read. A chart draws one filled band per group, not one element per sample, so the marker goes on that band, where the sample is drawn. Each ridge gets the band of the `<Area>` named after its group (`name={month}` above), wherever that `<Area>` is declared. An `<Area>` whose `dataKey` is its group's own column is paired the same way. Through `useRechartsAdapter`, list the `<Area>`s as `ridgelineConfig.areas`, in the order they are declared. If no `<Area>` names its group, each ridge gets the band of the `<Area>` declared at its group's first appearance in `data`, and the console says so once for each chart. To avoid that, name each `<Area>` after its group, or pass `selectorOverride`. A `selectorOverride` names the bands in first-appearance order and keeps the groups in that order.
 
 Arrowing up and down moves between groups **holding the value**, which is the comparison a ridgeline exists for and the one a listener cannot make by holding a dozen numbers in their head.
 
