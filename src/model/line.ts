@@ -10,6 +10,7 @@ import type {
   TraceEmptyState,
   TraceState,
 } from '@type/state';
+import type { ShapeOutline } from '@util/svg';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { defaultFormat, defaultLabelFormat } from '@util/format';
@@ -1581,58 +1582,73 @@ export class LineTrace extends AbstractTrace {
     const svgElements: (SVGElement[] | SVGElement)[][] = [];
     let allFailed = true;
 
-    // Detect selector layout:
-    //   - Standard case (e.g. matplotlib/seaborn multi-line): each series has
-    //     a UNIQUE selector that resolves to exactly one <path> (e.g.
-    //     "g[id='maidr-<uuid-A>'] path", "g[id='maidr-<uuid-B>'] path", ...).
-    //   - Color-hue case (e.g. Vega-Lite single mark with a color encoding):
-    //     all entries in `selectors` are IDENTICAL — Vega renders N sibling
-    //     `<g class="mark-line role-mark layer_0_marks">` groups, each with
-    //     exactly one `<path>`, so a single shared selector matches all N.
-    // For the standard case, selectNthElement(selectors[r], r) would ask for
-    // the r-th match of a selector that has only 1 match, returning null for
-    // r >= 1 and crashing the highlight pipeline downstream. So branch on
-    // selector uniqueness.
-    const uniqueSelectors = new Set(selectors).size === selectors.length;
+    // Which series name each selector, in order. Most producers give every
+    // series a selector of its own, resolving to one element (py-maidr's
+    // `g[id='maidr-<uuid>'] path`). Two name one selector for several:
+    //   - Vega-Lite, for a line mark with a colour encoding, names one
+    //     selector for every series, and it matches a path per series, one in
+    //     each of N sibling groups;
+    //   - py-maidr names a contour level's path for each island of the level,
+    //     because matplotlib draws a level as one path with a subpath per
+    //     island.
+    // So the k-th series naming a shared selector reads the selector's k-th
+    // subpath when it resolves to one element with a subpath for each of the
+    // series, and its k-th match otherwise. Deciding this for the layer as a
+    // whole, as it once was, sent every series of a contour with one island
+    // level to the matches of the first series' selector, and every series
+    // but the first had no highlight.
+    const namedBy = new Map<string, number[]>();
+    selectors.forEach((selector, r) => {
+      namedBy.set(selector, [...(namedBy.get(selector) ?? []), r]);
+    });
 
     for (let r = 0; r < selectors.length; r++) {
-      // A unique selector may match several elements, in which case the
-      // series is drawn in pieces: gridSVG splits a line broken by an interior
-      // NA into sibling polylines (`...1a`, `...1b`), and a base R selector of
-      // the form `#grob polyline` matches every polyline in the grob. Reading
-      // the first piece alone stretched the whole series along it.
-      //
-      // Only elements that draw count as pieces. matplotlib writes a line's
-      // marker shape into a `<defs>` inside the line's own group, so py-maidr's
-      // `g[id='maidr-…'] path` matches the stroke and that template both, and
-      // joining them put every marker after the first on the template's
-      // vertices round the origin. A hidden copy MAIDR inserted is not a piece
-      // either.
-      const matches = uniqueSelectors
-        ? Svg.selectAllElements(selectors[r], false)
-        : [];
-      const pieces = matches.filter(LineTrace.drawsPiece);
-      if (pieces.length > 1) {
-        this.lineElements.push(...pieces);
-        const markers = this.markersAlongPieces(pieces, r);
-        if (markers.length > 0) {
-          allFailed = false;
+      const sharing = namedBy.get(selectors[r]) ?? [r];
+      let lineElement: SVGElement | null;
+      let runs: ShapeOutline[];
+      // Whether the series is drawn by the whole of the element, rather than
+      // by one subpath of it.
+      let whole = true;
+      if (sharing.length > 1) {
+        ({ lineElement, runs, whole } = this.sharedElement(selectors[r], sharing.indexOf(r), sharing.length));
+      } else {
+        // A unique selector may match several elements, in which case the
+        // series is drawn in pieces: gridSVG splits a line broken by an
+        // interior NA into sibling polylines (`...1a`, `...1b`), and a base R
+        // selector of the form `#grob polyline` matches every polyline in the
+        // grob. Reading the first piece alone stretched the whole series
+        // along it.
+        //
+        // Only elements that draw count as pieces. matplotlib writes a line's
+        // marker shape into a `<defs>` inside the line's own group, so
+        // py-maidr's `g[id='maidr-…'] path` matches the stroke and that
+        // template both, and joining them put every marker after the first on
+        // the template's vertices round the origin. A hidden copy MAIDR
+        // inserted is not a piece either.
+        const matches = Svg.selectAllElements(selectors[r], false);
+        const pieces = matches.filter(LineTrace.drawsPiece);
+        if (pieces.length > 1) {
+          this.lineElements.push(...pieces);
+          const markers = this.markersAlongPieces(pieces, r);
+          if (markers.length > 0) {
+            allFailed = false;
+          }
+          svgElements.push(markers);
+          continue;
         }
-        svgElements.push(markers);
-        continue;
+        lineElement = pieces[0] ?? matches[0] ?? null;
+        runs = lineElement === null ? [] : this.readRuns(lineElement);
       }
-
-      const lineElement = uniqueSelectors
-        ? pieces[0] ?? matches[0] ?? null
-        : Svg.selectNthElement(selectors[0], r);
       if (!lineElement) {
         svgElements.push([]);
         continue;
       }
 
-      this.lineElements.push(lineElement as SVGElement);
+      if (!this.lineElements.includes(lineElement)) {
+        this.lineElements.push(lineElement);
+      }
 
-      const coordinates = this.readVertices(lineElement);
+      const coordinates: LinePoint[] = runs.flatMap(run => run.vertices.map(({ x, y }) => ({ x, y })));
 
       // A series with gaps drawn as ONE path whose subpaths skip them -- MUI
       // X Charts draws `[5, null, 10]` as `M65,255Z M380,20Z` -- has a vertex
@@ -1642,8 +1658,8 @@ export class LineTrace extends AbstractTrace {
       // When the counts say so, the vertices are the readings in order, which
       // is how a series drawn in several pieces is already read.
       const measured = this.points[r].filter(point => isMeasured(toBarValue(point.y))).length;
-      if (measured < this.points[r].length && coordinates.length === measured) {
-        const markers = this.markersAlongPieces([lineElement as SVGElement], r);
+      if (whole && measured < this.points[r].length && coordinates.length === measured) {
+        const markers = this.markersAlongPieces([lineElement], r);
         if (markers.length > 0) {
           allFailed = false;
         }
@@ -1651,7 +1667,7 @@ export class LineTrace extends AbstractTrace {
         continue;
       }
 
-      this.reconcilePathCoordinates(coordinates, r, lineElement);
+      this.reconcilePathCoordinates(coordinates, r, runs);
 
       // Where every marker of this series goes, worked out before any of
       // them is drawn: the whole series is created and inserted in one go,
@@ -1699,6 +1715,56 @@ export class LineTrace extends AbstractTrace {
   private static drawsPiece(element: SVGElement): boolean {
     return !Svg.isOwned(element)
       && element.closest('defs, clipPath, marker, symbol, pattern, mask') === null;
+  }
+
+  /**
+   * The element a series reads when several series name its selector, and
+   * the vertices it reads from it.
+   *
+   * @param selector - The selector the series share
+   * @param rank - Which of them this series is, in the layer's order
+   * @param count - How many series name the selector
+   * @returns The element, the runs of vertices this series reads from it, and
+   *   whether those are all of its vertices; no element when there is none for
+   *   it
+   */
+  private sharedElement(
+    selector: string,
+    rank: number,
+    count: number,
+  ): { lineElement: SVGElement | null; runs: ShapeOutline[]; whole: boolean } {
+    const matches = Svg.selectAllElements(selector, false);
+    if (matches.length === 1) {
+      // A subpath of a single vertex draws nothing, and py-maidr emits no
+      // series for one.
+      const subpaths = this.readRuns(matches[0]).filter(run => run.vertices.length > 1);
+      if (subpaths.length === count) {
+        return { lineElement: matches[0], runs: [subpaths[rank]], whole: false };
+      }
+    }
+    const lineElement = matches[rank] ?? null;
+    return {
+      lineElement,
+      runs: lineElement === null ? [] : this.readRuns(lineElement),
+      whole: true,
+    };
+  }
+
+  /**
+   * The vertices an element draws, subpath by subpath: a `<path>`'s, or a
+   * `<polyline>`'s or `<polygon>`'s `points` as one run, which a polygon
+   * closes. Empty for anything else.
+   * @param element - The element a series' selector resolved to
+   * @returns Its runs of vertices
+   */
+  private readRuns(element: Element): ShapeOutline[] {
+    if (element instanceof SVGPathElement) {
+      return Svg.pathSubpaths(element.getAttribute(Constant.D) || Constant.EMPTY);
+    }
+    const vertices = this.readVertices(element).map(({ x, y }) => ({ x: Number(x), y: Number(y) }));
+    return vertices.length === 0
+      ? []
+      : [{ vertices, closed: element.tagName.toLowerCase() === 'polygon' }];
   }
 
   /**
@@ -1804,10 +1870,14 @@ export class LineTrace extends AbstractTrace {
    * not data points (see {@link StepTrace}) override this.
    * @param coordinates - Vertices parsed from the path, mutated in place
    * @param row - Index of the series these coordinates belong to
-   * @param _element - The element the vertices were read from, for a subclass
-   * that needs more of its geometry than the vertices (see `ContourTrace`)
+   * @param _runs - The same vertices, subpath by subpath, for a subclass that
+   * needs to know where the path breaks and closes (see `ContourTrace`)
    */
-  protected reconcilePathCoordinates(coordinates: LinePoint[], row: number, _element?: Element): void {
+  protected reconcilePathCoordinates(
+    coordinates: LinePoint[],
+    row: number,
+    _runs?: readonly ShapeOutline[],
+  ): void {
     const expected = this.lineValues[row].length;
     if (coordinates.length === expected) {
       return;
