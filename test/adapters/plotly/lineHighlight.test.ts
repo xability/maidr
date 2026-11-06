@@ -31,6 +31,13 @@ const LINE_A = 'M0,232L84.5,160L169,188.8L253.5,131.2L338,59.2L422.5,102.4L507,1
 const LINE_B = 'M0,145.6L84.5,304L169,217.6L253.5,246.4L338,174.4L422.5,88L507,203.2';
 /** The `hv` staircase of the step example: a corner between every two samples. */
 const STEP_HV = 'M0,209H67.5V209H135V60.5H202.5V60.5H270V60.5H337.5V159.5H405V159.5H472.5V11H540V11';
+/**
+ * The `hvh` staircase of the same example: `H` to the midway x, `V` to the
+ * next level and `H` on to the sample, the `V` rising by nothing between two
+ * samples of one level.
+ */
+const STEP_HVH = 'M0,209H33.75V209H67.5H101.25V60.5H135H168.75V60.5H202.5H236.25V60.5'
+  + 'H270H303.75V159.5H337.5H371.25V159.5H405H438.75V11H472.5H506.25V11H540';
 
 const WEEKS = [1, 2, 3, 4, 5, 6, 7];
 
@@ -184,14 +191,30 @@ describe('plotly line highlight', () => {
     expect(highlightAfter(layer, ['FORWARD', 'FORWARD'])).toEqual({ x: 135, y: 60.5 });
   });
 
-  it.each(['hvh', 'vhv'])('names nothing for a staircase drawn %s, its risers midway between samples', (shape) => {
-    // Plotly draws the step between two samples of one value as a riser of
-    // no height, which the step model reads as part of the run beside it:
-    // each sample would be marked at a neighbour's place.
+  it('marks a staircase drawn hvh at its samples, past a riser of no height too', () => {
     const layer = onlyLayer(graphDiv(
       [lineTrace('s1', [2, 2, 5, 5, 5, 3, 3, 6, 6], {
         x: [9, 10, 11, 12, 13, 14, 15, 16, 17],
-        line: { shape },
+        line: { shape: 'hvh' },
+      })],
+      [STEP_HVH],
+    ));
+
+    expect(layer.selectors).toEqual(['.subplot.xy .scatterlayer g.trace.traces1 path.js-line']);
+    // Hour 10, after the riser of no height between the two samples of 2.
+    expect(highlightAfter(layer, ['FORWARD'])).toEqual({ x: 67.5, y: 209 });
+    // Hour 12, after another between hours 11 and 12.
+    expect(highlightAfter(layer, ['FORWARD', 'FORWARD', 'FORWARD'])).toEqual({ x: 202.5, y: 60.5 });
+  });
+
+  it('names nothing for a staircase drawn vhv, its runs midway between levels', () => {
+    // Its samples are the ends of its vertical risers, and the step model
+    // reads a sample's level off a horizontal run: each sample would be
+    // marked halfway to a neighbour's level.
+    const layer = onlyLayer(graphDiv(
+      [lineTrace('s1', [2, 2, 5, 5, 5, 3, 3, 6, 6], {
+        x: [9, 10, 11, 12, 13, 14, 15, 16, 17],
+        line: { shape: 'vhv' },
       })],
       [STEP_HV],
     ));
