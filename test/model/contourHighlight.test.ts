@@ -351,6 +351,48 @@ describe('contour highlight mapping', () => {
     ]);
   });
 
+  test('a level matplotlib draws as one path of two rings marks each island on its own ring', () => {
+    // py-maidr's two-peaked contour: matplotlib draws a level as one path with
+    // a subpath per island, and py-maidr names that path for each island's
+    // series. Read as Vega-Lite's shared selector, every series looked for a
+    // match of the first series' selector: the single-ring level kept its
+    // highlight and both islands had none.
+    document.body.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <g id="set">
+          <path d="M 40 40 L 60 40 L 60 60 L 40 40 z"></path>
+          <path d="M 10 10 L 30 10 L 30 30 L 10 10 z M 70 70 L 90 70 L 90 90 L 70 70 z"></path>
+        </g>
+      </svg>`;
+    const curve = (level: number, corners: number[][]): ContourPoint[] =>
+      corners.map(([x, y]) => ({ x, y, level }));
+
+    // eslint-disable-next-line no-new
+    new ContourTrace(createLayer(
+      ['g#set > path:nth-of-type(1)', 'g#set > path:nth-of-type(2)', 'g#set > path:nth-of-type(2)'],
+      [
+        curve(0.1, [[4, 4], [6, 4], [6, 2], [4, 4]]),
+        curve(0.2, [[1, 7], [3, 7], [3, 5], [1, 7]]),
+        curve(0.2, [[7, 1], [9, 1], [9, -1], [7, 1]]),
+      ],
+    ));
+
+    expect(circles()).toEqual([
+      { x: 40, y: 40 },
+      { x: 60, y: 40 },
+      { x: 60, y: 60 },
+      { x: 40, y: 40 },
+      { x: 10, y: 10 },
+      { x: 30, y: 10 },
+      { x: 30, y: 30 },
+      { x: 10, y: 10 },
+      { x: 70, y: 70 },
+      { x: 90, y: 70 },
+      { x: 90, y: 90 },
+      { x: 70, y: 70 },
+    ]);
+  });
+
   test('a level drawn as islands outlines the whole level', () => {
     // The change. A selector resolving to several paths is a level rather
     // than a curve, and every point of that series outlines all of them --

@@ -1,6 +1,7 @@
 import type { ContourPoint, LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
+import type { ShapeOutline } from '@util/svg';
 import { contourCurveLevel, contourLevelCount } from '@util/contourLevel';
 import { defaultFormat, defaultLabelFormat } from '@util/format';
 import { t } from '@util/i18n';
@@ -439,18 +440,18 @@ export class ContourTrace extends LineTrace {
    *
    * @param coordinates - Vertices parsed from the path, mutated in place
    * @param row - Index of the curve
-   * @param element - The element the vertices were read from
+   * @param runs - The same vertices, subpath by subpath
    */
   protected override reconcilePathCoordinates(
     coordinates: LinePoint[],
     row: number,
-    element?: Element,
+    runs?: readonly ShapeOutline[],
   ): void {
     const points = this.points[row];
     if (coordinates.length === points.length) {
       return;
     }
-    const placed = ContourTrace.placeAlongPath(points, ContourTrace.drawnRuns(coordinates, element));
+    const placed = ContourTrace.placeAlongPath(points, ContourTrace.drawnRuns(coordinates, runs));
     if (placed === null) {
       super.reconcilePathCoordinates(coordinates, row);
       return;
@@ -462,20 +463,22 @@ export class ContourTrace extends LineTrace {
   /**
    * The runs a curve's path draws, one per subpath.
    *
-   * @param coordinates - The vertices read from the element
-   * @param element - The element they were read from
-   * @returns Its subpaths, or the vertices as one run when the element gives
-   *   no other reading of them
+   * @param coordinates - The vertices read from the path
+   * @param runs - The same vertices, subpath by subpath, when the caller has
+   *   them
+   * @returns The runs, or the vertices as one open run when there are none
+   *   that hold them
    */
-  private static drawnRuns(coordinates: readonly LinePoint[], element?: Element): DrawnRun[] {
-    const vertices = coordinates.map(vertex => ({ x: Number(vertex.x), y: Number(vertex.y) }));
-    const tag = element?.tagName.toLowerCase();
-    if (element === undefined || tag !== 'path') {
-      return [{ vertices, closed: tag === 'polygon' }];
+  private static drawnRuns(
+    coordinates: readonly LinePoint[],
+    runs?: readonly ShapeOutline[],
+  ): DrawnRun[] {
+    const count = runs?.reduce((sum, run) => sum + run.vertices.length, 0);
+    if (runs !== undefined && count === coordinates.length) {
+      return runs.map(({ vertices, closed }) => ({ vertices, closed }));
     }
-    const subpaths = Svg.pathSubpaths(element.getAttribute('d') ?? '');
-    const count = subpaths.reduce((sum, subpath) => sum + subpath.vertices.length, 0);
-    return count === vertices.length ? subpaths : [{ vertices, closed: false }];
+    const vertices = coordinates.map(vertex => ({ x: Number(vertex.x), y: Number(vertex.y) }));
+    return [{ vertices, closed: false }];
   }
 
   /**
