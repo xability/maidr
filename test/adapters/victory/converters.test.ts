@@ -3,6 +3,7 @@ import type { AbstractTrace } from '@model/abstract';
 import type { BarPoint, CandlestickPoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { ReactNode } from 'react';
 import {
+  arrangeByDrawnPosition,
   computeSubplotGrid,
   extractVictoryLayers,
   extractVictorySubplots,
@@ -299,6 +300,35 @@ describe('computeSubplotGrid', () => {
 
   it('returns an empty grid for no panels', () => {
     expect(computeSubplotGrid([], { columns: 2 })).toEqual([]);
+  });
+});
+
+describe('arrangeByDrawnPosition', () => {
+  it('keeps children order for panels drawn at the same place', () => {
+    const box = { top: 40, left: 10, height: 200 };
+
+    expect(arrangeByDrawnPosition(['a', 'b', 'c'], [box, box, box])).toEqual([['a', 'b', 'c']]);
+  });
+
+  it('puts a shorter panel in the row of a taller one when their tops lie within half the shorter height', () => {
+    const tall = { top: 0, left: 0, height: 400 };
+    const short = { top: 49, left: 420, height: 100 };
+
+    expect(arrangeByDrawnPosition(['tall', 'short'], [tall, short])).toEqual([['tall', 'short']]);
+  });
+
+  it('starts a new row for a panel whose top lies further down than half the shorter height', () => {
+    const tall = { top: 0, left: 0, height: 400 };
+    const short = { top: 51, left: 420, height: 100 };
+
+    expect(arrangeByDrawnPosition(['tall', 'short'], [tall, short])).toEqual([['tall'], ['short']]);
+  });
+
+  it('arranges nothing when a panel was not laid out', () => {
+    const drawn = { top: 0, left: 0, height: 200 };
+
+    expect(arrangeByDrawnPosition(['a', 'b'], [drawn, null])).toBeNull();
+    expect(arrangeByDrawnPosition(['a', 'b'], [drawn, { top: 0, left: 0, height: 0 }])).toBeNull();
   });
 });
 

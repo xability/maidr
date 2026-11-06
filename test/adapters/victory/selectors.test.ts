@@ -494,6 +494,25 @@ describe('buildVictorySubplots', () => {
     expect(names(subplots)).toEqual([['North', 'East'], ['South', 'West']]);
   });
 
+  it('keeps one row in children order when a panel was not laid out', () => {
+    // A figure in a tab not shown yet: one of its charts has no height.
+    const { container } = buildContainer([1, 1, 1]);
+    drawPanels(container, [{ top: 0, left: 0 }, { top: 260, left: 0 }, { top: 520, left: 0 }]);
+    const unlaid = container.querySelectorAll('svg')[1];
+    Object.defineProperty(unlaid, 'getBoundingClientRect', {
+      value: () => ({ top: 0, left: 0, width: 0, height: 0, right: 0, bottom: 0, x: 0, y: 0 }),
+      configurable: true,
+    });
+
+    const subplots = buildVictorySubplots(container, [
+      { layers: [barLayer('0_0', 1)], title: 'A' },
+      { layers: [barLayer('1_0', 1)], title: 'B' },
+      { layers: [barLayer('2_0', 1)], title: 'C' },
+    ], scope);
+
+    expect(names(subplots)).toEqual([['A', 'B', 'C']]);
+  });
+
   it('follows an explicit layout over the drawing', () => {
     const { container } = buildContainer([1, 1, 1]);
     drawPanels(container, [{ top: 0, left: 0 }, { top: 260, left: 0 }, { top: 520, left: 0 }]);
