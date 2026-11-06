@@ -231,9 +231,10 @@ describe('reading the axis out of the children', () => {
     expect(readAxis(tree, true)).toBe(true);
   });
 
-  it('answers for the first axis the categories are on, not a reversed one after it', () => {
-    // A second `<YAxis>`, reversed for another series, says nothing of the
-    // first, which the categories -- or a ridgeline's ridges -- are drawn on.
+  it('reads a reversed category axis declared after a plain one', () => {
+    // Bars drawn on the reversed `right` axis are drawn from its far end, and
+    // are read that way. Bars drawn on `left` would be read backwards: which
+    // axis a series is drawn on is its `yAxisId`, which the walk does not read.
     const tree = createElement(
       BarChart,
       null,
@@ -241,7 +242,7 @@ describe('reading the axis out of the children', () => {
       createElement(YAxis, { yAxisId: 'right', orientation: 'right', reversed: true }),
     );
 
-    expect(readAxis(tree, true)).toBe(false);
+    expect(readAxis(tree, true)).toBe(true);
   });
 });
 

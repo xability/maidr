@@ -43,7 +43,7 @@ import type { MaidrRechartsProps, RechartsPieAngles, RechartsSubplotConfig } fro
 import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
 import { Orientation } from '../../type/grammar';
-import { areaDataKeyFor, categoryAxisReversedFor, categoryAxisReversedPerPanelFor, dotSeriesFor, pieAnglesFor, stepDirectionFor } from './childProps';
+import { areaDataKeyFor, categoryAxisReversedFor, categoryAxisReversedPerPanelFor, dotSeriesFor, pieAnglesFor, ridgelineAxisReversedFor, stepDirectionFor } from './childProps';
 import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
 import { getPanelClassName } from './selectors';
 import { askForPlottedKey } from './useRechartsAdapter';
@@ -199,8 +199,7 @@ export function MaidrRecharts({
     : (dotSeries ?? dotSeriesFor(children, chartType));
   const dotSeriesKey = resolvedDotSeries === undefined ? undefined : JSON.stringify(resolvedDotSeries);
   // The key a ridgeline's `<Area>`s draw, which places each ridge on the page,
-  // and whether its `<YAxis>` is reversed, which turns the page over (the walk
-  // `categoryAxisReversedFor` makes for a horizontal chart reads just that).
+  // and whether its first `<YAxis>` is reversed, which turns the page over.
   // Simple mode only, as the others are, and never over what the config gives.
   const readsRidgeline = chartType === 'ridgeline' && !subplots;
   const ridgelinePlottedKey = readsRidgeline && ridgelineConfig?.plottedKey === undefined
@@ -214,7 +213,7 @@ export function MaidrRecharts({
     askForPlottedKey(id, ', and no <Area> in the chart names one as a string dataKey');
   }
   const ridgelineAxisReversed = readsRidgeline && ridgelineConfig?.plottedAxisReversed === undefined
-    && categoryAxisReversedFor(children, true);
+    && ridgelineAxisReversedFor(children);
 
   const maidrData = useMemo(
     () => convertRechartsToMaidr({

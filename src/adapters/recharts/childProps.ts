@@ -71,9 +71,16 @@ function displayNameOf(type: unknown): string | undefined {
  *
  * The walk is depth-first because an axis is commonly nested -- inside a
  * `<ResponsiveContainer>`, or behind a fragment -- and stops at the first
- * matching axis. Anything it cannot find or cannot read answers `false`, so a
- * chart whose axes are built in a way this does not recognise keeps the
- * reading it has today rather than being turned round on a guess.
+ * matching axis that is reversed. Anything it cannot find or cannot read
+ * answers `false`, so a chart whose axes are built in a way this does not
+ * recognise keeps the reading it has today rather than being turned round on a
+ * guess.
+ *
+ * A chart with several category axes is read as reversed when any of them is.
+ * That is right for a series drawn on the reversed axis and wrong for one
+ * drawn on a plain axis declared before it: which axis a series is drawn on is
+ * its `xAxisId` or `yAxisId`, which this does not read. A ridgeline, whose
+ * `<Area>`s share one `<YAxis>`, reads its own ({@link ridgelineAxisReversedFor}).
  *
  * @param children - The chart subtree this component was given
  * @param horizontal - Whether the bars are drawn on their side
@@ -81,21 +88,17 @@ function displayNameOf(type: unknown): string | undefined {
  */
 export function categoryAxisReversedFor(children: ReactNode, horizontal: boolean): boolean {
   const wanted = horizontal ? 'YAxis' : 'XAxis';
-  let reversed = false;
-  let done = false;
+  let found = false;
 
   const walk = (nodes: ReactNode): void => {
-    if (done)
+    if (found)
       return;
     Children.forEach(nodes, (child) => {
-      if (done || !isValidElement(child))
+      if (found || !isValidElement(child))
         return;
       const props = child.props as { reversed?: unknown; children?: ReactNode };
       if (displayNameOf(child.type) === wanted) {
-        // The first matching axis answers, reversed or not: one walked past
-        // read a reversed second axis -- another series' -- as this one.
-        done = true;
-        reversed = props.reversed === true;
+        found = props.reversed === true;
         return;
       }
       walk(props.children);
@@ -103,7 +106,7 @@ export function categoryAxisReversedFor(children: ReactNode, horizontal: boolean
   };
 
   walk(children);
-  return reversed;
+  return found;
 }
 
 /**
@@ -332,4 +335,42 @@ export function areaDataKeyFor(children: ReactNode): string | undefined {
 
   walk(children);
   return found;
+}
+
+/**
+ * Whether a ridgeline's ridges are drawn on a reversed `<YAxis>`.
+ *
+ * A ridgeline's `<Area>`s share one `<YAxis>`, and a reversed one turns the
+ * page over: the ridge offset most is drawn lowest. The first `<YAxis>`
+ * answers, reversed or not. A reversed one after it belongs to something
+ * else, and read as the ridges' own it would list them top first.
+ *
+ * Read for a ridgeline alone: {@link categoryAxisReversedFor}, which bar and
+ * line charts read, answers for whichever category axis is reversed.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns True when the first `<YAxis>` is reversed
+ */
+export function ridgelineAxisReversedFor(children: ReactNode): boolean {
+  let reversed = false;
+  let done = false;
+
+  const walk = (nodes: ReactNode): void => {
+    if (done)
+      return;
+    Children.forEach(nodes, (child) => {
+      if (done || !isValidElement(child))
+        return;
+      const props = child.props as { reversed?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'YAxis') {
+        done = true;
+        reversed = props.reversed === true;
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return reversed;
 }
