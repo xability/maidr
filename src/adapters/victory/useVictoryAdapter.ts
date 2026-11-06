@@ -100,7 +100,8 @@ function subplotFingerprint(subplots: VictorySubplotInfo[], layout?: VictoryPane
  *
  * Without a `layout`, the panels are put in rows by where their svgs are
  * drawn ({@link arrangeByDrawnPosition}), and in one row in children order
- * when a panel was not laid out, as in a hidden tab.
+ * when a panel was not laid out, as in a hidden tab; the hook arranges them
+ * again when their container changes size.
  *
  * Panels whose charts contain no supported data are dropped (the core model
  * cannot represent an empty subplot inside a grid), but only AFTER grid
@@ -124,13 +125,7 @@ export function buildVictorySubplots(
     return [[{ layers: maidrLayers, legend: collectLegend(victoryLayers) }]];
   }
 
-  // Standalone Victory siblings render their own svgs too, so the expected
-  // svg count is driven by the highest svg ordinal, not the panel count.
-  const expectedSvgCount = victorySubplots.reduce(
-    (max, info, index) => Math.max(max, (info.svgIndex ?? index) + 1),
-    0,
-  );
-  const panelSvgs = resolvePanelSvgs(container, expectedSvgCount);
+  const panelSvgs = resolvePanelSvgs(container, expectedSvgCount(victorySubplots));
 
   // `null` entries keep an empty panel's grid cell during chunking; they are
   // dropped per row afterwards.
@@ -170,12 +165,54 @@ export function buildVictorySubplots(
   });
 
   const grid = layout === undefined
-    ? arrangeByDrawnPosition(entries, victorySubplots.map((info, panelIndex) =>
-      drawnBox(panelSvgs[info.svgIndex ?? panelIndex]))) ?? computeSubplotGrid(entries)
+    ? arrangeByDrawnPosition(entries, drawnBoxes(victorySubplots, panelSvgs)) ?? computeSubplotGrid(entries)
     : computeSubplotGrid(entries, layout);
   return grid
     .map(row => row.filter((subplot): subplot is MaidrSubplot => subplot !== null))
     .filter(row => row.length > 0);
+}
+
+/**
+ * How many top-level Victory svgs a multi-panel figure draws. Standalone
+ * Victory siblings render their own svgs too, so the count is driven by the
+ * highest svg ordinal, not the panel count.
+ *
+ * @param victorySubplots - The figure's panels
+ * @returns The svg count
+ */
+function expectedSvgCount(victorySubplots: VictorySubplotInfo[]): number {
+  return victorySubplots.reduce(
+    (max, info, index) => Math.max(max, (info.svgIndex ?? index) + 1),
+    0,
+  );
+}
+
+/**
+ * Where each panel's chart is drawn on the page.
+ *
+ * @param victorySubplots - The figure's panels
+ * @param panelSvgs - The figure's top-level Victory svgs
+ * @returns One box per panel, or null where it has none
+ */
+function drawnBoxes(victorySubplots: VictorySubplotInfo[], panelSvgs: SVGElement[]): (VictoryPanelBox | null)[] {
+  return victorySubplots.map((info, panelIndex) => drawnBox(panelSvgs[info.svgIndex ?? panelIndex]));
+}
+
+/**
+ * The rows a multi-panel figure's panels are drawn in, as panel indices, for
+ * telling a pass that finds them laid out otherwise from one that finds them
+ * where they were.
+ *
+ * @param container - Where the figure is drawn
+ * @param victorySubplots - The figure's panels
+ * @returns The rows, or null for one panel or panels not laid out
+ */
+function drawnArrangement(container: HTMLElement, victorySubplots: VictorySubplotInfo[]): number[][] | null {
+  if (victorySubplots.length < 2) {
+    return null;
+  }
+  const panelSvgs = resolvePanelSvgs(container, expectedSvgCount(victorySubplots));
+  return arrangeByDrawnPosition(victorySubplots.map((_, panelIndex) => panelIndex), drawnBoxes(victorySubplots, panelSvgs));
 }
 
 /**
@@ -267,6 +304,9 @@ export function useVictoryAdapter(
         caption ?? null,
         bandsKey,
         subplotFingerprint(victorySubplots, panelLayout),
+        // The rows the panels are drawn in, which decide the grid when no
+        // layout does: a pass that finds them laid out otherwise republishes.
+        panelLayout === undefined ? drawnArrangement(container, victorySubplots) : null,
       ]);
 
       // Fast path: when the layer data is unchanged AND every previously-tagged
@@ -319,8 +359,23 @@ export function useVictoryAdapter(
     });
     observer.observe(container, { childList: true, subtree: true });
 
+    // Without a layout, the grid is the rows the charts are drawn in, and the
+    // container changes size when those can change: a figure read in a tab
+    // not shown yet is laid out when the tab is shown, and a page that wraps
+    // its charts at another width lays them out again. Read once, the first
+    // stayed one row in children order for good.
+    const arranged = panelLayout === undefined && extractVictorySubplots(children).length > 1;
+    const resizeObserver = arranged && typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => {
+          if (!frameId)
+            frameId = requestAnimationFrame(applyTags);
+        })
+      : null;
+    resizeObserver?.observe(container);
+
     return () => {
       observer.disconnect();
+      resizeObserver?.disconnect();
       if (frameId)
         cancelAnimationFrame(frameId);
     };
