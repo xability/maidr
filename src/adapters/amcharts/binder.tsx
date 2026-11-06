@@ -379,15 +379,28 @@ function bindCharts(
     // Clear the highlight when focus leaves the chart, matching the SVG
     // adapters (whose HighlightService clears when the Controller disposes).
     // focusout bubbles up from the focusable plot element through `container`.
-    const handleFocusOut = (event: FocusEvent): void => {
-      const next = event.relatedTarget as Node | null;
-      if (next && rendered.container.contains(next)) {
-        return;
+    //
+    // Asked once focus has landed, as the Chart.js, uPlot and Lightweight
+    // Charts binders ask it. Closing MAIDR's description dialog takes the
+    // focused tab out of the page before MAIDR puts focus back on the chart,
+    // so focus leaves for nowhere on the way: read off the event, that was the
+    // reader leaving, and they came back to a chart with no highlight, which
+    // Space and P did not redraw.
+    let focusTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleFocusOut = (): void => {
+      if (focusTimer !== null) {
+        clearTimeout(focusTimer);
       }
-      // Forget the position too, or the next resize replays it; MAIDR
-      // reports it again on the reader's first move after focus returns.
-      lastActive = null;
-      void overlayPromise.then(ov => ov?.clear());
+      focusTimer = setTimeout(() => {
+        focusTimer = null;
+        if (rendered.container.contains(document.activeElement)) {
+          return;
+        }
+        // Forget the position too, or the next resize replays it; MAIDR
+        // reports it again on the reader's first move after focus returns.
+        lastActive = null;
+        void overlayPromise.then(ov => ov?.clear());
+      }, 0);
     };
     rendered.container.addEventListener('focusout', handleFocusOut);
 
@@ -395,6 +408,9 @@ function bindCharts(
       maidr: maidrData,
       dispose: () => {
         resizeObserver.disconnect();
+        if (focusTimer !== null) {
+          clearTimeout(focusTimer);
+        }
         rendered.container.removeEventListener('focusout', handleFocusOut);
         void overlayPromise.then(ov => ov?.dispose());
         teardownMount(rendered, root.dom);
