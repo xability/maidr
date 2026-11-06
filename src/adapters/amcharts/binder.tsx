@@ -26,6 +26,7 @@ import type { JSX } from 'react';
 import type { Root as ReactRoot } from 'react-dom/client';
 import type { NavMap } from './navmap';
 import type {
+  AmBounds,
   AmChart,
   AmChartsBinderOptions,
   AmRoot,
@@ -162,12 +163,31 @@ function applyHighlight(
     overlay.clear();
 }
 
+/**
+ * Where the panel holding some layers is drawn: its plot area, or, for a
+ * pie or a funnel, its slices.
+ *
+ * @param navMap - The figure's navigation map
+ * @param layerIds - The ids of the panel's layers
+ * @returns The panel, root-relative CSS pixels, or null when it cannot be read
+ */
+function panelBounds(navMap: NavMap, layerIds: readonly string[]): AmBounds | null {
+  for (const id of layerIds) {
+    const chart = navMap.chartFor(id);
+    const bounds = chart ? readPlotBounds(chart) ?? readSliceBounds(chart) : null;
+    if (bounds !== null) {
+      return bounds;
+    }
+  }
+  return null;
+}
+
 function createHighlightCallback(
   navMap: NavMap,
   getOverlay: () => HighlightOverlay | null,
   recordActive: (event: NavEvent | null) => void,
 ): NavigateCallback {
-  return (event) => {
+  return (event, panel) => {
     try {
       recordActive(event);
       const overlay = getOverlay();
@@ -181,6 +201,17 @@ function createHighlightCallback(
         overlay.clear();
         // The lobby is the whole figure, not the panel just left.
         overlay.setPlotArea(null);
+        // The panel the lobby is on is outlined instead, which nothing else
+        // on a canvas can do.
+        const bounds = panel === undefined ? null : panelBounds(navMap, panel.layerIds);
+        if (bounds !== null) {
+          overlay.show([{
+            left: bounds.left,
+            top: bounds.top,
+            width: bounds.right - bounds.left,
+            height: bounds.bottom - bounds.top,
+          }]);
+        }
         return;
       }
       applyHighlight(overlay, navMap, event);

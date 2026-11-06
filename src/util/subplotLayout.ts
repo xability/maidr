@@ -34,18 +34,23 @@ export interface SubplotLayout {
   invertVertical: boolean;
 
   /**
-   * Total number of `<g id="axes_*">` groups found in the chart.
-   * Used by Figure.highlight to decide whether to show subplot outlines.
-   */
-  totalAxesCount: number;
-
-  /**
    * Pre-resolved SVG axes elements keyed by `"row,col"`.
    * Each subplot's axes `<g>` is looked up once and stored here so that
    * the Figure.highlight getter needs no runtime DOM access.
    */
   axesElements: Map<string, SVGElement | null>;
+
+  /**
+   * The element each subplot's outline is drawn round while the reader moves
+   * between subplots, keyed by `"row,col"`; null where none is known, and for
+   * every cell of a figure with one subplot, which has no lobby. See
+   * {@link findPanel}.
+   */
+  panelElements: Map<string, Element | null>;
 }
+
+/** The namespace an SVG element is in, whichever window made it. */
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 /**
  * Position entry used internally during visual-order computation.
@@ -69,14 +74,15 @@ interface AxesPosition {
  * without violating MVVC layer boundaries.
  *
  * Every lookup is made inside `roots`, the chart's own element and the layers
- * it draws outside it, so another chart's panels are neither counted nor
+ * it draws outside it, so another chart's panels are neither outlined nor
  * measured. A layer selector that matches nothing there is looked up as
- * {@link Svg.queryAll} does; the panel count is the chart's alone.
+ * {@link Svg.queryAll} does.
  *
  * @param subplots - The 2D subplot array from the Figure (already constructed).
  * @param roots - Where the chart is drawn; the whole page by default.
  * @returns A {@link SubplotLayout} containing pre-computed visual ordering,
- *          starting position, inversion flag, and axes element references.
+ *          starting position, inversion flag, and axes and panel element
+ *          references.
  */
 export function resolveSubplotLayout(
   subplots: Subplot[][],
@@ -84,14 +90,14 @@ export function resolveSubplotLayout(
 ): SubplotLayout {
   const axesElements = collectAxesElements(subplots, roots);
   let positions = collectAxesPositions(subplots, axesElements);
-  const totalAxesCount = countAxesGroups(roots);
+  const panelElements = collectPanelElements(subplots, axesElements, roots);
 
   if (positions.length === 0) {
     positions = collectPanelPositions(subplots, roots);
   }
 
   if (positions.length === 0) {
-    return buildFallbackLayout(subplots, totalAxesCount, axesElements);
+    return buildFallbackLayout(subplots, axesElements, panelElements);
   }
 
   const sorted = sortByVisualPosition(positions);
@@ -99,22 +105,7 @@ export function resolveSubplotLayout(
   const topLeftRow = sorted[0].row;
   const invertVertical = detectInversion(positions, subplots.length);
 
-  return { visualOrderMap, topLeftRow, invertVertical, totalAxesCount, axesElements };
-}
-
-/**
- * Counts a chart's `<g id="axes_*">` panel groups. The figure's layout and
- * the panel outline both decide from this count whether a chart has several
- * panels, so they read the same one.
- *
- * @param roots - Where the chart is drawn.
- * @returns How many panel groups the chart has.
- */
-export function countAxesGroups(roots: readonly QueryRoot[]): number {
-  return roots.reduce(
-    (count, root) => count + root.querySelectorAll('g[id^="axes_"]').length,
-    0,
-  );
+  return { visualOrderMap, topLeftRow, invertVertical, axesElements, panelElements };
 }
 
 // ---------------------------------------------------------------------------
@@ -129,13 +120,13 @@ export function countAxesGroups(roots: readonly QueryRoot[]): number {
  * 2. Walk up from the first layer's selector string (for facet-style plots
  *    where the subplot itself has no selector).
  *
- * @param highlightElement - The subplot's own SVG highlight element (may be null).
+ * @param highlightElement - The element the subplot's own selector names (may be null).
  * @param layerSelector    - CSS selector string from the first layer (may be null).
  * @param roots            - Where the chart is drawn.
  * @returns The matching `<g>` element, or `null` if not found.
  */
 function findAxesElement(
-  highlightElement: SVGElement | null,
+  highlightElement: Element | null,
   layerSelector: string | null,
   roots: readonly QueryRoot[],
 ): SVGElement | null {
@@ -332,10 +323,8 @@ function detectInversion(entries: AxesPosition[], numRows: number): boolean {
  * exist (charts not rendered by matplotlib — Vega-Lite cells, per-panel chart
  * containers, etc.).
  *
- * The subplot's highlight element is preferred (it is a `visibility: hidden`
- * clone inserted next to the panel container, so it still has real layout
- * geometry); the first element matched by the first layer's selector is used
- * as a fallback. Positions are only trusted when EVERY subplot resolves to an
+ * The element the subplot's own selector names is preferred; the first
+ * element matched by the first layer's selector is used as a fallback. Positions are only trusted when EVERY subplot resolves to an
  * element with distinct, non-degenerate geometry — otherwise an empty array
  * is returned and the caller falls back to data-array order. This keeps
  * jsdom/test environments (all-zero rects) and partially-rendered charts on
@@ -404,8 +393,8 @@ function hasGeometry(el: Element): boolean {
  */
 function buildFallbackLayout(
   subplots: Subplot[][],
-  totalAxesCount: number,
   axesElements: Map<string, SVGElement | null>,
+  panelElements: Map<string, Element | null>,
 ): SubplotLayout {
   const visualOrderMap = new Map<string, number>();
   let idx = 1;
@@ -419,7 +408,147 @@ function buildFallbackLayout(
     visualOrderMap,
     topLeftRow: 0,
     invertVertical: false,
-    totalAxesCount,
     axesElements,
+    panelElements,
   };
+}
+
+/**
+ * Resolves the element each subplot's outline is drawn round, keyed by
+ * `"row,col"`. A figure with one subplot has no lobby, and gets none.
+ *
+ * @param subplots - The figure's subplots
+ * @param axesElements - Each subplot's `<g id="axes_*">`, where it has one
+ * @param roots - Where the chart is drawn
+ * @returns The element for each cell, or null
+ */
+function collectPanelElements(
+  subplots: Subplot[][],
+  axesElements: Map<string, SVGElement | null>,
+  roots: readonly QueryRoot[],
+): Map<string, Element | null> {
+  const map = new Map<string, Element | null>();
+  const cells = subplots.flatMap((row, r) => row.map((subplot, c) => ({ subplot, key: `${r},${c}` })));
+  if (cells.length <= 1) {
+    cells.forEach(cell => map.set(cell.key, null));
+    return map;
+  }
+
+  const marks = cells.map(cell => layerMarks(cell.subplot, roots));
+  cells.forEach((cell, at) => {
+    const others = marks.flatMap((elements, other) => (other === at ? [] : elements));
+    map.set(cell.key, findPanel(cell.subplot, axesElements.get(cell.key) ?? null, marks[at], others, roots));
+  });
+  return map;
+}
+
+/**
+ * The element a subplot's outline is drawn round in the lobby.
+ *
+ * The panel is the subplot's `<g id="axes_*">` where it has one, as a
+ * matplotlib figure does; else the element its own `selector` names, as
+ * Vega-Lite, lattice and Bokeh name theirs; else the largest element holding
+ * its first layer's marks and no other subplot's, as a Frappe panel's own
+ * chart or a Highcharts pane's series group does. A panel that draws its own
+ * filled background is outlined along that background, as a matplotlib
+ * axes' patch is. Outlined only within matplotlib's axes groups, as this
+ * was, the lobby of every other producer's figure showed nothing, and a
+ * group whose first shape was a mark had that mark outlined: a dendrogram's
+ * first link, or a D3 panel's first bar.
+ *
+ * @param subplot - The subplot
+ * @param axes - Its axes group, or null
+ * @param marks - Its first layer's marks
+ * @param others - Every other subplot's first layer's marks
+ * @param roots - Where the chart is drawn
+ * @returns The panel, or its background, or null when none is found
+ */
+function findPanel(
+  subplot: Subplot,
+  axes: SVGElement | null,
+  marks: readonly Element[],
+  others: readonly Element[],
+  roots: readonly QueryRoot[],
+): Element | null {
+  const panel = axes ?? subplot.getHighlightElement() ?? exclusiveAncestor(marks, others, roots);
+  return panel === null ? null : backgroundOf(panel, marks) ?? panel;
+}
+
+/**
+ * The elements a subplot's first layer names, through every selector it
+ * holds, whatever their shape.
+ *
+ * @param subplot - The subplot
+ * @param roots - Where the chart is drawn
+ * @returns Its marks, or none
+ */
+function layerMarks(subplot: Subplot, roots: readonly QueryRoot[]): Element[] {
+  const marks = subplot.getLayerMarkSelectors().flatMap(selector => Svg.queryAll<Element>(selector, roots));
+  return [...new Set(marks)];
+}
+
+/**
+ * The largest element holding every one of a subplot's marks and none of
+ * another subplot's, inside the chart.
+ *
+ * @param marks - The subplot's marks
+ * @param others - Every other subplot's marks
+ * @param roots - Where the chart is drawn
+ * @returns The element, or null when the marks are shared with another
+ *   subplot's in every element that holds them
+ */
+function exclusiveAncestor(
+  marks: readonly Element[],
+  others: readonly Element[],
+  roots: readonly QueryRoot[],
+): Element | null {
+  const holdsOther = (element: Element): boolean => others.some(other => element.contains(other));
+  const inChart = (element: Element): boolean =>
+    roots.some(root => root !== element && root.contains(element));
+
+  let ancestor = marks[0]?.parentElement ?? null;
+  while (ancestor !== null && !marks.every(mark => ancestor?.contains(mark))) {
+    ancestor = ancestor.parentElement;
+  }
+  if (ancestor === null || !inChart(ancestor) || holdsOther(ancestor)) {
+    return null;
+  }
+  for (let parent = ancestor.parentElement; parent !== null && inChart(parent) && !holdsOther(parent);
+    parent = parent.parentElement) {
+    ancestor = parent;
+  }
+  return ancestor;
+}
+
+/**
+ * The filled background a panel draws behind its marks: the first rect or
+ * path inside it, where that is filled and holds every mark. A matplotlib
+ * axes' patch is one; a group whose first shape is one of its marks, as a
+ * dendrogram's links or a D3 panel's bars are, has none.
+ *
+ * @param panel - The panel
+ * @param marks - The subplot's marks
+ * @returns The background, or null
+ */
+function backgroundOf(panel: Element, marks: readonly Element[]): Element | null {
+  if (panel.namespaceURI !== SVG_NAMESPACE || panel.matches('rect, path')) {
+    return null;
+  }
+  const first = panel.querySelector('rect, path');
+  const view = panel.ownerDocument.defaultView;
+  if (first === null || view === null || marks.includes(first)) {
+    return null;
+  }
+  const style = view.getComputedStyle(first);
+  if (style.fill === 'none' || style.fill === 'transparent' || Number.parseFloat(style.fillOpacity) === 0) {
+    return null;
+  }
+  const box = first.getBoundingClientRect();
+  const holds = (element: Element): boolean => {
+    const mark = element.getBoundingClientRect();
+    const x = mark.left + mark.width / 2;
+    const y = mark.top + mark.height / 2;
+    return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
+  };
+  return box.width > 0 && box.height > 0 && marks.every(holds) ? first : null;
 }

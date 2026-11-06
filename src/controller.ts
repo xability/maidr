@@ -53,7 +53,7 @@ import { Scope } from '@type/event';
 import { canEnterGridCell } from '@type/navigation';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { t } from '@util/i18n';
-import { createNavigateObserver } from '@util/navigateObserver';
+import { createLobbyObserver, createNavigateObserver } from '@util/navigateObserver';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 import { Svg } from '@util/svg';
 
@@ -1032,13 +1032,8 @@ export class Controller implements Disposable {
     }));
 
     // Leaving a subplot makes the figure active rather than a trace, so the
-    // trace observers above go quiet and say nothing about having stopped.
-    // A consumer drawing an overlay would keep the last point highlighted and
-    // carry it to whichever panel the user moved to next, pointing at a chart
-    // it does not belong to. The figure is the only element that hears the
-    // move, so it is what reports the selection ending.
-    this.figure.addObserver({
-      update: () => callback(null),
-    });
+    // figure is what reports the selection ending, and which subplot the
+    // lobby is on (see createLobbyObserver).
+    this.figure.addObserver(createLobbyObserver(this.figure, callback));
   }
 }

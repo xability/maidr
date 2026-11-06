@@ -1541,71 +1541,179 @@ export abstract class Svg {
   }
 
   /**
-   * Applies SVG stroke highlighting to a subplot with adaptive color based on background.
-   * @param group - The SVG group element to highlight
-   * @param fallbackColor - Color to use if background color cannot be determined
-   * @param figureBgElement - Optional background element to inherit color from
+   * The shapes a panel's outline is drawn on by stroking them, rather than
+   * by a box round them.
    */
-  public static setSubplotHighlightSvgWithAdaptiveColor(group: SVGElement, fallbackColor: string, figureBgElement?: SVGElement): void {
-    const bg = group.querySelector('rect, path') as SVGElement | null;
-    let originalColor = '';
-    if (bg) {
-      originalColor = window.getComputedStyle(bg).getPropertyValue('fill');
-      if (!originalColor || originalColor === 'none' || originalColor === 'transparent' || originalColor === 'rgba(0, 0, 0, 0)') {
-        if (figureBgElement) {
-          originalColor = window.getComputedStyle(figureBgElement).getPropertyValue('fill');
-        } else {
-          originalColor = fallbackColor;
-        }
-      }
-      const highlightColor = this.getHighlightColor(originalColor, fallbackColor);
+  private static readonly PANEL_SHAPES = 'rect, path, polygon, circle, ellipse';
+
+  /** The box drawn round each panel by {@link outlinePanel}, by panel. */
+  private static readonly panelBoxes = new WeakMap<Element, HTMLElement>();
+
+  /** The width of the border of a panel's box, in CSS pixels, as wide as a stroked panel's. */
+  private static readonly PANEL_BOX_BORDER = 4;
+
+  /** How far a panel's box stands outside the panel, in CSS pixels, clear of what it draws at its edge. */
+  private static readonly PANEL_BOX_GAP = 2;
+
+  /**
+   * Outlines the panel of a multi-panel figure the reader is on in the lobby,
+   * in a colour adapted to what it is drawn on.
+   *
+   * A shape -- a matplotlib axes' background patch, a lattice panel's
+   * border, a Vega-Lite cell's background -- is stroked. Anything else -- a
+   * group with no background of its own, a panel drawn as an `<svg>` of its
+   * own, an HTML element laid over a canvas panel -- gets a box drawn round
+   * it, over the chart, owned by MAIDR. Restroking only the first shape of a
+   * group, as this did, outlined a group's first mark when it drew no
+   * background, and nothing at all for a panel that is not a group.
+   *
+   * @param panel - The panel, or the background shape it is outlined along
+   * @param fallbackColor - The highlight colour, used where no background
+   *   colour can be read
+   * @param figureBgElement - The figure's background, which a panel with no
+   *   fill of its own is drawn on
+   */
+  public static outlinePanel(panel: Element, fallbackColor: string, figureBgElement?: SVGElement): void {
+    let originalColor = panel instanceof SVGElement && panel.matches(this.PANEL_SHAPES)
+      ? window.getComputedStyle(panel).getPropertyValue('fill')
+      : '';
+    if (!originalColor || originalColor === 'none' || originalColor === 'transparent' || originalColor === 'rgba(0, 0, 0, 0)') {
+      originalColor = figureBgElement
+        ? window.getComputedStyle(figureBgElement).getPropertyValue('fill')
+        : fallbackColor;
+    }
+    const highlightColor = this.getHighlightColor(originalColor, fallbackColor);
+
+    if (panel instanceof SVGElement && panel.matches(this.PANEL_SHAPES)) {
       // Stash the element's original stroke attributes before overwriting
-      // so removeSubplotHighlightSvg can restore them instead of stripping
-      // any pre-existing attribute-based border. Guard against re-saving on
+      // so removePanelOutline can restore them instead of stripping any
+      // pre-existing attribute-based border. Guard against re-saving on
       // repeated highlight calls, which would otherwise capture the
       // highlight values as the "original".
-      if (!bg.hasAttribute('data-maidr-orig-stroke')) {
-        bg.setAttribute('data-maidr-orig-stroke', bg.getAttribute('stroke') ?? '');
-        bg.setAttribute('data-maidr-orig-stroke-width', bg.getAttribute('stroke-width') ?? '');
+      if (!panel.hasAttribute('data-maidr-orig-stroke')) {
+        panel.setAttribute('data-maidr-orig-stroke', panel.getAttribute('stroke') ?? '');
+        panel.setAttribute('data-maidr-orig-stroke-width', panel.getAttribute('stroke-width') ?? '');
       }
-      bg.setAttribute('stroke', highlightColor);
-      bg.setAttribute('stroke-width', '4');
+      panel.setAttribute('stroke', highlightColor);
+      panel.setAttribute('stroke-width', '4');
+      return;
     }
+    this.drawPanelBox(panel, highlightColor);
   }
 
   /**
-   * Removes SVG stroke highlighting from a subplot element.
-   * @param group - The SVG group element to remove highlighting from
+   * Removes a panel's outline, from {@link outlinePanel}.
+   * @param panel - The panel, or the background shape it was outlined along
    */
-  public static removeSubplotHighlightSvg(group: SVGElement): void {
-    const bg = group.querySelector('rect, path') as SVGElement | null;
-    if (!bg) {
-      return;
-    }
+  public static removePanelOutline(panel: Element): void {
+    this.panelBoxes.get(panel)?.remove();
+    this.panelBoxes.delete(panel);
     // Restore the original stroke attributes saved when the highlight was
     // applied. Only elements we highlighted carry the data- markers; for
     // those, re-apply the saved value if one existed, otherwise remove the
     // attribute we added. Elements we never highlighted are left untouched
     // so their own attribute-based borders survive.
-    if (bg.hasAttribute('data-maidr-orig-stroke')) {
-      const origStroke = bg.getAttribute('data-maidr-orig-stroke') ?? '';
+    if (panel.hasAttribute('data-maidr-orig-stroke')) {
+      const origStroke = panel.getAttribute('data-maidr-orig-stroke') ?? '';
       if (origStroke === '') {
-        bg.removeAttribute('stroke');
+        panel.removeAttribute('stroke');
       } else {
-        bg.setAttribute('stroke', origStroke);
+        panel.setAttribute('stroke', origStroke);
       }
-      bg.removeAttribute('data-maidr-orig-stroke');
+      panel.removeAttribute('data-maidr-orig-stroke');
     }
-    if (bg.hasAttribute('data-maidr-orig-stroke-width')) {
-      const origStrokeWidth = bg.getAttribute('data-maidr-orig-stroke-width') ?? '';
+    if (panel.hasAttribute('data-maidr-orig-stroke-width')) {
+      const origStrokeWidth = panel.getAttribute('data-maidr-orig-stroke-width') ?? '';
       if (origStrokeWidth === '') {
-        bg.removeAttribute('stroke-width');
+        panel.removeAttribute('stroke-width');
       } else {
-        bg.setAttribute('stroke-width', origStrokeWidth);
+        panel.setAttribute('stroke-width', origStrokeWidth);
       }
-      bg.removeAttribute('data-maidr-orig-stroke-width');
+      panel.removeAttribute('data-maidr-orig-stroke-width');
     }
   }
+
+  /**
+   * Draws a box round a panel, over the chart.
+   *
+   * An HTML element, so it can be drawn over a panel whatever the panel is:
+   * a group inside an `<svg>`, an `<svg>` of its own, or an element laid
+   * over a canvas. It goes last in the parent of the panel's outermost
+   * HTML-level element, so no selector counting the chart's own children is
+   * moved by it, and is placed by its containing block from where the panel
+   * is on the page.
+   *
+   * It is drawn outside the panel, {@link PANEL_BOX_GAP} clear of its edge.
+   * Drawn on the edge, over the chart, its border covered whatever the panel
+   * draws there: a panel found as the element holding its marks ends at its
+   * outermost marks, so a base R scatter's corner point, the one being read
+   * among them, was hidden under the border.
+   *
+   * @param panel - The panel
+   * @param color - The outline colour
+   */
+  private static drawPanelBox(panel: Element, color: string): void {
+    this.panelBoxes.get(panel)?.remove();
+    const anchor = outermostSvgOf(panel) ?? panel;
+    const parent = anchor.parentElement;
+    const box = panel.getBoundingClientRect();
+    if (parent === null || box.width <= 0 || box.height <= 0) {
+      this.panelBoxes.delete(panel);
+      return;
+    }
+
+    const outline = document.createElement('div');
+    outline.setAttribute(this.OWNED_ATTRIBUTE, 'true');
+    outline.setAttribute('aria-hidden', 'true');
+    const outset = this.PANEL_BOX_BORDER + this.PANEL_BOX_GAP;
+    Object.assign(outline.style, {
+      position: 'absolute',
+      boxSizing: 'border-box',
+      pointerEvents: 'none',
+      border: `${this.PANEL_BOX_BORDER}px solid ${color}`,
+      borderRadius: '3px',
+      width: `${box.width + 2 * outset}px`,
+      height: `${box.height + 2 * outset}px`,
+    });
+    parent.appendChild(outline);
+    const origin = containingBlockOrigin(outline);
+    outline.style.left = `${box.left - origin.left - outset}px`;
+    outline.style.top = `${box.top - origin.top - outset}px`;
+    this.panelBoxes.set(panel, outline);
+  }
+}
+
+/**
+ * The outermost `<svg>` an element is drawn in, or the element itself when
+ * it is one.
+ * @param element - Any element
+ * @returns The `<svg>`, or null for an element in none
+ */
+function outermostSvgOf(element: Element): Element | null {
+  let svg: Element | null = element.tagName.toLowerCase() === 'svg' ? element : element.closest('svg');
+  while (svg?.parentElement?.closest('svg')) {
+    svg = svg.parentElement.closest('svg');
+  }
+  return svg;
+}
+
+/**
+ * Where an absolutely positioned element's offsets are measured from, on the
+ * page: its containing block's padding box, or the page's top left when no
+ * ancestor is positioned.
+ * @param element - The element, in the document
+ * @returns The origin, in viewport pixels
+ */
+function containingBlockOrigin(element: HTMLElement): { left: number; top: number } {
+  const parent = element.offsetParent;
+  if (parent === null || (parent === document.body && window.getComputedStyle(parent).position === 'static')) {
+    return { left: -window.scrollX, top: -window.scrollY };
+  }
+  const rect = parent.getBoundingClientRect();
+  return {
+    left: rect.left + parent.clientLeft - parent.scrollLeft,
+    top: rect.top + parent.clientTop - parent.scrollTop,
+  };
 }
 
 // Reading the vertices out of an SVG path's `d` attribute: shared by the line
