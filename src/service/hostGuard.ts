@@ -52,14 +52,17 @@ const GUARD_MARKERS = ['__maidrHostGuard', '__maidrInline', '__maidrKnitr'] as c
 /**
  * The namespace of the card component Quarto dashboards and Shiny share.
  *
- * Joined at runtime because the four-letter start of its name must appear
+ * Decoded at runtime because the four-letter start of its name must appear
  * nowhere in the built bundle: Quarto's dashboard filter lifts any cell
  * output that matches it out of its card, and py-maidr writes maidr.js into a
- * cell when it bundles the script. A minifier folds `'bs' + 'lib'`, a template
- * literal and `String.fromCharCode` back into the plain name; it leaves a
- * joined array alone. `scripts/build.js` fails the build if the name leaks.
+ * cell when it bundles the script. A minifier can evaluate what JavaScript
+ * itself defines, so it folds `'bs' + 'lib'`, a template literal,
+ * `String.fromCharCode` and, since rolldown 1.2.15, a joined array back into
+ * the plain name. `atob` is defined by the web platform, not by JavaScript, so
+ * the minifier leaves the call alone. `scripts/build.js` fails the build if the
+ * name leaks.
  */
-const CARD_NAMESPACE = ['bs', 'lib'].join('');
+const CARD_NAMESPACE = atob('YnNsaWI=');
 
 /** The reveal.js API this reads, in reveal.js 3, 4 and 5. */
 interface RevealApi {
