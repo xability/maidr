@@ -117,6 +117,40 @@ describe('an amCharts gantt on a date axis', () => {
     expect(written(inUtc, (inUtc.data as GanttData).points[0][0].start)).toBe('Jan 1, 2024');
   });
 
+  it('counts days on the calendar of the zone the root draws in, across a change of its clocks', () => {
+    // America/Chicago put its clocks forward an hour on Mar 10, 2024, so
+    // midnight there is 06:00 UTC before that day and 05:00 UTC after it. The
+    // 15 days from Mar 1 to Mar 16 lasted 15 days less an hour, 14.958 days,
+    // and were announced as 14.96 on an axis that draws 15 day cells.
+    const layer = schedule([
+      { categoryY: 'Design', openValueX: Date.UTC(2024, 2, 1, 6), valueX: Date.UTC(2024, 2, 16, 5) },
+      { categoryY: 'Build', openValueX: Date.UTC(2024, 0, 31, 6), valueX: Date.UTC(2024, 3, 10, 5) },
+    ], { root: { timezone: { name: 'America/Chicago' } } });
+    // Read without the layer's selectors: they name bars this test does not
+    // draw, and the trace would look for them in a document the unit
+    // project's node environment does not have.
+    const trace = TraceFactory.create({ ...layer, selectors: undefined }) as GanttTrace;
+
+    expect(trace.description.dataTable.rows).toEqual([
+      ['Design', '', 'Mar 1, 2024', 'Mar 16, 2024', 15],
+      ['Build', '', 'Jan 31, 2024', 'Apr 10, 2024', 70],
+    ]);
+  });
+
+  it('keeps an hour across the same change as the hour it lasted', () => {
+    // 01:00 to 03:00 on the night the clocks went forward is one hour, and
+    // the axis spaces its hours by the time that passed.
+    const layer = schedule(
+      [{ categoryY: 'Design', openValueX: Date.UTC(2024, 2, 10, 7), valueX: Date.UTC(2024, 2, 10, 8) }],
+      { timeUnit: 'hour', root: { timezone: { name: 'America/Chicago' } } },
+    );
+    const [task] = (layer.data as GanttData).points[0];
+
+    expect(task.end - task.start).toBe(1);
+    expect(written(layer, task.start)).toBe('Mar 10, 2024, 01:00 AM');
+    expect(written(layer, task.end)).toBe('Mar 10, 2024, 03:00 AM');
+  });
+
   it('keeps milliseconds and an eval-free date format where the page forbids compiling one, asking once', () => {
     // A fresh copy of the adapter, which has not asked yet on this page.
     let convert: typeof fromAmCharts = fromAmCharts;
