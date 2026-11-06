@@ -1804,10 +1804,12 @@ interface SceneMark {
  * unfiltered source and every other from the child before it. Each drawn
  * item carries the row it was drawn from, as a layered spec's
  * `layer_<i>_marks` dataset does. The marks of a series drawn one group
- * apiece share the name, and are read in turn.
+ * apiece share the name, and are read in turn: so are a layered line's,
+ * area's or trail's, split into series, whose groups put its marks out of
+ * `view.data()`'s reach the same way.
  *
  * @param view - The compiled view
- * @param markName - The marks' name, such as `concat_0_marks`
+ * @param markName - The marks' name, such as `concat_0_marks` or `layer_1_marks`
  * @returns The rows in drawn order, or `undefined` when no mark of that name
  * is drawn or one of its items carries no row
  */
@@ -2030,7 +2032,7 @@ function resolveData(
   view?: VegaView,
   markDatasetName?: string,
   requiredFields?: readonly string[],
-  sceneMarkName?: string,
+  scene?: { marks: readonly string[]; requiredFields: readonly string[] },
 ): Record<string, unknown>[] {
   // Exact path first: a layer's own mark dataset. See
   // `resolveMarkItemData` — the name-guessing below is a fallback.
@@ -2039,12 +2041,15 @@ function resolveData(
     if (markRows && rowsCarryFields(markRows, requiredFields))
       return markRows;
   }
-  // A concat child's marks, read where they are drawn. See
+  // The layer's marks, read where they are drawn, under the first of the
+  // names that is and carries the columns asked of it. See
   // `resolveSceneMarkData`.
-  if (view && sceneMarkName) {
-    const drawnRows = resolveSceneMarkData(view, sceneMarkName);
-    if (drawnRows && rowsCarryFields(drawnRows, requiredFields))
-      return drawnRows;
+  if (view && scene) {
+    for (const name of scene.marks) {
+      const drawnRows = resolveSceneMarkData(view, name);
+      if (drawnRows && rowsCarryFields(drawnRows, scene.requiredFields))
+        return drawnRows;
+    }
   }
 
   // Common Vega dataset names produced by the VL compiler.
@@ -4557,21 +4562,44 @@ function convertLayerSpec(
   // -- a box plot's eight -- guesses one of the sibling's. Requiring the
   // columns the child reads skips those.
   //
-  // A concat child's own marks are read first, where they are drawn: only a
-  // plain mark is drawn under the name, a composite's parts being named one
-  // level down, so a box plot or an error bar keeps the guessing below.
+  // A layer's own marks are read first, where they are drawn, when
+  // `view.data()` cannot reach them. A concat child's are drawn inside its
+  // group. A line, area or trail split into series is drawn one group per
+  // series, its marks inside each, so a layer of a layered spec that computes
+  // its own column -- a `window` rank, a `calculate` -- was handed a
+  // sibling's rows by the guessing, which lack the column, and every value
+  // was read as 0. Of a layered spec's layers, only those three are read
+  // this way; every other mark is drawn where `view.data()` reaches it and is
+  // read as before. Any of the three drawn with points, or an area with a
+  // line along it, has its path a level down, as Vega-Lite's overlay names
+  // it. Only a plain mark is drawn under these names, a composite's parts
+  // being named further down, so a box plot or an error bar keeps the
+  // guessing below.
   const ownMarks = layered
     ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks`
     : `${markGroupPrefix}marks`;
+  // The overlaid path of a layer that is not one of a layered spec's is a
+  // concat child's, the only such layer read from its drawn marks.
+  const overlaidPath = layered
+    ? `${markGroupPrefix}layer_${selectorLayerIndex}_layer_0_marks`
+    : `${markGroupPrefix}layer_0_marks`;
+  const drawnAsSeries = mark === 'line' || mark === 'area' || mark === 'trail';
+  const sceneMarks = markGroupPrefix.startsWith('concat_') || (layered && drawnAsSeries)
+    ? [ownMarks, ...(drawnAsSeries ? [overlaidPath] : [])]
+    : undefined;
+  const requiredFields = folded && traceType === TraceType.PARALLEL
+    ? [folded.keyColumn, folded.valueColumn]
+    : markGroupPrefix ? columnsReadAsIs(encoding) : undefined;
   const rows = rowsOverride ?? resolveData(
     spec,
     index,
     view,
     layered ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks` : undefined,
-    folded && traceType === TraceType.PARALLEL
-      ? [folded.keyColumn, folded.valueColumn]
-      : markGroupPrefix ? columnsReadAsIs(encoding) : undefined,
-    markGroupPrefix.startsWith('concat_') ? ownMarks : undefined,
+    requiredFields,
+    // The drawn rows have to carry the columns the layer reads, as a guessed
+    // table does where its columns are asked for, so rows of another shape
+    // fall through to the guessing rather than being read as zeros.
+    sceneMarks && { marks: sceneMarks, requiredFields: requiredFields ?? columnsReadAsIs(encoding) },
   );
 
   let data: MaidrLayer['data'];
