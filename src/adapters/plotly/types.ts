@@ -9,6 +9,11 @@ export interface PlotlyGraphDiv extends HTMLElement {
   _fullData?: PlotlyTrace[];
   _fullLayout?: PlotlyFullLayout;
   calcdata?: PlotlyCalcData[][];
+  /**
+   * What plotly is still waiting for to finish drawing the chart, such as a
+   * map's outlines fetched over the network; emptied once they settle.
+   */
+  _promises?: Promise<unknown>[];
 }
 
 export interface PlotlyTrace {

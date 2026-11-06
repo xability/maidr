@@ -5,6 +5,6 @@
  * modules. Internal helpers remain private to each module.
  */
 
-export { claimPlotlyExamination } from './examination';
+export { claimPlotlyExamination, deferWhilePlotlyDraws } from './examination';
 export { extractPlotlyData } from './extractor';
 export { disconnectPlotlyObservers, getPlotlyOverlayLayers, isPlotlyPlot, normalizePlotlySvg } from './normalizer';
