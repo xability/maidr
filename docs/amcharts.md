@@ -496,7 +496,7 @@ The highlight outlines the whole pair — the column drawn as its stem and the b
 
 #### Gantt / Timeline [experimental]
 
-A schedule is floating columns on a category Y axis of lanes and a `DateAxis` of time. Pitch carries each interval's **length** and stereo position carries its **start**, mapped along the whole axis rather than by column index, so two lanes whose work overlaps sound like they overlap.
+A schedule is floating columns on a category Y axis of lanes and a `DateAxis` of time. Pitch carries each interval's **length** and stereo position carries its **start**, mapped along the whole axis rather than by column index, so two lanes whose work overlaps sound like they overlap. Up and Down follow the drawing: amCharts draws the first lane at the bottom of the lane axis, or at the top when its renderer is `inversed`, as in the example below.
 
 ```js
 var yAxis = chart.yAxes.push(am5xy.CategoryAxis.new(root, {
