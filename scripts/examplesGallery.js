@@ -309,6 +309,7 @@ export const TITLES = {
   'powerbi-line.html': 'Line Chart (companion mode)',
   'vegalite-bindbox-horizontal.html': 'Box Plot (horizontal)',
   'vegalite-hconcat-box.html': 'Box Plots side by side (hconcat)',
+  'vegalite-nested-layer.html': 'Labelled Bars and a Line (nested layer)',
 };
 
 /**
@@ -533,6 +534,7 @@ export const PAGE_TYPES = {
   'graphviz/patchwork.html': ['treemap'],
   'vegalite-bindbox-horizontal.html': ['box'],
   'vegalite-hconcat-box.html': ['box'],
+  'vegalite-nested-layer.html': ['bar', 'line'],
 };
 
 /**

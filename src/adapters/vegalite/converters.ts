@@ -184,6 +184,13 @@ export function vegaLiteToMaidr(
     const fanBands = new Set([...fans.values()].flatMap(fan => fan.bands));
     const rawLayers: ConvertedLayer[] = [];
     for (let i = 0; i < layerSpecs.length;) {
+      // A layer that is itself a layered spec -- `alt.layer(bars + labels,
+      // rule)` -- is read as the layers it draws. See `convertNestedLayers`.
+      if (layerSpecs[i].layer) {
+        rawLayers.push(...convertNestedLayers(layerSpecs[i], [i], view, spec.encoding, spec.transform, domOrder));
+        i += 1;
+        continue;
+      }
       const fan = fans.get(i);
       if (fan) {
         rawLayers.push({ layer: fan.layer, spec: layerSpecs[i] });
@@ -255,6 +262,72 @@ export function vegaLiteToMaidr(
     return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
   return buildMaidr(id, title, subtitle, caption, [[{ layers: [layer] }]]);
+}
+
+/**
+ * Read a layer that is itself a layered spec as the layers it draws.
+ *
+ * Vega-Lite draws the children of such a layer as marks of their own, named
+ * after the path to them: the children of layer `i` are
+ * `layer_<i>_layer_<j>_marks`, theirs `layer_<i>_layer_<j>_layer_<k>_marks`.
+ * Read as one layer it has no mark, so it was dropped with every mark under
+ * it, and `alt.layer(bars + labels, rule)` was read as its rule alone, which
+ * reads as nothing.
+ *
+ * Each child is read as a concat child's layer is, under the class prefix of
+ * its path and with the encoding and transforms of every layer above it, and
+ * a `text` child that labels a sibling gives that sibling its names, as at
+ * the top level (`labelOverlays`). A lollipop, a median band or a fan is
+ * paired only among the top-level layers, so inside a nested layer each of
+ * its marks is read on its own.
+ *
+ * @param nested - The layered spec, a layer of its parent
+ * @param path - The layer indices leading to it, outermost first
+ * @param view - The compiled view, when bound
+ * @param parentEncoding - The encoding of the layers above it, merged
+ * @param parentTransform - The transforms of the layers above it, outermost first
+ * @param domOrder - A caller-supplied DOM order for segmented layers
+ * @returns Its layers, each paired with the spec it was read from
+ */
+function convertNestedLayers(
+  nested: VegaLiteSpec,
+  path: number[],
+  view: VegaView | undefined,
+  parentEncoding: VegaLiteEncoding | undefined,
+  parentTransform: VegaLiteTransform[] | undefined,
+  domOrder: 'series-major' | 'subject-major' | undefined,
+): ConvertedLayer[] {
+  // A declaration on the layered node names none of the layers under it, as
+  // on any composite.
+  warnCompositeDeclaration(nested);
+  const encoding = { ...parentEncoding, ...nested.encoding };
+  const transform = [...(parentTransform ?? []), ...(nested.transform ?? [])];
+  const markGroupPrefix = path.map(i => `layer_${i}_`).join('');
+  const children = withSharedAxisTitles(inheritData(nested.layer ?? [], nested.data), { ...nested, encoding });
+  const overlays = labelOverlays(children, encoding);
+  return children.flatMap((child, j): ConvertedLayer[] => {
+    if (child.layer)
+      return convertNestedLayers(child, [...path, j], view, encoding, transform, domOrder);
+    if (overlays.claimed.has(j))
+      return [];
+    const named = overlays.names.get(j);
+    const childSpec = named === undefined ? child : { ...child, encoding: { ...child.encoding, text: named } };
+    const layer = convertLayerSpec(
+      childSpec,
+      j,
+      view,
+      encoding,
+      true,
+      domOrder,
+      { layerIndex: j, markGroupPrefix },
+      undefined,
+      transform,
+    );
+    if (!layer)
+      return [];
+    layer.id = [...path, j].join('_');
+    return [{ layer, spec: child }];
+  });
 }
 
 /**
