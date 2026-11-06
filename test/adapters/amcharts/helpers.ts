@@ -530,10 +530,23 @@ export function fakeHierarchyLink(config: {
   source: string | number;
   target: string | number;
   box?: AmBounds;
+  /**
+   * Where each end's node is drawn, root-relative. Given, the ends carry the
+   * node sprites amCharts keeps on a node data item's `node`.
+   */
+  at?: { source: { x: number; y: number }; target: { x: number; y: number } };
 }): unknown {
+  const end = (name: string | number, centre?: { x: number; y: number }): unknown => {
+    const node = centre
+      ? { toGlobal: (point: { x: number; y: number }) => ({ x: centre.x + point.x, y: centre.y + point.y }) }
+      : undefined;
+    return {
+      get: (key: string) => (key === 'category' ? name : key === 'node' ? node : undefined),
+    };
+  };
   const ends: Record<string, unknown> = {
-    source: { get: (key: string) => (key === 'category' ? config.source : undefined) },
-    target: { get: (key: string) => (key === 'category' ? config.target : undefined) },
+    source: end(config.source, config.at?.source),
+    target: end(config.target, config.at?.target),
   };
   const box = config.box ?? { left: 0, top: 0, right: 10, bottom: 10 };
   return {

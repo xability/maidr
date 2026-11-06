@@ -1502,6 +1502,35 @@ function readLinkEndName(link: AmSprite, end: 'source' | 'target'): string | num
   return typeof get === 'function' ? asNodeName(get.call(node, 'category')) : null;
 }
 
+/**
+ * The two node sprites a drawn hierarchy link joins.
+ *
+ * Each end of a link is a node *data item*, which keeps the sprite it is drawn
+ * as on `node`. The overlay measures a network line between these, because
+ * amCharts measures neither the line nor anything it could be read from: the
+ * hierarchy theme turns a link's `isMeasured` off, so it reports a point and
+ * no size (amcharts5 5.21.4).
+ *
+ * @param link - A line the force-directed series drew.
+ * @returns Its source and target nodes, or `undefined` when either is missing.
+ */
+export function networkLinkEnds(link: AmSprite): [AmSprite, AmSprite] | undefined {
+  const source = readLinkEndNode(link, 'source');
+  const target = readLinkEndNode(link, 'target');
+  return source && target ? [source, target] : undefined;
+}
+
+/** The node sprite at one end of a drawn hierarchy link. */
+function readLinkEndNode(link: AmSprite, end: 'source' | 'target'): AmSprite | undefined {
+  const item = link.get?.(end);
+  if (item == null || typeof item !== 'object') {
+    return undefined;
+  }
+  const get = (item as { get?: (key: string) => unknown }).get;
+  const node = typeof get === 'function' ? get.call(item, 'node') : undefined;
+  return node != null && typeof node === 'object' ? node as AmSprite : undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Gauge (am5radar ClockHand)
 // ---------------------------------------------------------------------------

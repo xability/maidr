@@ -3,14 +3,14 @@ import { readSliceBounds, sliceExtent, wedgeBounds } from '@adapters/amcharts/ge
 import { describe, expect, it } from '@jest/globals';
 
 /**
- * A `Slice` as amCharts 5.20.1 actually reports one.
+ * A pie's `Slice` as amCharts 5.20.1 actually reports one.
  *
  * The point of this helper is the `globalBounds` it returns: a **degenerate
- * box at the wedge's centre**, which is what a real slice answers because it
- * paints through a draw callback and never feeds the bounds accumulator. The
- * existing amCharts tests give their fake slices real boxes, which is the one
- * thing amCharts does not do — so they passed while the highlight drew
- * nothing at all (#774).
+ * box at the wedge's centre**, which is what a pie's slice answers because
+ * the percent theme turns its `isMeasured` off. The existing amCharts tests
+ * gave their fake slices real boxes, which a pie's slice never has — so they
+ * passed while the highlight drew nothing at all (#774). A slice amCharts
+ * does measure, a polar column's or a sunburst node's, is faked further down.
  */
 function slice(
   cx: number,
@@ -105,19 +105,51 @@ describe('wedgeBounds measures a wedge amCharts reports no box for', () => {
 });
 
 describe('sliceExtent decides which measurement to trust', () => {
-  it('measures the wedge even when a box is reported alongside it', () => {
-    // Pins the precedence. A build that reported both would otherwise be free
-    // to fall back, and the reported box is the coarser of the two -- the
-    // whole point of the fix is that the wedge's own geometry wins.
+  /**
+   * A polar area's column, or a sunburst's node, as amCharts reports one: a
+   * `Slice` amCharts *does* measure, so its box is the box the wedge is drawn
+   * in, and its centre is its own origin, reached through `toGlobal`.
+   *
+   * Feb on examples/amcharts-radar.html: 61 mm on an axis where 100 mm is
+   * 140 px, so a radius of 85 px, from 12 o'clock + 30 deg to + 60 deg, round
+   * a centre at (300, 228).
+   */
+  const feb: AmSprite = {
+    globalBounds: () => ({ left: 300, top: 154.39, right: 373.61, bottom: 228 }),
+    toGlobal: point => ({ x: 300 + point.x, y: 228 + point.y }),
+    get: (key: string) =>
+      ({ radius: 85, startAngle: -60, arc: 30 } as Record<string, unknown>)[key],
+  };
+
+  it('measures a measured wedge round its own origin, not round its box', () => {
+    // The middle of a measured wedge's box is not its centre. Taken as one,
+    // Feb's outline was shifted 37 px right and 37 px up, onto its outer half,
+    // Jan's tip and empty space.
+    expect(near(sliceExtent(feb))).toEqual([300, 154.39, 373.61, 228]);
+  });
+
+  it('measures the wedge from its settings, round the origin, before any box', () => {
+    // Pins the precedence: a wedge with a radius is measured, and the box a
+    // sprite reports is only the fallback for one with nothing to measure.
     const both: AmSprite = {
       globalBounds: () => ({ left: 0, top: 0, right: 999, bottom: 999 }),
+      toGlobal: point => ({ x: 100 + point.x, y: 100 + point.y }),
       get: (key: string) =>
         ({ radius: 50, startAngle: -90, arc: 90 } as Record<string, unknown>)[key],
     };
 
-    // Centre is the reported box's midpoint, so the wedge sits around 499.5.
-    const [left, top, right, bottom] = near(sliceExtent(both));
-    expect([left, top, right, bottom]).toEqual([499.5, 449.5, 549.5, 499.5]);
+    expect(near(sliceExtent(both))).toEqual([100, 50, 150, 100]);
+  });
+
+  it('takes a measured wedge\'s box as it is when there is no origin to find', () => {
+    // A box with area says nothing about where the arc is centred, so the
+    // wedge is not placed round its middle; the box itself is the answer.
+    const boxed: AmSprite = {
+      globalBounds: feb.globalBounds,
+      get: feb.get,
+    };
+
+    expect(near(sliceExtent(boxed))).toEqual([300, 154.39, 373.61, 228]);
   });
 
   it('falls back to a reported box when there is no radius to measure', () => {

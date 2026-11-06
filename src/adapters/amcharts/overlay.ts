@@ -18,7 +18,7 @@
  */
 
 import type { NavItemTarget, NavRibbonTarget, NavTarget } from './navmap';
-import type { AmBounds, AmPoint, AmSprite } from './types';
+import type { AmBounds, AmPoint, AmSprite, AmXYSeries } from './types';
 import { OVERLAY_ATTRIBUTES, writeOverlayRegions } from '@util/overlayRegions';
 import { sliceExtent } from './geometry';
 
@@ -201,15 +201,20 @@ function readRect(target: NavTarget): OverlayRect | null {
  * overlay draws rectangles onto a canvas that has no path to outline, and a box
  * hugging the active ribbon still says which way navigation moved.
  *
- * A sprite reporting no extent in either direction answers `null` rather than a
- * mark at its centre: an am5 `Graphics` painted through a draw callback can
- * report a degenerate point (#774), and a link carries no radius or sweep to be
- * measured from instead.
+ * A force-directed network's line is not measured at all — the hierarchy
+ * theme turns a link's `isMeasured` off, so it reports a point at its origin
+ * and no size — and every line of a real network cleared the overlay. It is
+ * measured instead between the two nodes it joins, which the navigation map
+ * hands over as `ends` (see {@link endsRect}).
+ *
+ * A sprite measurable no way at all answers `null` rather than a mark at its
+ * centre, and the overlay clears.
  */
 function ribbonRect(target: NavRibbonTarget): OverlayRect | null {
   const bounds = target.sprite.globalBounds?.();
   const reported = bounds ? boundsToRect(bounds) : null;
-  const box = reported && hasExtent(reported) ? reported : spriteBoxRect(target.sprite);
+  const own = reported && hasExtent(reported) ? reported : spriteBoxRect(target.sprite);
+  const box = own && hasExtent(own) ? own : endsRect(target.ends);
   if (!box || !hasExtent(box)) {
     return null;
   }
@@ -222,6 +227,37 @@ function ribbonRect(target: NavRibbonTarget): OverlayRect | null {
     width: Math.max(box.width, RIBBON_MIN_THICKNESS),
     height: Math.max(box.height, RIBBON_MIN_THICKNESS),
   };
+}
+
+/**
+ * The box of a line drawn between two nodes, from the nodes' centres.
+ *
+ * A `HierarchyLink` draws a straight line from one node's position to the
+ * other's, and a node is laid out round its own origin, so the two origins
+ * mapped through `toGlobal` are the line's two ends.
+ *
+ * @returns The box, or `null` without two nodes to measure
+ */
+function endsRect(ends: NavRibbonTarget['ends']): OverlayRect | null {
+  if (!ends) {
+    return null;
+  }
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const node of ends) {
+    if (!node.toGlobal) {
+      return null;
+    }
+    const centre = node.toGlobal({ x: 0, y: 0 });
+    xs.push(centre.x);
+    ys.push(centre.y);
+  }
+  if (![...xs, ...ys].every(Number.isFinite)) {
+    return null;
+  }
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
 }
 
 /**
@@ -239,18 +275,21 @@ function hasExtent(box: OverlayRect): boolean {
  * Rectangle for a map region — the polygon an am5map `MapPolygonSeries` drew,
  * which it keeps on the data item's `mapPolygon`.
  *
- * Measured from the reported bounds first, for the reason a word cloud's glyph
- * is: a region is an irregular shape at whatever angle the projection put it,
- * and its local width and height describe a box it does not fill. The
- * axis-aligned box `globalBounds()` maps is the honest outline for one — coarse
- * for a long thin country, but it hugs the shape and says which way navigation
- * moved, which is what the highlight is for.
+ * The outline is an axis-aligned box around the shape — coarse for a long thin
+ * country, but it hugs the shape and says which way navigation moved, which
+ * is what the highlight is for. A reported box with area is taken as it is,
+ * for the reason a word cloud's glyph is.
  *
- * A polygon reporting no box with area answers `null` rather than a hairline:
- * an am5 `Graphics` painted through a draw callback can report a degenerate
- * point (the `Slice` problem of #774), and there is no radius or sweep to
- * measure a region from instead. The overlay then clears, which says nothing
- * rather than pointing a one-pixel mark at the wrong place.
+ * amCharts does not measure a map polygon, though: its theme sets the
+ * polygon's `isMeasured` off, so `globalBounds()` answers a point at the
+ * polygon's origin and its width and height are 0, whatever it draws
+ * (amcharts5 5.20.1 and 5.21.4 alike). Read that way, every region of a real
+ * map cleared the overlay. The box is then taken from what the polygon draws —
+ * see {@link projectedRegionRect}.
+ *
+ * A polygon that can be measured neither way answers `null` rather than a
+ * hairline, and the overlay clears, which says nothing rather than pointing a
+ * one-pixel mark at the wrong place.
  */
 function regionRect(target: NavItemTarget): OverlayRect | null {
   const polygon = target.dataItem.get('mapPolygon') as AmSprite | undefined;
@@ -266,8 +305,80 @@ function regionRect(target: NavItemTarget): OverlayRect | null {
     }
   }
 
+  const drawn = projectedRegionRect(target.series, polygon);
+  if (drawn) {
+    return drawn;
+  }
+
   const box = spriteBoxRect(polygon);
   return box && box.width > 0 && box.height > 0 ? box : null;
+}
+
+/**
+ * The box a map polygon draws its region in, from the region's geometry.
+ *
+ * A polygon draws its GeoJSON `geometry` through the series' `geoPath()` — the
+ * map's d3 path, bound to its projection — into its own display, so the same
+ * path's `bounds()` is the box it draws in, in the polygon's own coordinates.
+ * Mapping that box's corners through `toGlobal` carries in whatever pan and
+ * zoom the map is at. Measured on amcharts5 5.21.4, this is the box amCharts'
+ * own keyboard focus outlines a region with.
+ *
+ * @returns The box, or `null` when the series has no path or the polygon no
+ *   geometry to measure, or the path cannot measure it: an empty geometry
+ *   answers infinite bounds, and a malformed one may throw, which would
+ *   otherwise leave the last box on the map
+ */
+function projectedRegionRect(series: AmXYSeries, polygon: AmSprite): OverlayRect | null {
+  const path = series.geoPath?.();
+  const geometry = polygon.get?.('geometry');
+  if (!path || geometry == null) {
+    return null;
+  }
+
+  let bounds: [[number, number], [number, number]];
+  try {
+    bounds = path.bounds(geometry);
+  } catch {
+    return null;
+  }
+  const [[left, top], [right, bottom]] = bounds;
+  if (![left, top, right, bottom].every(Number.isFinite)) {
+    return null;
+  }
+  const box = toGlobalRect(polygon, { left, top, right, bottom });
+  return box && box.width > 0 && box.height > 0 ? box : null;
+}
+
+/**
+ * A box in a sprite's own coordinates, mapped to root-container CSS px.
+ *
+ * All four corners are mapped and the result is their axis-aligned box, so a
+ * sprite turned by any of its ancestors still gets the box it is drawn in. A
+ * corner that maps to no finite point gives no box, as in {@link endsRect}.
+ */
+function toGlobalRect(sprite: AmSprite, local: AmBounds): OverlayRect | null {
+  if (!sprite.toGlobal) {
+    return null;
+  }
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const [x, y] of [
+    [local.left, local.top],
+    [local.right, local.top],
+    [local.right, local.bottom],
+    [local.left, local.bottom],
+  ]) {
+    const point = sprite.toGlobal({ x, y });
+    xs.push(point.x);
+    ys.push(point.y);
+  }
+  if (![...xs, ...ys].every(Number.isFinite)) {
+    return null;
+  }
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
 }
 
 /**
@@ -322,8 +433,9 @@ function spriteBoxRect(sprite: AmSprite): OverlayRect | null {
  * navigation has moved, which is the point of the highlight.
  *
  * Measured from the wedge's settings rather than its `globalBounds()`, which a
- * `Slice` reports as a degenerate point at its own centre (#774) — a rect from
- * that collapses to nothing, and the caller then drew no highlight at all.
+ * pie's `Slice` reports as a degenerate point at its own centre (#774) — a
+ * rect from that collapses to nothing, and the caller then drew no highlight
+ * at all. See {@link sliceExtent} for a wedge amCharts does measure.
  *
  * A pie keeps its wedge on the data item's `slice`; a polar column series keeps
  * the same `Slice` on `graphics`, where a plain column series keeps its

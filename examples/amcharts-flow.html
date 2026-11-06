@@ -49,12 +49,10 @@
       only who is connected to whom.
     </p>
     <p class="note">
-      <strong>These four types are read but not outlined.</strong> They sonify,
-      describe, braille and navigate correctly; the canvas highlight simply
-      clears as the cursor moves. Recovering which node the cursor is on would
-      mean reimplementing MAIDR's own node ordering and stage layering inside
-      the adapter, and a copy of that would drift silently and then outline a
-      confidently wrong node. See <code>docs/amcharts.md</code>.
+      <strong>All four are outlined by their links, not their nodes.</strong>
+      A sankey, alluvial or chord outlines the one ribbon the cursor travelled
+      along; a network outlines every line to the cursor's node, so the node
+      is where they meet. See <code>docs/amcharts.md</code>.
     </p>
 
     <h2>Sankey</h2>

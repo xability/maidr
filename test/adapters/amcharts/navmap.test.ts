@@ -808,6 +808,56 @@ describe('buildNavigationMap (flow and network)', () => {
     expect(targets.map(spriteOf)).toEqual([drawn[2], drawn[1], drawn[3]]);
   });
 
+  it('outlines a network line amCharts reports no box for, between its nodes', () => {
+    // A real `HierarchyLink` is never measured -- the hierarchy theme turns
+    // its `isMeasured` off -- so it reports a point at the origin and no
+    // size, and every line of a real network used to clear the overlay. It
+    // draws a straight line between its two nodes, so they bound it.
+    const drawn = [fakeHierarchyLink({
+      source: 'Ada',
+      target: 'Edsger',
+      box: { left: 0, top: 0, right: 0, bottom: 0 },
+      at: { source: { x: 292, y: 179 }, target: { x: 465, y: 294 } },
+    })];
+    // `topDepth: 1` hides the container root, as a chart of these people
+    // would: the root is a holder for the rows, not a person.
+    const series = fakeForceDirectedSeries(
+      'People',
+      PEOPLE,
+      { linkWithField: 'linkWith', topDepth: 1 },
+      drawn,
+    );
+    const { navMap, layer } = panelFor(series);
+
+    // Ada-Edsger is the first link the walk emits.
+    const [target] = navMap.resolve(layer.id, -1, -1, [0]);
+    expect(spriteOf(target)).toBe(drawn[0]);
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 292, top: 179, width: 173, height: 115 });
+  });
+
+  it('outlines a level network line, measured between its nodes, as a hairline', () => {
+    // Two nodes at the same height make a box with no height, which would
+    // vanish in the clip; it is padded to a 2 px hairline instead.
+    const drawn = [fakeHierarchyLink({
+      source: 'Ada',
+      target: 'Edsger',
+      box: { left: 0, top: 0, right: 0, bottom: 0 },
+      at: { source: { x: 292, y: 179 }, target: { x: 465, y: 179 } },
+    })];
+    const series = fakeForceDirectedSeries(
+      'People',
+      PEOPLE,
+      { linkWithField: 'linkWith', topDepth: 1 },
+      drawn,
+    );
+    const { navMap, layer } = panelFor(series);
+
+    const [target] = navMap.resolve(layer.id, -1, -1, [0]);
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 292, top: 178, width: 173, height: 2 });
+  });
+
   it('clears when the graph has changed under a network layer', () => {
     // The re-extraction is the network's alignment guard: names alone would
     // happily match an index against a layer built from a different graph, and
@@ -970,11 +1020,70 @@ describe('buildNavigationMap (choropleth)', () => {
       .toEqual({ left: 20, top: 0, width: 8, height: 8 });
   });
 
-  it('clears rather than outlining a polygon that reports no box with area', () => {
-    // An am5 `Graphics` painted through a draw callback can report a
-    // degenerate point (the `Slice` problem of #774), and a region has no
-    // radius or sweep to be measured from instead. A one-pixel mark at the
-    // wrong place says less than nothing.
+  it('outlines a region amCharts reports no box for, from the geometry it draws', () => {
+    // A real map polygon is never measured -- the map theme turns its
+    // `isMeasured` off -- so it reports a point at its origin and no size,
+    // and every region of a real map used to clear the overlay. It draws its
+    // geometry through the series' path, so the path's bounds are its box.
+    const geometry = { type: 'Polygon', coordinates: [] };
+    const polygon = {
+      className: 'MapPolygon',
+      globalBounds: () => ({ left: 0, top: 0, right: 0, bottom: 0 }),
+      width: () => 0,
+      height: () => 0,
+      get: (key: string) => (key === 'geometry' ? geometry : undefined),
+      toGlobal: (point: { x: number; y: number }) => ({ x: point.x + 100, y: point.y + 40 }),
+    };
+    const series = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', value: 38.9, polygon },
+    ]);
+    (series as AmXYSeries & { geoPath: unknown }).geoPath = () => ({
+      bounds: (object: unknown) => (object === geometry ? [[76, 124], [160, 255]] : [[0, 0], [0, 0]]),
+    });
+    const { navMap, layer } = navMapFor(series);
+
+    const [target] = navMap.resolve(layer.id, 0, 0);
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 176, top: 164, width: 84, height: 131 });
+  });
+
+  it('clears for a region whose geometry the path cannot measure or place', () => {
+    // A malformed geometry may make the path throw, and a thrown error would
+    // leave the last region's box on the map; a corner the polygon maps to no
+    // point gives no box either. Either way the overlay clears.
+    const flatPolygon = (toGlobal: (point: { x: number; y: number }) => { x: number; y: number }): unknown => ({
+      className: 'MapPolygon',
+      globalBounds: () => ({ left: 0, top: 0, right: 0, bottom: 0 }),
+      width: () => 0,
+      height: () => 0,
+      get: (key: string) => (key === 'geometry' ? { type: 'Polygon', coordinates: [] } : undefined),
+      toGlobal,
+    });
+    const throwing = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', value: 38.9, polygon: flatPolygon(point => point) },
+    ]);
+    (throwing as AmXYSeries & { geoPath: unknown }).geoPath = () => ({
+      bounds: () => {
+        throw new Error('malformed geometry');
+      },
+    });
+    const unplaced = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', value: 38.9, polygon: flatPolygon(() => ({ x: Number.NaN, y: 0 })) },
+    ]);
+    (unplaced as AmXYSeries & { geoPath: unknown }).geoPath = () => ({
+      bounds: () => [[76, 124], [160, 255]],
+    });
+
+    for (const series of [throwing, unplaced]) {
+      const { navMap, layer } = navMapFor(series);
+      const [target] = navMap.resolve(layer.id, 0, 0);
+      expect(dataItemToOverlayRect(target, null)).toBeNull();
+    }
+  });
+
+  it('clears rather than outlining a polygon it cannot measure either way', () => {
+    // No box with area and no geometry to measure instead: a one-pixel mark
+    // at the wrong place says less than nothing.
     const flat = fakeMapPolygon({ box: { left: 30, top: 30, right: 30, bottom: 30 } });
     const series = fakeMapPolygonSeries('Rate', [
       { name: 'Nevada', value: 38.9, polygon: flat },
