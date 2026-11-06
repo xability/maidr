@@ -434,7 +434,8 @@ export function fakeGanttSeries(
 
 /** One node of a fake am5hierarchy tree. */
 export interface FakeNode {
-  category: string;
+  /** Absent for a node with no `categoryField` value, as a container root may be. */
+  category?: string;
   value?: number;
   children?: FakeNode[];
   /** Stands in for the rectangle sprite the overlay measures. */

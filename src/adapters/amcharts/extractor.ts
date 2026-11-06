@@ -1034,7 +1034,9 @@ export interface AmHierarchyNode {
  * `children` are the branches — commonly a synthetic "Root" the chart is even
  * configured to hide (`topDepth: 1`) — so keeping it would add a level that
  * always holds one node worth 100% of the chart, and put every reader one
- * extra step away from the data.
+ * extra step away from the data. A force-directed graph is the exception: it
+ * draws its root as a node unless `topDepth` hides it, and
+ * {@link extractNetworkPoints} puts the root back with {@link drawnNetworkRoot}.
  *
  * Depth-first is what makes the order usable: MAIDR's treemap addresses a node
  * by `[depth][index within depth]` and takes the index from the order the
@@ -1328,9 +1330,32 @@ const LINK_WITH_FIELD_SETTING = 'linkWithField';
  * node would announce a participant the chart does not have. Each pair is
  * emitted once — a link is undirected, and two rows naming each other draw one
  * line.
+ *
+ * The tree is read as amCharts draws it, which the series' `topDepth` decides
+ * (`Hierarchy`, `LinkedHierarchy`, `LinkedHierarchyNode`, 5.21.4). amCharts
+ * draws a parent's links to its children only from that depth down, and once
+ * a node is selected, as `series.set("selectedDataItem", series.dataItems[0])`
+ * selects the root, it hides every node above that depth, and with it every
+ * cross-link that reaches one. Those nodes and lines are not read.
+ * `topDepth` defaults to 0, so the root of the data is a node like any other,
+ * drawn and linked to each of its children — on amcharts-flow.html, Computing
+ * with its three lines. The walk {@link extractHierarchyNodes} shares with the
+ * treemap drops a single root, as a treemap draws it as the container; here
+ * it is put back unless `topDepth` hides it.
+ *
+ * Until a node is selected amCharts still draws the nodes above `topDepth`,
+ * unlinked from their children, and their cross-links. Those cross-links are
+ * not read either: the nodes are read as `topDepth` says, hidden.
  */
 export function extractNetworkPoints(series: AmXYSeries): NetworkPoint[] {
-  const nodes = extractHierarchyNodes(series);
+  const topDepth = asFiniteNumber(series.get('topDepth')) ?? 0;
+  const root = drawnNetworkRoot(series, topDepth);
+  // With one root, the case amCharts lays out, a node's own depth in amCharts
+  // is one more than its `depth` in the walk, and its parent's is its `depth`.
+  const oneRoot = series.dataItems.length === 1;
+  const shown = extractHierarchyNodes(series)
+    .filter(node => !oneRoot || node.depth + 1 >= topDepth);
+  const nodes: Pick<AmHierarchyNode, 'dataItem' | 'name'>[] = root ? [root, ...shown] : shown;
 
   // Every name a cross-link may legitimately reach: the node's own category,
   // and the id the author keyed it by when that is a different column.
@@ -1356,8 +1381,13 @@ export function extractNetworkPoints(series: AmXYSeries): NetworkPoint[] {
     links.push({ source, target });
   };
 
-  for (const node of nodes) {
-    const parent = node.path[node.path.length - 1];
+  // A node's parent is the last name on its path, or the root for a node at
+  // the top of the walk, and amCharts draws the link only when the parent's
+  // depth is not above `topDepth`.
+  for (const node of shown) {
+    if (oneRoot && node.depth < topDepth)
+      continue;
+    const parent = node.path[node.path.length - 1] ?? root?.name;
     if (parent !== undefined)
       add(parent, node.name);
   }
@@ -1378,6 +1408,25 @@ export function extractNetworkPoints(series: AmXYSeries): NetworkPoint[] {
   }
 
   return links;
+}
+
+/**
+ * The root of a force-directed graph's data, when amCharts draws it as a node.
+ *
+ * It draws none when `topDepth` hides it, the way a chart with a synthetic
+ * root is usually configured, and none for data of several top-level records,
+ * which amCharts does not lay out as one tree. A root with no name is not
+ * read either: there would be nothing to announce it by.
+ */
+function drawnNetworkRoot(
+  series: AmXYSeries,
+  topDepth: number,
+): Pick<AmHierarchyNode, 'dataItem' | 'name'> | undefined {
+  const roots = series.dataItems;
+  if (roots.length !== 1 || topDepth > 0)
+    return undefined;
+  const name = asNodeName(roots[0].get('category'));
+  return name != null ? { dataItem: roots[0], name } : undefined;
 }
 
 /**
