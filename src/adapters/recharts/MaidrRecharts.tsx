@@ -43,7 +43,7 @@ import type { MaidrRechartsProps, RechartsPieAngles, RechartsRidgelineArea, Rech
 import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
 import { Orientation } from '../../type/grammar';
-import { areaDataKeyFor, categoryAxisReversedFor, categoryAxisReversedPerPanelFor, dotSeriesFor, firstPlaceFor, pieAnglesFor, ridgelineAreasFor, ridgelineAxisReversedFor, stepDirectionFor } from './childProps';
+import { areaDataKeyFor, categoryAxisReversedFor, categoryAxisReversedPerPanelFor, dotSeriesFor, firstPlaceFor, pieAnglesFor, ridgelineAreasFor, ridgelineAxisReversedFor, sankeyAlignFor, stepDirectionFor } from './childProps';
 import { convertRechartsToMaidr, normalizeRechartsSubplotGrid, ridgelineAreaWarning } from './converters';
 import { getPanelClassName } from './selectors';
 import { plottedKeyWarning, useWarnOnce } from './useRechartsAdapter';
@@ -234,6 +234,13 @@ export function MaidrRecharts({
         layers,
       })
     : undefined);
+  // Where `<Sankey align>` draws a node nothing flows out of: in the last
+  // column, by default, or one column past its source. Simple mode only, and
+  // never over what the config gives.
+  const sankeyAlign = (chartType === 'sankey' || chartType === 'alluvial') && !subplots
+    && flowConfig?.align === undefined
+    ? sankeyAlignFor(children)
+    : undefined;
   // Where a bump chart draws first place is on the `<YAxis reversed>` it
   // already declares, read the same way and with the same abstention.
   const resolvedFirstPlace = subplots
@@ -270,7 +277,9 @@ export function MaidrRecharts({
       orientation,
       fillKeys,
       binConfig,
-      flowConfig,
+      flowConfig: flowConfig === undefined || sankeyAlign === undefined
+        ? flowConfig
+        : { ...flowConfig, align: sankeyAlign },
       volcanoConfig,
       errorConfig,
       forestConfig,
@@ -296,7 +305,7 @@ export function MaidrRecharts({
     // The three facts read out of `children` stand in for it, so a chart that
     // flips `reversed` is still picked up while a parent re-render that only
     // rebuilds the same subtree is not.
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, pieAnglesKey, dotSeriesKey, resolvedFirstPlace, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, ridgelinePlottedKey, ridgelineAxisReversed, ridgelineAreasKey, hexbinConfig, boxenConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, pieAnglesKey, dotSeriesKey, resolvedFirstPlace, fillKeys, binConfig, flowConfig, sankeyAlign, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, ridgelinePlottedKey, ridgelineAxisReversed, ridgelineAreasKey, hexbinConfig, boxenConfig, selectorOverride],
   );
 
   return (

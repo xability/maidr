@@ -1009,7 +1009,7 @@ const links = [
 
 `xLabel` is what a node is: every node is announced under it, "Plan is Free (Q1)", so name the nodes' kind rather than the stage, which is the column the reader moves between with Left and Right. Leave it out and a node is announced as "Node is Free (Q1)".
 
-MAIDR reads the nodes of each column in the order the flows first name them, and Up and Down walk a column in that order. `<Sankey>` sorts each column by where its own layout settled the nodes, which can put them in another order on the page, so pass `sort={false}`: Recharts then draws a column's nodes in the order `nodes` lists them, and listing them in the order the flows first name them keeps the two in step.
+`<MaidrRecharts>` tells MAIDR the column `<Sankey>` draws each node in (`flowOptions.columns`), worked out as Recharts works it out from the links and `nodes`: a node one column past the furthest node feeding it, except that under `<Sankey>`'s default `align="justify"` every node nothing flows out of is drawn in the last column. It reads `align` off the `<Sankey>`; through `useRechartsAdapter`, give `flowConfig.align: 'left'` for a chart drawn with `align="left"`. Up and Down walk a column in the order `nodes` lists it, which is the order Recharts draws it in under `sort={false}`. `<Sankey>`'s default `sort` reorders each column by where its layout settles the nodes, which nothing knows before the chart is drawn, so pass `sort={false}`. Without `nodes`, or with links that name their nodes rather than index them, MAIDR places each node one column past the furthest node feeding it, and reads a column in the order the flows first name its nodes.
 
 Set `chartType="sankey"` for the budget reading. Nothing else changes: the payload, the config and the selector are identical, and which of the two a figure is is a fact about the data — whether a node reappears at each stage — rather than anything the adapter emits.
 
@@ -1670,6 +1670,7 @@ interface FlowLinkConfig {
   targetKey: string;                 // Key for the node the flow arrives at
   nodes?: Record<string, unknown>[]; // The `nodes` half of the <Sankey> data
   nodeNameKey?: string;              // Key for a node's name (defaults to 'name')
+  align?: 'justify' | 'left';        // Where <Sankey> draws a node nothing flows out of (defaults to 'justify')
 }
 ```
 
