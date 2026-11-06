@@ -9,7 +9,7 @@ import type { HistogramPoint, MaidrLayer } from '../../../type/grammar';
 import type { D3PanelScope } from '../selectors';
 import type { D3BinderResult, D3BuiltLayer, D3HistogramConfig } from '../types';
 import { TraceType } from '../../../type/grammar';
-import { scopeSelector } from '../selectors';
+import { scopeSelector, stampOrderedSelectors } from '../selectors';
 import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, queryD3Elements, resolveAccessor, resolveAccessorOptional } from '../util';
 
 /**
@@ -58,6 +58,59 @@ import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart
  */
 export function bindD3Histogram(svg: Element, config: D3HistogramConfig): D3BinderResult {
   return finalizeSingleChart(svg, config, buildHistogramLayer(svg, config));
+}
+
+/** Attribute the binder stamps on each bin it reads, when it leaves one out. */
+const BIN_ATTRIBUTE = 'data-maidr-histogram-index';
+
+/** One bar, read. */
+interface ReadBin {
+  /** The bar */
+  element: Element;
+  /** Its index within the selection */
+  index: number;
+  /** What MAIDR is told of it */
+  point: HistogramPoint;
+  /** Whether its datum or the caller states edges, and they are equal */
+  zeroWide: boolean;
+}
+
+/**
+ * The bins a histogram draws, of those it binds.
+ *
+ * `d3.bin()` closes its last bin at the end of the domain itself, so a
+ * threshold at that end -- `x.ticks()` gives one there -- adds a bin from the
+ * end to itself, holding every value at the very end. A chart draws that bin
+ * as wide as it is, 0 px, where no one sees it, and the reader was told of one
+ * bin more than the chart has, usually an empty one. So a bin whose stated
+ * edges are equal is left out, as long as some other bin has width: a
+ * histogram bound without edges, whose every bin is a point at its x value,
+ * keeps them all.
+ *
+ * @param bins - Every bar the selector matched, read
+ * @param selector - The user-provided selector, named in the warning
+ * @returns The bins to read
+ */
+function drawnBins(bins: ReadBin[], selector: string): ReadBin[] {
+  const drawn = bins.filter(bin => !bin.zeroWide);
+  if (drawn.length === 0 || drawn.length === bins.length) {
+    return bins;
+  }
+  for (const bin of bins) {
+    const count = Number(bin.point.y);
+    if (bin.zeroWide && count !== 0 && !Number.isNaN(count)) {
+      console.warn(
+        `[maidr/d3] Histogram bar ${bin.index} matched by "${selector}" is a bin `
+        + `from ${bin.point.xMin} to ${bin.point.xMax}, drawn 0 px wide, so it is `
+        + `left out with the ${String(bin.point.y)} it holds, which the chart does `
+        + `not show either. \`d3.bin()\` puts the values at the very end of its `
+        + `domain in such a bin when a threshold falls there; keep the domain's `
+        + `end out of the thresholds, e.g. \`x.ticks(20).filter(t => t < `
+        + `x.domain()[1])\`, and they are drawn, and read, in the last bin.`,
+      );
+    }
+  }
+  return drawn;
 }
 
 /**
@@ -135,7 +188,7 @@ export function buildHistogramLayer(root: Element, config: D3HistogramConfig, pa
   const userSetXMin = (config as unknown as Record<string, unknown>).xMin !== undefined;
   const userSetXMax = (config as unknown as Record<string, unknown>).xMax !== undefined;
 
-  const data: HistogramPoint[] = elements.map(({ datum, index }) => {
+  const bins: ReadBin[] = elements.map(({ element, datum, index }) => {
     if (datum === undefined || datum === null) {
       throw buildNoDatumError(selector, index);
     }
@@ -145,14 +198,14 @@ export function buildHistogramLayer(root: Element, config: D3HistogramConfig, pa
     const xValue = resolveAccessor<string | number>(datum, xAccessor, index);
     const yValue = resolveAccessor<number | string>(datum, yAccessor, index);
 
-    const xMin = userSetXMin
+    const statedMin = userSetXMin
       ? resolveAccessor<number>(datum, xMinAccessor, index)
-      : (resolveAccessorOptional<number>(datum, xMinAccessor, index)
-        ?? zeroWidthBinEdge(xValue, datum, index, selector));
-    const xMax = userSetXMax
+      : resolveAccessorOptional<number>(datum, xMinAccessor, index);
+    const statedMax = userSetXMax
       ? resolveAccessor<number>(datum, xMaxAccessor, index)
-      : (resolveAccessorOptional<number>(datum, xMaxAccessor, index)
-        ?? zeroWidthBinEdge(xValue, datum, index, selector));
+      : resolveAccessorOptional<number>(datum, xMaxAccessor, index);
+    const xMin = statedMin ?? zeroWidthBinEdge(xValue, datum, index, selector);
+    const xMax = statedMax ?? zeroWidthBinEdge(xValue, datum, index, selector);
 
     const yMin = resolveAccessor<number>(datum, yMinAccessor, index);
     const yMax = yMaxAccessor
@@ -160,22 +213,33 @@ export function buildHistogramLayer(root: Element, config: D3HistogramConfig, pa
       : Number(yValue);
 
     return {
-      x: xValue,
-      y: yValue,
-      xMin,
-      xMax,
-      yMin,
-      yMax,
+      element,
+      index,
+      point: {
+        x: xValue,
+        y: yValue,
+        xMin,
+        xMax,
+        yMin,
+        yMax,
+      },
+      zeroWide: statedMin !== undefined && statedMax !== undefined && xMin === xMax,
     };
   });
+  const read = drawnBins(bins, selector);
 
   const layer: MaidrLayer = {
     id: generateId(),
     type: TraceType.HISTOGRAM,
     title,
-    selectors: scopeSelector(root, selector, panel),
+    // One selector matching every bar while every bar is read; once a bin is
+    // left out, one per bin read, so the bar left out is never paired with a
+    // bin (a selector matching more bars than there are bins outlines none).
+    selectors: read.length === bins.length
+      ? scopeSelector(root, selector, panel)
+      : stampOrderedSelectors(root, selector, BIN_ATTRIBUTE, read.map(bin => bin.element), panel),
     axes: buildAxes(axes, format),
-    data,
+    data: read.map(bin => bin.point),
   };
 
   return { layer };
