@@ -4,6 +4,7 @@
  */
 
 import type {
+  AxisFormat,
   BarPoint,
   CandlestickPoint,
   ChoroplethPoint,
@@ -541,9 +542,11 @@ export function extractSpanItems(series: AmXYSeries): AmDataItem[] {
  * How long one unit of a `DateAxis` base interval lasts, in milliseconds.
  *
  * A month and a year have no fixed length; the approximations here are the
- * ones amCharts uses for its own duration arithmetic. They only ever scale a
- * length that is then announced with the unit's name, so a schedule measured
- * in months reads as months rather than as nine-figure millisecond counts.
+ * ones amCharts uses for its own duration arithmetic. A position divided by
+ * one is multiplied back by it before it is written as a date, so they only
+ * ever scale a length, which is announced with the unit's name: a schedule
+ * measured in months reads as months rather than as nine-figure millisecond
+ * counts.
  */
 const TIME_UNIT_MS: Record<string, number> = {
   millisecond: 1,
@@ -556,30 +559,50 @@ const TIME_UNIT_MS: Record<string, number> = {
   year: 31_536_000_000,
 };
 
-/** How a date axis' positions are turned into readable lengths. */
+/**
+ * The unit a schedule stays in where the page cannot compile the format that
+ * writes a coarser one back as dates: the milliseconds a `DateAxis` counts.
+ */
+const TIME_UNIT_FALLBACK = 'milliseconds';
+
+/** How a date axis' positions are turned into readable lengths and dates. */
 interface TimeScale {
-  /** Milliseconds per unit. */
+  /** Milliseconds per unit of the positions emitted. */
   divisor: number;
   /** What one unit is called, as {@link GanttData.unit} carries it. */
   unit: string;
+  /** The time axis' format, which writes a position as the date it names. */
+  format: AxisFormat;
 }
 
 /**
- * The scale a gantt's axis positions are reported in.
+ * The scale a gantt's axis positions are reported in, and the format that
+ * writes them as dates.
  *
  * A `DateAxis` stores positions as epoch milliseconds, and the length of an
  * interval is the fact a schedule exists to carry — announced in milliseconds
  * it carries nothing. So the axis' own base interval names the unit, and the
- * positions are rescaled to it. Its `count` is ignored on purpose: the unit
+ * positions are restated in it. Its `count` is ignored on purpose: the unit
  * that travels with the numbers is the time unit's name, and dividing by a
  * multiple of it would make the two disagree.
  *
+ * The format multiplies a position back into milliseconds and writes the date
+ * it names, in the time zone the axis draws its dates in, with the time of day
+ * when any end falls off midnight there. That format is a function body MAIDR
+ * compiles; a page whose Content Security Policy forbids compiling one would
+ * read the restated positions as bare numbers, so there they stay in
+ * milliseconds and are written through the eval-free date format, as the
+ * Highcharts and ApexCharts adapters do.
+ *
  * Returns `null` for a value axis, whose numbers are already in whatever unit
  * the chart's author chose and must be passed through untouched.
+ *
+ * @param axis - The axis the intervals run along
+ * @param stamps - Every interval's start and end, in epoch milliseconds
  */
-function readTimeScale(axis: AmAxis | undefined): TimeScale | null {
+function readTimeScale(axis: AmAxis | undefined, stamps: number[]): TimeScale | null {
   const interval = axis?.get('baseInterval');
-  if (interval == null || typeof interval !== 'object')
+  if (axis === undefined || interval == null || typeof interval !== 'object')
     return null;
 
   const timeUnit = (interval as { timeUnit?: unknown }).timeUnit;
@@ -587,7 +610,101 @@ function readTimeScale(axis: AmAxis | undefined): TimeScale | null {
     return null;
 
   const divisor = TIME_UNIT_MS[timeUnit];
-  return divisor ? { divisor, unit: `${timeUnit}s` } : null;
+  if (!divisor)
+    return null;
+
+  const timeZone = drawnTimeZone(axis);
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    ...(allAtMidnight(stamps, timeZone) ? {} : { hour: '2-digit', minute: '2-digit' }),
+    ...(timeZone === undefined ? {} : { timeZone }),
+  };
+  if (!canCompileFormat())
+    return { divisor: 1, unit: TIME_UNIT_FALLBACK, format: { type: 'date', dateOptions } };
+
+  return {
+    divisor,
+    unit: `${timeUnit}s`,
+    // Rounded: a time that is not a whole number of units, such as 08:40 on a
+    // schedule read in days, is a fraction no binary number states exactly,
+    // and the product can fall short of it by a fraction of a millisecond,
+    // which `Date` drops.
+    format: {
+      function: `return new Date(Math.round(value * ${divisor})).toLocaleString('en-US', ${JSON.stringify(dateOptions)});`,
+    },
+  };
+}
+
+/**
+ * The time zone a date axis draws its dates in, or undefined for the
+ * reader's own.
+ *
+ * amCharts draws them in the reader's own zone unless the root says
+ * otherwise: in UTC when its `utc` is set, which takes precedence, or in the
+ * zone of its `timezone`.
+ *
+ * @param axis - The date axis
+ * @returns An IANA zone name, or undefined
+ */
+function drawnTimeZone(axis: AmAxis): string | undefined {
+  const root = axis.root;
+  if (root?.utc)
+    return 'UTC';
+  const name = root?.timezone?.name;
+  return typeof name === 'string' && name !== '' ? name : undefined;
+}
+
+/**
+ * Whether every instant falls on midnight where the chart draws it, so a date
+ * alone names each one.
+ *
+ * @param stamps - Milliseconds since 1970
+ * @param timeZone - The zone the chart draws dates in, undefined for local
+ * @returns True when each is at midnight
+ */
+function allAtMidnight(stamps: number[], timeZone: string | undefined): boolean {
+  let clock: Intl.DateTimeFormat;
+  try {
+    clock = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hourCycle: 'h23',
+      timeZone,
+    });
+  } catch {
+    // A zone this browser cannot name: say the time rather than drop it.
+    return false;
+  }
+  return stamps.filter(Number.isFinite).every(stamp => clock.formatToParts(new Date(stamp))
+    .filter(part => part.type === 'hour' || part.type === 'minute' || part.type === 'second')
+    .every(part => Number(part.value) === 0));
+}
+
+/** What {@link canCompileFormat} found, once it has asked. */
+let formatsCompile: boolean | undefined;
+
+/**
+ * Whether the page lets MAIDR compile a format function -- a Content Security
+ * Policy without `unsafe-eval` does not.
+ *
+ * Asked once per page: under such a policy every attempt reports a violation,
+ * and a chart converted again on each redraw would report one every time.
+ *
+ * @returns True when `new Function` works
+ */
+function canCompileFormat(): boolean {
+  if (formatsCompile === undefined) {
+    try {
+      // eslint-disable-next-line no-new-func
+      formatsCompile = new Function('return true')() === true;
+    } catch {
+      formatsCompile = false;
+    }
+  }
+  return formatsCompile;
 }
 
 /**
@@ -615,12 +732,12 @@ function readLaneNames(axis: AmAxis | undefined): (string | number)[] {
  * item, one interval per column, and the unit from the date axis' own base
  * interval.
  *
- * Positions are reported relative to the earliest interval on a date axis, so
- * a schedule reads as "day 0 to day 30" rather than as two epoch timestamps
- * thirteen digits long. The absolute dates are dropped by that: what a reader
- * wants from a schedule is relational — what overlaps what, what hands over to
- * what — and every one of those questions survives the shift, while none of
- * them survives a length announced in milliseconds.
+ * On a date axis the positions are stated in that unit, and the format
+ * {@link extractGanttTimeFormat} returns writes each one back as the date it
+ * names, so a task reads "Jan 1, 2024 through Jan 31, 2024, length 30 days",
+ * as the axis draws it. They were counted from the earliest interval instead,
+ * and the same task read "0 through 30", in navigation and in the
+ * description, on an axis that draws dates and no day numbers.
  *
  * @returns The chart's lanes and intervals, or `null` when no column carries a
  *   readable interval.
@@ -631,11 +748,12 @@ export function extractGanttData(series: AmXYSeries): GanttData | null {
     return null;
 
   const { lanes, spans, scale } = grouped;
-  const origin = scale
-    ? Math.min(...spans.flat().map(span => span.start))
-    : 0;
+  // Not stripped of float noise as a length is: the format multiplies a
+  // position back into milliseconds, and a day count since 1970 cut to twelve
+  // figures lands a few milliseconds off, which writes a midnight outside UTC
+  // as the day before.
   const rescale = (value: number): number =>
-    scale ? withoutFloatNoise((value - origin) / scale.divisor) : value;
+    scale ? value / scale.divisor : value;
 
   return {
     points: spans.map(lane => lane.map(span => ({
@@ -646,6 +764,18 @@ export function extractGanttData(series: AmXYSeries): GanttData | null {
     lanes,
     ...(scale ? { unit: scale.unit } : {}),
   };
+}
+
+/**
+ * The format a gantt's time axis writes its positions with: the dates they
+ * name on a date axis, and none on a value axis, whose numbers are the
+ * chart's own.
+ *
+ * Read by the same pass {@link extractGanttData} restates the positions in,
+ * so the format multiplies back by the number they were divided by.
+ */
+export function extractGanttTimeFormat(series: AmXYSeries): AxisFormat | undefined {
+  return groupGanttSpans(series)?.scale?.format;
 }
 
 /**
@@ -695,7 +825,8 @@ function groupGanttSpans(series: AmXYSeries): GanttLanes | null {
     spans[row].push(column);
   }
 
-  return { lanes, spans, scale: readTimeScale(series.get('xAxis') as AmAxis | undefined) };
+  const stamps = columns.flatMap(column => [column.start, column.end]);
+  return { lanes, spans, scale: readTimeScale(series.get('xAxis') as AmAxis | undefined, stamps) };
 }
 
 // ---------------------------------------------------------------------------

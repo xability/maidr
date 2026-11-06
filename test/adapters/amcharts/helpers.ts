@@ -394,13 +394,16 @@ export function fakeCategoryAxis(categories: string[]): AmAxis {
 /**
  * A date axis, which reports the unit its positions are measured in through
  * its base interval. Passing no unit makes it a plain value axis instead.
+ * `root` stands in for the root's time settings, which say the zone a date
+ * axis draws its dates in.
  */
-export function fakeTimeAxis(timeUnit?: string): AmAxis {
+export function fakeTimeAxis(timeUnit?: string, root?: AmAxis['root']): AmAxis {
   const baseInterval = timeUnit != null ? { timeUnit, count: 1 } : undefined;
   return {
     className: timeUnit != null ? 'DateAxis' : 'ValueAxis',
     get: (key: string) => (key === 'baseInterval' ? baseInterval : undefined),
     dataItems: [],
+    ...(root ? { root } : {}),
   } as unknown as AmAxis;
 }
 
@@ -417,7 +420,7 @@ export function fakeGanttSeries(
     valueX: number | null;
     graphics?: unknown;
   }>,
-  config: { lanes?: string[]; timeUnit?: string } = {},
+  config: { lanes?: string[]; timeUnit?: string; root?: AmAxis['root'] } = {},
 ): AmXYSeries {
   return fakeSeries({
     className: 'ColumnSeries',
@@ -425,7 +428,7 @@ export function fakeGanttSeries(
     settings: {
       categoryYField: 'category',
       openValueXField: 'fromDate',
-      xAxis: fakeTimeAxis(config.timeUnit),
+      xAxis: fakeTimeAxis(config.timeUnit, config.root),
       yAxis: fakeCategoryAxis(config.lanes ?? []),
     },
     data: bars,

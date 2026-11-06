@@ -514,7 +514,7 @@ var series = chart.series.push(am5xy.ColumnSeries.new(root, {
 
 The lanes come from the **category axis**, not from the bars, so a lane with nothing booked survives — an empty lane is a real statement about a schedule and the only row a reader can navigate onto and be told nothing by, so MAIDR names it and reports the count up front.
 
-A `DateAxis` stores positions as epoch milliseconds, which no reader can hear a length in, so the adapter rescales them to the axis' own `baseInterval` time unit, measured from the earliest interval: a schedule reads as "day 0 to day 30, length 30 days". The absolute dates are dropped by that, and everything a schedule is drawn to answer — what overlaps what, what hands over to what, where the slack is — survives it. A plain `ValueAxis` is passed through untouched and named with no unit.
+A `DateAxis` stores positions as epoch milliseconds, which no reader can hear a length in, so the adapter restates them in the axis' own `baseInterval` time unit and gives the time axis a format that writes each one back as the date it names: a task reads "Jan 1, 2024 through Jan 31, 2024, length 30 days", in navigation and in the description, as the axis draws it. The dates are written in the time zone the chart draws them in — UTC when the root's `utc` is set, else the root's `timezone`, else the reader's own — with the time of day when an end falls off midnight. On a page whose Content Security Policy forbids compiling that format, the positions stay in milliseconds and are written as dates through the eval-free date format, so the lengths are given in milliseconds. A plain `ValueAxis` is passed through untouched and named with no unit.
 
 #### Treemap / Icicle / Sunburst / Tree / Pack [experimental]
 

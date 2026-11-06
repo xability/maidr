@@ -926,11 +926,13 @@ describe('fromAmCharts (gantt chart)', () => {
     expect(layer.type).toBe(TraceType.GANTT);
     // A schedule runs left to right, so the lanes are on the y axis.
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
-    expect(layer.axes).toEqual({ x: { label: 'Day' }, y: { label: 'Phase' } });
+    expect(layer.axes?.x?.label).toBe('Day');
+    expect(layer.axes?.y).toEqual({ label: 'Phase' });
 
     const data = layer.data as GanttData;
-    // Epoch milliseconds are rescaled to the axis' own unit, measured from the
-    // earliest interval -- a length in milliseconds carries nothing.
+    // Epoch milliseconds are restated in the axis' own unit -- a length in
+    // milliseconds carries nothing. These bars start at the epoch, day 0;
+    // ganttDates.test.ts reads the dates they name.
     expect(data.unit).toBe('days');
     expect(data.points).toEqual([
       [
@@ -969,6 +971,8 @@ describe('fromAmCharts (gantt chart)', () => {
     const data = layer.data as GanttData;
     expect(data.unit).toBeUndefined();
     expect(data.points[0]).toEqual([{ x: 'Design', start: 0, end: 30 }]);
+    // Its numbers are the chart's own, so nothing writes them as dates.
+    expect(layer.axes?.x?.format).toBeUndefined();
   });
 });
 

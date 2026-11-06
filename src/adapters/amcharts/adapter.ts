@@ -75,6 +75,7 @@ import {
   extractDumbbellPoints,
   extractFlowPoints,
   extractGanttData,
+  extractGanttTimeFormat,
   extractGaugePoint,
   extractHeatmapData,
   extractHierarchyPoints,
@@ -1041,7 +1042,8 @@ function buildDumbbellLayer(
  * Always horizontal: amCharts draws a schedule with the lanes on the category
  * Y axis and time running left to right, which is what the detection matched
  * on, so the announcement puts the lane on the main axis and the interval on
- * the cross one.
+ * the cross one. On a date axis the time axis carries the format that writes
+ * each position as the date it names.
  */
 function buildGanttLayer(
   series: AmXYSeries,
@@ -1051,6 +1053,7 @@ function buildGanttLayer(
   containerEl: HTMLElement,
 ): MaidrLayer {
   const selector = buildColumnSelector(series, containerEl);
+  const timeFormat = extractGanttTimeFormat(series);
 
   return {
     id: layerId(series),
@@ -1058,7 +1061,10 @@ function buildGanttLayer(
     name: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     orientation: Orientation.HORIZONTAL,
-    axes: { x: { label: xLabel }, y: { label: yLabel } },
+    axes: {
+      x: { label: xLabel, ...(timeFormat ? { format: timeFormat } : {}) },
+      y: { label: yLabel },
+    },
     data,
   };
 }
