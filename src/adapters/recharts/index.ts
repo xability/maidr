@@ -28,6 +28,7 @@ export type {
   RechartsAdapterConfig,
   RechartsChartType,
   RechartsLayerConfig,
+  RechartsRidgelineArea,
   RechartsSubplotConfig,
   RidgelineCurveConfig,
   SurvivalCurveConfig,

@@ -39,7 +39,7 @@
 import type { Maidr } from '@type/grammar';
 import type { RechartsAdapterConfig } from './types';
 import { useEffect, useMemo, useRef } from 'react';
-import { convertRechartsToMaidr } from './converters';
+import { convertRechartsToMaidr, ridgelineAreaWarning } from './converters';
 
 /**
  * What the console says of a ridgeline with no `ridgelineConfig.plottedKey`:
@@ -157,6 +157,7 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
   useWarnOnce(chartType === 'ridgeline' && ridgelineConfig !== undefined && ridgelineConfig.plottedKey === undefined
     ? plottedKeyWarning(id)
     : undefined);
+  useWarnOnce(ridgelineAreaWarning({ id, chartType, data, ridgelineConfig, selectorOverride, subplots, layers }));
   // Serialised, as `<MaidrRecharts>` serialises what it reads off its
   // children: the list is usually written inline, a new array on every
   // render, and a new MAIDR object makes `<Maidr>` forget the place a reader

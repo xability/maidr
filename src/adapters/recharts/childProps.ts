@@ -13,7 +13,7 @@
  */
 import type { StepDirection } from '@type/grammar';
 import type { ReactNode } from 'react';
-import type { RechartsChartType, RechartsPieAngles, RechartsSubplotConfig } from './types';
+import type { RechartsChartType, RechartsPieAngles, RechartsRidgelineArea, RechartsSubplotConfig } from './types';
 import { Orientation } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
@@ -373,4 +373,42 @@ export function ridgelineAxisReversedFor(children: ReactNode): boolean {
 
   walk(children);
   return reversed;
+}
+
+/**
+ * A ridgeline's `<Area>`s, in the order they are declared, each by its `name`
+ * and its `dataKey`.
+ *
+ * Recharts writes nothing on a band that says which group it draws, so each
+ * ridge is highlighted on the band of the `<Area>` that names its group
+ * (`ridgeSelectors`, counting among the `<Area>`s). Every `<Area>` is
+ * collected, depth-first in the order they are written, which is the order
+ * Recharts draws the bands in. A `name` given as a number is read as the
+ * text a group is read as; anything else that is not a string is left out.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns One entry per `<Area>`, in declaration order
+ */
+export function ridgelineAreasFor(children: ReactNode): RechartsRidgelineArea[] {
+  const found: RechartsRidgelineArea[] = [];
+
+  const walk = (nodes: ReactNode): void => {
+    Children.forEach(nodes, (child) => {
+      if (!isValidElement(child))
+        return;
+      const props = child.props as { name?: unknown; dataKey?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'Area') {
+        const name = typeof props.name === 'number' ? String(props.name) : props.name;
+        found.push({
+          ...(typeof name === 'string' ? { name } : {}),
+          ...(typeof props.dataKey === 'string' ? { dataKey: props.dataKey } : {}),
+        });
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
 }

@@ -522,6 +522,16 @@ export interface ParallelAxesConfig {
 }
 
 /**
+ * One `<Area>` of a ridgeline, by what names it.
+ */
+export interface RechartsRidgelineArea {
+  /** Its `name`, the group it draws in the recipe: `<Area name="Jan">`. */
+  name?: string;
+  /** Its `dataKey`, when each `<Area>` draws its group's own column. */
+  dataKey?: string;
+}
+
+/**
  * Configuration for ridgeline (joy) plots.
  * Required when `chartType` is `'ridgeline'`.
  *
@@ -538,9 +548,9 @@ export interface ParallelAxesConfig {
 export interface RidgelineCurveConfig {
   /**
    * Key holding the group a sample's curve belongs to. Rows are grouped by it
-   * in first-appearance order, which is the order the `<Area>`s have to be
-   * declared in for highlighting, and the order the ridges are read in when
-   * {@link plottedKey} cannot place them.
+   * in first-appearance order, which is the order the ridges are read in when
+   * {@link plottedKey} cannot place them, and the order the `<Area>`s have to
+   * be declared in for highlighting when {@link areas} does not name them.
    */
   groupKey: string;
   /**
@@ -564,6 +574,19 @@ export interface RidgelineCurveConfig {
    * reads it off the first `<YAxis>` in its children when not given.
    */
   plottedAxisReversed?: boolean;
+  /**
+   * The chart's `<Area>`s, in the order they are declared, each by its `name`
+   * and its `dataKey`.
+   *
+   * Each ridge is highlighted on the band of the `<Area>` named after its
+   * group, or else of the one whose `dataKey` is the group, so the order the
+   * `<Area>`s are declared in does not matter. {@link MaidrRecharts} reads them
+   * off its children when not given; through {@link useRechartsAdapter} they
+   * are yours to state. When they do not name every group's `<Area>`, each
+   * ridge is highlighted on the `<Area>` declared at its group's first
+   * appearance in `data`, and the console says so once per chart.
+   */
+  areas?: readonly RechartsRidgelineArea[];
   /**
    * Key holding the position along the shared value axis.
    *

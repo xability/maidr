@@ -104,13 +104,14 @@ describe('useRechartsAdapter', () => {
       { month: 'Jan', temp: 0, density: 0.1, plotted: 1.1 },
       { month: 'Feb', temp: 0, density: 0.3, plotted: 0.3 },
     ];
+    const areas = [{ name: 'Jan' }, { name: 'Feb' }];
     try {
       const { rerender } = renderHook(() => useRechartsAdapter({
         id: 'hook-ridges',
         data: ridges,
         chartType: 'ridgeline',
         xKey: 'temp',
-        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', areas },
       }));
       rerender();
       renderHook(() => useRechartsAdapter({
@@ -118,7 +119,7 @@ describe('useRechartsAdapter', () => {
         data: ridges,
         chartType: 'ridgeline',
         xKey: 'temp',
-        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted' },
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted', areas },
       }));
 
       expect(warn).toHaveBeenCalledTimes(1);
@@ -135,13 +136,32 @@ describe('useRechartsAdapter', () => {
       data: [{ month: 'Jan', temp: 0, density: 0.1 }],
       chartType: 'ridgeline',
       xKey: 'temp',
-      ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+      ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', areas: [{ name: 'Jan' }] },
     };
     try {
       renderHook(() => useRechartsAdapter(config)).unmount();
       renderHook(() => useRechartsAdapter(config));
 
       expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('says that a ridgeline given without its <Area>s highlights by the order they are declared', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderHook(() => useRechartsAdapter({
+        id: 'hook-ridges-unpaired',
+        data: [{ month: 'Jan', temp: 0, density: 0.1, plotted: 1.1 }],
+        chartType: 'ridgeline',
+        xKey: 'temp',
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', plottedKey: 'plotted' },
+      }));
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain('Ridgeline "hook-ridges-unpaired" has no ridgelineConfig.areas');
+      expect(String(warn.mock.calls[0][0])).toContain('Pass ridgelineConfig.areas');
     } finally {
       warn.mockRestore();
     }

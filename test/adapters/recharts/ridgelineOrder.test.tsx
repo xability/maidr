@@ -18,7 +18,9 @@
 
 import type { Maidr as MaidrData, MaidrLayer, ViolinKdePoint } from '@type/grammar';
 import type { ReactElement, ReactNode } from 'react';
+import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { MaidrRecharts } from '@adapters/recharts/MaidrRecharts';
+import { ridgeSelectors } from '@adapters/recharts/selectors';
 import { afterEach, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { cleanup, render } from '@testing-library/react';
@@ -120,6 +122,7 @@ describe('a Recharts ridgeline whose drawn key cannot be read', () => {
         key: month,
         data: rows.filter(row => row.month === month),
         dataKey,
+        name: month,
         isAnimationActive: false,
       })),
     ),
@@ -152,6 +155,74 @@ describe('a Recharts ridgeline whose drawn key cannot be read', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe('a Recharts ridgeline whose <Area>s are declared in another order', () => {
+  // Jan appears first in the data and is drawn above Feb; the chart declares
+  // Feb's <Area> first. Feb is the bottom ridge, so it is listed first.
+  const rows = [
+    { month: 'Jan', temp: 0, density: 0.1, plotted: 1.1 },
+    { month: 'Jan', temp: 5, density: 0.2, plotted: 1.2 },
+    { month: 'Feb', temp: 0, density: 0.3, plotted: 0.3 },
+    { month: 'Feb', temp: 5, density: 0.1, plotted: 0.1 },
+  ];
+  const ridges = (id: string, named: boolean): ReactElement => createElement(MaidrRecharts, {
+    id,
+    data: rows,
+    chartType: 'ridgeline',
+    xKey: 'temp',
+    ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+    children: createElement(
+      AreaChart,
+      { width: 400, height: 300 },
+      createElement(XAxis, { dataKey: 'temp', type: 'number' }),
+      createElement(YAxis, { type: 'number' }),
+      ...['Feb', 'Jan'].map(month => createElement(Area, {
+        key: month,
+        data: rows.filter(row => row.month === month),
+        dataKey: 'plotted',
+        ...(named ? { name: month } : {}),
+        isAnimationActive: false,
+      })),
+    ),
+  });
+
+  it('highlights each ridge on the <Area> named after its group', () => {
+    render(ridges('named-ridges', true));
+    const layer = seen.at(-1)?.subplots[0][0].layers[0];
+
+    const bands = (layer?.selectors as string[]).map(selector =>
+      [...document.querySelectorAll(selector)].map(band => band.getAttribute('name')));
+
+    expect((layer?.data as ViolinKdePoint[][]).map(curve => curve[0].x)).toEqual(['Feb', 'Jan']);
+    expect(bands).toEqual([['Feb'], ['Jan']]);
+  });
+
+  it('says so when no <Area> is named after its group', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { rerender } = render(ridges('unnamed-ridges', false));
+      rerender(ridges('unnamed-ridges', false));
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain('Ridgeline "unnamed-ridges" names no <Area> after each of its groups');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('pairs each ridge with the <Area> whose dataKey is its group', () => {
+    // <Area>s that each draw their own group's column, declared Feb first.
+    const maidr = convertRechartsToMaidr({
+      id: 'keyed-ridges',
+      data: rows,
+      chartType: 'ridgeline',
+      xKey: 'temp',
+      ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density', areas: [{ dataKey: 'Feb' }, { dataKey: 'Jan' }] },
+    });
+
+    expect(maidr.subplots[0][0].layers[0].selectors).toEqual(ridgeSelectors([1, 0], 'keyed-ridges'));
   });
 });
 

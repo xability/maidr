@@ -59,7 +59,7 @@ import type {
   WaterfallKind,
   WaterfallPoint,
 } from '@type/grammar';
-import type { RechartsAdapterConfig, RechartsChartType, RechartsLayerConfig, RechartsSubplotConfig } from './types';
+import type { RechartsAdapterConfig, RechartsChartType, RechartsLayerConfig, RechartsRidgelineArea, RechartsSubplotConfig, RidgelineCurveConfig } from './types';
 import { toCategoryShares } from '@adapters/shared/normalize';
 import { clockFromCounterclockwiseOf3, pieGeometry } from '@adapters/shared/pieGeometry';
 import { cssEscape } from '@adapters/shared/selectorUtil';
@@ -996,6 +996,107 @@ function buildParallelLayer(
 const RIDGELINE_DENSITY_AXIS = 'Density';
 
 /**
+ * One row of a ridgeline's `data` read as a sample of its group's curve, or
+ * `undefined` for a row that is not one.
+ *
+ * A sample needs both a place on the value axis and a height there. One
+ * without either is not a sample of anything, and filling in a zero would put
+ * a trough in the curve where the data said nothing.
+ */
+function ridgelineSampleOf(
+  item: Record<string, unknown>,
+  ridgelineConfig: RidgelineCurveConfig,
+): { group: string; value: number; density: number } | undefined {
+  const group = toText(item[ridgelineConfig.groupKey]);
+  const value = toOptionalNumber(resolveFieldRef(item, ridgelineConfig.valueKey, 'value'));
+  const density = toOptionalNumber(resolveFieldRef(item, ridgelineConfig.densityKey, 'density'));
+  if (group === undefined || value === undefined || density === undefined) {
+    return undefined;
+  }
+  return { group, value, density };
+}
+
+/**
+ * Where each group's `<Area>` is among the chart's, read off the `<Area>`s:
+ * the one named after the group, or else the one whose `dataKey` is the group.
+ *
+ * Answers only when every group finds exactly one `<Area>` the same way, so
+ * an `<Area>` named twice, or a group none names, leaves the pairing to the
+ * order the `<Area>`s are declared in.
+ *
+ * @param groups - The groups the layer lists a ridge for
+ * @param areas - The chart's `<Area>`s, in declaration order
+ * @returns Each group's `<Area>`'s place, from 0, or `undefined`
+ */
+function ridgelineAreaPlaces(
+  groups: readonly string[],
+  areas: readonly RechartsRidgelineArea[] | undefined,
+): Map<string, number> | undefined {
+  if (areas === undefined || groups.length === 0) {
+    return undefined;
+  }
+  for (const by of ['name', 'dataKey'] as const) {
+    const names = areas.map(area => area[by]);
+    const places = new Map<string, number>();
+    for (const group of groups) {
+      const place = names.indexOf(group);
+      if (place === -1 || names.includes(group, place + 1)) {
+        break;
+      }
+      places.set(group, place);
+    }
+    if (places.size === groups.length) {
+      return places;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * What the console says when a ridgeline's ridges cannot each be highlighted
+ * on their own `<Area>`, or `undefined` when they can.
+ *
+ * Without an `<Area>` that names its group, each ridge is highlighted on the
+ * `<Area>` declared at its group's first appearance in `data`: another
+ * ridge's band, with nothing to show it, when they are declared in another
+ * order. Said instead of left silent. A `selectorOverride` names the bands
+ * itself, so nothing is said for one.
+ *
+ * Read for a chart that is one ridgeline, as {@link MaidrRecharts} and
+ * {@link useRechartsAdapter} build it; never throws, so a config the
+ * conversion refuses is left for the conversion to say so.
+ *
+ * @param config - The chart's config, with the `<Area>`s read off it if any
+ * @returns The warning, or `undefined`
+ */
+export function ridgelineAreaWarning(
+  config: Pick<RechartsAdapterConfig, 'id' | 'chartType' | 'data' | 'ridgelineConfig' | 'selectorOverride' | 'subplots' | 'layers'>,
+): string | undefined {
+  const { id, chartType, data, ridgelineConfig, selectorOverride, subplots, layers } = config;
+  if (chartType !== 'ridgeline' || subplots !== undefined || layers !== undefined
+    || ridgelineConfig?.groupKey === undefined || selectorOverride !== undefined || !Array.isArray(data)) {
+    return undefined;
+  }
+  const groups = [...new Set(data.flatMap(item => ridgelineSampleOf(item, ridgelineConfig)?.group ?? []))];
+  const { areas } = ridgelineConfig;
+  if (groups.length === 0 || ridgelineAreaPlaces(groups, areas) !== undefined) {
+    return undefined;
+  }
+  const consequence = 'so each ridge is highlighted on the <Area> declared at its group\'s first appearance in data, '
+    + 'which is another ridge\'s band if the <Area>s are declared in another order.';
+  if (areas === undefined) {
+    return `[maidr/recharts] Ridgeline "${id}" has no ridgelineConfig.areas, ${consequence} `
+      + `Pass ridgelineConfig.areas, each <Area>'s name in the order they are declared (areas: [{ name: '${groups[0]}' }, ...]), `
+      + 'and each ridge is highlighted on its own.';
+  }
+  const found = areas.length === groups.length
+    ? 'names no <Area> after each of its groups'
+    : `declares ${areas.length} <Area>s for its ${groups.length} groups`;
+  return `[maidr/recharts] Ridgeline "${id}" ${found}, ${consequence} `
+    + `Name each <Area> after its group, as <Area name="${groups[0]}">, and each ridge is highlighted on its own.`;
+}
+
+/**
  * Builds a single ridgeline layer, one curve per group.
  *
  * Recharts has no ridgeline primitive: the chart is overlapping `<Area>`s with
@@ -1012,12 +1113,14 @@ const RIDGELINE_DENSITY_AXIS = 'Density';
  * and Down up it. So where `plottedKey` places every group, the curves are
  * listed bottom first, by the offset each is drawn at -- its drawn height less
  * its density, a larger one drawn lower on a reversed axis
- * (`plottedAxisReversed`) -- and each is paired with its own `<Area>` by the
- * place that `<Area>` is declared at, which is the group's first appearance
- * in `data`.
- * Otherwise, and whenever a `selectorOverride` names the bands, the groups come
- * out in first-appearance order, which is the order the `<Area>`s have to be
- * declared in for the highlight to land on the right one.
+ * (`plottedAxisReversed`). Otherwise, and whenever a `selectorOverride` names
+ * the bands, the groups come out in first-appearance order.
+ *
+ * Each ridge is highlighted on its own `<Area>`'s band: the one `areas` names
+ * after its group, wherever it is declared. Where `areas` names none, it is
+ * the `<Area>` declared at the group's first appearance in `data`, which is
+ * right only when they are declared in that order ({@link ridgelineAreaWarning}
+ * says so).
  */
 function buildRidgelineLayer(
   data: Record<string, unknown>[],
@@ -1034,7 +1137,8 @@ function buildRidgelineLayer(
     throw new Error('RechartsAdapter: ridgelineConfig with a groupKey is required when chartType is "ridgeline"');
   }
 
-  const { valueKey, densityKey, plottedKey, plottedAxisReversed } = ridgelineConfig ?? {};
+  const curveConfig: RidgelineCurveConfig = { ...ridgelineConfig, groupKey };
+  const { valueKey, densityKey, plottedKey, plottedAxisReversed, areas } = curveConfig;
   const curves = new Map<string, ViolinKdePoint[]>();
   // How far up the page each group's ridge is drawn, read off the first of
   // its samples to carry a drawn height.
@@ -1045,18 +1149,15 @@ function buildRidgelineLayer(
   const bands = new Map<string, number>();
 
   for (const item of data) {
-    const group = toText(item[groupKey]);
-    if (group !== undefined && !bands.has(group)) {
-      bands.set(group, bands.size);
+    const appears = toText(item[groupKey]);
+    if (appears !== undefined && !bands.has(appears)) {
+      bands.set(appears, bands.size);
     }
-    const value = toOptionalNumber(resolveFieldRef(item, valueKey, 'value'));
-    const density = toOptionalNumber(resolveFieldRef(item, densityKey, 'density'));
-    // A sample needs both a place on the value axis and a height there. One
-    // without either is not a sample of anything, and filling in a zero would
-    // put a trough in the curve where the data said nothing.
-    if (group === undefined || value === undefined || density === undefined) {
+    const sample = ridgelineSampleOf(item, curveConfig);
+    if (sample === undefined) {
       continue;
     }
+    const { group, value, density } = sample;
 
     const plotted = plottedKey === undefined ? undefined : toOptionalNumber(item[plottedKey]);
     if (plotted !== undefined && !offsets.has(group)) {
@@ -1088,6 +1189,13 @@ function buildRidgelineLayer(
   const listed = placed
     ? [...declared].sort((a, b) => upward * ((offsets.get(a) ?? 0) - (offsets.get(b) ?? 0)))
     : declared;
+  // Where each ridge's band is: its own `<Area>`'s place where `areas` names
+  // it; failing that its group's first appearance, wanted only once the
+  // ridges are listed in another order -- in first-appearance order the one
+  // class selector resolves the bands in that order already.
+  const places = selectorOverride === undefined
+    ? (ridgelineAreaPlaces(declared, areas) ?? (placed ? bands : undefined))
+    : undefined;
 
   return {
     id: '0',
@@ -1095,9 +1203,9 @@ function buildRidgelineLayer(
     // One element per group, which is what the chart draws: `RidgelineTrace`
     // resolves the selectors to a flat list, requires exactly one entry per
     // ridge, and then lights that ridge's whole curve from any of its samples.
-    selectors: selectorOverride ?? (placed
-      ? ridgeSelectors(listed.map(group => bands.get(group) ?? 0), chartId, panelScope)
-      : getRechartsSelector(chartType, undefined, chartId, panelScope)),
+    selectors: selectorOverride ?? (places === undefined
+      ? getRechartsSelector(chartType, undefined, chartId, panelScope)
+      : ridgeSelectors(listed.map(group => places.get(group) ?? 0), chartId, panelScope)),
     axes: {
       x: { label: xLabel },
       y: { label: yLabel },
