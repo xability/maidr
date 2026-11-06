@@ -771,6 +771,8 @@ A chart plotly is still drawing when MAIDR finds it is read once plotly has fini
 
 The observer keeps watching for as long as the page is open, so a chart added at any time is found; a page that tears MAIDR down can stop it with `window.disconnectMaidrObservers()`, and it stops when the page unloads.
 
+**Known limit:** MAIDR reads a chart's data once, when it binds it. If the page then changes the data, with `Plotly.react`, `Plotly.restyle` or any other call, MAIDR keeps announcing the values it first read: anything added to the chart later is not announced, and anything taken away still is. The highlight is drawn when the chart takes focus, on whatever mark plotly then draws in each value's place, so it can disagree with what is announced; a zoom or a change made while the chart has focus reaches the highlight only after focus leaves the chart and comes back. Calling `Plotly.newPlot` again on the same div does not make MAIDR read the chart again either. To have MAIDR read new data, draw the chart in a new element that replaces the old one: MAIDR binds it as it does any chart added to the page.
+
 ## Keyboard Controls
 
 Once a chart is focused, use standard MAIDR keyboard shortcuts:
