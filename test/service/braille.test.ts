@@ -16,6 +16,7 @@ import { RadarTrace } from '@model/radar';
 import { ScatterTrace } from '@model/scatter';
 import { BrailleService, normalizeDisplayLines } from '@service/braille';
 import { TraceType } from '@type/grammar';
+import { Platform } from '@util/platform';
 
 interface SettingsChangeEventMock {
   affectsSetting: (settingPath: string) => boolean;
@@ -2291,7 +2292,7 @@ describe('B on a scatter brailled only in grid navigation', () => {
     const told = pressB(trace);
 
     expect(told).toEqual([
-      'Braille for this chart is shown in grid navigation. Press Alt Shift Up until grid navigation is announced, then press B.',
+      `Braille for this chart is shown in grid navigation. Press ${Platform.altSpoken} Shift Up until grid navigation is announced, then press B.`,
     ]);
     trace.dispose();
   });

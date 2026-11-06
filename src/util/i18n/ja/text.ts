@@ -90,6 +90,8 @@ export const text = {
   // Key names stay as they are; the words around them are translated.
   'text.modifierControl': 'Control',
   'text.modifierCommand': 'Command',
+  'text.modifierAlt': 'Alt',
+  'text.modifierOption': 'Option',
   'text.invalidKey': '無効なキーです。キーボードのヘルプを表示するには {modifier} スラッシュを押してください。',
 
   'text.brailleUnavailableHere': 'ここでは点字を使用できません。まず Enter キーを押してサブプロットを選択してください。',

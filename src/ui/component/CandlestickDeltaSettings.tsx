@@ -2,6 +2,7 @@ import { Close } from '@mui/icons-material';
 import { Box, IconButton, Typography } from '@mui/material';
 import { useLocale } from '@state/hook/useLocale';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
+import { Platform } from '@util/platform';
 import React, { useEffect, useRef } from 'react';
 
 /**
@@ -158,7 +159,7 @@ const CandlestickDeltaSettings: React.FC = () => {
           color="text.secondary"
           sx={{ mb: 2 }}
         >
-          {t('notification.deltaPickerDescription')}
+          {t('notification.deltaPickerDescription', { alt: Platform.altSpoken })}
         </Typography>
 
         {/*

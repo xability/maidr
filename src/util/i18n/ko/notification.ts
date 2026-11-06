@@ -20,7 +20,7 @@ export const notification = {
   'notification.brailleIsOff': '점자 꺼짐',
   'notification.brailleNoInfo': '점자로 나타낼 정보가 없습니다',
   'notification.brailleNotSupported': '{type} 그래프 유형은 점자를 지원하지 않습니다',
-  'notification.brailleInGridNavigation': '이 차트의 점자는 격자 탐색에서 표시됩니다. 격자 탐색이 안내될 때까지 Alt Shift 위쪽 화살표 키를 누른 다음 B 키를 누르세요.',
+  'notification.brailleInGridNavigation': '이 차트의 점자는 격자 탐색에서 표시됩니다. 격자 탐색이 안내될 때까지 {alt} Shift 위쪽 화살표 키를 누른 다음 B 키를 누르세요.',
   'notification.brailleDisplay': '점자 디스플레이',
 
   // Monitor mode on live charts.
@@ -38,10 +38,10 @@ export const notification = {
   'notification.deltaReferenceUnavailable': '선택한 기준선을 사용할 수 없습니다.',
   'notification.deltaNoMatchingX': '촛대 차트와 {reference} 사이에 일치하는 x 값이 없습니다.',
   'notification.deltaKeepingComparison': '현재 비교를 유지합니다. {reference|은는} {x}까지 이어지지 않습니다. 해당 기준선이 지나는 캔들로 이동한 뒤 다시 선택하세요.',
-  'notification.deltaNoComparisonAtX': '{x}에는 기준선 비교가 없습니다. {reference|은는} 이 캔들까지 이어지지 않습니다. 이동평균선이 지나는 캔들로 이동한 뒤 Alt L 키를 누르세요.',
+  'notification.deltaNoComparisonAtX': '{x}에는 기준선 비교가 없습니다. {reference|은는} 이 캔들까지 이어지지 않습니다. 이동평균선이 지나는 캔들로 이동한 뒤 {alt} L 키를 누르세요.',
   'notification.deltaActivationFailed': '여기에서는 기준선 비교를 시작할 수 없습니다.',
-  'notification.deltaActivated': '기준선 비교 켜짐. OHLC 가격에서 {reference|을를} 뺀 값이며 데이터 점은 {count}개, {field}에서 시작합니다. 양수는 선 위, 음수는 선 아래를 뜻합니다. 왼쪽과 오른쪽 화살표로 캔들 사이를 이동하고, 위와 아래 화살표로 시가, 고가, 저가, 종가를 전환하세요. Alt L 키로 비교를 끄고, G 키로 극값을 찾고, 로터로 선 위, 선 아래, 선과 일치하는 점을 살펴볼 수 있습니다. Escape 키를 누르면 차트로 돌아갑니다.',
-  'notification.deltaClosed': '기준선 비교를 끝내고 차트 레이어로 돌아왔습니다. 다시 비교하려면 Alt L 키를 누르세요.',
+  'notification.deltaActivated': '기준선 비교 켜짐. OHLC 가격에서 {reference|을를} 뺀 값이며 데이터 점은 {count}개, {field}에서 시작합니다. 양수는 선 위, 음수는 선 아래를 뜻합니다. 왼쪽과 오른쪽 화살표로 캔들 사이를 이동하고, 위와 아래 화살표로 시가, 고가, 저가, 종가를 전환하세요. {alt} L 키로 비교를 끄고, G 키로 극값을 찾고, 로터로 선 위, 선 아래, 선과 일치하는 점을 살펴볼 수 있습니다. Escape 키를 누르면 차트로 돌아갑니다.',
+  'notification.deltaClosed': '기준선 비교를 끝내고 차트 레이어로 돌아왔습니다. 다시 비교하려면 {alt} L 키를 누르세요.',
   'notification.deltaClosedByUpdate': '데이터 업데이트로 기준선 비교가 종료되었습니다.',
   'notification.deltaNoReferenceChosen': '아직 선택한 기준선이 없습니다. 목록에서 이동평균선을 고르고 Enter 키를 눌러 비교하세요. 취소하려면 Escape 키를 누르세요.',
   'notification.deltaTraceTitle': 'OHLC 가격 대 {reference}',
@@ -50,7 +50,7 @@ export const notification = {
   // The reference-line picker.
   'notification.deltaPickerTitle': '기준선과 비교',
   'notification.deltaPickerClose': '기준선 선택 창 닫기',
-  'notification.deltaPickerDescription': '각 캔들과 비교할 기준선을 고르세요. 위와 아래 화살표로 이동한 뒤 Enter 키를 누르세요. 선택한 뒤에는 Alt L 키로 비교를 켜고 끌 수 있습니다.',
+  'notification.deltaPickerDescription': '각 캔들과 비교할 기준선을 고르세요. 위와 아래 화살표로 이동한 뒤 Enter 키를 누르세요. 선택한 뒤에는 {alt} L 키로 비교를 켜고 끌 수 있습니다.',
   'notification.deltaPickerListLabel': '기준선 목록',
   'notification.objectListGone': '{label|은는} 더 이상 차트에 없습니다',
 } satisfies Partial<Record<MessageKey, string>>;

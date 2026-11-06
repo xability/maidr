@@ -21,7 +21,7 @@ export const notification = {
   'notification.brailleIsOff': 'Braille ist aus',
   'notification.brailleNoInfo': 'Keine Informationen für Braille',
   'notification.brailleNotSupported': 'Braille wird für den Diagrammtyp {type} nicht unterstützt',
-  'notification.brailleInGridNavigation': 'Braille wird für dieses Diagramm in der Rasternavigation angezeigt. Drücken Sie Alt Umschalt Pfeil nach oben, bis Rasternavigation angesagt wird, und dann B.',
+  'notification.brailleInGridNavigation': 'Braille wird für dieses Diagramm in der Rasternavigation angezeigt. Drücken Sie {alt} Umschalt Pfeil nach oben, bis Rasternavigation angesagt wird, und dann B.',
   'notification.brailleDisplay': 'Braillezeile',
 
   // Monitor mode on live charts.
@@ -39,10 +39,10 @@ export const notification = {
   'notification.deltaReferenceUnavailable': 'Die ausgewählte Referenzlinie ist nicht verfügbar.',
   'notification.deltaNoMatchingX': 'Keine übereinstimmenden X-Werte zwischen dem Kerzendiagramm und {reference}.',
   'notification.deltaKeepingComparison': 'Der aktuelle Vergleich bleibt bestehen: {reference} reicht nicht bis {x}. Wechseln Sie zu einer Kerze, die davon abgedeckt wird, und wählen Sie sie dann erneut.',
-  'notification.deltaNoComparisonAtX': 'Kein Referenzvergleich bei {x}: {reference} reicht nicht bis zu dieser Kerze. Wechseln Sie zu einer Kerze, die der gleitende Durchschnitt abdeckt, und drücken Sie dann Alt L.',
+  'notification.deltaNoComparisonAtX': 'Kein Referenzvergleich bei {x}: {reference} reicht nicht bis zu dieser Kerze. Wechseln Sie zu einer Kerze, die der gleitende Durchschnitt abdeckt, und drücken Sie dann {alt} L.',
   'notification.deltaActivationFailed': 'Der Referenzvergleich konnte hier nicht aktiviert werden.',
-  'notification.deltaActivated': 'Referenzvergleich an: OHLC-Kurs minus {reference}, {count} Punkte, beginnend bei {field}. Positive Werte liegen über der Linie, negative darunter. Verwenden Sie die Pfeiltasten links und rechts, um zwischen den Kerzen zu wechseln, und die Pfeiltasten auf und ab, um zwischen Eröffnung, Hoch, Tief und Schluss zu wechseln. Drücken Sie Alt L, um den Vergleich auszuschalten, G für Extremwerte und den Rotor, um Punkte über, unter oder auf der Linie zu durchsuchen. Drücken Sie Escape, um zum Diagramm zurückzukehren.',
-  'notification.deltaClosed': 'Referenzvergleich geschlossen. Zurück zur Diagrammebene. Drücken Sie Alt L, um erneut zu vergleichen.',
+  'notification.deltaActivated': 'Referenzvergleich an: OHLC-Kurs minus {reference}, {count} Punkte, beginnend bei {field}. Positive Werte liegen über der Linie, negative darunter. Verwenden Sie die Pfeiltasten links und rechts, um zwischen den Kerzen zu wechseln, und die Pfeiltasten auf und ab, um zwischen Eröffnung, Hoch, Tief und Schluss zu wechseln. Drücken Sie {alt} L, um den Vergleich auszuschalten, G für Extremwerte und den Rotor, um Punkte über, unter oder auf der Linie zu durchsuchen. Drücken Sie Escape, um zum Diagramm zurückzukehren.',
+  'notification.deltaClosed': 'Referenzvergleich geschlossen. Zurück zur Diagrammebene. Drücken Sie {alt} L, um erneut zu vergleichen.',
   'notification.deltaClosedByUpdate': 'Der Referenzvergleich wurde durch eine Datenaktualisierung geschlossen.',
   'notification.deltaNoReferenceChosen': 'Noch keine Referenzlinie gewählt. Wählen Sie in der Liste eine Linie des gleitenden Durchschnitts und drücken Sie Enter, um zu vergleichen. Drücken Sie Escape, um abzubrechen.',
   'notification.deltaTraceTitle': 'OHLC-Kurs gegenüber {reference}',
@@ -51,7 +51,7 @@ export const notification = {
   // The reference-line picker.
   'notification.deltaPickerTitle': 'Mit Referenzlinie vergleichen',
   'notification.deltaPickerClose': 'Referenzauswahl schließen',
-  'notification.deltaPickerDescription': 'Wählen Sie eine Referenzlinie, mit der jede Kerze verglichen wird. Bewegen Sie sich mit den Pfeiltasten auf und ab und drücken Sie dann Enter. Nach der Auswahl drücken Sie Alt L, um den Vergleich ein- oder auszuschalten.',
+  'notification.deltaPickerDescription': 'Wählen Sie eine Referenzlinie, mit der jede Kerze verglichen wird. Bewegen Sie sich mit den Pfeiltasten auf und ab und drücken Sie dann Enter. Nach der Auswahl drücken Sie {alt} L, um den Vergleich ein- oder auszuschalten.',
   'notification.deltaPickerListLabel': 'Referenzlinien',
   'notification.objectListGone': '{label} ist nicht mehr im Diagramm',
 } satisfies Partial<Record<MessageKey, string>>;

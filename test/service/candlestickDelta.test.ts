@@ -17,6 +17,7 @@ import { RotorNavigationService } from '@service/rotor';
 import { TextService } from '@service/text';
 import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
+import { Platform } from '@util/platform';
 
 jest.mock('hotkeys-js', () => ({
   __esModule: true,
@@ -338,6 +339,23 @@ describe('candlestickDeltaService activation', () => {
     expect(service.activate('ma-layer:0')).toBe(false);
     expect(service.isActive).toBe(false);
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('No matching x values'));
+  });
+});
+
+describe('candlestickDeltaService naming its toggle key', () => {
+  test('names the key the reader\'s keyboard has, in every message that asks for it', () => {
+    const { context, service, notify } = createHarness();
+    const toggle = `${Platform.altSpoken} L`;
+
+    (context.active as Trace).moveToXValue('2026-01-01');
+    service.activate('ma-layer:0');
+    (context.active as Trace).moveToXValue('2026-01-02');
+    service.activate();
+    service.deactivate();
+
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining(`then press ${toggle}.`));
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining(`Press ${toggle} to turn the comparison off`));
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining(`Press ${toggle} to compare again`));
   });
 });
 

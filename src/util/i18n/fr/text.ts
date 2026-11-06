@@ -92,6 +92,8 @@ export const text = {
   // Key names stay as they are; the words around them are translated.
   'text.modifierControl': 'Control',
   'text.modifierCommand': 'Command',
+  'text.modifierAlt': 'Alt',
+  'text.modifierOption': 'Option',
   'text.invalidKey': 'Touche non valide. Appuyez sur {modifier} barre oblique pour l\'aide clavier.',
 
   'text.brailleUnavailableHere': 'Le braille n\'est pas disponible ici. Appuyez d\'abord sur Enter pour sélectionner un sous-graphique.',

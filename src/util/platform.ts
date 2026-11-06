@@ -50,4 +50,14 @@ export abstract class Platform {
   public static get ctrlSpoken(): string {
     return Platform.IS_MAC ? t('text.modifierCommand') : t('text.modifierControl');
   }
+
+  /**
+   * Returns the alt/option key's name as it should be spoken, for the reason
+   * {@link ctrlSpoken} gives: a message that names "Alt" sends a reader on a
+   * Mac to a key their keyboard calls Option.
+   * @returns The Option key's name on macOS, the Alt key's on other platforms
+   */
+  public static get altSpoken(): string {
+    return Platform.IS_MAC ? t('text.modifierOption') : t('text.modifierAlt');
+  }
 }

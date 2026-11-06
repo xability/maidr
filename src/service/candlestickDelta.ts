@@ -16,6 +16,7 @@ import { LineTrace } from '@model/line';
 import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 import { t } from '@util/i18n';
+import { Platform } from '@util/platform';
 
 /** A selectable reference series (one line of a line layer) for comparison. */
 export interface CandlestickDeltaReference {
@@ -206,6 +207,7 @@ export class CandlestickDeltaService implements Disposable {
         t('notification.deltaNoComparisonAtX', {
           x: String(currentX),
           reference: reference.label,
+          alt: Platform.altSpoken,
         }),
       );
       return false;
@@ -255,6 +257,7 @@ export class CandlestickDeltaService implements Disposable {
         reference: reference.label,
         count: candles.length,
         field: initialField,
+        alt: Platform.altSpoken,
       }),
     );
     return true;
@@ -307,7 +310,7 @@ export class CandlestickDeltaService implements Disposable {
       if (anchor && lastX !== null) {
         anchor.moveToXValue(lastX);
       }
-      this.notification.notify(t('notification.deltaClosed'));
+      this.notification.notify(t('notification.deltaClosed', { alt: Platform.altSpoken }));
     }
     return true;
   }
