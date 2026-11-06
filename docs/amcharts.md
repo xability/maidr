@@ -492,6 +492,8 @@ A dumbbell's finding is the change between the two ends, so it travels with both
 maidrAmCharts.bindAmCharts(root, { dumbbellLabels: { start: "1990", end: "2020" } });
 ```
 
+The highlight outlines the whole pair — the column drawn as its stem and the bullets drawn as the dots at its two ends — and stays on it while Up and Down move between the ends. A pair whose ends are equal has a stem with no height, and is outlined by the dot amCharts draws for it.
+
 #### Gantt / Timeline [experimental]
 
 A schedule is floating columns on a category Y axis of lanes and a `DateAxis` of time. Pitch carries each interval's **length** and stereo position carries its **start**, mapped along the whole axis rather than by column index, so two lanes whose work overlaps sound like they overlap.
@@ -607,6 +609,8 @@ stems.bullets.push(function () {
   return am5.Bullet.new(root, { locationY: 1, sprite: am5.Circle.new(root, { radius: 6, fill: stems.get("fill") }) });
 });
 ```
+
+A lollipop's highlight outlines the stem and the dot on its end together, as a dumbbell's outlines its stem and both dots.
 
 Both probes require the bullets, because either half alone is something else: a strokeless line with no bullets draws nothing, a line with bullets **and** a stroke is a line chart with markers, and a narrow bar chart with no bullets is a narrow bar chart. A stem width declared as a `Percent` is read as an ordinary bar — a column half its cell wide is not a hairline however small the number reads.
 

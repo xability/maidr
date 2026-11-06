@@ -283,6 +283,93 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     expect(itemOf(end[0])).toBe(itemOf(start[0]));
   });
 
+  describe('outlining a dumbbell or a lollipop', () => {
+    /**
+     * One pair as amCharts draws it: a 3 px stem from `from` to `to`, kept on
+     * the data item's `graphics`, and a 14 px dot at each end, kept on its
+     * `bullets`. Pixel y grows downwards from 200 at value 70, 20 px a year.
+     */
+    function pair(category: string, from: number, to: number): Record<string, unknown> {
+      const y = (value: number): number => 200 - (value - 70) * 20;
+      const top = Math.min(y(from), y(to));
+      const height = Math.abs(y(from) - y(to));
+      const stem = {
+        width: () => 3,
+        height: () => height,
+        toGlobal: (point: { x: number; y: number }) => ({ x: 99 + point.x, y: top + point.y }),
+      };
+      const dot = (value: number): unknown => ({
+        get: (key: string) => (key === 'sprite'
+          ? { globalBounds: () => ({ left: 93.5, top: y(value) - 7, right: 107.5, bottom: y(value) + 7 }) }
+          : undefined),
+      });
+      return { categoryX: category, openValueY: from, valueY: to, graphics: stem, dots: [dot(from), dot(to)] };
+    }
+
+    function resolveFirst(record: Record<string, unknown>): NavTarget[] {
+      const series = fakeFloatingColumnSeries('Life expectancy', [record as never]);
+      series.dataItems.forEach((item) => {
+        item.bullets = record.dots as never;
+      });
+      const navMap = buildNavigationMap([{
+        chart: fakeChart({ series: [series] }),
+        layers: [{ id: 'pairs', type: TraceType.DUMBBELL, data: [] }],
+        groups: { ...emptyGroups(), dumbbellSeriesList: [series] },
+      }]);
+      return navMap.resolve('pairs', 0, 0);
+    }
+
+    it('outlines the stem and the dots at both ends', () => {
+      // A pair from 71 to 78: the stem alone was outlined before, 3 px wide.
+      const [target] = resolveFirst(pair('Denmark', 71, 78));
+
+      expect(target.kind).toBe('stem');
+      expect(dataItemToOverlayRect(target, null))
+        .toEqual({ left: 93.5, top: 33, width: 14, height: 154 });
+    });
+
+    it('outlines a pair whose ends are equal by the dot the chart draws for it', () => {
+      // Malta, 76 to 76: a stem 0 px tall, so the stem's box collapsed in the
+      // clip and the reader on Malta was shown nothing at all.
+      const [target] = resolveFirst(pair('Malta', 76, 76));
+
+      expect(dataItemToOverlayRect(target, { left: 0, top: 0, right: 400, bottom: 400 }))
+        .toEqual({ left: 93.5, top: 73, width: 14, height: 14 });
+    });
+
+    it('outlines a lollipop\'s stem and the dot on its end', () => {
+      // Norway, 84: a 2 px stem from the baseline up to 84, drawn 4 px a year
+      // from y 400, and a 14 px dot on the end. The stem alone was outlined
+      // before, a box 2 px wide that left out most of the dot.
+      const y = (value: number): number => 400 - value * 4;
+      const stem = {
+        width: () => 2,
+        height: () => y(0) - y(84),
+        toGlobal: (point: { x: number; y: number }) => ({ x: 99 + point.x, y: y(84) + point.y }),
+      };
+      const dot = {
+        get: (key: string) => (key === 'sprite'
+          ? { globalBounds: () => ({ left: 93, top: y(84) - 7, right: 107, bottom: y(84) + 7 }) }
+          : undefined),
+      };
+      const series = fakeLollipopSeries('Life expectancy', [
+        { categoryX: 'Norway', valueY: 84, graphics: stem },
+      ]);
+      series.dataItems[0].bullets = [dot] as never;
+      const navMap = buildNavigationMap([{
+        chart: fakeChart({ series: [series] }),
+        layers: [{ id: 'stems', type: TraceType.LOLLIPOP, data: [] }],
+        groups: { ...emptyGroups(), lollipopSeriesList: [series] },
+      }]);
+
+      const [target] = navMap.resolve('stems', 0, 0);
+
+      expect(target.kind).toBe('stem');
+      expect(dataItemToOverlayRect(target, null))
+        .toEqual({ left: 93, top: 57, width: 14, height: 343 });
+    });
+  });
+
   it('resolves a gantt layer by [lane, interval], the grouping the layer holds', () => {
     const series = fakeGanttSeries('Schedule', [
       { categoryY: 'Design', openValueX: 0, valueX: 30 },
@@ -494,10 +581,10 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     expect(itemOf(dot[0]).get('valueY')).toBe(318);
     expect(dot[0].kind).toBe('point');
 
-    // A stem is still a column, thin as it is.
+    // A lollipop's mark is its stem and the dot on the end.
     const stem = navMap.resolve('stems', 0, 0);
     expect(stem[0].series).toBe(stems);
-    expect(stem[0].kind).toBe('column');
+    expect(stem[0].kind).toBe('stem');
   });
 
   it('resolves a word cloud layer in weight order, not in declared order', () => {

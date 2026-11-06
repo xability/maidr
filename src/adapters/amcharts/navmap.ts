@@ -45,13 +45,14 @@ import {
  *
  * `kind` tells the overlay which geometry to read: a column's box, a line
  * point, the wedge-shaped sprite of a pie slice, funnel stage or polar column,
- * the glyph of a word cloud's term, the drawn polygon of a map region, or a
- * gauge's needle.
+ * the glyph of a word cloud's term, the drawn polygon of a map region, a
+ * gauge's needle, or the stem of a dumbbell or a lollipop with the dots its
+ * bullets draw.
  */
 export interface NavItemTarget {
   series: AmXYSeries;
   dataItem: AmDataItem;
-  kind: 'column' | 'point' | 'slice' | 'label' | 'region' | 'needle';
+  kind: 'column' | 'point' | 'slice' | 'label' | 'region' | 'needle' | 'stem';
 }
 
 /**
@@ -1213,10 +1214,15 @@ function addEntryResolvers(
         break;
       }
       case TraceType.LOLLIPOP: {
-        // A stem is still a column, thin as it is, and the box around it is
-        // what puts the highlight on the whole mark rather than on the dot.
+        // The mark is the stem and the dot its bullet draws on the end, so the
+        // overlay reads both, as it does for a dumbbell's stem and two dots.
         const entry = lollipopSeries[lollipopIdx++];
-        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        register(layer.id, (_row, col) => {
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'stem' }]
+            : [];
+        });
         break;
       }
       // A bump chart is navigated as the multi-line layer it is drawn as, and
@@ -1291,9 +1297,16 @@ function addEntryResolvers(
         // Rows are the two ends and columns the categories, but a chart draws
         // one column per category and not one per dot — so both ends resolve
         // to the same mark, which is the honest rendering of a highlight that
-        // stays put while the announcement moves between the ends.
+        // stays put while the announcement moves between the ends. The mark
+        // is the column and the dots its bullets draw at either end, which a
+        // pair with equal ends draws as its whole.
         const entry = dumbbellSeries[dumbbellIdx++];
-        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        register(layer.id, (_row, col) => {
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'stem' }]
+            : [];
+        });
         break;
       }
       case TraceType.GANTT: {
