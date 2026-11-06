@@ -373,3 +373,38 @@ describe('a chart that opens on a layer with no data', () => {
     ]);
   });
 });
+
+describe('an answer asked for before the first move', () => {
+  it('should speak P and a label pressed straight after focus, and not the instruction', () => {
+    renderChart();
+    const announcements = watch(region());
+    focusIn();
+
+    press('p', 'KeyP', 80);
+    press('l', 'KeyL', 76);
+    press('x', 'KeyX', 88);
+
+    expect(announcements().map(element => element.textContent)).toEqual([
+      'Position is 1 of 3',
+      'X label is Category',
+    ]);
+  });
+
+  it('should speak an answer once to a reader who came back', () => {
+    // A returning reader's point is announced on focus in place of the
+    // instruction; the answer that follows is heard once, after it.
+    renderChart();
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('ArrowRight', 'ArrowRight', 39);
+    tabOut();
+    focusIn();
+    const announcements = watch(region());
+
+    press('p', 'KeyP', 80);
+
+    expect(announcements().map(element => element.textContent)).toEqual([
+      'Position is 2 of 3',
+    ]);
+  });
+});

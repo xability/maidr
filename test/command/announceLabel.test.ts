@@ -53,7 +53,7 @@ function createHarness(
   const audioService = {
     playWarningToneIfEnabled: jest.fn(),
   } as { playWarningToneIfEnabled: jest.Mock };
-  const textService = { isTerse: jest.fn(() => terse) } as unknown as TextService;
+  const textService = { isTerse: jest.fn(() => terse), markFirstNavigation: jest.fn() } as unknown as TextService;
   const displayService = { exitLabelScope: jest.fn() } as unknown as DisplayService;
 
   const command = new CommandClass(

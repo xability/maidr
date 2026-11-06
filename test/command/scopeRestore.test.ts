@@ -104,7 +104,7 @@ describe('AnnounceCommand.restoreScope (via AnnounceXCommand)', () => {
     const displayService = createMockDisplayService();
     const textViewModel = { update: jest.fn() } as unknown as TextViewModel;
     const audioService = { playWarningToneIfEnabled: jest.fn() } as unknown as AudioService;
-    const textService = { isTerse: jest.fn(() => false) } as unknown as TextService;
+    const textService = { isTerse: jest.fn(() => false), markFirstNavigation: jest.fn() } as unknown as TextService;
     const command = new AnnounceXCommand(
       context,
       textViewModel,

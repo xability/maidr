@@ -1147,9 +1147,15 @@ export class TextService implements Observer<PlotState>, Disposable {
    * ever followed a move; on a layer with no data there is nothing to land on,
    * every press meets the edge, and when only a landing opened the gate the
    * reader heard the boundary chord and never a word.
+   *
+   * Public for the answers that reach the text view without passing through
+   * {@link update} -- the position, a label, the title -- which open the gate
+   * as a move does: asked for before the first move, they were shown and not
+   * spoken. Text off holds the gate shut, as it does for a move, until text is
+   * turned on and the reader moves or asks again.
    */
-  private markFirstNavigation(): void {
-    if (this.hasHadFirstNavigation) {
+  public markFirstNavigation(): void {
+    if (this.hasHadFirstNavigation || this.mode === TextMode.OFF) {
       return;
     }
     this.hasHadFirstNavigation = true;

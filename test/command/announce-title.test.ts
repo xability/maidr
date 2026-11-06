@@ -43,6 +43,7 @@ function createMockTextViewModel(): TextViewModel {
 function createMockTextService(terse = false): TextService {
   return {
     isTerse: () => terse,
+    markFirstNavigation: () => {},
   } as unknown as TextService;
 }
 

@@ -56,6 +56,7 @@ function createMockTextService(mode: 'verbose' | 'terse' = 'verbose'): TextServi
   return {
     isTerse: () => mode === 'terse',
     isOff: () => false,
+    markFirstNavigation: () => {},
   } as unknown as TextService;
 }
 

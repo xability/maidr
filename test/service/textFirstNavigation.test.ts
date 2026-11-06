@@ -3,7 +3,7 @@ import type { MaidrLayer } from '@type/grammar';
 import type { PlotState, TraceState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BarTrace } from '@model/bar';
-import { TextService } from '@service/text';
+import { TextMode, TextService } from '@service/text';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -199,13 +199,28 @@ describe('textService first-navigation announcement gate', () => {
     const text = new TextService(createMockNotificationService());
     const listener = jest.fn();
     text.onNavigation(listener);
-    text.toggle();
-    text.toggle();
-    expect(text.isOff()).toBe(true);
+    text.setMode(TextMode.OFF);
 
     text.update(createOutOfBoundsState());
 
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  test('keeps the gate shut when an answer asks to open it while text mode is off', () => {
+    // P and the label keys open the gate through markFirstNavigation; with
+    // text off it stays shut, as it does for a move, until text is back on.
+    const text = new TextService(createMockNotificationService());
+    const listener = jest.fn();
+    text.onNavigation(listener);
+    text.setMode(TextMode.OFF);
+
+    text.markFirstNavigation();
+    expect(listener).not.toHaveBeenCalled();
+    text.setMode(TextMode.VERBOSE);
+    text.markFirstNavigation();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({ type: 'first_navigation' });
   });
 
   test('opens the gate before the first key press on a layer with no data is answered', () => {
@@ -240,11 +255,9 @@ describe('textService first-navigation announcement gate', () => {
     const listener = jest.fn();
     text.onNavigation(listener);
 
-    // VERBOSE -> TERSE -> OFF. Navigating while off must not un-gate; the flag
-    // stays armed for when the user turns text back on and navigates.
-    text.toggle();
-    text.toggle();
-    expect(text.isOff()).toBe(true);
+    // Navigating while off must not un-gate; the flag stays armed for when
+    // the user turns text back on and navigates.
+    text.setMode(TextMode.OFF);
 
     text.update(createTraceState());
 
@@ -351,9 +364,7 @@ describe('textService out-of-bounds edge alert', () => {
 
   test('stays silent on out-of-bounds while text mode is off', () => {
     const text = new TextService(createMockNotificationService());
-    text.toggle(); // VERBOSE -> TERSE
-    text.toggle(); // TERSE -> OFF
-    expect(text.isOff()).toBe(true);
+    text.setMode(TextMode.OFF);
 
     const changeListener = jest.fn();
     text.onChange(changeListener);
@@ -412,10 +423,7 @@ describe('textService out-of-bounds edge alert', () => {
   test('stays silent at a layer boundary while text mode is off', () => {
     const notification = createMockNotificationService();
     const text = new TextService(notification);
-    text.toggle(); // VERBOSE -> TERSE
-    text.toggle(); // TERSE -> OFF
-    expect(text.isOff()).toBe(true);
-    (notification.notify as jest.Mock).mockClear();
+    text.setMode(TextMode.OFF);
 
     text.update(createNoMoreLayersState());
 

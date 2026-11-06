@@ -53,7 +53,7 @@ function setup(maidr: Maidr): {
     modalities.highlight as unknown as HighlightService,
     modalities.braille as unknown as BrailleViewModel,
     modalities.text as unknown as TextViewModel,
-    { isTerse: () => false } as unknown as TextService,
+    { isTerse: () => false, markFirstNavigation: () => {} } as unknown as TextService,
     {} as unknown as DisplayService,
   );
   const notified: PlotState[] = [];
