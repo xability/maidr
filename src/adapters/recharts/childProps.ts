@@ -412,3 +412,49 @@ export function ridgelineAreasFor(children: ReactNode): RechartsRidgelineArea[] 
   walk(children);
   return found;
 }
+
+/**
+ * Where a bump chart draws first place, when its rank axis says so.
+ *
+ * A bump chart is a `<LineChart>` of ranks, and Recharts draws an ordinary
+ * `<YAxis>` with its smallest number at the bottom. Rank 1 goes at the top
+ * by `<YAxis reversed>`, which is how a bump chart is usually drawn, and how
+ * the Recharts example draws it. The layer said nothing, and with no
+ * highlight to measure the drawing by, Up moved to the next larger rank
+ * number: down the page, to the place one worse.
+ *
+ * Only `reversed` is read, on the first `<YAxis>` the chart draws, found
+ * depth-first as the other walks find their element. An axis under `hide`
+ * is passed over, as one placed ahead of the rank axis to scale another
+ * series is; when every axis is hidden, as on a bump chart that labels its
+ * lines rather than its axis, the first is read. An axis without `reversed`
+ * may still be turned another way, by its `domain` or a scale of its own,
+ * which the core can measure from the highlighted dots where it has them
+ * and this cannot, so it answers `undefined` and leaves the core to read the
+ * drawing. A chart whose rank axis is not the first it draws, or is turned
+ * some other way, says where first place is through the config's
+ * `firstPlace`.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns `'top'` when that `<YAxis>` is reversed, otherwise `undefined`
+ */
+export function firstPlaceFor(children: ReactNode): 'top' | undefined {
+  const axes: { reversed?: unknown; hide?: unknown }[] = [];
+
+  const walk = (nodes: ReactNode): void => {
+    Children.forEach(nodes, (child) => {
+      if (!isValidElement(child))
+        return;
+      const props = child.props as { reversed?: unknown; hide?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'YAxis') {
+        axes.push(props);
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  const rankAxis = axes.find(axis => axis.hide !== true) ?? axes[0];
+  return rankAxis?.reversed === true ? 'top' : undefined;
+}
