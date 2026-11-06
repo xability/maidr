@@ -6,6 +6,7 @@ import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { isMeasured } from './bar';
 import { LineTrace } from './line';
+import { stepDataVertices } from './step';
 
 /**
  * The most significant digits a threshold is announced with when two decimals
@@ -119,6 +120,36 @@ export abstract class RateCurveTrace extends LineTrace {
   protected override listedRightToLeft(curve: readonly LinePoint[]): boolean {
     const xs = curve.map(point => Number(point?.x)).filter(Number.isFinite);
     return xs.length > 1 && xs[0] > xs[xs.length - 1];
+  }
+
+  /**
+   * A curve drawn as a staircase has its corners skipped, so each point keeps
+   * its own vertex.
+   *
+   * scikit-learn's `PrecisionRecallDisplay` draws each curve with
+   * `drawstyle="steps-post"`, and a curve drawn by hand with `ax.step` is the
+   * same staircase: each precision is held to the next recall, so the path
+   * has `2N - 1` vertices for N points, the points at the even ones. Read as
+   * a line's, the first N vertices were paired with the N points, and from
+   * the second point on the outline stood on a corner or on a point halfway
+   * back along the curve. The corners are skipped as a step chart skips them
+   * ({@link stepDataVertices}). A path with any other count, one vertex per
+   * point among them, is read as a line's.
+   *
+   * @param coordinates - Vertices parsed from the path, mutated in place
+   * @param row - Index of the series these coordinates belong to
+   */
+  protected override reconcilePathCoordinates(coordinates: LinePoint[], row: number): void {
+    // `points`, not `curves`: this runs inside LineTrace's constructor,
+    // before `curves` is assigned.
+    const dataVertices = stepDataVertices(coordinates, this.points[row]?.length ?? 0);
+    if (dataVertices !== null) {
+      coordinates.length = 0;
+      coordinates.push(...dataVertices);
+      return;
+    }
+
+    super.reconcilePathCoordinates(coordinates, row);
   }
 
   /**
