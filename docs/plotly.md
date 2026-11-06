@@ -56,7 +56,9 @@ MAIDR's Plotly adapter runs automatically on page load:
 
 For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches for new Plotly divs and initializes them as they appear.
 
-The chart's title is the layout's `title`. A trace's `name` names its layer, which Page Up and Page Down announce ("Layer 2 of 2: Trend"); the name Plotly gives an unnamed trace itself ("trace 0") is not used.
+The chart's title is the layout's `title`. A trace's `name` names its layer, which Page Up and Page Down announce ("Layer 2 of 2: Trend"); an unnamed trace is named as Plotly's legend lists it ("trace 0") where the legend lists it, and is left unnamed where it does not.
+
+A panel's layers are listed in the order of their traces, which is the order Plotly draws them in and lists them in its legend (unless it turns the legend over, as it does for stacked bars and filled areas): a bar drawn before a line is Layer 1, whichever kind of chart each is. Traces read as one layer -- several lines, a stack of bars -- take the place of the first of them, and a fan chart the place of its median line.
 
 ## Supported Chart Types
 

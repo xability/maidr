@@ -222,6 +222,82 @@ describe('plotly extractor', () => {
     });
   });
 
+  describe('layer order', () => {
+    it('lists a panel\'s layers in the order of its traces, as plotly\'s legend does', () => {
+      // An unnamed bar drawn first and an unnamed line second: plotly's legend
+      // lists "trace 0", the bar, above "trace 1", the line. The layers were
+      // built line first, so the reader entered the chart on the line and
+      // heard "Layer 1 of 2: trace 1".
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'bar', x: ['Q1', 'Q2'], y: [3, 5], name: 'trace 0', _input: {}, showlegend: true },
+          scatterTrace({ mode: 'lines', name: 'trace 1', _input: {}, showlegend: true }),
+        ],
+        layout: { showlegend: true, xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots[0][0].layers;
+
+      expect(layers.map(layer => [layer.type, layer.name])).toEqual([
+        [TraceType.BAR, 'trace 0'],
+        [TraceType.LINE, 'trace 1'],
+      ]);
+    });
+
+    it('gives each layer an id that starts with the first trace it reads, which it is sorted by', () => {
+      // The order is read off the ids, so a layer built with an id of another
+      // form would be listed last; these kinds are built in four different
+      // places.
+      const gd = createGraphDiv({
+        traces: [
+          scatterTrace({ mode: 'lines', name: 'Line' }),
+          { type: 'bar', x: [1, 2, 3], y: [3, 5, 4], name: 'Bar' },
+          scatterTrace({ name: 'Points' }),
+          scatterTrace({ mode: 'lines', fill: 'tozeroy', name: 'Band' }),
+        ],
+        layout: { showlegend: true, xaxis: { domain: [0, 1] }, yaxis: { domain: [0, 1] } },
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots[0][0].layers;
+
+      expect(layers.map(layer => [layer.type, layer.id])).toEqual([
+        [TraceType.LINE, '0'],
+        [TraceType.BAR, '1'],
+        [TraceType.SCATTER, '2'],
+        [TraceType.AREA, '3'],
+      ]);
+    });
+
+    it('keeps the layers built from one set of traces together, in the order they are read', () => {
+      // A line drawn between two violins: the violins' two layers are built
+      // from both and listed where the first violin is, box layer first.
+      const gd = createGraphDiv({
+        traces: [
+          { type: 'violin', y: [1, 2, 3], name: 'A' },
+          scatterTrace({ mode: 'lines', name: 'Trend' }),
+          { type: 'violin', y: [2, 3, 4], name: 'B' },
+        ],
+        layout: {
+          xaxis: { domain: [0, 1], _categories: ['A', 'B'], c2p: value => 110 + 220 * value },
+          yaxis: { domain: [0, 1], c2p: value => 300 - 20 * value },
+        },
+        calcdata: [
+          [{ pos: 0, posCenterPx: 110, min: 1, q1: 2, med: 3, q3: 4, max: 9, density: [{ v: 0.1, t: 1 }, { v: 0.3, t: 3 }] }],
+          [],
+          [{ pos: 1, posCenterPx: 330, min: 1, q1: 2, med: 3, q3: 4, max: 9, density: [{ v: 0.1, t: 1 }, { v: 0.3, t: 3 }] }],
+        ],
+      });
+
+      const layers = extractPlotlyData(gd)!.subplots[0][0].layers;
+
+      expect(layers.map(layer => layer.type)).toEqual([
+        TraceType.VIOLIN_BOX,
+        TraceType.VIOLIN_KDE,
+        TraceType.LINE,
+      ]);
+    });
+  });
+
   describe('unsupported traces', () => {
     it('warns once for a trace type MAIDR has no equivalent for', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -587,10 +663,11 @@ describe('plotly extractor', () => {
 
       expect(maidr).not.toBeNull();
       const layers = maidr!.subplots[0][0].layers;
+      // Listed in the order of their traces: A, B, then C.
       expect(layers.map(layer => [layer.type, layer.stepDirection])).toEqual([
-        [TraceType.LINE, undefined],
         [TraceType.STEP, 'hv'],
         [TraceType.STEP, 'vh'],
+        [TraceType.LINE, undefined],
       ]);
     });
 
