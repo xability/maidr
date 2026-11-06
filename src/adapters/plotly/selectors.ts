@@ -664,13 +664,23 @@ function candlestickSelector(
   prefix: string,
 ): string {
   const isOhlc = gd._fullData?.[traceIndex]?.type === 'ohlc';
-  const nth = isOhlc
-    ? layerNthChild(gd, traceIndex, ['ohlc'])
-    : boxLayerNthChild(gd, traceIndex);
-
   return isOhlc
-    ? `${prefix}.ohlclayer > .trace.ohlc:nth-of-type(${nth}) > path`
-    : `${prefix}.boxlayer > .trace.boxes:nth-of-type(${nth}) path.box`;
+    ? `${prefix}.ohlclayer > .trace.ohlc:nth-of-type(${layerNthChild(gd, traceIndex, ['ohlc'])}) > path`
+    : `${candlestickGroupSelector(gd, traceIndex)} path.box`;
+}
+
+/**
+ * The group plotly draws one candlestick trace's candles in, scoped as
+ * {@link candlestickSelector} explains.
+ *
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The trace's index in `_fullData`
+ * @returns The selector of the trace's `g.trace.boxes`
+ */
+export function candlestickGroupSelector(gd: PlotlyGraphDiv, traceIndex: number): string {
+  const trace = gd._fullData?.[traceIndex];
+  const prefix = subplotCssPrefix(trace?.xaxis, trace?.yaxis);
+  return `${prefix}.boxlayer > .trace.boxes:nth-of-type(${boxLayerNthChild(gd, traceIndex)})`;
 }
 
 /**
