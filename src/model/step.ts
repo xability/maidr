@@ -157,6 +157,13 @@ function continuesRun(
  * the count past every shape {@link stepDataVertices} recognises, so the
  * staircase falls through to interpolation and every highlight lands wrong.
  *
+ * A vertex its neighbour repeats is kept. It is a riser of no height, the
+ * step Plotly draws between two samples of one level (`H33.75V209H67.5`,
+ * between two samples drawn at y 209), and a corner of the staircase as much
+ * as any other. Dropped with the run beside it, the staircase lost one step for
+ * each repeated level, matched no shape, and every sample after the first
+ * repeat was marked at a neighbour's place.
+ *
  * @param coordinates - Vertices parsed from the path
  * @returns A new list holding only the endpoints and the corners
  */
@@ -169,12 +176,27 @@ function collapseAxisAlignedRuns(coordinates: LinePoint[]): LinePoint[] {
   // so a run split into three or more pieces collapses in one pass.
   const kept: LinePoint[] = [coordinates[0]];
   for (let i = 1; i < coordinates.length - 1; i++) {
-    if (!continuesRun(kept[kept.length - 1], coordinates[i], coordinates[i + 1])) {
-      kept.push(coordinates[i]);
+    const previous = kept[kept.length - 1];
+    const current = coordinates[i];
+    const next = coordinates[i + 1];
+    if (isSameVertex(previous, current) || isSameVertex(current, next)
+      || !continuesRun(previous, current, next)) {
+      kept.push(current);
     }
   }
   kept.push(coordinates[coordinates.length - 1]);
   return kept;
+}
+
+/**
+ * Whether two vertices are one place: the two ends of a segment of no length.
+ *
+ * @param a - One vertex
+ * @param b - The other
+ * @returns True when both coordinates are equal
+ */
+function isSameVertex(a: LinePoint, b: LinePoint): boolean {
+  return Number(a.x) === Number(b.x) && Number(a.y) === Number(b.y);
 }
 
 /**
