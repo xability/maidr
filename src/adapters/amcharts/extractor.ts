@@ -645,6 +645,12 @@ export function extractGanttData(series: AmXYSeries): GanttData | null {
     }))),
     lanes,
     ...(scale ? { unit: scale.unit } : {}),
+    // Which end the first lane is drawn at, said outright: amCharts draws to
+    // a canvas, so MAIDR has no highlight to measure it from, and a category
+    // y axis counts from the bottom unless its renderer is inversed. Unsaid,
+    // the first lane was taken to be at the bottom, and on an inversed axis
+    // Up walked down the drawing.
+    firstLane: isInversedAxis(series, 'yAxis') ? 'top' : 'bottom',
   };
 }
 
