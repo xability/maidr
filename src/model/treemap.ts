@@ -992,6 +992,16 @@ export class TreemapTrace extends AbstractTrace {
   }
 
   /**
+   * Why `[`, `]` and `G` have nothing to go to on a tree drawn without
+   * values, such as an org chart: its nodes have no magnitude to rank.
+   *
+   * @returns That the nodes carry no values, or null on a valued tree
+   */
+  public override noExtremaReason(): string | null {
+    return this.valued ? null : t('model.noExtremaNodesCarryNoValues');
+  }
+
+  /**
    * Every node of the tree, as the `o` list offers them.
    *
    * Listed as an outline -- each parent before its children, siblings in the

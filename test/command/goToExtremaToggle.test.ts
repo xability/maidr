@@ -33,6 +33,7 @@ function setUp(options: {
   navigable: boolean;
   targets?: ExtremaTarget[];
   state?: TraceState;
+  reason?: string;
 }): {
   command: GoToExtremaToggleCommand;
   vm: GoToExtremaViewModel;
@@ -48,6 +49,7 @@ function setUp(options: {
   const context = {
     active: trace,
     state: options.state ?? TRACE_STATE,
+    noExtremaReason: (): string | null => options.reason ?? null,
   } as unknown as Context;
   const service = {
     isExtremaNavigable: () => options.navigable,
@@ -107,6 +109,17 @@ describe('go to extrema on a layer that has none', () => {
 
   test('the message is plain English in the default locale', () => {
     expect(t('text.noExtrema')).toBe('No extrema to go to in this layer');
+  });
+
+  test('says why, where the layer has nothing to go to by design', () => {
+    // A flowchart never has extrema, and the bare refusal read the same as
+    // on a chart whose data happened to hold none.
+    const { command, notify, tone } = setUp({ navigable: false, reason: 'its nodes carry no values' });
+
+    command.execute();
+
+    expect(notify).toHaveBeenCalledWith('No extrema to go to in this layer: its nodes carry no values');
+    expect(tone).toHaveBeenCalledTimes(1);
   });
 });
 

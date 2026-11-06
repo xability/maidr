@@ -611,6 +611,18 @@ export class Context implements Disposable {
     return active.level === 'trace' ? active.extremeRefusal?.(direction) ?? null : null;
   }
 
+  /**
+   * Why the active trace has no extremum for `[`, `]` and `G` to go to,
+   * where that is by design.
+   *
+   * @returns The reason, or null at the figure and subplot levels and
+   *   wherever the trace gives none
+   */
+  public noExtremaReason(): string | null {
+    const active = this.active;
+    return active.level === 'trace' ? active.noExtremaReason?.() ?? null : null;
+  }
+
   public moveToIndex(row: number, col: number): void {
     this.active.moveToIndex(row, col);
   }

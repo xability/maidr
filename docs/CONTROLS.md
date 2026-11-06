@@ -68,10 +68,22 @@ start to go to: Control + Right or Control + Left says so, with the warning
 tone, rather than landing on a node of the cycle that the next arrow moves on
 from.
 
-On a layer with nothing to jump to, such as a flowchart, whose nodes carry no
-values, [ and ] say there is no minimum or maximum value to go to, and G says
-there are no extrema to go to. All three play the warning tone with their
-message.
+On a layer with nothing to jump to, [ and ] say there is no minimum or maximum
+value to go to, and G says there are no extrema to go to. All three play the
+warning tone with their message. Where there is nothing to jump to by design,
+the message ends with the reason ("No maximum value to go to in this layer: its
+nodes carry no values"):
+
+- a flowchart's nodes, a sequence diagram's messages and the nodes of a tree
+  drawn without values, such as an org chart, carry no values;
+- a Venn diagram drawn without sizes gives its regions none;
+- a gauge shows one value, which is where you already are;
+- a scatter plot's grid navigation moves between cells rather than points,
+  and its intersecting point navigation only among the points at the same x
+  or y.
+
+Where the data merely holds nothing to go to, the message comes without a
+reason.
 
 On a parallel coordinates plot, whose axes measure different things, [ and ]
 go to the reading of the observation you are on that is drawn lowest or

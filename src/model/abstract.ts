@@ -1253,6 +1253,19 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   public supportsExtremaNavigation(): boolean {
     return this.supportsExtrema;
   }
+
+  /**
+   * Why this layer has no extremum for `[`, `]` and `G` to go to, where that
+   * is by design: what the layer lacks, as a phrase in the reader's language,
+   * which the refusal says after it says there is nothing to go to. Null
+   * where the layer has extrema, or has none only because of its data.
+   *
+   * @returns The reason, or null
+   */
+  public noExtremaReason(): string | null {
+    return null;
+  }
+
   protected abstract get values(): (Element | number | number[])[][];
 
   /**

@@ -51,9 +51,24 @@ export class GoToExtremaToggleCommand implements Command {
     if (state.type === 'trace' && this.goToExtremaViewModel.toggle(state)) {
       return;
     }
-    this.notificationService.notify(t('text.noExtrema'));
+    this.notificationService.notify(withReason(t('text.noExtrema'), this.context));
     this.audioService.playWarningToneIfEnabled();
   }
+}
+
+/**
+ * A refusal, with the reason the active layer gives for it where it has one
+ * by design: "No maximum value to go to in this layer: its nodes carry no
+ * values". Without the reason the refusal read the same on a flowchart, which
+ * never has a maximum, as on a chart whose data happened to hold none.
+ *
+ * @param message - The refusal
+ * @param context - Where the active layer is read from
+ * @returns The refusal, with its reason where there is one
+ */
+function withReason(message: string, context: Context): string {
+  const reason = context.noExtremaReason();
+  return reason === null ? message : t('text.unavailableBecause', { message, reason });
 }
 
 /**
@@ -118,7 +133,7 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
   public execute(): void {
     const landed = this.goToExtremaService.goToExtremeValue(this.type);
     if (!landed) {
-      this.notification.notify(this.unavailableMessage);
+      this.notification.notify(withReason(this.unavailableMessage, this.context));
       this.audioService.playWarningToneIfEnabled();
       return;
     }
