@@ -104,6 +104,39 @@ describe('a scatter plot\'s [ and ] go to its highest and lowest point', () => {
     expect(trace.isAtExtremum(second)).toBe(true);
   });
 
+  test('goes to the highest and lowest measured rows, past a point with no y', () => {
+    // The rows keep a point with no y. Taken as the highest row, it was a
+    // target the service drops, and ] refused though 9 was there to go to.
+    const trace = scatter([{ x: 1, y: 4 }, { x: 2, y: 9 }, { x: 3, y: Number.NaN }]);
+
+    expect(offered(trace)).toEqual([
+      ['max', 'Max point at 2', 9],
+      ['min', 'Min point at 1', 4],
+    ]);
+  });
+
+  test('names every point of a row, named or not', () => {
+    // Named by its named points alone, a row of A and an unnamed point at
+    // x = 2 read as A, though ] lands on both and outlines both.
+    const trace = scatter([{ x: 1, y: 9, label: 'A' }, { x: 2, y: 9 }, { x: 3, y: 1 }]);
+
+    expect(targetAt(trace, 0).label).toBe('Max point at A, 2');
+  });
+
+  test('in point navigation, carries a point\'s raw x, so the Go To dialog formats it as the landing announces it', () => {
+    // Rounded here, a point at x = 1.2345 on an axis formatted to four
+    // decimals was listed at 1.23 and announced at 1.2345. A named point
+    // keeps its name, which the dialog leaves as it is.
+    const trace = scatter([{ x: 1.2345, y: 9 }, { x: 2, y: 9, label: 'b' }, { x: 3, y: 1 }]);
+    trace.setPointMode(true);
+
+    expect(trace.getExtremaTargets().map(target => [target.display?.x, target.xValue])).toEqual([
+      ['1.2345', 1.2345],
+      ['b', 2],
+      ['3', 3],
+    ]);
+  });
+
   test('offers nothing in intersection navigation, whose cursor is a stack of points', () => {
     const trace = scatter();
     trace.setIntersectionMode(true);

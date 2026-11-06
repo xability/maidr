@@ -3597,10 +3597,17 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     if (this.isInPointMode) {
       return this.pointExtremaTargets();
     }
-    const top = this.yPoints.length - 1;
-    if (top < 0) {
+    // Measured rows only: the rows keep a point with no y, and a target at
+    // it is one the service drops, which turned ] away on a plot whose
+    // highest measured row was there to go to.
+    const measured = this.yPoints
+      .map((row, index) => ({ y: row.y, index }))
+      .filter(({ y }) => Number.isFinite(y));
+    if (measured.length === 0) {
       return [];
     }
+    const highest = measured.reduce((best, row) => (row.y > best.y ? row : best));
+    const lowest = measured.reduce((best, row) => (row.y < best.y ? row : best));
     const rowTarget = (row: number, type: 'max' | 'min'): ExtremaTarget => ({
       ...extremumAt(
         t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
@@ -3614,7 +3621,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       categoryIndex: 0,
       navigationType: 'group',
     });
-    return [rowTarget(top, 'max'), rowTarget(0, 'min')];
+    return [rowTarget(highest.index, 'max'), rowTarget(lowest.index, 'min')];
   }
 
   /**
@@ -3633,33 +3640,34 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       .map((index) => {
         const point = this.flatPoints[index];
         return {
+          // The raw x where no name stands in for it, and it again as
+          // `xValue`, so the Go To dialog writes it with the x axis's format,
+          // as the landing announces it. A name is written as it is.
           ...extremumAt(
             t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
-            point.label ?? point.xLabel ?? defaultFormat(point.x),
+            point.label ?? point.xLabel ?? point.x,
           ),
           value: point.y,
           pointIndex: index,
           segment: 'point',
           type,
           navigationType: 'point',
+          xValue: point.x,
         };
       });
     return [...at(MathUtil.safeMax(ys), 'max'), ...at(MathUtil.safeMin(ys), 'min')];
   }
 
   /**
-   * Where a row's points are, as its target names them: their names where
-   * the chart names its points, and their x values otherwise.
+   * Where a row's points are, as its target names them: each point by its
+   * name where it has one, and otherwise by its x. Every point is named, so a
+   * row whose points are named only in part still reads as the whole row.
    *
    * @param row - The row
-   * @returns The names or the x values, joined
+   * @returns Each point's name or x, joined
    */
   private rowWhere(row: ScatterYPoint): string {
-    const names = row.names.filter((name): name is string => name !== undefined);
-    if (names.length > 0) {
-      return names.join(', ');
-    }
-    return row.x.map((x, index) => row.xLabels[index] ?? defaultFormat(x)).join(', ');
+    return row.x.map((x, index) => row.names[index] ?? row.xLabels[index] ?? defaultFormat(x)).join(', ');
   }
 
   /**
