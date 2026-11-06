@@ -527,8 +527,28 @@ function pushMerged(
   drawn: Pick<MaidrLayer, 'firstPlace'> = {},
 ): void {
   if (merged.data.length > 0) {
-    layers.push(buildLineLayer(merged, type, xLabel, yLabel, drawn));
+    layers.push(buildLineLayer(groupedOnlyAmongOthers(merged), type, xLabel, yLabel, drawn));
   }
+}
+
+/**
+ * The bucket with its points' series names kept only where they tell lines
+ * apart.
+ *
+ * Every point is extracted with its series' name as `z`, which MAIDR reads
+ * out as the group the point belongs to: "Group is Growth" on every move, and
+ * a `Group` line in the description. With two lines or more that is how the
+ * reader knows which one the cursor is on. A layer of one line has nothing to
+ * tell apart, and a series' name is drawn nowhere unless the author adds a
+ * legend, so on a single line it announced a grouping the chart does not show.
+ */
+function groupedOnlyAmongOthers(merged: MergedSeries): MergedSeries {
+  if (merged.data.length !== 1)
+    return merged;
+  return {
+    ...merged,
+    data: [merged.data[0].map(({ z, ...point }) => point)],
+  };
 }
 
 /**
