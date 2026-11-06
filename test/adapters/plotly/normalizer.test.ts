@@ -10,6 +10,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 interface TestGlobals {
   document?: Document;
   MutationObserver?: typeof MutationObserver;
+  ResizeObserver?: unknown;
   requestAnimationFrame?: (callback: FrameRequestCallback) => number;
 }
 
@@ -28,6 +29,7 @@ beforeEach(() => {
   savedGlobals = {
     document: globals.document,
     MutationObserver: globals.MutationObserver,
+    ResizeObserver: globals.ResizeObserver,
     requestAnimationFrame: globals.requestAnimationFrame,
   };
   globals.document = dom.window.document;
@@ -390,6 +392,121 @@ describe('plotly layout observer', () => {
     expect(container.style.paddingTop).toBe('');
     // Nor is a frame loop left polling for an article inside the div.
     expect(frames).toHaveLength(0);
+  });
+
+  /**
+   * A chart whose graph div the page gave a height, wrapped by maidr, with
+   * its text container in place, and the page coordinates of the bottoms of
+   * the div and of maidr's article.
+   */
+  function chartWithText(divStyle = ''): {
+    plotlyDiv: HTMLElement;
+    container: HTMLElement;
+    setTextBottom: (bottom: number) => void;
+  } {
+    const runFrame = queueFrames();
+    const svg = createPlotlySvg([{ x: 0, y: 0 }]);
+    svg.setAttribute('height', '400');
+    const plotlyDiv = svg.parentElement as HTMLElement;
+    plotlyDiv.setAttribute('style', `height: 400px; ${divStyle}`);
+    plotlyDiv.getBoundingClientRect = () => ({ bottom: 400 }) as DOMRect;
+    const doc = dom.window.document;
+    const article = doc.createElement('article');
+    article.id = 'maidr-article-chart';
+    article.appendChild(svg);
+    let textBottom = 400;
+    article.getBoundingClientRect = () => ({ bottom: textBottom }) as DOMRect;
+    const container = doc.createElement('div');
+    container.id = 'react-container-chart';
+    article.appendChild(container);
+    plotlyDiv.appendChild(article);
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+    runFrame();
+    return {
+      plotlyDiv,
+      container,
+      setTextBottom: (bottom) => {
+        textBottom = bottom;
+      },
+    };
+  }
+
+  it('moves what follows the chart down by as much as the text runs past it', () => {
+    // Plotly draws in a div the page gave a height, and maidr's text, below
+    // the chart inside it, was drawn over the heading of the next chart.
+    const { plotlyDiv, container, setTextBottom } = chartWithText();
+    expect(plotlyDiv.style.marginBottom).toBe('');
+
+    setTextBottom(434);
+    container.appendChild(dom.window.document.createElement('p'));
+
+    return Promise.resolve().then(() => {
+      expect(plotlyDiv.style.marginBottom).toBe('34px');
+    });
+  });
+
+  it('keeps the margin the page gave the chart below the text', () => {
+    const { plotlyDiv, container, setTextBottom } = chartWithText('margin-bottom: 10px;');
+
+    setTextBottom(434);
+    container.appendChild(dom.window.document.createElement('p'));
+
+    return Promise.resolve().then(() => {
+      expect(plotlyDiv.style.marginBottom).toBe('44px');
+      setTextBottom(400);
+      container.replaceChildren();
+      return Promise.resolve();
+    }).then(() => {
+      // No text past the chart: the page's own margin is back.
+      expect(plotlyDiv.style.marginBottom).toBe('10px');
+    });
+  });
+
+  it('follows the text as a change of width re-wraps it', () => {
+    // jsdom has no ResizeObserver; this one is resized by hand.
+    const resized: Array<() => void> = [];
+    let disconnected = 0;
+    globals.ResizeObserver = class {
+      constructor(callback: () => void) {
+        resized.push(callback);
+      }
+
+      observe(): void {}
+
+      disconnect(): void {
+        disconnected += 1;
+      }
+    };
+    const { plotlyDiv, setTextBottom } = chartWithText();
+
+    // Narrower, the same text runs onto a second line with nothing mutated.
+    setTextBottom(452);
+    resized.forEach(callback => callback());
+    expect(plotlyDiv.style.marginBottom).toBe('52px');
+
+    plotlyDiv.remove();
+    resized.forEach(callback => callback());
+    expect(disconnected).toBe(1);
+  });
+
+  it('follows the text as it grows and goes', async () => {
+    const { plotlyDiv, container, setTextBottom } = chartWithText();
+    const text = dom.window.document.createElement('p');
+    text.textContent = 'Week is 1';
+    setTextBottom(420);
+    container.appendChild(text);
+    await Promise.resolve();
+
+    // React rewrites the text in place; a longer reading wraps.
+    setTextBottom(440);
+    (text.firstChild as Text).data = 'Week is 2, Sales ($K) is 15, Group is Series A';
+    await Promise.resolve();
+    expect(plotlyDiv.style.marginBottom).toBe('40px');
+
+    setTextBottom(400);
+    text.remove();
+    await Promise.resolve();
+    expect(plotlyDiv.style.marginBottom).toBe('');
   });
 
   it('does not queue a resize for a mutation that leaves the chart height unchanged', () => {

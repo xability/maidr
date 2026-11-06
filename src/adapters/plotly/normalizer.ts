@@ -48,7 +48,9 @@ export function getPlotlyOverlayLayers(plot: Element): SVGSVGElement[] {
  *    `position:relative` container; inject overrides so maidr's
  *    `<article>/<figure>` wrapper doesn't collapse.
  * 4. **React-container positioning** – push maidr's react-container below
- *    the chart by observing when it appears and adding padding.
+ *    the chart by observing when it appears and adding padding, and move
+ *    the content after the chart down by as much as the text runs past the
+ *    graph div.
  * 5. **Modebar accessibility** – remove Plotly's toolbar from the tab
  *    order and accessibility tree.
  * 6. **Click-to-focus** – forward clicks on Plotly's overlay SVGs to
@@ -394,7 +396,8 @@ const MAX_DETACHED_FRAMES = 60;
  * After maidr wraps the SVG, it remains `position:absolute` (Plotly
  * default) so the react-container renders at y=0, hidden behind the
  * chart.  Watch for the react-container to appear and push it below
- * the chart with padding-top.
+ * the chart with padding-top, and keep room for it below the graph div
+ * (see `makeRoomBelow`).
  *
  * Plotly's stylesheet positions a `main-svg` absolutely only inside a graph
  * div. Anything else maidr is bound to -- the graph div itself, or a
@@ -421,6 +424,15 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
   }
   plotlyDiv.setAttribute('data-maidr-layout-observer', '1');
 
+  const graphDiv = plotlyDiv;
+  // The margin the page gave the chart, before any of it was maidr's, and
+  // the div's own inline one, which it gets back when no text runs past it.
+  // Read once, as the chart is laid out: a margin the page changes later,
+  // through a class or a media query, is not followed.
+  const view = graphDiv.ownerDocument.defaultView;
+  const pageMargin = Number.parseFloat(view?.getComputedStyle(graphDiv).marginBottom ?? '') || 0;
+  const inlineMargin = graphDiv.style.marginBottom;
+
   function fix(article: Element): void {
     const rc = article.querySelector<HTMLElement>(
       'div[id^="react-container-"]',
@@ -433,18 +445,39 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
         // Highlight swaps on every keypress mutate the article too; only a
         // real change of height is worth a window resize.
         const padding = `${Number.parseFloat(h)}px`;
-        if (rc.style.paddingTop === padding) {
-          return;
+        if (rc.style.paddingTop !== padding) {
+          rc.style.paddingTop = padding;
+          requestAnimationFrame(() => {
+            try {
+              window.dispatchEvent(new Event('resize'));
+            } catch {
+              // ignore
+            }
+          });
         }
-        rc.style.paddingTop = padding;
-        requestAnimationFrame(() => {
-          try {
-            window.dispatchEvent(new Event('resize'));
-          } catch {
-            // ignore
-          }
-        });
       }
+    }
+    makeRoomBelow(article);
+  }
+
+  /**
+   * Moves what follows the chart down by as much as maidr's text runs past
+   * the bottom of the graph div.
+   *
+   * The text sits below the chart inside the div plotly draws in, and a page
+   * that gives that div a height -- as plotly's own examples do -- left it
+   * drawn over whatever came next, such as the next chart's heading. The div
+   * keeps the height plotly sizes the chart from, and its bottom margin grows
+   * by the depth of the text instead, on top of the margin the page gave it,
+   * as the Chart.js plugin keeps room below a canvas's box.
+   *
+   * @param article - maidr's wrapper around the chart and its text
+   */
+  function makeRoomBelow(article: Element): void {
+    const below = article.getBoundingClientRect().bottom - graphDiv.getBoundingClientRect().bottom;
+    const margin = below > 0 ? `${pageMargin + below}px` : inlineMargin;
+    if (graphDiv.style.marginBottom !== margin) {
+      graphDiv.style.marginBottom = margin;
     }
   }
 
@@ -475,13 +508,30 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
       return;
     }
     const observer = new MutationObserver(() => fix(article));
+    // Character data too: React rewrites the text of an announcement in
+    // place, and a longer one can wrap onto another line.
     observer.observe(article, {
       childList: true,
       subtree: true,
+      characterData: true,
     });
 
     // Store reference for disposal.
     storeMutationObserver(article, observer);
+
+    // A change of width re-wraps the text with no mutation to say so, as the
+    // Chart.js plugin's ResizeObserver catches for its canvas box. Dropped
+    // once the article has left the page, whose size then reads nothing.
+    if (typeof ResizeObserver !== 'undefined') {
+      const resizes = new ResizeObserver(() => {
+        if (!article.isConnected) {
+          resizes.disconnect();
+          return;
+        }
+        makeRoomBelow(article);
+      });
+      resizes.observe(article);
+    }
 
     // The container may already be in the article by the time this runs, in
     // which case no mutation will arrive to position it.
