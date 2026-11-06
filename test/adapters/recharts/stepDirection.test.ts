@@ -32,6 +32,7 @@ import type { ReactNode } from 'react';
 import { pieAnglesFor, stepDirectionFor } from '@adapters/recharts/childProps';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { describe, expect, it } from '@jest/globals';
+import { StepTrace } from '@model/step';
 import { TraceType } from '@type/grammar';
 import { createElement } from 'react';
 
@@ -106,6 +107,41 @@ describe('an area drawn as a staircase', () => {
 
   it('says nothing when the area is an ordinary one', () => {
     expect(layerOf({ chartType: 'area', yKeys: ['v'] }).stepDirection).toBeUndefined();
+  });
+});
+
+describe('a chart of several series drawn as staircases', () => {
+  // Several series are read in one layer, built apart from the one-layer-per-
+  // series loop that gives a layer its type's options, so the convention the
+  // chart is drawn with never reached it.
+  const SERIES = [
+    { t: 0, a: 10, b: 5 },
+    { t: 1, a: 30, b: 15 },
+    { t: 2, a: 20, b: 25 },
+  ];
+
+  it('carries the convention on the layer its series are read in', () => {
+    for (const chartType of ['step', 'area', 'stacked_area', 'normalized_area'] as const) {
+      const layer = layerOf({ chartType, data: SERIES, yKeys: ['a', 'b'], stepDirection: 'hv' });
+
+      expect(layer.stepDirection).toBe('hv');
+    }
+  });
+
+  it('tells the reader how the curves move between samples, as one series does', () => {
+    const one = new StepTrace(layerOf({ chartType: 'step', yKeys: ['v'], stepDirection: 'hv' }));
+    const two = new StepTrace(layerOf({ chartType: 'step', data: SERIES, yKeys: ['a', 'b'], stepDirection: 'hv' }));
+    const stepStat = { label: 'Step direction', value: 'value holds until the next x value, then jumps' };
+
+    expect(one.description.stats).toContainEqual(stepStat);
+    expect(two.description.stats).toContainEqual(stepStat);
+    one.dispose();
+    two.dispose();
+  });
+
+  it('says nothing for several ordinary lines', () => {
+    expect(layerOf({ chartType: 'line', data: SERIES, yKeys: ['a', 'b'], stepDirection: 'hv' }).stepDirection)
+      .toBeUndefined();
   });
 });
 
