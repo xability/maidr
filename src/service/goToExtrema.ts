@@ -217,12 +217,19 @@ export class GoToExtremaService {
    * position separately: a group target addresses a row and a column, and a
    * point target addresses a column of the current row. Reading it back this
    * way is what keeps the walk correct after the reader has moved by some
-   * other means between presses.
+   * other means between presses. A trace whose cursor is held elsewhere
+   * answers for itself, through {@link AbstractTrace.isAtExtremum}.
    * @param trace - The trace to read the cursor from.
    * @param target - The target to compare against.
    * @returns True when the cursor is already on that target.
    */
   private static isCursorAt(trace: AbstractTrace, target: ExtremaTarget): boolean {
+    // Read by row and column, a scatter plot in point navigation would never
+    // be on a tied point, and a further press would stay on the first.
+    const own = trace.isAtExtremum(target);
+    if (own !== null) {
+      return own;
+    }
     if (target.navigationType === 'group'
       && target.groupIndex !== undefined
       && target.categoryIndex !== undefined) {
