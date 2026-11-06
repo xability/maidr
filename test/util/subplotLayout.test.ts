@@ -38,8 +38,7 @@ function mockRect(
 
 /**
  * Builds a minimal Subplot stand-in exposing only the accessors the layout
- * utility consumes: getHighlightElement(), getLayerSelector() and
- * getLayerMarkSelectors().
+ * utility consumes: getHighlightElement() and getLayerMarkSelectors().
  */
 function stubSubplot(panel: StubPanel): Subplot {
   let highlight: SVGElement | null = null;
@@ -51,7 +50,6 @@ function stubSubplot(panel: StubPanel): Subplot {
   }
   return {
     getHighlightElement: () => highlight,
-    getLayerSelector: () => panel.layerSelector ?? null,
     getLayerMarkSelectors: () => (panel.layerSelector ? [panel.layerSelector] : []),
   } as unknown as Subplot;
 }
@@ -183,7 +181,6 @@ describe('resolveSubplotLayout axes-group path precedence', () => {
 
       return {
         getHighlightElement: () => inner,
-        getLayerSelector: () => null,
         getLayerMarkSelectors: () => [],
       } as unknown as Subplot;
     });
@@ -227,7 +224,6 @@ describe('resolveSubplotLayout numbers cells nothing could be measured for', () 
         if (!rect) {
           return {
             getHighlightElement: () => null,
-            getLayerSelector: () => null,
             getLayerMarkSelectors: () => [],
           } as unknown as Subplot;
         }
@@ -242,7 +238,6 @@ describe('resolveSubplotLayout numbers cells nothing could be measured for', () 
 
         return {
           getHighlightElement: () => inner,
-          getLayerSelector: () => null,
           getLayerMarkSelectors: () => [],
         } as unknown as Subplot;
       }),
@@ -386,7 +381,6 @@ describe('resolveSubplotLayout finds the panel each subplot is outlined round', 
     const element = own === null ? null : root.querySelector(own);
     return {
       getHighlightElement: () => element,
-      getLayerSelector: () => marks,
       getLayerMarkSelectors: () => (marks === null ? [] : [marks]),
     } as unknown as Subplot;
   }

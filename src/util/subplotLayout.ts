@@ -117,18 +117,16 @@ export function resolveSubplotLayout(
  *
  * Tries two strategies:
  * 1. Walk up from the subplot's own selector element (`subplot.selector`).
- * 2. Walk up from the first layer's selector string (for facet-style plots
- *    where the subplot itself has no selector).
+ * 2. Walk up from the first of its first layer's marks (for facet-style plots
+ *    where the subplot itself has no selector). See {@link firstMark}.
  *
  * @param highlightElement - The element the subplot's own selector names (may be null).
- * @param layerSelector    - CSS selector string from the first layer (may be null).
- * @param roots            - Where the chart is drawn.
+ * @param mark             - The first of the first layer's marks (may be null).
  * @returns The matching `<g>` element, or `null` if not found.
  */
 function findAxesElement(
   highlightElement: Element | null,
-  layerSelector: string | null,
-  roots: readonly QueryRoot[],
+  mark: Element | null,
 ): SVGElement | null {
   if (highlightElement) {
     const axes = highlightElement.closest('g[id^="axes_"]') as SVGElement | null;
@@ -136,13 +134,10 @@ function findAxesElement(
       return axes;
   }
 
-  if (layerSelector) {
-    const el = Svg.queryAll<SVGElement>(layerSelector, roots)[0] ?? null;
-    if (el) {
-      const axes = el.closest('g[id^="axes_"]') as SVGElement | null;
-      if (axes)
-        return axes;
-    }
+  if (mark) {
+    const axes = mark.closest('g[id^="axes_"]') as SVGElement | null;
+    if (axes)
+      return axes;
   }
 
   return null;
@@ -163,8 +158,7 @@ function collectAxesElements(
       const subplot = subplots[r][c];
       const axesEl = findAxesElement(
         subplot.getHighlightElement(),
-        subplot.getLayerSelector(),
-        roots,
+        firstMark(subplot, roots),
       );
       map.set(`${r},${c}`, axesEl);
     }
@@ -323,12 +317,12 @@ function detectInversion(entries: AxesPosition[], numRows: number): boolean {
  * exist (charts not rendered by matplotlib — Vega-Lite cells, per-panel chart
  * containers, etc.).
  *
- * The element the subplot's own selector names is preferred; the first
- * element matched by the first layer's selector is used as a fallback. Positions are only trusted when EVERY subplot resolves to an
- * element with distinct, non-degenerate geometry — otherwise an empty array
- * is returned and the caller falls back to data-array order. This keeps
- * jsdom/test environments (all-zero rects) and partially-rendered charts on
- * the conservative path.
+ * The element the subplot's own selector names is preferred; the first of its
+ * first layer's marks that is drawn is used as a fallback. Positions are only
+ * trusted when EVERY subplot resolves to an element with distinct,
+ * non-degenerate geometry — otherwise an empty array is returned and the
+ * caller falls back to data-array order. This keeps jsdom/test environments
+ * (all-zero rects) and partially-rendered charts on the conservative path.
  */
 function collectPanelPositions(
   subplots: Subplot[][],
@@ -360,7 +354,9 @@ function collectPanelPositions(
 }
 
 /**
- * Resolves the DOM element that best represents a subplot's panel geometry.
+ * Resolves the DOM element that best represents a subplot's panel geometry:
+ * the element its own selector names, else the first of its first layer's
+ * marks that is drawn.
  */
 function resolvePanelElement(subplot: Subplot, roots: readonly QueryRoot[]): Element | null {
   const highlight = subplot.getHighlightElement();
@@ -368,14 +364,35 @@ function resolvePanelElement(subplot: Subplot, roots: readonly QueryRoot[]): Ele
     return highlight;
   }
 
-  const selector = subplot.getLayerSelector();
-  if (selector) {
-    const el = Svg.queryAll(selector, roots)[0] ?? null;
-    if (el && hasGeometry(el)) {
-      return el;
+  return firstMark(subplot, roots, hasGeometry);
+}
+
+/**
+ * The first mark a subplot's first layer names that `accept` takes: the
+ * first match of each of its selectors in turn, in the order the layer gives
+ * them.
+ *
+ * A selector that names nothing is passed over rather than taken as the
+ * subplot's. py-maidr writes a box's lower outliers, the first of its parts,
+ * as a selector even when the box has none, and taken alone that selector
+ * found a box plot drawn nowhere.
+ *
+ * @param subplot - The subplot
+ * @param roots - Where the chart is drawn
+ * @param accept - Whether a mark will do; any mark will, by default
+ * @returns The mark, or null when no selector's first match will do
+ */
+function firstMark(
+  subplot: Subplot,
+  roots: readonly QueryRoot[],
+  accept: (mark: Element) => boolean = () => true,
+): Element | null {
+  for (const selector of subplot.getLayerMarkSelectors()) {
+    const mark = Svg.queryAll<Element>(selector, roots)[0];
+    if (mark !== undefined && accept(mark)) {
+      return mark;
     }
   }
-
   return null;
 }
 

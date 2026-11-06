@@ -452,10 +452,9 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    */
   private readonly highlightValue: Element | null;
   private readonly isViolinPlot: boolean;
-  private readonly layerSelector: string | null;
   /**
    * Every selector the first layer names, whatever their shape, for finding
-   * the panel that holds its marks.
+   * where the subplot is drawn and the panel that holds its marks.
    */
   private readonly layerMarkSelectors: readonly string[];
 
@@ -489,14 +488,9 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     this.size = layers.length;
     this.primaryTitle = layers[0]?.title ?? '';
 
-    // Store the first layer's selector string for DOM-based axes lookup.
-    const firstLayerSelectors = layers[0]?.selectors;
-    this.layerSelector = typeof firstLayerSelectors === 'string'
-      ? firstLayerSelectors
-      : Array.isArray(firstLayerSelectors) && typeof firstLayerSelectors[0] === 'string'
-        ? firstLayerSelectors[0]
-        : null;
-    this.layerMarkSelectors = [...new Set(Subplot.selectorsIn(firstLayerSelectors))];
+    // Every selector the first layer names, whatever its shape, for finding
+    // where the subplot is drawn.
+    this.layerMarkSelectors = [...new Set(Subplot.selectorsIn(layers[0]?.selectors))];
 
     // Violin detection: explicit layer types (VIOLIN_KDE / VIOLIN_BOX)
     const layerTypes = layers.map(layer => layer.type);
@@ -1002,18 +996,10 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   }
 
   /**
-   * Returns the CSS selector string from the first layer of this subplot.
-   * Used as a fallback by the layout utility when `getHighlightElement()` is `null`.
-   * @returns The selector string, or `null` if unavailable.
-   */
-  public getLayerSelector(): string | null {
-    return this.layerSelector;
-  }
-
-  /**
    * Returns every selector the first layer names, whatever their shape.
-   * Used by the layout utility to find the panel that holds the subplot's
-   * marks, and to keep another subplot's panel from taking it in.
+   * Used by the layout utility to find where the subplot is drawn when
+   * `getHighlightElement()` is `null`, to find the panel that holds the
+   * subplot's marks, and to keep another subplot's panel from taking it in.
    * @returns The selectors, in the order the layer gives them; none when it
    *   names none.
    */
