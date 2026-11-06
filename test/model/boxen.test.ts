@@ -261,7 +261,8 @@ describe('the description says how deep the sample went', () => {
     expect(dataTable?.rows[0]).toEqual(['light', '12.5th percentile', 42]);
     // Five positions for the shallow ladder plus nine for the deep one, and
     // the one outlier: it is counted in the summary, and the table is the only
-    // place a reader can reach it, since navigation does not visit outliers.
+    // place a reader can read its value, since navigation does not visit
+    // outliers and the end of a ladder only counts them.
     expect(dataTable?.rows).toHaveLength(15);
     expect(dataTable?.rows).toContainEqual(['light', 'upper outlier', 70]);
   });
@@ -295,6 +296,39 @@ describe('which axis is which follows the orientation', () => {
 
     expect(text.main.label).toBe('Milliseconds');
     expect(text.cross?.label).toBe('Group');
+  });
+});
+
+describe('the ends of a ladder count the outliers beyond them', () => {
+  /**
+   * The statements read after the reading at one rung.
+   * @param trace The trace to read
+   * @returns The asides' values, or none
+   */
+  function asidesAt(trace: BoxenTrace): string[] | undefined {
+    return nonEmptyState(trace).text.asides?.map(aside => aside.value);
+  }
+
+  test('counts the outliers drawn past the top of a ladder', () => {
+    // light's ladder tops out at 58, and the chart draws 70 above it.
+    expect(asidesAt(boxen(0, 4))).toEqual(['1 upper outlier beyond']);
+  });
+
+  test('counts the outliers drawn past the bottom of a ladder', () => {
+    const low: BoxenPoint[] = [{
+      z: 'low',
+      median: 50,
+      levels: [{ p: 0.25, lo: 40, hi: 60 }],
+      lowerOutliers: [3, 7],
+    }];
+
+    expect(asidesAt(boxen(0, 0, low))).toEqual(['2 lower outliers beyond']);
+  });
+
+  test('says nothing of outliers inside a ladder or past an end with none', () => {
+    expect(asidesAt(boxen(0, 3))).toBeUndefined();
+    // heavy draws no outliers past its top.
+    expect(asidesAt(boxen(1, 8))).toBeUndefined();
   });
 });
 

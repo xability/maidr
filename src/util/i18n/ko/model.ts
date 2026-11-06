@@ -486,6 +486,10 @@ export const model = {
   'model.tableQuantile': '분위',
   'model.boxenLowerOutlier': '하위 이상치',
   'model.boxenUpperOutlier': '상위 이상치',
+  'model.boxenLowerOutliersBeyondOne': '그 너머에 하위 이상치 {count}개',
+  'model.boxenLowerOutliersBeyondMany': '그 너머에 하위 이상치 {count}개',
+  'model.boxenUpperOutliersBeyondOne': '그 너머에 상위 이상치 {count}개',
+  'model.boxenUpperOutliersBeyondMany': '그 너머에 상위 이상치 {count}개',
   // Diverging bar: the two sides, and the balance between them.
   'model.asideBalance': '균형',
   'model.divergingLevel': '동일',

@@ -496,6 +496,10 @@ export const model = {
   'model.tableQuantile': 'Quantile',
   'model.boxenLowerOutlier': 'lower outlier',
   'model.boxenUpperOutlier': 'upper outlier',
+  'model.boxenLowerOutliersBeyondOne': '{count} lower outlier beyond',
+  'model.boxenLowerOutliersBeyondMany': '{count} lower outliers beyond',
+  'model.boxenUpperOutliersBeyondOne': '{count} upper outlier beyond',
+  'model.boxenUpperOutliersBeyondMany': '{count} upper outliers beyond',
   // Diverging bar: the two sides, and the balance between them.
   'model.asideBalance': 'Balance',
   'model.divergingLevel': 'level',

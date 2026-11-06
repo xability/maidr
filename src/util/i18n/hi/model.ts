@@ -479,6 +479,10 @@ export const model = {
   'model.tableQuantile': 'क्वांटाइल',
   'model.boxenLowerOutlier': 'निचला आउटलायर',
   'model.boxenUpperOutlier': 'ऊपरी आउटलायर',
+  'model.boxenLowerOutliersBeyondOne': 'आगे {count} निचला आउटलायर',
+  'model.boxenLowerOutliersBeyondMany': 'आगे {count} निचले आउटलायर',
+  'model.boxenUpperOutliersBeyondOne': 'आगे {count} ऊपरी आउटलायर',
+  'model.boxenUpperOutliersBeyondMany': 'आगे {count} ऊपरी आउटलायर',
   // Diverging bar: the two sides, and the balance between them.
   'model.asideBalance': 'संतुलन',
   'model.divergingLevel': 'बराबर',

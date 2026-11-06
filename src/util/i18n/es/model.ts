@@ -486,6 +486,10 @@ export const model = {
   'model.tableQuantile': 'Cuantil',
   'model.boxenLowerOutlier': 'valor atípico inferior',
   'model.boxenUpperOutlier': 'valor atípico superior',
+  'model.boxenLowerOutliersBeyondOne': '{count} valor atípico inferior más allá',
+  'model.boxenLowerOutliersBeyondMany': '{count} valores atípicos inferiores más allá',
+  'model.boxenUpperOutliersBeyondOne': '{count} valor atípico superior más allá',
+  'model.boxenUpperOutliersBeyondMany': '{count} valores atípicos superiores más allá',
   // Diverging bar: the two sides, and the balance between them.
   'model.asideBalance': 'Balance',
   'model.divergingLevel': 'empate',

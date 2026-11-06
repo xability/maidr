@@ -486,6 +486,10 @@ export const model = {
   'model.tableQuantile': 'Quantile',
   'model.boxenLowerOutlier': 'valore anomalo inferiore',
   'model.boxenUpperOutlier': 'valore anomalo superiore',
+  'model.boxenLowerOutliersBeyondOne': '{count} valore anomalo inferiore oltre',
+  'model.boxenLowerOutliersBeyondMany': '{count} valori anomali inferiori oltre',
+  'model.boxenUpperOutliersBeyondOne': '{count} valore anomalo superiore oltre',
+  'model.boxenUpperOutliersBeyondMany': '{count} valori anomali superiori oltre',
   // Diverging bar: the two sides, and the balance between them.
   'model.asideBalance': 'Bilancio',
   'model.divergingLevel': 'in parità',
