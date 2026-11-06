@@ -177,6 +177,15 @@ export interface AmGeoPath {
  */
 export interface AmAxis extends AmEntity {
   dataItems: AmDataItem[];
+  /**
+   * The root the axis is drawn in, which says the time zone a `DateAxis`
+   * draws its dates in: UTC when `utc` is set, else the zone of `timezone`
+   * (an `am5.Timezone`), else the reader's own.
+   */
+  root?: {
+    utc?: boolean;
+    timezone?: { name?: string };
+  };
 }
 
 /**
