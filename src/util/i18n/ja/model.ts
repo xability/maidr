@@ -661,6 +661,7 @@ export const model = {
   'model.tableDensity': '密度',
   'model.tableWidth': '幅',
   'model.asideWidth': '幅',
+  'model.asideDensity': '密度',
   'model.statGroups': 'グループ',
   'model.statSamplesPerGroup': 'グループごとのサンプル数',
   'model.statPeakOfEachGroup': '各グループのピーク',

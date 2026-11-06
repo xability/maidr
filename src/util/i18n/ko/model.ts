@@ -661,6 +661,7 @@ export const model = {
   'model.tableDensity': '밀도',
   'model.tableWidth': '폭',
   'model.asideWidth': '폭',
+  'model.asideDensity': '밀도',
   'model.statGroups': '그룹',
   'model.statSamplesPerGroup': '그룹당 표본 수',
   'model.statPeakOfEachGroup': '그룹별 최빈 위치',

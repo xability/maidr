@@ -665,6 +665,7 @@ export const model = {
   'model.tableDensity': 'Dichte',
   'model.tableWidth': 'Breite',
   'model.asideWidth': 'Breite',
+  'model.asideDensity': 'Dichte',
   'model.statGroups': 'Gruppen',
   'model.statSamplesPerGroup': 'Stützpunkte pro Gruppe',
   'model.statPeakOfEachGroup': 'Spitze jeder Gruppe',

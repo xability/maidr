@@ -4,13 +4,16 @@
  * py-maidr and r-maidr send each point's `width` -- the width the violin is
  * drawn at there -- and no `density`. The announcement called that number
  * "volume", which names nothing on the chart, and the data table called the
- * same number "Density".
+ * same number "Density". Plotly, Chart.js and D3 charts send a `density`,
+ * which the announcement did not read at all.
  */
 
+import type { NotificationService } from '@service/notification';
 import type { MaidrLayer, ViolinKdePoint } from '@type/grammar';
-import type { NonEmptyTraceState } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import type { NonEmptyTraceState, TraceState } from '@type/state';
+import { describe, expect, jest, test } from '@jest/globals';
 import { ViolinKdeTrace } from '@model/violin';
+import { TextService } from '@service/text';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -38,6 +41,21 @@ function nonEmptyState(trace: ViolinKdeTrace): NonEmptyTraceState {
     throw new Error('Expected a non-empty trace state');
   }
   return state;
+}
+
+/**
+ * What the text service says for a state, in its default verbose mode.
+ * @param state - The state to read
+ * @returns The announcement
+ */
+function announce(state: TraceState): string {
+  const text = new TextService({ notify: jest.fn() } as unknown as NotificationService);
+  const listener = jest.fn();
+  const disposable = text.onChange(listener);
+
+  text.update(state);
+  disposable.dispose();
+  return (listener.mock.calls[0][0] as { value: string }).value;
 }
 
 const BY_WIDTH: ViolinKdePoint[] = [
@@ -82,6 +100,35 @@ describe('a violin sent as widths', () => {
 });
 
 describe('a violin sent as densities', () => {
+  test('announces each point\'s density as a density', () => {
+    // Plotly, Chart.js and D3 charts send a density and no width, and only
+    // the width was read: the curve was walked with no number at all.
+    const trace = new ViolinKdeTrace(kdeLayer(BY_DENSITY));
+    trace.moveOnce('UPWARD');
+
+    expect(announce(trace.state))
+      .toBe('Cut Quality is Premium, Price (USD) is 326, density is 0.00012');
+  });
+
+  test('reads a point sent with both by its density, as the table does', () => {
+    const both: ViolinKdePoint[] = [{ x: 'Premium', y: 326, density: 0.00012, width: 0.35 }];
+    const trace = new ViolinKdeTrace(kdeLayer(both));
+    trace.moveOnce('UPWARD');
+
+    expect(nonEmptyState(trace).text.z?.label).toBe('density');
+  });
+
+  test('reads a density of 0 as the density, not the width sent beside it', () => {
+    // The table, the pitch and braille read `density ?? width`, which is 0
+    // here; reading the width instead gave the reader a number none of them
+    // has.
+    const tip: ViolinKdePoint[] = [{ x: 'Premium', y: 326, density: 0, width: 0.35 }];
+    const trace = new ViolinKdeTrace(kdeLayer(tip));
+    trace.moveOnce('UPWARD');
+
+    expect(nonEmptyState(trace).text.z).toBeUndefined();
+  });
+
   test('heads the table\'s column of densities as densities', () => {
     const { dataTable } = new ViolinKdeTrace(kdeLayer(BY_DENSITY)).description;
 

@@ -657,6 +657,7 @@ export const model = {
   'model.tableDensity': '密度',
   'model.tableWidth': '宽度',
   'model.asideWidth': '宽度',
+  'model.asideDensity': '密度',
   'model.statGroups': '组',
   'model.statSamplesPerGroup': '每组样本数',
   'model.statPeakOfEachGroup': '各组的峰值',

@@ -662,6 +662,7 @@ export const model = {
   'model.tableDensity': 'Densidad',
   'model.tableWidth': 'Anchura',
   'model.asideWidth': 'anchura',
+  'model.asideDensity': 'densidad',
   'model.statGroups': 'Grupos',
   'model.statSamplesPerGroup': 'Muestras por grupo',
   'model.statPeakOfEachGroup': 'Pico de cada grupo',

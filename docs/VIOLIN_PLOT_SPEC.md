@@ -487,13 +487,14 @@ The frontend asks `Svg.buildLineElements` for the `'bottom'` and `'top'` edges o
 Cut Quality is Ideal, Price (USD) is 1810.5, width is 0.8
 ```
 
-Format: `{xAxisLabel} is {categoryLabel}, {yAxisLabel} is {yValue}, width is {widthValue}`
+Format: `{xAxisLabel} is {categoryLabel}, {yAxisLabel} is {yValue}, width is {widthValue}`, or `density is {densityValue}` where the point carries a `density`
 
 - `categoryLabel`: From `point.x` field
 - `yValue`: Rounded to 4 decimal places
-- `widthValue`: The point's `width`, rounded to 4 decimal places. Only shown when the point carries a `width` greater than 0.
+- `densityValue`: The point's `density`, in the z axis's format or, without one, the default number format, which keeps three significant digits of a small value (`0.00012`). Shown when the point carries a `density` greater than 0.
+- `widthValue`: The point's `width`, rounded to 4 decimal places. Shown when the point carries no `density` and a `width` greater than 0.
 
-The data table's last column holds `density`, or `width` where the layer sends no `density`, and is headed "Density" or "Width" to match. A layer that sends both is announced by its `width` ("width is …") and tabled by its `density` (headed "Density").
+The data table's last column holds `density`, or `width` where the layer sends no `density`, and is headed "Density" or "Width" to match, so a layer that sends both is announced and tabled by its `density`.
 
 **Terse mode:**
 ```
