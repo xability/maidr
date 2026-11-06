@@ -596,8 +596,8 @@ const TIME_UNIT_FALLBACK = 'milliseconds';
 
 /** How a date axis' positions are turned into readable lengths and dates. */
 interface TimeScale {
-  /** Milliseconds per unit of the positions emitted. */
-  divisor: number;
+  /** The position emitted for an instant the axis stores, in epoch milliseconds. */
+  position: (stamp: number) => number;
   /** What one unit is called, as {@link GanttData.unit} carries it. */
   unit: string;
   /** The time axis' format, which writes a position as the date it names. */
@@ -622,6 +622,15 @@ interface TimeScale {
  * read the restated positions as bare numbers, so there they stay in
  * milliseconds and are written through the eval-free date format, as the
  * Highcharts and ApexCharts adapters do.
+ *
+ * A unit of a day or longer is counted on the calendar of that zone: what
+ * the axis draws is one cell a day from midnight to midnight there, and a day
+ * the clocks change in lasts 23 or 25 hours. Counted in elapsed time, a task
+ * from Mar 1 to Mar 16, 2024 in America/Chicago, where the clocks went
+ * forward on Mar 10, measured 14.958 days and was announced as 14.96, on an
+ * axis that draws 15.
+ * A shorter unit counts elapsed time, which is what the axis spaces its hours
+ * by: an hour across the same change is the hour it lasted.
  *
  * Returns `null` for a value axis, whose numbers are already in whatever unit
  * the chart's author chose and must be passed through untouched.
@@ -651,18 +660,67 @@ function readTimeScale(axis: AmAxis | undefined, stamps: number[]): TimeScale | 
     ...(timeZone === undefined ? {} : { timeZone }),
   };
   if (!canCompileFormat())
-    return { divisor: 1, unit: TIME_UNIT_FALLBACK, format: { type: 'date', dateOptions } };
+    return { position: stamp => stamp, unit: TIME_UNIT_FALLBACK, format: { type: 'date', dateOptions } };
 
+  // A calendar position is the zone's own clock counted as if it ran on UTC,
+  // so it is written back in UTC.
+  const calendar = divisor >= TIME_UNIT_MS.day ? wallClockIn(timeZone) : null;
+  const written: Intl.DateTimeFormatOptions = calendar
+    ? { ...dateOptions, timeZone: 'UTC' }
+    : dateOptions;
   return {
-    divisor,
+    position: calendar
+      ? stamp => calendar(stamp) / divisor
+      : stamp => stamp / divisor,
     unit: `${timeUnit}s`,
     // Rounded: a time that is not a whole number of units, such as 08:40 on a
     // schedule read in days, is a fraction no binary number states exactly,
     // and the product can fall short of it by a fraction of a millisecond,
     // which `Date` drops.
     format: {
-      function: `return new Date(Math.round(value * ${divisor})).toLocaleString('en-US', ${JSON.stringify(dateOptions)});`,
+      function: `return new Date(Math.round(value * ${divisor})).toLocaleString('en-US', ${JSON.stringify(written)});`,
     },
+  };
+}
+
+/**
+ * Reads an instant as the clock of a time zone shows it, counted as if that
+ * clock ran on UTC, so midnight there is a whole number of days.
+ *
+ * @param timeZone - The zone, or undefined for the reader's own
+ * @returns The reading, in milliseconds, or `null` for a zone this browser
+ *   cannot name
+ */
+function wallClockIn(timeZone: string | undefined): ((stamp: number) => number) | null {
+  let clock: Intl.DateTimeFormat;
+  try {
+    clock = new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hourCycle: 'h23',
+      timeZone,
+    });
+  } catch {
+    return null;
+  }
+  return (stamp) => {
+    const fields = new Map(clock.formatToParts(new Date(stamp)).map(part => [part.type, Number(part.value)]));
+    const field = (type: Intl.DateTimeFormatPartTypes): number => fields.get(type) ?? 0;
+    // A zone's offset is whole seconds, so the milliseconds carry over.
+    const milliseconds = ((stamp % 1000) + 1000) % 1000;
+    return Date.UTC(
+      field('year'),
+      field('month') - 1,
+      field('day'),
+      field('hour') % 24,
+      field('minute'),
+      field('second'),
+      milliseconds,
+    );
   };
 }
 
@@ -782,7 +840,7 @@ export function extractGanttData(series: AmXYSeries): GanttData | null {
   // figures lands a few milliseconds off, which writes a midnight outside UTC
   // as the day before.
   const rescale = (value: number): number =>
-    scale ? value / scale.divisor : value;
+    scale ? scale.position(value) : value;
 
   return {
     points: spans.map(lane => lane.map(span => ({
