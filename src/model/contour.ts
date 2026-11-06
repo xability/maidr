@@ -1,4 +1,4 @@
-import type { ContourPoint, MaidrLayer } from '@type/grammar';
+import type { ContourPoint, LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import { contourCurveLevel, contourLevelCount } from '@util/contourLevel';
@@ -22,6 +22,22 @@ interface LevelPoint {
   /** The point itself. */
   point: ContourPoint;
 }
+
+/** A place, in data units or in the units of a drawn path. */
+interface Position {
+  x: number;
+  y: number;
+}
+
+/** A straight piece of a drawn path, from one vertex to the next. */
+type Segment = readonly [Position, Position];
+
+/**
+ * How many of a curve's points are used to decide which way each axis is
+ * drawn. Enough to tell the four ways apart on any curve with a shape, and
+ * few enough that a long curve does not pay for it four times over.
+ */
+const ORIENTATION_SAMPLES = 32;
 
 /** A gap between two adjacent levels, and the point it was measured from. */
 interface Gap {
@@ -323,6 +339,181 @@ export class ContourTrace extends LineTrace {
         }
       }
     }
+  }
+
+  /**
+   * Where each point of a curve is marked when the path drawn for it does not
+   * have a vertex per point.
+   *
+   * Inherited, the points were spread by x between the path's first and last
+   * vertex and read off the path there, which is how a line chart gets back
+   * the points a renderer dropped from a straight run. A contour curve is not
+   * a function of x. Plotly draws its curves from its own pass over the grid,
+   * so they rarely have a vertex per point, and on the Plotly contour example
+   * the 0.2 level starts and ends on the plot's right edge: its first and last
+   * vertex share an x, and all 122 of its points were marked at one spot.
+   * matplotlib drops vertices from a path of 128 or more when it draws it, and
+   * the same reading put a ring's mark on its first vertex, or across the ring
+   * from the point read.
+   *
+   * The points and the path are one curve, so the box the points span is the
+   * box the path spans: the smallest and largest x of the one are the left and
+   * right edges of the other, and the same for y. Each point is taken through
+   * that box and marked at the nearest place on the drawn path. The box does
+   * not say which way an axis runs, so that is the way, of the four, that lays
+   * the points closest to the path, with x to the right and y up -- as charts
+   * draw them -- tried first.
+   *
+   * A path with a vertex per point is left as it is, and so is the line
+   * chart's reading where the boxes cannot be matched: a curve or a path with
+   * no extent along an axis the other spans.
+   *
+   * @param coordinates - Vertices parsed from the path, mutated in place
+   * @param row - Index of the curve
+   */
+  protected override reconcilePathCoordinates(coordinates: LinePoint[], row: number): void {
+    const points = this.points[row];
+    if (coordinates.length === points.length) {
+      return;
+    }
+    const placed = ContourTrace.placeAlongPath(points, coordinates);
+    if (placed === null) {
+      super.reconcilePathCoordinates(coordinates, row);
+      return;
+    }
+    coordinates.length = 0;
+    coordinates.push(...placed);
+  }
+
+  /**
+   * A curve's points, each at the nearest place on the path drawn for it.
+   *
+   * @param points - The curve's points, in data units
+   * @param vertices - The drawn path's vertices, in its own units
+   * @returns One position per point, in the path's units, or null when the
+   *   two cannot be matched
+   */
+  private static placeAlongPath(
+    points: readonly LinePoint[],
+    vertices: readonly LinePoint[],
+  ): Position[] | null {
+    const curve = points.map(point => ({ x: Number(point.x), y: Number(point.y) }));
+    const drawn = vertices.map(vertex => ({ x: Number(vertex.x), y: Number(vertex.y) }));
+    const finite = (position: Position): boolean =>
+      Number.isFinite(position.x) && Number.isFinite(position.y);
+    if (curve.length === 0 || drawn.length < 2 || !curve.every(finite) || !drawn.every(finite)) {
+      return null;
+    }
+    const toX = ContourTrace.fitAxis(curve.map(p => p.x), drawn.map(p => p.x));
+    const toY = ContourTrace.fitAxis(curve.map(p => p.y), drawn.map(p => p.y));
+    if (toX === null || toY === null) {
+      return null;
+    }
+
+    // A curve that comes back to its first point is a ring, and its path runs
+    // on from the last vertex to the first.
+    const segments = drawn.slice(1).map((to, i): Segment => [drawn[i], to]);
+    const start = curve[0];
+    const end = curve[curve.length - 1];
+    if (curve.length > 2 && start.x === end.x && start.y === end.y) {
+      segments.push([drawn[drawn.length - 1], drawn[0]]);
+    }
+
+    const through = (point: Position, flipX: boolean, flipY: boolean): Position =>
+      ({ x: toX(point.x, flipX), y: toY(point.y, flipY) });
+    const every = Math.max(1, Math.floor(curve.length / ORIENTATION_SAMPLES));
+    const sample = curve.filter((_, i) => i % every === 0);
+    let best = { flipX: false, flipY: true, distance: Number.POSITIVE_INFINITY };
+    for (const flipY of [true, false]) {
+      for (const flipX of [false, true]) {
+        const distance = sample.reduce(
+          (sum, point) => sum + ContourTrace.nearestOn(segments, through(point, flipX, flipY)).distance,
+          0,
+        );
+        if (distance < best.distance) {
+          best = { flipX, flipY, distance };
+        }
+      }
+    }
+    return curve.map(point =>
+      ContourTrace.nearestOn(segments, through(point, best.flipX, best.flipY)).at);
+  }
+
+  /**
+   * Maps a curve's coordinates along one axis onto its path's, end to end.
+   *
+   * @param values - The curve's coordinates along the axis
+   * @param drawn - The path's coordinates along it
+   * @returns The map, which can run either way along the axis, or null when
+   *   one of the two spans the axis and the other does not
+   */
+  private static fitAxis(
+    values: readonly number[],
+    drawn: readonly number[],
+  ): ((value: number, reversed: boolean) => number) | null {
+    const [low, high] = ContourTrace.extent(values);
+    const [from, to] = ContourTrace.extent(drawn);
+    const span = high - low;
+    const drawnSpan = to - from;
+    if (span === 0 && drawnSpan === 0) {
+      return () => from;
+    }
+    if (span === 0 || drawnSpan === 0) {
+      return null;
+    }
+    return (value, reversed) => {
+      const share = (value - low) / span;
+      return reversed ? to - share * drawnSpan : from + share * drawnSpan;
+    };
+  }
+
+  /**
+   * The smallest and largest of some numbers.
+   *
+   * @param values - At least one number
+   * @returns The two, smallest first
+   */
+  private static extent(values: readonly number[]): [number, number] {
+    let low = Number.POSITIVE_INFINITY;
+    let high = Number.NEGATIVE_INFINITY;
+    for (const value of values) {
+      low = Math.min(low, value);
+      high = Math.max(high, value);
+    }
+    return [low, high];
+  }
+
+  /**
+   * The place on a path nearest a position, and how far away it is.
+   *
+   * @param segments - The path, as the segments between its vertices; at
+   *   least one
+   * @param position - Where a point would be drawn
+   * @returns The nearest place, and the square of its distance
+   */
+  private static nearestOn(
+    segments: readonly Segment[],
+    position: Position,
+  ): { at: Position; distance: number } {
+    let at = segments[0][0];
+    let distance = Number.POSITIVE_INFINITY;
+    for (const [from, to] of segments) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const length = dx * dx + dy * dy;
+      const along = length > 0
+        ? ((position.x - from.x) * dx + (position.y - from.y) * dy) / length
+        : 0;
+      const t = Math.min(1, Math.max(0, along));
+      const x = from.x + t * dx;
+      const y = from.y + t * dy;
+      const away = (position.x - x) ** 2 + (position.y - y) ** 2;
+      if (away < distance) {
+        distance = away;
+        at = { x, y };
+      }
+    }
+    return { at, distance };
   }
 
   protected override get groupFallbackLabel(): string {

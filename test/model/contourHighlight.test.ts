@@ -52,6 +52,28 @@ const DRAWN = {
 };
 
 /**
+ * A ring as a producer emits it: from its right-hand side round to where it
+ * started, a closed curve repeating its first point.
+ */
+const RING: ContourPoint[] = [
+  [4, 2],
+  [4, 4],
+  [2, 4],
+  [0, 4],
+  [0, 2],
+  [0, 0],
+  [2, 0],
+  [4, 0],
+  [4, 2],
+].map(([x, y]) => ({ x, y, level: 0.3 }));
+
+/**
+ * The same ring as a renderer draws it: from another corner, with a vertex at
+ * each corner and none between, x running right and y down, 10 to 110.
+ */
+const RING_DRAWN = 'M 10 10 L 110 10 L 110 110 L 10 110 Z';
+
+/**
  * Create a contour layer whose selectors resolve against the document.
  * @param selectors - One selector per level
  * @param data - The curves the layer carries
@@ -150,6 +172,62 @@ describe('contour highlight mapping', () => {
     expect(circles()).toEqual([
       { x: 10, y: 100 },
       { x: 60, y: 100 },
+    ]);
+  });
+
+  test('a ring drawn with fewer vertices than points is marked at each point', () => {
+    // Plotly draws a contour from its own pass over the grid and matplotlib
+    // drops vertices from a long path, so a curve seldom arrives with a vertex
+    // per point. Spread by x between the path's first and last vertex, which
+    // on this ring share one x, every point was marked at the same corner.
+    renderContour([[RING_DRAWN]]);
+
+    // eslint-disable-next-line no-new
+    new ContourTrace(createLayer(['g#level-0 path'], [RING]));
+
+    expect(circles()).toEqual([
+      { x: 110, y: 60 },
+      { x: 110, y: 10 },
+      { x: 60, y: 10 },
+      { x: 10, y: 10 },
+      { x: 10, y: 60 },
+      { x: 10, y: 110 },
+      { x: 60, y: 110 },
+      { x: 110, y: 110 },
+      { x: 110, y: 60 },
+    ]);
+  });
+
+  test('a curve drawn with its y axis reversed is marked on the side drawn', () => {
+    // The box a curve spans is the same box whichever way an axis runs, so
+    // the way is the one that lays the points on the path. Spread by x, the
+    // five points up the right-hand side were all marked at its foot.
+    renderContour([['M 10 10 L 110 10 L 110 110']]);
+    const corner: ContourPoint[] = [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [3, 0],
+      [4, 0],
+      [4, 1],
+      [4, 2],
+      [4, 3],
+      [4, 4],
+    ].map(([x, y]) => ({ x, y, level: 0.3 }));
+
+    // eslint-disable-next-line no-new
+    new ContourTrace(createLayer(['g#level-0 path'], [corner]));
+
+    expect(circles()).toEqual([
+      { x: 10, y: 10 },
+      { x: 35, y: 10 },
+      { x: 60, y: 10 },
+      { x: 85, y: 10 },
+      { x: 110, y: 10 },
+      { x: 110, y: 35 },
+      { x: 110, y: 60 },
+      { x: 110, y: 85 },
+      { x: 110, y: 110 },
     ]);
   });
 
