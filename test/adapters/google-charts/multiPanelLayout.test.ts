@@ -160,7 +160,6 @@ describe('createMaidrFromGoogleCharts × resolveSubplotLayout (vertical navigati
       // equivalent geometry.
       return {
         getHighlightElement: () => el,
-        getLayerSelector: () => subplot.layers[0].selectors as string,
         getLayerMarkSelectors: () => [subplot.layers[0].selectors as string],
       } as unknown as Subplot;
     }));

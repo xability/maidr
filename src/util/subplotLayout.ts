@@ -62,6 +62,16 @@ interface AxesPosition {
   y: number;
 }
 
+/**
+ * The region of the page a panel covers.
+ */
+interface PanelExtent {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -117,18 +127,16 @@ export function resolveSubplotLayout(
  *
  * Tries two strategies:
  * 1. Walk up from the subplot's own selector element (`subplot.selector`).
- * 2. Walk up from the first layer's selector string (for facet-style plots
- *    where the subplot itself has no selector).
+ * 2. Walk up from the first of its first layer's marks (for facet-style plots
+ *    where the subplot itself has no selector). See {@link firstMark}.
  *
  * @param highlightElement - The element the subplot's own selector names (may be null).
- * @param layerSelector    - CSS selector string from the first layer (may be null).
- * @param roots            - Where the chart is drawn.
+ * @param mark             - The first of the first layer's marks (may be null).
  * @returns The matching `<g>` element, or `null` if not found.
  */
 function findAxesElement(
   highlightElement: Element | null,
-  layerSelector: string | null,
-  roots: readonly QueryRoot[],
+  mark: Element | null,
 ): SVGElement | null {
   if (highlightElement) {
     const axes = highlightElement.closest('g[id^="axes_"]') as SVGElement | null;
@@ -136,13 +144,10 @@ function findAxesElement(
       return axes;
   }
 
-  if (layerSelector) {
-    const el = Svg.queryAll<SVGElement>(layerSelector, roots)[0] ?? null;
-    if (el) {
-      const axes = el.closest('g[id^="axes_"]') as SVGElement | null;
-      if (axes)
-        return axes;
-    }
+  if (mark) {
+    const axes = mark.closest('g[id^="axes_"]') as SVGElement | null;
+    if (axes)
+      return axes;
   }
 
   return null;
@@ -163,8 +168,7 @@ function collectAxesElements(
       const subplot = subplots[r][c];
       const axesEl = findAxesElement(
         subplot.getHighlightElement(),
-        subplot.getLayerSelector(),
-        roots,
+        firstMark(subplot, roots),
       );
       map.set(`${r},${c}`, axesEl);
     }
@@ -323,12 +327,18 @@ function detectInversion(entries: AxesPosition[], numRows: number): boolean {
  * exist (charts not rendered by matplotlib — Vega-Lite cells, per-panel chart
  * containers, etc.).
  *
- * The element the subplot's own selector names is preferred; the first
- * element matched by the first layer's selector is used as a fallback. Positions are only trusted when EVERY subplot resolves to an
- * element with distinct, non-degenerate geometry — otherwise an empty array
- * is returned and the caller falls back to data-array order. This keeps
- * jsdom/test environments (all-zero rects) and partially-rendered charts on
- * the conservative path.
+ * The element the subplot's own selector names is preferred; the first of its
+ * first layer's marks that is drawn is used as a fallback. Positions are only
+ * trusted when EVERY subplot resolves to an element with distinct,
+ * non-degenerate geometry — otherwise an empty array is returned and the
+ * caller falls back to data-array order. This keeps jsdom/test environments
+ * (all-zero rects) and partially-rendered charts on the conservative path.
+ *
+ * Panels drawn over one another, as a biplot draws its observations and its
+ * variables' loadings in one plot region, take data order too: where the
+ * first mark of each happens to sit says nothing about which a reader meets
+ * first, and a biplot's loadings were numbered first because one label sat a
+ * few pixels higher.
  */
 function collectPanelPositions(
   subplots: Subplot[][],
@@ -356,11 +366,65 @@ function collectPanelPositions(
     return [];
   }
 
+  const extents = subplots.flatMap(row => row.map(subplot => panelExtent(subplot, roots)));
+  if (drawnOverOneAnother(extents)) {
+    return [];
+  }
+
   return positions;
 }
 
 /**
- * Resolves the DOM element that best represents a subplot's panel geometry.
+ * The region a subplot's panel covers: its own element's box where it has
+ * one, and otherwise the box round every mark its first layer names that is
+ * drawn, through all of its selectors, so a box plot's region is that of all
+ * its boxes and not of the first box's first part.
+ *
+ * @param subplot - The subplot
+ * @param roots - Where the chart is drawn
+ * @returns The region, or null when nothing of the panel has geometry
+ */
+function panelExtent(subplot: Subplot, roots: readonly QueryRoot[]): PanelExtent | null {
+  const highlight = subplot.getHighlightElement();
+  const elements = highlight && hasGeometry(highlight)
+    ? [highlight]
+    : layerMarks(subplot, roots).filter(hasGeometry);
+  return elements.reduce<PanelExtent | null>((extent, element) => {
+    const box = element.getBoundingClientRect();
+    return extent === null
+      ? { left: box.left, top: box.top, right: box.right, bottom: box.bottom }
+      : {
+          left: Math.min(extent.left, box.left),
+          top: Math.min(extent.top, box.top),
+          right: Math.max(extent.right, box.right),
+          bottom: Math.max(extent.bottom, box.bottom),
+        };
+  }, null);
+}
+
+/**
+ * Whether two of the panels are drawn over the same region: the middle of
+ * one lies inside another. Panels side by side, or one above another, never
+ * hold each other's middle.
+ *
+ * @param extents - Each panel's region, or null where it has none
+ * @returns True when two panels share a region
+ */
+function drawnOverOneAnother(extents: (PanelExtent | null)[]): boolean {
+  const holds = (outer: PanelExtent, inner: PanelExtent): boolean => {
+    const x = (inner.left + inner.right) / 2;
+    const y = (inner.top + inner.bottom) / 2;
+    return x > outer.left && x < outer.right && y > outer.top && y < outer.bottom;
+  };
+  const measured = extents.filter((extent): extent is PanelExtent => extent !== null);
+  return measured.some((one, at) =>
+    measured.slice(at + 1).some(other => holds(one, other) || holds(other, one)));
+}
+
+/**
+ * Resolves the DOM element that best represents a subplot's panel geometry:
+ * the element its own selector names, else the first of its first layer's
+ * marks that is drawn.
  */
 function resolvePanelElement(subplot: Subplot, roots: readonly QueryRoot[]): Element | null {
   const highlight = subplot.getHighlightElement();
@@ -368,14 +432,35 @@ function resolvePanelElement(subplot: Subplot, roots: readonly QueryRoot[]): Ele
     return highlight;
   }
 
-  const selector = subplot.getLayerSelector();
-  if (selector) {
-    const el = Svg.queryAll(selector, roots)[0] ?? null;
-    if (el && hasGeometry(el)) {
-      return el;
+  return firstMark(subplot, roots, hasGeometry);
+}
+
+/**
+ * The first mark a subplot's first layer names that `accept` takes: the
+ * first match of each of its selectors in turn, in the order the layer gives
+ * them.
+ *
+ * A selector that names nothing is passed over rather than taken as the
+ * subplot's. py-maidr writes a box's lower outliers, the first of its parts,
+ * as a selector even when the box has none, and taken alone that selector
+ * found a box plot drawn nowhere.
+ *
+ * @param subplot - The subplot
+ * @param roots - Where the chart is drawn
+ * @param accept - Whether a mark will do; any mark will, by default
+ * @returns The mark, or null when no selector's first match will do
+ */
+function firstMark(
+  subplot: Subplot,
+  roots: readonly QueryRoot[],
+  accept: (mark: Element) => boolean = () => true,
+): Element | null {
+  for (const selector of subplot.getLayerMarkSelectors()) {
+    const mark = Svg.queryAll<Element>(selector, roots)[0];
+    if (mark !== undefined && accept(mark)) {
+      return mark;
     }
   }
-
   return null;
 }
 

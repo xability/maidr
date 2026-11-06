@@ -38,8 +38,7 @@ function mockRect(
 
 /**
  * Builds a minimal Subplot stand-in exposing only the accessors the layout
- * utility consumes: getHighlightElement(), getLayerSelector() and
- * getLayerMarkSelectors().
+ * utility consumes: getHighlightElement() and getLayerMarkSelectors().
  */
 function stubSubplot(panel: StubPanel): Subplot {
   let highlight: SVGElement | null = null;
@@ -51,13 +50,30 @@ function stubSubplot(panel: StubPanel): Subplot {
   }
   return {
     getHighlightElement: () => highlight,
-    getLayerSelector: () => panel.layerSelector ?? null,
     getLayerMarkSelectors: () => (panel.layerSelector ? [panel.layerSelector] : []),
   } as unknown as Subplot;
 }
 
 function grid(panels: StubPanel[][]): Subplot[][] {
   return panels.map(row => row.map(stubSubplot));
+}
+
+/** Where a mark is drawn on the page. */
+interface Place {
+  top: number;
+  left: number;
+}
+
+/**
+ * Draws one text label a layer selector can match, where a chart would.
+ * @param className - What the selector names it by
+ * @param rect - Where it is drawn
+ */
+function drawLabel(className: string, rect: Place): void {
+  const mark = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  mark.setAttribute('class', className);
+  document.body.appendChild(mark);
+  mockRect(mark, { ...rect, width: 40, height: 14 });
 }
 
 afterEach(() => {
@@ -161,6 +177,58 @@ describe('resolveSubplotLayout panel-geometry fallback (no axes_* groups)', () =
     expect(layout.visualOrderMap.get('1,0')).toBe(1);
     expect(layout.visualOrderMap.get('0,0')).toBe(2);
   });
+
+  it('keeps data order for panels drawn over the same region', () => {
+    // A biplot: the observations and the variables' loadings are two panels
+    // drawn over one plot region, so where each one's first label happens to
+    // sit says nothing about which a reader meets first.
+    drawLabel('observation', { top: 135, left: 249 });
+    drawLabel('observation', { top: 60, left: 100 });
+    drawLabel('observation', { top: 300, left: 420 });
+    drawLabel('loading', { top: 120, left: 193 });
+    drawLabel('loading', { top: 70, left: 200 });
+    drawLabel('loading', { top: 210, left: 170 });
+
+    const layout = resolveSubplotLayout(grid([
+      [{ layerSelector: '.observation' }, { layerSelector: '.loading' }],
+    ]));
+
+    expect(layout.visualOrderMap.get('0,0')).toBe(1);
+    expect(layout.visualOrderMap.get('0,1')).toBe(2);
+  });
+
+  it('still measures panels whose marks lie apart', () => {
+    drawLabel('top-panel', { top: 40, left: 20 });
+    drawLabel('top-panel', { top: 120, left: 300 });
+    drawLabel('bottom-panel', { top: 260, left: 40 });
+    drawLabel('bottom-panel', { top: 380, left: 280 });
+
+    const layout = resolveSubplotLayout(grid([
+      [{ layerSelector: '.top-panel' }],
+      [{ layerSelector: '.bottom-panel' }],
+    ]));
+
+    expect(layout.invertVertical).toBe(true);
+  });
+
+  it('still measures panels side by side whose regions overlap but hold neither middle', () => {
+    // Each panel has a mark reaching into the other's region, as a long line
+    // or a fitted curve can, but neither region holds the other's middle.
+    // The right panel is written first, so data order would read the two the
+    // wrong way round.
+    drawLabel('right-panel', { top: 60, left: 330 });
+    drawLabel('right-panel', { top: 200, left: 560 });
+    drawLabel('right-panel', { top: 130, left: 250 });
+    drawLabel('left-panel', { top: 60, left: 20 });
+    drawLabel('left-panel', { top: 200, left: 360 });
+
+    const layout = resolveSubplotLayout(grid([
+      [{ layerSelector: '.right-panel' }, { layerSelector: '.left-panel' }],
+    ]));
+
+    expect(layout.visualOrderMap.get('0,1')).toBe(1);
+    expect(layout.visualOrderMap.get('0,0')).toBe(2);
+  });
 });
 
 describe('resolveSubplotLayout axes-group path precedence', () => {
@@ -183,7 +251,6 @@ describe('resolveSubplotLayout axes-group path precedence', () => {
 
       return {
         getHighlightElement: () => inner,
-        getLayerSelector: () => null,
         getLayerMarkSelectors: () => [],
       } as unknown as Subplot;
     });
@@ -227,7 +294,6 @@ describe('resolveSubplotLayout numbers cells nothing could be measured for', () 
         if (!rect) {
           return {
             getHighlightElement: () => null,
-            getLayerSelector: () => null,
             getLayerMarkSelectors: () => [],
           } as unknown as Subplot;
         }
@@ -242,7 +308,6 @@ describe('resolveSubplotLayout numbers cells nothing could be measured for', () 
 
         return {
           getHighlightElement: () => inner,
-          getLayerSelector: () => null,
           getLayerMarkSelectors: () => [],
         } as unknown as Subplot;
       }),
@@ -386,7 +451,6 @@ describe('resolveSubplotLayout finds the panel each subplot is outlined round', 
     const element = own === null ? null : root.querySelector(own);
     return {
       getHighlightElement: () => element,
-      getLayerSelector: () => marks,
       getLayerMarkSelectors: () => (marks === null ? [] : [marks]),
     } as unknown as Subplot;
   }
