@@ -150,25 +150,28 @@ export class VolcanoTrace extends ScatterTrace {
   }
 
   /**
-   * The point the cursor is on, when it is on exactly one.
+   * The index into `data` of the point the cursor is on, when it is on
+   * exactly one.
    *
    * A label names a point, so it is announced only where the cursor
-   * identifies one. The scatter's column and row modes sit on a whole stack
-   * of points at once, and naming any of them there would name the wrong one.
+   * identifies one -- the scatter's rule for a point's name: in point mode,
+   * or where a column, a row or a grid cell holds a single point. A stack of
+   * several has no one point to name. Read in point mode alone, a Manhattan
+   * plot's step to the next point, which lands on a column of one, named the
+   * point but never its chromosome or which side of the line it was on.
    *
-   * @returns The declared point, or null
+   * @returns The index, or null
    */
-  private currentPoint(): VolcanoPoint | null {
-    if (!this.isInPointMode) {
-      return null;
-    }
-    return this.declared[this.pointModeIndex] ?? null;
+  private currentIndex(): number | null {
+    const covered = this.highlightedPointIndices;
+    return covered.length === 1 ? covered[0] : null;
   }
 
   protected override get text(): TextState {
     const base = super.text;
-    const point = this.currentPoint();
-    if (point === null) {
+    const index = this.currentIndex();
+    const point = index === null ? undefined : this.declared[index];
+    if (index === null || point === undefined) {
       return base;
     }
 
@@ -190,7 +193,7 @@ export class VolcanoTrace extends ScatterTrace {
       asides.push({
         label: t('model.asideThreshold'),
         value: t(
-          this.clearsThreshold(this.pointModeIndex)
+          this.clearsThreshold(index)
             ? 'model.volcanoCleared'
             : 'model.volcanoNotCleared',
         ),
