@@ -1345,8 +1345,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    * pitch plays, and the busiest is the one the description names. Every
    * node holding an extreme is offered, stage by stage and down each stage,
    * so a tie is walked. A throughput is a sum of flows, so two that are equal
-   * on paper can differ in the last bit; they are compared as equal, here
-   * and by the service that walks them, through `rankValue`.
+   * on paper can differ in the last bit; they are compared against their own
+   * size, so they tie, while flows that are small in their own units, 1e-12
+   * and 5e-11, stay apart. The service that walks the ties offered compares
+   * them again through `rankValue`, and ties every one of them.
    *
    * @returns The targets, or none for a chart with no node
    */
@@ -1361,7 +1363,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
 
     const throughputs = measured.map(({ throughput }) => throughput);
     const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => measured
-      .filter(({ throughput }) => MathUtil.nearlyEqual(throughput, extreme))
+      .filter(({ throughput }) => MathUtil.nearlyEqualRelative(throughput, extreme))
       .map(({ node, throughput }) => ({
         ...extremumAt(
           t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),

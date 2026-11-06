@@ -111,6 +111,23 @@ describe('a flow chart\'s [ and ] go to its busiest and quietest node', () => {
 
     expect([...busiest].sort()).toEqual(['Max point at A', 'Max point at B', 'Max point at Z']);
   });
+
+  test('keeps flows that are small in their own units apart', () => {
+    // Measured against 1, 1e-12 and 5e-11 were the same throughput, and every
+    // node was offered as both the busiest and the quietest: ] could land on
+    // one fifty times quieter than the busiest.
+    const tiny: FlowPoint[] = [
+      { source: 'A', target: 'X', value: 1e-12 },
+      { source: 'B', target: 'Y', value: 5e-11 },
+    ];
+
+    expect(offered(traceOf(TraceType.SANKEY, tiny))).toEqual([
+      ['max', 'Max point at B', 5e-11],
+      ['max', 'Max point at Y', 5e-11],
+      ['min', 'Min point at A', 1e-12],
+      ['min', 'Min point at X', 1e-12],
+    ]);
+  });
 });
 
 describe('a network\'s [ and ] go to its most and least connected node', () => {
