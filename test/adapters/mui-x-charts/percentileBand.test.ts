@@ -142,4 +142,38 @@ describe('mui percentile band', () => {
     expect(layers.map(layer => layer.type)).not.toContain(TraceType.PERCENTILE_BAND);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('names "mean" as the median'));
   });
+
+  // A series is read by its label trimmed, but a reference to it is matched
+  // against the label as the page wrote it.
+  it('finds a median named by a padded label, padding and all', () => {
+    const { layers } = render(
+      fan([...band('p90', 2), ...band('p50', 1), { id: 'median', label: ' Median ', data: MEDIAN }]),
+      [{ ...BANDS[0], median: ' Median ' }],
+    );
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.PERCENTILE_BAND]);
+    expect(layers[0].name).toBe('Median');
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('finds bands named by padded labels, padding and all', () => {
+    const labelled = (id: string, halfWidth: number, label: string): object[] => {
+      const [base, area] = band(id, halfWidth);
+      return [base, { ...area, label }];
+    };
+    const { layers } = render(
+      fan([...labelled('p90', 2, ' Outer '), ...labelled('p50', 1, ' Inner '), { id: 'median', data: MEDIAN }]),
+      [{
+        median: 'median',
+        bands: [
+          { series: ' Inner ', lower: 0.25, upper: 0.75 },
+          { series: ' Outer ', lower: 0.05, upper: 0.95 },
+        ],
+      }],
+    );
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.PERCENTILE_BAND]);
+    expect((layers[0].data as PercentileBandPoint[])[1].quantiles.map(q => q.level)).toEqual([0.05, 0.25, 0.5, 0.75, 0.95]);
+    expect(warn).not.toHaveBeenCalled();
+  });
 });

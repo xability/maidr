@@ -39,7 +39,7 @@ function AccessibleBarChart() {
 
 Give the chart a `width`. Without one, an MUI X chart sizes itself to its container, and MAIDR's plot is only as wide as the chart inside it, so the two shrink each other to a sliver. The adapter says so in the console when a chart has no `width`.
 
-Axis labels come from each axis' `label`, series names from each series' `label`, and category names from the band axis' `data` (or its `dataKey` column of the `dataset`), formatted with the axis' `valueFormatter` when it has one.
+Axis labels come from each axis' `label`, series names from each series' `label`, and category names from the band axis' `data` (or its `dataKey` column of the `dataset`), formatted with the axis' `valueFormatter` when it has one. A series `label` that is empty or only whitespace counts as no label, since MUI X draws it as a legend swatch with no name beside it, and a padded one is read without its padding.
 
 ## Props Reference
 

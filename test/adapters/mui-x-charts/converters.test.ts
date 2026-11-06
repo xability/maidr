@@ -490,6 +490,44 @@ describe('mixed series types', () => {
   });
 });
 
+describe('blank and padded series labels', () => {
+  // MUI X draws a label that is empty or only whitespace as a legend swatch
+  // with no name beside it, and a padded one without its padding.
+  const radar = { metrics: ['Speed'] };
+  const links = [{ source: 'Coal', target: 'Power', value: 50 }];
+
+  it('names no series and no layer by a label that is only whitespace', () => {
+    const [line] = convertMuiChart('line', { series: [{ data: [1, 2], label: '   ' }] }, SCOPE).layers;
+    const [spokes] = convertMuiChart('radar', { series: [{ data: [80], label: () => ' ' }], radar }, SCOPE).layers;
+    const scatter = convertMuiChart('scatter', {
+      series: [{ data: [{ x: 1, y: 2 }], label: 'North' }, { data: [{ x: 3, y: 4 }], label: '\t' }],
+    }, SCOPE);
+    const [flows] = convertMuiChart('sankey', { series: { label: '   ', data: { links } } }, SCOPE).layers;
+
+    expect(line.data).toEqual([[{ x: 0, y: 1 }, { x: 1, y: 2 }]]);
+    expect(spokes.data).toEqual([[{ x: 'Speed', y: 80 }]]);
+    expect(scatter.layers.map(layer => layer.name)).toEqual(['North', undefined]);
+    // Among several series, it takes the name that tells it apart.
+    expect(scatter.legend).toEqual(['North', 'Series 2']);
+    expect(flows.name).toBeUndefined();
+  });
+
+  it('reads a padded label without its padding', () => {
+    const [line] = convertMuiChart('line', { series: [{ data: [1], label: ' North ' }] }, SCOPE).layers;
+    const [spokes] = convertMuiChart('radar', { series: [{ data: [80], label: () => ' North ' }], radar }, SCOPE).layers;
+    const scatter = convertMuiChart('scatter', {
+      series: [{ data: [{ x: 1, y: 2 }], label: ' North ' }, { data: [{ x: 3, y: 4 }], label: 'South ' }],
+    }, SCOPE);
+    const [flows] = convertMuiChart('sankey', { series: { label: ' Energy ', data: { links } } }, SCOPE).layers;
+
+    expect(line.data).toEqual([[{ x: 0, y: 1, z: 'North' }]]);
+    expect(spokes.data).toEqual([[{ x: 'Speed', y: 80, z: 'North' }]]);
+    expect(scatter.layers.map(layer => layer.name)).toEqual(['North', 'South']);
+    expect(scatter.legend).toEqual(['North', 'South']);
+    expect(flows.name).toBe('Energy');
+  });
+});
+
 describe('withMuiKeyboardNavigationDisabled', () => {
   function BarChart(): null {
     return null;

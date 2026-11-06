@@ -253,22 +253,42 @@ function seriesLabel(series: MuiSeriesConfig, index: number): string {
  * a label the chart never shows is left unnamed, and a layer switch says its
  * plot type.
  *
+ * A label that is empty or only whitespace counts as none. MUI X draws it as
+ * a legend swatch with no name beside it, so it names the series no more than
+ * a missing label does, and kept as a name it was read out blank. A padded
+ * label is read without its padding, as the legend shows it.
+ *
  * @param series - The series
- * @returns The label's text
+ * @returns The label's text, trimmed
  */
-function drawnLabel(series: MuiSeriesConfig): string | undefined {
+function drawnLabel(series: Pick<MuiSeriesConfig, 'label'>): string | undefined {
+  return writtenLabel(series)?.trim() || undefined;
+}
+
+/**
+ * A series' `label` as the page wrote it, padding included: the string, or
+ * what a label callback gives for the legend. `undefined` when it has none,
+ * or it is empty.
+ *
+ * What a page's own reference to the series is matched against, where
+ * {@link drawnLabel} is what it is read as: a page that labels its median
+ * `' Median '` names it `' Median '` in `percentileBands` too.
+ *
+ * @param series - The series
+ * @returns The label's text, untrimmed
+ */
+function writtenLabel(series: Pick<MuiSeriesConfig, 'label'>): string | undefined {
   const { label } = series;
+  let text: unknown = label;
   if (typeof label === 'function') {
     try {
-      const text = label('legend');
-      if (typeof text === 'string' && text !== '')
-        return text;
+      text = label('legend');
     } catch {
       // A label callback that throws outside MUI's own render names nothing.
+      return undefined;
     }
-    return undefined;
   }
-  return typeof label === 'string' && label !== '' ? label : undefined;
+  return typeof text === 'string' && text !== '' ? text : undefined;
 }
 
 /**
@@ -796,8 +816,11 @@ function fanLayers(
 ): { layers: MaidrLayer[]; absorbed: Set<SeriesEntry> } {
   const absorbed = new Set<SeriesEntry>();
   const layers: MaidrLayer[] = [];
+  // A series is found by its id, else by its label as the page wrote it --
+  // the label it is read by is trimmed -- or, with none, its `Series N`.
   const named = (name: string): SeriesEntry | undefined =>
-    entries.find(entry => entry.id === name) ?? entries.find(entry => entry.label === name);
+    entries.find(entry => entry.id === name)
+    ?? entries.find(entry => (writtenLabel(entry.series) ?? entry.label) === name);
   const stackOf = (entry: SeriesEntry): SeriesEntry[] =>
     entries.filter(one => one.series.stack !== undefined && one.series.stack === entry.series.stack);
 
@@ -1306,7 +1329,7 @@ function convertSankey(props: MuiChartProps, scope: string, chartId: string): Mu
     layers: [{
       id: '0',
       type: TraceType.SANKEY,
-      ...(series?.label ? { name: series.label } : {}),
+      ...nameOf(series ? drawnLabel(series) : undefined),
       axes: {},
       // One selector per flow, each naming exactly one ribbon; with a
       // repeated pair a selector names two and the trace would decline the
