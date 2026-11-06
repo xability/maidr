@@ -45,23 +45,26 @@ import { convertRechartsToMaidr } from './converters';
 const askedForPlottedKey = new Set<string>();
 
 /**
- * Says, once per chart, that a ridgeline given through this hook without
- * `ridgelineConfig.plottedKey` is read in the order its groups first appear.
+ * Says, once per chart, that a ridgeline with no `ridgelineConfig.plottedKey`
+ * is read in the order its groups first appear.
  *
  * `<MaidrRecharts>` reads the key off the chart's `<Area dataKey>` and lists
  * the ridges bottom first, as they are drawn; this hook reads nothing off the
- * chart, so without the key the first group is read as the lowest ridge,
- * which the recipe draws at the top.
+ * chart, and the component finds nothing to read when the `dataKey` is a
+ * function or the `<Area>` is wrapped in a component of one's own. Without
+ * the key the first group is read as the lowest ridge, which the recipe draws
+ * at the top.
  *
  * @param id - The chart's id
+ * @param unread - Why the component found no key, said after the config's
  */
-function askForPlottedKey(id: string): void {
+export function askForPlottedKey(id: string, unread = ''): void {
   if (askedForPlottedKey.has(id)) {
     return;
   }
   askedForPlottedKey.add(id);
   console.warn(
-    `[maidr/recharts] Ridgeline "${id}" has no ridgelineConfig.plottedKey, so its ridges are `
+    `[maidr/recharts] Ridgeline "${id}" has no ridgelineConfig.plottedKey${unread}, so its ridges are `
     + 'read in the order their groups first appear in data, the first as the lowest. Set it to '
     + 'the key the <Area>s draw, and they are read bottom first, as drawn.',
   );

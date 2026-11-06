@@ -46,6 +46,7 @@ import { Orientation } from '../../type/grammar';
 import { areaDataKeyFor, categoryAxisReversedFor, categoryAxisReversedPerPanelFor, dotSeriesFor, pieAnglesFor, stepDirectionFor } from './childProps';
 import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
 import { getPanelClassName } from './selectors';
+import { askForPlottedKey } from './useRechartsAdapter';
 
 /**
  * Renders the multi-panel grid for subplot mode.
@@ -205,6 +206,13 @@ export function MaidrRecharts({
   const ridgelinePlottedKey = readsRidgeline && ridgelineConfig?.plottedKey === undefined
     ? areaDataKeyFor(children)
     : undefined;
+  // Found nowhere -- a `dataKey` that is a function, an `<Area>` wrapped in a
+  // component of one's own -- the ridges keep their first-appearance order,
+  // which is said once, as the hook says it.
+  if (readsRidgeline && ridgelineConfig !== undefined && ridgelineConfig.plottedKey === undefined
+    && ridgelinePlottedKey === undefined) {
+    askForPlottedKey(id, ', and no <Area> in the chart names one as a string dataKey');
+  }
   const ridgelineAxisReversed = readsRidgeline && ridgelineConfig?.plottedAxisReversed === undefined
     && categoryAxisReversedFor(children, true);
 
