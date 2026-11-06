@@ -16,8 +16,9 @@ const BAR_DATA = [
  * @param title - The drawn title, or nothing for an axis that draws none
  * @param ticks - Tick labels, kept a level down in the labels container as
  *   amCharts keeps them
+ * @param settings - The axis' own settings, such as `title` or `name`
  */
-function drawnAxis(title?: string, ticks: string[] = []): AmAxis {
+function drawnAxis(title?: string, ticks: string[] = [], settings: Record<string, unknown> = {}): AmAxis {
   const label = (text: string): Record<string, unknown> => ({
     className: 'Label',
     get: (key: string) => (key === 'text' ? text : undefined),
@@ -28,7 +29,7 @@ function drawnAxis(title?: string, ticks: string[] = []): AmAxis {
     children: { values: ticks.map(label) },
   };
   return {
-    get: () => undefined,
+    get: (key: string) => settings[key],
     dataItems: [],
     children: { values: [labelsContainer, ...(title != null ? [label(title)] : [])] },
   } as unknown as AmAxis;
@@ -70,7 +71,7 @@ describe('amCharts axis titles', () => {
     const layer = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers[0];
 
     expect(layer.axes?.x?.label).toBe('Step');
-    expect(['0', '500', '1,000']).not.toContain(layer.axes?.y?.label);
+    expect(layer.axes?.y?.label).toBe('');
   });
 
   it('names no axis the chart draws no title for', () => {
@@ -81,8 +82,25 @@ describe('amCharts axis titles', () => {
 
     const layer = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers[0];
 
-    expect(layer.axes?.x?.label ?? '').toBe('');
-    expect(layer.axes?.y?.label ?? '').toBe('');
+    expect(layer.axes?.x?.label).toBe('');
+    expect(layer.axes?.y?.label).toBe('');
+  });
+
+  it('reads a title setting before a drawn title, and the axis name only after both', () => {
+    // The order `readAxisLabel` keeps: a `title` entity an author set for this
+    // adapter, then the Label the axis draws, then the axis' `name`.
+    const titleSetting = { get: (key: string) => (key === 'text' ? 'Set' : undefined) };
+    const both = chartWithAxes(
+      drawnAxis('Drawn', [], { title: titleSetting, name: 'Named' }),
+      drawnAxis('Drawn', [], { name: 'Named' }),
+    );
+    const namedOnly = chartWithAxes(drawnAxis(undefined, [], { name: 'Named' }), drawnAxis());
+
+    const layer = fromAmCharts(fakeRoot([both])).subplots[0][0].layers[0];
+    const named = fromAmCharts(fakeRoot([namedOnly])).subplots[0][0].layers[0];
+
+    expect(layer.axes).toEqual({ x: { label: 'Set' }, y: { label: 'Drawn' } });
+    expect(named.axes).toEqual({ x: { label: 'Named' }, y: { label: '' } });
   });
 
   it('names each panel\'s axes from the titles that panel draws', () => {
