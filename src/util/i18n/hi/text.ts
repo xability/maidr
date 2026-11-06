@@ -113,6 +113,7 @@ export const text = {
   'text.noCaptionAvailable': 'कोई कैप्शन उपलब्ध नहीं',
 
   // Position announcements.
+  'text.noDataHere': 'यहाँ कोई डेटा नहीं है, इसलिए कोई स्थिति नहीं बताई जा सकती।',
   'text.notInChart': 'चार्ट में नहीं हैं, स्थिति नहीं बताई जा सकती।',
   'text.indexOfSize': '{size} में से {index}',
   'text.positionIs': 'स्थिति {total} में से {position} है',

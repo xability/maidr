@@ -114,6 +114,7 @@ export const text = {
   'text.noCaptionAvailable': 'キャプションはありません',
 
   // Position announcements.
+  'text.noDataHere': 'ここにはデータがないため、位置を表示できません。',
   'text.notInChart': 'チャートの中ではないため、位置を表示できません。',
   'text.indexOfSize': '{size}個中{index}番目',
   'text.positionIs': '位置は{total}個中{position}番目',

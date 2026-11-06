@@ -948,6 +948,43 @@ describe('AnnouncePositionCommand on a single-violin KDE', () => {
   });
 });
 
+describe('AnnouncePositionCommand on a layer with no data', () => {
+  // py-maidr's legacy candlestick example sends its candlestick layer, the one
+  // the chart opens on, with no data. P there said "Not in a chart, unable to
+  // show position.", though the reader was on the chart.
+  test('says there is no data where the reader is', () => {
+    const trace = TraceFactory.create({
+      id: 'empty-candles',
+      type: TraceType.CANDLESTICK,
+      axes: { x: { label: 'Date' }, y: { label: 'Price' } },
+      data: [],
+    });
+    const { command, textViewModel } = createCommand(trace.state as PlotState);
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('No data here, so no position to show.');
+  });
+
+  test('says the same on an empty series of a layer that has others', () => {
+    // A ragged line layer whose first series has no points. Before the first
+    // move the cursor is on that series, so "this layer has no data" would be
+    // false here.
+    const trace = TraceFactory.create({
+      id: 'ragged-lines',
+      type: TraceType.LINE,
+      axes: { x: { label: 'Year' }, y: { label: 'Count' } },
+      data: [[], [{ x: 2020, y: 3 }, { x: 2021, y: 5 }]],
+    });
+    expect(trace.state.empty).toBe(true);
+    const { command, textViewModel } = createCommand(trace.state as PlotState);
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('No data here, so no position to show.');
+  });
+});
+
 describe('AnnouncePositionCommand at the multi-panel lobby', () => {
   function figureState(index: number, size: number): PlotState {
     return { type: 'figure', empty: false, index, size } as unknown as PlotState;
