@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Nested Layer Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Nested Layer</h1>
+    <p>
+      Click on the chart and use left and right arrow keys to move between
+      months. The bars and the sales written on them are one layer of the
+      chart, and the target line is another: press Page Up and Page Down to
+      move between the bars and the line. Press 'b' for braille, 't' for text
+      descriptions.
+    </p>
+    <div
+      id="nested-layer-chart"
+      aria-label="Nested layer chart loading"
+      style="min-height: 400px"
+    ></div>
+
+    <script>
+      // A layer of a layer: the bars and the labels on them are layered once,
+      // as Altair's `bars + labels` is, and that layer is layered again with
+      // the target line -- `alt.layer(bars + labels, target)`. Vega-Lite
+      // draws the inner layer's marks as `layer_0_layer_0_marks` and
+      // `layer_0_layer_1_marks`, and MAIDR reads them as layers of the chart.
+      // The labels are values written on the bars, which the bars announce.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 500,
+        height: 300,
+        title: 'Monthly sales against target',
+        data: {
+          values: [
+            { month: 'Jan', sales: 42, target: 45 },
+            { month: 'Feb', sales: 51, target: 45 },
+            { month: 'Mar', sales: 47, target: 50 },
+            { month: 'Apr', sales: 58, target: 50 },
+            { month: 'May', sales: 63, target: 55 },
+            { month: 'Jun', sales: 55, target: 55 },
+          ],
+        },
+        encoding: {
+          x: { field: 'month', type: 'ordinal', sort: null, title: 'Month' },
+        },
+        layer: [
+          {
+            encoding: {
+              y: { field: 'sales', type: 'quantitative', title: 'Units' },
+            },
+            layer: [
+              { mark: 'bar' },
+              {
+                mark: { type: 'text', dy: -6 },
+                encoding: { text: { field: 'sales' } },
+              },
+            ],
+          },
+          {
+            mark: { type: 'line', color: 'firebrick', point: true },
+            encoding: { y: { field: 'target', type: 'quantitative' } },
+          },
+        ],
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#nested-layer-chart', spec, { id: 'nested-layer' })
+        .catch((err) => console.error('[vegalite-nested-layer]', err));
+    </script>
+  </body>
+</html>
