@@ -522,6 +522,16 @@ export interface ParallelAxesConfig {
 }
 
 /**
+ * One `<Area>` of a ridgeline, by what names it.
+ */
+export interface RechartsRidgelineArea {
+  /** Its `name`, the group it draws in the recipe: `<Area name="Jan">`. */
+  name?: string;
+  /** Its `dataKey`, when each `<Area>` draws its group's own column. */
+  dataKey?: string;
+}
+
+/**
  * Configuration for ridgeline (joy) plots.
  * Required when `chartType` is `'ridgeline'`.
  *
@@ -538,10 +548,45 @@ export interface ParallelAxesConfig {
 export interface RidgelineCurveConfig {
   /**
    * Key holding the group a sample's curve belongs to. Rows are grouped by it
-   * in first-appearance order, which is the order the ridges are announced in
-   * and the order the `<Area>`s have to be declared in for highlighting.
+   * in first-appearance order, which is the order the ridges are read in when
+   * {@link plottedKey} cannot place them, and the order the `<Area>`s have to
+   * be declared in for highlighting when {@link areas} does not name them.
    */
   groupKey: string;
+  /**
+   * Key holding the height the `<Area>`s draw: the density with the group's
+   * ridge offset added.
+   *
+   * Read only for where each ridge is drawn, never as data: a group's offset
+   * is its drawn height less its density. With it the ridges are read bottom
+   * first, as `RidgelineTrace` takes them, so Up moves to the ridge drawn
+   * above. {@link MaidrRecharts} reads it off the `<Area dataKey>` in its
+   * children when not given; through {@link useRechartsAdapter} it is yours
+   * to state. Without it, or when a group has no sample to read an offset
+   * from, the groups are read in first-appearance order, the first as the
+   * lowest.
+   */
+  plottedKey?: string;
+  /**
+   * Whether the drawn heights are plotted on a reversed axis
+   * (`<YAxis reversed>`), where a larger offset is drawn lower on the page,
+   * so the ridges are read from the largest offset down. {@link MaidrRecharts}
+   * reads it off the first `<YAxis>` in its children when not given.
+   */
+  plottedAxisReversed?: boolean;
+  /**
+   * The chart's `<Area>`s, in the order they are declared, each by its `name`
+   * and its `dataKey`.
+   *
+   * Each ridge is highlighted on the band of the `<Area>` named after its
+   * group, or else of the one whose `dataKey` is the group, so the order the
+   * `<Area>`s are declared in does not matter. {@link MaidrRecharts} reads them
+   * off its children when not given; through {@link useRechartsAdapter} they
+   * are yours to state. When they do not name every group's `<Area>`, each
+   * ridge is highlighted on the `<Area>` declared at its group's first
+   * appearance in `data`, and the console says so once per chart.
+   */
+  areas?: readonly RechartsRidgelineArea[];
   /**
    * Key holding the position along the shared value axis.
    *

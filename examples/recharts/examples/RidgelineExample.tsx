@@ -69,8 +69,9 @@ export function RidgelineExample(): JSX.Element {
           <YAxis type="number" tickFormatter={() => ''} />
           <Tooltip />
           {/* One <Area> per group, declared in the order the months first
-              appear in the data — which is the order MAIDR announces them in,
-              and therefore the order the highlight resolves in. */}
+              appear in the data, which is how MAIDR pairs each month with its
+              band. MAIDR reads the ridges bottom first, Oct up to Jan, by the
+              offset each `plotted` value adds to its density. */}
           {months.map((month, index) => (
             <Area
               key={month}

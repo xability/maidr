@@ -39,13 +39,14 @@
  */
 
 import type { JSX, ReactNode } from 'react';
-import type { MaidrRechartsProps, RechartsPieAngles, RechartsSubplotConfig } from './types';
+import type { MaidrRechartsProps, RechartsPieAngles, RechartsRidgelineArea, RechartsSubplotConfig } from './types';
 import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
 import { Orientation } from '../../type/grammar';
-import { categoryAxisReversedFor, categoryAxisReversedPerPanelFor, dotSeriesFor, pieAnglesFor, stepDirectionFor } from './childProps';
-import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
+import { areaDataKeyFor, categoryAxisReversedFor, categoryAxisReversedPerPanelFor, dotSeriesFor, pieAnglesFor, ridgelineAreasFor, ridgelineAxisReversedFor, stepDirectionFor } from './childProps';
+import { convertRechartsToMaidr, normalizeRechartsSubplotGrid, ridgelineAreaWarning } from './converters';
 import { getPanelClassName } from './selectors';
+import { plottedKeyWarning, useWarnOnce } from './useRechartsAdapter';
 
 /**
  * Renders the multi-panel grid for subplot mode.
@@ -197,6 +198,41 @@ export function MaidrRecharts({
     ? dotSeries
     : (dotSeries ?? dotSeriesFor(children, chartType));
   const dotSeriesKey = resolvedDotSeries === undefined ? undefined : JSON.stringify(resolvedDotSeries);
+  // The key a ridgeline's `<Area>`s draw, which places each ridge on the page;
+  // whether its first `<YAxis>` is reversed, which turns the page over; and
+  // what names each `<Area>`, which pairs each ridge with its own band.
+  // Simple mode only, as the others are, and never over what the config gives.
+  // The `<Area>`s travel serialised for the memo, as the dot series do.
+  const readsRidgeline = chartType === 'ridgeline' && !subplots;
+  const ridgelinePlottedKey = readsRidgeline && ridgelineConfig?.plottedKey === undefined
+    ? areaDataKeyFor(children)
+    : undefined;
+  const ridgelineAxisReversed = readsRidgeline && ridgelineConfig?.plottedAxisReversed === undefined
+    && ridgelineAxisReversedFor(children);
+  const ridgelineAreas = readsRidgeline && ridgelineConfig?.areas === undefined
+    ? ridgelineAreasFor(children)
+    : undefined;
+  const ridgelineAreasKey = ridgelineAreas === undefined ? undefined : JSON.stringify(ridgelineAreas);
+  // Found nowhere -- a `dataKey` that is a function, an `<Area>` wrapped in a
+  // component of one's own -- the ridges keep their first-appearance order,
+  // and no `<Area>` named after its group leaves the highlight to the order
+  // they are declared in. Each is said once per mounted chart, as the hook
+  // says it, from an effect.
+  useWarnOnce(readsRidgeline && ridgelineConfig !== undefined && ridgelineConfig.plottedKey === undefined
+    && ridgelinePlottedKey === undefined
+    ? plottedKeyWarning(id, ', and no <Area> in the chart names one as a string dataKey')
+    : undefined);
+  useWarnOnce(readsRidgeline && ridgelineConfig !== undefined
+    ? ridgelineAreaWarning({
+        id,
+        chartType,
+        data,
+        ridgelineConfig: ridgelineAreas === undefined ? ridgelineConfig : { ...ridgelineConfig, areas: ridgelineAreas },
+        selectorOverride,
+        subplots,
+        layers,
+      })
+    : undefined);
 
   const maidrData = useMemo(
     () => convertRechartsToMaidr({
@@ -238,7 +274,14 @@ export function MaidrRecharts({
       ganttConfig,
       gaugeConfig,
       parallelConfig,
-      ridgelineConfig,
+      ridgelineConfig: ridgelineConfig === undefined
+        ? undefined
+        : {
+            ...ridgelineConfig,
+            ...(ridgelinePlottedKey === undefined ? {} : { plottedKey: ridgelinePlottedKey }),
+            ...(ridgelineAxisReversed ? { plottedAxisReversed: true } : {}),
+            ...(ridgelineAreasKey === undefined ? {} : { areas: JSON.parse(ridgelineAreasKey) as RechartsRidgelineArea[] }),
+          },
       hexbinConfig,
       boxenConfig,
       selectorOverride,
@@ -246,7 +289,7 @@ export function MaidrRecharts({
     // The three facts read out of `children` stand in for it, so a chart that
     // flips `reversed` is still picked up while a parent re-render that only
     // rebuilds the same subtree is not.
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, pieAnglesKey, dotSeriesKey, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, pieAnglesKey, dotSeriesKey, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, prCurveConfig, percentileBandConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, ridgelinePlottedKey, ridgelineAxisReversed, ridgelineAreasKey, hexbinConfig, boxenConfig, selectorOverride],
   );
 
   return (

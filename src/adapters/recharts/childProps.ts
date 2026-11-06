@@ -13,7 +13,7 @@
  */
 import type { StepDirection } from '@type/grammar';
 import type { ReactNode } from 'react';
-import type { RechartsChartType, RechartsPieAngles, RechartsSubplotConfig } from './types';
+import type { RechartsChartType, RechartsPieAngles, RechartsRidgelineArea, RechartsSubplotConfig } from './types';
 import { Orientation } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
@@ -71,9 +71,16 @@ function displayNameOf(type: unknown): string | undefined {
  *
  * The walk is depth-first because an axis is commonly nested -- inside a
  * `<ResponsiveContainer>`, or behind a fragment -- and stops at the first
- * matching axis. Anything it cannot find or cannot read answers `false`, so a
- * chart whose axes are built in a way this does not recognise keeps the
- * reading it has today rather than being turned round on a guess.
+ * matching axis that is reversed. Anything it cannot find or cannot read
+ * answers `false`, so a chart whose axes are built in a way this does not
+ * recognise keeps the reading it has today rather than being turned round on a
+ * guess.
+ *
+ * A chart with several category axes is read as reversed when any of them is.
+ * That is right for a series drawn on the reversed axis and wrong for one
+ * drawn on a plain axis declared before it: which axis a series is drawn on is
+ * its `xAxisId` or `yAxisId`, which this does not read. A ridgeline, whose
+ * `<Area>`s share one `<YAxis>`, reads its own ({@link ridgelineAxisReversedFor}).
  *
  * @param children - The chart subtree this component was given
  * @param horizontal - Whether the bars are drawn on their side
@@ -279,6 +286,123 @@ export function dotSeriesFor(
         const drawsDots = props.dot === undefined ? component.dotsByDefault : Boolean(props.dot);
         if (props.hide !== true && drawsDots)
           found.push(typeof props.dataKey === 'string' ? props.dataKey : null);
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
+}
+
+/**
+ * The key a ridgeline's `<Area>`s draw: each group's density with its ridge's
+ * offset added.
+ *
+ * Every `<Area>` of a ridgeline draws the same key, over its own group's
+ * rows, so the first one names it. Read so the ridges can be placed where
+ * they are drawn: the offset that key adds is how far up the page each ridge
+ * sits, and that is the order `RidgelineTrace` walks them in.
+ *
+ * Depth-first for the same reason the other walks are, and stops at the
+ * first `<Area>`. A tree with none, or an `<Area>` whose `dataKey` is not a
+ * string, answers `undefined`, and the groups are then read in the order they
+ * first appear in `data`.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns The key, or `undefined`
+ */
+export function areaDataKeyFor(children: ReactNode): string | undefined {
+  let found: string | undefined;
+  let done = false;
+
+  const walk = (nodes: ReactNode): void => {
+    if (done)
+      return;
+    Children.forEach(nodes, (child) => {
+      if (done || !isValidElement(child))
+        return;
+      const props = child.props as { dataKey?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'Area') {
+        done = true;
+        found = typeof props.dataKey === 'string' ? props.dataKey : undefined;
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
+}
+
+/**
+ * Whether a ridgeline's ridges are drawn on a reversed `<YAxis>`.
+ *
+ * A ridgeline's `<Area>`s share one `<YAxis>`, and a reversed one turns the
+ * page over: the ridge offset most is drawn lowest. The first `<YAxis>`
+ * answers, reversed or not. A reversed one after it belongs to something
+ * else, and read as the ridges' own it would list them top first.
+ *
+ * Read for a ridgeline alone: {@link categoryAxisReversedFor}, which bar and
+ * line charts read, answers for whichever category axis is reversed.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns True when the first `<YAxis>` is reversed
+ */
+export function ridgelineAxisReversedFor(children: ReactNode): boolean {
+  let reversed = false;
+  let done = false;
+
+  const walk = (nodes: ReactNode): void => {
+    if (done)
+      return;
+    Children.forEach(nodes, (child) => {
+      if (done || !isValidElement(child))
+        return;
+      const props = child.props as { reversed?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'YAxis') {
+        done = true;
+        reversed = props.reversed === true;
+        return;
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return reversed;
+}
+
+/**
+ * A ridgeline's `<Area>`s, in the order they are declared, each by its `name`
+ * and its `dataKey`.
+ *
+ * Recharts writes nothing on a band that says which group it draws, so each
+ * ridge is highlighted on the band of the `<Area>` that names its group
+ * (`ridgeSelectors`, counting among the `<Area>`s). Every `<Area>` is
+ * collected, depth-first in the order they are written, which is the order
+ * Recharts draws the bands in. A `name` given as a number is read as the
+ * text a group is read as; anything else that is not a string is left out.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns One entry per `<Area>`, in declaration order
+ */
+export function ridgelineAreasFor(children: ReactNode): RechartsRidgelineArea[] {
+  const found: RechartsRidgelineArea[] = [];
+
+  const walk = (nodes: ReactNode): void => {
+    Children.forEach(nodes, (child) => {
+      if (!isValidElement(child))
+        return;
+      const props = child.props as { name?: unknown; dataKey?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'Area') {
+        const name = typeof props.name === 'number' ? String(props.name) : props.name;
+        found.push({
+          ...(typeof name === 'string' ? { name } : {}),
+          ...(typeof props.dataKey === 'string' ? { dataKey: props.dataKey } : {}),
+        });
         return;
       }
       walk(props.children);
