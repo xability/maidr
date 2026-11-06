@@ -877,14 +877,61 @@ function getMarkExtent(spec: VegaLiteSpec): string | undefined {
   return spec.mark.extent;
 }
 
+/** A compiled scale as far as the adapter reads one. */
+type CompiledScale = NonNullable<ReturnType<VegaView['scale']>>;
+
 /**
- * Read a scale's domain off the compiled view.
+ * Read a scale off the compiled view.
  *
  * Two things make this less direct than it looks. Vega **throws** for a
  * scale name it does not recognise rather than returning nothing, and a
  * composite child's scales are scoped to its own group — a concat child's y
  * scale is `concat_0_y`, not `y` — so the prefixed name is tried first and
  * the bare one after.
+ *
+ * A layer of a layered spec that resolves the scale `independent` has one of
+ * its own, `layer_<i>_y` (`concat_0_layer_<i>_y` in a concat child), which is
+ * tried before the shared one when the layer's index is given.
+ *
+ * The scale returned is also a function, as every Vega scale is, from a value
+ * of its domain to the position that value is drawn at, which
+ * {@link drawnFirstPlace} calls.
+ *
+ * @param view - The compiled view, when one was supplied
+ * @param name - The scale's name — a positional axis, or `color`
+ * @param markGroupPrefix - The composite child's class prefix, if any
+ * @param layerIndex - The layer's index in its layered spec, if it is one
+ * @returns The scale, or `undefined` when no such scale with a domain is in
+ * scope
+ */
+function readScale(
+  view: VegaView | undefined,
+  name: string,
+  markGroupPrefix: string,
+  layerIndex?: number,
+): CompiledScale | undefined {
+  if (!view || typeof view.scale !== 'function')
+    return undefined;
+  const candidates = [
+    ...(layerIndex === undefined ? [] : [`${markGroupPrefix}layer_${layerIndex}_${name}`]),
+    ...(markGroupPrefix ? [`${markGroupPrefix}${name}`] : []),
+    name,
+  ];
+  for (const candidate of candidates) {
+    try {
+      const scale = view.scale(candidate);
+      const domain = scale?.domain();
+      if (scale && Array.isArray(domain) && domain.length > 0)
+        return scale;
+    } catch {
+      // Not in scope from here — try the next candidate name.
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Read a scale's domain off the compiled view. See {@link readScale}.
  *
  * @param view - The compiled view, when one was supplied
  * @param name - The scale's name — a positional axis, or `color`
@@ -896,19 +943,157 @@ function readScaleDomain(
   name: string,
   markGroupPrefix: string,
 ): unknown[] | undefined {
-  if (!view || typeof view.scale !== 'function')
+  return readScale(view, name, markGroupPrefix)?.domain();
+}
+
+/**
+ * Where a bump chart draws first place, for {@link MaidrLayer.firstPlace},
+ * where that is certain, and `undefined` where it is not.
+ *
+ * Said only where certain, because a layer that says it is not measured.
+ * Unsaid, `BumpTrace` reads it off the markers the highlight draws on the
+ * points, which it gets right wherever they are laid out; said wrong, Up and
+ * Down would move against the drawing. Certain in three cases:
+ *
+ * - The y channel has no scale (`scale: null`), so each rank is drawn its own
+ *   number of pixels down the page, and first place is at the top.
+ * - A compiled scale of this layer's holds its ranks: its own, where its
+ *   layered spec resolves y `independent`, or the one it shares. See
+ *   {@link drawnFirstPlace}.
+ * - There is no such scale, the layer is not one of a layered spec, whose
+ *   shared scale also takes in its siblings' settings, and its y channel uses
+ *   only settings measured to draw first place where they say. See
+ *   {@link declaredFirstPlace}.
+ *
+ * @param view - The compiled view, when one was supplied
+ * @param y - The layer's y channel, merged with any parent's
+ * @param markGroupPrefix - The composite child's class prefix, if any
+ * @param layerIndex - The layer's index in its layered spec, if it is one
+ * @returns Where first place is drawn, or `undefined` where that is not certain
+ */
+function firstPlaceOf(
+  view: VegaView | undefined,
+  y: VegaLiteChannelDef | undefined,
+  markGroupPrefix: string,
+  layerIndex?: number,
+): 'top' | 'bottom' | undefined {
+  if (y?.scale === null)
+    return 'top';
+  const scale = readScale(view, 'y', markGroupPrefix, layerIndex);
+  if (scale)
+    return drawnFirstPlace(scale);
+  return layerIndex === undefined ? declaredFirstPlace(y) : undefined;
+}
+
+/**
+ * A value of a rank axis's domain as the rank it is: a number, or a string
+ * of one, which the line's points are read as too.
+ *
+ * @param value - A value of the domain
+ * @returns The rank, or `NaN` when the value is not one
+ */
+function rankOf(value: unknown): number {
+  if (typeof value === 'number')
+    return value;
+  return typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
+}
+
+/**
+ * Where a compiled y scale draws first place: the best rank of its domain
+ * above the worst, or below. The scale has already taken in everything that
+ * turns an axis round, `reverse`, a domain written out, a `sort` and the
+ * scale's type. A domain holding fewer than two ranks, or a scale drawing both
+ * at one height, says nothing.
+ *
+ * @param scale - The layer's compiled y scale
+ * @returns Where first place is drawn, or `undefined` where the scale cannot
+ * say
+ */
+function drawnFirstPlace(scale: CompiledScale): 'top' | 'bottom' | undefined {
+  // A compiled Vega scale is also a function, from a value of its domain to
+  // the position that value is drawn at.
+  const position: unknown = scale;
+  if (typeof position !== 'function')
     return undefined;
-  const candidates = markGroupPrefix ? [`${markGroupPrefix}${name}`, name] : [name];
-  for (const candidate of candidates) {
-    try {
-      const domain = view.scale(candidate)?.domain();
-      if (Array.isArray(domain) && domain.length > 0)
-        return domain;
-    } catch {
-      // Not in scope from here — try the next candidate name.
-    }
+  const drawnAt = position as (value: unknown) => unknown;
+  let best: { value: unknown; rank: number } | undefined;
+  let worst: { value: unknown; rank: number } | undefined;
+  for (const value of scale.domain()) {
+    const rank = rankOf(value);
+    if (!Number.isFinite(rank))
+      continue;
+    if (!best || rank < best.rank)
+      best = { value, rank };
+    if (!worst || rank > worst.rank)
+      worst = { value, rank };
   }
-  return undefined;
+  if (!best || !worst || best.rank === worst.rank)
+    return undefined;
+  const bestAt = Number(drawnAt(best.value));
+  const worstAt = Number(drawnAt(worst.value));
+  if (!Number.isFinite(bestAt) || !Number.isFinite(worstAt) || bestAt === worstAt)
+    return undefined;
+  return bestAt < worstAt ? 'top' : 'bottom';
+}
+
+/** The y scale settings {@link declaredFirstPlace} reads, or has measured to turn nothing round. */
+const SPEC_SCALE_SETTINGS: ReadonlySet<string> = new Set(['reverse', 'domain', 'zero', 'nice', 'padding']);
+
+/**
+ * Where a y channel draws first place, read from the spec alone, and only
+ * from settings measured to draw it where they say (vega-lite 5.23).
+ *
+ * A continuous scale draws small values at the bottom, so on `rank:Q` first
+ * place is at the top only when reversed, as on a Chart.js or Highcharts axis.
+ * A discrete one lays its first value out at the top, so on `rank:O`, the
+ * axis the Vega-Lite and Altair galleries draw a bump chart on, first place is
+ * at the top unreversed. Measured on vega 5.33, rank 1 of 3 on a 200-pixel
+ * axis: at 133 on `rank:Q`, 67 reversed; at 33 on `rank:O`, 167 reversed.
+ *
+ * Each of `reverse`, a numeric `domain` written largest first and
+ * `sort: 'descending'` turns that round. A continuous scale reads a
+ * descending sort as `reverse` where `reverse` is not written; a discrete one
+ * ignores its sort where its domain is written out. `zero`, `nice` and
+ * `padding` turn nothing round. Anything else is not certain and says
+ * nothing: another type or none, another scale setting or `sort`, a `reverse`
+ * given as an expression, a domain not written as numbers.
+ *
+ * @param y - The layer's y channel, merged with any parent's
+ * @returns Where first place is drawn, or `undefined` where that is not certain
+ */
+function declaredFirstPlace(y: VegaLiteChannelDef | undefined): 'top' | 'bottom' | undefined {
+  const discrete = y?.type === 'ordinal' || y?.type === 'nominal';
+  if (!discrete && y?.type !== 'quantitative')
+    return undefined;
+  const scale = y?.scale ?? {};
+  if (Object.keys(scale).some(setting => !SPEC_SCALE_SETTINGS.has(setting)))
+    return undefined;
+  const { reverse, domain } = scale;
+  if (reverse !== undefined && typeof reverse !== 'boolean')
+    return undefined;
+  const sort = y?.sort;
+  if (sort !== undefined && sort !== 'ascending' && sort !== 'descending')
+    return undefined;
+  let largestFirst = false;
+  if (domain !== undefined) {
+    // A discrete domain lists its values in the order they are laid out; a
+    // continuous one is its two ends.
+    if (!Array.isArray(domain) || domain.length < 2 || (!discrete && domain.length !== 2)
+      || !domain.every((value): value is number => typeof value === 'number')) {
+      return undefined;
+    }
+    largestFirst = domain.indexOf(Math.max(...domain)) < domain.indexOf(Math.min(...domain));
+  }
+  const descending = sort === 'descending' && !(discrete && domain !== undefined);
+  const reversed = reverse ?? (descending && !discrete);
+  // Where the scale's type draws the smallest rank, first place, when nothing
+  // turns the axis round: a discrete scale lays its values out from the top,
+  // smallest first, and a continuous one draws small values at the bottom.
+  const smallestOnTop = discrete;
+  // Each of these turns the axis round once, so two turn it back.
+  const turnings = Number(reversed) + Number(largestFirst) + Number(descending && discrete);
+  const turnedRound = turnings % 2 === 1;
+  return smallestOnTop !== turnedRound ? 'top' : 'bottom';
 }
 
 /**
@@ -4672,6 +4857,14 @@ function convertLayerSpec(
   }
   if (stepDirection && traceType === TraceType.STEP) {
     layer.stepDirection = stepDirection;
+  }
+  // Said where certain rather than left to `BumpTrace` to measure off the
+  // highlight's markers, which it can only once the chart is laid out and then
+  // asks for in a console warning. Where not certain, left to be measured.
+  if (traceType === TraceType.BUMP) {
+    const firstPlace = firstPlaceOf(view, encoding.y, markGroupPrefix, layered ? selectorLayerIndex : undefined);
+    if (firstPlace)
+      layer.firstPlace = firstPlace;
   }
   if (orientation) {
     layer.orientation = orientation;

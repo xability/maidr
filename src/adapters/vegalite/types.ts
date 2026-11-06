@@ -284,6 +284,19 @@ export interface VegaLiteChannelDef {
   bin?: boolean | Record<string, unknown>;
   stack?: boolean | string | null;
   /**
+   * The channel's scale, read only for where a bump chart draws first place
+   * (`firstPlaceOf`): `null`, which draws each value its own number of pixels
+   * down, and, where there is no compiled scale to read, its settings. Any
+   * setting `declaredFirstPlace` has not measured makes it say nothing.
+   */
+  scale?: Record<string, unknown> | null;
+  /**
+   * The order of the channel's values. Read, as `scale` is, only for where a
+   * bump chart draws first place without a compiled scale: `'ascending'` and
+   * `'descending'`, any other sort making it say nothing.
+   */
+  sort?: unknown;
+  /**
    * A time unit the field is truncated to (`month`, `yearmonth`, or a time
    * unit params object), whose result Vega-Lite writes to a column of its
    * own name (`month_date`).
