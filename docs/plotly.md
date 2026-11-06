@@ -120,6 +120,14 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
   convention: its flat segments sit at the mean of the two levels rather than
   at either one, which none of MAIDR's three conventions describes.
 
+- A line, a step or an area drawn without markers (`mode: 'lines'`) has no
+  element per point, so the highlight is a marker MAIDR places on the point
+  being read, along the line plotly drew; when every trace of the layer draws
+  markers, it is the point's own marker. A staircase drawn `hvh` or `vhv`
+  without markers is not highlighted: plotly draws the step between two
+  samples of one value as a riser of no height, and the samples cannot be told
+  apart along its path.
+
 - A pie trace is bound to no axes — Plotly positions it by its own `domain`
   instead — so each pie becomes its own MAIDR subplot rather than joining
   whichever cartesian panel happens to use the first axis pair. `axes.x` and
@@ -339,8 +347,9 @@ and precision up y. Write the block on a curve's trace:
   describe the curve of the trace they are written on — never a curve merged in
   without a block, which may have been scored on different data. A percentage
   is refused with a warning rather than rescaled.
-- **The highlight** is the line's own: the trace's markers when it draws them,
-  and none for `mode: 'lines'`, exactly as for a line.
+- **The highlight** is the line's own, as for a line: a marker placed on the
+  point being read along the curve plotly drew, or that point's own marker
+  when every curve draws markers.
 
 A `pr_curve` written on a trace that draws no line — markers only, a bar — is
 reported, and that trace is read as the undeclared chart.

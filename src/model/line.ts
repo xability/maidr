@@ -1862,12 +1862,16 @@ export class LineTrace extends AbstractTrace {
     const dataPoints = only === undefined
       ? this.points[row]
       : only.map(i => this.points[row][i]);
-    const dataXMin = Number(dataPoints[0].x);
-    const dataXMax = Number(dataPoints[dataPoints.length - 1].x);
+    // A category is placed by its position on the axis (see numericX):
+    // `Number('Q2')` is NaN, which put every point of a path drawn with fewer
+    // vertices than points -- Plotly drops the middle of a straight run -- at
+    // its first vertex.
+    const dataXMin = this.numericX(dataPoints[0].x);
+    const dataXMax = this.numericX(dataPoints[dataPoints.length - 1].x);
     const dataXRange = dataXMax - dataXMin;
 
     const svgXs = Array.from({ length: expected }, (_, i) => {
-      const dataX = Number(dataPoints[i].x);
+      const dataX = this.numericX(dataPoints[i].x);
       return dataXRange > 0
         ? xMin + ((dataX - dataXMin) / dataXRange) * (xMax - xMin)
         : xMin;
@@ -2140,7 +2144,9 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
-   * Numeric x coordinate for intersection geometry. Numeric (or numeric
+   * Numeric x coordinate for intersection geometry, and for placing a point
+   * along a path drawn with fewer vertices than points
+   * ({@link interpolateAlongEdge}). Numeric (or numeric
    * string) x values pass through unchanged; categorical values (e.g.
    * '2019-11-05') resolve to their ordinal position on the shared x domain so
    * segment-intersection math works on date/category axes too — Number()

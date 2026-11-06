@@ -541,11 +541,20 @@ describe('plotly extractor', () => {
 
     it('highlights the markers of a lines+markers step, as a line does', () => {
       const layer = onlyLayer(createGraphDiv({
-        traces: [stepTrace('hv', { mode: 'lines+markers' })],
+        traces: [stepTrace('hv', { mode: 'lines+markers', uid: 's1' })],
         layout: SINGLE_PANEL,
       }));
 
-      expect(layer.selectors).toBe('.subplot.xy .trace.scatter .point');
+      expect(layer.selectors).toEqual(['.subplot.xy .scatterlayer g.trace.traces1 .point']);
+    });
+
+    it('highlights a lines-only step along its line', () => {
+      const layer = onlyLayer(createGraphDiv({
+        traces: [stepTrace('hv', { uid: 's1' })],
+        layout: SINGLE_PANEL,
+      }));
+
+      expect(layer.selectors).toEqual(['.subplot.xy .scatterlayer g.trace.traces1 path.js-line']);
     });
 
     it('merges step traces sharing a convention into one layer', () => {
@@ -2618,20 +2627,20 @@ describe('plotly extractor', () => {
 
     it('highlights the markers of an area drawn with them', () => {
       const layers = layersOf(createGraphDiv({
-        traces: [areaTrace({ mode: 'lines+markers', stackgroup: 'one' })],
+        traces: [areaTrace({ mode: 'lines+markers', stackgroup: 'one', uid: 'e1' })],
         layout: SINGLE_PANEL,
       }));
 
-      expect(layers[0].selectors).toBe('.subplot.xy .trace.scatter .point');
+      expect(layers[0].selectors).toEqual(['.subplot.xy .scatterlayer g.trace.tracee1 .point']);
     });
 
-    it('leaves a lines-only area unhighlighted, as it leaves a line', () => {
+    it('highlights a lines-only area along its line, as it does a line', () => {
       const layers = layersOf(createGraphDiv({
-        traces: [areaTrace()],
+        traces: [areaTrace({ uid: 'e1' })],
         layout: SINGLE_PANEL,
       }));
 
-      expect(layers[0].selectors).toBeUndefined();
+      expect(layers[0].selectors).toEqual(['.subplot.xy .scatterlayer g.trace.tracee1 path.js-line']);
     });
 
     it('does not warn about an area trace, which is supported', () => {
@@ -5441,10 +5450,22 @@ describe('plotly extractor', () => {
 
     it('highlights a curve drawn with markers through its line\'s markers', () => {
       const layers = layersOf([
-        curve('Model A', { mode: 'lines+markers', meta: { maidr: { type: 'pr_curve' } } }),
+        curve('Model A', { mode: 'lines+markers', uid: 'a1', meta: { maidr: { type: 'pr_curve' } } }),
       ]);
 
-      expect(layers[0].selectors).toBe('.subplot.xy .trace.scatter .point');
+      expect(layers[0].selectors).toEqual(['.subplot.xy .scatterlayer g.trace.tracea1 .point']);
+    });
+
+    it('highlights each curve drawn with lines along its own line', () => {
+      const layers = layersOf([
+        curve('Model A', { uid: 'a1', meta: { maidr: { type: 'pr_curve' } } }),
+        curve('Model B', { uid: 'b2' }),
+      ]);
+
+      expect(layers[0].selectors).toEqual([
+        '.subplot.xy .scatterlayer g.trace.tracea1 path.js-line',
+        '.subplot.xy .scatterlayer g.trace.traceb2 path.js-line',
+      ]);
     });
 
     it('refuses a declaration on a trace that draws no line, and reports it', () => {

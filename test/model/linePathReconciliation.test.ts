@@ -248,3 +248,27 @@ describe('reconciling a simplified path with a series', () => {
     expect(trace.getAllHighlightElements()).toEqual([]);
   });
 });
+
+describe('reconciling a simplified path with a series on a category axis', () => {
+  test('places each category by its position along the path', () => {
+    // The top edge of a 100% stack is flat, so Plotly draws it from its first
+    // vertex to its last and nothing between. `Number('Q2')` is NaN, and
+    // every quarter's marker was put at the first vertex.
+    const trace = new ProbeTrace({
+      id: 'series',
+      type: TraceType.LINE,
+      axes: { x: { label: 'Quarter' }, y: { label: 'Share' } },
+      data: [['Q1', 'Q2', 'Q3', 'Q4'].map(x => ({ x, y: 100 }))],
+    });
+    const coordinates: LinePoint[] = [{ x: 84, y: 673 }, { x: 609, y: 673 }];
+
+    trace.reconcile(coordinates);
+
+    expect(coordinates).toEqual([
+      { x: 84, y: 673 },
+      { x: 259, y: 673 },
+      { x: 434, y: 673 },
+      { x: 609, y: 673 },
+    ]);
+  });
+});
