@@ -1,4 +1,5 @@
 import type { Disposable } from '@type/disposable';
+import type { MessageKey } from './en';
 import type { MessageParams } from './interpolate';
 import type { LanguageChangeDetail, Locale } from './locale';
 import { en } from './en';
@@ -6,6 +7,7 @@ import { interpolate } from './interpolate';
 import { DEFAULT_LOCALE, isLocale, LANGUAGE_CHANGE_EVENT } from './locale';
 import { adoptLocalePacks } from './pack';
 
+export type { MessageKey } from './en';
 export { interpolate } from './interpolate';
 export type { MessageParams } from './interpolate';
 export {
@@ -34,9 +36,6 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   it: 'Italiano',
   hi: 'हिन्दी',
 };
-
-/** Every key the English dictionary defines; the other dictionaries follow it. */
-export type MessageKey = keyof typeof en;
 
 const MESSAGES: Partial<Record<Locale, Readonly<Record<MessageKey, string>>>> = { en };
 
