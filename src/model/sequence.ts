@@ -74,14 +74,19 @@ function kindName(kind: SequenceMessageKind): string {
 }
 
 /**
- * The number the diagram prints beside a message, when it prints one. A note,
- * and a message the diagram does not number, has none.
+ * The number the diagram prints beside a message, when it prints one: a
+ * count, or text such as ZenUML's `1.2.1`, which says which call the message
+ * is made inside. A note, and a message the diagram does not number, has
+ * none.
  *
  * @param message - The message
  * @returns Its number, or undefined
  */
-function printedNumber(message: SequenceMessage): number | undefined {
+function printedNumber(message: SequenceMessage): number | string | undefined {
   const number = message.number;
+  if (typeof number === 'string') {
+    return number.trim() === '' ? undefined : number.trim();
+  }
   return typeof number === 'number' && Number.isFinite(number) ? number : undefined;
 }
 

@@ -431,7 +431,25 @@ function drawnAt(group: Element): number | null {
 }
 
 /**
+ * The number the plugin drew beside a message or a reply, in the message's
+ * own group: `1.1` for the first call made inside the first one.
+ *
+ * @param group - The group the plugin drew for one message
+ * @returns The number as drawn, or null when it drew none
+ */
+function numberDrawnIn(group: Element): string | null {
+  const number = Array.from(group.children)
+    .find(child => child.localName === 'text' && child.classList.contains('seq-number'));
+  const text = number?.textContent?.trim() ?? '';
+  return text === '' ? null : text;
+}
+
+/**
  * ZenUML diagrams, read from their text into a sequence layer.
+ *
+ * Each message is numbered as the plugin numbers it, by the number drawn in
+ * the group it is paired with. The number says which call a message is made
+ * inside, which the text read leaves unsaid.
  *
  * @param context - The diagram
  * @returns The conversion
@@ -452,12 +470,19 @@ export function zenuml(context: DiagramContext): DiagramConversion {
   const drawn = placed.every(one => one.y !== null)
     ? placed.sort((a, b) => (a.y ?? 0) - (b.y ?? 0)).map(one => one.group)
     : [];
-  const selectors = drawn.length === messages.length ? selectorsFor(drawn) : undefined;
+  const paired = drawn.length === messages.length;
+  const selectors = paired ? selectorsFor(drawn) : undefined;
+  const numbered = paired
+    ? messages.map((message, at) => {
+        const number = numberDrawnIn(drawn[at]);
+        return number === null ? message : { ...message, number };
+      })
+    : messages;
   const layer: MaidrLayer = {
     id: context.layerId('sequence'),
     type: TraceType.SEQUENCE,
     ...(selectors ? { selectors } : {}),
-    data: { participants, messages },
+    data: { participants, messages: numbered },
   };
   return { layers: [layer], ...(title ? { title } : {}) };
 }

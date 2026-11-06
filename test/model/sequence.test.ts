@@ -419,6 +419,22 @@ describe('the description', () => {
     expect(table.rows.map(row => row[0])).toEqual([1, '', '', '', '', '']);
   });
 
+  test('announces and tabulates a number written as text, as ZenUML numbers a nested call', () => {
+    const trace = sequence({
+      participants: [{ id: 'Customer' }, { id: 'API' }, { id: 'Store' }],
+      messages: [
+        { from: 'Customer', to: 'API', text: 'book(seat)', number: '1' },
+        { from: 'API', to: 'Store', text: 'check(seat)', number: '1.1' },
+        { from: 'Store', to: 'API', text: 'available', kind: 'reply', number: '1.1.1' },
+        { from: 'API', to: 'Customer', text: 'receipt', kind: 'async', number: ' ' },
+      ],
+    });
+    trace.moveOnce('FORWARD');
+
+    expect(aside(trace, 'Number')).toBe('1.1');
+    expect(trace.description.dataTable.rows.map(row => row[0])).toEqual(['1', '1.1', '1.1.1', '']);
+  });
+
   test('has no Number column when the diagram numbers nothing', () => {
     const table = sequence({ ...LOGIN, messages: LOGIN.messages.map(message => ({ ...message, number: undefined })) })
       .description

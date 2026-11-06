@@ -1267,8 +1267,13 @@ export interface SequenceMessage {
    * own.
    */
   fragments?: string[];
-  /** The number the diagram prints beside it, when it numbers its messages. */
-  number?: number;
+  /**
+   * The number the diagram prints beside it, when it numbers its messages:
+   * a count, as a Mermaid sequence diagram's autonumber prints one, or text,
+   * as ZenUML prints `1.2.1` for a call made inside the second statement of
+   * the first one.
+   */
+  number?: number | string;
 }
 
 /**

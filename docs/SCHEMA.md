@@ -1242,9 +1242,11 @@ is an object, because a participant no message reaches is still a lifeline:
   them, a later section written as its fragment's label, a comma and the
   section (`alt cached, else`), so it is heard with what it is the
   alternative of and counted with its fragment; `number` is the sequence number the diagram prints, omitted for a
-  message it does not number and for a note. The description's table shows
-  only those numbers, a blank where there is none, and has no Number column
-  when nothing is numbered.
+  message it does not number and for a note: a count, or text where the
+  diagram numbers its messages by nesting, as ZenUML prints `1.2.1` for the
+  first call made inside the second statement of the first one. The
+  description's table shows only those numbers, a blank where there is none,
+  and has no Number column when nothing is numbered.
 
 Left and right walk the messages in time. Down moves from the row of every
 message onto the first participant's lifeline, and on to the next participant,

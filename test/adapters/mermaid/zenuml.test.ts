@@ -113,6 +113,30 @@ describe('a ZenUML diagram', () => {
     expect(outlined(layer.selectors)).toEqual(['go()', 'validate()', 'fine', 'hi']);
   });
 
+  it('numbers each message and reply as the plugin numbers it beside the arrow', () => {
+    // A call, its assigned reply and a message after it, as the plugin draws
+    // them: each group's number beside its arrow, the reply numbered inside
+    // the call it answers.
+    const svg = drawn('z', '<g class="message"><line y1="87"></line><text y="84">get()</text>'
+      + '<text y="84" class="seq-number">1</text></g>'
+      + '<g class="message"><line y1="152"></line><text y="149">hi</text><text y="149" class="seq-number">2</text></g>'
+      + '<g class="return"><line y1="119"></line><text y="116">x</text><text y="116" class="seq-number">1.1</text></g>');
+    const layer = layersOf(convertMermaidDiagram({ type: 'zenuml', db: {}, text: 'zenuml\n  x = A.get()\n  A->B: hi' }, svg))[0];
+
+    expect((layer.data as SequenceData).messages.map(message => [message.text, message.number])).toEqual([
+      ['get()', '1'],
+      ['x', '1.1'],
+      ['hi', '2'],
+    ]);
+  });
+
+  it('numbers nothing it cannot pair with what the plugin drew', () => {
+    const svg = drawn('z', '<g class="message"><line y1="87"></line><text class="seq-number">1</text></g>');
+    const layer = layersOf(convertMermaidDiagram({ type: 'zenuml', db: {}, text: 'zenuml\n  x = A.get()\n  A->B: hi' }, svg))[0];
+
+    expect((layer.data as SequenceData).messages.every(message => message.number === undefined)).toBe(true);
+  });
+
   it('withdraws the highlight when a group says nothing of where it was drawn', () => {
     const svg = drawn('z', '<g class="message"><line y1="87"></line></g><g class="message"><path></path></g>'
       + '<g class="return"><line y1="119"></line></g>');
