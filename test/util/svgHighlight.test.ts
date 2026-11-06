@@ -480,6 +480,56 @@ describe('createHighlightElement on a mark too small to see', () => {
     expect([highlight.getAttribute('cx'), highlight.getAttribute('cy')]).toEqual(['40', '60']);
   });
 
+  /**
+   * Gives a mark the matrix that draws its user units on the screen.
+   * @param mark - The mark
+   * @param matrix - The matrix
+   * @param matrix.a - Its x scale
+   * @param matrix.b - Its y skew
+   * @param matrix.c - Its x skew
+   * @param matrix.d - Its y scale
+   * @param matrix.e - Its x translation
+   * @param matrix.f - Its y translation
+   */
+  function onScreen(mark: SVGElement, matrix: { a: number; b: number; c: number; d: number; e: number; f: number }): void {
+    Object.defineProperty(mark, 'getScreenCTM', { value: () => matrix });
+  }
+
+  it('copies an edge drawn with no stroke, which Firefox gives an empty client box, along its length', () => {
+    // The Q1 edge MAIDR derives from a Nivo box, which has no border, so the
+    // edge has no stroke either: 69 units long, turned upright by the box's
+    // rotate(-90). Firefox 155 reported its client box as 0 by 0; the dot
+    // drawn for it sat 61 px short of the edge's ends.
+    const edge = measuredMark(
+      'line',
+      'x1="-34.5" y1="-58.7" x2="34.5" y2="-58.7" stroke-width="0px"',
+      { x: -34.5, y: -58.7, width: 69, height: 0 },
+      { width: 0, height: 0 },
+    );
+    onScreen(edge, { a: 0, b: -1, c: 1, d: 0, e: 245.5, f: 283.5 });
+
+    const highlight = Svg.createHighlightElement(edge, FALLBACK_COLOR);
+
+    expect(highlight.tagName.toLowerCase()).toBe('line');
+    expect(document.querySelector('circle')).toBeNull();
+  });
+
+  it('marks a wick shorter than a pixel by its length on the page, not its stroke', () => {
+    // Firefox counts the stroke in the client box, which made the same wick
+    // a pixel wide there and left it unmarked.
+    const wick = measuredMark(
+      'path',
+      'd="M 209.5 302.99 L 209.5 303.09"',
+      { x: 209.5, y: 302.99, width: 0, height: 0.1 },
+      { width: 1, height: 1.13 },
+    );
+    onScreen(wick, { a: 1.3, b: 0, c: 0, d: 1.3, e: 0, f: 0 });
+
+    const highlight = Svg.createHighlightElement(wick, FALLBACK_COLOR);
+
+    expect(highlight.tagName.toLowerCase()).toBe('circle');
+  });
+
   it.each([
     { what: 'a path with no height, which strokes a line', tag: 'path', attributes: 'd="M 0 10 L 52 10"', box: { x: 0, y: 10, width: 52, height: 0 } },
     { what: 'a wick a pixel long', tag: 'path', attributes: 'd="M 5 10 L 5 11"', box: { x: 5, y: 10, width: 0, height: 1 } },

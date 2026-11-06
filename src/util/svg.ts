@@ -1032,8 +1032,46 @@ export abstract class Svg {
     if (this.AREA_SHAPES.has(element.tagName.toLowerCase()) && (bbox.width === 0 || bbox.height === 0)) {
       return true;
     }
-    const box = element.getBoundingClientRect();
+    const box = this.sizeOnPage(element, bbox);
     return box.width < this.MIN_VISIBLE_PX && box.height < this.MIN_VISIBLE_PX;
+  }
+
+  /**
+   * A mark's size on the page, in CSS pixels: its box in its own user units,
+   * through the matrix that draws them on the screen.
+   *
+   * Not `getBoundingClientRect`, which browsers answer differently for SVG.
+   * Chromium measures the geometry; Firefox measures what is painted, stroke
+   * included, so a line drawn with no stroke reads as 0 by 0 there. The Q1
+   * and Q3 edges MAIDR derives from a box take the box's stroke width, and
+   * Nivo draws its boxes with none: in Firefox each edge passed for a speck,
+   * and was outlined by a dot at its middle rather than along its length.
+   * `getBoundingClientRect` is read only for an element with no screen
+   * matrix.
+   *
+   * @param element - The mark, in the document
+   * @param bbox - Its box, in its own user units
+   * @returns Its width and height on the page
+   */
+  private static sizeOnPage(element: SVGElement, bbox: DOMRect): { width: number; height: number } {
+    const graphic = element as Partial<SVGGraphicsElement>;
+    const matrix = typeof graphic.getScreenCTM === 'function' ? graphic.getScreenCTM() : null;
+    if (!matrix) {
+      const box = element.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    }
+    const corners = [
+      [bbox.x, bbox.y],
+      [bbox.x + bbox.width, bbox.y],
+      [bbox.x, bbox.y + bbox.height],
+      [bbox.x + bbox.width, bbox.y + bbox.height],
+    ];
+    const xs = corners.map(([x, y]) => matrix.a * x + matrix.c * y);
+    const ys = corners.map(([x, y]) => matrix.b * x + matrix.d * y);
+    return {
+      width: Math.max(...xs) - Math.min(...xs),
+      height: Math.max(...ys) - Math.min(...ys),
+    };
   }
 
   /**
