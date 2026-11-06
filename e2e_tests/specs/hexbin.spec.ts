@@ -111,6 +111,26 @@ test.describe('Hexbin', () => {
     expect(announcement).not.toContain('column');
   });
 
+  test('should jump to the densest bin and to the sparsest occupied one', async ({ page }) => {
+    // ] and [ used to say there was no maximum or minimum value to go to in
+    // this layer, on a lattice whose every bin carries a count.
+    const counts = (maidrData.subplots[0][0].layers[0].data as HexbinPoint[][])
+      .flat()
+      .map(bin => Number(bin.count))
+      .filter(count => count > 0);
+    const plot = new HexbinPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+
+    await plot.goToMaximumValue();
+    const densest = normalizeText(await plot.getInstructionText());
+    await plot.goToMinimumValue();
+    const sparsest = normalizeText(await plot.getInstructionText());
+
+    expect(densest).toContain(String(Math.max(...counts)));
+    expect(sparsest).toContain(String(Math.min(...counts)));
+  });
+
   test('should keep a vertical walk over the same x', async ({ page }) => {
     // Two rows up and two rows back down has to return to where it started.
     // Choosing the nearer bin relative to the one being left would drift

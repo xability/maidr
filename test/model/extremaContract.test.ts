@@ -56,11 +56,17 @@ describe('a trace offering extrema navigation implements it', () => {
   });
 
   test('the check reads declarations rather than mentions', () => {
-    // The treemap's flag is off and its comment names the method, so it is
-    // the case that separates the two readings.
-    const treemap = sources.find(source => source.name === 'treemap.ts');
+    // A trace whose flag is off may say why in a comment naming the method,
+    // as the treemap's did before it offered its leaves. That mention is not
+    // a declaration, and the declaration is.
+    const mention = [
+      '  // Leaving this true without overriding `getExtremaTargets` would put',
+      '  // the reader in a scope showing an empty dialog.',
+      '  protected readonly supportsExtrema = false;',
+    ].join('\n');
+    const declaration = '  public override getExtremaTargets(): ExtremaTarget[] {';
 
-    expect(treemap?.body).toContain('getExtremaTargets');
-    expect(DECLARES_TARGETS.test(treemap?.body ?? '')).toBe(false);
+    expect(DECLARES_TARGETS.test(mention)).toBe(false);
+    expect(DECLARES_TARGETS.test(declaration)).toBe(true);
   });
 });

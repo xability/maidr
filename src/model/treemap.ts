@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, TreemapPoint } from '@type/grammar';
 import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { XValue } from '@type/navigation';
@@ -26,6 +27,7 @@ import {
 } from '@util/objectList';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGraph } from './movable';
 
 /**
@@ -172,23 +174,14 @@ function asPercent(fraction: number): string {
  */
 export class TreemapTrace extends AbstractTrace {
   /**
-   * The go-to-extrema **dialog** -- the list of named targets a trace offers
-   * under `g` -- which a tree has none of. Every node is already one step
-   * from its parent and its siblings, and the largest leaf is named in the
-   * description.
-   *
-   * It has to be false rather than merely unimplemented. `getExtremaTargets`
-   * defaults to `[]` while the toggle command gates only on this flag, so a
-   * true here switches the reader into the `GO_TO_EXTREMA` scope, renders an
-   * empty dialog, and leaves the arrow keys answering to a keymap that is no
-   * longer the tree's -- a keyboard trap whose only exit is a binding the
-   * help menu does not list. `navigateToExtrema` throws in the same case.
+   * `]` and `[` go to the largest and the smallest leaf, and the Go To dialog
+   * lists them: see {@link TreemapTrace.getExtremaTargets}. A tree whose
+   * nodes carry no magnitudes offers none.
    *
    * Unrelated to `moveToExtreme`, the Ctrl+arrow jump out to the branch root
-   * or in to the deepest descendant: that runs through the movable and is
-   * unaffected by this flag.
+   * or in to the deepest descendant: that runs through the movable.
    */
-  protected readonly supportsExtrema = false;
+  protected readonly supportsExtrema = true;
   protected readonly movable: MovableGraph;
 
   /** Every node, indexed the way the cursor addresses them. */
@@ -1447,5 +1440,64 @@ export class TreemapTrace extends AbstractTrace {
     // question the coordinates cannot answer, and guessing the leaf would
     // drop them out of whichever level they were walking.
     return null;
+  }
+
+  /**
+   * The largest and the smallest leaves, for `]`, `[` and the Go To dialog.
+   *
+   * Leaves rather than every node: a branch's magnitude is its children's
+   * total, so the largest node would always be a top-level one, and the
+   * description names the largest leaf and the range of the leaves. Each is
+   * named by its path, as the description names it, so two leaves called
+   * alike under different branches are told apart. Every leaf holding an
+   * extreme is offered, level by level, so a tie is walked. A tree whose
+   * nodes carry no magnitudes has nothing to rank, and offers none.
+   *
+   * @returns The targets, or none for a tree without magnitudes
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    if (!this.valued) {
+      return [];
+    }
+    const leaves = this.nodes
+      .flat()
+      .filter((node): node is TreeNode => node !== null
+        && node.children.length === 0
+        && Number.isFinite(node.value));
+    if (leaves.length === 0) {
+      return [];
+    }
+
+    const values = leaves.map(leaf => leaf.value);
+    const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => leaves
+      .filter(leaf => leaf.value === extreme)
+      .map(leaf => ({
+        ...extremumAt(
+          t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+          [...this.ancestorsOf(leaf), leaf.name].join(' > '),
+        ),
+        value: leaf.value,
+        pointIndex: leaf.index,
+        segment: leaf.name,
+        type,
+        groupIndex: leaf.depth,
+        categoryIndex: leaf.index,
+        navigationType: 'group',
+      }));
+    return [
+      ...at(MathUtil.safeMax(values), 'max'),
+      ...at(MathUtil.safeMin(values), 'min'),
+    ];
+  }
+
+  /**
+   * Moves to the leaf a target names, as any jump does.
+   *
+   * @param target - A target from {@link TreemapTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 }
