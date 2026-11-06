@@ -606,9 +606,12 @@ export class HexbinTrace extends AbstractTrace {
         this.counts[row][col] !== count
           ? []
           : [{
+              // The raw x, and it again as `xValue`, so the Go To dialog
+              // writes it with the x axis's format, as the landing announces
+              // it. The dialog formats no y, so the y is rounded here.
               ...extremumAt(
                 t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
-                defaultFormat(bin.x),
+                bin.x,
                 defaultFormat(bin.y),
               ),
               value: count,
@@ -618,6 +621,7 @@ export class HexbinTrace extends AbstractTrace {
               groupIndex: row,
               categoryIndex: col,
               navigationType: 'group' as const,
+              xValue: bin.x,
             }]
       )));
     return [...at(MathUtil.safeMax(occupied), 'max'), ...at(MathUtil.safeMin(occupied), 'min')];

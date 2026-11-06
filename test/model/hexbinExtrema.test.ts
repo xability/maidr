@@ -67,6 +67,15 @@ describe('a hexbin\'s [ and ] go to its densest and its sparsest occupied bin', 
     expect([text.main.value, text.cross?.value, text.z?.value]).toEqual([3, 1, 12]);
   });
 
+  test('carries the raw x, so the Go To dialog formats it as the landing announces it', () => {
+    // Rounded here, a bin at x = 1.234 on an axis formatted to three decimals
+    // was listed at 1.23 and announced at 1.234.
+    const offset = LATTICE.map(row => row.map(bin => (bin.count === 12 ? { ...bin, x: 1.234 } : bin)));
+    const densest = hexbin(offset).getExtremaTargets().find(target => target.type === 'max');
+
+    expect([densest?.display?.x, densest?.xValue, densest?.display?.y]).toEqual(['1.234', 1.234, '1']);
+  });
+
   test('offers every bin holding the most points, so a tie is walked', () => {
     const tied = LATTICE.map(row => row.map(bin => (bin.count === 9 ? { ...bin, count: 12 } : bin)));
     const densest = hexbin(tied).getExtremaTargets().filter(target => target.type === 'max');
