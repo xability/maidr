@@ -3,8 +3,9 @@
  */
 import type { MaidrLayer, StepPoint } from '@type/grammar';
 import { beforeEach, describe, expect, test } from '@jest/globals';
-import { StepTrace } from '@model/step';
+import { stepDataVertices, StepTrace } from '@model/step';
 import { TraceType } from '@type/grammar';
+import { Svg } from '@util/svg';
 
 /**
  * Four samples with one repeated level — enough that the rendered staircase
@@ -218,5 +219,54 @@ describe('step trace highlight mapping', () => {
     });
 
     trace.dispose();
+  });
+});
+
+describe('a staircase plotly draws with its risers midway between samples', () => {
+  // `examples/plotly-step.html`'s `hvh` chart as plotly.js 2.35.2 draws it:
+  // staff of 2, 2, 5, 5, 5, 3, 3, 6 and 6 at the hours 8 to 16, 67.5 px apart.
+  // Each step is `H` to the midway x, `V` to the next level and `H` on to the
+  // sample, and between two samples of one level the `V` rises by nothing.
+  const HVH = 'M0,209H33.75V209H67.5H101.25V60.5H135H168.75V60.5H202.5H236.25V60.5'
+    + 'H270H303.75V159.5H337.5H371.25V159.5H405H438.75V11H472.5H506.25V11H540';
+  const STAFF = [2, 2, 5, 5, 5, 3, 3, 6, 6];
+  const LEVEL: Record<number, number> = { 2: 209, 3: 159.5, 5: 60.5, 6: 11 };
+  const SAMPLES = STAFF.map((staff, i) => ({ x: 67.5 * i, y: LEVEL[staff] }));
+
+  beforeEach(() => {
+    defineSvgPathElement();
+  });
+
+  test('reads every sample off the path, the repeated ones too', () => {
+    expect(stepDataVertices(Svg.pathVertices(HVH), STAFF.length)).toEqual(SAMPLES);
+  });
+
+  test('outlines each hour at its own sample', () => {
+    renderStaircase(HVH);
+
+    const trace = new StepTrace({
+      id: 'staff',
+      type: TraceType.STEP,
+      axes: { x: { label: 'Hour' }, y: { label: 'Staff' } },
+      stepDirection: 'mid',
+      selectors: ['g#step-series path'],
+      data: [STAFF.map((y, i) => ({ x: 8 + i, y }))],
+    });
+
+    expect(highlightCircles()).toEqual(SAMPLES);
+
+    trace.dispose();
+  });
+
+  test('a staircase with no repeated level reads as it did', () => {
+    // 2, 5, 3 and 6: every riser has a height, so no vertex repeats.
+    const path = 'M0,209H33.75V60.5H67.5H101.25V159.5H135H168.75V11H202.5';
+
+    expect(stepDataVertices(Svg.pathVertices(path), 4)).toEqual([
+      { x: 0, y: 209 },
+      { x: 67.5, y: 60.5 },
+      { x: 135, y: 159.5 },
+      { x: 202.5, y: 11 },
+    ]);
   });
 });
