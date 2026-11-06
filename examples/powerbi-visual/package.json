@@ -3,7 +3,7 @@
   "description": "Starter Power BI custom visual that reads a chart's data with MAIDR: sonification, text, braille and keyboard navigation.",
   "version": "1.0.0",
   "private": true,
-  "license": "GPL-3.0-or-later",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/xability/maidr.git",

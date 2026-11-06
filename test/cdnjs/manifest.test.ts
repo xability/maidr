@@ -199,7 +199,7 @@ describe('cdnjs manifest metadata', () => {
 
   // cdnjs redistributes the files, so a licence that disagrees with the one
   // in the published package is a licensing claim we did not make. The
-  // GPL-3.0-or-later declaration is what unblocked this listing at all.
+  // licence declaration is what unblocked this listing at all.
   it('should declare the licence the package is published under', () => {
     expect(manifest.license).toBe(pkg.license);
   });
