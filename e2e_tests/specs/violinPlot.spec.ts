@@ -239,6 +239,26 @@ test.describe('Violin Plot', () => {
     });
   });
 
+  test.describe('Extremes on the Density Layer', () => {
+    test('should go to where the violin is widest, and where it is narrowest', async ({ page }) => {
+      // ] and [ said there was no maximum or minimum value in this layer,
+      // though every level of the curve carries the width it is drawn at.
+      const violinPlotPage = await setupViolinPlotPage(page);
+      await violinPlotPage.moveToNextViolin();
+      // The box layer comes first on this chart; Page Up reaches the curves.
+      await violinPlotPage.switchToPreviousLayer();
+      await expect.poll(() => violinPlotPage.getInstructionText()).toContain('violin plot');
+
+      await page.keyboard.press(']');
+      // Every violin here is drawn at most 0.8 wide.
+      await expect.poll(() => violinPlotPage.getInstructionText()).toMatch(/width is 0\.8\b/);
+
+      await page.keyboard.press('[');
+      // And at least a few ten-thousandths, in its tails.
+      await expect.poll(() => violinPlotPage.getInstructionText()).toMatch(/width is 0\.00\d+/);
+    });
+  });
+
   test.describe('Speed Controls', () => {
     test('should be able to speed up', async ({ page }) => {
       const violinPlotPage = await setupViolinPlotPage(page);
