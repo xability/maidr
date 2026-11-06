@@ -9,8 +9,9 @@
  * Multi-panel figures: when `children` contains two or more top-level
  * `<VictoryChart>` components, each chart becomes one MAIDR subplot (arrow
  * keys navigate panels; Enter drills into a panel). By default the panels
- * form a single row in children order; pass `layout: { rows, columns }` for
- * row-major grid chunking.
+ * are arranged as they are drawn, and in a single row in children order when
+ * they cannot be measured; pass `layout: { rows, columns }` for row-major grid
+ * chunking.
  *
  * @example
  * ```tsx
@@ -39,10 +40,10 @@
 
 import type { Maidr as MaidrData, MaidrSubplot } from '@type/grammar';
 import type { RefObject } from 'react';
-import type { VictoryAdapterConfig, VictoryLayerInfo, VictoryPanelLayout, VictorySubplotInfo } from './types';
+import type { VictoryAdapterConfig, VictoryLayerInfo, VictoryPanelBox, VictoryPanelLayout, VictorySubplotInfo } from './types';
 import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { computeSubplotGrid, extractVictorySubplots, foldPercentileBands, toMaidrLayer } from './converters';
+import { arrangeByDrawnPosition, computeSubplotGrid, extractVictorySubplots, foldPercentileBands, toMaidrLayer } from './converters';
 import { clearTaggedElements, getTaggedElements, PANEL_ATTR, resolvePanelSvgs, tagLayerElements } from './selectors';
 
 /**
@@ -97,6 +98,11 @@ function subplotFingerprint(subplots: VictorySubplotInfo[], layout?: VictoryPane
  * selectors so panels can never cross-highlight. Each panel gets its own
  * `claimed` element set so tagging never leaks across panels.
  *
+ * Without a `layout`, the panels are put in rows by where their svgs are
+ * drawn ({@link arrangeByDrawnPosition}), and in one row in children order
+ * when a panel was not laid out, as in a hidden tab; the hook arranges them
+ * again when their container changes size.
+ *
  * Panels whose charts contain no supported data are dropped (the core model
  * cannot represent an empty subplot inside a grid), but only AFTER grid
  * chunking: every remaining panel keeps the grid cell of the visual CSS
@@ -119,13 +125,7 @@ export function buildVictorySubplots(
     return [[{ layers: maidrLayers, legend: collectLegend(victoryLayers) }]];
   }
 
-  // Standalone Victory siblings render their own svgs too, so the expected
-  // svg count is driven by the highest svg ordinal, not the panel count.
-  const expectedSvgCount = victorySubplots.reduce(
-    (max, info, index) => Math.max(max, (info.svgIndex ?? index) + 1),
-    0,
-  );
-  const panelSvgs = resolvePanelSvgs(container, expectedSvgCount);
+  const panelSvgs = resolvePanelSvgs(container, expectedSvgCount(victorySubplots));
 
   // `null` entries keep an empty panel's grid cell during chunking; they are
   // dropped per row afterwards.
@@ -164,9 +164,69 @@ export function buildVictorySubplots(
     };
   });
 
-  return computeSubplotGrid(entries, layout)
+  const grid = layout === undefined
+    ? arrangeByDrawnPosition(entries, drawnBoxes(victorySubplots, panelSvgs)) ?? computeSubplotGrid(entries)
+    : computeSubplotGrid(entries, layout);
+  return grid
     .map(row => row.filter((subplot): subplot is MaidrSubplot => subplot !== null))
     .filter(row => row.length > 0);
+}
+
+/**
+ * How many top-level Victory svgs a multi-panel figure draws. Standalone
+ * Victory siblings render their own svgs too, so the count is driven by the
+ * highest svg ordinal, not the panel count.
+ *
+ * @param victorySubplots - The figure's panels
+ * @returns The svg count
+ */
+function expectedSvgCount(victorySubplots: VictorySubplotInfo[]): number {
+  return victorySubplots.reduce(
+    (max, info, index) => Math.max(max, (info.svgIndex ?? index) + 1),
+    0,
+  );
+}
+
+/**
+ * Where each panel's chart is drawn on the page.
+ *
+ * @param victorySubplots - The figure's panels
+ * @param panelSvgs - The figure's top-level Victory svgs
+ * @returns One box per panel, or null where it has none
+ */
+function drawnBoxes(victorySubplots: VictorySubplotInfo[], panelSvgs: SVGElement[]): (VictoryPanelBox | null)[] {
+  return victorySubplots.map((info, panelIndex) => drawnBox(panelSvgs[info.svgIndex ?? panelIndex]));
+}
+
+/**
+ * The rows a multi-panel figure's panels are drawn in, as panel indices, for
+ * telling a pass that finds them laid out otherwise from one that finds them
+ * where they were.
+ *
+ * @param container - Where the figure is drawn
+ * @param victorySubplots - The figure's panels
+ * @returns The rows, or null for one panel or panels not laid out
+ */
+function drawnArrangement(container: HTMLElement, victorySubplots: VictorySubplotInfo[]): number[][] | null {
+  if (victorySubplots.length < 2) {
+    return null;
+  }
+  const panelSvgs = resolvePanelSvgs(container, expectedSvgCount(victorySubplots));
+  return arrangeByDrawnPosition(victorySubplots.map((_, panelIndex) => panelIndex), drawnBoxes(victorySubplots, panelSvgs));
+}
+
+/**
+ * Where a panel's chart is drawn on the page.
+ *
+ * @param svg - The panel's svg, when it has one
+ * @returns Its box, or null when it has none or was not laid out
+ */
+function drawnBox(svg: SVGElement | undefined): VictoryPanelBox | null {
+  if (svg === undefined) {
+    return null;
+  }
+  const { top, left, height } = svg.getBoundingClientRect();
+  return height > 0 ? { top, left, height } : null;
 }
 
 /**
@@ -244,6 +304,9 @@ export function useVictoryAdapter(
         caption ?? null,
         bandsKey,
         subplotFingerprint(victorySubplots, panelLayout),
+        // The rows the panels are drawn in, which decide the grid when no
+        // layout does: a pass that finds them laid out otherwise republishes.
+        panelLayout === undefined ? drawnArrangement(container, victorySubplots) : null,
       ]);
 
       // Fast path: when the layer data is unchanged AND every previously-tagged
@@ -296,8 +359,23 @@ export function useVictoryAdapter(
     });
     observer.observe(container, { childList: true, subtree: true });
 
+    // Without a layout, the grid is the rows the charts are drawn in, and the
+    // container changes size when those can change: a figure read in a tab
+    // not shown yet is laid out when the tab is shown, and a page that wraps
+    // its charts at another width lays them out again. Read once, the first
+    // stayed one row in children order for good.
+    const arranged = panelLayout === undefined && extractVictorySubplots(children).length > 1;
+    const resizeObserver = arranged && typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => {
+          if (!frameId)
+            frameId = requestAnimationFrame(applyTags);
+        })
+      : null;
+    resizeObserver?.observe(container);
+
     return () => {
       observer.disconnect();
+      resizeObserver?.disconnect();
       if (frameId)
         cancelAnimationFrame(frameId);
     };

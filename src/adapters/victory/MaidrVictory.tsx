@@ -22,8 +22,8 @@ import { useVictoryAdapter } from './useVictoryAdapter';
  *
  * Multi-panel figures: nest two or more `<VictoryChart>` components — each
  * chart becomes one navigable MAIDR subplot. Give each chart a `title` prop
- * to name its panel, and use the `layout` prop for row-major grid chunking
- * (default is a single row in children order).
+ * to name its panel. The panels are arranged as they are drawn; use the
+ * `layout` prop for row-major grid chunking instead.
  *
  * @example
  * ```tsx

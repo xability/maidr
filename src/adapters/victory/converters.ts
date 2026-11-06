@@ -21,6 +21,7 @@ import type {
   VictoryComponentType,
   VictoryLayerData,
   VictoryLayerInfo,
+  VictoryPanelBox,
   VictoryPanelLayout,
   VictorySubplotInfo,
 } from './types';
@@ -1672,12 +1673,58 @@ export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[
 }
 
 /**
+ * Arranges subplot panels into rows as the page draws them.
+ *
+ * A panel joins the row of the panel drawn above it when its top lies within
+ * half the shorter panel's height of that row's top; rows run top to bottom
+ * and each row left to right, whatever order the charts are written in.
+ * Victory draws each chart as a block of its own, so charts the page does not
+ * lay out side by side stand one below the other. Read as one row in children
+ * order, three stacked charts were walked with Left and Right, and Up and Down
+ * said there was nothing above or below.
+ *
+ * @param panels - The panels, in children order
+ * @param boxes - Where each panel is drawn, index for index, or null where it
+ *   was not laid out
+ * @returns The rows, or null when a panel has nowhere it is drawn
+ */
+export function arrangeByDrawnPosition<T>(panels: T[], boxes: (VictoryPanelBox | null)[]): T[][] | null {
+  if (panels.length === 0 || boxes.length !== panels.length) {
+    return null;
+  }
+  const cells: { panel: T; at: number; box: VictoryPanelBox }[] = [];
+  for (const [at, box] of boxes.entries()) {
+    if (box === null || !(box.height > 0)) {
+      return null;
+    }
+    cells.push({ panel: panels[at], at, box });
+  }
+
+  cells.sort((a, b) => a.box.top - b.box.top || a.at - b.at);
+  const rows: (typeof cells)[] = [];
+  for (const cell of cells) {
+    const row = rows[rows.length - 1];
+    const top = row?.[0];
+    if (row !== undefined && top !== undefined
+      && cell.box.top - top.box.top < Math.min(cell.box.height, top.box.height) / 2) {
+      row.push(cell);
+    } else {
+      rows.push([cell]);
+    }
+  }
+  return rows.map(row => [...row]
+    .sort((a, b) => a.box.left - b.box.left || a.at - b.at)
+    .map(cell => cell.panel));
+}
+
+/**
  * Chunks subplot panels into a row-major 2D grid.
  *
- * Defaults to a single row in children order. An explicit `layout` chunks the
- * panels row-major: `columns` fixes the panels per row; otherwise `rows`
- * derives the column count. Never produces empty rows (the MAIDR core cannot
- * represent them); the last row may be shorter (ragged rows are supported).
+ * Defaults to a single row in children order, which a figure whose panels
+ * cannot be measured is read as. An explicit `layout` chunks the panels
+ * row-major: `columns` fixes the panels per row; otherwise `rows` derives the
+ * column count. Never produces empty rows (the MAIDR core cannot represent
+ * them); the last row may be shorter (ragged rows are supported).
  */
 export function computeSubplotGrid<T>(panels: T[], layout?: VictoryPanelLayout): T[][] {
   if (panels.length === 0)

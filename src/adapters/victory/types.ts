@@ -18,8 +18,8 @@ import type { ReactNode } from 'react';
 
 /**
  * Row-major grid layout for multi-panel figures (two or more top-level
- * `<VictoryChart>` children). When omitted, panels form a single row in
- * children order.
+ * `<VictoryChart>` children). When omitted, panels are arranged as they are
+ * drawn, and in a single row in children order when they cannot be measured.
  */
 export interface VictoryPanelLayout {
   /**
@@ -29,6 +29,13 @@ export interface VictoryPanelLayout {
   rows?: number;
   /** Number of panels per row. Takes precedence over `rows`. */
   columns?: number;
+}
+
+/** Where a multi-panel figure's panel is drawn on the page. */
+export interface VictoryPanelBox {
+  top: number;
+  left: number;
+  height: number;
 }
 
 /**
