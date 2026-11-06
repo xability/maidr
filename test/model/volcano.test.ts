@@ -376,13 +376,32 @@ describe('the announcement names the point', () => {
     ]);
   });
 
-  test('names the point where a column holds exactly one', () => {
+  test('names the point, and which side of the line it is on, where a column holds exactly one', () => {
     // Every gene in the fixture has its own x, so a column IS one point and
-    // the cursor identifies it. This used to withhold the name here, on a
-    // rule about stacks that this fixture never forms -- the name now comes
-    // from the scatter, which owns `label` since #1106.
+    // the cursor identifies it, as the scatter reads a point's name. The
+    // threshold side used to be said in point mode alone, so a step along
+    // the columns named the point and never said whether it was a finding.
     expect(nonEmptyState(volcano()).text.asides).toEqual([
       { label: 'Name', value: 'DOWN1', identifies: true },
+      { label: 'Threshold', value: 'cleared' },
+    ]);
+  });
+
+  test('carries the region on a Manhattan layer where a column holds exactly one', () => {
+    // A Manhattan plot's points each have their own genomic position, so a
+    // step along the plot lands on a column of one. Its chromosome was said
+    // in point mode alone, never on that step.
+    const chromosomes: VolcanoPoint[] = [
+      { x: 1, y: 8, label: 'rs1', group: 'chr1' },
+      { x: 2, y: 3, label: 'rs2', group: 'chr7' },
+    ];
+
+    const trace = volcano(chromosomes, { significance: 7.3 });
+
+    expect(nonEmptyState(trace).text.asides).toEqual([
+      { label: 'Name', value: 'rs1', identifies: true },
+      { label: 'Region', value: 'chr1' },
+      { label: 'Threshold', value: 'cleared' },
     ]);
   });
 
