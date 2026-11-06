@@ -208,6 +208,14 @@ export function readZip(bytes) {
 }
 
 /**
+ * The braille engine's files, by the layout a release ships. 3.0.4 replaced
+ * the Emscripten liblouis build with Dot Inc.'s own engine, which loads
+ * liblouis as a side module; a release is held to whichever it carries.
+ */
+const TTB_ENGINE = ['lib/ttb-engine.mjs', 'lib/ttb-engine.wasm', 'lib/liblouis.wasm', 'lib/liblouis-tables.data'];
+const LIBLOUIS_ENGINE = ['lib/liblouis.js', 'lib/liblouis.wasm', 'lib/liblouis.data'];
+
+/**
  * The files MAIDR loads at runtime from a release, in manifest order: the
  * module, then everything under `lib/`. The `.d.ts` is left out; it goes to
  * the mirror for anyone reading the SDK's types, but nothing fetches it.
@@ -222,7 +230,8 @@ export function runtimeFiles(archive, version) {
     throw new Error(`the archive holds no ${module}`);
   }
   const lib = [...archive.keys()].filter(name => name.startsWith('lib/')).sort();
-  for (const required of ['lib/liblouis.js', 'lib/liblouis.wasm', 'lib/liblouis.data']) {
+  const engine = lib.includes(TTB_ENGINE[0]) ? TTB_ENGINE : LIBLOUIS_ENGINE;
+  for (const required of engine) {
     if (!lib.includes(required)) {
       throw new Error(`the archive holds no ${required}`);
     }

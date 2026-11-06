@@ -998,6 +998,26 @@ describe('dotPadSession', () => {
       expect(vendor.translation.assetBaseUrl).toContain('lib/');
     });
 
+    it('should point an SDK 3.0.4 braille engine at its files', async () => {
+      const vendor = createVendor();
+      // 3.0.4 replaced LiblouisManager.setAssetBaseUrl with this; without the
+      // call its engine refuses every translation and the line falls back.
+      let engineAssets: string | null = null;
+      delete (vendor.module as { LiblouisManager?: unknown }).LiblouisManager;
+      Object.assign(vendor.module, {
+        DotBrailleModule: {
+          setEngineAssetBaseUrl: (url: string): void => {
+            engineAssets = url;
+          },
+        },
+      });
+
+      const { session } = await connectSession(vendor);
+
+      expect(engineAssets).toContain('lib/');
+      expect(session.canTranslate).toBe(true);
+    });
+
     it('should translate through the SDK rather than word-wrapping there', async () => {
       const vendor = createVendor();
       const { session } = await connectSession(vendor);
