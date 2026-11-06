@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import type { LinePoint, MaidrLayer } from '@type/grammar';
-import { beforeEach, describe, expect, test } from '@jest/globals';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { LineTrace } from '@model/line';
 import { TraceType } from '@type/grammar';
 
@@ -153,6 +153,50 @@ describe('series that share a selector', () => {
       [{ x: 0, y: 50 }, { x: 50, y: 50 }, { x: 100, y: 50 }],
       [{ x: 0, y: 100 }, { x: 50, y: 50 }, { x: 100, y: 0 }],
       [{ x: 0, y: 0 }, { x: 50, y: 50 }, { x: 100, y: 100 }],
+    ]);
+  });
+
+  test('pass over a subpath of a single vertex, which no series is drawn by', () => {
+    // matplotlib keeps a place where the field only touches a level as a
+    // subpath of one vertex, and py-maidr emits no series for it. Counted, it
+    // would leave one subpath more than the series naming the path, and only
+    // the first series would be highlighted.
+    document.body.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <path id="both" d="M 0 100 L 50 50 L 100 0 M 5 5 z M 0 0 L 50 50 L 100 100"></path>
+      </svg>`;
+
+    const trace = new LineTrace(layer(['path#both', 'path#both'], [RISING, FALLING]));
+
+    expect(markerCentres(trace)).toEqual([
+      [{ x: 0, y: 100 }, { x: 50, y: 50 }, { x: 100, y: 0 }],
+      [{ x: 0, y: 0 }, { x: 50, y: 50 }, { x: 100, y: 100 }],
+    ]);
+  });
+
+  test('say which series a shared selector could not place', () => {
+    // Two series naming a path that draws one run: the first reads the path,
+    // and the second has nothing to highlight. The layer still highlights,
+    // so nothing else says so.
+    document.body.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <path id="one" d="M 0 100 L 50 50 L 100 0"></path>
+      </svg>`;
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const trace = new LineTrace({
+      ...layer(['path#one', 'path#one'], [RISING, FALLING]),
+      id: 'shared-selectors-unplaced',
+    });
+    const warnings = warn.mock.calls.map(call => String(call[0]));
+    warn.mockRestore();
+
+    expect(markerCentres(trace)).toEqual([
+      [{ x: 0, y: 100 }, { x: 50, y: 50 }, { x: 100, y: 0 }],
+      [],
+    ]);
+    expect(warnings).toEqual([
+      expect.stringContaining('Could not place 1 of the 2 series naming "path#one"'),
     ]);
   });
 });

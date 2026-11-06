@@ -16,6 +16,7 @@ import { Constant } from '@util/constant';
 import { defaultFormat, defaultLabelFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { warnSelectors } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
@@ -1601,6 +1602,8 @@ export class LineTrace extends AbstractTrace {
     selectors.forEach((selector, r) => {
       namedBy.set(selector, [...(namedBy.get(selector) ?? []), r]);
     });
+    // How many of the series naming each shared selector found no element.
+    const unplaced = new Map<string, number>();
 
     for (let r = 0; r < selectors.length; r++) {
       const sharing = namedBy.get(selectors[r]) ?? [r];
@@ -1611,6 +1614,9 @@ export class LineTrace extends AbstractTrace {
       let whole = true;
       if (sharing.length > 1) {
         ({ lineElement, runs, whole } = this.sharedElement(selectors[r], sharing.indexOf(r), sharing.length));
+        if (lineElement === null) {
+          unplaced.set(selectors[r], (unplaced.get(selectors[r]) ?? 0) + 1);
+        }
       } else {
         // A unique selector may match several elements, in which case the
         // series is drawn in pieces: gridSVG splits a line broken by an
@@ -1697,6 +1703,23 @@ export class LineTrace extends AbstractTrace {
         allFailed = false;
       }
       svgElements.push(linePointElements);
+    }
+
+    // The series that found nothing announce every point and outline none,
+    // which nobody listening would notice. The layer's other series still
+    // highlight, so the warning that a layer resolved to nothing at all
+    // does not fire.
+    if (unplaced.size > 0) {
+      const which = [...unplaced]
+        .map(([selector, count]) =>
+          `${count} of the ${namedBy.get(selector)?.length ?? count} series naming "${selector}"`)
+        .join('; ');
+      warnSelectors(
+        this.layer,
+        `Could not place ${which}: a selector several series name has to match an element for `
+        + 'each of them, or a single element with a subpath for each, and those series have no '
+        + 'highlight.',
+      );
     }
 
     if (allFailed) {
