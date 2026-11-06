@@ -324,6 +324,15 @@ describe('arrangeByDrawnPosition', () => {
     expect(arrangeByDrawnPosition(['tall', 'short'], [tall, short])).toEqual([['tall'], ['short']]);
   });
 
+  it('measures each panel against the first of its row, so staggered panels do not drift into one row', () => {
+    const first = { top: 0, left: 0, height: 100 };
+    const second = { top: 40, left: 220, height: 100 };
+    const third = { top: 80, left: 440, height: 100 };
+
+    expect(arrangeByDrawnPosition(['first', 'second', 'third'], [first, second, third]))
+      .toEqual([['first', 'second'], ['third']]);
+  });
+
   it('arranges nothing when a panel was not laid out', () => {
     const drawn = { top: 0, left: 0, height: 200 };
 
