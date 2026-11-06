@@ -410,6 +410,17 @@ export class BoxTrace extends AbstractTrace {
   public override dispose(): void {
     this.stopViewportWatch();
 
+    // The whiskers built for the box's shape are MAIDR's own and in no
+    // highlight value, which is all the parent's disposal removes. Left on
+    // the page, a box plot gained a set of hidden whisker lines every time
+    // the chart took focus and the trace was built again.
+    for (const part of this.geometry) {
+      if (Svg.isOwned(part)) {
+        part.remove();
+      }
+    }
+    this.geometry.length = 0;
+
     this.points.length = 0;
     this.sections.length = 0;
     super.dispose();
