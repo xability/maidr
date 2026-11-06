@@ -490,7 +490,10 @@ caps are drawn), the quartiles at the edges of the body and the median at its
 line. A violin's inner box is drawn the same way: its quartiles and median are
 outlined the same way, and its minimum and maximum marked at the ends of its
 whiskers. So is a candle, whose open and close are outlined at the edges of its
-body and its high and low at its wicks.
+body and its high and low at its wicks. A trace of `type: 'ohlc'` is read as a
+candlestick too, but each of its bars is outlined whole, whichever price is
+read: plotly draws a bar as one path, the open's tick, the line from the high to
+the low and the close's tick.
 
 #### Violin Plot
 
@@ -767,6 +770,8 @@ MAIDR handles charts created after initial page load (common in SPAs and Jupyter
 A chart plotly is still drawing when MAIDR finds it is read once plotly has finished. A map is the usual case: plotly fetches its outlines over the network, and only then draws the regions and works out where each one is, which is what the arrow keys move between. A chart plotly has not finished after ten seconds is read as it stands.
 
 The observer keeps watching for as long as the page is open, so a chart added at any time is found; a page that tears MAIDR down can stop it with `window.disconnectMaidrObservers()`, and it stops when the page unloads.
+
+**Known limit:** MAIDR reads a chart's data once, when it binds it. If the page then changes the data, with `Plotly.react`, `Plotly.restyle` or any other call, MAIDR keeps announcing the values it first read: anything added to the chart later is not announced, and anything taken away still is. The highlight is drawn when the chart takes focus, on whatever mark plotly then draws in each value's place, so it can disagree with what is announced; a zoom or a change made while the chart has focus reaches the highlight only after focus leaves the chart and comes back. Calling `Plotly.newPlot` again on the same div does not make MAIDR read the chart again either. To have MAIDR read new data, draw the chart in a new element that replaces the old one: MAIDR binds it as it does any chart added to the page.
 
 ## Keyboard Controls
 
