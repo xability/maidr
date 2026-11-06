@@ -59,6 +59,12 @@ parent, Control + Left and Right go to the first and last node of the level.
 Already at that extreme, you hear the same edge signal as at the end of the
 data, in each of the four directions, rather than the item again.
 
+On a sankey, alluvial or chord diagram, ] goes to the busiest node, the one
+the most passes through, and [ to the quietest. On a network, ] goes to the
+most connected node and [ to the least connected, which may be a node linked
+to nothing but itself. Where several nodes hold the value, a further press goes
+to the next of them.
+
 On a sankey, alluvial or chord diagram, Right follows the largest flow out of
 a node and Left the largest flow into it, so Control + Right follows the
 largest flows to the node where they run out and Control + Left back to the
