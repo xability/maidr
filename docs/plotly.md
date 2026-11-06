@@ -757,7 +757,7 @@ MAIDR handles charts created after initial page load (common in SPAs and Jupyter
 
 A chart plotly is still drawing when MAIDR finds it is read once plotly has finished. A map is the usual case: plotly fetches its outlines over the network, and only then draws the regions and works out where each one is, which is what the arrow keys move between. A chart plotly has not finished after ten seconds is read as it stands.
 
-The observer disconnects after 30 seconds to avoid unnecessary overhead.
+The observer keeps watching for as long as the page is open, so a chart added at any time is found; a page that tears MAIDR down can stop it with `window.disconnectMaidrObservers()`, and it stops when the page unloads.
 
 ## Keyboard Controls
 

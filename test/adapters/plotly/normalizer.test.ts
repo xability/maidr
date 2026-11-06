@@ -320,6 +320,39 @@ describe('plotly layout observer', () => {
     });
   });
 
+  it('lays out the text of a chart MAIDR initialises again, in the article it then mounts', async () => {
+    // A page that rewrites a chart's `maidr` attribute has MAIDR mount the
+    // chart again: the SVG leaves its article, which goes, and a new one is
+    // mounted around it. The observer stayed on the old article, so the new
+    // one's text was never moved below the chart.
+    const runFrame = queueFrames();
+    const svg = createPlotlySvg([{ x: 0, y: 0 }]);
+    svg.setAttribute('height', '500');
+    const plotlyDiv = svg.parentElement as HTMLElement;
+    const doc = dom.window.document;
+    const first = doc.createElement('article');
+    first.id = 'maidr-article-chart';
+    first.appendChild(svg);
+    plotlyDiv.appendChild(first);
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+    runFrame();
+
+    plotlyDiv.appendChild(svg);
+    first.remove();
+    await Promise.resolve();
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+    const second = doc.createElement('article');
+    second.id = 'maidr-article-chart';
+    second.appendChild(svg);
+    const container = doc.createElement('div');
+    container.id = 'react-container-chart';
+    second.appendChild(container);
+    plotlyDiv.appendChild(second);
+    runFrame();
+
+    expect(container.style.paddingTop).toBe('500px');
+  });
+
   it('stops waiting once a removed chart stays out of the document', () => {
     // A chart that is gone for good must not keep a frame loop alive.
     const frames: FrameRequestCallback[] = [];
