@@ -507,7 +507,21 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
       requestAnimationFrame(observe);
       return;
     }
-    const observer = new MutationObserver(() => fix(article));
+    let resizes: ResizeObserver | null = null;
+    const observer = new MutationObserver(() => {
+      // MAIDR initialised again on this chart -- a page rewriting its
+      // `maidr` attribute -- takes the SVG out of this article and mounts it
+      // in a new one. Both observers are then let go and the new article
+      // looked for: watching on here kept the old article in memory, and
+      // left the new one's text where it was, behind the chart.
+      if (!article.contains(svg)) {
+        observer.disconnect();
+        resizes?.disconnect();
+        requestAnimationFrame(observe);
+        return;
+      }
+      fix(article);
+    });
     // Character data too: React rewrites the text of an announcement in
     // place, and a longer one can wrap onto another line.
     observer.observe(article, {
@@ -523,14 +537,15 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
     // Chart.js plugin's ResizeObserver catches for its canvas box. Dropped
     // once the article has left the page, whose size then reads nothing.
     if (typeof ResizeObserver !== 'undefined') {
-      const resizes = new ResizeObserver(() => {
+      const watcher = new ResizeObserver(() => {
         if (!article.isConnected) {
-          resizes.disconnect();
+          watcher.disconnect();
           return;
         }
         makeRoomBelow(article);
       });
-      resizes.observe(article);
+      watcher.observe(article);
+      resizes = watcher;
     }
 
     // The container may already be in the article by the time this runs, in
