@@ -1,8 +1,12 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { BoxPoint } from '@type/grammar';
 import type { DescriptionState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
+import { BoxplotSection } from '@type/boxplotSection';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
+import { MathUtil } from '@util/math';
+import { extremumAt } from './extremaTarget';
 
 /**
  * Labels for a range row, one for each shape the summary can take.
@@ -147,4 +151,62 @@ export function isLower(candidate: number, current: number): boolean {
  */
 export function isHigher(candidate: number, current: number): boolean {
   return candidate > current;
+}
+
+/**
+ * The groups holding the extreme of one whisker end, as `[`, `]` and the Go
+ * To dialog offer them: every group whose maximum is the highest, or whose
+ * minimum is the lowest.
+ *
+ * The whisker ends the description's range rows name, rather than the
+ * outliers past them, so the keys land where the description says the
+ * extreme is; the outliers are a step further along the same box. Every
+ * group holding the value is offered, in navigation order, so a tie is
+ * walked. A whisker end that is a gap is never one.
+ *
+ * @param points - The trace's groups, in navigation order.
+ * @param end - Which whisker end: `max` for the highest maximum, `min` for
+ *   the lowest minimum.
+ * @param name - The extremum as the reader hears it, e.g. "Highest maximum".
+ * @param noun - What an unnamed group is called, for its positional name.
+ * @param cellOf - The row and column of a group's whisker end in the
+ *   trace's grid.
+ * @returns The targets, or none when no group has a measured end.
+ */
+export function whiskerEndTargets(
+  points: BoxPoint[],
+  end: 'min' | 'max',
+  name: string,
+  noun: MessageKey,
+  cellOf: (group: number) => [row: number, col: number],
+): ExtremaTarget[] {
+  const ends = points
+    .map((point, group) => ({ group, value: end === 'max' ? point.max : point.min }))
+    .filter(({ value }) => Number.isFinite(value));
+  if (ends.length === 0) {
+    return [];
+  }
+
+  const values = ends.map(({ value }) => value);
+  const extreme = end === 'max' ? MathUtil.safeMax(values) : MathUtil.safeMin(values);
+  return ends
+    .filter(({ value }) => value === extreme)
+    .map(({ group, value }) => {
+      const [row, col] = cellOf(group);
+      const authored = groupName(points[group]);
+      return {
+        ...extremumAt(name, authored ?? groupNameAt(points, group, noun)),
+        value,
+        pointIndex: col,
+        segment: end === 'max' ? BoxplotSection.MAX : BoxplotSection.MIN,
+        type: end,
+        groupIndex: row,
+        categoryIndex: col,
+        navigationType: 'group',
+        // The authored name, so the Go To dialog writes it with the category
+        // axis's format, as the landing announces it. A positional fallback
+        // is not a value of that axis, and carries none.
+        xValue: authored ?? undefined,
+      };
+    });
 }

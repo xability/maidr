@@ -122,6 +122,17 @@ F1, rather than to a rate of 1, which every complete curve reaches. MAIDR says
 which before the point, as G lists it: "Best operating point, False positive
 rate is 0.25, ...". [ says there is no minimum value to go to.
 
+On a box plot, and on a violin plot's box layer, ] goes to the box with the
+highest maximum and [ to the box with the lowest minimum: the whisker ends the
+description names, rather than the outliers past them, which are one step
+further along the same box. A violin drawn without its extrema has no maximum
+to go to. On a boxen plot, ] and [ go to the two ends of the description's
+quantile range, the highest and the lowest rung any distribution reaches. On a
+ridgeline, ] goes to the peak of the ridge you are on and [ to where it is
+thinnest, as on a line chart they go to the highest and lowest point of the
+line you are on. Where several places hold the value, a further press goes to
+the next of them.
+
 **Layers.** A chart drawn in more than one layer — a bar chart with a line over
 it, or a violin plot's box and density curve — moves between its
 layers with Page Up and Page Down. A switch keeps your place where the other

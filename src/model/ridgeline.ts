@@ -1,3 +1,4 @@
+import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, ViolinKdePoint } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
@@ -7,6 +8,7 @@ import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /** The tallest sample of one curve: where it sits, and how tall it is. */
@@ -53,7 +55,12 @@ const MARKED_BY = new WeakMap<SVGElement, SVGElement>();
  * which is what changed.
  */
 export class RidgelineTrace extends AbstractTrace {
-  protected readonly supportsExtrema = false;
+  /**
+   * `]` goes to the peak of the ridge the reader is on and `[` to its lowest
+   * density, and the Go To dialog lists both: see
+   * {@link RidgelineTrace.getExtremaTargets}.
+   */
+  protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
 
   private readonly points: ViolinKdePoint[][];
@@ -635,5 +642,65 @@ export class RidgelineTrace extends AbstractTrace {
     }
 
     return nearest;
+  }
+
+  /**
+   * The peak of the ridge the reader is on and its lowest density, for `]`,
+   * `[` and the Go To dialog.
+   *
+   * Per ridge, as a line chart's are per line: each ridge is one group's
+   * curve, walked along, and `]` answers where that group's values bunch
+   * most, the peak the description names for each group. `[` goes to where
+   * the same curve is thinnest, usually a tail. Every sample holding an
+   * extreme is offered, so a tie is walked; a density that is a gap is never
+   * one.
+   *
+   * @returns The targets on the current ridge, or none for a ridge with no
+   *   measured density
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const row = this.row;
+    const samples = (this.densities[row] ?? [])
+      .map((density, col) => ({ density, col }))
+      .filter(({ density }) => Number.isFinite(density));
+    if (samples.length === 0) {
+      return [];
+    }
+
+    const densities = samples.map(({ density }) => density);
+    const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => samples
+      .filter(({ density }) => density === extreme)
+      .map(({ density, col }) => ({
+        // The raw position, and it again as `xValue`, so the Go To dialog
+        // writes it with the x axis's format, as the landing announces it.
+        ...extremumAt(
+          t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
+          this.positions[row][col],
+        ),
+        value: density,
+        pointIndex: col,
+        segment: this.groupNameAt(row),
+        type,
+        groupIndex: row,
+        categoryIndex: col,
+        navigationType: 'group',
+        xValue: this.positions[row][col],
+      }));
+    return [
+      ...at(MathUtil.safeMax(densities), 'max'),
+      ...at(MathUtil.safeMin(densities), 'min'),
+    ];
+  }
+
+  /**
+   * Moves to the sample a target names. A jump, so the value the arrows
+   * were holding is let go, as {@link RidgelineTrace.moveToIndex} lets it go.
+   *
+   * @param target - A target from {@link RidgelineTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 }

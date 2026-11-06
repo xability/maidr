@@ -1,4 +1,5 @@
 import type { BoxplotSectionType } from '@type/boxplotSection';
+import type { ExtremaTarget } from '@type/extrema';
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { XValue } from '@type/navigation';
@@ -14,7 +15,7 @@ import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
 import { percentileLabel } from './boxen';
-import { extremeStat, groupName, groupNameAt, isHigher, isLower } from './boxExtremes';
+import { extremeStat, groupName, groupNameAt, isHigher, isLower, whiskerEndTargets } from './boxExtremes';
 import { MovableGrid } from './movable';
 
 /**
@@ -45,7 +46,11 @@ export const BOX_SECTIONS: readonly BoxplotSectionType[] = [
  * This is a pure box plot — violin-specific behavior lives in ViolinBoxTrace.
  */
 export class BoxTrace extends AbstractTrace {
-  protected readonly supportsExtrema = false;
+  /**
+   * `[` and `]` go to the lowest minimum and the highest maximum, and the Go
+   * To dialog lists both: see {@link BoxTrace.getExtremaTargets}.
+   */
+  protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
 
   private readonly points: BoxPoint[];
@@ -395,16 +400,65 @@ export class BoxTrace extends AbstractTrace {
     stat: DescriptionState['stats'][number],
     end: 0 | 1,
   ): DescriptionState['stats'][number] {
+    return { ...stat, label: this.whiskerExtremeName(end) };
+  }
+
+  /**
+   * What the chart's extreme at one whisker end is called: "Highest maximum"
+   * on a chart of several boxes, "Maximum" on one, and the percentile when
+   * the whiskers end at quantiles. The description's range row and the Go To
+   * dialog both use it, so the two name the same extreme the same way.
+   *
+   * @param end - 0 for the lower whisker, 1 for the upper
+   * @returns The name, in the active language
+   */
+  private whiskerExtremeName(end: 0 | 1): string {
     const fraction = this.whiskerQuantile(end);
+    const single = this.points.length === 1;
     if (fraction === null) {
-      return stat;
+      if (single) {
+        return t(end === 0 ? 'model.statMinimum' : 'model.statMaximum');
+      }
+      return t(end === 0 ? 'model.statLowestMinimum' : 'model.statHighestMaximum');
     }
     const quantile = percentileLabel(fraction);
-    if (this.points.length === 1) {
-      return { ...stat, label: quantile };
+    if (single) {
+      return quantile;
     }
-    const key = end === 0 ? 'model.statLowestQuantile' : 'model.statHighestQuantile';
-    return { ...stat, label: t(key, { quantile }) };
+    return t(end === 0 ? 'model.statLowestQuantile' : 'model.statHighestQuantile', { quantile });
+  }
+
+  /**
+   * The boxes holding the highest maximum and the lowest minimum, for `]`,
+   * `[` and the Go To dialog.
+   *
+   * The whisker ends the description names as `Highest maximum` and `Lowest
+   * minimum`, so the keys land where the summary says the extremes are. The
+   * outliers past a whisker are one step further along its box. Every box
+   * holding the extreme is offered, so a tie is walked.
+   *
+   * @returns The targets, or none for a plot with no measured whisker ends
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const cellOf = (section: BoxplotSectionType) => (box: number): [number, number] => {
+      const index = this.sections.indexOf(section);
+      return this.orientation === Orientation.HORIZONTAL ? [box, index] : [index, box];
+    };
+    return [
+      ...whiskerEndTargets(this.points, 'max', this.whiskerExtremeName(1), 'model.nounGroup', cellOf(BoxplotSection.MAX)),
+      ...whiskerEndTargets(this.points, 'min', this.whiskerExtremeName(0), 'model.nounGroup', cellOf(BoxplotSection.MIN)),
+    ];
+  }
+
+  /**
+   * Moves to the whisker end a target names.
+   *
+   * @param target - A target from {@link BoxTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 
   public override dispose(): void {
