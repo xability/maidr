@@ -18,6 +18,9 @@
  */
 
 import type { JSX } from 'react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { HostGuardService, installHostGuards } from '@service/hostGuard';
 import { render } from '@testing-library/react';
@@ -360,6 +363,21 @@ describe('a full-screen card', () => {
     press(plot, { key: 'Escape' });
 
     expect(card.exit).not.toHaveBeenCalled();
+  });
+});
+
+describe('the card component\'s namespace', () => {
+  it('cannot be worked out by JavaScript alone, so no minifier can fold it into the name', () => {
+    // A minifier folds an expression only when it can evaluate it, and what
+    // it can evaluate is what JavaScript itself defines: what a new context
+    // holds, without the browser's functions.
+    const source = readFileSync(resolve(__dirname, '../../src/service/hostGuard.ts'), 'utf8');
+    const expression = /^const CARD_NAMESPACE = (.+);$/m.exec(source)?.[1] ?? '';
+
+    const evaluate = (): unknown => runInNewContext(expression);
+
+    expect(expression).not.toBe('');
+    expect(evaluate).toThrow('atob is not defined');
   });
 });
 
