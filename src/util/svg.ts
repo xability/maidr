@@ -65,6 +65,22 @@ export abstract class Svg {
   }
 
   /**
+   * The subpaths of a path `d` attribute: the same vertices as
+   * {@link pathVertices}, kept apart where a moveto starts a new subpath,
+   * each with whether it closes.
+   *
+   * A contour level matplotlib draws, or one D3 draws from a `MultiPolygon`,
+   * is one path holding a subpath per ring. Read as one run of vertices, the
+   * rings are joined by a segment across ground the path never draws.
+   *
+   * @param pathD - The `d` attribute of the rendered path
+   * @returns One outline per subpath, in drawing order
+   */
+  public static pathSubpaths(pathD: string): ShapeOutline[] {
+    return pathSubpaths(pathD);
+  }
+
+  /**
    * The outline a shape is drawn along, in its own user units: a path's
    * vertices, a polyline's or a polygon's points, or those of the shape a
    * `<use>` draws, moved by its offset -- matplotlib draws a filled band as a
@@ -1856,7 +1872,20 @@ const SVG_PATH_ARITY: Record<string, number> = {
  * @returns The vertices, in drawing order
  */
 function pathVertices(pathD: string): PathVertex[] {
-  const coordinates: PathVertex[] = [];
+  return pathSubpaths(pathD).flatMap(subpath => subpath.vertices);
+}
+
+/**
+ * See {@link Svg.pathSubpaths}. Walked as {@link pathVertices} describes; a
+ * subpath starts at each moveto, and closes at a closepath.
+ *
+ * @param pathD - The `d` attribute of the rendered path
+ * @returns One outline per subpath, in drawing order
+ */
+function pathSubpaths(pathD: string): ShapeOutline[] {
+  const subpaths: ShapeOutline[] = [];
+  // The subpath vertices are being added to; none until something draws.
+  let current: ShapeOutline | null = null;
   let x = 0;
   let y = 0;
   // Where the current subpath began, which is where `Z` returns to.
@@ -1877,6 +1906,10 @@ function pathVertices(pathD: string): PathVertex[] {
       // pen without adding a point. Emitting one would duplicate the start.
       x = startX;
       y = startY;
+      if (current !== null) {
+        current.closed = true;
+      }
+      current = null;
       continue;
     }
 
@@ -1900,12 +1933,17 @@ function pathVertices(pathD: string): PathVertex[] {
       if (absolute === 'M' && i === 0) {
         startX = x;
         startY = y;
+        current = null;
       }
-      coordinates.push({ x, y });
+      if (current === null) {
+        current = { vertices: [], closed: false };
+        subpaths.push(current);
+      }
+      current.vertices.push({ x, y });
     }
   }
 
-  return coordinates;
+  return subpaths;
 }
 
 /** One subpath of a path, as its fill sees it. */

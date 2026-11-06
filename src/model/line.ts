@@ -1651,7 +1651,7 @@ export class LineTrace extends AbstractTrace {
         continue;
       }
 
-      this.reconcilePathCoordinates(coordinates, r);
+      this.reconcilePathCoordinates(coordinates, r, lineElement);
 
       // Where every marker of this series goes, worked out before any of
       // them is drawn: the whole series is created and inserted in one go,
@@ -1804,8 +1804,10 @@ export class LineTrace extends AbstractTrace {
    * not data points (see {@link StepTrace}) override this.
    * @param coordinates - Vertices parsed from the path, mutated in place
    * @param row - Index of the series these coordinates belong to
+   * @param _element - The element the vertices were read from, for a subclass
+   * that needs more of its geometry than the vertices (see `ContourTrace`)
    */
-  protected reconcilePathCoordinates(coordinates: LinePoint[], row: number): void {
+  protected reconcilePathCoordinates(coordinates: LinePoint[], row: number, _element?: Element): void {
     const expected = this.lineValues[row].length;
     if (coordinates.length === expected) {
       return;

@@ -154,6 +154,14 @@ function circles(): { x: number; y: number }[] {
   }));
 }
 
+/**
+ * {@link circles}, to the nearest unit: a point marked on a slanted segment
+ * lands between whole coordinates.
+ */
+function roundedCircles(): { x: number; y: number }[] {
+  return circles().map(({ x, y }) => ({ x: Math.round(x), y: Math.round(y) }));
+}
+
 describe('contour highlight mapping', () => {
   beforeEach(() => {
     defineSvgPathElement();
@@ -228,6 +236,118 @@ describe('contour highlight mapping', () => {
       { x: 110, y: 60 },
       { x: 110, y: 85 },
       { x: 110, y: 110 },
+    ]);
+  });
+
+  test('a ring symmetric both ways is marked where its points are', () => {
+    // Every way of drawing the axes lays this ring's points on its path, and
+    // its first point is off both axes of symmetry, so a mirror image would
+    // show. The usual way -- x to the right, y up -- is the one kept.
+    renderContour([[RING_DRAWN]]);
+    const ring: ContourPoint[] = [
+      [4, 1],
+      [4, 3],
+      [3, 4],
+      [1, 4],
+      [0, 3],
+      [0, 1],
+      [1, 0],
+      [3, 0],
+      [4, 1],
+    ].map(([x, y]) => ({ x, y, level: 0.3 }));
+
+    // eslint-disable-next-line no-new
+    new ContourTrace(createLayer(['g#level-0 path'], [ring]));
+
+    expect(circles()).toEqual([
+      { x: 110, y: 85 },
+      { x: 110, y: 35 },
+      { x: 85, y: 10 },
+      { x: 35, y: 10 },
+      { x: 10, y: 35 },
+      { x: 10, y: 85 },
+      { x: 35, y: 110 },
+      { x: 85, y: 110 },
+      { x: 110, y: 85 },
+    ]);
+  });
+
+  test('a ring a renderer drew a little out of true is not marked as its mirror image', () => {
+    // The left side is drawn bent in by 2px, and most of the points are on
+    // it. Mirrored left to right, they all land on the straight right side,
+    // which fits the path better than the truth does, and every point was
+    // marked across the ring from where it is.
+    renderContour([['M 10 10 L 110 10 L 110 110 L 10 110 L 12 60 Z']]);
+    const ring: ContourPoint[] = [
+      [0, 1],
+      [0, 0],
+      [4, 0],
+      [4, 4],
+      [0, 4],
+      [0, 3],
+      [0, 2],
+      [0, 1],
+    ].map(([x, y]) => ({ x, y, level: 0.3 }));
+
+    // eslint-disable-next-line no-new
+    new ContourTrace(createLayer(['g#level-0 path'], [ring]));
+
+    expect(roundedCircles()).toEqual([
+      { x: 11, y: 85 },
+      { x: 10, y: 110 },
+      { x: 110, y: 110 },
+      { x: 110, y: 10 },
+      { x: 10, y: 10 },
+      { x: 11, y: 35 },
+      { x: 12, y: 60 },
+      { x: 11, y: 85 },
+    ]);
+  });
+
+  test('a curve drawn in two pieces is marked on them, not on a line between them', () => {
+    // A path of two subpaths read as one run of vertices joins them with a
+    // segment the path never draws, and the point in the gap was marked on
+    // it, in the gap.
+    renderContour([['M 10 110 L 50 110 M 70 110 L 110 110 L 110 10']]);
+    const corner: ContourPoint[] = [
+      [0, 0],
+      [1, 0],
+      [1.8, 0],
+      [3, 0],
+      [4, 0],
+      [4, 2],
+      [4, 4],
+    ].map(([x, y]) => ({ x, y, level: 0.3 }));
+
+    // eslint-disable-next-line no-new
+    new ContourTrace(createLayer(['g#level-0 path'], [corner]));
+
+    expect(roundedCircles()).toEqual([
+      { x: 10, y: 110 },
+      { x: 35, y: 110 },
+      { x: 50, y: 110 },
+      { x: 85, y: 110 },
+      { x: 110, y: 110 },
+      { x: 110, y: 60 },
+      { x: 110, y: 10 },
+    ]);
+  });
+
+  test('a curve with no height, drawn with some, keeps the line chart\'s reading', () => {
+    // The box a flat curve spans cannot be laid onto a path that has a height,
+    // so the points are spread by x as on a line chart.
+    renderContour([['M 10 100 L 60 50 L 110 100']]);
+    const flat: ContourPoint[] = [0, 1, 2, 3, 4].map(x => ({ x, y: 1, level: 0.3 }));
+
+    // eslint-disable-next-line no-new
+    new ContourTrace(createLayer(['g#level-0 path'], [flat]));
+
+    expect(circles()).toEqual([
+      { x: 10, y: 100 },
+      { x: 35, y: 75 },
+      { x: 60, y: 50 },
+      { x: 85, y: 75 },
+      { x: 110, y: 100 },
     ]);
   });
 
