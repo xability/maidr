@@ -1,4 +1,5 @@
 import type { BoxplotSectionType } from '@type/boxplotSection';
+import type { ExtremaTarget } from '@type/extrema';
 import type { BoxPoint, BoxSelector, MaidrLayer, ViolinOptions } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
@@ -13,7 +14,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
-import { extremeStat, groupNameAt, isHigher, isLower } from './boxExtremes';
+import { extremeStat, groupNameAt, isHigher, isLower, whiskerEndTargets } from './boxExtremes';
 import { MovableGrid } from './movable';
 
 /**
@@ -35,7 +36,11 @@ import { MovableGrid } from './movable';
  * Extends AbstractTrace directly (no BoxTrace dependency).
  */
 export class ViolinBoxTrace extends AbstractTrace {
-  protected readonly supportsExtrema = false;
+  /**
+   * `[` and `]` go to the lowest minimum and the highest maximum, and the Go
+   * To dialog lists both: see {@link ViolinBoxTrace.getExtremaTargets}.
+   */
+  protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
 
   private readonly points: BoxPoint[];
@@ -319,6 +324,56 @@ export class ViolinBoxTrace extends AbstractTrace {
     this.points.length = 0;
     this.sections.length = 0;
     super.dispose();
+  }
+
+  /**
+   * The violins holding the highest maximum and the lowest minimum, for `]`,
+   * `[` and the Go To dialog: the extremes the description's range rows
+   * name, so the keys land where the summary says they are.
+   *
+   * A violin drawn without its extrema has no maximum section, and the
+   * description names no maximum, so `]` has nothing to go to there either.
+   * The minimum is always drawn. Every violin holding an extreme is offered,
+   * so a tie is walked.
+   *
+   * @returns The targets, or none for a plot with no measured extremes
+   */
+  public override getExtremaTargets(): ExtremaTarget[] {
+    const single = this.points.length === 1;
+    const cellOf = (section: BoxplotSectionType) => (violin: number): [number, number] => {
+      const index = this.sections.indexOf(section);
+      return this.orientation === Orientation.HORIZONTAL ? [violin, index] : [index, violin];
+    };
+    const highest = this.sections.includes(BoxplotSection.MAX)
+      ? whiskerEndTargets(
+          this.points,
+          'max',
+          t(single ? 'model.statMaximum' : 'model.statHighestMaximum'),
+          'model.nounViolin',
+          cellOf(BoxplotSection.MAX),
+        )
+      : [];
+    return [
+      ...highest,
+      ...whiskerEndTargets(
+        this.points,
+        'min',
+        t(single ? 'model.statMinimum' : 'model.statLowestMinimum'),
+        'model.nounViolin',
+        cellOf(BoxplotSection.MIN),
+      ),
+    ];
+  }
+
+  /**
+   * Moves to the section a target names.
+   *
+   * @param target - A target from {@link ViolinBoxTrace.getExtremaTargets}
+   */
+  public override navigateToExtrema(target: ExtremaTarget): void {
+    if (target.groupIndex !== undefined && target.categoryIndex !== undefined) {
+      this.moveToIndex(target.groupIndex, target.categoryIndex);
+    }
   }
 
   protected get values(): (number[] | number)[][] {
