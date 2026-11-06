@@ -27,6 +27,9 @@ import { maidrPlugin } from '@adapters/chartjs/plugin';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { act } from '@testing-library/react';
 
+/** The id of the stylesheet a test adds to the page, removed after each test. */
+const TEST_SHEET = 'canvas-box-test-sheet';
+
 /** The observers the plugin made, so a test can run them as layout would. */
 const observers: { run: () => void; disconnected: boolean }[] = [];
 
@@ -86,6 +89,7 @@ beforeEach(() => {
 afterEach(() => {
   delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
   document.body.innerHTML = '';
+  document.getElementById(TEST_SHEET)?.remove();
 });
 
 describe('the box a page gives its Chart.js canvas', () => {
@@ -147,6 +151,7 @@ describe('the box a page gives its Chart.js canvas', () => {
 
   it('adds the room to a margin the page\'s stylesheet gave the box', async () => {
     const style = document.createElement('style');
+    style.id = TEST_SHEET;
     style.textContent = '.chart-box { margin-bottom: 12px; }';
     document.head.appendChild(style);
     const box = document.createElement('div');
@@ -165,7 +170,6 @@ describe('the box a page gives its Chart.js canvas', () => {
     act(() => {
       maidrPlugin.beforeDestroy?.(chart, {}, {});
     });
-    style.remove();
 
     expect(withText).toBe('46px');
     expect(box.style.marginBottom).toBe('');
