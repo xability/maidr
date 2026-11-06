@@ -379,6 +379,13 @@
         var topY = topChart.yAxes.push(
           am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
         );
+        // Each panel titles its own axes. The binder's `axisLabels` option is
+        // one setting for the whole figure, so a title drawn on the chart is
+        // how two panels that measure different things get different names.
+        topX.children.push(am5.Label.new(root, { text: "Month", x: am5.p50, centerX: am5.p50 }));
+        topY.children.unshift(
+          am5.Label.new(root, { text: "Revenue", rotation: -90, y: am5.p50, centerX: am5.p50 })
+        );
         var revenueSeries = topChart.series.push(
           am5xy.ColumnSeries.new(root, {
             name: "Revenue", xAxis: topX, yAxis: topY,
@@ -401,6 +408,10 @@
         );
         var bottomY = bottomChart.yAxes.push(
           am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        bottomX.children.push(am5.Label.new(root, { text: "Month", x: am5.p50, centerX: am5.p50 }));
+        bottomY.children.unshift(
+          am5.Label.new(root, { text: "Growth rate", rotation: -90, y: am5.p50, centerX: am5.p50 })
         );
         var growthSeries = bottomChart.series.push(
           am5xy.LineSeries.new(root, {

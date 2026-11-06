@@ -186,6 +186,11 @@ export interface AmAxis extends AmEntity {
     utc?: boolean;
     timezone?: { name?: string };
   };
+  /**
+   * What the axis draws directly, as an am5 `List`. amCharts 5 has no axis
+   * title setting: a title is an `am5.Label` the author pushes in here.
+   */
+  children?: AmListLike<AmEntity>;
 }
 
 /**

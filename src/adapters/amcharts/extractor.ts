@@ -33,7 +33,14 @@ import { TraceType } from '@type/grammar';
 // ---------------------------------------------------------------------------
 
 /**
- * Read a string label from an axis, falling back to `"x"` / `"y"`.
+ * Read a string label from an axis, falling back to `fallback`.
+ *
+ * amCharts 5 has no axis title setting. Its documented way to title an axis
+ * is to draw one: an `am5.Label` pushed into the axis' own children
+ * (`xAxis.children.push(...)`, `yAxis.children.unshift(...)`), which is what
+ * {@link readTitleChild} finds. A `title` entity carrying a `text` setting is
+ * read first, as before, for pages that set one; it draws nothing in
+ * amCharts 5, so it is only ever an author's note to this adapter.
  */
 export function readAxisLabel(axis: AmAxis | undefined, fallback: string): string {
   if (!axis)
@@ -46,10 +53,32 @@ export function readAxisLabel(axis: AmAxis | undefined, fallback: string): strin
       return text;
   }
 
+  const drawn = readTitleChild(axis);
+  if (drawn !== undefined)
+    return drawn;
+
   const name = axis.get('name');
   if (typeof name === 'string' && name.length > 0)
     return name;
   return fallback;
+}
+
+/**
+ * The text of the first `Label` among an axis' own children, if it has one.
+ *
+ * Only direct children are asked, which is what keeps this to the title: the
+ * tick labels an axis draws live a level down, in its labels container, and
+ * so does every axis range's label.
+ */
+function readTitleChild(axis: AmAxis): string | undefined {
+  for (const child of axis.children?.values ?? []) {
+    if (child.className !== 'Label')
+      continue;
+    const text = child.get('text');
+    if (typeof text === 'string' && text.trim().length > 0)
+      return text;
+  }
+  return undefined;
 }
 
 /**
