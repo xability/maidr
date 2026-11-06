@@ -25,6 +25,7 @@ import type {
 import type { FrappeChart, FrappeChartType, FrappeData, FrappeDataset, FrappePanel } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import { toSegmentedShares } from '../shared/normalize';
+import { isAngle, pieGeometry } from '../shared/pieGeometry';
 import {
   barSelector,
   barSelectorForDataset,
@@ -248,6 +249,12 @@ interface BuildSubplotOptions {
    */
   maxSlices?: number;
   /**
+   * The chart's `startAngle` and `clockWise` settings, read from the
+   * instance. Pie / donut only — see {@link buildPieLayer}.
+   */
+  startAngle?: number;
+  clockWise?: boolean;
+  /**
    * The chart's `lineOptions.regionFill` setting, read from the instance. Line
    * charts only — it fills the band between the line and the baseline, which
    * makes the chart an area chart. See {@link buildLayers}.
@@ -288,6 +295,8 @@ function buildSubplot(
   const layers = buildLayers(data, container.id, {
     ...options,
     maxSlices: chart.config?.maxSlices,
+    startAngle: chart.config?.startAngle,
+    clockWise: chart.clockWise,
     regionFill: Boolean(chart.lineOptions?.regionFill),
   });
   if (options.panelTitle && layers.length > 0) {
@@ -824,6 +833,15 @@ const PIE_AXIS_FALLBACKS = { x: 'Label', y: 'Value' };
  *
  * The percentage each slice represents is deliberately not emitted — MAIDR's
  * pie trace derives it from the values, so there is one source of truth.
+ *
+ * The dial is declared, because Frappe's default is not the grammar's: the
+ * first slice starts at `startAngle` (degrees clockwise from 12 o'clock, 0
+ * unless set) and the rest follow **counterclockwise** unless the chart was
+ * given `clockWise` (v1.6.2 `PieChart.calc()` and `DonutChart.calc()` step
+ * their angle up from `180 - startAngle` unless it is set). Declared as
+ * clockwise, a default pie was walked backwards — Right moved
+ * counterclockwise round the drawing — and `P` put the first slice between
+ * 12 and 3 o'clock when it is drawn between 9 and 12.
  */
 function buildPieLayer(
   data: FrappeData,
@@ -837,6 +855,10 @@ function buildPieLayer(
     type: TraceType.PIE,
     selectors: sliceSelector(containerId, chartType),
     axes: buildAxes(options, PIE_AXIS_FALLBACKS),
+    ...pieGeometry(
+      isAngle(options.startAngle) ? options.startAngle : 0,
+      Boolean(options.clockWise),
+    ),
     data: aggregateSlices(data, options.maxSlices ?? DEFAULT_MAX_SLICES),
   };
 }
