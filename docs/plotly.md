@@ -490,7 +490,10 @@ caps are drawn), the quartiles at the edges of the body and the median at its
 line. A violin's inner box is drawn the same way: its quartiles and median are
 outlined the same way, and its minimum and maximum marked at the ends of its
 whiskers. So is a candle, whose open and close are outlined at the edges of its
-body and its high and low at its wicks.
+body and its high and low at its wicks. A trace of `type: 'ohlc'` is read as a
+candlestick too, but each of its bars is outlined whole, whichever price is
+read: plotly draws a bar as one path, the open's tick, the line from the high to
+the low and the close's tick.
 
 #### Violin Plot
 
