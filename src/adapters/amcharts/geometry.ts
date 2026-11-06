@@ -211,7 +211,10 @@ export function wedgeBounds(slice: AmSprite): AmBounds | null {
  *
  * A sprite with no `toGlobal` keeps the old reading only while its box is a
  * point, where that reading is right; one reporting a real box gives no
- * centre, and the caller then takes the box it reports.
+ * centre, and the caller then takes the box it reports. So does a sprite
+ * whose origin `toGlobal` maps to no finite point: its box's middle is not
+ * taken for the centre, and {@link sliceExtent} takes the box it reports
+ * instead, when that box has area.
  */
 function wedgeCentre(slice: AmSprite): AmPoint | null {
   if (slice.toGlobal) {

@@ -325,7 +325,9 @@ function regionRect(target: NavItemTarget): OverlayRect | null {
  * own keyboard focus outlines a region with.
  *
  * @returns The box, or `null` when the series has no path or the polygon no
- *   geometry to measure
+ *   geometry to measure, or the path cannot measure it: an empty geometry
+ *   answers infinite bounds, and a malformed one may throw, which would
+ *   otherwise leave the last box on the map
  */
 function projectedRegionRect(series: AmXYSeries, polygon: AmSprite): OverlayRect | null {
   const path = series.geoPath?.();
@@ -334,7 +336,13 @@ function projectedRegionRect(series: AmXYSeries, polygon: AmSprite): OverlayRect
     return null;
   }
 
-  const [[left, top], [right, bottom]] = path.bounds(geometry);
+  let bounds: [[number, number], [number, number]];
+  try {
+    bounds = path.bounds(geometry);
+  } catch {
+    return null;
+  }
+  const [[left, top], [right, bottom]] = bounds;
   if (![left, top, right, bottom].every(Number.isFinite)) {
     return null;
   }
@@ -346,7 +354,8 @@ function projectedRegionRect(series: AmXYSeries, polygon: AmSprite): OverlayRect
  * A box in a sprite's own coordinates, mapped to root-container CSS px.
  *
  * All four corners are mapped and the result is their axis-aligned box, so a
- * sprite turned by any of its ancestors still gets the box it is drawn in.
+ * sprite turned by any of its ancestors still gets the box it is drawn in. A
+ * corner that maps to no finite point gives no box, as in {@link endsRect}.
  */
 function toGlobalRect(sprite: AmSprite, local: AmBounds): OverlayRect | null {
   if (!sprite.toGlobal) {
@@ -363,6 +372,9 @@ function toGlobalRect(sprite: AmSprite, local: AmBounds): OverlayRect | null {
     const point = sprite.toGlobal({ x, y });
     xs.push(point.x);
     ys.push(point.y);
+  }
+  if (![...xs, ...ys].every(Number.isFinite)) {
+    return null;
   }
   const left = Math.min(...xs);
   const top = Math.min(...ys);
