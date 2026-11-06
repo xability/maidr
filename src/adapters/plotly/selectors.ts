@@ -190,8 +190,11 @@ export function subplotCssPrefix(xaxis?: string, yaxis?: string): string {
   return `.subplot.${x}${y} `;
 }
 
-/** Staircases whose risers stand midway between their samples. */
-const MIDWAY_STEPS = new Set(['hvh', 'vhv']);
+/**
+ * The staircase whose runs stand midway between its levels, which the step
+ * model does not read off its path; see {@link lineSelectors}.
+ */
+const MIDWAY_LEVEL_STEP = 'vhv';
 
 /**
  * Line selectors: one per series of a line, step, area or precision-recall
@@ -217,12 +220,14 @@ const MIDWAY_STEPS = new Set(['hvh', 'vhv']);
  * the whole list, since a list missing one entry pairs every series after it
  * with the wrong trace.
  *
- * So does a line drawn as a staircase whose risers stand midway between the
- * samples (`hvh`, `vhv`), when it is read off its path. Plotly draws the step
- * between two samples of one value there as a riser of no height, which the
- * step model reads as part of the run beside it, so it finds fewer steps than
- * samples and marks each sample at a neighbour's place. No highlight is drawn
- * rather than that one.
+ * So does a line drawn as a staircase whose runs stand midway between its
+ * levels (`vhv`), when it is read off its path. Its samples are the ends of
+ * its vertical risers, and the step model reads each sample's level off a
+ * horizontal run, so it would mark each sample at a level halfway to a
+ * neighbour's. No highlight is drawn rather than that one. A staircase whose
+ * risers stand midway between the samples (`hvh`) is read sample by sample,
+ * the risers of no height plotly draws between two samples of one level
+ * among them.
  *
  * @param traces - The layer's traces, one per series, in series order
  * @returns One selector per trace, or undefined when one cannot be named
@@ -234,7 +239,7 @@ export function lineSelectors(traces: readonly PlotlyTrace[]): string[] | undefi
   const marks = traces.every(trace => trace.mode?.includes('markers'))
     ? '.point'
     : 'path.js-line';
-  if (marks === 'path.js-line' && traces.some(trace => MIDWAY_STEPS.has(trace.line?.shape ?? ''))) {
+  if (marks === 'path.js-line' && traces.some(trace => trace.line?.shape === MIDWAY_LEVEL_STEP)) {
     return undefined;
   }
   const selectors = traces.map(trace =>
