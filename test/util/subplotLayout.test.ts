@@ -210,6 +210,25 @@ describe('resolveSubplotLayout panel-geometry fallback (no axes_* groups)', () =
 
     expect(layout.invertVertical).toBe(true);
   });
+
+  it('still measures panels side by side whose regions overlap but hold neither middle', () => {
+    // Each panel has a mark reaching into the other's region, as a long line
+    // or a fitted curve can, but neither region holds the other's middle.
+    // The right panel is written first, so data order would read the two the
+    // wrong way round.
+    drawLabel('right-panel', { top: 60, left: 330 });
+    drawLabel('right-panel', { top: 200, left: 560 });
+    drawLabel('right-panel', { top: 130, left: 250 });
+    drawLabel('left-panel', { top: 60, left: 20 });
+    drawLabel('left-panel', { top: 200, left: 360 });
+
+    const layout = resolveSubplotLayout(grid([
+      [{ layerSelector: '.right-panel' }, { layerSelector: '.left-panel' }],
+    ]));
+
+    expect(layout.visualOrderMap.get('0,1')).toBe(1);
+    expect(layout.visualOrderMap.get('0,0')).toBe(2);
+  });
 });
 
 describe('resolveSubplotLayout axes-group path precedence', () => {
