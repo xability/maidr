@@ -128,6 +128,25 @@ describe('useRechartsAdapter', () => {
     }
   });
 
+  it('says it again for a ridgeline mounted again under the same id', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const config: RechartsAdapterConfig = {
+      id: 'hook-ridges-remounted',
+      data: [{ month: 'Jan', temp: 0, density: 0.1 }],
+      chartType: 'ridgeline',
+      xKey: 'temp',
+      ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+    };
+    try {
+      renderHook(() => useRechartsAdapter(config)).unmount();
+      renderHook(() => useRechartsAdapter(config));
+
+      expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('keeps forwarding the fields it already did', () => {
     const layer = layerFor({
       id: 'b',

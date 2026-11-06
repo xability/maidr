@@ -100,39 +100,55 @@ describe('the Recharts ridgeline example', () => {
 });
 
 describe('a Recharts ridgeline whose drawn key cannot be read', () => {
+  const rows = [
+    { month: 'Jan', temp: 0, density: 0.1, plotted: 1.1 },
+    { month: 'Feb', temp: 0, density: 0.3, plotted: 0.3 },
+  ];
+  const plotted = (row: unknown): unknown => (row as { plotted: number }).plotted;
+  const ridges = (id: string, dataKey: string | ((row: unknown) => unknown)): ReactElement => createElement(MaidrRecharts, {
+    id,
+    data: rows,
+    chartType: 'ridgeline',
+    xKey: 'temp',
+    ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+    children: createElement(
+      AreaChart,
+      { width: 400, height: 300 },
+      createElement(XAxis, { dataKey: 'temp', type: 'number' }),
+      createElement(YAxis, { type: 'number' }),
+      ...['Jan', 'Feb'].map(month => createElement(Area, {
+        key: month,
+        data: rows.filter(row => row.month === month),
+        dataKey,
+        isAnimationActive: false,
+      })),
+    ),
+  });
+
   it('says once that its ridges keep first-appearance order, and nothing for a key it reads', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const rows = [
-      { month: 'Jan', temp: 0, density: 0.1, plotted: 1.1 },
-      { month: 'Feb', temp: 0, density: 0.3, plotted: 0.3 },
-    ];
-    const ridges = (id: string, dataKey: string | ((row: unknown) => unknown)): ReactElement => createElement(MaidrRecharts, {
-      id,
-      data: rows,
-      chartType: 'ridgeline',
-      xKey: 'temp',
-      ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
-      children: createElement(
-        AreaChart,
-        { width: 400, height: 300 },
-        createElement(XAxis, { dataKey: 'temp', type: 'number' }),
-        createElement(YAxis, { type: 'number' }),
-        ...['Jan', 'Feb'].map(month => createElement(Area, {
-          key: month,
-          data: rows.filter(row => row.month === month),
-          dataKey,
-          isAnimationActive: false,
-        })),
-      ),
-    });
     try {
-      const plotted = (row: unknown): unknown => (row as { plotted: number }).plotted;
       const { rerender } = render(ridges('function-key-ridges', plotted));
       rerender(ridges('function-key-ridges', plotted));
       render(ridges('string-key-ridges', 'plotted'));
 
       expect(warn).toHaveBeenCalledTimes(1);
       expect(String(warn.mock.calls[0][0])).toContain('Ridgeline "function-key-ridges" has no ridgelineConfig.plottedKey, and no <Area>');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('says it again when the chart is mounted again', () => {
+    // Each mounted chart remembers what it has said, so one mounted afresh
+    // under the same id has said nothing yet.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      render(ridges('remounted-ridges', plotted)).unmount();
+      render(ridges('remounted-ridges', plotted));
+
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(String(warn.mock.calls[1][0])).toContain('Ridgeline "remounted-ridges" has no ridgelineConfig.plottedKey');
     } finally {
       warn.mockRestore();
     }

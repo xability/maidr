@@ -38,15 +38,12 @@
 
 import type { Maidr } from '@type/grammar';
 import type { RechartsAdapterConfig } from './types';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { convertRechartsToMaidr } from './converters';
 
-/** The charts already told to name a ridgeline's drawn key, so each is told once. */
-const askedForPlottedKey = new Set<string>();
-
 /**
- * Says, once per chart, that a ridgeline with no `ridgelineConfig.plottedKey`
- * is read in the order its groups first appear.
+ * What the console says of a ridgeline with no `ridgelineConfig.plottedKey`:
+ * that it is read in the order its groups first appear.
  *
  * `<MaidrRecharts>` reads the key off the chart's `<Area dataKey>` and lists
  * the ridges bottom first, as they are drawn; this hook reads nothing off the
@@ -57,17 +54,34 @@ const askedForPlottedKey = new Set<string>();
  *
  * @param id - The chart's id
  * @param unread - Why the component found no key, said after the config's
+ * @returns The warning
  */
-export function askForPlottedKey(id: string, unread = ''): void {
-  if (askedForPlottedKey.has(id)) {
-    return;
-  }
-  askedForPlottedKey.add(id);
-  console.warn(
-    `[maidr/recharts] Ridgeline "${id}" has no ridgelineConfig.plottedKey${unread}, so its ridges are `
+export function plottedKeyWarning(id: string, unread = ''): string {
+  return `[maidr/recharts] Ridgeline "${id}" has no ridgelineConfig.plottedKey${unread}, so its ridges are `
     + 'read in the order their groups first appear in data, the first as the lowest. Set it to '
-    + 'the key the <Area>s draw, and they are read bottom first, as drawn.',
-  );
+    + 'the key the <Area>s draw, and they are read bottom first, as drawn.';
+}
+
+/**
+ * Says a warning on the console once for each mounted chart, from an effect
+ * rather than while rendering.
+ *
+ * The chart remembers what it has said, so a re-render says nothing again,
+ * and neither does React's development check that runs a new chart's effects
+ * twice. A chart unmounted and mounted again is a new chart and says it
+ * again. Nothing is kept outside the chart, so nothing outlives it.
+ *
+ * @param warning - What to say, or `undefined` for nothing
+ */
+export function useWarnOnce(warning: string | undefined): void {
+  const said = useRef(new Set<string>());
+  useEffect(() => {
+    if (warning === undefined || said.current.has(warning)) {
+      return;
+    }
+    said.current.add(warning);
+    console.warn(warning);
+  }, [warning]);
 }
 
 /**
@@ -140,9 +154,9 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
     boxenConfig,
     selectorOverride,
   } = config;
-  if (chartType === 'ridgeline' && ridgelineConfig !== undefined && ridgelineConfig.plottedKey === undefined) {
-    askForPlottedKey(id);
-  }
+  useWarnOnce(chartType === 'ridgeline' && ridgelineConfig !== undefined && ridgelineConfig.plottedKey === undefined
+    ? plottedKeyWarning(id)
+    : undefined);
   // Serialised, as `<MaidrRecharts>` serialises what it reads off its
   // children: the list is usually written inline, a new array on every
   // render, and a new MAIDR object makes `<Maidr>` forget the place a reader
