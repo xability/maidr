@@ -193,8 +193,9 @@ export function whiskerEndTargets(
     .filter(({ value }) => value === extreme)
     .map(({ group, value }) => {
       const [row, col] = cellOf(group);
+      const authored = groupName(points[group]);
       return {
-        ...extremumAt(name, groupNameAt(points, group, noun)),
+        ...extremumAt(name, authored ?? groupNameAt(points, group, noun)),
         value,
         pointIndex: col,
         segment: end === 'max' ? BoxplotSection.MAX : BoxplotSection.MIN,
@@ -202,6 +203,10 @@ export function whiskerEndTargets(
         groupIndex: row,
         categoryIndex: col,
         navigationType: 'group',
+        // The authored name, so the Go To dialog writes it with the category
+        // axis's format, as the landing announces it. A positional fallback
+        // is not a value of that axis, and carries none.
+        xValue: authored ?? undefined,
       };
     });
 }

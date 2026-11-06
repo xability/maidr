@@ -91,6 +91,17 @@ function offered(trace: AbstractTrace): [string, string, number][] {
 }
 
 /**
+ * Each target's position as the Go To dialog writes it, and the value it
+ * formats that position from. The dialog formats `display.x` with the
+ * layer's axis format only where it is `xValue` written out.
+ * @param trace The trace to read
+ * @returns One pair per target
+ */
+function positions(trace: AbstractTrace): [string | undefined, unknown][] {
+  return trace.getExtremaTargets().map(target => [target.display?.x, target.xValue]);
+}
+
+/**
  * Where a target puts the reader, as the announcement reads it.
  * @param trace The trace to move
  * @param target The target to go to
@@ -134,6 +145,17 @@ describe('a box plot\'s [ and ] go to the whisker ends the description names', (
       .map(([, label]) => label);
 
     expect(maxima).toEqual(['Highest maximum at A', 'Highest maximum at C']);
+  });
+
+  test('carries a named box as its x, so the Go To dialog formats it as the landing announces it', () => {
+    // Without it the dialog listed a category '2019' as written while the
+    // landing announced it in the axis's format, '2019.0000' at four decimals.
+    const named = [group('2019', 1, 4, 6, 8, 12), group('', 3, 9, 14, 22, 40)];
+
+    expect(positions(traceOf(boxLayer(TraceType.BOX, named)))).toEqual([
+      ['Group 2', undefined],
+      ['2019', '2019'],
+    ]);
   });
 
   test('names a whisker drawn at a quantile as the summary does', () => {
@@ -197,6 +219,17 @@ describe('a boxen plot\'s [ and ] go to the ends of its quantile range', () => {
     ]);
     expect(landing(trace, trace.getExtremaTargets()[0])[2]).toBe(95);
   });
+
+  test('carries the distribution\'s name as its x, so the Go To dialog formats it as the landing announces it', () => {
+    const trace = traceOf({
+      id: 'boxen',
+      type: TraceType.BOXEN,
+      axes: { x: { label: 'Group' }, y: { label: 'Milliseconds' } },
+      data: DISTRIBUTIONS,
+    });
+
+    expect(positions(trace)).toEqual([['heavy', 'heavy'], ['heavy', 'heavy']]);
+  });
 });
 
 describe('a ridgeline\'s [ and ] go to the peak and the thinnest part of the ridge the reader is on', () => {
@@ -236,6 +269,26 @@ describe('a ridgeline\'s [ and ] go to the peak and the thinnest part of the rid
     expect(offered(trace)).toEqual([
       ['max', 'Max point at 45', 0.9],
       ['min', 'Min point at 60', 0.2],
+    ]);
+  });
+
+  test('carries the raw position as its x, so the Go To dialog formats it as the landing announces it', () => {
+    // Rounded here, a peak at 57.14285714285714 was listed at 57.14 while the
+    // landing announced it in the axis's format, 57.1429 at four decimals.
+    const trace = traceOf({
+      id: 'ridges',
+      type: TraceType.RIDGELINE,
+      axes: { x: { label: 'Days' }, y: { label: 'Cohort' } },
+      data: [[
+        { x: 'early', y: 10, density: 0.02 },
+        { x: 'early', y: 57.14285714285714, density: 0.09 },
+      ]],
+    });
+    trace.moveToIndex(0, 0);
+
+    expect(positions(trace)).toEqual([
+      ['57.14285714285714', 57.14285714285714],
+      ['10', 10],
     ]);
   });
 

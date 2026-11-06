@@ -671,9 +671,11 @@ export class RidgelineTrace extends AbstractTrace {
     const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => samples
       .filter(({ density }) => density === extreme)
       .map(({ density, col }) => ({
+        // The raw position, and it again as `xValue`, so the Go To dialog
+        // writes it with the x axis's format, as the landing announces it.
         ...extremumAt(
           t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
-          defaultFormat(this.positions[row][col]),
+          this.positions[row][col],
         ),
         value: density,
         pointIndex: col,
@@ -682,6 +684,7 @@ export class RidgelineTrace extends AbstractTrace {
         groupIndex: row,
         categoryIndex: col,
         navigationType: 'group',
+        xValue: this.positions[row][col],
       }));
     return [
       ...at(MathUtil.safeMax(densities), 'max'),

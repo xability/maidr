@@ -639,6 +639,9 @@ export class BoxenTrace extends AbstractTrace {
               groupIndex: row,
               categoryIndex: col,
               navigationType: 'group' as const,
+              // So the Go To dialog writes the name with the category axis's
+              // format, as the landing announces it.
+              xValue: this.authoredNameAt(row) ?? undefined,
             }]
       )));
     return [...at(this.max, 'max'), ...at(this.min, 'min')];
@@ -662,9 +665,18 @@ export class BoxenTrace extends AbstractTrace {
    * @returns Its name
    */
   private distributionNameAt(row: number): string {
+    return this.authoredNameAt(row)
+      ?? t('model.fallbackNumbered', { noun: t('model.nounDistribution'), index: row + 1 });
+  }
+
+  /**
+   * The name the layer gave a distribution, where it gave one.
+   *
+   * @param row - Which distribution
+   * @returns Its name, or null
+   */
+  private authoredNameAt(row: number): string | null {
     const name = this.points[row]?.z;
-    return typeof name === 'string' && name.trim() !== ''
-      ? name.trim()
-      : t('model.fallbackNumbered', { noun: t('model.nounDistribution'), index: row + 1 });
+    return typeof name === 'string' && name.trim() !== '' ? name.trim() : null;
   }
 }
