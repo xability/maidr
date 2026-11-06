@@ -100,6 +100,21 @@ test.describe('Volcano plot', () => {
     expect(hits.some(point => point.x < 0)).toBe(true);
   });
 
+  test('should jump to the most significant point', async ({ page }) => {
+    // ] used to say there was no maximum value to go to in this layer, where
+    // the point at the top is the finding.
+    const points = maidrData.subplots[0][0].layers[0].data as { y: number; label?: string }[];
+    const top = points.reduce((best, point) => (point.y > best.y ? point : best));
+    const plot = new VolcanoPlotPage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+
+    await plot.goToMaximumValue();
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain(String(top.label));
+  });
+
   test('should announce itself as a volcano rather than a scatter', async ({ page }) => {
     // Sharing ScatterTrace must not mean the chart tells a reader it is a
     // scatter -- the chart type is one of the few places they learn what they
