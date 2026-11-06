@@ -27,9 +27,15 @@
  * before. The parts are appended to the box's group rather than inserted
  * beside the box, so that no element plotly drew changes its position among
  * its siblings, which the violin selectors count by; and they follow the
- * box's `d`, which plotly rewrites when the chart is zoomed or resized. A box
- * added or taken away comes with data plotly has computed again, which MAIDR
- * reads again (`claimPlotlyExamination`), splitting the boxes afresh.
+ * boxes plotly draws in the group, which it draws again when the chart is
+ * zoomed or resized, or given new data.
+ *
+ * What MAIDR announces does not follow. It reads a chart once, when it binds
+ * it: `initPlotlyChart` passes over a chart carrying `data-maidr-auto`. After
+ * a `Plotly.react` that adds, moves or takes away boxes, MAIDR still
+ * announces the boxes and numbers it read, each outlined at the parts drawn
+ * in that box's position among its group's boxes; a box added to a group it
+ * read is split but not announced, and a trace added is neither.
  */
 
 import { storeMutationObserver } from './normalizer';

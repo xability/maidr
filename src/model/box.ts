@@ -696,7 +696,7 @@ export class BoxTrace extends AbstractTrace {
       const iqOriginal = Svg.selectElement(selector.iq, false);
       const q2Original = Svg.selectElement(selector.q2, false);
 
-      // Direct Q1/Q3 selectors bypass iq edge derivation (used by Plotly)
+      // Direct Q1/Q3 selectors bypass iq edge derivation
       const q1DirectOriginal = selector.q1 ? Svg.selectElement(selector.q1, false) : null;
       const q3DirectOriginal = selector.q3 ? Svg.selectElement(selector.q3, false) : null;
 
@@ -723,7 +723,7 @@ export class BoxTrace extends AbstractTrace {
     //
     // Nothing is inserted here. The lines come back detached and Phase 2 puts
     // them in exactly where the one-at-a-time code did, because a box whose
-    // body element is also one of its own parts -- Victory names one `<path>`
+    // body element is also one of its own parts -- Victory names one `<rect>`
     // as both `iq` and `q1`, Plotly's violin box names one as `min`, `iq`,
     // `q2` and `max` -- would otherwise have its hidden clone land directly
     // after that element instead of behind the derived lines, and
@@ -733,7 +733,7 @@ export class BoxTrace extends AbstractTrace {
     const edgeRequests: LineRequest[] = [];
     const edgeOwners: number[] = [];
     originals.forEach((original, boxIdx) => {
-      // Direct Q1/Q3 selectors bypass iq edge derivation (used by Plotly).
+      // Direct Q1/Q3 selectors bypass iq edge derivation.
       if ((original.q1Direct && original.q3Direct) || !original.iq) {
         return;
       }
@@ -808,11 +808,13 @@ export class BoxTrace extends AbstractTrace {
       const max = this.cloneElementOrEmpty(original.max);
       const q2 = this.cloneElementOrEmpty(original.q2);
 
-      // Use direct Q1/Q3 selectors if provided (the Plotly adapter names the
-      // edges it draws of each box). Otherwise, take the Q1/Q3 edges derived
-      // from iq in Phase 1.5 (matplotlib/seaborn) and insert them here, after
-      // this box's clones, where deriving them one at a time used to insert
-      // them.
+      // Use direct Q1/Q3 selectors if provided: the Plotly and ApexCharts
+      // adapters name the body's edges, which they draw again as hidden
+      // elements of their own, Victory the two rects it draws a box as, and
+      // py-maidr's Plotly output, through 1.28.1, the whole box for both.
+      // Otherwise, take the Q1/Q3 edges derived from iq in Phase 1.5
+      // (matplotlib/seaborn) and insert them here, after this box's clones,
+      // where deriving them one at a time used to insert them.
       const derived = derivedEdges.get(boxIdx);
       let q1: SVGElement;
       let q3: SVGElement;
