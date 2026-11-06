@@ -1,5 +1,5 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyHierarchyNode, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, BoxPoint, BoxSelector, ChoroplethPoint, ContourPoint, ErrorBarPoint, GanttData, GaugePoint, HeatmapData, LinePoint, MaidrLayer, MosaicPoint, PercentileBandPoint, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, CandlestickSelector, ChoroplethPoint, ContourPoint, ErrorBarPoint, GanttData, GaugePoint, HeatmapData, LinePoint, MaidrLayer, MosaicPoint, PercentileBandPoint, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -48,6 +48,17 @@ function createGraphDiv(options: GraphDivOptions): PlotlyGraphDiv {
   gd._fullLayout = options.layout;
   gd.calcdata = options.calcdata;
   return gd;
+}
+
+/**
+ * The selector of one part of a box, as `splitBoxes` draws it.
+ * @param group - The selector of the box's trace group
+ * @param index - The box's position among the group's boxes
+ * @param part  - Which part
+ * @returns The selector the box layers name it by
+ */
+function boxPart(group: string, index: number, part: string): string {
+  return `${group} > [data-maidr-index="${index}"][data-maidr-part="${part}"]:not([data-maidr-owned])`;
 }
 
 function scatterTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
@@ -1418,12 +1429,13 @@ describe('plotly extractor', () => {
       const group = '.subplot.xy .violinlayer > g:nth-child(1)';
 
       expect(kdeLayer.selectors).toEqual([`${group} > path.violin:nth-child(1)`]);
-      // The inner boxes follow every violin outline in the trace's group.
+      // The quartiles are read off the body's edges and the median is its
+      // own line; the extremes are marked at the ends of the whole box.
       expect(boxLayer.selectors as BoxSelector[]).toEqual([{
         lowerOutliers: [],
         min: `${group} > path.box:nth-child(2)`,
-        iq: `${group} > path.box:nth-child(2)`,
-        q2: `${group} > path.box:nth-child(2)`,
+        iq: boxPart(group, 0, 'iq'),
+        q2: boxPart(group, 0, 'q2'),
         max: `${group} > path.box:nth-child(2)`,
         upperOutliers: [],
       }]);
@@ -1457,8 +1469,8 @@ describe('plotly extractor', () => {
         `${group} > path.violin:nth-child(2)`,
       ]);
       expect((boxLayer.selectors as BoxSelector[]).map(selector => selector.iq)).toEqual([
-        `${group} > path.box:nth-child(3)`,
-        `${group} > path.box:nth-child(4)`,
+        boxPart(group, 0, 'iq'),
+        boxPart(group, 1, 'iq'),
       ]);
     });
 
@@ -1502,10 +1514,10 @@ describe('plotly extractor', () => {
       const [boxLayer] = maidr!.subplots[0][0].layers;
 
       // One trace drawing no box does not cost the other one its highlight;
-      // the second selector points at a position that holds no `path.box`.
+      // the second selector names parts a trace with no box never gets.
       expect((boxLayer.selectors as BoxSelector[]).map(selector => selector.iq)).toEqual([
-        '.subplot.xy .violinlayer > g:nth-child(1) > path.box:nth-child(2)',
-        '.subplot.xy .violinlayer > g:nth-child(2) > path.box:nth-child(2)',
+        boxPart('.subplot.xy .violinlayer > g:nth-child(1)', 0, 'iq'),
+        boxPart('.subplot.xy .violinlayer > g:nth-child(2)', 0, 'iq'),
       ]);
     });
 
@@ -1872,43 +1884,53 @@ describe('plotly extractor', () => {
       });
       gd.calcdata = [[violinCalcData(0, 110)], [violinCalcData(1, 330)]];
 
-      const maidr = extractPlotlyData(gd);
-      expect(maidr).not.toBeNull();
-
       // Rebuild the layer plotly renders for these two traces: every violin
       // outline of a trace, then its inner boxes, inside one group per trace.
+      // An inner box is drawn as plotly draws one: its median, its body, and
+      // a whisker either side, in one path.
       const doc = gd.ownerDocument;
       const svg = gd.querySelector('svg.main-svg')!;
       const subplot = doc.createElementNS(SVG_NS, 'g');
       subplot.setAttribute('class', 'subplot xy');
       const violinLayer = doc.createElementNS(SVG_NS, 'g');
       violinLayer.setAttribute('class', 'violinlayer mlayer');
-      for (let trace = 0; trace < 2; trace++) {
+      for (const center of [110, 330]) {
         const traceGroup = doc.createElementNS(SVG_NS, 'g');
         traceGroup.setAttribute('class', 'trace violins');
-        for (const className of ['violin', 'box']) {
-          const path = doc.createElementNS(SVG_NS, 'path');
-          path.setAttribute('class', className);
-          // jsdom has no layout engine; the model reads getBBox() off the
-          // inner box to place the Q1/Q3 highlight lines.
-          Object.defineProperty(path, 'getBBox', {
-            value: () => ({ x: 100, y: 200, width: 20, height: 60 }),
-            configurable: true,
-          });
-          traceGroup.appendChild(path);
-        }
+        const violin = doc.createElementNS(SVG_NS, 'path');
+        violin.setAttribute('class', 'violin');
+        const box = doc.createElementNS(SVG_NS, 'path');
+        box.setAttribute('class', 'box');
+        const [left, right] = [center - 10, center + 10];
+        box.setAttribute('d', `M${left},240H${right}M${left},260H${right}V220H${left}Z`
+        + `M${center},260V280M${center},220V120`);
+        traceGroup.append(violin, box);
         violinLayer.appendChild(traceGroup);
       }
       subplot.appendChild(violinLayer);
       svg.appendChild(subplot);
 
+      const maidr = extractPlotlyData(gd);
+      expect(maidr).not.toBeNull();
+
+      // jsdom has no layout engine; the model reads getBBox() off the body
+      // to place the Q1/Q3 highlight lines.
+      for (const body of doc.querySelectorAll('[data-maidr-part="iq"]')) {
+        Object.defineProperty(body, 'getBBox', {
+          value: () => ({ x: 100, y: 220, width: 20, height: 40 }),
+          configurable: true,
+        });
+      }
+
       const [boxLayer, kdeLayer] = maidr!.subplots[0][0].layers;
       const selectors = [
         ...(kdeLayer.selectors as string[]),
-        ...(boxLayer.selectors as BoxSelector[]).map(selector => selector.iq),
+        ...(boxLayer.selectors as BoxSelector[]).flatMap(selector =>
+          [selector.min, selector.iq, selector.q2, selector.max]),
       ];
+      expect(selectors).toHaveLength(10);
       for (const selector of selectors) {
-        expect(doc.querySelectorAll(selector)).toHaveLength(1);
+        expect(doc.querySelectorAll(selector as string)).toHaveLength(1);
       }
 
       withDomGlobals(gd, () => {
@@ -2827,6 +2849,12 @@ describe('plotly extractor', () => {
       yaxis: { title: { text: 'Price' }, domain: [0, 1] as [number, number] },
     };
 
+    /** The selector of a candlestick layer's first body. */
+    function firstBody(layer: MaidrLayer | undefined): string | undefined {
+      const body = (layer?.selectors as CandlestickSelector | undefined)?.body;
+      return Array.isArray(body) ? body[0] : body;
+    }
+
     function candlestickTrace(overrides: Partial<PlotlyTrace> = {}): PlotlyTrace {
       return {
         type: 'candlestick',
@@ -2864,9 +2892,12 @@ describe('plotly extractor', () => {
       }));
 
       expect(layer.type).toBe(TraceType.CANDLESTICK);
-      expect(layer.selectors).toBe(
-        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
-      );
+      const group = '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1)';
+      expect(layer.selectors).toEqual({
+        body: [0, 1, 2, 3].map(index => boxPart(group, index, 'iq')),
+        wickHigh: [0, 1, 2, 3].map(index => boxPart(group, index, 'max')),
+        wickLow: [0, 1, 2, 3].map(index => boxPart(group, index, 'min')),
+      });
     });
 
     it('counts past a box plot sharing the same layer', () => {
@@ -2883,8 +2914,8 @@ describe('plotly extractor', () => {
       }));
 
       const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
-      expect(candlestick?.selectors).toBe(
-        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(2) path.box',
+      expect(firstBody(candlestick)).toBe(
+        boxPart('.subplot.xy .boxlayer > .trace.boxes:nth-of-type(2)', 0, 'iq'),
       );
     });
 
@@ -2901,8 +2932,8 @@ describe('plotly extractor', () => {
       }));
 
       const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
-      expect(candlestick?.selectors).toBe(
-        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
+      expect(firstBody(candlestick)).toBe(
+        boxPart('.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1)', 0, 'iq'),
       );
     });
 
@@ -2922,8 +2953,8 @@ describe('plotly extractor', () => {
       }));
 
       const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
-      expect(candlestick?.selectors).toBe(
-        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
+      expect(firstBody(candlestick)).toBe(
+        boxPart('.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1)', 0, 'iq'),
       );
     });
 
@@ -2972,14 +3003,12 @@ describe('plotly extractor', () => {
         layout: SINGLE_PANEL,
       }));
 
-      const selectors = layers
-        .filter(l => l.type === TraceType.CANDLESTICK)
-        .map(l => l.selectors);
+      const [candles, bars] = layers.filter(l => l.type === TraceType.CANDLESTICK);
 
-      expect(selectors).toEqual([
-        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(2) path.box',
-        '.subplot.xy .ohlclayer > .trace.ohlc:nth-of-type(1) > path',
-      ]);
+      expect(firstBody(candles)).toBe(
+        boxPart('.subplot.xy .boxlayer > .trace.boxes:nth-of-type(2)', 0, 'iq'),
+      );
+      expect(bars.selectors).toBe('.subplot.xy .ohlclayer > .trace.ohlc:nth-of-type(1) > path');
     });
 
     it('does not count a hidden trace, which draws no group', () => {
@@ -2999,8 +3028,8 @@ describe('plotly extractor', () => {
         }));
 
         const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
-        expect(candlestick?.selectors).toBe(
-          '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
+        expect(firstBody(candlestick)).toBe(
+          boxPart('.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1)', 0, 'iq'),
         );
       }
     });
@@ -3024,13 +3053,13 @@ describe('plotly extractor', () => {
       });
 
       const maidr = extractPlotlyData(gd);
-      const selectors = maidr!.subplots
+      const bodies = maidr!.subplots
         .flat()
-        .flatMap(subplot => subplot.layers.map(layer => layer.selectors));
+        .flatMap(subplot => subplot.layers.map(firstBody));
 
-      expect(selectors).toEqual([
-        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
-        '.subplot.x2y2 .boxlayer > .trace.boxes:nth-of-type(1) path.box',
+      expect(bodies).toEqual([
+        boxPart('.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1)', 0, 'iq'),
+        boxPart('.subplot.x2y2 .boxlayer > .trace.boxes:nth-of-type(1)', 0, 'iq'),
       ]);
     });
 
@@ -3055,12 +3084,12 @@ describe('plotly extractor', () => {
       expect(candlestick).toBeDefined();
       expect(box).toBeDefined();
 
-      expect(candlestick!.selectors).toBe(
-        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
+      expect(firstBody(candlestick)).toBe(
+        boxPart('.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1)', 0, 'iq'),
       );
       const boxSelectors = box!.selectors as unknown as BoxSelector[];
       expect(boxSelectors[0].q2).toBe(
-        '.subplot.xy .boxlayer > g:nth-child(2) > path.box',
+        boxPart('.subplot.xy .boxlayer > g:nth-child(2)', 0, 'q2'),
       );
     });
   });
