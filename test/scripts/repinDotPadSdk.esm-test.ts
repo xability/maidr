@@ -142,4 +142,35 @@ describe('runtimeFiles', () => {
     const archive = readZip(zip(withoutTables, 8));
     expect(() => runtimeFiles(archive, '9.9.9')).toThrow('lib/liblouis.data');
   });
+
+  describe('for the engine 3.0.4 ships', () => {
+    const ttbRelease = {
+      'DotPadSDK-9.9.9.js': 'export default class DotPadSDK {}',
+      'lib/ttb-engine.mjs': 'export default () => ({});',
+      'lib/ttb-engine.wasm': '\0asm',
+      'lib/liblouis.wasm': '\0asm',
+      'lib/liblouis-tables.data': 'unicode.dis\r\n',
+      'lib/LIBLOUIS-COPYING.LESSER': 'GNU LESSER GENERAL PUBLIC LICENSE',
+    };
+
+    it('should accept a release without the old liblouis build', () => {
+      const archive = readZip(zip(ttbRelease, 8));
+
+      expect(runtimeFiles(archive, '9.9.9')).toEqual([
+        'DotPadSDK-9.9.9.js',
+        'lib/LIBLOUIS-COPYING.LESSER',
+        'lib/liblouis-tables.data',
+        'lib/liblouis.wasm',
+        'lib/ttb-engine.mjs',
+        'lib/ttb-engine.wasm',
+      ]);
+    });
+
+    it('should refuse one without its tables', () => {
+      const { 'lib/liblouis-tables.data': _data, ...withoutTables } = ttbRelease;
+      const archive = readZip(zip(withoutTables, 8));
+
+      expect(() => runtimeFiles(archive, '9.9.9')).toThrow('lib/liblouis-tables.data');
+    });
+  });
 });

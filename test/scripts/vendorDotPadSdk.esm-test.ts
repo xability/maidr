@@ -67,29 +67,29 @@ describe('dotPad SDK manifest', () => {
     expect(manifest.module).toBe(`DotPadSDK-${manifest.version}.js`);
   });
 
-  it('should pin a commit at or after the liblouis.data fix', () => {
-    // 781f230 restored the 7,685 carriage returns that `* text=auto` had
-    // stripped from `liblouis.data`, and marked `*.data binary` so it stays
-    // restored. Any earlier commit serves a file that fails every braille
-    // table at once, and the line silently drops to grade 1.
-    expect(manifest.files['lib/liblouis.data']?.bytes).toBe(13_751_594);
+  it('should pin a mirror commit that kept the engine\'s carriage returns', () => {
+    // These files carry CRLFs, and under the mirror's `* text=auto` git strips
+    // them on commit -- which is how 3.0.2's `liblouis.data` lost 7,685 bytes
+    // and every braille table with them. The mirror marks a release's files
+    // `-text`; a commit made without that serves short files.
+    expect(manifest.files['lib/liblouis-tables.data']?.bytes).toBe(9_503_140);
+    expect(manifest.files['lib/ttb-engine.mjs']?.bytes).toBe(90_607);
   });
 
   it('should list the module and the braille engine under the asset directory', () => {
     expect(Object.keys(manifest.files)).toContain(manifest.module);
     expect(manifest.assetDir.endsWith('/')).toBe(true);
-    for (const name of ['liblouis.js', 'liblouis.wasm', 'liblouis.data']) {
+    for (const name of ['ttb-engine.mjs', 'ttb-engine.wasm', 'liblouis.wasm', 'liblouis-tables.data']) {
       expect(Object.keys(manifest.files)).toContain(`${manifest.assetDir}${name}`);
     }
   });
 
   it('should carry what the vendor asks redistributors to keep beside the engine', () => {
-    // liblouis is LGPL-2.1-or-later. The vendor's README asks anyone who
-    // redistributes the SDK to keep the licence text and the wrapper sources
-    // (the LGPL's relinking requirement) alongside the runtime files.
-    expect(Object.keys(manifest.files)).toContain('lib/LICENSES/liblouis-LGPL-2.1.txt');
-    expect(Object.keys(manifest.files)).toContain('lib/liblouis-web/liblouis_web.c');
-    expect(Object.keys(manifest.files)).toContain('lib/liblouis-web/build_liblouis_web.sh');
+    // liblouis is LGPL-2.1-or-later, and from 3.0.4 a side module the engine
+    // loads at runtime, so it stays replaceable on its own. Its licence text
+    // and the MorphoBr notice (Apache-2.0) ship beside the runtime files.
+    expect(Object.keys(manifest.files)).toContain('lib/LIBLOUIS-COPYING.LESSER');
+    expect(Object.keys(manifest.files)).toContain('lib/MORPHOBR-NOTICE.txt');
   });
 
   it('should give every file a size and both digests', () => {
@@ -102,8 +102,8 @@ describe('dotPad SDK manifest', () => {
   });
 
   it('should resolve a file against the pinned base', () => {
-    expect(fileUrl(manifest, 'lib/liblouis.data'))
-      .toBe(`${manifest.baseUrl}lib/liblouis.data`);
+    expect(fileUrl(manifest, 'lib/ttb-engine.wasm'))
+      .toBe(`${manifest.baseUrl}lib/ttb-engine.wasm`);
   });
 });
 
