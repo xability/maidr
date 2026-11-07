@@ -154,7 +154,7 @@ instead.
 ### The SDK
 
 A Dot Pad is reached through its vendor's SDK, which MAIDR does not bundle by
-default. Its braille engine is a 14 MB liblouis build, and shipping that inside
+default. Its braille engine and tables come to 14 MB, and shipping that inside
 every copy of `maidr.js` would make every page heavier for a device most readers
 do not have. Instead MAIDR loads the SDK over a CDN from a git commit, pinned so
 the bytes cannot change under a release. The pin is recorded, with the size and
@@ -207,10 +207,11 @@ npm run vendor:dotpad -- --out public/dotpad
 
 That fetches the same files the runtime would have loaded, verifies each
 against the digests in the manifest, and writes them with a `manifest.json`
-recording the commit they came from. The liblouis build is LGPL-2.1-or-later,
-and its licence text and wrapper sources come along under `lib/`, which is
-what the vendor asks of anyone who redistributes it; keep the directory
-together. `dist/dotpad` is not part of the npm package and `npm run build`
+recording the commit they came from. liblouis is LGPL-2.1-or-later and, from
+SDK 3.0.4, a side module the engine loads at runtime; its licence text
+(`LIBLOUIS-COPYING.LESSER`) and the MorphoBr notice come along under `lib/`,
+which is what the vendor asks of anyone who redistributes it; keep the
+directory together. `dist/dotpad` is not part of the npm package and `npm run build`
 never runs this, so the default stays small.
 
 Then point MAIDR at the copy before it loads, and nothing is fetched from the
@@ -218,7 +219,7 @@ CDN:
 
 ```html
 <script>
-  window.MAIDR_DOTPAD_SDK_URL = '/dotpad/DotPadSDK-3.0.3.js';
+  window.MAIDR_DOTPAD_SDK_URL = '/dotpad/DotPadSDK-3.0.5.js';
   window.MAIDR_DOTPAD_ASSET_BASE_URL = '/dotpad/lib/';
 </script>
 ```
@@ -637,12 +638,16 @@ describes something else.
 
 ### Contracted braille
 
-The line is translated into **UEB grade 2** by the device SDK's own braille
-engine. On twenty cells the contractions are not a nicety — they are most of
+The line is translated into **grade 2** by the device SDK's own braille
+engine. From SDK 3.0.4 that is Dot Inc.'s engine (`ttb-engine`), which carries
+liblouis inside it; MAIDR points it at its files with
+`DotBrailleModule.setEngineAssetBaseUrl`, and at an older SDK's liblouis build
+with `LiblouisManager.setAssetBaseUrl`. Without that call 3.0.4's engine
+refuses every translation. On twenty cells the contractions are not a nicety — they are most of
 the difference between a value fitting and having to be panned for.
 
-The engine (liblouis) is fetched alongside the SDK rather than bundled; it is
-about 14 MB, which a single inlined bundle cannot carry. It downloads once and
+The engine and its tables are fetched alongside the SDK rather than bundled;
+they are about 14 MB, which a single inlined bundle cannot carry. It downloads once and
 is then cached by the browser.
 
 Where it cannot be reached — no network, a Content-Security-Policy that blocks
@@ -664,8 +669,10 @@ rather than to an error, which is quieter than it sounds — the line falls back
 to grade 1 and nothing about the cells says whether the description was
 contracted or simply that long. The vendor has since marked the file binary,
 the mirror does the same, and the repin script refuses to record a mirror file
-whose bytes are not the archive's, so the manifest's size for `liblouis.data`
-is the one the tests check.
+whose bytes are not the archive's. From 3.0.4 the release's text files carry
+CRLFs too (`ttb-engine.mjs`, `build-manifest.json`), so the mirror marks
+everything under a release's `lib/` `-text`, and the tests check the sizes of
+`liblouis-tables.data` and `ttb-engine.mjs` in the manifest.
 
 Because that failure is silent by nature, the reader is **told once per
 session** when the line comes out uncontracted — from either cause, the engine
