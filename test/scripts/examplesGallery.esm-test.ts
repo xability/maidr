@@ -252,23 +252,44 @@ describe('the gallery\'s experimental marks', () => {
     expect(stale).toEqual([]);
   });
 
-  it('should mark a hand-authored page by the types its MAIDR JSON declares', () => {
-    // These pages carry their schema inline, so what they declare is the
-    // ground truth the maps above are checked against. Integration pages are
-    // not: their `type` keys are the charting library's, not MAIDR's.
+  /**
+   * The trace types a hand-authored page's MAIDR JSON declares. These pages
+   * carry their schema inline, so what they declare is the ground truth the
+   * maps above are checked against. Integration pages are not: their `type`
+   * keys are the charting library's, not MAIDR's.
+   */
+  function declaredTypes(page: string): string[] {
     const declarable = new Set([...stable, ...experimental]);
+    const source = readFileSync(join(EXAMPLES, page), 'utf8').replace(/&quot;/g, '"');
+    return [...new Set([...source.matchAll(/"type"\s*:\s*"([a-z_]+)"/g)].map(match => match[1]))]
+      .filter(type => declarable.has(type));
+  }
+
+  it('should mark a hand-authored page by the types its MAIDR JSON declares', () => {
     const wrong = items
       .filter(item => item.section === 'html' && item.page !== undefined)
       .flatMap((item) => {
-        const source = readFileSync(join(EXAMPLES, item.page!), 'utf8').replace(/&quot;/g, '"');
-        const declared = [...source.matchAll(/"type"\s*:\s*"([a-z_]+)"/g)]
-          .map(match => match[1])
-          .filter(type => declarable.has(type));
+        const declared = declaredTypes(item.page!);
         if (declared.length === 0) {
           return [];
         }
         const expected = declared.every(type => experimental.includes(type));
         return item.experimental === expected ? [] : [`${item.page}: ${declared.join(', ')}`];
+      });
+
+    expect(wrong).toEqual([]);
+  });
+
+  it('should list a hand-authored page under every type its MAIDR JSON declares', () => {
+    // The multiline intersection and smooth pages draw a scatter layer too,
+    // and were listed under their lines and curve alone.
+    const wrong = items
+      .filter(item => item.section === 'html' && item.page !== undefined)
+      .flatMap((item) => {
+        const declared = declaredTypes(item.page!);
+        const listed = new Set(item.types);
+        const unlisted = declared.filter(type => !listed.has(type));
+        return unlisted.length === 0 ? [] : [`${item.page}: ${unlisted.join(', ')}`];
       });
 
     expect(wrong).toEqual([]);
