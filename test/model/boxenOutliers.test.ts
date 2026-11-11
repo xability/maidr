@@ -342,6 +342,14 @@ describe('what an outlier outlines', () => {
     expect(along).toEqual(['ladder', 'ladder', 'low box', 'middle box', 'middle box', 'middle box', 'high box', 'ladder']);
   });
 
+  test('is the whole distribution where an entry names its ladder and no outliers', () => {
+    draw(DOTS);
+
+    const along = outlinedAlong(boxen([SPREAD], [{ ladder: 'g.ladder' }]));
+
+    expect(along).toEqual(['ladder', 'ladder', 'low box', 'middle box', 'middle box', 'middle box', 'high box', 'ladder']);
+  });
+
   test('is the whole distribution where the marks have not been laid out', () => {
     draw(DOTS, false);
 
