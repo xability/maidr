@@ -303,18 +303,45 @@ export class Heatmap extends AbstractTrace {
    *
    * Column first, then row, which is the order the extrema menu names them in
    * -- so the dialog and the go-to list send a reader to the same place in the
-   * same words.
+   * same words. Both take the words from {@link cellLabels}.
    *
    * @param row - The cell's grid row
    * @param col - The cell's grid column
    * @returns The pair of labels, or null when the grid outruns them
    */
   private cellName(row: number, col: number): string | null {
-    const column = this.x[col];
-    const band = this.y[row];
+    const [column, band] = this.cellLabels(row, col);
     return column === undefined || band === undefined
       ? null
       : t('model.heatmapCellName', { column, row: band });
+  }
+
+  /**
+   * A cell's column and row as the cursor announces them: each label read
+   * through its axis's declared format, as the text service reads `main` and
+   * `cross`, and left as written where the axis declares none.
+   *
+   * The one place a cell is named for the description's highest and lowest
+   * cell and for every target of the extrema menu. The two named the cell by
+   * its raw labels, and the menu then formatted the column alone on its way
+   * to the dialog, so a heatmap declaring an x format read one column two
+   * ways, and one declaring a y format read its row unformatted in both.
+   *
+   * @param row - The cell's grid row
+   * @param col - The cell's grid column
+   * @returns The column's name, then the row's, in the order
+   *   {@link extremumAt} takes them; each undefined where the grid outruns
+   *   its labels
+   */
+  private cellLabels(row: number, col: number): [column: string, row: string] {
+    const column = this.x[col];
+    const band = this.y[row];
+    const formatX = this.authoredFormat('x');
+    const formatY = this.authoredFormat('y');
+    return [
+      formatX === null || column === undefined ? column : formatX(column),
+      formatY === null || band === undefined ? band : formatY(band),
+    ];
   }
 
   protected get dimension(): Dimension {
@@ -743,7 +770,7 @@ export class Heatmap extends AbstractTrace {
     // here; a target for the first cell alone hid the others from it.
     for (const globalMax of this.findGlobalExtrema('max')) {
       targets.push({
-        ...extremumAt(t('model.extremaGlobalMaximum'), this.x[globalMax.col], this.y[globalMax.row]),
+        ...extremumAt(t('model.extremaGlobalMaximum'), ...this.cellLabels(globalMax.row, globalMax.col)),
         value: globalMax.value,
         pointIndex: globalMax.row * this.heatmapValues[0].length + globalMax.col,
         segment: 'global',
@@ -758,7 +785,7 @@ export class Heatmap extends AbstractTrace {
     // 2. Global Minimum, at every cell holding it, for `[`.
     for (const globalMin of this.findGlobalExtrema('min')) {
       targets.push({
-        ...extremumAt(t('model.extremaGlobalMinimum'), this.x[globalMin.col], this.y[globalMin.row]),
+        ...extremumAt(t('model.extremaGlobalMinimum'), ...this.cellLabels(globalMin.row, globalMin.col)),
         value: globalMin.value,
         pointIndex: globalMin.row * this.heatmapValues[0].length + globalMin.col,
         segment: 'global',
@@ -774,7 +801,7 @@ export class Heatmap extends AbstractTrace {
     const rowMax = this.findRowExtrema(currentRow, 'max');
     if (rowMax) {
       targets.push({
-        ...extremumAt(t('model.extremaRowMaximum'), this.x[rowMax.col], this.y[currentRow]),
+        ...extremumAt(t('model.extremaRowMaximum'), ...this.cellLabels(currentRow, rowMax.col)),
         value: rowMax.value,
         pointIndex: currentRow * this.heatmapValues[0].length + rowMax.col,
         segment: `row-${currentRow}`,
@@ -790,7 +817,7 @@ export class Heatmap extends AbstractTrace {
     const rowMin = this.findRowExtrema(currentRow, 'min');
     if (rowMin) {
       targets.push({
-        ...extremumAt(t('model.extremaRowMinimum'), this.x[rowMin.col], this.y[currentRow]),
+        ...extremumAt(t('model.extremaRowMinimum'), ...this.cellLabels(currentRow, rowMin.col)),
         value: rowMin.value,
         pointIndex: currentRow * this.heatmapValues[0].length + rowMin.col,
         segment: `row-${currentRow}`,
@@ -806,7 +833,7 @@ export class Heatmap extends AbstractTrace {
     const colMax = this.findColExtrema(currentCol, 'max');
     if (colMax) {
       targets.push({
-        ...extremumAt(t('model.extremaColumnMaximum'), this.x[currentCol], this.y[colMax.row]),
+        ...extremumAt(t('model.extremaColumnMaximum'), ...this.cellLabels(colMax.row, currentCol)),
         value: colMax.value,
         pointIndex: colMax.row * this.heatmapValues[0].length + currentCol,
         segment: `col-${currentCol}`,
@@ -822,7 +849,7 @@ export class Heatmap extends AbstractTrace {
     const colMin = this.findColExtrema(currentCol, 'min');
     if (colMin) {
       targets.push({
-        ...extremumAt(t('model.extremaColumnMinimum'), this.x[currentCol], this.y[colMin.row]),
+        ...extremumAt(t('model.extremaColumnMinimum'), ...this.cellLabels(colMin.row, currentCol)),
         value: colMin.value,
         pointIndex: colMin.row * this.heatmapValues[0].length + currentCol,
         segment: `col-${currentCol}`,
