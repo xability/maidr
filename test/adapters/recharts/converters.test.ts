@@ -1179,6 +1179,38 @@ describe('convertRechartsToMaidr', () => {
       // Wedges sit around a circle, not along an axis — same as a radar.
       expect(layer.orientation).toBeUndefined();
     });
+
+    it('declares a default <Pie>\'s layout: its first spoke half a wedge from 3 o\'clock, counterclockwise', () => {
+      // Three wedges of 120 degrees from 3 o'clock, counterclockwise: the
+      // first spans 3 o'clock back to 11, so its spoke is at 1 o'clock.
+      const layer = convertRechartsToMaidr(polarConfig).subplots[0][0].layers[0];
+
+      expect(layer.startAngle).toBeCloseTo(30, 10);
+      expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+    });
+
+    it('puts the clockwise-from-the-top recipe\'s first spoke in the middle of its wedge', () => {
+      // From 12 o'clock clockwise, the first wedge spans 12 to 4 o'clock.
+      const layer = convertRechartsToMaidr({
+        ...polarConfig,
+        pieAngles: { startAngle: 90, endAngle: -270 },
+      }).subplots[0][0].layers[0];
+
+      expect(layer.startAngle).toBeCloseTo(60, 10);
+      expect(layer.direction).toBeUndefined();
+    });
+
+    it('declares the layout on a coxcomb of several series', () => {
+      const layer = convertRechartsToMaidr({
+        ...polarConfig,
+        data: polarConfig.data?.map(row => ({ ...row, wounded: Number(row.deaths) * 2 })),
+        yKeys: ['deaths', 'wounded'],
+      }).subplots[0][0].layers[0];
+
+      expect((layer.data as LinePoint[][]).length).toBe(2);
+      expect(layer.startAngle).toBeCloseTo(30, 10);
+      expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+    });
   });
 
   describe('bump chart', () => {

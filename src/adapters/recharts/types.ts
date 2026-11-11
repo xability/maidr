@@ -1274,7 +1274,8 @@ export interface RechartsAdapterConfig {
    * which way the wedges were laid out and where the ring begins, and the
    * trace turns the walk round to match; the `startAngle={90}
    * endAngle={-270}` recipe for a clockwise pie from 12 o'clock reads as
-   * exactly that.
+   * exactly that. A `polar_area` is read the same way, its coxcomb being a
+   * `<Pie>` as well, with its first spoke in the middle of the first wedge.
    *
    * Read off the `<Pie>` in `children` by {@link MaidrRecharts} when not
    * given, in simple and composed mode; through {@link useRechartsAdapter}

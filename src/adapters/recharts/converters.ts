@@ -2590,6 +2590,18 @@ function layerOptions(
       const end = config.pieAngles?.endAngle ?? 360;
       return pieGeometry(clockFromCounterclockwiseOf3(start), end < start);
     }
+    // A coxcomb is a `<Pie>` too, laid out on the same terms, but a polar
+    // area's `startAngle` is where its first spoke points -- the middle of
+    // its first wedge -- and the `<Pie>` names that wedge's edge. The wedges
+    // are equal, so the middle is half of one wedge's share of the sweep on,
+    // a sweep Recharts caps at a full turn.
+    case 'polar_area': {
+      const start = config.pieAngles?.startAngle ?? 0;
+      const end = config.pieAngles?.endAngle ?? 360;
+      const sweep = Math.sign(end - start) * Math.min(Math.abs(end - start), 360);
+      const wedges = Math.max(config.data?.length ?? 0, 1);
+      return pieGeometry(clockFromCounterclockwiseOf3(start + sweep / (2 * wedges)), end < start);
+    }
     // A step and an area both carry the convention their riser is drawn with —
     // an area because `AreaTrace` reads `stepDirection` to reconcile the extra
     // vertices a staircase has, a step because `StepTrace` announces it. No

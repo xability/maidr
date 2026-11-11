@@ -2,7 +2,7 @@ import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { AudioState, DescriptionState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
-import { TraceType } from '@type/grammar';
+import { PieDirection, TraceType } from '@type/grammar';
 import { defaultLabelFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { LineTrace } from './line';
@@ -46,6 +46,34 @@ function variantOf(type: TraceType): RadarVariant {
 }
 
 /**
+ * Whether a layer's spokes follow one another counterclockwise as drawn.
+ *
+ * A function of the layer rather than a field, because
+ * {@link RadarTrace.listedRightToLeft} needs it while the line trace is still
+ * being constructed, before any field of this class is set.
+ *
+ * @param layer - The layer as declared
+ * @returns True when the layer says its spokes run counterclockwise
+ */
+function drawnCounterclockwise(layer: MaidrLayer): boolean {
+  return layer.direction === PieDirection.COUNTERCLOCKWISE;
+}
+
+/**
+ * Where a layer's first spoke points, in radians clockwise from 12 o'clock.
+ *
+ * A missing or unusable `startAngle` is 12 o'clock, where every radar and
+ * polar area put its first spoke before a layer could say otherwise.
+ *
+ * @param layer - The layer as declared
+ * @returns The first spoke's angle
+ */
+function firstSpokeAngle(layer: MaidrLayer): number {
+  const degrees = layer.startAngle;
+  return degrees !== undefined && Number.isFinite(degrees) ? (degrees * Math.PI) / 180 : 0;
+}
+
+/**
  * Trace implementation for radar, spider and polar area charts — categories
  * arranged around a circle rather than along an axis.
  *
@@ -61,22 +89,35 @@ function variantOf(type: TraceType): RadarVariant {
  * the sweep out and back: 12 o'clock centre, 3 o'clock hard right, 6 o'clock
  * centre again, 9 o'clock hard left. That is the same treatment {@link PieTrace}
  * received, and it is what distinguishes a circle from a line by ear.
+ *
+ * **Right moves clockwise**, as it does round a pie, and the two keys a pie
+ * declares its dial with say where the spokes are: `startAngle` is where the
+ * first spoke points (12 o'clock when the layer says nothing), and a layer
+ * whose library laid the spokes out counterclockwise declares `direction:
+ * 'counterclockwise'` and is walked turned round, its marks with it
+ * ({@link RadarTrace.listedRightToLeft}). Recharts draws a coxcomb as a `<Pie>`
+ * left at its defaults, counterclockwise from 3 o'clock, and read as clockwise
+ * from 12 its Right walked the wedges counterclockwise and panned March, drawn
+ * at 10 o'clock, to the right.
  */
 export class RadarTrace extends LineTrace {
   private readonly variant: RadarVariant;
 
   /**
-   * The angle of each spoke, clockwise from 12 o'clock.
+   * The angle of each spoke, clockwise from 12 o'clock, in the order the
+   * spokes are drawn.
    *
    * Evenly spaced, because a radar's spokes are: unlike a pie's slices, whose
    * angles follow from their shares, a radar puts its categories at equal
    * intervals whatever they measure.
    *
-   * Where spoke zero actually sits is a convention rather than something the
-   * payload states — the same gap {@link PieTrace} notes. It matters less
-   * here: nothing announces an absolute clock position for a radar, so a
-   * producer laying its first spoke elsewhere shifts which spoke is heard at
-   * centre without making any announcement untrue.
+   * The first points where the layer's `startAngle` says and the rest follow
+   * in the layer's `direction`. A layer that says neither is laid out
+   * clockwise from 12 o'clock, a convention rather than something it stated
+   * -- the gap {@link PieTrace} notes -- and one that matters less here than
+   * for a pie: nothing announces an absolute clock position for a radar, so a
+   * producer that lays its first spoke elsewhere and does not say so shifts
+   * which spoke is heard at centre without making any announcement untrue.
    */
   private readonly spokeAngles: number[];
 
@@ -89,11 +130,12 @@ export class RadarTrace extends LineTrace {
     super(layer);
 
     this.variant = variantOf(layer.type);
-    this.spokeAngles = this.computeSpokeAngles();
+    this.spokeAngles = this.computeSpokeAngles(layer);
   }
 
   /**
-   * Places each spoke at an equal share of the circle.
+   * Places each spoke at an equal share of the circle, from where the layer
+   * says the first one points and round the way it says they run.
    *
    * Taken from the longest series rather than the first, so a chart whose
    * series run to different lengths still has an angle for every column a
@@ -101,9 +143,10 @@ export class RadarTrace extends LineTrace {
    * producer can emit them, and an absent angle would pan that spoke to
    * whatever `undefined` interpolates to.
    *
-   * @returns One angle per spoke, in radians
+   * @param layer - The layer as declared
+   * @returns One angle per spoke, in radians, in the order they are drawn
    */
-  private computeSpokeAngles(): number[] {
+  private computeSpokeAngles(layer: MaidrLayer): number[] {
     const spokes = this.lineValues.reduce(
       (widest, series) => Math.max(widest, series.length),
       0,
@@ -112,7 +155,46 @@ export class RadarTrace extends LineTrace {
       return [];
     }
 
-    return Array.from({ length: spokes }, (_, index) => (index * 2 * Math.PI) / spokes);
+    const first = firstSpokeAngle(layer);
+    const sector = ((drawnCounterclockwise(layer) ? -2 : 2) * Math.PI) / spokes;
+    return Array.from({ length: spokes }, (_, index) => first + index * sector);
+  }
+
+  /**
+   * Whether a series is walked turned round: when the layer says its spokes
+   * were laid out counterclockwise.
+   *
+   * Right moves clockwise round every circle MAIDR reads, so a series drawn
+   * the other way is read from its last spoke, which is the first one
+   * clockwise from where the drawing starts -- as a counterclockwise pie is.
+   * The line trace turns the marks round with the points, so the outline
+   * stays on the spoke being read; `data` and `selectors` stay in the order
+   * they were drawn.
+   *
+   * @returns True when the layer was drawn counterclockwise
+   */
+  protected override listedRightToLeft(): boolean {
+    return drawnCounterclockwise(this.layer);
+  }
+
+  /**
+   * Which spoke of the drawing a cursor column is on.
+   *
+   * The column itself, unless the series is walked turned round: column `c`
+   * of a series is then its spoke `length - 1 - c` as drawn. Counted within
+   * the series, so a series shorter than the widest -- the first spokes of
+   * the drawing, which is what the angles already assume of it -- turns
+   * round within its own length.
+   *
+   * @param row - The series
+   * @param col - The column within it
+   * @returns The spoke's index in drawing order
+   */
+  private drawnSpoke(row: number, col: number): number {
+    if (!drawnCounterclockwise(this.layer)) {
+      return col;
+    }
+    return (this.points[row]?.length ?? 0) - 1 - col;
   }
 
   /**
@@ -193,7 +275,7 @@ export class RadarTrace extends LineTrace {
   }
 
   protected override panningFor(row: number, col: number): AudioState['panning'] {
-    const angle = this.spokeAngles[col];
+    const angle = this.spokeAngles[this.drawnSpoke(row, col)];
     if (angle === undefined) {
       return super.panningFor(row, col);
     }
@@ -259,7 +341,9 @@ export class RadarTrace extends LineTrace {
   }
 
   /**
-   * Names the categories around the circle, in the order they are drawn.
+   * Names the categories around the circle, in the order they sit round it
+   * clockwise: the order they are drawn, or its reverse for a layer drawn
+   * counterclockwise, which is the order Right walks them.
    *
    * The order is the chart: which categories sit next to each other decides
    * the outline's shape outright, and it is a choice the author made rather
