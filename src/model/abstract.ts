@@ -703,10 +703,14 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * ApexCharts, Vega-Lite, seaborn and most hand-drawn charts at the top. So
    * it is measured, as a Gantt chart measures its lanes, from the marks the
    * highlight holds: in the first row that has two, the first category's mark
-   * is above the last one's, or below it. Measured on every vertical key
-   * rather than once: two boxes are cheap, and an answer kept from the first
-   * key was kept from a chart not yet laid out, or one since re-rendered the
-   * other way round.
+   * is above the last one's, or below it. Measured on every vertical key,
+   * an autoplay step included, rather than once. That is two boxes a key,
+   * however many categories the chart has: the two marks are found from the
+   * ends of the row, and the read forces at most the layout the highlight's
+   * move would cause before the next paint. An answer kept from the first key
+   * was kept from a chart not yet laid out, or one since re-rendered the
+   * other way round, and a cache would have to be cleared on every redraw and
+   * resize to avoid that.
    *
    * Where nothing can be measured now, the last measurement holds, so a
    * chart hidden for a moment does not turn the keys round under the reader.
@@ -720,12 +724,19 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    */
   private firstCategoryOnTop(): boolean {
     for (const row of this.highlightValues ?? []) {
-      const drawn = row.flatMap((cell, col) => (cell ? [col] : []));
-      if (drawn.length < 2) {
+      let start = 0;
+      let end = row.length - 1;
+      while (start < end && !row[start]) {
+        start++;
+      }
+      while (end > start && !row[end]) {
+        end--;
+      }
+      if (start >= end) {
         continue;
       }
-      const first = verticalCentre(row[drawn[0]]);
-      const last = verticalCentre(row[drawn[drawn.length - 1]]);
+      const first = verticalCentre(row[start]);
+      const last = verticalCentre(row[end]);
       if (first === undefined || last === undefined || first === last) {
         continue;
       }

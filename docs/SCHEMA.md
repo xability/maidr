@@ -495,8 +495,10 @@ The data property is defined as a list of objects where each object is a record 
    // MAIDR measures which end the first is at from the highlighted marks.
    // Where it cannot -- a canvas, or no highlight -- the optional layer-level
    // "firstCategory": "top" or "bottom" says, and left out there, the first
-   // category is taken to be at the bottom. Read by the bar family and by
-   // horizontal dumbbell and error-bar layers.
+   // category is taken to be at the bottom. A producer that draws to a canvas
+   // or emits no selectors, and lists its categories from the top, sets
+   // "firstCategory": "top", or Up and Down run against the drawing. Read by
+   // the bar family and by horizontal dumbbell and error-bar layers.
 
   // boxplot maidr.data structure: an array of objects with properties lower_outlier, min, q1, q2, q3, max, and upper_outlier
   maidr = {
