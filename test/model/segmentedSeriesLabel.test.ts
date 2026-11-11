@@ -65,6 +65,37 @@ function stateAt(source: MaidrLayer, row: number, col: number): NonEmptyTraceSta
 const UNNAMED = { x: { label: 'Subject' }, y: { label: 'Count' } };
 const NAMED = { ...UNNAMED, z: { label: 'Grade' } };
 
+/**
+ * The two-series layer with no z label and its second series replaced.
+ *
+ * @param type The segmented trace type
+ * @param second The second series' points
+ * @returns The layer
+ */
+function withSecond(type: TraceType, second: Partial<SegmentedPoint>[]): MaidrLayer {
+  const source = layer(type, UNNAMED);
+  const [first] = source.data as SegmentedPoint[][];
+  return { ...source, data: [first, second] as SegmentedPoint[][] };
+}
+
+/**
+ * What each move on a series announces it as, and what the Go To dialog
+ * lists its extremes as.
+ *
+ * @param source The layer
+ * @param row The series; the last row is the Sum row
+ * @returns The announced series name and the dialog's names
+ */
+function namesAt(source: MaidrLayer, row: number): { announced: unknown; extremes: (string | undefined)[] } {
+  const trace = build(source);
+  trace.moveToIndex(row, 0);
+  const state = trace.state;
+  return {
+    announced: state.empty ? undefined : state.text.z?.value,
+    extremes: trace.getExtremaTargets().map(target => target.display?.name),
+  };
+}
+
 describe.each([TraceType.STACKED, TraceType.DODGED, TraceType.NORMALIZED])('a %s bar', (type) => {
   test('with no z label names its series by the table\'s word on every move', () => {
     const state = stateAt(layer(type, UNNAMED), 1, 0);
@@ -101,6 +132,41 @@ describe.each([TraceType.STACKED, TraceType.DODGED, TraceType.NORMALIZED])('a %s
     for (const name of names) {
       expect(name).toContain('Series: \'B\'');
     }
+  });
+
+  test.each([
+    { what: 'no z', first: { x: 'Math', y: 20 } },
+    { what: 'an empty z', first: { x: 'Math', y: 20, z: '' } },
+    { what: 'a z of spaces', first: { x: 'Math', y: 20, z: '   ' } },
+  ])('names a series whose first point has $what in the Go To dialog as each move does', ({ first }) => {
+    // The series names itself on its second point only. The dialog read the
+    // first point alone, so it listed `Group 1`, counted from zero, or quoted
+    // the spaces, where each move announced the series as `B`.
+    const source = withSecond(type, [first, { x: 'Art', y: 25, z: 'B' }]);
+
+    const names = namesAt(source, 1);
+
+    expect(names).toEqual({ announced: 'B', extremes: ['Max Series: \'B\'', 'Min Series: \'B\''] });
+  });
+
+  test('numbers a series named nowhere in the Go To dialog as each move does', () => {
+    // A Victory bar given `name=""` leaves every point of its series unnamed.
+    const source = withSecond(type, [{ x: 'Math', y: 20, z: '' }, { x: 'Art', y: 25, z: '' }]);
+
+    const names = namesAt(source, 1);
+
+    expect(names).toEqual({
+      announced: 'Series 2',
+      extremes: ['Max Series: \'Series 2\'', 'Min Series: \'Series 2\''],
+    });
+  });
+
+  test('names the Sum row in the Go To dialog as each move does', () => {
+    // Each move reads the row as `Series is Sum`, and the dialog called it
+    // `Total`.
+    const names = namesAt(layer(type, UNNAMED), 2);
+
+    expect(names).toEqual({ announced: 'Sum', extremes: ['Max Series: \'Sum\'', 'Min Series: \'Sum\''] });
   });
 });
 

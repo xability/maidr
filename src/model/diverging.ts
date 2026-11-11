@@ -294,6 +294,32 @@ export class DivergingTrace extends SegmentedTrace {
   }
 
   /**
+   * A side is called {@link sideNameAt} in what the parent builds as well:
+   * the extremes the Go To dialog lists, and the announcement at a gap, which
+   * {@link text} leaves to the parent. On an unnamed chart the dialog listed
+   * the left side as "Group 0", and a gap in it was announced as "Series 1",
+   * while each of its bars said "left".
+   *
+   * @param row - Which series
+   * @returns Its name
+   */
+  protected override seriesNameAt(row: number): string {
+    return this.sideNameAt(row);
+  }
+
+  /**
+   * The balance row of a two-sided chart is "Balance" in the extremes, the
+   * word each move reads it by, rather than a sum filed under the sides'
+   * label. A chart that is not two-sided keeps the parent's sum.
+   *
+   * @param row - Which row
+   * @returns The label the extremes name it by
+   */
+  protected override getGroupLabel(row: number): string {
+    return this.isBalanceRow(row) && this.isTwoSided ? balanceLabel() : super.getGroupLabel(row);
+  }
+
+  /**
    * What a category is called, as the chart's own axis holds it.
    *
    * @param col - Which category
