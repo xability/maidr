@@ -255,11 +255,16 @@ export class Heatmap extends AbstractTrace {
     // cells -- a table naming something the reader cannot reach, under a count
     // saying it is not there. A column the labels do not reach is numbered
     // rather than left blank, the way an unnamed series is `Curve 2`: the
-    // cursor can stand in it, so it needs a name to be announced under.
+    // cursor can stand in it, so it needs a name to be announced under. A
+    // column the labels do reach is headed as the cursor names it, through
+    // the x axis's format ({@link columnLabel}), as the row labels in the
+    // first column are read through the y axis's.
     const columns = this.heatmapValues[0] ?? [];
     const headers = [
       this.yAxis,
-      ...columns.map((_cell, c) => this.x[c] ?? t('model.fallbackColumn', { index: c + 1 })),
+      ...columns.map((_cell, c) => (this.x[c] === undefined
+        ? t('model.fallbackColumn', { index: c + 1 })
+        : this.columnLabel(c))),
     ];
     // Walked over the grid, so a label array longer than the payload cannot
     // index past the end of it -- `this.heatmapValues[r]` was `undefined` and
@@ -334,14 +339,29 @@ export class Heatmap extends AbstractTrace {
    *   its labels
    */
   private cellLabels(row: number, col: number): [column: string, row: string] {
-    const column = this.x[col];
     const band = this.y[row];
-    const formatX = this.authoredFormat('x');
     const formatY = this.authoredFormat('y');
     return [
-      formatX === null || column === undefined ? column : formatX(column),
+      this.columnLabel(col),
       formatY === null || band === undefined ? band : formatY(band),
     ];
+  }
+
+  /**
+   * A column's label as the cursor announces it: read through the x axis's
+   * declared format, and left as written where the axis declares none.
+   *
+   * The column half of {@link cellLabels}, and what heads the column in the
+   * description's data table, so the table names a column in the words the
+   * cursor, the description's cells and the extrema menu use.
+   *
+   * @param col - The grid column
+   * @returns The label, undefined where the grid outruns its labels
+   */
+  private columnLabel(col: number): string {
+    const column = this.x[col];
+    const formatX = this.authoredFormat('x');
+    return formatX === null || column === undefined ? column : formatX(column);
   }
 
   protected get dimension(): Dimension {

@@ -12,7 +12,9 @@ import { TraceType } from '@type/grammar';
  * formatted the column alone on its way to the dialog. So a heatmap
  * declaring an x format named one column two ways, and one declaring a y
  * format left the row unformatted in both, while the cursor announced both
- * labels through their formats.
+ * labels through their formats. The description's data table then headed
+ * its columns with the raw labels too, beside row labels read through the
+ * y format.
  */
 
 /** Columns numbered 1 to 3 and named through the x axis's format. */
@@ -113,11 +115,31 @@ describe('a heatmap whose x and y axes declare a format', () => {
   });
 });
 
+describe('the data table of a heatmap whose x axis declares a format', () => {
+  test('heads each column as the cursor names it', () => {
+    const trace = new Heatmap(heatmap({ x: { function: DAYS }, y: { function: SHIFTS } }, ['1', '2', '3']));
+
+    expect(trace.description.dataTable.headers).toEqual(['Shift', 'Mon', 'Tue', 'Wed']);
+  });
+
+  test('still numbers a column its labels do not reach', () => {
+    const trace = new Heatmap(heatmap({ x: { function: DAYS } }, ['1', '2']));
+
+    expect(trace.description.dataTable.headers).toEqual(['Shift', 'Mon', 'Tue', 'Column 3']);
+  });
+});
+
 describe('a heatmap whose axes declare no format', () => {
   test('names its cells by their labels as written', () => {
     const trace = new Heatmap(heatmap({}, ['Mon', 'Tue', 'Wed']));
 
     expect(statOf(trace, 'Highest cell')).toBe('Wed, PM');
     expect(globalTarget(trace, 'max')?.display).toEqual({ name: 'Global Maximum', x: 'Wed', y: 'PM' });
+  });
+
+  test('heads its table\'s columns by their labels as written', () => {
+    const trace = new Heatmap(heatmap({}, ['Mon', 'Tue', 'Wed']));
+
+    expect(trace.description.dataTable.headers).toEqual(['Shift', 'Mon', 'Tue', 'Wed']);
   });
 });
