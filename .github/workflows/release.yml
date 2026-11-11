@@ -36,16 +36,23 @@ jobs:
           npm install -g npm@latest
           npm --version
 
-      - name: Clean dependencies and npm config
+      - name: Clean npm config
         run: |
-          rm -rf node_modules
-          rm -f package-lock.json
           rm -f ~/.npmrc
           npm config delete always-auth || true
           npm config delete //registry.npmjs.org/:_authToken || true
 
+      # From the lockfile, as ci.yml installs, so the release is built from
+      # the versions the merged pull requests were tested with. It used to
+      # delete the lockfile and resolve everything afresh (#292, #293), for a
+      # lockfile that lacked the Linux build of an optional native
+      # dependency. The lockfile now lists every platform's (rolldown,
+      # rollup, esbuild and lightningcss among them), and ci.yml's Build job
+      # installs from it on this same runner image. Resolving afresh released
+      # versions nothing had tested: rolldown 1.2.15 reached the releases of
+      # October 26 and November 2 that way, and broke their build (#1654).
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build
         run: npm run build
