@@ -1,7 +1,7 @@
 import type { FormatFunction, HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
-import { durationText } from '@util/duration';
+import { axisUnitMs, durationText } from '@util/duration';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
@@ -109,10 +109,13 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       // "constant 86,400,000". It reads in the unit a reader counts it in
       // instead, "constant 1 day". A date drawn by a `function` format says
       // nothing about its unit -- matplotlib's are days, a JavaScript
-      // timestamp's milliseconds -- so its widths stay numbers.
-      const widthFormat: FormatFunction = this.layer.axes?.[binAxis]?.format?.type === 'date'
-        ? value => durationText(Number(value))
-        : defaultFormat;
+      // timestamp's milliseconds -- unless the format names it in `unit`:
+      // weekly bins of matplotlib dates then read "constant 1 week" rather
+      // than "constant 7". Without one, a width stays a number.
+      const msPerUnit = axisUnitMs(this.layer.axes?.[binAxis]?.format);
+      const widthFormat: FormatFunction = msPerUnit === undefined
+        ? defaultFormat
+        : value => durationText(Number(value) * msPerUnit);
       stats.push({
         label: t('model.statBinWidth'),
         value: Histogram.binsAreEqual(narrowest, widest, [...lows, ...highs])

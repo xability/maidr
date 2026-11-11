@@ -1,3 +1,4 @@
+import type { AxisFormat, TimeUnit } from '@type/grammar';
 import type { MessageKey } from '@util/i18n';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
@@ -29,6 +30,81 @@ const UNITS: readonly DurationUnit[] = [
   { ms: 60_000, one: 'model.durationMinutesOne', many: 'model.durationMinutesMany', name: 'model.durationMinutes' },
   { ms: 1000, one: 'model.durationSecondsOne', many: 'model.durationSecondsMany', name: 'model.durationSeconds' },
 ];
+
+/** The milliseconds in one of each {@link TimeUnit}. */
+const TIME_UNIT_MS: Readonly<Record<TimeUnit, number>> = {
+  millisecond: 1,
+  second: 1000,
+  minute: 60_000,
+  hour: 3_600_000,
+  day: 86_400_000,
+};
+
+/** The unit warnings already given, so each is given once. */
+const warnedUnits = new Set<string>();
+
+/**
+ * Says a problem with an axis format's unit in the console, once.
+ *
+ * @param key - What identifies the problem
+ * @param message - What to say
+ */
+function warnOnce(key: string, message: string): void {
+  if (warnedUnits.has(key)) {
+    return;
+  }
+  warnedUnits.add(key);
+  console.warn(message);
+}
+
+/**
+ * The {@link TimeUnit} a unit names, in the singular or the plural and in any
+ * case: `day`, `days` and `Day` all name a day. A producer is as likely to
+ * write the plural a gantt's `unit` takes as the singular the type lists.
+ *
+ * @param unit - The unit a format names
+ * @returns The unit, or `undefined` for any other string
+ */
+function timeUnitOf(unit: string): TimeUnit | undefined {
+  const word = String(unit).trim().toLowerCase();
+  const singular = word.endsWith('s') ? word.slice(0, -1) : word;
+  return (Object.keys(TIME_UNIT_MS) as TimeUnit[]).find(candidate => candidate === singular);
+}
+
+/**
+ * How many milliseconds one unit of an axis's values spans, or `undefined`
+ * where its values are not times.
+ *
+ * A `date` format's values are epoch milliseconds: that is how it prints
+ * them. So it ignores a {@link AxisFormat.unit}, and says so in the console,
+ * once for each unit, when the unit is another. Honoured, a unit of seconds
+ * would have read daily bins as 2.7 years beside dates that print right.
+ * Any other format says what its values count with `unit`, singular or
+ * plural, in any case; without one, its values are numbers, and with one
+ * that is not a {@link TimeUnit} they are numbers too and the console says
+ * so, once for each unit.
+ *
+ * @param format - The format the axis declares
+ * @returns The milliseconds in one unit of the axis, or `undefined`
+ */
+export function axisUnitMs(format: AxisFormat | undefined): number | undefined {
+  const unit = format?.unit;
+  if (unit === undefined) {
+    return format?.type === 'date' ? 1 : undefined;
+  }
+  const named = timeUnitOf(unit);
+  if (format?.type === 'date') {
+    if (named !== 'millisecond') {
+      warnOnce(`date\u0000${String(unit)}`, `[MAIDR] An axis format of type "date" reads its values as epoch milliseconds, so its unit "${String(unit)}" is ignored.`);
+    }
+    return 1;
+  }
+  if (named === undefined) {
+    warnOnce(`unknown\u0000${String(unit)}`, `[MAIDR] An axis format's unit "${String(unit)}" is not one of millisecond, second, minute, hour or day, singular or plural, so it is ignored.`);
+    return undefined;
+  }
+  return TIME_UNIT_MS[named];
+}
 
 /**
  * The units of time a chart may name by an English word, by that word.

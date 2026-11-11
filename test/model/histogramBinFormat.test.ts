@@ -1,6 +1,6 @@
 import type { AxisFormat, HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionStat } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { Histogram } from '@model/histogram';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -90,6 +90,24 @@ describe('the bin width of a histogram over dates', () => {
     expect(statsOf(layer(14))).toContainEqual({ label: 'Bin width', value: 'constant 2 weeks' });
   });
 
+  test('reads a date format\'s widths in milliseconds whatever unit it names', () => {
+    // Read in the seconds it names, daily bins would be 2.7 years, beside
+    // edges that print as the days they are.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const data: HistogramPoint[] = binsOf(1).map(([low, high, count]) => (
+      { x: (low + high) / 2, y: count, xMin: low, xMax: high, yMin: 0, yMax: count }
+    ));
+    const stats = statsOf({
+      id: 'days',
+      type: TraceType.HISTOGRAM,
+      axes: { x: { label: 'Day', format: { type: 'date', unit: 'second' } }, y: { label: 'Orders' } },
+      data,
+    });
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: 'constant 1 day' });
+    warn.mockRestore();
+  });
+
   test('reads bins of different widths as a range of spans', () => {
     // A one-day bin, then a two-day one.
     const edges = [JAN1, JAN1 + DAY, JAN1 + 3 * DAY];
@@ -137,5 +155,62 @@ describe('the bin width of a histogram over dates', () => {
     });
 
     expect(stats).toContainEqual({ label: 'Bin width', value: 'constant 7' });
+  });
+
+  /** Two bins of a function-formatted time axis, `[low, high, count]`, in the given format. */
+  const timeLayer = (format: AxisFormat, bins: number[][]): MaidrLayer => ({
+    id: 'times',
+    type: TraceType.HISTOGRAM,
+    axes: { x: { label: 'When', format }, y: { label: 'Orders' } },
+    data: bins.map(([low, high, count]) => (
+      { x: (low + high) / 2, y: count, xMin: low, xMax: high, yMin: 0, yMax: count }
+    )),
+  });
+
+  test('reads a width as a span of time when a function format names its unit', () => {
+    // The weekly bins above, from a format that says its numbers are days.
+    const stats = statsOf(timeLayer(
+      { function: 'return new Date(value * 86400000).toISOString().slice(0, 10)', unit: 'day' },
+      [[18628, 18635, 4], [18635, 18642, 9]],
+    ));
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: 'constant 1 week' });
+  });
+
+  test('reads half a day as twelve hours', () => {
+    const stats = statsOf(timeLayer({ function: 'return String(value)', unit: 'day' }, [[18628, 18628.5, 4], [18628.5, 18629, 9]]));
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: 'constant 12 hours' });
+  });
+
+  test('reads Unix seconds as seconds', () => {
+    // Hourly bins of epoch seconds.
+    const stats = statsOf(timeLayer(
+      { function: 'return new Date(value * 1000).toISOString()', unit: 'second' },
+      [[1_767_225_600, 1_767_229_200, 4], [1_767_229_200, 1_767_232_800, 9]],
+    ));
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: 'constant 1 hour' });
+  });
+
+  test('reads a unit written in the plural', () => {
+    const stats = statsOf(timeLayer(
+      { function: 'return String(value)', unit: 'days' } as unknown as AxisFormat,
+      [[18628, 18635, 4], [18635, 18642, 9]],
+    ));
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: 'constant 1 week' });
+  });
+
+  test('leaves a width a number when the unit is not one it knows', () => {
+    // The console says so, on purpose.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const stats = statsOf(timeLayer(
+      { function: 'return String(value)', unit: 'fortnight' } as unknown as AxisFormat,
+      [[18628, 18635, 4], [18635, 18642, 9]],
+    ));
+
+    expect(stats).toContainEqual({ label: 'Bin width', value: 'constant 7' });
+    warn.mockRestore();
   });
 });
