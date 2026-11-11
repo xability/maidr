@@ -122,6 +122,46 @@ describe('announcing a third dimension', () => {
   });
 });
 
+describe('a stack whose points do not all have a z', () => {
+  test('leaves z out of a column rather than reading one point\'s z beside another', () => {
+    // Three points stacked on x = 1, the middle one without a depth. The z
+    // values are paired with the y values by place, so skipping the gap put
+    // the last point's 30 beside the middle point's 4.
+    const trace = new ScatterTrace(scatterLayer([
+      { x: 1, y: 2, z: 10 },
+      { x: 1, y: 4 },
+      { x: 1, y: 6, z: 30 },
+    ]));
+    const text = new TextService(createMockNotificationService());
+
+    expect(announce(text, trace.getStateAt(0, 0))).toBe('X is 1, Y are 2, 4, 6');
+  });
+
+  test('leaves z out of a row where one of two points has none', () => {
+    // Two points share y = 3 and only the one at x = 5 has a depth, so a
+    // lone "Depth is 5.5" after "X are 2, 5" belonged to either.
+    const trace = new ScatterTrace(scatterLayer([
+      { x: 2, y: 3 },
+      { x: 5, y: 3, z: 5.5 },
+    ]));
+    const text = new TextService(createMockNotificationService());
+    trace.moveOnce('UPWARD'); // enters on the column at x = 2
+    trace.moveOnce('UPWARD'); // turns into the row at y = 3
+
+    expect(announce(text, trace.state)).toBe('Y is 3, X are 2, 5');
+  });
+
+  test('still reads the z of a point the cursor is on alone', () => {
+    const trace = new ScatterTrace(scatterLayer([
+      { x: 2, y: 3 },
+      { x: 5, y: 3, z: 5.5 },
+    ]));
+    const text = new TextService(createMockNotificationService());
+
+    expect(announce(text, trace.getStateAt(0, 1))).toBe('X is 5, Y is 3, Depth is 5.5');
+  });
+});
+
 describe('the other formatting paths', () => {
   test('reads an array z as a spoken list in the coordinate text', () => {
     // getCoordinateText() formats the state a second time, for the position

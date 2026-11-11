@@ -1091,18 +1091,26 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
-   * Builds the z field for TextState from a group's z values (NaN-filtered).
-   * Returns a scalar for singletons, an array for groups, and undefined when absent.
+   * Builds the z field for TextState from the z of each point the cursor is
+   * on, one per point and in their order.
+   *
+   * A z is read only when every one of those points has one. The z values are
+   * read beside the points' x or y values and paired with them by place, so
+   * a point without one cannot simply be skipped: of two points sharing a y,
+   * one at x = 2 with no z and one at x = 5 with a z of 5.5, "x are 2, 5,
+   * Depth is 5.5" gave the 5.5 to either, and of three points the z after the
+   * gap went to the wrong one. Each point's own z is still read where the
+   * cursor is on that point alone, in point mode and at an intersection.
+   *
+   * @param zValues - The z of each point, NaN where a point has none
+   * @returns A scalar for one point, an array for several, and undefined when
+   *   the trace has no z or a point here has none
    */
   private textZ(zValues: number[]): TextState['z'] {
-    if (!this.hasZ) {
+    if (!this.hasZ || zValues.length === 0 || !zValues.every(v => Number.isFinite(v))) {
       return undefined;
     }
-    const finite = zValues.filter(v => Number.isFinite(v));
-    if (finite.length === 0) {
-      return undefined;
-    }
-    const value = finite.length === 1 ? finite[0] : finite;
+    const value = zValues.length === 1 ? zValues[0] : zValues;
     return { label: this.z, value };
   }
 
