@@ -443,13 +443,13 @@ export const PAGE_TYPES = {
   'multi-panel.html': ['bar', 'line'],
   'multilayer_plot.html': ['bar', 'line'],
   'multiline_plot.html': ['line'],
-  'multiline_plot_intersection.html': ['line'],
+  'multiline_plot_intersection.html': ['line', 'point'],
   'normalized-area.html': ['stacked_normalized_area'],
   'normalized-barplot.html': ['stacked_normalized_bar'],
   'polar-area.html': ['polar_area'],
   'scatter_plot.html': ['point'],
   'smooth_plot.html': ['smooth'],
-  'smoothplot.html': ['smooth'],
+  'smoothplot.html': ['point', 'smooth'],
   'stacked-barplot.html': ['stacked_bar'],
   'stepplot.html': ['step'],
   'vertical-boxplot.html': ['box'],
@@ -537,12 +537,16 @@ export const PAGE_TYPES = {
   'vegalite-nested-layer.html': ['bar', 'line'],
 };
 
+/** The trace types a page's charts show, or `undefined` when nothing says. */
+function pageTypes(page, group) {
+  return PAGE_TYPES[page] ?? CHART_TYPES[chartStem(page, group)];
+}
+
 /**
  * Whether a page's charts are all experimental, or `undefined` when nothing
  * says which types it shows.
  */
-function isExperimentalPage(page, group) {
-  const types = PAGE_TYPES[page] ?? CHART_TYPES[chartStem(page, group)];
+function isExperimental(types) {
   if (!types) {
     return undefined;
   }
@@ -942,7 +946,8 @@ export function buildGallery(pages) {
       unclaimed.push(page);
       continue;
     }
-    items.get(group.id).push({ page, ...titleFor(page, group), experimental: isExperimentalPage(page, group) });
+    const types = pageTypes(page, group);
+    items.get(group.id).push({ page, ...titleFor(page, group), types, experimental: isExperimental(types) });
   }
 
   const sections = GROUPS.map(group => ({

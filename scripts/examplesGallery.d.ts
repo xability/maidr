@@ -27,6 +27,11 @@ export interface GalleryItem {
   /** The heading the loaded example is announced under. */
   heading: string;
   /**
+   * The trace types the page shows, from its `PAGE_TYPES` or `CHART_TYPES`
+   * entry; `undefined` when neither has one. Absent on a hand-written entry.
+   */
+  types?: string[];
+  /**
    * Whether every trace type the page shows is experimental, in which case
    * the label and heading end in {@link EXPERIMENTAL_MARK}; `undefined` when
    * no entry in `CHART_TYPES` or `PAGE_TYPES` says which types it shows.
