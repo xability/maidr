@@ -363,8 +363,9 @@ export class ViolinKdeTrace extends AbstractTrace {
     }
 
     const sizes = levels.map(({ size }) => size);
+    const span = this.valueSpan;
     const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => levels
-      .filter(({ size }) => size === extreme)
+      .filter(({ size }) => MathUtil.nearlyEqualInRange(size, extreme, span))
       .map(({ y, size, col }) => ({
         ...extremumAt(
           t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),

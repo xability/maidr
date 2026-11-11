@@ -1390,14 +1390,17 @@ export class Candlestick extends AbstractTrace {
       }));
       // Find all maximum values (there could be multiple candles with the same max volatility)
       const maxVolatility = Math.max(...volatilityValues.map(v => v.value));
+      const minVolatility = Math.min(...volatilityValues.map(v => v.value));
+      // Within a billionth of the layer's range, as every layer ties its
+      // extremes (`MathUtil.nearlyEqualInRange`).
+      const volatilitySpan = this.valueSpan;
       const maxVolatilityIndices = volatilityValues
-        .filter(v => v.value === maxVolatility)
+        .filter(v => MathUtil.nearlyEqualInRange(v.value, maxVolatility, volatilitySpan))
         .map(v => v.index);
 
       // Find all minimum values
-      const minVolatility = Math.min(...volatilityValues.map(v => v.value));
       const minVolatilityIndices = volatilityValues
-        .filter(v => v.value === minVolatility)
+        .filter(v => MathUtil.nearlyEqualInRange(v.value, minVolatility, volatilitySpan))
         .map(v => v.index);
 
       // Add all max volatility targets
@@ -1436,14 +1439,15 @@ export class Candlestick extends AbstractTrace {
       }));
       // Find all maximum values
       const maxValue = Math.max(...segmentValues.map(v => v.value));
+      const minValue = Math.min(...segmentValues.map(v => v.value));
+      const segmentSpan = this.valueSpan;
       const maxIndices = segmentValues
-        .filter(v => v.value === maxValue)
+        .filter(v => MathUtil.nearlyEqualInRange(v.value, maxValue, segmentSpan))
         .map(v => v.index);
 
       // Find all minimum values
-      const minValue = Math.min(...segmentValues.map(v => v.value));
       const minIndices = segmentValues
-        .filter(v => v.value === minValue)
+        .filter(v => MathUtil.nearlyEqualInRange(v.value, minValue, segmentSpan))
         .map(v => v.index);
 
       // Add all max targets

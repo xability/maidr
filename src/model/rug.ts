@@ -415,11 +415,12 @@ export class RugTrace extends AbstractTrace {
     // One target per tick at the extreme, not just the first: two
     // observations at the maximum are two places a reader can be sent, and
     // the walk order puts the ties side by side.
+    const span = this.valueSpan;
     const targets: ExtremaTarget[] = [];
-    for (let index = count - 1; index >= 0 && this.positions[index] === max; index--) {
+    for (let index = count - 1; index >= 0 && MathUtil.nearlyEqualInRange(this.positions[index], max, span); index--) {
       targets.push(target(t('model.extremaMaxPoint'), max, index, 'max'));
     }
-    for (let index = 0; index < count && this.positions[index] === min; index++) {
+    for (let index = 0; index < count && MathUtil.nearlyEqualInRange(this.positions[index], min, span); index++) {
       targets.push(target(t('model.extremaMinPoint'), min, index, 'min'));
     }
     return targets;

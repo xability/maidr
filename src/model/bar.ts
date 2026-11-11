@@ -829,11 +829,13 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     // One target per bar holding the value, not just the first: two bars of
     // equal height are two places a reader can be sent, and reporting only
     // `indexOf`'s first match hides the others from both the dialog and the
-    // bracket keys. Line traces already list their ties this way.
+    // bracket keys. Line traces already list their ties this way, and both
+    // hold two bars a billionth of the layer's range apart to be one height.
+    const span = this.valueSpan;
     const indicesAt = (value: number): number[] => {
       const indices: number[] = [];
       for (let index = 0; index < groupValues.length; index++) {
-        if (groupValues[index] === value) {
+        if (MathUtil.nearlyEqualInRange(groupValues[index], value, span)) {
           indices.push(index);
         }
       }

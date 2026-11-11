@@ -161,8 +161,9 @@ export function isHigher(candidate: number, current: number): boolean {
  * The whisker ends the description's range rows name, rather than the
  * outliers past them, so the keys land where the description says the
  * extreme is; the outliers are a step further along the same box. Every
- * group holding the value is offered, in navigation order, so a tie is
- * walked. A whisker end that is a gap is never one.
+ * group holding the value, within a billionth of the layer's range, is
+ * offered, in navigation order, so a tie is walked. A whisker end that is a
+ * gap is never one.
  *
  * @param points - The trace's groups, in navigation order.
  * @param end - Which whisker end: `max` for the highest maximum, `min` for
@@ -171,6 +172,8 @@ export function isHigher(candidate: number, current: number): boolean {
  * @param noun - What an unnamed group is called, for its positional name.
  * @param cellOf - The row and column of a group's whisker end in the
  *   trace's grid.
+ * @param span - The layer's range, which two ends within a billionth of are
+ *   one value (`MathUtil.nearlyEqualInRange`).
  * @returns The targets, or none when no group has a measured end.
  */
 export function whiskerEndTargets(
@@ -179,6 +182,7 @@ export function whiskerEndTargets(
   name: string,
   noun: MessageKey,
   cellOf: (group: number) => [row: number, col: number],
+  span: number,
 ): ExtremaTarget[] {
   const ends = points
     .map((point, group) => ({ group, value: end === 'max' ? point.max : point.min }))
@@ -190,7 +194,7 @@ export function whiskerEndTargets(
   const values = ends.map(({ value }) => value);
   const extreme = end === 'max' ? MathUtil.safeMax(values) : MathUtil.safeMin(values);
   return ends
-    .filter(({ value }) => value === extreme)
+    .filter(({ value }) => MathUtil.nearlyEqualInRange(value, extreme, span))
     .map(({ group, value }) => {
       const [row, col] = cellOf(group);
       const authored = groupName(points[group]);

@@ -3603,15 +3603,29 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
+   * The range of the y values, which `]` and `[` rank the points by. The
+   * layer's {@link values} hold its x values beside them, and reading them
+   * moves the cursor's row back into bounds.
+   *
+   * @returns The y range, never negative
+   */
+  public override get valueSpan(): number {
+    const ys = this.yValues.filter(y => Number.isFinite(y));
+    return ys.length > 1 ? MathUtil.safeMax(ys) - MathUtil.safeMin(ys) : 0;
+  }
+
+  /**
    * The highest and the lowest points, for `]`, `[` and the Go To dialog:
    * the largest and the smallest y, what the pitch plays.
    *
    * Walking columns and rows, each is the row of points at that y, where
    * Control + Up and Control + Down go from a column; one row holds every
-   * point at its y, so it is one target. In point navigation each is a
-   * point, and every point holding the extreme is offered in reading order,
-   * so a tie is walked. Grid and intersection navigation offer none: their
-   * cursors are a cell and a stack of points rather than a point.
+   * point at its y, so it is one target, unless another row's y is within a
+   * billionth of the plot's y range of it, which is the same extreme. In
+   * point navigation each is a point, and every point holding the extreme
+   * is offered in reading order, so a tie is walked. Grid and intersection
+   * navigation offer none: their cursors are a cell and a stack of points
+   * rather than a point.
    *
    * @returns The targets, or none in grid or intersection navigation or for
    *   a plot with no measured y
@@ -3632,8 +3646,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     if (measured.length === 0) {
       return [];
     }
-    const highest = measured.reduce((best, row) => (row.y > best.y ? row : best));
-    const lowest = measured.reduce((best, row) => (row.y < best.y ? row : best));
+    const span = this.valueSpan;
+    const ys = measured.map(({ y }) => y);
+    const rowsAt = (extreme: number): number[] => measured
+      .filter(({ y }) => MathUtil.nearlyEqualInRange(y, extreme, span))
+      .map(({ index }) => index);
     const rowTarget = (row: number, type: 'max' | 'min'): ExtremaTarget => ({
       ...extremumAt(
         t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
@@ -3647,7 +3664,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       categoryIndex: 0,
       navigationType: 'group',
     });
-    return [rowTarget(highest.index, 'max'), rowTarget(lowest.index, 'min')];
+    return [
+      ...rowsAt(MathUtil.safeMax(ys)).map(row => rowTarget(row, 'max')),
+      ...rowsAt(MathUtil.safeMin(ys)).map(row => rowTarget(row, 'min')),
+    ];
   }
 
   /**
@@ -3661,8 +3681,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return [];
     }
     const ys = measured.map(index => this.flatPoints[index].y);
+    const span = this.valueSpan;
     const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => measured
-      .filter(index => this.flatPoints[index].y === extreme)
+      .filter(index => MathUtil.nearlyEqualInRange(this.flatPoints[index].y, extreme, span))
       .map((index) => {
         const point = this.flatPoints[index];
         return {

@@ -531,14 +531,15 @@ export class DumbbellTrace extends AbstractTrace {
       xValue: this.points[col].x,
     });
 
+    const span = this.valueSpan;
     const targets = ends
-      .filter(({ value }) => value === highest)
+      .filter(({ value }) => MathUtil.nearlyEqualInRange(value, highest, span))
       .map(end => targetAt(end, 'max'));
     // A chart whose ends all hold one value has a single extreme. Naming the
     // same ends as both would report a spread the chart does not have.
     if (lowest !== highest) {
       targets.push(...ends
-        .filter(({ value }) => value === lowest)
+        .filter(({ value }) => MathUtil.nearlyEqualInRange(value, lowest, span))
         .map(end => targetAt(end, 'min')));
     }
     return targets;

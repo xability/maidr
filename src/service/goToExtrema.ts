@@ -100,6 +100,7 @@ export class GoToExtremaService {
     const tied = GoToExtremaService.tiedExtremeTargets(
       activeTrace.getExtremaTargets(),
       type,
+      activeTrace.valueSpan,
     );
     if (tied.length === 0) {
       return null;
@@ -151,16 +152,22 @@ export class GoToExtremaService {
    * A target that carries a `rankValue` is compared by it rather than by its
    * value: see {@link ExtremaTarget.rankValue}. A rank value is computed by
    * the trace and can carry float noise, so it ties with the extreme when
-   * `MathUtil.nearlyEqual` says so, as the trace tied it; a value is the
-   * producer's number and ties only with the same number.
+   * `MathUtil.nearlyEqual` says so, as the trace tied it. A value ties with
+   * the extreme within a billionth of the layer's range
+   * (`MathUtil.nearlyEqualInRange`), the margin the trace offers its tied
+   * targets within: a KDE curve's 9.4e-28 and its 0 are one minimum on a
+   * curve that peaks at 0.4, and a press walks the two as "1 of 2". Compared
+   * exactly, the press landed on one of them as though it were alone.
    * @param targets - The extrema targets reported by the trace.
    * @param type - Which extreme to collect.
+   * @param span - The layer's range, its largest value less its smallest.
    * @returns The tied targets, one per place, or an empty array when the
    * trace reports none.
    */
   private static tiedExtremeTargets(
     targets: ExtremaTarget[],
     type: 'min' | 'max',
+    span: number,
   ): ExtremaTarget[] {
     const rank = (target: ExtremaTarget): number => target.rankValue ?? target.value;
     const candidates = targets.filter(
@@ -177,7 +184,7 @@ export class GoToExtremaService {
       rank(candidates[0]),
     );
     const level = (target: ExtremaTarget): boolean => (target.rankValue === undefined
-      ? target.value === extreme
+      ? MathUtil.nearlyEqualInRange(target.value, extreme, span)
       : MathUtil.nearlyEqual(target.rankValue, extreme));
     const places = new Set<string>();
     return candidates.filter((target) => {

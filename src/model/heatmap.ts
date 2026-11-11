@@ -848,10 +848,11 @@ export class Heatmap extends AbstractTrace {
       return [];
     }
 
+    const span = this.valueSpan;
     const cells: { row: number; col: number; value: number }[] = [];
     for (let r = 0; r < this.heatmapValues.length; r++) {
       for (let c = 0; c < this.heatmapValues[r].length; c++) {
-        if (this.heatmapValues[r][c] === value) {
+        if (MathUtil.nearlyEqualInRange(this.heatmapValues[r][c], value, span)) {
           cells.push({ row: r, col: c, value });
         }
       }

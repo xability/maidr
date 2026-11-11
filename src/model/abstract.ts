@@ -1064,6 +1064,33 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * How far the layer's measured values spread: its largest less its
+   * smallest, or 0 with fewer than two. The scale at which `[`, `]` and the
+   * Go To dialog read two values as one extreme
+   * (`MathUtil.nearlyEqualInRange`).
+   *
+   * Read from {@link values}, the numbers the layer is sounded and brailled
+   * from; a trace whose extrema rank something else says so by overriding it.
+   *
+   * @returns The span, never negative
+   */
+  public get valueSpan(): number {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const row of this.values) {
+      for (const cell of row) {
+        for (const value of Array.isArray(cell) ? cell : [cell]) {
+          if (typeof value === 'number' && Number.isFinite(value)) {
+            min = Math.min(min, value);
+            max = Math.max(max, value);
+          }
+        }
+      }
+    }
+    return max > min ? max - min : 0;
+  }
+
+  /**
    * Base implementation for navigateToExtrema
    * Subclasses must override to provide actual implementation
    * @param _target The extrema target to navigate to

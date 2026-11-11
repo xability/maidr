@@ -772,8 +772,9 @@ export class VennTrace extends AbstractTrace {
       return [];
     }
     const sizes = sized.map(({ size }) => size);
+    const span = this.valueSpan;
     const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => sized
-      .filter(({ size }) => size === extreme)
+      .filter(({ size }) => MathUtil.nearlyEqualInRange(size, extreme, span))
       .map(({ region, size, row, col }) => ({
         ...extremumAt(
           t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),
