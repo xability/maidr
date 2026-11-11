@@ -1274,9 +1274,15 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * which the refusal says after it says there is nothing to go to. Null
    * where the layer has extrema, or has none only because of its data.
    *
+   * Asked with the extreme a bracket key wants, a layer that has one of the
+   * two by design and not the other can say why for the one it lacks, as a
+   * ROC curve does for `[`. `G`, which lists both, asks without one.
+   *
+   * @param _extreme - The extreme `[` (`'min'`) or `]` (`'max'`) asked for,
+   *   or nothing for the layer as a whole
    * @returns The reason, or null
    */
-  public noExtremaReason(): string | null {
+  public noExtremaReason(_extreme?: 'min' | 'max'): string | null {
     return null;
   }
 

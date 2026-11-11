@@ -1306,9 +1306,10 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * Why the trace has no extremum for `[`, `]` and `G` to go to, where that
    * is by design. Optional, and null where it has extrema or lacks them only
    * because of its data.
+   * @param extreme - The extreme a bracket key asks for; left out for `G`
    * @returns The reason, as a phrase, or null
    */
-  noExtremaReason?: () => string | null;
+  noExtremaReason?: (extreme?: 'min' | 'max') => string | null;
 
   /**
    * Every object the `o` list offers, or null on a chart walked along axes.

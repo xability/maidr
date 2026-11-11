@@ -349,6 +349,7 @@ export const model = {
   'model.noExtremaRegionsCarryNoSizes': '領域にサイズがありません',
   'model.noExtremaGridCells': 'グリッドのナビゲーションはポイントではなくセルの間を移動します',
   'model.noExtremaIntersectionStack': '交点のナビゲーションは同じxまたはyのポイントの間だけを移動します',
+  'model.noExtremaCurveLowestIsSharedEnd': '最も低い点は、すべての曲線に共通の端です',
   'model.intersectionPoint': '点の交差',
   'model.intersectionSlope': '傾きの交差',
   'model.extremaIntersectionAt': '{kind}、位置 {coords}',

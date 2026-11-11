@@ -86,7 +86,9 @@ nodes carry no values"):
 - a gauge shows one value, which is where you already are;
 - a scatter plot's grid navigation moves between cells rather than points,
   and its intersecting point navigation only among the points at the same x
-  or y.
+  or y;
+- [ alone, on a ROC or precision-recall curve: its lowest point is an end
+  every curve shares.
 
 Where the data merely holds nothing to go to, the message comes without a
 reason.
@@ -120,7 +122,10 @@ On a ROC curve, ] goes to the best operating point, the point furthest above
 the chance diagonal, and on a precision-recall curve to the point with the best
 F1, rather than to a rate of 1, which every complete curve reaches. MAIDR says
 which before the point, as G lists it: "Best operating point, False positive
-rate is 0.25, ...". [ says there is no minimum value to go to.
+rate is 0.25, ...". [ says there is no minimum value to go to, and why: "No
+minimum value to go to in this layer: its lowest point is an end every curve
+shares", the curve's start on a ROC curve and its loosest threshold on a
+precision-recall curve.
 
 On a box plot, and on a violin plot's box layer, ] goes to the box with the
 highest maximum and [ to the box with the lowest minimum: the whisker ends the

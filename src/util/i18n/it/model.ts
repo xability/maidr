@@ -349,6 +349,7 @@ export const model = {
   'model.noExtremaRegionsCarryNoSizes': 'le sue regioni non hanno dimensioni',
   'model.noExtremaGridCells': 'la navigazione a griglia si sposta tra le celle, non tra i punti',
   'model.noExtremaIntersectionStack': 'la navigazione per punti di intersezione si sposta solo tra punti con la stessa x o y',
+  'model.noExtremaCurveLowestIsSharedEnd': 'il suo punto più basso è un estremo che tutte le curve condividono',
   'model.intersectionPoint': 'Intersezione di punti',
   'model.intersectionSlope': 'Intersezione di pendenze',
   'model.extremaIntersectionAt': '{kind} in {coords}',

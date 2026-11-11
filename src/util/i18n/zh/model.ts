@@ -345,6 +345,7 @@ export const model = {
   'model.noExtremaRegionsCarryNoSizes': '区域没有大小',
   'model.noExtremaGridCells': '网格导航在单元格之间移动，而不是在点之间',
   'model.noExtremaIntersectionStack': '交点导航只在 x 或 y 相同的点之间移动',
+  'model.noExtremaCurveLowestIsSharedEnd': '最低点是所有曲线共有的端点',
   'model.intersectionPoint': '点交叉',
   'model.intersectionSlope': '斜率交叉',
   'model.extremaIntersectionAt': '{kind}，位于 {coords}',

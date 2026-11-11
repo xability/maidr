@@ -69,6 +69,25 @@ const POINTS: MaidrLayer = {
   data: [{ x: 0.5, y: 0.5 }, { x: 0.5, y: 1.5 }, { x: 1.5, y: 1 }],
 };
 
+/** Two classifiers' ROC curves, each from (0, 0) to (1, 1). */
+const ROC: MaidrLayer = {
+  id: 'roc',
+  type: TraceType.ROC,
+  axes: { x: { label: 'False positive rate' }, y: { label: 'True positive rate' } },
+  data: [
+    [{ x: 0, y: 0, z: 'Logistic' }, { x: 0.1, y: 0.75, z: 'Logistic' }, { x: 1, y: 1, z: 'Logistic' }],
+    [{ x: 0, y: 0, z: 'Forest' }, { x: 0.25, y: 0.6, z: 'Forest' }, { x: 1, y: 1, z: 'Forest' }],
+  ],
+};
+
+/** One precision-recall curve, its loosest threshold at a precision of 0.3. */
+const PR_CURVE: MaidrLayer = {
+  id: 'pr',
+  type: TraceType.PR_CURVE,
+  axes: { x: { label: 'Recall' }, y: { label: 'Precision' } },
+  data: [[{ x: 0, y: 1 }, { x: 0.8, y: 0.7 }, { x: 1, y: 0.3 }]],
+};
+
 /** Two bars, whose taller one `]` goes to. */
 const BARS: MaidrLayer = {
   id: 'bars',
@@ -150,6 +169,27 @@ describe('a layer with no extremum by design says why', () => {
     const context = new Context(new Figure(figureOf(GAUGE)));
 
     expect(context.noExtremaReason()).toBe('a gauge shows one value');
+  });
+
+  test.each([
+    ['a ROC curve', ROC],
+    ['a precision-recall curve', PR_CURVE],
+  ])('%s says why [ has nothing to go to, and gives ] and G no reason', (_name, layer) => {
+    // `[` said only that there was no minimum value, as on a layer whose
+    // data happened to hold none. `]` and `G` go to the best point.
+    const trace = traceOf(layer);
+
+    expect(trace.noExtremaReason('min')).toBe('its lowest point is an end every curve shares');
+    expect(trace.noExtremaReason('max')).toBeNull();
+    expect(trace.noExtremaReason()).toBeNull();
+  });
+
+  test('the context passes on which extreme a bracket key asks for', () => {
+    const context = new Context(new Figure(figureOf(ROC)));
+
+    expect(context.noExtremaReason('min')).toBe('its lowest point is an end every curve shares');
+    expect(context.noExtremaReason('max')).toBeNull();
+    expect(context.noExtremaReason()).toBeNull();
   });
 
   test('the context gives none above the layers, where no layer is active', () => {

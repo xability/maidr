@@ -150,6 +150,19 @@ test.describe('Precision-recall curve', () => {
     expect(announcement).toContain('Random forest');
   });
 
+  test('should say why [ has no minimum to go to', async ({ page }) => {
+    // A precision-recall curve's lowest point is its loosest threshold, where
+    // precision is the prevalence every curve on the chart ends at. `[`
+    // refused there with only "No minimum value to go to in this layer".
+    const plot = new PrCurvePage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.goToMinimumValue();
+
+    await expect.poll(async () => normalizeText(await plot.getInstructionText()))
+      .toBe('No minimum value to go to in this layer: its lowest point is an end every curve shares');
+  });
+
   test('should render one braille row per classifier', async ({ page }) => {
     // Braille is the modality that fails silently for a new trace type.
     const plot = new PrCurvePage(page);

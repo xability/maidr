@@ -436,6 +436,22 @@ export abstract class RateCurveTrace extends LineTrace {
     return true;
   }
 
+  /**
+   * Why `[` has nothing to go to: a curve's lowest point is an end every
+   * curve on the chart shares -- a ROC curve's (0, 0), a precision-recall
+   * curve's loosest threshold, where precision is the prevalence -- so
+   * `[` offers none, as `]` offers the best point rather than the highest
+   * rate. `[` said only that there was no minimum value, the same words as
+   * on a layer whose data happened to hold none. `]` and `G` go to the best
+   * point, so neither has a reason to give.
+   *
+   * @param extreme - The extreme a bracket key asks for
+   * @returns The reason for `[`, or null
+   */
+  public override noExtremaReason(extreme?: 'min' | 'max'): string | null {
+    return extreme === 'min' ? t('model.noExtremaCurveLowestIsSharedEnd') : null;
+  }
+
   protected override get groupFallbackLabel(): string {
     // Announced beside the curve's own name on every move, so inheriting the
     // line's "Group" puts two words for one referent in one sentence.

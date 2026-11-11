@@ -349,6 +349,7 @@ export const model = {
   'model.noExtremaRegionsCarryNoSizes': '영역에 크기가 없음',
   'model.noExtremaGridCells': '격자 탐색은 점이 아닌 칸 사이를 이동함',
   'model.noExtremaIntersectionStack': '교차점 탐색은 x나 y가 같은 점 사이에서만 이동함',
+  'model.noExtremaCurveLowestIsSharedEnd': '가장 낮은 점이 모든 곡선에 공통된 끝점임',
   'model.intersectionPoint': '점 교차',
   'model.intersectionSlope': '기울기 교차',
   'model.extremaIntersectionAt': '{coords}의 {kind}',
