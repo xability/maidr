@@ -1099,7 +1099,7 @@ point may also say what it is and where it lies:
   },
   selectors: "g[id='points'] > circle",   // one mark per point, as for `point`
   thresholdOptions: {                     // optional: where the chart draws its lines
-    significance: 7.3,                    // the cutoff on y; there is no default
+    significance: 7.3,                    // a cutoff on y; give it, effect or both
     significanceDirection: 'above',       // optional: 'above' (the default) or 'below'
   },
   data: [
@@ -1120,6 +1120,7 @@ point may also say what it is and where it lies:
   regions and, with a threshold declared, how many points clear it in each
   region that has any, the ten with the most when more than ten do.
 - `thresholdOptions` is read by these two types and ignored by every other.
+  It declares a threshold when it gives `significance`, `effect` or both.
   - `significance` is the cutoff on y. It has no default, because the
     convention differs by field: -log10(p) at 1.3 for p < 0.05, and at 7.3 for
     genome-wide significance.
@@ -1128,14 +1129,20 @@ point may also say what it is and where it lies:
   - `effect` is a cutoff on the magnitude of x, for a volcano's fold change, so
     -2 and +2 clear the same line.
 
-  A point clears the threshold when it clears every cutoff the layer declares.
+  A point clears the threshold when it clears every cutoff the layer
+  declares, a point on a cutoff included: with only `effect`, when the
+  magnitude of its x is at least the cutoff; with only `significance`, when
+  its y is on the line or past it on the significant side; with both, when it
+  does both.
 
 With a threshold declared, each point says whether it clears it, and the
 description opens with how many points do, out of how many, and where the lines
-are. It then names up to ten of those points by significance. The rotor's
-**Significant** unit moves between them, so the few points that matter are
-reachable without walking the rest. Without a threshold the layer is read as a
-scatter, and nothing is said about significance.
+are. It then names up to ten of those that have a `label`, most significant
+first. While at least one point clears it, the rotor's **Significant** unit
+moves between the points that do, so the few that matter are reachable without
+walking the rest. With neither `significance` nor `effect` declared, nothing is
+said about significance: no point says whether it clears a line, and the
+description gives no count and no lines.
 
 ### Sankey, alluvial and chord (`sankey`, `alluvial`, `chord`) [experimental]
 
