@@ -89,6 +89,26 @@ export function chartGuide(type: TraceType): ChartGuide {
 }
 
 /**
+ * How far down the page a highlight cell is drawn: the middle of its first
+ * mark's box, in screen pixels.
+ *
+ * @param cell - A highlight cell: one mark, or the marks of one point
+ * @returns The middle's y, or undefined for a cell with no mark, or a mark
+ *   with no box -- not laid out yet, or drawn as nothing
+ */
+function verticalCentre(cell: SVGElement[] | SVGElement | null | undefined): number | undefined {
+  const mark = Array.isArray(cell) ? cell[0] : cell;
+  if (!mark) {
+    return undefined;
+  }
+  const box = mark.getBoundingClientRect();
+  if (box.top === 0 && box.width === 0 && box.height === 0) {
+    return undefined;
+  }
+  return box.top + box.height / 2;
+}
+
+/**
  * How many rows a description's data table carries.
  *
  * The dialog paints a hundred at a time, and every row past that is re-rounded
@@ -526,6 +546,192 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     // the trace type, which is the better answer for a figure whose layers
     // differ in kind, and a default here would replace it with a placeholder.
     this.name = layer.name?.trim() || undefined;
+  }
+
+  /**
+   * Whether the first category is drawn above the last, on a trace whose
+   * categories run down the page ({@link categoriesRunDown}): measured once
+   * the chart is laid out, `null` until then. See {@link firstCategoryOnTop}.
+   */
+  private categoriesTopFirst: boolean | null = null;
+
+  /**
+   * Whether this trace's grid lists its categories as columns while the
+   * chart draws them one above another: a horizontal bar, dot, lollipop,
+   * funnel, dumbbell or forest chart. Its arrow keys are then turned to follow
+   * the drawing ({@link keyDirection}), as a horizontal box plot's already
+   * were: Up and Down move between the categories, and Left and Right along
+   * one, between the series, ends or sections drawn across it.
+   *
+   * @returns False here; true on the traces of that shape drawn on their side
+   */
+  protected get categoriesRunDown(): boolean {
+    return false;
+  }
+
+  /**
+   * Moves the way the key points on the drawing. See {@link categoriesRunDown}.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    return super.moveOnce(this.keyDirection(direction));
+  }
+
+  /**
+   * Control and an arrow, by the same rule as {@link moveOnce}: on a chart
+   * drawn on its side, Control + Up and Down go to the top and the bottom
+   * category, and Control + Left and Right to the first and the last series.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveToExtreme(direction: MovableDirection): boolean {
+    return super.moveToExtreme(this.keyDirection(direction));
+  }
+
+  /**
+   * Movability by the same rule, so check-then-move (autoplay's idiom) agrees
+   * with the move it checks.
+   *
+   * @param target - A direction, or a cell
+   * @returns Whether the move is possible
+   */
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
+    return super.isMovable(Array.isArray(target) ? target : this.keyDirection(target));
+  }
+
+  /**
+   * The rotor's lower and higher value search, Up: on a chart drawn on its
+   * side, along the categories toward the one drawn above, as Up moves.
+   * Elsewhere the rotor reads Up as Right.
+   *
+   * @param mode - Whether a lower or a higher value is sought
+   * @returns Whether the cursor moved
+   */
+  public override moveUpRotor(mode?: 'lower' | 'higher'): boolean {
+    if (!this.categoriesRunDown || mode === undefined) {
+      return super.moveUpRotor(mode);
+    }
+    return this.moveToNextCompareValue(this.firstCategoryOnTop() ? 'left' : 'right', mode);
+  }
+
+  /**
+   * The rotor's search, Down: toward the category drawn below. See
+   * {@link moveUpRotor}.
+   *
+   * @param mode - Whether a lower or a higher value is sought
+   * @returns Whether the cursor moved
+   */
+  public override moveDownRotor(mode?: 'lower' | 'higher'): boolean {
+    if (!this.categoriesRunDown || mode === undefined) {
+      return super.moveDownRotor(mode);
+    }
+    return this.moveToNextCompareValue(this.firstCategoryOnTop() ? 'right' : 'left', mode);
+  }
+
+  /**
+   * The rotor, Left: on a chart drawn on its side, the plain move along the
+   * category, as a horizontal box plot's rotor moves along its box. The
+   * search runs along the categories, which Up and Down walk there.
+   *
+   * @param mode - Whether a lower or a higher value is sought
+   * @returns Whether the cursor moved
+   */
+  public override moveLeftRotor(mode?: 'lower' | 'higher'): boolean {
+    if (!this.categoriesRunDown) {
+      return super.moveLeftRotor(mode);
+    }
+    this.moveOnce('BACKWARD');
+    return true;
+  }
+
+  /**
+   * The rotor, Right. See {@link moveLeftRotor}.
+   *
+   * @param mode - Whether a lower or a higher value is sought
+   * @returns Whether the cursor moved
+   */
+  public override moveRightRotor(mode?: 'lower' | 'higher'): boolean {
+    if (!this.categoriesRunDown) {
+      return super.moveRightRotor(mode);
+    }
+    this.moveOnce('FORWARD');
+    return true;
+  }
+
+  /**
+   * The direction to move the grid for a key, which is the key's own except
+   * on a trace whose categories run down the page. There the grid's columns
+   * are drawn one above another and its rows across them, so Up and Down step
+   * the columns, toward the category drawn above or below, and Right and
+   * Left step the rows. On a horizontal bar chart Right and Left moved down
+   * and up the page between the bars, and Up and Down said there was no more
+   * data: the other way round from a horizontal box plot or violin.
+   *
+   * @param direction - The key's direction
+   * @returns The direction to move the grid in
+   */
+  private keyDirection(direction: MovableDirection): MovableDirection {
+    if (!this.categoriesRunDown) {
+      return direction;
+    }
+    switch (direction) {
+      case 'UPWARD':
+        return this.firstCategoryOnTop() ? 'BACKWARD' : 'FORWARD';
+      case 'DOWNWARD':
+        return this.firstCategoryOnTop() ? 'FORWARD' : 'BACKWARD';
+      case 'FORWARD':
+        return 'UPWARD';
+      case 'BACKWARD':
+        return 'DOWNWARD';
+    }
+  }
+
+  /**
+   * Whether the first category is drawn above the last.
+   *
+   * Producers list a horizontal chart's categories both ways: matplotlib,
+   * ggplot2, base R and Plotly draw the first at the bottom, and Highcharts,
+   * ApexCharts, Vega-Lite, seaborn and most hand-drawn charts at the top. So
+   * it is measured, as a Gantt chart measures its lanes, from the marks the
+   * highlight holds: in the first row that has two, the first category's mark
+   * is above the last one's, or below it. Measured when first asked -- a
+   * vertical key -- rather than at construction, when the chart may not be
+   * laid out yet; until it is, the answer below is given and the drawing
+   * measured again on the next key.
+   *
+   * Where nothing can be measured -- a chart drawn to a canvas, or one
+   * category -- the first is taken to be at the bottom, as row 0 of a grid
+   * is, and Up moves to the next.
+   *
+   * @returns True when the first category is drawn at the top
+   */
+  private firstCategoryOnTop(): boolean {
+    if (this.categoriesTopFirst !== null) {
+      return this.categoriesTopFirst;
+    }
+    for (const row of this.highlightValues ?? []) {
+      const drawn = row.flatMap((cell, col) => (cell ? [col] : []));
+      if (drawn.length < 2) {
+        continue;
+      }
+      const first = verticalCentre(row[drawn[0]]);
+      const last = verticalCentre(row[drawn[drawn.length - 1]]);
+      if (first === undefined && last === undefined) {
+        // Nothing laid out yet: answer as the grid would, and measure again
+        // on the next key rather than keep an answer read from nothing.
+        return false;
+      }
+      if (first === undefined || last === undefined || first === last) {
+        continue;
+      }
+      this.categoriesTopFirst = first < last;
+      return this.categoriesTopFirst;
+    }
+    this.categoriesTopFirst = false;
+    return false;
   }
 
   /**

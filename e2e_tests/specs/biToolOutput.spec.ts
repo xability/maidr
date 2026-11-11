@@ -31,6 +31,11 @@ interface Fixture {
   /** What the first arrow key has to announce. */
   first: RegExp;
   /**
+   * The key that walks the chart: Right, except on a chart drawn on its
+   * side, whose categories Up and Down walk.
+   */
+  key?: 'ArrowUp' | 'ArrowDown';
+  /**
    * Where the value is in an announcement, when it is not the last number --
    * a Metabase series is named by an id such as `43:CNT:Widget`, which ends
    * the announcement with a number of its own.
@@ -60,7 +65,9 @@ const FIXTURES: ReadonlyArray<Fixture> = [
   { name: 'superset-area', check: 'moves', first: /2024-01-01.*989\.44/ },
   { name: 'superset-bar', check: 'ranks', first: /2024-01-01.*989\.44/ },
   { name: 'superset-bar-stacked', check: 'ranks', first: /2024-01-01.*399\.44.*Toys/ },
-  { name: 'superset-bar-horizontal', check: 'ranks-wide', first: /989\.44.*2024-01-01|2024-01-01.*989\.44/ },
+  // Drawn to a canvas with the first category at the bottom, as MAIDR takes
+  // a chart it cannot measure to be, so Up walks it.
+  { name: 'superset-bar-horizontal', check: 'ranks-wide', key: 'ArrowUp', first: /989\.44.*2024-01-01|2024-01-01.*989\.44/ },
   { name: 'superset-bar-categorical', check: 'ranks', first: /Books.*1573\.68/ },
   { name: 'superset-scatter', check: 'moves', first: /2024-01-01.*989\.44/ },
   { name: 'superset-pie', check: 'outlined', first: /Toys.*2197\.79/ },
@@ -115,7 +122,7 @@ function misranked(
 }
 
 test.describe('Superset and Metabase charts', () => {
-  for (const { name, check, first, value } of FIXTURES) {
+  for (const { name, check, first, value, key } of FIXTURES) {
     test(`${name}: an arrow key announces the first datum and outlines it`, async ({ page }) => {
       const errors: string[] = [];
       page.on('pageerror', error => errors.push(error.message));
@@ -125,7 +132,7 @@ test.describe('Superset and Metabase charts', () => {
 
       const readings: Reading[] = [];
       for (let i = 0; i < 3; i++) {
-        readings.push(await chart.step('ArrowRight'));
+        readings.push(await chart.step(key ?? 'ArrowRight'));
       }
 
       expect(errors).toEqual([]);

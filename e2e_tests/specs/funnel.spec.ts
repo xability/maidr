@@ -94,11 +94,12 @@ test.describe('Funnel', () => {
 
   test('should announce the retention alongside the count', async ({ page }) => {
     // The drop-off is what the chart is read for, and it is a ratio a
-    // listener cannot take from two heights heard one at a time.
+    // listener cannot take from two heights heard one at a time. The stages
+    // are drawn down the page, so Down moves to the next.
     const plot = new FunnelPlotPage(page);
     await plot.activateMaidr();
     await plot.moveToNextDataPoint();
-    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
 
     const announcement = normalizeText(await plot.getInstructionText());
 

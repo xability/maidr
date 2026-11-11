@@ -24,9 +24,14 @@ interface Case {
   button: string;
   /** The MAIDR id the example gives its chart. */
   id: string;
-  /** What the first and second Right arrow announce. */
+  /** What the first Right arrow, and then the next key, announce. */
   first: RegExp;
   second: RegExp;
+  /**
+   * The key that moves on to the second point: Right, except on a chart
+   * drawn on its side, whose categories Up and Down walk.
+   */
+  next?: 'ArrowDown' | 'ArrowUp';
   /**
    * Whether MUI's own keyboard focus target stays on. `SparkLineChart`
    * accepts `disableKeyboardNavigation` but does not pass it on (v9.14).
@@ -38,7 +43,7 @@ const CASES: Case[] = [
   { button: 'Bar Chart', id: 'mui-bar', first: /Quarter is Q1, Revenue \(\$\) is 4200/, second: /Q2, Revenue \(\$\) is 5800/ },
   { button: 'Grouped Bar', id: 'mui-grouped', first: /Quarter is Q1, Units is 42.*North/, second: /Q2, Units is 58.*North/ },
   { button: 'Stacked Bar', id: 'mui-stacked', first: /Year is 2021, TWh is 120.*Solar/, second: /2022, TWh is 135.*Solar/ },
-  { button: 'Horizontal Bar', id: 'mui-horizontal', first: /Fruit is Apple, Votes is 34/, second: /Banana, Votes is 21/ },
+  { button: 'Horizontal Bar', id: 'mui-horizontal', first: /Fruit is Apple, Votes is 34/, second: /Banana, Votes is 21/, next: 'ArrowDown' },
   { button: 'Line Chart', id: 'mui-line', first: /Month is Jan, Temperature \(°C\) is 5.*Seattle/, second: /Feb, Temperature \(°C\) is 7/ },
   { button: 'Step Line', id: 'mui-step', first: /Year is 2020, Price \(\$\) is 8/, second: /Year is 2021, Price \(\$\) is 8/ },
   { button: 'Area Chart', id: 'mui-area', first: /Day is 1, Visitors is 320/, second: /Day is 2, Visitors is 410/ },
@@ -49,7 +54,7 @@ const CASES: Case[] = [
   { button: 'Gauge', id: 'mui-gauge', first: /Value is 72, Range is 0 to 100/, second: /No more data/ },
   { button: 'Radar Chart', id: 'mui-radar', first: /Metric is Speed, Value is 80.*Alex/, second: /Metric is Power, Value is 65.*Alex/ },
   { button: 'Heatmap (Pro)', id: 'mui-heatmap', first: /Day is Mon, Time of day is Evening, Level is 15/, second: /Day is Tue, Time of day is Evening, Level is 16/ },
-  { button: 'Funnel (Pro)', id: 'mui-funnel', first: /Stage is Visit, Value is 2000/, second: /Stage is Cart, Value is 800/ },
+  { button: 'Funnel (Pro)', id: 'mui-funnel', first: /Stage is Visit, Value is 2000/, second: /Stage is Cart, Value is 800/, next: 'ArrowDown' },
   { button: 'Sankey (Pro)', id: 'mui-sankey', first: /Node is Coal, Value is 50/, second: /Coal to Power, 50/ },
   { button: 'Doughnut Chart', id: 'mui-doughnut', first: /Category is Sleep, Value is 8/, second: /Category is Work, Value is 9/ },
 ];
@@ -82,7 +87,7 @@ test.describe('MUI X Charts adapter', () => {
       await expect.poll(() => announcement(page)).toMatch(example.first);
       await expect(page.locator(HIGHLIGHT)).toHaveCount(1);
 
-      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press(example.next ?? 'ArrowRight');
       await expect.poll(() => announcement(page)).toMatch(example.second);
       await expect(page.locator(HIGHLIGHT)).toHaveCount(1);
 

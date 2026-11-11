@@ -46,8 +46,8 @@ export function HorizontalBarExample(): JSX.Element {
 
       <h3>Grouped</h3>
       <p>
-        Grouped horizontal bars. Nivo draws the first key at the top of each
-        band, so Up moves from Mobile to Web.
+        Grouped horizontal bars. Up and Down move between the quarters, and
+        Right from Mobile to Web, which Nivo draws at the top of each band.
       </p>
       <MaidrNivo
         id="nivo-horizontal-grouped"

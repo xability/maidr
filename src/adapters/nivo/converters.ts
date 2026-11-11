@@ -241,8 +241,9 @@ function barLayers(props: Props): NivoLayerInfo[] {
     }];
   }
 
-  // `[series][category]`, the series in the order Up walks them: from the
-  // baseline or the lowest bar up. d3's stack puts the first key at the
+  // `[series][category]`, the series in the order Up walks them on a vertical
+  // chart, and Right on a horizontal one: from the baseline or the lowest bar
+  // up. d3's stack puts the first key at the
   // baseline, and Nivo's grouped layout draws it leftmost on a vertical chart
   // — but at the **top** of each band on a horizontal one (its y is
   // `yScale(index) + barHeight * keyIndex`, and SVG y grows downwards), so a

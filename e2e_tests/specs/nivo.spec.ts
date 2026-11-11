@@ -60,21 +60,23 @@ const CASES: Case[] = [
     ],
   },
   {
+    // Nivo draws the first category at the bottom, so Up moves to the next.
     example: 'Horizontal Bar',
     id: 'nivo-horizontal',
     steps: [
       { key: 'ArrowRight', says: 'Language is JavaScript, Respondents (%) is 62', mark: 'bar.item.developers.0' },
-      { key: 'ArrowRight', says: 'Language is Python, Respondents (%) is 51', mark: 'bar.item.developers.1' },
+      { key: 'ArrowUp', says: 'Language is Python, Respondents (%) is 51', mark: 'bar.item.developers.1' },
     ],
   },
   {
-    // Nivo draws the first key (web) at the top of each band, so the series
-    // Up starts from is the last key, and Up moves up the page.
+    // On a chart drawn on its side Up and Down move between the quarters, and
+    // Left and Right between the series at one: from the last key (mobile),
+    // which the series start from, to the first (web).
     example: 'Horizontal Bar',
     id: 'nivo-horizontal-grouped',
     steps: [
       { key: 'ArrowRight', says: 'Quarter is Q1, Sign-ups is 80', mark: 'bar.item.mobile.0' },
-      { key: 'ArrowUp', says: 'Quarter is Q1, Sign-ups is 120', mark: 'bar.item.web.0' },
+      { key: 'ArrowRight', says: 'Quarter is Q1, Sign-ups is 120', mark: 'bar.item.web.0' },
     ],
   },
   {

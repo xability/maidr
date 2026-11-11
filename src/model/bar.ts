@@ -217,6 +217,17 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 
   /**
+   * A horizontal bar chart draws its categories down the page, so Up and Down
+   * move between the bars and Left and Right along one, between the series
+   * stacked or dodged at it. See {@link AbstractTrace.categoriesRunDown}.
+   *
+   * @returns True for a horizontal layer
+   */
+  protected override get categoriesRunDown(): boolean {
+    return this.orientation === Orientation.HORIZONTAL;
+  }
+
+  /**
    * The category the reader is on, which a layer switch may carry instead of
    * {@link getCurrentXValue}, the magnitude; `Subplot.carriedXValue` says
    * when.

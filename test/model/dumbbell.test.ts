@@ -218,14 +218,19 @@ describe('orientation', () => {
     expect(horizontal.text.crossAxis).toBe('x');
   });
 
-  test('keeps the grid ends-by-categories in both orientations', () => {
+  test('keeps the grid ends-by-categories in both orientations, and turns the keys', () => {
     // `AutoplayState` is keyed by direction, so a transposed dimension
-    // mis-paces autoplay and mis-clamps the movement bounds.
+    // mis-paces autoplay and mis-clamps the movement bounds. The keys turn
+    // instead: on a chart drawn on its side the two ends sit left and right
+    // of each other, and the categories one above another (#1482).
     const horizontal = dumbbell(0, 0, GAINS, Orientation.HORIZONTAL);
 
-    expect(horizontal.moveOnce('DOWNWARD')).toBe(false);
+    expect(horizontal.moveOnce('BACKWARD')).toBe(false);
+    expect(horizontal.moveOnce('FORWARD')).toBe(true);
+    expect(horizontal.moveOnce('FORWARD')).toBe(false);
+    expect([horizontal.row, horizontal.col]).toEqual([1, 0]);
     expect(horizontal.moveOnce('UPWARD')).toBe(true);
-    expect(horizontal.moveOnce('UPWARD')).toBe(false);
+    expect([horizontal.row, horizontal.col]).toEqual([1, 1]);
   });
 
   test('swaps the stereo position instead', () => {

@@ -542,11 +542,24 @@ export class ErrorBarTrace extends AbstractTrace {
     return this.compareSearchAlongRow(this.sectionValues[this.row] ?? [], direction, type);
   }
 
+  /**
+   * A horizontal forest plot or error bar chart draws its samples down the
+   * page, so Up and Down move between them and Left and Right along each
+   * interval, from its lower bound through the estimate to its upper bound.
+   * See {@link AbstractTrace.categoriesRunDown}.
+   *
+   * @returns True for a horizontal layer
+   */
+  protected override get categoriesRunDown(): boolean {
+    return this.orientation === Orientation.HORIZONTAL;
+  }
+
   protected get dimension(): Dimension {
-    // Orientation-independent, matching `Candlestick.dimension`: up and down
-    // walk the sections and left and right walk the samples in BOTH
-    // orientations, so rows must always be the section count -- times the
-    // group count, since each group contributes its own sections.
+    // Orientation-independent, matching `Candlestick.dimension`: the sections
+    // are the rows and the samples the columns in BOTH orientations, so rows
+    // must always be the section count -- times the group count, since each
+    // group contributes its own sections. On a chart drawn on its side the
+    // keys turn instead (`categoriesRunDown`).
     // `AutoplayState` is keyed by direction, so conditioning this on
     // orientation mis-paces autoplay and mis-clamps the `isMovable` bounds.
     //

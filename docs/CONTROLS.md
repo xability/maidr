@@ -45,8 +45,26 @@ focus in the braille text area.
 There is no separate shortcut for the first or last element of a chart: **Go to
 Left Extreme** and **Go to Right Extreme** are those moves. On a bar chart,
 Control + Left (Command + Left) moves to the first bar and Control + Right
-(Command + Right) to the last, and MAIDR announces the bar it lands on. Home and
-End are not chart shortcuts.
+(Command + Right) to the last, and MAIDR announces the bar it lands on. On a
+bar chart drawn on its side, Control + Up and Control + Down go to the top and
+the bottom bar, as the next paragraph says. Home and End are not chart
+shortcuts.
+
+On a chart drawn on its side -- a horizontal bar, dot, lollipop or funnel
+chart, a horizontal histogram, stacked, dodged or diverging bar chart, a
+horizontal dumbbell chart, or a forest plot or error bar chart drawn
+horizontally -- the arrow keys follow the drawing, as they do on a horizontal
+box plot or violin plot. Up and Down move between the categories, to the one
+drawn above or below, and Left and Right move along a category: between the
+series of a stacked or dodged bar, between the two ends of a dumbbell, and
+from the lower bound of an interval through its estimate to its upper bound.
+Control + Up and Control + Down go to the top and the bottom category, and
+Control + Left and Control + Right to the first and the last series, end or
+bound. Autoplay, the rotor's lower and higher value navigation and the braille
+cursor follow the same keys. MAIDR reads from the chart whether its first
+category is drawn at the top or at the bottom; where it cannot, as on a chart
+drawn to a canvas, it takes the first category to be at the bottom, and Up
+moves to the next.
 
 On a tree -- a treemap, sunburst, icicle, circle packing or tree diagram -- and
 on a directed graph such as a flowchart, the extremes follow the arrow keys:
@@ -500,6 +518,9 @@ Up, Down, Left, and Right controls function similar to a grid:
 
 - Left and Right arrows move between different bars or points on the x-axis.
 - Up and Down arrows move between different layers of the same bar or point on the x-axis.
+
+On a segmented bar chart drawn on its side the two pairs change places: Up and
+Down move between the bars, and Left and Right between the layers of one bar.
 
 Note that there are also pseudo layers at the top of each layer stack: a Summary layer representing a sum of all that bar's values, and a Combined layer that plays a separated or combined run of tones of all the layers. The standard 'S' key that controls sonification now has an extra setting to play either combined tones or separated tones.
 
