@@ -460,7 +460,8 @@ export class BoxenTrace extends AbstractTrace {
     // Lowest value first: boxes 0 to k - 2 lie below the middle box k - 1,
     // and k to 2k - 2 above it. Stop c below the median is the lower edge of
     // box c, the quartile's being the middle box's; above it, stop c is the
-    // upper edge of box c - 2.
+    // upper edge of box c - 2. With k = 3, stops 0 1 2 | 3 | 4 5 6 outline
+    // boxes 0 1 2 | 2 | 2 3 4.
     const boxes = upward ? read.boxes : [...read.boxes].reverse();
     const depth = (boxes.length + 1) / 2;
     return Array.from({ length: 2 * depth + 1 }, (_, stop) => {
@@ -526,7 +527,9 @@ export class BoxenTrace extends AbstractTrace {
     // passes for tiled and for nested alike. The trace is built when the
     // reader enters the chart, which a chart not drawn yet cannot take, so
     // this is the rare chart drawn as the reader arrives; the next entry
-    // builds it again.
+    // builds it again. Only which box is which is read here: the outlines
+    // are copies of the boxes themselves, so a resize or a scroll moves them
+    // with the chart.
     const ends = spans.flatMap(span => [span.from, span.to]);
     if (!(Math.max(...ends) - Math.min(...ends) > 0)) {
       return null;
