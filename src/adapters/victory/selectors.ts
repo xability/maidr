@@ -260,6 +260,7 @@ function tagDiscreteElements(
   if (
     stack
     && layer.data.kind === 'segmented'
+    && !stackInStep(stack)
     && !stackDrawnAsLaidOut(matched, stack, layer.data.points, layer.orientation === Orientation.HORIZONTAL)
   ) {
     return undefined;
@@ -374,14 +375,27 @@ function stackLayout(series: SegmentedPoint[][]): StackLayout | null {
 }
 
 /**
+ * Whether every series of a stack holds every category, in axis order: the
+ * stack Victory draws one bar per point for, in the order of the points.
+ *
+ * @param layout - Where each point is drawn
+ * @returns True when each point's place is its position in its series
+ */
+function stackInStep(layout: StackLayout): boolean {
+  return layout.slots.every(row => row.length === layout.categories && row.every((slot, i) => slot === i));
+}
+
+/**
  * Whether a stack's bars are drawn as {@link stackLayout} laid its points
  * out: no bar where a series has no point, and a bar where it has a point
- * that is not zero.
+ * that is a number other than zero.
  *
  * The layout follows how Victory places categories along the axis, and an
  * axis given categories of its own places them otherwise. Read against the
  * bars, such a stack is left without a highlight rather than outlined on
- * other segments.
+ * other segments. Only a stack that is not {@link stackInStep} is read
+ * against them: one that is pairs its bars with its points in order, and is
+ * tagged as it was before ragged stacks were.
  *
  * @param bars       - The stack's bars, in document order
  * @param layout     - Where each point is drawn
@@ -406,7 +420,8 @@ function stackDrawnAsLaidOut(
       // Within float noise of nothing: a filled bar starts and ends where
       // the series below it does.
       const hasLength = barLength(bars[first + slot], horizontal) > 1e-9;
-      if (point === undefined ? hasLength : Number(point.y) !== 0 && !hasLength) {
+      const value = Number(point?.y);
+      if (point === undefined ? hasLength : Number.isFinite(value) && value !== 0 && !hasLength) {
         return false;
       }
     }

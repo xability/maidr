@@ -544,7 +544,11 @@ describe('victory stacked bar', () => {
   });
 
   /** A stack of Product A over every quarter and Product B over the ones given. */
-  function quarters(productB: { x: string; y: number }[], chart: Record<string, unknown> | null = null): ReactElement {
+  function quarters(
+    productB: { x: string; y: number }[],
+    chart: Record<string, unknown> | null = null,
+    bars: Record<string, unknown> = {},
+  ): ReactElement {
     return createElement(
       VictoryChart,
       chart,
@@ -555,8 +559,9 @@ describe('victory stacked bar', () => {
           key: 'a',
           name: 'Product A',
           data: [{ x: 'Q1', y: 2400 }, { x: 'Q2', y: 3100 }, { x: 'Q3', y: 2200 }],
+          ...bars,
         }),
-        createElement(VictoryBar, { key: 'b', name: 'Product B', data: productB }),
+        createElement(VictoryBar, { key: 'b', name: 'Product B', data: productB, ...bars }),
       ),
     );
   }
@@ -610,12 +615,28 @@ describe('victory stacked bar', () => {
     // points out of step with the axis, and no bar stands where the points
     // say it would.
     const { layers } = renderAndTag(quarters(
-      [{ x: 'Q1', y: 1800 }, { x: 'Q2', y: 2700 }, { x: 'Q3', y: 1700 }],
+      [{ x: 'Q1', y: 1800 }, { x: 'Q3', y: 1700 }],
       { categories: { x: ['Q3', 'Q2', 'Q1'] } },
     ));
 
     expect(layers[0].type).toBe(TraceType.STACKED);
     expect(layers[0].selectors).toBeUndefined();
+  });
+
+  it.each([
+    { what: 'every quarter', productB: [{ x: 'Q1', y: 1800 }, { x: 'Q2', y: 2700 }, { x: 'Q3', y: 1700 }] },
+    { what: 'a quarter missing', productB: [{ x: 'Q1', y: 1800 }, { x: 'Q3', y: 1700 }] },
+  ])('outlines each segment of a stack drawn with rounded corners, Product B over $what', ({ productB }) => {
+    // Victory rounds a corner with an arc between the points it moves and
+    // draws to, which still span the whole bar.
+    const { doc, layers } = renderAndTag(quarters(productB, null, { cornerRadius: { top: 6 } }));
+    const grid = layers[0].selectors as (string | null)[][];
+
+    const bQ3 = doc.querySelector(grid[1][productB.length - 1] as string);
+    const aQ3 = doc.querySelector(grid[0][2] as string);
+    expect(barSpanX(bQ3).left).toBeCloseTo(barSpanX(aQ3).left, 6);
+    expect(barExtent(bQ3).bottom).toBeCloseTo(barExtent(aQ3).bottom - barExtent(aQ3).height, 6);
+    expect(barExtent(bQ3).height / barExtent(aQ3).height).toBeCloseTo(1700 / 2200, 2);
   });
 
   /** The left and right edges of a horizontal Victory bar, and its width. */

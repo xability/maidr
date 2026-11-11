@@ -860,6 +860,22 @@ describe('tagLayerElements: stacked bar', () => {
     expect(found).toEqual([[[a1], [a2]], [[b1], [b2]]]);
   });
 
+  it('names each segment of a stack in step whatever its bars are drawn with', () => {
+    // A bar drawn with H and V, as a custom bar component may draw one, gives
+    // no length to read off its corners. A stack whose series hold every
+    // category in order pairs its bars with its points in order, and is not
+    // read against their lengths.
+    const { doc, svg } = buildSvg();
+    [0, 1, 0, 1].forEach(i => appendPath(doc, svg, { d: `M ${i * 40} 150 V 60 H ${i * 40 + 30} V 150 Z` }));
+
+    const selectors = tagLayerElements(svg, stackLayer(), 0, new Set(), '#mv-test ');
+
+    expect(selectors).toEqual([
+      ['#mv-test [data-maidr-victory-0-segment-0-0]', '#mv-test [data-maidr-victory-0-segment-0-1]'],
+      ['#mv-test [data-maidr-victory-0-segment-1-0]', '#mv-test [data-maidr-victory-0-segment-1-1]'],
+    ]);
+  });
+
   it('clears the segment tags along with the layer tag', () => {
     const { container, doc, svg } = buildSvg();
     [0, 1, 2, 3].forEach(i => appendPath(doc, svg, { d: `M ${i * 40}, 150 L ${i * 40}, 60 z` }));
