@@ -20,6 +20,7 @@ import type { Maidr as MaidrData, NavigateCallback } from '@type/grammar';
 import type { JSX } from 'react';
 import type { Root as ReactRoot } from 'react-dom/client';
 import type { LightweightChartsOptions, LightweightChartsReading, SeriesReading } from './converters';
+import type { OverlayRect } from './overlay';
 import type { AppendPlan } from './sync';
 import type { LwcChart, LwcDataItem, LwcPane, LwcPanePrimitive, LwcSeries } from './types';
 import { getHighlightColor } from '@adapters/shared/highlightColor';
@@ -218,6 +219,8 @@ export function bindLightweightChart(
 
   let overlay: HighlightOverlay | null = null;
   let active: ActivePoint | null = null;
+  /** The layers of the subplot the figure lobby is on, or null outside it. */
+  let lobby: readonly string[] | null = null;
 
   /** The bar the reader is on, found again in the current reading. */
   const locate = (point: ActivePoint): { series: SeriesReading; item: LwcDataItem } | null => {
@@ -234,6 +237,13 @@ export function bindLightweightChart(
     return item ? { series, item } : null;
   };
 
+  /** The plot area of the pane holding some layers, as a box to outline. */
+  const paneBox = (layerIds: readonly string[]): OverlayRect | null => {
+    const series = reading.series.find(candidate => layerIds.includes(candidate.layerId));
+    const area = series ? panePlotArea(chart, series.paneIndex) : null;
+    return area ? { left: area.left, top: area.top, width: area.right - area.left, height: area.bottom - area.top } : null;
+  };
+
   const draw = (): void => {
     if (!overlay) {
       return;
@@ -242,6 +252,12 @@ export function bindLightweightChart(
     if (!found) {
       overlay.clear();
       overlay.setPlotArea(null);
+      // In the lobby, the pane the reader is on is outlined instead, which
+      // nothing else on a canvas can do.
+      const pane = lobby === null ? null : paneBox(lobby);
+      if (pane !== null) {
+        overlay.show([pane]);
+      }
       return;
     }
     overlay.setPlotArea(panePlotArea(chart, found.series.paneIndex));
@@ -260,9 +276,10 @@ export function bindLightweightChart(
     return point === undefined ? null : { layerId, col, label: labelOf(point) };
   };
 
-  const onNavigate: NavigateCallback = (event) => {
+  const onNavigate: NavigateCallback = (event, panel) => {
     try {
       active = event === null ? null : pointAt(event.layerId, event.col);
+      lobby = event === null ? panel?.layerIds ?? null : null;
       draw();
       overlay?.captureClean(() => chart.takeScreenshot());
     } catch (error) {
@@ -490,6 +507,7 @@ export function bindLightweightChart(
         return;
       }
       active = null;
+      lobby = null;
       if (frame !== null) {
         cancelAnimationFrame(frame);
         frame = null;
