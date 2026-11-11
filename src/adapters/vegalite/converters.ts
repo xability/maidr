@@ -114,13 +114,13 @@ export function vegaLiteToMaidr(
 
   // Handle composite views (concat).
   if (spec.hconcat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.hconcat, 'horizontal', view, domOrder);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.hconcat, 'horizontal', view, domOrder, undefined, spec.transform);
   }
   if (spec.vconcat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.vconcat, 'vertical', view, domOrder);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.vconcat, 'vertical', view, domOrder, undefined, spec.transform);
   }
   if (spec.concat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view, domOrder, spec.columns);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view, domOrder, spec.columns, spec.transform);
   }
 
   // Faceted specs — the `facet` operator (row/column or wrapped) and the
@@ -5070,6 +5070,8 @@ function underEachOther(grids: PanelGrid[]): PanelGrid {
  * order Vega-Lite parses its views, depth first, so one count shared by
  * every level keeps that order.
  * @param counter.layer - Its current value
+ * @param transform - The transforms of the concats above the children,
+ * outermost first, which run before every transform of theirs
  * @returns The panels, or `null` when a child has no layer to read
  */
 function placeConcatPanels(
@@ -5080,6 +5082,7 @@ function placeConcatPanels(
   view: VegaView | undefined,
   domOrder: 'series-major' | 'subject-major' | undefined,
   counter: { layer: number },
+  transform?: VegaLiteTransform[],
 ): PanelGrid | null {
   const grids: PanelGrid[] = [];
   for (const [i, childSpec] of specs.entries()) {
@@ -5090,8 +5093,8 @@ function placeConcatPanels(
     const childPath = [...path, i];
     const nested = concatChildren(childSpec);
     const grid = nested
-      ? placeConcatPanels(nested.specs, nested.direction, nested.columns, childPath, view, domOrder, counter)
-      : concatPanel(childSpec, childPath, view, domOrder, counter);
+      ? placeConcatPanels(nested.specs, nested.direction, nested.columns, childPath, view, domOrder, counter, [...(transform ?? []), ...(childSpec.transform ?? [])])
+      : concatPanel(childSpec, childPath, view, domOrder, counter, transform);
     if (!grid)
       return null;
     grids.push(grid);
@@ -5115,6 +5118,7 @@ function placeConcatPanels(
  * @param domOrder - A caller-supplied DOM order for segmented layers
  * @param counter - The running layer count Vega numbers datasets by
  * @param counter.layer - Its current value
+ * @param transform - The transforms of the concats above it, outermost first
  * @returns A grid of the one panel, or `null` when it has no layer to read
  */
 function concatPanel(
@@ -5123,6 +5127,7 @@ function concatPanel(
   view: VegaView | undefined,
   domOrder: 'series-major' | 'subject-major' | undefined,
   counter: { layer: number },
+  transform?: VegaLiteTransform[],
 ): PanelGrid | null {
   // Vega-Lite names a concat child's groups after the path to it:
   // `concat_<i>_`, and `concat_<i>_concat_<j>_` for a child of a child.
@@ -5150,6 +5155,9 @@ function concatPanel(
         // (local layer index `j`, not the global data index), so drive the
         // selector off those while keeping the running layer count for the
         // data lookup, which follows Vega's sequential dataset numbering.
+        // The layers read the rows every transform above them made: the
+        // concats', then the child's own. A window ranking the rows on the
+        // child or on a concat above it is what makes its line a bump chart.
         const layer = convertLayerSpec(
           layerSpec,
           counter.layer,
@@ -5158,6 +5166,8 @@ function concatPanel(
           true,
           domOrder,
           { layerIndex: j, markGroupPrefix },
+          undefined,
+          [...(transform ?? []), ...(childSpec.transform ?? [])],
         );
         // Assign a unique ID that encodes both the concat path and the
         // layer index within the child to avoid duplicates across subplots.
@@ -5178,6 +5188,8 @@ function concatPanel(
       false,
       domOrder,
       { layerIndex: 0, markGroupPrefix },
+      undefined,
+      transform,
     );
     if (layer)
       layer.id = `${id}_0`;
@@ -5203,8 +5215,9 @@ function buildConcatMaidr(
   view?: VegaView,
   domOrder?: 'series-major' | 'subject-major',
   columns?: number,
+  transform?: VegaLiteTransform[],
 ): Maidr {
-  const grid = placeConcatPanels(specs, direction, columns, [], view, domOrder, { layer: 0 });
+  const grid = placeConcatPanels(specs, direction, columns, [], view, domOrder, { layer: 0 }, transform);
 
   // A subplot with zero layers inside a grid crashes MAIDR core's Subplot
   // model on focus; collapse to the same single empty figure other
@@ -5743,6 +5756,14 @@ function buildFacetMaidr(
   }
 
   const parentEncoding = isLayered ? childSpec.encoding : undefined;
+  // The transforms that run before a layer's own: the facet operator's,
+  // above the panels, then a layered child's, which every layer of it reads.
+  // The encoding shorthand's child is the spec itself, whose transforms a
+  // single view reads as its own and a layered one as its layers' parent's.
+  const outerTransform = spec.facet != null && spec.spec != null ? spec.transform : undefined;
+  const parentTransform = isLayered
+    ? [...(outerTransform ?? []), ...(childSpec.transform ?? [])]
+    : outerTransform;
   const subplots: MaidrSubplot[][] = [];
   let flatIndex = 0;
   let hasEmptyPanel = false;
@@ -5772,6 +5793,7 @@ function buildFacetMaidr(
           domOrder,
           { layerIndex: j, markGroupPrefix: 'child_', cellScope: scope },
           cellRows,
+          parentTransform,
         );
         return layer ? { layer, spec: layerSpec } : null;
       }).filter(Boolean) as ConvertedLayer[];
@@ -5891,6 +5913,11 @@ function buildRepeatMaidr(
       cellSpec.data,
     );
     const parentEncoding = isLayered ? cellSpec.encoding : undefined;
+    // The repeat's transforms run before every cell's, and a layered cell's
+    // before each of its layers'.
+    const parentTransform = isLayered
+      ? [...(spec.transform ?? []), ...(cellSpec.transform ?? [])]
+      : spec.transform;
 
     const rawLayers = layerSpecs.map((layerSpec, j) => {
       const layer = convertLayerSpec(
@@ -5901,6 +5928,8 @@ function buildRepeatMaidr(
         isLayered,
         domOrder,
         { layerIndex: j, markGroupPrefix: `${childName}_` },
+        undefined,
+        parentTransform,
       );
       globalLayerIndex++;
       return layer ? { layer, spec: layerSpec } : null;
