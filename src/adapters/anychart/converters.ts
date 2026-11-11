@@ -3456,18 +3456,24 @@ function stampFunnelAttributes(
  *
  * A word carries its own identity instead. Each term is drawn as one visible
  * `<text>` element holding that term, so the pairing is a text match and needs
- * no ordering assumption at all. The match ignores case: measured on AnyChart
- * 8.13, a cloud draws every word in lower case, "Screen Reader" as "screen
- * reader", and matched exactly, a term written with a capital found no word.
- * Two terms that differ only in case are drawn alike, match two words each,
- * and are not placed. AnyChart writes every word a second
- * time, in a layer of its own at an `opacity` of one millionth, to catch the
- * pointer; that copy is passed over (see {@link MIN_VISIBLE_OPACITY}), or every
- * term would match two elements. A term that does not match exactly one
- * visible element is a term this function cannot place, and since
- * `WordCloudTrace` drops the highlight for a partial resolution anyway,
- * nothing is stamped in that case — a half-stamped cloud would cost the same
- * highlight while looking, in the DOM, like it had worked.
+ * no ordering assumption at all. The match ignores case the way AnyChart does
+ * (see {@link foldCloudWord}): measured on AnyChart 8.13, a cloud draws every
+ * word in lower case, "Screen Reader" as "screen reader", and matched exactly,
+ * a term written with a capital found no word.
+ *
+ * Two terms that differ only in case are drawn alike, so their text cannot
+ * tell them apart. AnyChart lays a cloud out heaviest word first, with ties in
+ * data order, and writes the visible words in that order, so the terms drawn
+ * alike take their words in that same order. Before, each of them matched two
+ * words, and the whole cloud was left without a highlight.
+ *
+ * AnyChart writes every word a second time, in a layer of its own at an
+ * `opacity` of one millionth, to catch the pointer; that copy is passed over
+ * (see {@link MIN_VISIBLE_OPACITY}), or every term would match two elements.
+ * Terms that do not match as many visible words as there are of them cannot
+ * be placed, and since `WordCloudTrace` drops the highlight for a partial
+ * resolution anyway, nothing is stamped in that case — a half-stamped cloud
+ * would cost the same highlight while looking, in the DOM, like it had worked.
  *
  * On any other chart type this is a no-op.
  */
@@ -3479,44 +3485,94 @@ function stampWordCloudAttributes(
   if (!isWordCloudChart(chart))
     return;
 
-  const terms = readChartRows(chart)
-    .filter(isDrawnDatum)
-    .map(row => asString(row.x ?? row.name ?? row._index));
+  const rows = readChartRows(chart).filter(isDrawnDatum);
+  const terms = rows.map(row => asString(row.x ?? row.name ?? row._index));
   if (terms.length === 0)
     return;
 
   // Index the rendered glyphs by their text so each term is looked up rather
   // than counted off. `<text>` elements outside the cloud — a colour range's
-  // tick labels, the chart title — simply never match a term.
-  const byText = new Map<string, SVGElement[]>();
-  for (const text of Array.from(svg.querySelectorAll<SVGElement>('text'))) {
-    if (text.hasAttribute(WORD_CLOUD_ATTR) || isNearlyInvisible(text))
-      continue;
-    const label = (text.textContent ?? '').trim().toLowerCase();
-    const drawn = byText.get(label);
-    if (drawn)
-      drawn.push(text);
-    else
-      byText.set(label, [text]);
-  }
+  // tick labels, the chart title — simply never match a term. Each list is
+  // in document order, the order AnyChart wrote the words in.
+  const byText = groupBy(
+    Array.from(svg.querySelectorAll<SVGElement>('text'))
+      .filter(text => !text.hasAttribute(WORD_CLOUD_ATTR) && !isNearlyInvisible(text)),
+    text => foldCloudWord(text.textContent ?? ''),
+  );
+  // The terms drawn as each word, in data order.
+  const termsByText = groupBy(terms.map((_, i) => i), i => foldCloudWord(terms[i]));
 
   const glyphs: SVGElement[] = [];
-  for (const term of terms) {
-    const matches = byText.get(term.toLowerCase()) ?? [];
-    if (matches.length !== 1) {
+  for (const [word, indices] of termsByText) {
+    const drawn = byText.get(word) ?? [];
+    if (drawn.length !== indices.length) {
+      const named = indices.map(i => `"${terms[i]}"`).join(' and ');
       console.warn(
-        `[maidr/anychart] Expected exactly one rendered word for the term `
-        + `"${term}" but found ${matches.length}. Highlighting is disabled for `
+        `[maidr/anychart] Expected ${indices.length === 1 ? 'exactly one rendered word for the term' : `${indices.length} rendered words for the terms`} `
+        + `${named} but found ${drawn.length}. Highlighting is disabled for `
         + 'this chart; pass an explicit `selectors` entry to override.',
       );
       return;
     }
-    glyphs.push(matches[0]);
+    // Heaviest first, ties in data order: the order AnyChart drew them in.
+    const ordered = [...indices].sort((a, b) => (cloudWeight(rows[b]) - cloudWeight(rows[a])) || (a - b));
+    ordered.forEach((termIndex, k) => {
+      glyphs[termIndex] = drawn[k];
+    });
   }
 
   glyphs.forEach((glyph, i) => {
     glyph.setAttribute(WORD_CLOUD_ATTR, `${stampPrefix}0-${i}`);
   });
+}
+
+/**
+ * A tag cloud word as AnyChart draws it, for matching a term to its word.
+ *
+ * AnyChart lowercases each word with `String.prototype.toLowerCase()` before
+ * it draws it, and so does this. That mapping is the same whatever the page's
+ * language, unlike `toLocaleLowerCase()`: "İstanbul" becomes "i̇stanbul", an
+ * "i" followed by a combining dot above, on a Turkish page as on any other. A
+ * collator that ignored case would also equate words AnyChart draws apart,
+ * such as "résumé" and "resume" at its base strength, or answer differently
+ * from page to page.
+ *
+ * @param word - A term, or the text of a drawn word
+ * @returns The word in the case AnyChart draws it in
+ */
+function foldCloudWord(word: string): string {
+  return word.trim().toLowerCase();
+}
+
+/**
+ * The weight a tag cloud lays a row out by, read the way AnyChart reads it.
+ *
+ * @param row - A row of the cloud's data
+ * @returns The row's value, or NaN when it has none
+ */
+function cloudWeight(row: Record<string, unknown>): number {
+  return Number.parseFloat(String(row.value));
+}
+
+/**
+ * Group items by a key, keeping each group, and the groups, in the order the
+ * items come in.
+ *
+ * @param items - The items
+ * @param keyOf - Each item's key
+ * @returns The groups, by key
+ */
+function groupBy<T>(items: T[], keyOf: (item: T) => string): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = keyOf(item);
+    const group = groups.get(key);
+    if (group)
+      group.push(item);
+    else
+      groups.set(key, [item]);
+  }
+  return groups;
 }
 
 // ---------------------------------------------------------------------------

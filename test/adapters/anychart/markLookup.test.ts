@@ -367,4 +367,53 @@ describe('a tag cloud, whose every word AnyChart writes twice', () => {
 
     cleanUp(container);
   });
+
+  it('outlines each of two terms that differ only in case, heaviest first', () => {
+    // Measured on AnyChart 8.13: "braille" (30) and "Braille" (60) are both
+    // drawn as "braille", heaviest first. Each matched two words, and the
+    // whole cloud lost its highlight.
+    const { container, chartGroup } = renderChart('cloud-case-twins');
+    const shown = element('g', { id: 'ac_layer_words' }, chartGroup);
+    const wordText = ['braille', 'maidr', 'braille'].map((word, i) => {
+      const text = element('text', { 'id': `ac_simple-text_word_${i}`, 'fill': '#64b5f6', 'fill-opacity': '0.85' }, shown);
+      text.textContent = word;
+      return text;
+    });
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'braille', value: 30 },
+      { x: 'Braille', value: 60 },
+      { x: 'MAIDR', value: 50 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-1', '0-2', '0-0']);
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
+
+  it('matches a dotted capital I the way AnyChart lowercases it, on a page in any language', () => {
+    // AnyChart lowercases with `toLowerCase()`, which turns "İ" into "i" and a
+    // combining dot above in every locale; Turkish lowercasing would give a
+    // plain "i".
+    const { container, chartGroup } = renderChart('cloud-dotted-i');
+    const shown = element('g', { id: 'ac_layer_words' }, chartGroup);
+    const wordText = ['i̇stanbul', 'işik'].map((word, i) => {
+      const text = element('text', { 'id': `ac_simple-text_word_${i}`, 'fill': '#64b5f6', 'fill-opacity': '0.85' }, shown);
+      text.textContent = word;
+      return text;
+    });
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'IŞIK', value: 40 },
+      { x: 'İstanbul', value: 60 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-1', '0-0']);
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
 });
