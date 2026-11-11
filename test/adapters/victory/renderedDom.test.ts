@@ -693,9 +693,12 @@ describe('victory stacked bar', () => {
   });
 
   it.each([
-    { what: 'vertical', chart: null },
-    { what: 'horizontal', chart: { horizontal: true } },
-  ])('keeps Up and Down in the category being read on a $what stack whose series miss one', ({ chart }) => {
+    // The keys that move along the stack: Up and Down on a vertical one, and
+    // Right and Left on one drawn on its side, whose categories Up and Down
+    // walk instead.
+    { what: 'vertical', chart: null, along: 'UPWARD', back: 'DOWNWARD' },
+    { what: 'horizontal', chart: { horizontal: true }, along: 'FORWARD', back: 'BACKWARD' },
+  ] as const)('keeps the move along a $what stack whose series miss one in the category being read', ({ chart, along, back }) => {
     // Product B has no Q2. Up from Product A at Q2 reached B's next point,
     // Q3, and the outline went to the Q3 column with it. A horizontal stack
     // is padded before its points are turned round, gaps and all.
@@ -715,12 +718,12 @@ describe('victory stacked bar', () => {
         };
       };
       trace.moveToIndex(0, 1);
-      trace.moveOnce('UPWARD');
+      trace.moveOnce(along);
       const onB = read();
-      trace.moveOnce('DOWNWARD');
+      trace.moveOnce(back);
       const onA = read();
-      trace.moveOnce('UPWARD');
-      trace.moveOnce('UPWARD');
+      trace.moveOnce(along);
+      trace.moveOnce(along);
       const total = read();
       trace.dispose();
       return [onB, onA, total];
