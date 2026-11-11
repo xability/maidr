@@ -1083,6 +1083,67 @@ The data property is defined as a list of objects where each object is a record 
 
 ```
 
+### Volcano and Manhattan plots (`volcano`, `manhattan`) [experimental]
+
+Scatter plots read through a significance threshold. A volcano puts effect
+size on x against significance on y; a Manhattan plot puts genomic position on
+x against significance. `data` is a scatter's, one entry per point, and each
+point may also say what it is and where it lies:
+
+```javascript
+{
+  type: 'manhattan',                      // or 'volcano'; the two read the same way
+  axes: {
+    x: { label: 'Genomic position (Mb)' },
+    y: { label: 'Minus log10 p' },
+  },
+  selectors: "g[id='points'] > circle",   // one mark per point, as for `point`
+  thresholdOptions: {                     // optional: where the chart draws its lines
+    significance: 7.3,                    // a cutoff on y; give it, effect or both
+    significanceDirection: 'above',       // optional: 'above' (the default) or 'below'
+  },
+  data: [
+    { x: 114, y: 8.9, label: 'rs2476601', group: 'chr1' },
+    { x: 342, y: 12.6, label: 'rs4988235', group: 'chr2' },
+    { x: 431, y: 0.6, label: 'rs6752770', group: 'chr2' },
+  ],
+}
+```
+
+- `x` and `y` are numbers, as on a scatter, and the axes' labels and formats
+  apply to them.
+- `label` names the point: the gene, or the variant. It is announced as the
+  point's **Name** wherever the cursor is on a single point, and is never
+  formatted as a value on an axis.
+- `group` is the region the point lies in, the chromosome on a Manhattan plot.
+  It is announced beside the point as **Region**. The description counts the
+  regions and, with a threshold declared, how many points clear it in each
+  region that has any, the ten with the most when more than ten do.
+- `thresholdOptions` is read by these two types and ignored by every other.
+  It declares a threshold when it gives `significance`, `effect` or both.
+  - `significance` is the cutoff on y. It has no default, because the
+    convention differs by field: -log10(p) at 1.3 for p < 0.05, and at 7.3 for
+    genome-wide significance.
+  - `significanceDirection` is `'above'` unless the layer says `'below'`, which
+    puts the significant points under the line, as on a raw p axis.
+  - `effect` is a cutoff on the magnitude of x, for a volcano's fold change, so
+    -2 and +2 clear the same line.
+
+  A point clears the threshold when it clears every cutoff the layer
+  declares, a point on a cutoff included: with only `effect`, when the
+  magnitude of its x is at least the cutoff; with only `significance`, when
+  its y is on the line or past it on the significant side; with both, when it
+  does both.
+
+With a threshold declared, each point says whether it clears it, and the
+description opens with how many points do, out of how many, and where the lines
+are. It then names up to ten of those that have a `label`, most significant
+first. While at least one point clears it, the rotor's **Significant** unit
+moves between the points that do, so the few that matter are reachable without
+walking the rest. With neither `significance` nor `effect` declared, nothing is
+said about significance: no point says whether it clears a line, and the
+description gives no count and no lines.
+
 ### Sankey, alluvial and chord (`sankey`, `alluvial`, `chord`) [experimental]
 
 Weighted flows between nodes. `data` is one entry per **flow**; the nodes are
