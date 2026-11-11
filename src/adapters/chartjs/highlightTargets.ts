@@ -640,8 +640,8 @@ export function resolveActiveTargets(
 
   // Dumbbell: MAIDR row = which end of the pair, col = the category. Both ends
   // are drawn by the one floating bar that connects them, so the row does not
-  // change what is highlighted — the same reading `DumbbellTrace` gives its own
-  // selectors, which repeat one element per category across the two ends.
+  // change what is highlighted. `DumbbellTrace` marks each end of a connector
+  // its selectors name on its own; this overlay still outlines the whole bar.
   if (layer.type === TraceType.DUMBBELL) {
     const index = maps.barLineIndices.get(layer.id)?.[0]?.[col];
     if (index === undefined)

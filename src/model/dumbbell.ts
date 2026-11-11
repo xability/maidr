@@ -32,6 +32,63 @@ type End = (typeof ENDS)[number];
 const START_ROW = 0;
 
 /**
+ * The elements that draw a dot rather than a connector.
+ *
+ * A layer's element per pair is the connector between its two dots, and
+ * Google Charts names the starting dot instead. A dot is drawn at one value,
+ * so it has no ends to mark: both ends outline it, as they always did.
+ */
+const DOT_TAGS: ReadonlySet<string> = new Set(['circle', 'ellipse']);
+
+/** A point, in the coordinates of whichever element it is said to be in. */
+interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** The six numbers of a two-dimensional transform, as an SVG matrix holds them. */
+type Affine = Pick<DOMMatrixReadOnly, 'a' | 'b' | 'c' | 'd' | 'e' | 'f'>;
+
+/**
+ * Where a point of an element's own drawing lands on the page.
+ *
+ * @param matrix - The element's screen matrix, or null where it has none
+ * @param point - The point, in the element's own coordinates
+ * @returns The point on the page; the point itself where there is no matrix
+ */
+function onPage(matrix: Affine | null, point: Point): Point {
+  if (matrix === null) {
+    return point;
+  }
+  return {
+    x: matrix.a * point.x + matrix.c * point.y + matrix.e,
+    y: matrix.b * point.x + matrix.d * point.y + matrix.f,
+  };
+}
+
+/**
+ * Where a point on the page lands in an element's own drawing: the inverse of
+ * {@link onPage}.
+ *
+ * @param matrix - The element's screen matrix
+ * @param point - The point on the page
+ * @returns The point in the element's own coordinates, or null where the
+ *   matrix flattens the element's drawing onto a line
+ */
+function fromPage(matrix: Affine, point: Point): Point | null {
+  const determinant = matrix.a * matrix.d - matrix.b * matrix.c;
+  if (determinant === 0) {
+    return null;
+  }
+  const x = point.x - matrix.e;
+  const y = point.y - matrix.f;
+  return {
+    x: (matrix.d * x - matrix.c * y) / determinant,
+    y: (matrix.a * y - matrix.b * x) / determinant,
+  };
+}
+
+/**
  * Strips binary floating-point noise from a subtracted magnitude.
  *
  * The change is derived, not authored: `78.4 - 71.2` is `7.199999999999996`
@@ -89,6 +146,97 @@ function rankLabel(kind: 'max' | 'min', change: number): string {
 }
 
 /**
+ * Where each end of a pair is drawn on the connector the chart joins them
+ * with.
+ *
+ * The connector runs from one value to the other along the value axis, so
+ * the larger value is drawn at the end of it higher up the page, or further
+ * right on a chart lying on its side, and the smaller at the other. Which end
+ * that is is read off the page rather than off the connector's own
+ * coordinates: Highcharts lays a chart on its side by turning the group its
+ * connectors are drawn in, so they run up and down their own coordinates and
+ * across the page. A pair whose ends hold one value is drawn at the middle of
+ * the connector, both ends at once.
+ *
+ * A value axis drawn reversed, with its larger values lower down or further
+ * left, has the two ends swapped.
+ *
+ * @param connector - The chart's own connector for the pair
+ * @param values - The pair's two values
+ * @param values.start - Its starting value
+ * @param values.end - Its finishing value
+ * @param isHorizontal - Whether the value axis runs across the chart
+ * @returns Where to centre each end's marker, in the coordinates of the
+ *   connector's parent, or null where the ends cannot be placed: a value
+ *   missing, a dot named in place of a connector, a connector the document
+ *   cannot measure, or one that does not run along the value axis between
+ *   two different values
+ */
+function endsOn(
+  connector: SVGElement,
+  { start, end }: Record<End, number>,
+  isHorizontal: boolean,
+): Record<End, Point> | null {
+  const graphic = connector as Partial<SVGGraphicsElement>;
+  if (!isMeasured(start) || !isMeasured(end)
+    || DOT_TAGS.has(connector.tagName.toLowerCase())
+    || typeof graphic.getBBox !== 'function') {
+    return null;
+  }
+  // `getBBox` throws on an element the document cannot measure, as Firefox
+  // does on one that is not rendered; the connector is then outlined whole.
+  let box: DOMRect;
+  let toPage: Affine | null;
+  let parentToPage: Affine | null;
+  try {
+    box = graphic.getBBox();
+    toPage = graphic.getScreenCTM?.() ?? null;
+    parentToPage = (connector.parentNode as Partial<SVGGraphicsElement> | null)?.getScreenCTM?.() ?? null;
+  } catch (error) {
+    console.warn('[DumbbellTrace] A connector could not be measured, so both its ends outline all of it:', error);
+    return null;
+  }
+
+  // The markers go beside the connector, in its parent's coordinates, and it
+  // is measured in its own: the two differ by a transform of its own, which
+  // Vega draws every line with, if only `translate(0,0)`.
+  const inParent = (point: Point): Point | null => {
+    if (!connector.hasAttribute('transform')) {
+      return point;
+    }
+    return toPage === null || parentToPage === null
+      ? null
+      : fromPage(parentToPage, onPage(toPage, point));
+  };
+
+  // Which of the connector's own axes the page draws along the value axis:
+  // its own x is drawn along (a, b) on the page, and its own y along (c, d).
+  const { a, b, c, d } = toPage ?? { a: 1, b: 0, c: 0, d: 1 };
+  const alongOwnY = isHorizontal ? Math.abs(c) > Math.abs(a) : Math.abs(d) >= Math.abs(b);
+  const length = alongOwnY ? box.height : box.width;
+  if (start !== end && !(length > 0)) {
+    return null;
+  }
+
+  const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const [one, other]: [Point, Point] = alongOwnY
+    ? [{ x: middle.x, y: box.y }, { x: middle.x, y: box.y + box.height }]
+    : [{ x: box.x, y: middle.y }, { x: box.x + box.width, y: middle.y }];
+  const [onePage, otherPage] = [onPage(toPage, one), onPage(toPage, other)];
+  const oneIsLarger = isHorizontal ? onePage.x > otherPage.x : onePage.y < otherPage.y;
+  const [larger, smaller] = oneIsLarger ? [one, other] : [other, one];
+  const [startAt, endAt] = start === end
+    ? [middle, middle]
+    : start > end ? [larger, smaller] : [smaller, larger];
+
+  const startInParent = inParent(startAt);
+  const endInParent = inParent(endAt);
+  return startInParent === null || endInParent === null
+    ? null
+    : { start: startInParent, end: endInParent };
+}
+
+/**
  * Trace implementation for dumbbell charts: two values per category, joined.
  *
  * A dumbbell is drawn to be read as a comparison, not as two numbers. The
@@ -121,6 +269,15 @@ export class DumbbellTrace extends AbstractTrace {
   private readonly max: number;
   private readonly perRowMin: number[];
   private readonly perRowMax: number[];
+
+  /**
+   * The chart's own connector for each category, which a pointer is measured
+   * against, or null when the selectors do not resolve one per category.
+   */
+  private readonly connectors: SVGElement[] | null;
+
+  /** The connector each end's marker stands for. */
+  private readonly connectorMarkedBy = new WeakMap<SVGElement, SVGElement>();
 
   protected readonly highlightValues: SVGElement[][] | null;
 
@@ -155,42 +312,92 @@ export class DumbbellTrace extends AbstractTrace {
     this.perRowMin = this.endValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
     this.perRowMax = this.endValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors);
+    this.connectors = this.resolveConnectors(layer.selectors);
+    this.highlightValues = this.connectors === null ? null : this.markEnds(this.connectors);
     this.movable = new MovableGrid<number>(this.endValues, { row: START_ROW });
   }
 
   /**
-   * Resolves the layer's selectors to one element per category, repeated
-   * across the two ends.
-   *
-   * A chart draws one connector per row, not one element per dot, so both
-   * ends of a column highlight the same element. Announcing a move between
-   * the ends while the highlight sits still is the honest rendering of that;
-   * the alternative is inventing elements the chart never drew.
+   * Resolves the layer's selectors to one connector per category.
    *
    * @param selectors - The layer's selectors, when it has any
-   * @returns Elements shaped ends x categories, or null when unresolvable
+   * @returns The chart's own elements, one per category, or null when
+   *   unresolvable
    */
-  private mapToSvgElements(
+  private resolveConnectors(
     selectors?: MaidrLayer['selectors'],
-  ): SVGElement[][] | null {
+  ): SVGElement[] | null {
     if (typeof selectors !== 'string' && !Array.isArray(selectors)) {
       return null;
     }
 
-    // Resolved live first and cloned only once the count fits. A clone is
+    // Resolved live, and nothing is made until the count fits. A copy is
     // inserted beside its original the moment it is made, so declining after
-    // cloning left every copy in the chart for `dispose()` never to reach --
+    // copying left every copy in the chart for `dispose()` never to reach --
     // and the next resolution matched the copies too.
     const live = typeof selectors === 'string'
       ? Svg.selectAllElements(selectors, false)
       : (selectors as string[]).flatMap(one => Svg.selectAllElements(one, false));
 
-    if (live.length !== this.points.length) {
-      return null;
-    }
-    const flat = live.map(element => Svg.cloneHidden(element));
-    return ENDS.map(() => flat);
+    return live.length === this.points.length ? live : null;
+  }
+
+  /**
+   * Marks each end of every pair on its own, where the chart draws it.
+   *
+   * A chart draws one connector per pair rather than an element per dot, and
+   * outlined whole, the connector showed the same mark at both ends: the
+   * reader moved from one end to the other, heard the other value, and the
+   * highlight held still. Each end is marked with a dot where its value is
+   * drawn on the connector instead (see {@link endsOn}).
+   *
+   * A connector whose ends cannot be placed is outlined whole at both ends,
+   * as every connector was before.
+   *
+   * Every connector is measured, and its paint read, before anything is
+   * inserted, for the reason given on `Svg.createCircleElements`.
+   *
+   * @param connectors - The chart's own connector for each category
+   * @returns Elements shaped ends x categories
+   */
+  private markEnds(connectors: SVGElement[]): SVGElement[][] {
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const placed = connectors.map((connector, col) => {
+      const values = { start: this.endValues[0][col], end: this.endValues[1][col] };
+      const ends = endsOn(connector, values, isHorizontal);
+      return ends === null ? null : { ends, paint: Svg.markerPaintOf(connector) };
+    });
+
+    const rows: SVGElement[][] = ENDS.map(() => []);
+    connectors.forEach((connector, col) => {
+      const place = placed[col];
+      if (place === null) {
+        const copy = Svg.cloneHidden(connector);
+        rows.forEach((row) => {
+          row[col] = copy;
+        });
+        return;
+      }
+      const centres = ENDS.map(end => ({ cx: place.ends[end].x, cy: place.ends[end].y }));
+      const markers = Svg.createCircleElements(centres, connector, place.paint);
+      markers.forEach((marker, row) => {
+        this.connectorMarkedBy.set(marker, connector);
+        rows[row][col] = marker;
+      });
+    });
+    return rows;
+  }
+
+  /**
+   * The connector an end's marker stands for, so that high contrast paints
+   * the connector as a mark: the markers are no copies of it, and the pairing
+   * of a copy with the element before it finds none.
+   *
+   * @param marker - A marker in this trace's highlight values
+   * @returns The connector, or null for anything else
+   */
+  protected override originalMarkedBy(marker: SVGElement): SVGElement | null {
+    return this.connectorMarkedBy.get(marker) ?? null;
   }
 
   protected get values(): number[][] {
@@ -564,12 +771,15 @@ export class DumbbellTrace extends AbstractTrace {
    * cursor lands where it would have entered, and the reader moves from there
    * rather than from wherever the pointer happened to fall.
    *
+   * Measured against the connector itself rather than the marker of either
+   * end, so a pointer anywhere along it is on the pair.
+   *
    * @param x - Viewport x of the pointer
    * @param y - Viewport y of the pointer
    * @returns The nearest category, or null when nothing is resolvable
    */
   protected findNearestPoint(x: number, y: number): NearestPoint | null {
-    const elements = this.highlightValues?.[START_ROW];
+    const elements = this.connectors;
     if (!elements || elements.length === 0) {
       return null;
     }
