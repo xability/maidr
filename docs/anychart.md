@@ -59,6 +59,7 @@ The adapter is a small wrapper around AnyChart's public API:
 1. **Inspection** — walks the chart's series via `chart.getSeriesCount()` / `chart.getSeriesAt(i)` to identify series types
 2. **Extraction** — iterates each series with `series.getIterator()` and converts the rows into MAIDR's accessibility schema
 3. **Binding** — writes a `maidr-data` attribute onto the chart container and dispatches the `maidr:bindchart` event so MAIDR initializes the chart
+4. **Following redraws** — each time AnyChart draws the chart again (a legend click, a resize, a change of data), stamps the drawing again and hands MAIDR the chart's data again (see [After a redraw](#after-a-redraw))
 
 AnyChart must be loaded separately — the adapter does not bundle the AnyChart library. Always call `bindAnyChart()` **after** `chart.draw()`; the series data and SVG container only become available once the chart is rendered.
 
@@ -486,6 +487,12 @@ AnyChart's SVG output uses opaque, internally-generated ids (`ac_path_*`, `ac_re
 
 The adapter's generated `selectors` then target those attributes (e.g. `[data-maidr-anychart-bar="0-3"]`), which keeps highlighting stable across re-renders.
 
+#### After a redraw
+
+AnyChart draws a chart again when a legend item is clicked, when its container is resized and when its data changes, and fires `chartdraw` when it is done. On each one with the chart laid out on the page, the adapter takes its stamps off and stamps the chart again from scratch, as binding did, so the stamps say what the drawing now holds. A series a legend click showed is stamped, and a mark the redraw reused for another point is stamped as that point. MAIDR's own hidden copies of the marks it outlines, there while the reader is in the chart, are passed over. The adapter then reads the chart again and hands MAIDR the new data through `window.maidrLive.setData`, as the ApexCharts adapter does. A redraw whose data reads as before, such as one for a resize, is handed over only while the reader is in the chart, where it has moved the marks the outline stands on: MAIDR puts a reader who comes back to a chart where they left it unless its data was replaced while they were away.
+
+A series hidden with `enabled(false)` or with its legend item is not read: it is left out of the data, whether it was hidden before the chart was bound or after. Every chart is bound with `live: true`, which is what makes MAIDR apply the new data while the reader is in the chart, keeping their place when the chart still has the same layers. The outline then follows the marks a rescale moved. When a legend click changes how many layers the chart has, MAIDR starts the reader again at the beginning of the chart. Live data also makes MAIDR's monitor mode (M) available; a redraw replaces the data rather than appending to it, so monitor mode has nothing to announce here.
+
 #### Layer discrimination
 
 For heatmap and candlestick charts, the stamping logic must find the correct `<g>` layer holding the data paths. AnyChart applies a `clip-path="url(#ac_clip_*)"` attribute to series-data layers so that rendering is clipped to the plot area; chart-level layers (axes, gridlines, background) are intentionally **unclipped** so they can paint outside the plot area (axis labels, ticks, title space).
@@ -528,7 +535,7 @@ For the full list, see the [Keyboard Controls](CONTROLS.md) reference.
 | SVG selectors | Manual CSS selectors | Manual CSS selectors | Optional `selectors` option |
 | Configuration | Required | Required | Minimal — id, title, axes only |
 | Chart types | All MAIDR types | All MAIDR types | 14 AnyChart families |
-| Dynamic charts | Manual init | React lifecycle | Re-call `bindAnyChart()` after redraw |
+| Dynamic charts | Manual init | React lifecycle | Followed on every redraw |
 
 ## npm Installation (Optional)
 

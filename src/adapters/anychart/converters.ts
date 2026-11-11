@@ -2181,7 +2181,7 @@ function stampBoxAttributes(
     } catch {
       continue;
     }
-    if (seriesType !== 'box')
+    if (seriesType !== 'box' || !isDrawnSeries(series))
       continue;
 
     const rows = extractRawRows(series);
@@ -2528,7 +2528,7 @@ function stampCandlestickAttributes(
     if (!series)
       continue;
     try {
-      if (series.seriesType() === 'candlestick')
+      if (series.seriesType() === 'candlestick' && isDrawnSeries(series))
         candlestickSeriesIndices.push(s);
     } catch {
       // ignore series that don't expose seriesType()
@@ -3197,8 +3197,14 @@ const MARK_STAMP_ATTRS = [
  *
  * Each shape's stamps are removed, and each whisker the box stamper split in
  * two (see {@link splitTwoSegmentPath}) is joined again: its halves are taken
- * out and the path AnyChart drew is shown. MAIDR's own copies are left as
- * they are; they are MAIDR's to remove.
+ * out and the path AnyChart drew is shown.
+ *
+ * MAIDR's own copies of the marks lose their stamps too, and are otherwise
+ * left as they are, for MAIDR to remove. MAIDR holds each copy it made
+ * itself, not by its stamp, and a copy still stamped when MAIDR takes in the
+ * redrawn chart -- the outline of the mark the reader is on -- matches the
+ * layer's selector as one mark more than the layer has points, so the layer
+ * lost its highlight.
  *
  * @param svg - A chart's SVG
  */
@@ -3212,10 +3218,54 @@ function clearStamps(svg: SVGElement): void {
       whole.removeAttribute('visibility');
     half.remove();
   }
-  for (const mark of queryMarks(svg, '*')) {
+  for (const element of Array.from(svg.querySelectorAll('*'))) {
     for (const attribute of MARK_STAMP_ATTRS)
-      mark.removeAttribute(attribute);
+      element.removeAttribute(attribute);
   }
+}
+
+/**
+ * What hands MAIDR a chart's data again, as AnyChart now draws it, after
+ * each redraw.
+ *
+ * Through `window.maidrLive.setData`, the core's in-place update, as the
+ * ApexCharts adapter hands over each redraw: MAIDR rebuilds its layers from
+ * the new data and the stamps the redraw left, and a chart bound with
+ * `live: true` does that while the reader is in it. A series hidden with a
+ * click on its legend item is then no longer read, and the outline follows
+ * marks the redraw moved. Nothing is read or handed over until MAIDR is
+ * mounted on the chart: the data it is mounted with is the chart's own.
+ *
+ * A redraw that reads as the data MAIDR already holds is handed over only
+ * while the reader is in the chart, where it has moved the marks the outline
+ * follows. MAIDR puts a reader who comes back to a chart where they left it,
+ * unless its data was replaced while they were away, so handing over a
+ * redraw that changed nothing -- one for a resize -- would cost them their
+ * place.
+ *
+ * @param bound - The data the chart was bound with
+ * @param read - Reads the chart's data, as it is now drawn
+ * @returns What to call after each redraw, with the chart's SVG
+ */
+function followRedraws(bound: Maidr, read: () => Maidr | null): (svg: SVGElement) => void {
+  let held = JSON.stringify(bound);
+  return (svg) => {
+    const figure = svg.ownerDocument.getElementById(`maidr-figure-${bound.id}`);
+    if (!figure?.contains(svg))
+      return;
+    const live = (globalThis as { maidrLive?: { setData?: (data: Maidr) => boolean } }).maidrLive;
+    if (typeof live?.setData !== 'function')
+      return;
+    const drawn = read();
+    if (!drawn)
+      return;
+    const maidr: Maidr = { ...drawn, live: true };
+    const json = JSON.stringify(maidr);
+    if (json === held && !figure.contains(svg.ownerDocument.activeElement))
+      return;
+    held = json;
+    live.setData(maidr);
+  };
 }
 
 /**
@@ -4094,6 +4144,22 @@ function stampRadarAttributes(
 // ---------------------------------------------------------------------------
 
 /**
+ * Whether AnyChart draws a series: not when it was hidden with
+ * `enabled(false)` or by a click on its legend item. A series that cannot
+ * say is taken to be drawn.
+ *
+ * @param series - Any series
+ * @returns False for a hidden series
+ */
+function isDrawnSeries(series: AnyChartSeries): boolean {
+  try {
+    return series.enabled?.() !== false;
+  } catch {
+    return true;
+  }
+}
+
+/**
  * The chart's series of one AnyChart type, with their chart-wide indices.
  *
  * The same walk {@link collectWaterfallSeries} and {@link collectMosaicSeries}
@@ -4169,7 +4235,8 @@ function stampDumbbellAttributes(
   svg: SVGElement,
   stampPrefix = '',
 ): void {
-  const entries = collectSeriesOfType(chart, RANGE_SERIES_TYPES);
+  const entries = collectSeriesOfType(chart, RANGE_SERIES_TYPES)
+    .filter(({ series }) => isDrawnSeries(series));
   if (entries.length === 0)
     return;
 
@@ -6411,7 +6478,8 @@ interface WaterfallStep {
 function collectWaterfallSeries(
   chart: AnyChartInstance,
 ): Array<{ series: AnyChartSeries; index: number }> {
-  return collectSeriesOfType(chart, WATERFALL_SERIES_TYPES);
+  return collectSeriesOfType(chart, WATERFALL_SERIES_TYPES)
+    .filter(({ series }) => isDrawnSeries(series));
 }
 
 /**
@@ -6546,7 +6614,8 @@ interface MosaicTable {
 function collectMosaicSeries(
   chart: AnyChartInstance,
 ): Array<{ series: AnyChartSeries; index: number }> {
-  return collectSeriesOfType(chart, MOSAIC_SERIES_TYPES);
+  return collectSeriesOfType(chart, MOSAIC_SERIES_TYPES)
+    .filter(({ series }) => isDrawnSeries(series));
 }
 
 /**
@@ -6728,7 +6797,8 @@ function collectDivergingSeries(
   if (options?.diverging !== true)
     return [];
 
-  const entries = collectSeriesOfType(chart, DIVERGING_SERIES_TYPES);
+  const entries = collectSeriesOfType(chart, DIVERGING_SERIES_TYPES)
+    .filter(({ series }) => isDrawnSeries(series));
   if (entries.length >= 2)
     return entries;
 
@@ -7276,6 +7346,11 @@ function buildSubplot(
     if (!series)
       continue;
 
+    // A series hidden with `enabled(false)`, or by a click on its legend
+    // item, is not drawn, so it is not read either.
+    if (!isDrawnSeries(series))
+      continue;
+
     if (divergingIndices.has(i) || fanBands.has(i))
       continue;
 
@@ -7769,6 +7844,10 @@ const boundGroupData = new WeakMap<Element, Maidr>();
  * container has already been bound, the existing {@link Maidr} data is
  * returned without re-dispatching the initialisation event.
  *
+ * The chart is bound with `live: true` and followed from then on: each time
+ * AnyChart draws it again, it is stamped again and MAIDR is handed its data
+ * again (see {@link restampOnRedraw} and {@link followRedraws}).
+ *
  * @param chart - A drawn AnyChart chart instance.
  * @param options - Optional overrides.
  * @returns The generated {@link Maidr} object, or `null` on failure.
@@ -7793,15 +7872,21 @@ export function bindAnyChart(
     return null;
   }
 
-  const maidr = anyChartToMaidr(chart, {
+  const converted = anyChartToMaidr(chart, {
     ...options,
     id: options?.id ?? container.id ?? 'anychart-maidr',
   });
 
-  if (!maidr) {
+  if (!converted) {
     console.warn('[maidr/anychart] Could not extract data from AnyChart chart.');
     return null;
   }
+  // Bound live, so that MAIDR applies the chart's data again while the reader
+  // is in it, each time AnyChart draws the chart again (see
+  // {@link followRedraws}). Live data also offers monitor mode (M),
+  // which has nothing to announce here: a redraw replaces the data rather
+  // than appending to it.
+  const maidr: Maidr = { ...converted, live: true };
 
   // Enable markers on line-like series so per-point highlight attributes
   // have DOM elements to attach to. If any series was mutated, force a
@@ -7845,7 +7930,8 @@ export function bindAnyChart(
   // text / braille modalities work even when highlight cannot.
   whenChartRendered(chart, container, (svg) => {
     stampChartAttributes(chart, svg);
-    restampOnRedraw(chart, svg);
+    const handOver = followRedraws(maidr, () => anyChartToMaidr(chart, { ...options, id: maidr.id }));
+    restampOnRedraw(chart, svg, '', () => handOver(svg));
 
     const host = ensureHostWrapper(svg, container);
     if (boundElements.has(host))
@@ -8101,13 +8187,14 @@ function stampPanelAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
   token: string,
+  afterRestamp?: () => void,
 ): void {
   if (!svg.hasAttribute(PANEL_ATTR))
     svg.setAttribute(PANEL_ATTR, token);
 
   const prefix = `${token}:`;
   stampChartAttributes(chart, svg, prefix);
-  restampOnRedraw(chart, svg, prefix);
+  restampOnRedraw(chart, svg, prefix, afterRestamp);
 }
 
 /**
@@ -8180,11 +8267,13 @@ export function bindAnyCharts(
     return null;
   }
 
-  const { maidr, panels } = buildMaidrFromGrid(grid, options);
-  if (!maidr) {
+  const { maidr: converted, panels } = buildMaidrFromGrid(grid, options);
+  if (!converted) {
     console.warn('[maidr/anychart] Could not extract data from the AnyChart charts.');
     return null;
   }
+  // Bound live, as {@link bindAnyChart} binds a chart.
+  const maidr: Maidr = { ...converted, live: true };
 
   // Enable line markers per chart (same best-effort flow as bindAnyChart).
   for (const chart of flatCharts) {
@@ -8241,6 +8330,8 @@ export function bindAnyCharts(
     );
   };
 
+  // One for the figure, whichever of its panels AnyChart draws again.
+  const handOver = followRedraws(maidr, () => buildMaidrFromGrid(grid, { ...options, id: maidr.id }).maidr);
   for (const { chart, token } of panels) {
     const container = containerByChart.get(chart);
     if (!container) {
@@ -8249,7 +8340,7 @@ export function bindAnyCharts(
       continue;
     }
     whenChartRendered(chart, container, (svg) => {
-      stampPanelAttributes(chart, svg, token);
+      stampPanelAttributes(chart, svg, token, () => handOver(svg));
       finalize();
     });
   }
