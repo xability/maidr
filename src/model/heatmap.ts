@@ -187,6 +187,15 @@ export class Heatmap extends AbstractTrace {
   public get description(): DescriptionState {
     const cells = this.heatmapValues.flat();
     const measured = cells.filter(isMeasured);
+    // The range is read through the z axis's own format where the layer
+    // declares one, as the table's cells and every announcement are, and as a
+    // line's range is; a bare number otherwise, which the description service
+    // rounds. A heatmap of categories holds each cell as its category's place
+    // in the legend and names the place through that format, so the range
+    // printed raw was "Min value: 1, Max value: 3", numbers the chart does
+    // not have.
+    const formatZ = this.authoredFormat('z');
+    const reading = (value: number): string | number => (formatZ === null ? value : formatZ(value));
 
     const stats: DescriptionState['stats'] = [
       // Counted off the grid rather than off the label arrays, which is what
@@ -198,8 +207,8 @@ export class Heatmap extends AbstractTrace {
       { label: t('model.statRows'), value: this.heatmapValues.length },
       { label: t('model.statColumns'), value: this.heatmapValues[0]?.length ?? 0 },
       // A grid of nothing but holes has no range, and `-Infinity` is not one.
-      { label: t('model.statMinValue'), value: isMeasured(this.min) ? this.min : missingCell() },
-      { label: t('model.statMaxValue'), value: isMeasured(this.max) ? this.max : missingCell() },
+      { label: t('model.statMinValue'), value: isMeasured(this.min) ? reading(this.min) : missingCell() },
+      { label: t('model.statMaxValue'), value: isMeasured(this.max) ? reading(this.max) : missingCell() },
     ];
 
     if (measured.length < cells.length) {
@@ -219,7 +228,7 @@ export class Heatmap extends AbstractTrace {
     // spot?" is what a heatmap is read for, and a reader given two bare
     // numbers is left to walk up to rows x columns cells for the answer the
     // extrema menu already computes. Named without their values, which stay
-    // in the two stats above where the service still rounds them; withheld
+    // in the two stats above, read as the z axis reads them; withheld
     // when both name one cell, as a constant or single-valued grid does,
     // since "highest" and "lowest" would then point at the same place.
     // Where several cells hold an extreme, the first is named: the cell
