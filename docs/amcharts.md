@@ -245,6 +245,8 @@ The roles are `intervalSeries` (error bar, forest), `censoredSeries` and `bandSe
 
 On a forest plot declaring both `intervalSeries` and `pooledSeries`, the interval companion covers the summary too: the join is by position, so a chart drawing every interval in one column series, the summary's included, has already said where the summary's interval is. The pooled series' own row fields and `error` offset still outrank it.
 
+A forest plot or error bar chart drawn on its side, down a category y axis, is walked with Up and Down between its studies as they are drawn. Its studies are read in data order, which the axis draws from the bottom up, or from the top down when its renderer is `inversed`; amCharts paints them into a canvas MAIDR cannot measure, so the adapter says which (`firstCategory`).
+
 ### Percentile bands
 
 A fan chart — a median with nested bands of quantiles around it, as a forecast's prediction intervals are drawn — is a median `LineSeries` and one series per band filled between `openValueYField` and `valueYField`. A band says nothing about which quantiles its edges are, so the median declares them:

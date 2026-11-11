@@ -88,7 +88,7 @@ function hasCategoryX(series: AmXYSeries): boolean {
   return typeof series.get('categoryXField') === 'string';
 }
 
-function hasCategoryY(series: AmXYSeries): boolean {
+export function hasCategoryY(series: AmXYSeries): boolean {
   return typeof series.get('categoryYField') === 'string';
 }
 
@@ -1009,7 +1009,7 @@ export function extractHeatmapData(series: AmXYSeries): HeatmapData | null {
  * @param axis - Which of the series' axes to ask
  * @returns Whether that axis' renderer is inversed
  */
-function isInversedAxis(series: AmXYSeries, axis: 'xAxis' | 'yAxis'): boolean {
+export function isInversedAxis(series: AmXYSeries, axis: 'xAxis' | 'yAxis'): boolean {
   const renderer = settingOf(series.get(axis), 'renderer');
   return settingOf(renderer, 'inversed') === true;
 }

@@ -87,10 +87,12 @@ import {
   extractVennPoints,
   extractWaterfallPoints,
   findGaugeHand,
+  hasCategoryY,
   hasRankAxis,
   holdsRanks,
   isColumnSeries,
   isDivergingPair,
+  isInversedAxis,
   readAxisLabel,
   STANDALONE_SERIES_CLASSES,
 } from './extractor';
@@ -852,9 +854,28 @@ function cloudSelector(
   return parts.length > 0 ? { selectors: parts.join(', ') } : {};
 }
 
-/** Which way a declared interval layer runs, when it is not the default. */
-function declaredOrientation(declared: AmDeclaredLayer): { orientation?: Orientation } {
-  return isDeclaredHorizontal(declared) ? { orientation: Orientation.HORIZONTAL } : {};
+/**
+ * Which way a declared interval layer runs, when it is not the default, and,
+ * drawn on its side down a category axis, which end its first category is
+ * at. Its items are read in data order, which a category axis draws from the
+ * bottom up and an inversed one from the top down, and amCharts paints them
+ * into a canvas MAIDR cannot measure that from: unsaid, a forest plot on an
+ * inversed axis was walked down the page with Up.
+ *
+ * @param declared - The declared layer
+ * @returns The orientation keys, or none for an upright layer
+ */
+function declaredOrientation(declared: AmDeclaredLayer): Pick<MaidrLayer, 'orientation' | 'firstCategory'> {
+  if (!isDeclaredHorizontal(declared)) {
+    return {};
+  }
+  if (!hasCategoryY(declared.series)) {
+    return { orientation: Orientation.HORIZONTAL };
+  }
+  return {
+    orientation: Orientation.HORIZONTAL,
+    firstCategory: isInversedAxis(declared.series, 'yAxis') ? 'top' : 'bottom',
+  };
 }
 
 /**

@@ -65,9 +65,10 @@ cursor follow the same keys. MAIDR reads from the chart whether its first
 category is drawn at the top or at the bottom, again on each key, so a chart
 laid out late or redrawn the other way round is followed. Where it cannot, as
 on a chart drawn to a canvas, the layer's `firstCategory` says, which the
-Chart.js and uPlot adapters give, and the amCharts and Excel adapters for a
-funnel; without it, the first category is taken to be at the bottom, and Up
-moves to the next.
+Chart.js and uPlot adapters give, the amCharts adapter for a funnel and a
+declared forest plot or error bar chart, and the Excel adapter for a funnel;
+without it, the first category is taken to be at the bottom, and Up moves to
+the next.
 
 Earlier releases moved the other way on these charts: Left and Right moved
 between the categories, from the first category to the last whichever way they

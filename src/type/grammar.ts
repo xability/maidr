@@ -2377,9 +2377,11 @@ export interface MaidrLayer {
    * bottom, as row 0 of a grid is, and Up moves to the next category. The
    * Chart.js adapter says `'top'`, as Chart.js draws a category axis on the
    * left from the top; the uPlot adapter says it from its scale's direction;
-   * and the amCharts and Excel adapters say `'top'` for a funnel, which both
-   * draw from its first stage down. Read by the traces above, on a
-   * horizontal layer, and ignored by every other type.
+   * the amCharts and Excel adapters say `'top'` for a funnel, which both
+   * draw from its first stage down; and the amCharts adapter says where a
+   * declared forest plot or error bar chart's first study is, from whether
+   * its category axis is inversed. Read by the traces above, on a horizontal
+   * layer, and ignored by every other type.
    *
    * @example
    * // a horizontal bar chart drawn to a canvas, first category at the top
