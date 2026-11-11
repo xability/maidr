@@ -1714,12 +1714,8 @@ function compareLeftThenTop(a: PlacedSubplot, b: PlacedSubplot): number {
  * Up carried them downwards. A wrong direction under a key named "Move Up" is
  * worse than a wrong ordinal.
  *
- * The ordinal is the accepted cost: `buildFallbackLayout` numbers its
- * `visualOrderMap` in data-array order, so the bottom-left subplot is announced
- * as "Subplot 1". Naming it correctly means teaching `resolveSubplotLayout` to
- * accept caller-supplied positions, which is a shared-utility change affecting
- * every DOM-less adapter. The announcement still carries the worksheet's own
- * title, which is what identifies it; the number is not a spatial claim.
+ * `buildFallbackLayout` numbers the rows from the last one, the top, so the
+ * top-left worksheet is announced as "Subplot 1", and the lobby opens on it.
  *
  * A grid is declined outright — no partial grids, ever — when:
  *
@@ -1908,12 +1904,14 @@ function selectSnapshots(
  *   {@link layOutByGeometry} for the banding rule, for why the bottom comes
  *   first, and for the five ways a grid is declined.
  * - **N rows × 1 column** otherwise: one worksheet per subplot, in the order
- *   the snapshots arrive. This is what an older embedding library gets, since
- *   it reports no geometry at all; it is also what a single worksheet, a
- *   `layout: 'column'` option, and every ambiguous dashboard get. Tableau
- *   documents that "screen readers read views or objects in a dashboard in the
- *   order in which they were added", and `dashboard.worksheets` is that order,
- *   so this ordering is one a reader has already been narrated.
+ *   the snapshots arrive from the top. The rows run bottom first, as the
+ *   grid's do, so the first worksheet is the last row. This is what an older
+ *   embedding library gets, since it reports no geometry at all; it is also
+ *   what a single worksheet, a `layout: 'column'` option, and every ambiguous
+ *   dashboard get. Tableau documents that "screen readers read views or
+ *   objects in a dashboard in the order in which they were added", and
+ *   `dashboard.worksheets` is that order, so this ordering is one a reader has
+ *   already been narrated.
  *
  * **Layer ids are assigned before any layout happens**, as the running count of
  * survivors, and are never derived from a grid position. That is load-bearing:
@@ -1985,8 +1983,11 @@ export function extractTableau(
       + `instead. Pass layout: 'column' to ask for that without the check.`,
     );
   }
+  // The column runs bottom first, as the grid's rows do: the first worksheet
+  // is the last row, the one the lobby opens on as "Subplot 1", and Down
+  // moves to the next worksheet.
   const subplots: MaidrSubplot[][]
-    = attempt.rows ?? built.map(entry => [entry.subplot]);
+    = attempt.rows ?? built.map(entry => [entry.subplot]).reverse();
 
   const maidr: Maidr = {
     id: options.id ?? `maidr-tableau-${nextFigureId++}`,

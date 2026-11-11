@@ -1310,7 +1310,7 @@ describe('tableau extractor', () => {
   });
 
   describe('the subplot grid', () => {
-    it('lays worksheets out one per row, in the order they were read', () => {
+    it('lays worksheets out one per row, the first read on top', () => {
       const extraction = extractTableau([
         fakeSnapshot({ name: 'A', columns: [category(), measure()], rows: [['Chairs', 1]] }),
         fakeSnapshot({ name: 'B', columns: [category(), measure()], rows: [['Tables', 2]] }),
@@ -1319,8 +1319,10 @@ describe('tableau extractor', () => {
 
       expect(extraction.maidr.subplots).toHaveLength(3);
       expect(extraction.maidr.subplots.every(row => row.length === 1)).toBe(true);
-      expect([0, 1, 2].map(index => layerOf(extraction, index).id)).toEqual(['0', '1', '2']);
-      expect([0, 1, 2].map(index => layerOf(extraction, index).title)).toEqual(['A', 'B', 'C']);
+      // The rows run bottom first, so the first worksheet read is the last
+      // row, the top one.
+      expect([2, 1, 0].map(index => layerOf(extraction, index).id)).toEqual(['0', '1', '2']);
+      expect([2, 1, 0].map(index => layerOf(extraction, index).title)).toEqual(['A', 'B', 'C']);
     });
 
     it('skips a worksheet with no measure and contributes no subplot for it', () => {
@@ -1362,7 +1364,7 @@ describe('tableau extractor', () => {
       ]);
 
       expect(extraction.maidr.subplots).toHaveLength(2);
-      expect([0, 1].map(index => layerOf(extraction, index).id)).toEqual(['0', '1']);
+      expect([1, 0].map(index => layerOf(extraction, index).id)).toEqual(['0', '1']);
       // The survivor index is what every selection lookup is keyed by, so the
       // map back to a worksheet has to come from the extractor.
       expect(extraction.selection.worksheets.get('0')).toBe('A');
@@ -1392,7 +1394,8 @@ describe('tableau extractor', () => {
         { worksheets: ['C', 'A'] },
       );
 
-      expect([0, 1].map(index => layerOf(extraction, index).title)).toEqual(['C', 'A']);
+      // Read from the top, the last row first.
+      expect([1, 0].map(index => layerOf(extraction, index).title)).toEqual(['C', 'A']);
     });
 
     it('warns about an include-list entry that names no worksheet that was read', () => {
@@ -1637,13 +1640,13 @@ describe('tableau extractor', () => {
       expect(idGrid(extraction)).toEqual([['0', '1']]);
     });
 
-    it('falls back to the N×1 column when the library reported no geometry', () => {
+    it('falls back to the N×1 column, the first worksheet on top, when the library reported no geometry', () => {
       const extraction = extractTableau([tile('A'), tile('B'), tile('C')]);
 
-      // Byte-identical to the behaviour before dashboard layout existed: an
-      // older embedding library has no `dashboard.objects` at all.
-      expect(titleGrid(extraction)).toEqual([['A'], ['B'], ['C']]);
-      expect(idGrid(extraction)).toEqual([['0'], ['1'], ['2']]);
+      // An older embedding library has no `dashboard.objects` at all. The
+      // column runs bottom first, as a grid does: the first worksheet on top.
+      expect(titleGrid(extraction)).toEqual([['C'], ['B'], ['A']]);
+      expect(idGrid(extraction)).toEqual([['2'], ['1'], ['0']]);
       // Not worth a word: geometry-less is the ordinary case, not a surprise.
       expect(warn).not.toHaveBeenCalled();
     });
@@ -1657,7 +1660,7 @@ describe('tableau extractor', () => {
 
       // All or nothing: a partial grid is a wrong grid, and a wrong grid is
       // worse than a flat column.
-      expect(titleGrid(extraction)).toEqual([['Left'], ['Unplaced'], ['Right']]);
+      expect(titleGrid(extraction)).toEqual([['Right'], ['Unplaced'], ['Left']]);
       expect(warn).not.toHaveBeenCalled();
     });
 
@@ -1670,7 +1673,7 @@ describe('tableau extractor', () => {
       // A floating object is positioned independently of the tiled layout and
       // routinely sits on top of one, so its coordinates do not place it in a
       // row. It disqualifies the whole figure rather than being woven in.
-      expect(titleGrid(extraction)).toEqual([['Tiled'], ['Floater']]);
+      expect(titleGrid(extraction)).toEqual([['Floater'], ['Tiled']]);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('floats above the dashboard'));
     });
 
@@ -1683,7 +1686,7 @@ describe('tableau extractor', () => {
       // Dropping it would silently remove data the page may have named
       // explicitly; placing it in the grid would claim it is on screen. The
       // column includes it and makes no spatial claim at all.
-      expect(titleGrid(extraction)).toEqual([['Shown'], ['Hidden']]);
+      expect(titleGrid(extraction)).toEqual([['Hidden'], ['Shown']]);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('hidden on the dashboard'));
     });
 
@@ -1694,7 +1697,7 @@ describe('tableau extractor', () => {
       ]);
 
       // A zero-height interval makes the overlap ratio meaningless.
-      expect(titleGrid(extraction)).toEqual([['Sized'], ['Collapsed']]);
+      expect(titleGrid(extraction)).toEqual([['Collapsed'], ['Sized']]);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('zero or negative size'));
     });
 
@@ -1708,7 +1711,7 @@ describe('tableau extractor', () => {
         tile('C', { x: 200, y: 100, width: 100, height: 100 }),
       ]);
 
-      expect(titleGrid(extraction)).toEqual([['A'], ['B'], ['C']]);
+      expect(titleGrid(extraction)).toEqual([['C'], ['B'], ['A']]);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('staircase rather than rows'));
     });
 
@@ -1720,7 +1723,7 @@ describe('tableau extractor', () => {
 
       // They share a band vertically but overlap by three quarters of the
       // narrower width, so "left to right" does not order them.
-      expect(titleGrid(extraction)).toEqual([['Under'], ['Over']]);
+      expect(titleGrid(extraction)).toEqual([['Over'], ['Under']]);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('overlap horizontally'));
     });
 
@@ -1742,7 +1745,7 @@ describe('tableau extractor', () => {
         { layout: 'column' },
       );
 
-      expect(titleGrid(extraction)).toEqual([['Left'], ['Right']]);
+      expect(titleGrid(extraction)).toEqual([['Right'], ['Left']]);
       // The page asked for it, so there is nothing to report.
       expect(warn).not.toHaveBeenCalled();
     });

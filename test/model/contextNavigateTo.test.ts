@@ -174,20 +174,22 @@ describe('Context.navigateTo', () => {
     });
 
     it('leaves one subplot for another and keeps the stack deep enough to leave again', () => {
+      // Nothing is measured here, so the lobby starts on the last row, the
+      // top one.
       const figure = laidOut(createPanels(2));
       const context = new Context(figure);
       expect(context.enterSubplot()).toBe(true);
-      expect(figure.activeSubplot).toBe(figure.subplots[0][0]);
+      expect(figure.activeSubplot).toBe(figure.subplots[1][0]);
       const { observer: first, states: firstStates } = recorder();
-      traceAt(figure, 0).addObserver(first);
+      traceAt(figure, 1).addObserver(first);
       const { observer: second, states: secondStates } = recorder();
-      traceAt(figure, 1).addObserver(second);
+      traceAt(figure, 0).addObserver(second);
 
-      expect(context.navigateTo({ layerId: '1', row: 0, col: 0 })).toBe(true);
+      expect(context.navigateTo({ layerId: '0', row: 0, col: 0 })).toBe(true);
 
       expect(firstStates).toEqual([]);
       expect(secondStates.map(cellOf)).toEqual([{ row: 0, col: 0 }]);
-      expect(figure.activeSubplot).toBe(figure.subplots[1][0]);
+      expect(figure.activeSubplot).toBe(figure.subplots[0][0]);
 
       // The stack was rebuilt as `enterSubplot` builds it, so Escape still
       // returns the reader to the lobby.
@@ -200,11 +202,11 @@ describe('Context.navigateTo', () => {
       const context = new Context(figure);
       context.enterSubplot();
       const { observer, states } = recorder();
-      traceAt(figure, 0).addObserver(observer);
+      traceAt(figure, 1).addObserver(observer);
       const scopes: Scope[] = [];
       context.onScopeChange(scope => scopes.push(scope));
 
-      expect(context.navigateTo({ layerId: '0', row: 0, col: 2 })).toBe(true);
+      expect(context.navigateTo({ layerId: '1', row: 0, col: 2 })).toBe(true);
 
       expect(states.map(cellOf)).toEqual([{ row: 0, col: 2 }]);
       // No re-entry, so no scope change to disturb a mode the reader is in.
@@ -337,7 +339,7 @@ describe('Context.navigateTo', () => {
 
     expect(states).toEqual([]);
     expect(context.activeLevel).toBe('figure');
-    expect(figure.activeSubplot).toBe(figure.subplots[0][0]);
+    expect(figure.activeSubplot).toBe(figure.subplots[1][0]);
   });
 
   it('is refused while a virtual layer is on top of the stack', () => {

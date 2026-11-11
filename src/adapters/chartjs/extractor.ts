@@ -446,8 +446,8 @@ function extractPanelSubplots(
 
   // y-stacks become N rows × 1 col with rows BOTTOM-FIRST (see
   // orderPanelsByGeometry): row 0 is the bottom panel, so the core's
-  // Up Arrow (row+1) moves visually up. Panel numbering consequently
-  // announces bottom-up ("Subplot 1" = bottom panel). x-stacks become
+  // Up Arrow (row+1) moves visually up. The core numbers the panels from
+  // the top all the same ("Subplot 1" = top panel). x-stacks become
   // 1 row × N cols in left-to-right reading order.
   const subplots = layout.axisKind === 'y'
     ? panelSubplots.map(subplot => [subplot])

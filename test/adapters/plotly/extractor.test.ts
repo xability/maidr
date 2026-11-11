@@ -2012,11 +2012,13 @@ describe('plotly extractor', () => {
         // `SubplotSummary.traceTypes` carries the description dialog's display
         // labels, which are a one-to-one function of the wire type, so this
         // still says which trace the factory built.
+        // jsdom lays nothing out, so the summaries come in the fallback
+        // layout's order: the grid's last row first.
         expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
-          ['Waterfall Chart'],
-          ['Funnel Chart'],
           ['Error Bar Chart'],
           ['Stacked Area Chart'],
+          ['Waterfall Chart'],
+          ['Funnel Chart'],
         ]);
         expect(figure.state).toMatchObject({ empty: false });
       });
@@ -2072,11 +2074,13 @@ describe('plotly extractor', () => {
         // `SubplotSummary.traceTypes` carries the description dialog's display
         // labels, which are a one-to-one function of the wire type, so this
         // still says which trace the factory built.
+        // jsdom lays nothing out, so the summaries come in the fallback
+        // layout's order: the grid's last row first.
         expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
-          ['Sunburst Chart'],
-          ['Sankey Diagram'],
           ['Gauge'],
           ['Parallel Coordinates Plot'],
+          ['Sunburst Chart'],
+          ['Sankey Diagram'],
         ]);
         expect(figure.state).toMatchObject({ empty: false });
       });
@@ -2155,11 +2159,13 @@ describe('plotly extractor', () => {
         // `SubplotSummary.traceTypes` carries the description dialog's display
         // labels, which are a one-to-one function of the wire type, so this
         // still says which trace the factory built.
+        // jsdom lays nothing out, so the summaries come in the fallback
+        // layout's order: the grid's last row first.
         expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
-          ['Gantt Chart'],
-          ['Diverging Bar Chart'],
           ['Dot Plot'],
           ['Word Cloud'],
+          ['Gantt Chart'],
+          ['Diverging Bar Chart'],
         ]);
         expect(figure.state).toMatchObject({ empty: false });
       });
