@@ -1,7 +1,8 @@
 /**
- * A lollipop, a dumbbell, a median band and a labelled mark are read as one
- * layer wherever their layered spec sits: as a layer of another, a concat
- * child, a facet's panels or a repeated cell, not only at the top level.
+ * A lollipop, a dumbbell, a median band, a declared fan and a labelled mark
+ * are read as one layer wherever their layered spec sits: as a layer of
+ * another, a concat child, a facet's panels or a repeated cell, not only at
+ * the top level.
  *
  * Each pair was read among a top-level spec's layers alone. Below the top
  * level a lollipop was read as its dots, its stems dropped; a dumbbell as a
@@ -56,6 +57,22 @@ const QUARTILES = [
   { panel: 'A', step: 2, median_loss: 6, center_loss: 6, lower_loss: 4, upper_loss: 8 },
   { panel: 'B', step: 1, median_loss: 5, center_loss: 5, lower_loss: 4, upper_loss: 7 },
   { panel: 'B', step: 2, median_loss: 9, center_loss: 9, lower_loss: 8, upper_loss: 10 },
+];
+
+const FAN_ROWS = [0, 1, 2].map(step => ({ step, p50: step, p5: step - 2, p95: step + 2, p25: step - 1, p75: step + 1 }));
+const FAN_X = { field: 'step', type: 'quantitative' };
+/** A median line declaring the two named range layers beside it its bands. */
+const FAN = [
+  { name: 'p5-95', mark: 'area', encoding: { x: FAN_X, y: { field: 'p5', type: 'quantitative' }, y2: { field: 'p95' } } },
+  { name: 'p25_75', mark: 'errorband', encoding: { x: FAN_X, y: { field: 'p25', type: 'quantitative' }, y2: { field: 'p75' } } },
+  {
+    mark: 'line',
+    encoding: { x: FAN_X, y: { field: 'p50', type: 'quantitative' } },
+    usermeta: { maidr: { type: TraceType.PERCENTILE_BAND, bands: [
+      { series: 'p25_75', lower: 0.25, upper: 0.75 },
+      { series: 'p5-95', lower: 0.05, upper: 0.95 },
+    ] } },
+  },
 ];
 
 /**
@@ -199,6 +216,46 @@ describe('vega-lite pairs below the top level', () => {
       'g[data-maidr-cell="vl-chart-0-1"] g.mark-area.role-mark.child_layer_0_layer_0_marks > path',
       'g[data-maidr-cell="vl-chart-0-1"] g.mark-line.role-mark.child_layer_1_marks > path',
     ]);
+  });
+
+  // Measured on vega-lite 5.23.0 with vega 5.33.1: a named band's marks keep
+  // its own name wherever the fan sits, and the unnamed median line is
+  // `layer_2` of the layered spec the fan is, named by the path to it.
+  it.each([
+    [
+      'a concat child',
+      { hconcat: [{ data: { values: FAN_ROWS }, layer: FAN }] },
+      [
+        'g.mark-area.role-mark.p5_95_marks > path',
+        'g.mark-area.role-mark.p25_75_layer_0_marks > path',
+        'g.mark-line.role-mark.concat_0_layer_2_marks > path',
+      ],
+    ],
+    [
+      'a nested layer',
+      { data: { values: FAN_ROWS }, layer: [{ layer: FAN }] },
+      [
+        'g.mark-area.role-mark.p5_95_marks > path',
+        'g.mark-area.role-mark.p25_75_layer_0_marks > path',
+        'g.mark-line.role-mark.layer_0_layer_2_marks > path',
+      ],
+    ],
+    [
+      'a facet\'s panel',
+      { data: { values: FAN_ROWS.map(row => ({ ...row, panel: 'A' })) }, facet: { column: { field: 'panel' } }, spec: { layer: FAN } },
+      [
+        'g[data-maidr-cell="vl-chart-0-0"] g.mark-area.role-mark.p5_95_marks > path',
+        'g[data-maidr-cell="vl-chart-0-0"] g.mark-area.role-mark.p25_75_layer_0_marks > path',
+        'g[data-maidr-cell="vl-chart-0-0"] g.mark-line.role-mark.child_layer_2_marks > path',
+      ],
+    ],
+  ])('reads a declared fan that is %s, its marks named as they are drawn', (_, spec, selectors) => {
+    const [first] = convert(spec).subplots[0];
+
+    // Before: an area, an error bar and a line under names no mark is drawn
+    // with, and nothing at all in a facet.
+    expect(first.layers.map(layer => layer.type)).toEqual([TraceType.PERCENTILE_BAND]);
+    expect(first.layers[0].selectors).toEqual(selectors);
   });
 
   it('gives the labels of a concat child to the points they label', () => {
