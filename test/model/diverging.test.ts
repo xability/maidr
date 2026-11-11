@@ -1,8 +1,10 @@
+import type { NotificationService } from '@service/notification';
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
-import { afterEach, describe, expect, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { DivergingTrace } from '@model/diverging';
 import { TraceFactory } from '@model/factory';
+import { TextService } from '@service/text';
 import { Orientation, TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 
@@ -75,6 +77,20 @@ function diverging(
   const trace = TraceFactory.create(createLayer(data)) as DivergingTrace;
   trace.moveToIndex(row, col);
   return trace;
+}
+
+/**
+ * What the text service announces where a trace stands.
+ * @param trace The positioned trace
+ * @returns The announcement
+ */
+function announce(trace: DivergingTrace): string {
+  const text = new TextService({ notify: jest.fn() } as unknown as NotificationService);
+  const listener = jest.fn();
+  const disposable = text.onChange(listener);
+  text.update(trace.state);
+  disposable.dispose();
+  return (listener.mock.calls[0][0] as { value: string }).value;
 }
 
 /**
@@ -157,6 +173,17 @@ describe('the sign is a direction, not a magnitude', () => {
 
     expect(nonEmptyState(diverging(0, 1, unnamed)).text.z?.value).toBe('left');
     expect(nonEmptyState(diverging(1, 1, unnamed)).text.z?.value).toBe('right');
+  });
+
+  test('an unnamed side is named by the way it grows at a gap as well', () => {
+    // A gap is announced by the parent, which numbered the side `Series 1`
+    // there while each of its bars said `left`.
+    const unnamed: SegmentedPoint[][] = [
+      [{ x: 'a', y: -5, z: '' }, { x: 'b', y: null as unknown as number, z: '' }],
+      [{ x: 'a', y: 4, z: '' }, { x: 'b', y: 6, z: '' }],
+    ];
+
+    expect(announce(diverging(0, 1, unnamed))).toBe('Age band is b, People is missing, Sex is left');
   });
 });
 
@@ -621,6 +648,25 @@ describe('[ and ] rank a bar by its length, not by its sign', () => {
 
     expect(bandsOf(diverging(3, 0, threeSided), 'max')).toEqual(['b']);
     expect(bandsOf(diverging(3, 0, threeSided), 'min')).toEqual(['a']);
+  });
+
+  test('names an unnamed side in the Go To dialog by the way it grows, as each move does', () => {
+    // The dialog read a side's first point alone and, finding no name there,
+    // listed the sides as `Group 0` and `Group 1`.
+    const unnamed: SegmentedPoint[][] = [
+      [{ x: 'a', y: -5, z: '' }, { x: 'b', y: -3, z: '' }],
+      [{ x: 'a', y: 4, z: '' }, { x: 'b', y: 6, z: '' }],
+    ];
+
+    const names = [0, 1].map((row) => {
+      const trace = diverging(row, 0, unnamed);
+      return trace.getExtremaTargets().map(target => target.display?.name);
+    });
+
+    expect(names).toEqual([
+      ['Max Sex: \'left\'', 'Min Sex: \'left\''],
+      ['Max Sex: \'right\'', 'Min Sex: \'right\''],
+    ]);
   });
 
   test('a row of nothing but gaps offers no extreme', () => {

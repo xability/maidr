@@ -199,13 +199,8 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * Get a human-readable label for the current group
-   * @param groupIndex The index of the group
-   * @returns A label for the group
-   */
-  /**
-   * What a series is called, in one place, so the summary, the data table and
-   * the spoken announcement cannot come to disagree.
+   * What a series is called, in one place, so the summary, the data table,
+   * the extremes and the spoken announcement cannot come to disagree.
    *
    * The first point that carries a `z` names the series -- not `row[0]` alone,
    * which loses a series whose leading point is unnamed and, worse, made the
@@ -215,33 +210,39 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * whole series column came out empty, and the announcement said the word
    * aloud.
    *
+   * Protected so that a chart which names its series its own way, as a
+   * diverging bar names its sides, names them that way in what this class
+   * builds as well.
+   *
    * @param index - Zero-based series index
    * @returns The series name
    */
-  private seriesNameAt(index: number): string {
+  protected seriesNameAt(index: number): string {
     return this.points[index]?.find(point => point.z?.trim())?.z?.trim()
       ?? t('model.nounSeriesNumbered', { index: index + 1 });
   }
 
+  /**
+   * What the extremes call a series: by the name each move announces it
+   * under ({@link seriesNameAt}), or, for the Sum row, its own label.
+   *
+   * It read the series' first point alone, so a series whose first point
+   * carries no name -- one named on a later point only, or a Victory series
+   * given `name=""` -- was "Group 1" in the Go To dialog, counted from zero,
+   * while every move announced it as "B" or "Series 2". A first point named
+   * with spaces was quoted as them.
+   *
+   * @param groupIndex - Zero-based series index; the last row is the Sum row
+   * @returns The label the extremes name the series by
+   */
   private getGroupLabel(groupIndex: number): string {
-    if (this.points[groupIndex] && this.points[groupIndex].length > 0) {
-      const firstPoint = this.points[groupIndex][0];
-
-      // Check if this is the summary level
-      if (groupIndex === this.barValues.length - 1) {
-        return t('model.segmentedTotalGroup');
-      }
-
-      // For dodged/stacked plots, use the z value as group identifier
-      if (firstPoint.z) {
-        return t('model.segmentedGroupNamed', {
-          axis: this.getZAxisLabel(),
-          value: firstPoint.z,
-        });
-      }
+    if (groupIndex === this.barValues.length - 1) {
+      return t('model.segmentedTotalGroup');
     }
-
-    return t('model.fallbackGroupIndexed', { index: groupIndex });
+    return t('model.segmentedGroupNamed', {
+      axis: this.getZAxisLabel(),
+      value: this.seriesNameAt(groupIndex),
+    });
   }
 
   /**
