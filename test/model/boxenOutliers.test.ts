@@ -286,13 +286,14 @@ describe('what an outlier outlines', () => {
   }
 
   /**
-   * What each stop of the first distribution outlines, in walking order.
+   * What each stop of one distribution outlines, in walking order.
    * @param trace - The trace
+   * @param row - Which distribution
    * @returns The name of each outlined element
    */
-  function outlinedAlong(trace: BoxenTrace): (string | null)[] {
+  function outlinedAlong(trace: BoxenTrace, row = 0): (string | null)[] {
     const names: (string | null)[] = [];
-    for (let col = 0; trace.moveToIndex(0, col); col++) {
+    for (let col = 0; trace.moveToIndex(row, col); col++) {
       const { highlight } = stateOf(trace);
       const [element] = highlight.empty ? [] : [highlight.elements].flat();
       names.push(element?.getAttribute('data-name') ?? null);
@@ -382,6 +383,38 @@ describe('what an outlier outlines', () => {
     const along = outlinedAlong(boxen([{ ...SPREAD, levels: EVEN_TAILS, lowerOutliers: [5] }], NAMED));
 
     expect(along).toEqual(Array.from({ length: 7 }, () => 'ladder'));
+  });
+
+  test('is the whole distribution, and so is every box, where what says which end is low disagrees', () => {
+    // a's ladder and dots say the axis runs up; b's dots, its two lower
+    // outliers drawn above its ladder and its upper one below, say down.
+    const ladderOf = (name: string, left: number): string => [[30, 40], [40, 60], [60, 75]]
+      .map(([from, to], index) => {
+        layout.set(`${name} ${index}`, { left, right: left + 20, top: 400 - 4 * to, bottom: 400 - 4 * from });
+        return `<path data-name="${name} ${index}" />`;
+      })
+      .join('');
+    const dotAt = (name: string, kind: string, value: number, left: number): string => {
+      layout.set(name, { left: left + 7, right: left + 13, top: 397 - 4 * value, bottom: 403 - 4 * value });
+      return `<circle class="${kind}" data-name="${name}" />`;
+    };
+    layout.set('ladder a', { left: 90, right: 110, top: 100, bottom: 280 });
+    layout.set('ladder b', { left: 190, right: 210, top: 100, bottom: 280 });
+    document.body.innerHTML = `<svg xmlns="${SVG_NS}">`
+      + `<g class="a" data-name="ladder a">${ladderOf('a box', 90)}</g>`
+      + `<g class="b" data-name="ladder b">${ladderOf('b box', 190)}</g>`
+      + `<g>${dotAt('a five', 'a', 5, 90)}${dotAt('a twelve', 'a', 12, 90)}${dotAt('a ninety', 'a', 90, 90)}`
+      + `${dotAt('b high', 'b', 88, 190)}${dotAt('b higher', 'b', 92, 190)}${dotAt('b low', 'b', 8, 190)}</g>`
+      + `</svg>`;
+    const b: BoxenPoint = { ...SPREAD, z: 'b', lowerOutliers: [10, 15], upperOutliers: [85] };
+
+    const trace = boxen([SPREAD, b], [
+      { ladder: 'g.a', outliers: ['circle.a'] },
+      { ladder: 'g.b', outliers: ['circle.b'] },
+    ]);
+
+    expect(outlinedAlong(trace, 0)).toEqual(Array.from({ length: 8 }, () => 'ladder a'));
+    expect(outlinedAlong(trace, 1)).toEqual(Array.from({ length: 8 }, () => 'ladder b'));
   });
 
   test('leaves nothing outlined where a ladder entry names other than one element', () => {
