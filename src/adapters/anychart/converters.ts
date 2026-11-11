@@ -915,6 +915,12 @@ const PACK_RADIUS_TOLERANCE = 0.01;
 const PANEL_ATTR = 'data-maidr-anychart-panel';
 
 /**
+ * Marks each half of a whisker path the box stamper split in two (see
+ * {@link splitTwoSegmentPath}), naming the path it was split from.
+ */
+const SPLIT_FROM_ATTR = 'data-maidr-anychart-split-from';
+
+/**
  * Identifies one panel (subplot cell) of a multi-panel AnyChart figure.
  * `undefined` everywhere a panel context is accepted means "single-panel
  * mode" — selectors and stamped attribute values then keep their original,
@@ -1081,6 +1087,21 @@ function resolveSelector(
  * over (see {@link restampOnRedraw}).
  */
 const MAIDR_COPY_SELECTOR = '[data-maidr-owned]';
+
+/**
+ * The shapes under `root` that match `selector`, without MAIDR's own copies
+ * of them (see {@link MAIDR_COPY_SELECTOR}). Every stamper finds its shapes
+ * through this or passes over the copies itself, so stamping a chart again
+ * while the reader is in it counts what AnyChart drew and nothing else.
+ *
+ * @param root - Where to look
+ * @param selector - Which shapes
+ * @returns The shapes, in document order
+ */
+function queryMarks<T extends Element = SVGElement>(root: ParentNode, selector: string): T[] {
+  return Array.from(root.querySelectorAll<T>(selector))
+    .filter(element => element.closest(MAIDR_COPY_SELECTOR) === null);
+}
 
 /**
  * Collect bar-shape candidate elements from a single root, applying the
@@ -1766,8 +1787,7 @@ function collectIqCandidates(
   svgArea: number,
 ): IqCandidate[] {
   const out: IqCandidate[] = [];
-  const shapes = svg.querySelectorAll<SVGElement>('rect, path');
-  for (const el of Array.from(shapes)) {
+  for (const el of queryMarks(svg, 'rect, path')) {
     if (el.closest('defs, clipPath'))
       continue;
     let bbox: DOMRect | null = null;
@@ -1879,8 +1899,7 @@ function findMedianElement(
   svg: SVGElement,
   iq: IqCandidate,
 ): SVGElement | null {
-  const shapes = svg.querySelectorAll<SVGElement>('path, line');
-  for (const el of Array.from(shapes)) {
+  for (const el of queryMarks(svg, 'path, line')) {
     // Skip elements already claimed by a previous box. Without this guard
     // the scan can re-return a median that was already stamped (because
     // x-center/y-band overlap between boxes is possible).
@@ -1974,7 +1993,7 @@ function splitTwoSegmentPath(path: SVGElement): SVGElement[] {
     if (wrapperId !== null)
       clone.setAttribute('data-ac-wrapper-id', wrapperId);
     // Mark provenance so the split is identifiable in DevTools.
-    clone.setAttribute('data-maidr-anychart-split-from', path.id || '');
+    clone.setAttribute(SPLIT_FROM_ATTR, path.id || '');
     parent.insertBefore(clone, path);
     clones.push(clone);
   }
@@ -2030,9 +2049,7 @@ function findWhiskerElements(
   iq: IqCandidate,
 ): Array<{ el: SVGElement; isUpper: boolean }> {
   const out: Array<{ el: SVGElement; isUpper: boolean }> = [];
-  const shapes = svg.querySelectorAll<SVGElement>('path, line');
-
-  for (const el of Array.from(shapes)) {
+  for (const el of queryMarks(svg, 'path, line')) {
     // Skip elements already stamped by a previous box (IQR bodies, prior
     // whisker/median scans, or split clones). Without this guard, a box's
     // whisker scan can match siblings owned by an earlier box and prevent
@@ -2282,9 +2299,7 @@ function findHeatmapCellLayer(svg: SVGElement): Element {
     // candlestick / future trace types.
     if (!layer.hasAttribute('clip-path'))
       continue;
-    const cells = layer.querySelectorAll(
-      'path[id^="ac_rect_"], rect[id^="ac_rect_"]',
-    );
+    const cells = queryMarks(layer, 'path[id^="ac_rect_"], rect[id^="ac_rect_"]');
     if (cells.length > bestCount) {
       bestCount = cells.length;
       bestLayer = layer;
@@ -2357,9 +2372,7 @@ function stampHeatmapAttributes(
   // sub-pixel) and eliminating cross-layer leakage from plot backgrounds,
   // axes, legend swatches, and the AnyChart watermark.
   const cellLayer = findHeatmapCellLayer(svg);
-  const shapes = cellLayer.querySelectorAll<SVGElement>(
-    'path[id^="ac_rect_"], rect[id^="ac_rect_"]',
-  );
+  const shapes = queryMarks(cellLayer, 'path[id^="ac_rect_"], rect[id^="ac_rect_"]');
 
   const cellCandidates: SVGElement[] = [];
   for (const el of Array.from(shapes)) {
@@ -2471,7 +2484,7 @@ function findCandlestickPathLayer(svg: SVGElement): Element | null {
     // rect + tick + gridline paths) can outnumber the actual candles.
     if (!layer.hasAttribute('clip-path'))
       continue;
-    const paths = layer.querySelectorAll('path[id^="ac_path_"]');
+    const paths = queryMarks(layer, 'path[id^="ac_path_"]');
     if (paths.length > bestCount) {
       bestCount = paths.length;
       bestLayer = layer;
@@ -2534,9 +2547,7 @@ function stampCandlestickAttributes(
     );
     return;
   }
-  const paths = candleLayer.querySelectorAll<SVGElement>(
-    'path[id^="ac_path_"]',
-  );
+  const paths = queryMarks(candleLayer, 'path[id^="ac_path_"]');
 
   const pathCandidates: SVGElement[] = [];
   for (const path of Array.from(paths)) {
@@ -2989,9 +3000,7 @@ function findArcMarkLayer(svg: SVGElement): Element | null {
   let bestLayer: Element | null = null;
   let bestCount = 0;
   for (const layer of Array.from(layers)) {
-    const wedges = Array.from(
-      layer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-    ).filter(hasArcCommand);
+    const wedges = queryMarks(layer, 'path[id^="ac_path_"]').filter(hasArcCommand);
     if (wedges.length > bestCount) {
       bestCount = wedges.length;
       bestLayer = layer;
@@ -3115,46 +3124,35 @@ function stampChartAttributes(
   }
 }
 
-/**
- * The stampers run again each time AnyChart draws a chart again: the ones
- * that pair each series with its marks, a legend click being what shows and
- * hides a series. {@link resolveStampers} keeps them in this order, so the
- * line stamper still finds the bars already claimed.
- */
-const REDRAW_STAMPERS: ReadonlySet<typeof stampPieAttributes> = new Set([
-  stampBarAttributes,
-  stampLineAttributes,
-  stampScatterAttributes,
-]);
-
 /** The charts that already stamp again on every draw. */
 const restampedCharts = new WeakSet<AnyChartInstance>();
 
 /**
- * Stamp a chart's series marks again whenever AnyChart draws it again.
+ * Stamp a chart again, from scratch, whenever AnyChart draws it again.
  *
  * The adapter stamps a chart when it is bound, and AnyChart draws it again
  * when a legend item is clicked, its container resizes or its data changes.
  * Measured on AnyChart 8.13, a redraw keeps the shapes it drew before, stamps
- * and all, and a series hidden with a legend click and shown again gets its
- * own shapes back. A series that was hidden when the chart was bound is drawn
- * with new shapes, so MAIDR could never outline it. Each stamper leaves a
- * stamped shape as it is, so stamping again after every draw stamps only the
- * new shapes. MAIDR reads the stamps when the reader next enters the chart.
+ * and all, and moves them where the new drawing puts them; a series hidden
+ * when the chart was bound is drawn with new shapes when it is shown. So each
+ * draw takes the stamps off (see {@link clearStamps}) and runs every stamper
+ * for the chart again, as binding did, and the stamps say what the drawing
+ * now holds rather than what it held when the chart was bound. MAIDR reads
+ * them when it next builds the chart: at once, through `afterRestamp`, or
+ * when the reader next enters the chart.
  *
  * @param chart - The bound chart
  * @param svg - Its SVG
  * @param stampPrefix - The panel prefix, on a multi-panel figure
+ * @param afterRestamp - What to do once the chart is stamped again
  */
 function restampOnRedraw(
   chart: AnyChartInstance,
   svg: SVGElement,
   stampPrefix = '',
+  afterRestamp?: () => void,
 ): void {
   if (typeof chart.listen !== 'function' || restampedCharts.has(chart))
-    return;
-  const stampers = resolveStampers(chart).filter(([, stamp]) => REDRAW_STAMPERS.has(stamp));
-  if (stampers.length === 0)
     return;
   restampedCharts.add(chart);
   chart.listen('chartdraw', () => {
@@ -3164,14 +3162,60 @@ function restampOnRedraw(
     // stamps the chart.
     if (!hasSize(svg))
       return;
-    for (const [kind, stamp] of stampers) {
-      try {
-        stamp(chart, svg, stampPrefix);
-      } catch (err) {
-        console.warn(`[maidr/anychart] Failed to stamp ${kind} attributes after a redraw:`, err);
-      }
-    }
+    clearStamps(svg);
+    stampChartAttributes(chart, svg, stampPrefix);
+    afterRestamp?.();
   });
+}
+
+/** Every attribute a stamper writes on a mark. */
+const MARK_STAMP_ATTRS = [
+  BAR_ATTR,
+  LINE_ATTR,
+  BOX_ATTR,
+  BOX_PART_ATTR,
+  POINT_ATTR,
+  HEATMAP_ATTR,
+  CANDLESTICK_ATTR,
+  PIE_ATTR,
+  FUNNEL_ATTR,
+  WORD_CLOUD_ATTR,
+  SANKEY_ATTR,
+  WATERFALL_ATTR,
+  MOSAIC_ATTR,
+  RADAR_ATTR,
+  DUMBBELL_ATTR,
+  CHOROPLETH_ATTR,
+  GANTT_ATTR,
+  SUNBURST_ATTR,
+  PACK_ATTR,
+] as const;
+
+/**
+ * Take a chart's stamps off, so that {@link stampChartAttributes} stamps it
+ * as AnyChart now draws it.
+ *
+ * Each shape's stamps are removed, and each whisker the box stamper split in
+ * two (see {@link splitTwoSegmentPath}) is joined again: its halves are taken
+ * out and the path AnyChart drew is shown. MAIDR's own copies are left as
+ * they are; they are MAIDR's to remove.
+ *
+ * @param svg - A chart's SVG
+ */
+function clearStamps(svg: SVGElement): void {
+  for (const half of queryMarks(svg, `[${SPLIT_FROM_ATTR}]`)) {
+    const id = half.getAttribute(SPLIT_FROM_ATTR);
+    const whole = id
+      ? Array.from(half.parentElement?.children ?? []).find(sibling => sibling.id === id)
+      : undefined;
+    if (whole?.getAttribute('visibility') === 'hidden')
+      whole.removeAttribute('visibility');
+    half.remove();
+  }
+  for (const mark of queryMarks(svg, '*')) {
+    for (const attribute of MARK_STAMP_ATTRS)
+      mark.removeAttribute(attribute);
+  }
 }
 
 /**
@@ -3209,9 +3253,7 @@ function stampPieAttributes(
   }
 
   const candidates: SVGElement[] = [];
-  for (const path of Array.from(
-    wedgeLayer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-  )) {
+  for (const path of queryMarks(wedgeLayer, 'path[id^="ac_path_"]')) {
     // Idempotency — skip wedges stamped on a prior bind.
     if (path.hasAttribute(PIE_ATTR))
       continue;
@@ -3320,9 +3362,8 @@ function isFilledDataPath(path: SVGElement): boolean {
  * @returns Its own `ac_path_*` paths, in document order
  */
 function ownLayerPaths(layer: Element): SVGElement[] {
-  return Array.from(
-    layer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-  ).filter(path => path.closest('g[id^="ac_layer_"], svg') === layer);
+  return queryMarks(layer, 'path[id^="ac_path_"]')
+    .filter(path => path.closest('g[id^="ac_layer_"], svg') === layer);
 }
 
 /**
@@ -3499,10 +3540,11 @@ function stampWordCloudAttributes(
 
   // Index the rendered glyphs by their text so each term is looked up rather
   // than counted off. `<text>` elements outside the cloud — a colour range's
-  // tick labels, the chart title — simply never match a term. Each list is
-  // in document order, the order AnyChart wrote the words in.
+  // tick labels, the chart title — simply never match a term, and MAIDR's
+  // own copies are passed over (see {@link queryMarks}). Each list is in
+  // document order, the order AnyChart wrote the words in.
   const byText = groupBy(
-    Array.from(svg.querySelectorAll<SVGElement>('text'))
+    queryMarks(svg, 'text')
       .filter(text => !text.hasAttribute(WORD_CLOUD_ATTR) && !isNearlyInvisible(text)),
     text => foldCloudWord(text.textContent ?? ''),
   );
@@ -3870,13 +3912,11 @@ function collectFilledDataPaths(svg: SVGElement): SVGElement[] {
   // Scoped to the layers when there are any, and to the whole SVG when the
   // rendering has no AnyChart layer structure at all — the same fallback every
   // single-layer lookup here ends with.
-  const scoped = svg.querySelectorAll<SVGElement>(
-    'g[id^="ac_layer_"] path[id^="ac_path_"]',
-  );
+  const scoped = queryMarks(svg, 'g[id^="ac_layer_"] path[id^="ac_path_"]');
   const paths = scoped.length > 0
     ? scoped
-    : svg.querySelectorAll<SVGElement>('path[id^="ac_path_"]');
-  return Array.from(paths).filter(isFilledDataPath);
+    : queryMarks(svg, 'path[id^="ac_path_"]');
+  return paths.filter(isFilledDataPath);
 }
 
 /**
@@ -4031,9 +4071,7 @@ function stampRadarAttributes(
     return;
   }
 
-  const candidates = Array.from(
-    markLayer.querySelectorAll<SVGElement>('path[id^="ac_path_"]'),
-  ).filter(path =>
+  const candidates = queryMarks(markLayer, 'path[id^="ac_path_"]').filter(path =>
     // Idempotency — skip marks stamped on a prior bind.
     !path.hasAttribute(RADAR_ATTR) && hasArcCommand(path) && isFilledDataPath(path));
 
@@ -4777,9 +4815,8 @@ function stampPackAttributes(
   if (!layout)
     return;
 
-  const circles = Array.from(
-    svg.querySelectorAll<SVGElement>('circle'),
-  ).filter(circle => Number.isFinite(readCircleRadius(circle)));
+  const circles = queryMarks(svg, 'circle')
+    .filter(circle => Number.isFinite(readCircleRadius(circle)));
 
   if (circles.length !== layout.nodes.length || !packRadiiAgree(layout, circles)) {
     console.warn(
@@ -6197,7 +6234,7 @@ function readDrawnSankeyColumns(
 
   const names = new Set(flows.flatMap(flow => [String(flow.source), String(flow.target)]));
   const nodes: Array<{ name: string; x: number; y: number }> = [];
-  for (const text of Array.from(svg.querySelectorAll<SVGElement>('text'))) {
+  for (const text of queryMarks(svg, 'text')) {
     const name = (text.textContent ?? '').trim();
     if (!names.has(name))
       continue;
