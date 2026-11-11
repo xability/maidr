@@ -126,7 +126,7 @@ let chartCounter = 0;
  * - `scatter` → {@link TraceType.SCATTER}, or {@link TraceType.DOT} on a
  *   category axis (a Cleveland dot plot)
  * - `lollipop` → {@link TraceType.LOLLIPOP}
- * - `timeline` → {@link TraceType.SCATTER}, each event named on its point
+ * - `timeline` → {@link TraceType.TREE} of one level, each event named by its box
  * - `funnel`, `pyramid` → {@link TraceType.FUNNEL}
  * - `wordcloud` → {@link TraceType.WORD_CLOUD}
  * - `sankey`, `arcdiagram` → {@link TraceType.SANKEY}
@@ -1788,7 +1788,7 @@ function convertSeries(
       return convertParetoSeries(series, chart, containerId);
     // A row of named events along one axis, with no magnitude to them.
     case 'timeline':
-      return convertTimelineSeries(series, containerId);
+      return convertTimelineSeries(series, chart, containerId);
     case 'funnel':
     case 'pyramid':
       return convertFunnelSeries(series, containerId);
@@ -3144,27 +3144,61 @@ const TIMELINE_TYPE_GUIDE: TypeGuide = {
   appearance: 'Each event is a dot on a line, with a box beside it giving its name and often its date. The boxes alternate between the two sides of the line.',
 };
 
+/** What one event of a timeline is called wherever MAIDR names it. */
+const TIMELINE_EVENT_LABEL = 'Event';
+
+/** What an event is called whose box declares neither of its two strings. */
+const TIMELINE_BLANK_EVENT = '(blank)';
+
 /**
- * Converts a `timeline` series into a labelled scatter layer.
+ * Writes each event's date, on a timeline whose x axis counts time.
+ *
+ * The dates are written as the gantt's are -- day, month and year, with the
+ * time of day only where some event is not at midnight, in the zone the
+ * chart draws its dates in.
+ *
+ * @param chart - The chart, for the time zone it draws dates in
+ * @param points - The timeline's events
+ * @returns The date of an event, or undefined where it has none
+ */
+function timelineDates(
+  chart: HighchartsChart,
+  points: HighchartsPoint[],
+): (point: HighchartsPoint) => string | undefined {
+  let format: Intl.DateTimeFormat;
+  try {
+    format = new Intl.DateTimeFormat('en-US', chartDateOptions(chart, points.map(point => point.x)));
+  } catch {
+    // A zone this browser cannot name: the event is still named by its box.
+    return () => undefined;
+  }
+  return point => (Number.isFinite(point.x) ? format.format(new Date(point.x)) : undefined);
+}
+
+/**
+ * Converts a `timeline` series into a tree of one level: its events, in order.
  *
  * A timeline is a row of events along one axis: each is drawn as a marker on
- * a connecting line, with a box naming it. What it is *not* is a chart of
- * magnitudes, and that is the whole design question here.
+ * a connecting line, with a box naming it. It measures nothing, and its whole
+ * payload is which events happened, in what order.
  *
- * **`y` is a constant.** Measured on every timeline built for this: four
- * events, three events, dated and undated alike, `point.y` came back `1`
- * each time. So the layer is emitted with the 1 the chart drew, and
- * sonifying it plays one pitch for the whole row -- which is what a chart
- * with no magnitude sounds like. Pitching by `x` instead would announce a
- * magnitude the chart does not draw, and pitching by nothing would leave the
- * layer silent. What the reader is actually given is the sequence, through
- * `ScatterTrace`'s stereo pan over distinct x values, and the identity of
- * each event, through {@link ScatterPoint.label}.
+ * Read as a scatter, every event was announced by the two numbers a scatter
+ * reads before its name -- "X is 0, Y is 1, Name is First artificial
+ * satellite, 1957 Sputnik 1" -- and neither is drawn: the x axis is hidden and
+ * counts 0, 1, 2, 3, and `y` is the constant 1 Highcharts puts on every event.
+ * A scatter has no way to say it has no second measure. A tree of one level
+ * reads what the chart draws, which is how MAIDR reads a Mermaid timeline:
+ * each event is announced by the text of its box, "Event is First artificial
+ * satellite, 1957 Sputnik 1", Right moves to the next one, and `p` places it
+ * among the rest, "Position is 1 of 5". With no magnitude to it, every event
+ * is pitched the same and panned by its place along the row.
  *
- * `x` is whatever the author declared: a bare index -- 0, 1, 2, 3 -- on the
- * ordinary timeline, whose x axis is usually hidden, or the real timestamp
- * on a `datetime` axis. Nothing is invented for the first case; the dates
- * live in the event's own text, which is where the chart draws them.
+ * On a `datetime` axis, `x` is the event's date and the chart places the
+ * event by it, so the date leads the event's name; on the ordinary timeline
+ * the date lives in the box's own text ({@link timelineEventLabel}). Two
+ * events whose names come out the same are told apart as Mermaid's are, by a
+ * count -- a tree's siblings are one node each by name, and two of one name
+ * would be read as one event.
  *
  * The handle is the marker, and it needed nothing new: a timeline's markers
  * carry `highcharts-point` in a `highcharts-markers` group that is a sibling
@@ -3173,37 +3207,37 @@ const TIMELINE_TYPE_GUIDE: TypeGuide = {
  * point, in point order, each identical to that point's own `graphic`.
  *
  * @param series - The timeline series to convert
+ * @param chart - The chart, for the time zone a `datetime` axis is drawn in
  * @param containerId - The chart container's id, for the selectors
- * @returns The scatter layer
+ * @returns The tree layer
  */
 function convertTimelineSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
-  const data: ScatterPoint[] = series.data
-    .filter(p => p.y !== null)
-    .map((point) => {
-      const label = timelineEventLabel(point);
-      return {
-        x: point.x,
-        y: point.y as number,
-        ...(label !== undefined ? { label } : {}),
-      };
-    });
+  // An event the chart drew nothing for has no marker to pair with.
+  const events = series.data.filter(point => point.y !== null);
+  const dateOf = isDatetimeAxis(series.xAxis) ? timelineDates(chart, events) : undefined;
+
+  const seen = new Map<string, number>();
+  const data: TreemapPoint[] = events.map((point) => {
+    const parts = [dateOf?.(point), timelineEventLabel(point)]
+      .filter((part): part is string => part !== undefined);
+    const base = parts.length > 0 ? parts.join(', ') : TIMELINE_BLANK_EVENT;
+    const count = (seen.get(base) ?? 0) + 1;
+    seen.set(base, count);
+    return { x: count === 1 ? base : `${base} (${count})` };
+  });
 
   return {
     id: String(series.index),
-    type: TraceType.SCATTER,
+    type: TraceType.TREE,
     name: seriesName(series),
     selectors: scatterSelector(containerId, series.index),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    axes: { x: { label: TIMELINE_EVENT_LABEL } },
     data,
-    // Read as a scatter, and named as the chart it is: without these the
-    // reader was told it was a scatter plot, "used to see whether two
-    // measures are related", of a chart that measures nothing.
+    // Named as the chart it is rather than as the tree it is read as.
     typeLabel: TIMELINE_TYPE_LABEL,
     typeGuide: TIMELINE_TYPE_GUIDE,
   };
@@ -4748,15 +4782,8 @@ interface GanttTimeScale {
  * @returns How to read them
  */
 function ganttTimeScale(chart: HighchartsChart, points: GanttPoint[]): GanttTimeScale {
-  const timeZone = chartTimeZone(chart);
   const stamps = points.flatMap(point => [point.start, point.end]);
-  const dateOptions: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    ...(allAtMidnight(stamps, timeZone) ? {} : { hour: '2-digit', minute: '2-digit' }),
-    ...(timeZone === undefined ? {} : { timeZone }),
-  };
+  const dateOptions = chartDateOptions(chart, stamps);
 
   // Reduced rather than spread into Math.min, which a long enough schedule
   // would overflow. Milestones last no time and are left out, or every
@@ -4781,6 +4808,26 @@ function ganttTimeScale(chart: HighchartsChart, points: GanttPoint[]): GanttTime
     format: {
       function: `return new Date(Math.round(value * ${scale.ms})).toLocaleString('en-US', ${JSON.stringify(dateOptions)});`,
     },
+  };
+}
+
+/**
+ * How to write the dates of some instants: day, month and year, with the time
+ * of day only where one of them is not at midnight, in the zone the chart
+ * draws its dates in.
+ *
+ * @param chart - The chart, for the time zone it draws dates in
+ * @param stamps - The instants, in milliseconds since 1970
+ * @returns The options to format them with
+ */
+function chartDateOptions(chart: HighchartsChart, stamps: number[]): Intl.DateTimeFormatOptions {
+  const timeZone = chartTimeZone(chart);
+  return {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    ...(allAtMidnight(stamps, timeZone) ? {} : { hour: '2-digit', minute: '2-digit' }),
+    ...(timeZone === undefined ? {} : { timeZone }),
   };
 }
 
