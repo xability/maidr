@@ -153,6 +153,19 @@ test.describe('ROC curve', () => {
     expect(announcement).toContain('Random forest');
   });
 
+  test('should say why [ has no minimum to go to', async ({ page }) => {
+    // Every ROC curve's lowest point is (0, 0), its start. `[` refused there
+    // with only "No minimum value to go to in this layer", the words a layer
+    // says whose data happened to hold none.
+    const plot = new RocCurvePage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.goToMinimumValue();
+
+    await expect.poll(async () => normalizeText(await plot.getInstructionText()))
+      .toBe('No minimum value to go to in this layer: its lowest point is an end every curve shares');
+  });
+
   test('should render one braille row per classifier', async ({ page }) => {
     // Braille is the modality that fails silently for a new trace type: an
     // unregistered encoder leaves the display blank while text and audio keep

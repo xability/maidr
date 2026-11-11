@@ -615,12 +615,13 @@ export class Context implements Disposable {
    * Why the active trace has no extremum for `[`, `]` and `G` to go to,
    * where that is by design.
    *
+   * @param extreme - The extreme a bracket key asks for; left out for `G`
    * @returns The reason, or null at the figure and subplot levels and
    *   wherever the trace gives none
    */
-  public noExtremaReason(): string | null {
+  public noExtremaReason(extreme?: 'min' | 'max'): string | null {
     const active = this.active;
-    return active.level === 'trace' ? active.noExtremaReason?.() ?? null : null;
+    return active.level === 'trace' ? active.noExtremaReason?.(extreme) ?? null : null;
   }
 
   public moveToIndex(row: number, col: number): void {

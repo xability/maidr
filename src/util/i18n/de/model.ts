@@ -352,6 +352,7 @@ export const model = {
   'model.noExtremaRegionsCarryNoSizes': 'ihre Bereiche tragen keine Größen',
   'model.noExtremaGridCells': 'die Rasternavigation bewegt sich zwischen Zellen, nicht zwischen Punkten',
   'model.noExtremaIntersectionStack': 'die Schnittpunktnavigation bewegt sich nur zwischen Punkten mit demselben x oder y',
+  'model.noExtremaCurveLowestIsSharedEnd': 'ihr niedrigster Punkt ist ein Ende, das jede Kurve hat',
   'model.intersectionPoint': 'Schnittpunkt am Datenpunkt',
   'model.intersectionSlope': 'Schnittpunkt zwischen Datenpunkten',
   'model.extremaIntersectionAt': '{kind} bei {coords}',

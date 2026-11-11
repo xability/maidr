@@ -493,6 +493,28 @@ describe('a point that stands in for the maximum', () => {
 
     expect(service.goToExtremeValue('max')).toEqual({ position: 1, total: 1, name: 'Best F1' });
   });
+
+  test('[ says why a curve has no minimum to go to', () => {
+    // `[` said only "No minimum value to go to in this layer", the words a
+    // layer says whose data happened to hold none. A curve's lowest point is
+    // the start every curve shares, which is why there is none to go to.
+    const trace = TraceFactory.create(rocLayer());
+    trace.moveToIndex(0, 1);
+    const context = {
+      noExtremaReason: (extreme?: 'min' | 'max'): string | null => trace.noExtremaReason?.(extreme) ?? null,
+    } as unknown as Context;
+    const notification = { notify: jest.fn() } as unknown as NotificationService;
+    const textService = { isOff: (): boolean => false, format: (): string => 'point' } as unknown as TextService;
+    const audio = { playWarningToneIfEnabled: jest.fn() } as unknown as AudioService;
+
+    new GoToMinValueCommand(context, serviceFor(trace), notification, textService, audio).execute();
+
+    expect(notification.notify).toHaveBeenCalledWith(
+      'No minimum value to go to in this layer: its lowest point is an end every curve shares',
+    );
+    expect(audio.playWarningToneIfEnabled).toHaveBeenCalledTimes(1);
+    expect(trace.col).toBe(1);
+  });
 });
 
 describe('bracket key commands', () => {
@@ -623,6 +645,25 @@ describe('bracket key commands', () => {
     expect(min.notification.notify).toHaveBeenCalledWith('No minimum value to go to in this layer: its messages carry no values');
     expect(max.notification.notify).toHaveBeenCalledWith('No maximum value to go to in this layer: its messages carry no values');
     expect(max.audio.playWarningToneIfEnabled).toHaveBeenCalledTimes(1);
+  });
+
+  test('asks the layer about the extreme its own key wants', () => {
+    // A ROC curve lacks a minimum by design and has its best point for `]`,
+    // so the reason is `[`'s alone: `]` refused for its data says nothing more.
+    const reasonFor = jest.fn((extreme?: 'min' | 'max'): string | null =>
+      extreme === 'min' ? 'its lowest point is an end every curve shares' : null);
+    const min = commandFixture(null);
+    const max = commandFixture(null);
+    const context = { state: min.context.state, noExtremaReason: reasonFor } as unknown as Context;
+
+    new GoToMinValueCommand(context, min.service, min.notification, min.textService, min.audio).execute();
+    new GoToMaxValueCommand(context, max.service, max.notification, max.textService, max.audio).execute();
+
+    expect(reasonFor).toHaveBeenNthCalledWith(1, 'min');
+    expect(reasonFor).toHaveBeenNthCalledWith(2, 'max');
+    expect(min.notification.notify)
+      .toHaveBeenCalledWith('No minimum value to go to in this layer: its lowest point is an end every curve shares');
+    expect(max.notification.notify).toHaveBeenCalledWith('No maximum value to go to in this layer');
   });
 
   test('plays the warning tone with the refusal, as g and o do', () => {

@@ -64,10 +64,12 @@ export class GoToExtremaToggleCommand implements Command {
  *
  * @param message - The refusal
  * @param context - Where the active layer is read from
+ * @param extreme - The extreme a bracket key asked for, so a layer that
+ *   lacks only that one can say why; left out for `G`
  * @returns The refusal, with its reason where there is one
  */
-function withReason(message: string, context: Context): string {
-  const reason = context.noExtremaReason();
+function withReason(message: string, context: Context, extreme?: 'min' | 'max'): string {
+  const reason = context.noExtremaReason(extreme);
   return reason === null ? message : t('text.unavailableBecause', { message, reason });
 }
 
@@ -133,7 +135,7 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
   public execute(): void {
     const landed = this.goToExtremaService.goToExtremeValue(this.type);
     if (!landed) {
-      this.notification.notify(withReason(this.unavailableMessage, this.context));
+      this.notification.notify(withReason(this.unavailableMessage, this.context, this.type));
       this.audioService.playWarningToneIfEnabled();
       return;
     }

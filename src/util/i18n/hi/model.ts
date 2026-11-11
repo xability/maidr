@@ -342,6 +342,7 @@ export const model = {
   'model.noExtremaRegionsCarryNoSizes': 'इसके क्षेत्रों का कोई आकार नहीं है',
   'model.noExtremaGridCells': 'ग्रिड नेविगेशन बिंदुओं के बीच नहीं, सेल के बीच चलता है',
   'model.noExtremaIntersectionStack': 'प्रतिच्छेदन बिंदु नेविगेशन केवल समान x या y वाले बिंदुओं के बीच चलता है',
+  'model.noExtremaCurveLowestIsSharedEnd': 'इसका सबसे निचला बिंदु वह सिरा है जो हर वक्र में होता है',
   'model.intersectionPoint': 'बिंदु प्रतिच्छेदन',
   'model.intersectionSlope': 'ढलान प्रतिच्छेदन',
   'model.extremaIntersectionAt': '{kind}, {coords} पर',
