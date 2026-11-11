@@ -308,6 +308,18 @@ export class DivergingTrace extends SegmentedTrace {
   }
 
   /**
+   * The balance row of a two-sided chart is "Balance" in the extremes, the
+   * word each move reads it by, rather than a sum filed under the sides'
+   * label. A chart that is not two-sided keeps the parent's sum.
+   *
+   * @param row - Which row
+   * @returns The label the extremes name it by
+   */
+  protected override getGroupLabel(row: number): string {
+    return this.isBalanceRow(row) && this.isTwoSided ? balanceLabel() : super.getGroupLabel(row);
+  }
+
+  /**
    * What a category is called, as the chart's own axis holds it.
    *
    * @param col - Which category

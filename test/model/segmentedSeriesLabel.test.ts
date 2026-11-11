@@ -161,10 +161,12 @@ describe.each([TraceType.STACKED, TraceType.DODGED, TraceType.NORMALIZED])('a %s
     });
   });
 
-  test('keeps calling the Sum row Total in the Go To dialog', () => {
-    const { extremes } = namesAt(layer(type, UNNAMED), 2);
+  test('names the Sum row in the Go To dialog as each move does', () => {
+    // Each move reads the row as `Series is Sum`, and the dialog called it
+    // `Total`.
+    const names = namesAt(layer(type, UNNAMED), 2);
 
-    expect(extremes).toEqual(['Max Total', 'Min Total']);
+    expect(names).toEqual({ announced: 'Sum', extremes: ['Max Series: \'Sum\'', 'Min Series: \'Sum\''] });
   });
 });
 

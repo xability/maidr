@@ -669,6 +669,27 @@ describe('[ and ] rank a bar by its length, not by its sign', () => {
     ]);
   });
 
+  test('names the balance row in the Go To dialog as each move does', () => {
+    // Each move reads it as `Balance is Women ahead`, and the dialog called it
+    // `Total`.
+    const balance = diverging(2, 1);
+
+    expect(nonEmptyState(balance).text.z?.label).toBe('Balance');
+    expect(balance.getExtremaTargets().map(target => target.display?.name)).toEqual(['Max Balance', 'Min Balance']);
+  });
+
+  test('names the sum of a chart that is not two-sided in the Go To dialog as each move does', () => {
+    const threeSided: SegmentedPoint[][] = [
+      [{ x: 'a', y: -900, z: 'Against' }, { x: 'b', y: -100, z: 'Against' }],
+      [{ x: 'a', y: 400, z: 'For' }, { x: 'b', y: 300, z: 'For' }],
+      [{ x: 'a', y: 200, z: 'Strongly for' }, { x: 'b', y: 100, z: 'Strongly for' }],
+    ];
+    const sum = diverging(3, 0, threeSided);
+
+    expect(nonEmptyState(sum).text.z).toEqual({ label: 'Sex', value: 'Sum' });
+    expect(sum.getExtremaTargets().map(target => target.display?.name)).toEqual(['Max Sex: \'Sum\'', 'Min Sex: \'Sum\'']);
+  });
+
   test('a row of nothing but gaps offers no extreme', () => {
     // Every bar's length is a gap, so there is no longest or shortest bar
     // to go to, rather than a target at a column the row does not hold.

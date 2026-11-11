@@ -223,22 +223,21 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   }
 
   /**
-   * What the extremes call a series: by the name each move announces it
-   * under ({@link seriesNameAt}), or, for the Sum row, its own label.
+   * What the extremes call a series: the name each move announces it under
+   * ({@link seriesNameAt}). The Sum row is named the same way, by the word
+   * its points carry, which is the word each move reads it by.
    *
    * It read the series' first point alone, so a series whose first point
    * carries no name -- one named on a later point only, or a Victory series
    * given `name=""` -- was "Group 1" in the Go To dialog, counted from zero,
    * while every move announced it as "B" or "Series 2". A first point named
-   * with spaces was quoted as them.
+   * with spaces was quoted as them, and the Sum row was "Total" where each
+   * move said "Sum".
    *
    * @param groupIndex - Zero-based series index; the last row is the Sum row
    * @returns The label the extremes name the series by
    */
-  private getGroupLabel(groupIndex: number): string {
-    if (groupIndex === this.barValues.length - 1) {
-      return t('model.segmentedTotalGroup');
-    }
+  protected getGroupLabel(groupIndex: number): string {
     return t('model.segmentedGroupNamed', {
       axis: this.getZAxisLabel(),
       value: this.seriesNameAt(groupIndex),
