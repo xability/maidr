@@ -346,12 +346,40 @@ describe('the other traces drawn on their side', () => {
 });
 
 describe('the rotor on a chart drawn on its side', () => {
-  test('Right past the last end says there is no more data, as the arrow does', () => {
-    // The rotor's Left and Right are the plain move along a category there.
-    // They report the press handled even at the edge, so the rotor adds no
-    // "no lower value to the right" of its own: the edge of the move is told
-    // as an arrow's is, by the trace's out-of-bounds state, which plays the
-    // edge tone and says there is no more data.
+  /**
+   * The rotor over a trace, in its lower value mode, with the notifications
+   * it sends recorded.
+   * @param trace - The trace the cursor is in
+   * @returns The rotor and its notification stub
+   */
+  function lowerValueRotor(trace: AbstractTrace): { rotor: RotorNavigationService; notify: jest.Mock } {
+    const notify = jest.fn();
+    const rotor = new RotorNavigationService(
+      { active: trace, setRotorEnabled: jest.fn() } as unknown as Context,
+      { isOff: () => false, isTerse: () => false } as unknown as TextService,
+      { notify } as unknown as NotificationService,
+    );
+    for (let unit = 0; unit < 10 && rotor.getMode() !== t('rotor.lowerValueMode'); unit++) {
+      rotor.moveToNextRotorUnit();
+    }
+    expect(rotor.getMode()).toBe(t('rotor.lowerValueMode'));
+    return { rotor, notify };
+  }
+
+  test('Right on a chart of one series says there is nothing further that way', () => {
+    // A category holds one value here, so Right along it has nowhere to go.
+    // The rotor was told the move was made, and said nothing.
+    const trace = dots(Orientation.HORIZONTAL, null);
+    trace.moveOnce('FORWARD');
+    const { rotor, notify } = lowerValueRotor(trace);
+
+    rotor.moveRight();
+
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(at(trace)).toEqual(['/search', 412]);
+  });
+
+  test('Right moves along the category, and past its last end says so', () => {
     const trace = TraceFactory.create({
       id: 'gains',
       type: TraceType.DUMBBELL,
@@ -366,24 +394,18 @@ describe('the rotor on a chart drawn on its side', () => {
     const sent: TraceState[] = [];
     trace.addObserver({ update: (state: TraceState) => sent.push(state) } as never);
     trace.moveOnce('FORWARD');
-    const notification = { notify: jest.fn() } as unknown as NotificationService;
-    const rotor = new RotorNavigationService(
-      { active: trace, setRotorEnabled: jest.fn() } as unknown as Context,
-      { isOff: () => false, isTerse: () => false } as unknown as TextService,
-      notification,
-    );
-    for (let unit = 0; unit < 10 && rotor.getMode() !== t('rotor.lowerValueMode'); unit++) {
-      rotor.moveToNextRotorUnit();
-    }
-    expect(rotor.getMode()).toBe(t('rotor.lowerValueMode'));
+    const { rotor, notify } = lowerValueRotor(trace);
+
     expect(rotor.moveRight()).toBeNull();
     expect([trace.row, trace.col]).toEqual([1, 0]);
+    expect(notify).not.toHaveBeenCalled();
     sent.length = 0;
 
-    expect(rotor.moveRight()).toBeNull();
+    rotor.moveRight();
 
+    // The edge is told twice over, as an arrow's is and as the rotor's own.
     expect(sent).toEqual([expect.objectContaining({ empty: true, type: 'trace' })]);
-    expect(notification.notify).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledTimes(1);
     expect([trace.row, trace.col]).toEqual([1, 0]);
   });
 });

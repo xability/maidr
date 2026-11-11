@@ -640,28 +640,28 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * search runs along the categories, which Up and Down walk there.
    *
    * @param mode - Whether a lower or a higher value is sought
-   * @returns Whether the cursor moved
+   * @returns Whether the cursor moved. False at the end of the category -- on
+   *   a chart of one series, always -- so the rotor says there is nothing
+   *   further that way; it reported true, and the rotor said nothing.
    */
   public override moveLeftRotor(mode?: 'lower' | 'higher'): boolean {
     if (!this.categoriesRunDown) {
       return super.moveLeftRotor(mode);
     }
-    this.moveOnce('BACKWARD');
-    return true;
+    return this.moveOnce('BACKWARD');
   }
 
   /**
    * The rotor, Right. See {@link moveLeftRotor}.
    *
    * @param mode - Whether a lower or a higher value is sought
-   * @returns Whether the cursor moved
+   * @returns Whether the cursor moved, false at the end of the category
    */
   public override moveRightRotor(mode?: 'lower' | 'higher'): boolean {
     if (!this.categoriesRunDown) {
       return super.moveRightRotor(mode);
     }
-    this.moveOnce('FORWARD');
-    return true;
+    return this.moveOnce('FORWARD');
   }
 
   /**
@@ -680,6 +680,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (!this.categoriesRunDown) {
       return direction;
     }
+    // `MovableDirection` is these four and no more, so the switch is
+    // exhaustive: a fifth member would leave a path returning nothing, which
+    // the declared return type fails the build on.
     switch (direction) {
       case 'UPWARD':
         return this.firstCategoryOnTop() ? 'BACKWARD' : 'FORWARD';
