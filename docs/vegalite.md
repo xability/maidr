@@ -100,6 +100,7 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `line`, `trail`, `area` | `interpolate: 'step'`, `'step-before'`, `'step-after'` | Step | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
 | `line`, `trail` | a `regression` or `loess` transform | Smooth | — |
 | `point`, `circle`, `square`, `tick` | — | Scatter | [vegalite-bindscatter.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindscatter.html) |
+| `point`, `circle`, `square`, `tick` | a nominal or ordinal `color`/`fill` field | Scatter, a layer per colour group | — |
 | `rect` | — | Heatmap | [vegalite-bindheatmap.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindheatmap.html) |
 | `boxplot` | — | Box plot (vertical & horizontal) | [vegalite-bindbox.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) |
 | `arc` | `theta` encoding | Pie (`mark.innerRadius` makes it a doughnut) | [vegalite-pie.html](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) |
@@ -136,6 +137,8 @@ over the same channels, so every line reading above applies to a trail
 unchanged. The varying width is the one thing lost — a line point carries a
 coordinate pair and no thickness — which is a second encoding of something a
 reader already reaches by navigating.
+
+A scatter coloured by a nominal or ordinal field is read as one layer per colour group, so PageUp and PageDown move from group to group. The groups come in the order the legend lists them, which is the colour scale's domain on a compiled view. Each is named as the legend labels it, a null value as "null", and takes the legend's title as its z axis. A colour along a continuous scale shades the points rather than grouping them, so that scatter stays one layer, as does one its spec declares with `usermeta.maidr`.
 
 An `arc` mark is only a pie when it has a `theta` encoding: `theta` is the channel carrying the slice magnitudes, and an `arc` without one has no values to sonify, announce, or take percentages of. Such a spec is left unbound rather than announced as a pie whose numbers MAIDR would have to invent. An `arc` whose `radius` reads a data field is a polar area instead, where the wedge's length is the magnitude and its angle only says which category it is.
 
