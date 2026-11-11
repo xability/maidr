@@ -139,8 +139,12 @@ export type VictoryLayerData
      * of a common whole.
      */
     | { kind: 'stackedArea'; points: LinePoint[][]; normalized: boolean }
-    /** A `VictoryBar` drawn `polar` — values as wedges around a circle. */
-    | { kind: 'polarArea'; points: LinePoint[][] }
+    /**
+     * A `VictoryBar` drawn `polar` — values as wedges around a circle.
+     * `dial` is where its first wedge's middle points and which way the
+     * wedges run, in the grammar's terms, empty at the defaults.
+     */
+    | { kind: 'polarArea'; points: LinePoint[][]; dial: Pick<MaidrLayer, 'startAngle' | 'direction'> }
     | { kind: 'scatter'; points: ScatterPoint[] }
     /**
      * A `VictoryScatter` whose x values name categories — a Cleveland dot

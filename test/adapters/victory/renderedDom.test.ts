@@ -423,6 +423,54 @@ describe('victory polar area', () => {
     // a mark from it.
     expect(wedges.every(wedge => wedge.hasAttribute('transform'))).toBe(true);
   });
+
+  it.each([
+    { what: 'as Victory draws it by default, counterclockwise from 3 o\'clock', chart: {} },
+    { what: 'drawn clockwise from 12 o\'clock', chart: { startAngle: 90, endAngle: -270 } },
+  ])('pans each wedge where it is drawn, and Right moves clockwise round them, $what', ({ chart }) => {
+    const compass = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      { polar: true, ...chart },
+      createElement(VictoryPolarAxis, { key: 'axis' }),
+      createElement(VictoryBar, { key: 'bar', data: compass.map((x, i) => ({ x, y: 10 + i })) }),
+    ));
+    // Where each wedge is drawn: the middle of its arc, in degrees clockwise
+    // from 12 o'clock about the centre it is translated to.
+    const [wedges] = resolveSeries(doc, layers[0]);
+    const drawnAt = new Map(compass.map((name, i) => [name, wedgeClockAngle(wedges[i])]));
+
+    const walk = withPageDocument(doc.body, () => {
+      const trace = TraceFactory.create(layers[0]);
+      const read = compass.map((_, col) => {
+        trace.moveToIndex(0, col);
+        const { state } = trace;
+        if (state.empty || state.type !== 'trace')
+          throw new Error('Expected a populated trace state');
+        const { x, cols } = state.audio.panning;
+        return { name: String(state.text.main.value), pan: (x / (cols - 1)) * 2 - 1 };
+      });
+      trace.dispose();
+      return read;
+    });
+
+    for (const { name, pan } of walk)
+      expect(pan).toBeCloseTo(Math.sin((drawnAt.get(name) as number) * Math.PI / 180), 6);
+    // Each step on is the next wedge clockwise, a turn's share round.
+    const angles = walk.map(({ name }) => drawnAt.get(name) as number);
+    for (let i = 1; i < angles.length; i++)
+      expect((angles[i] - angles[i - 1] + 360) % 360).toBeCloseTo(45, 6);
+  });
+
+  /** Degrees clockwise from 12 o'clock of the middle of a Victory wedge's arc. */
+  function wedgeClockAngle(wedge: Element): number {
+    // `M x0,y0 A rx,ry,rotation,large,sweep,x1,y1 L 0,0 z`, about the origin.
+    const n = Array.from((wedge.getAttribute('d') ?? '').matchAll(/-?[\d.]+(?:e[-+]?\d+)?/gi), m => Number(m[0]));
+    const clock = (x: number, y: number): number => ((Math.atan2(x, -y) * 180) / Math.PI + 360) % 360;
+    const [from, to] = [clock(n[0], n[1]), clock(n[7], n[8])];
+    const middle = (from + to) / 2;
+    return Math.abs(from - to) > 180 ? (middle + 180) % 360 : middle;
+  }
 });
 
 describe('victory dot plot', () => {

@@ -31,7 +31,7 @@ import {
   warnUnreadBand,
   warnUnreadMedian,
 } from '@adapters/shared/percentileBandOption';
-import { isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
+import { clockFromCounterclockwiseOf3, isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
 import { drawsPrCurves } from '@adapters/shared/prCurveAxes';
 import { Orientation, TraceType } from '@type/grammar';
 import { Children, isValidElement } from 'react';
@@ -441,16 +441,46 @@ function extractAreaData(
  *
  * The payload is a single-series line grid because that is what MAIDR's radar
  * family navigates: one column per spoke, with the spoke angles derived by the
- * trace itself.
+ * trace itself from where the first one points and which way they run.
+ *
+ * @param props  - The bar's props
+ * @param angles - The polar chart's `startAngle` and `endAngle`: the
+ *                 `VictoryChart`'s, which Victory draws a chart's bars with
+ *                 over their own, or the bar's own outside a chart
  */
 function extractPolarAreaData(
   props: Record<string, unknown>,
+  angles: PolarAngles,
 ): { data: VictoryLayerData; count: number } | null {
   const points = readLinePoints(props);
   if (!points)
     return null;
 
-  return { data: { kind: 'polarArea', points: [points] }, count: points.length };
+  // Victory measures a polar chart's angles counterclockwise from 3 o'clock,
+  // 0 to 360 by default, and centres each category's wedge on its share of a
+  // full turn: the first on `startAngle`, the next a turn's share on towards
+  // `endAngle`. Over a part of a turn the wedges are not spread evenly, and
+  // no first spoke and direction say where they are, so none is declared.
+  const start = isAngle(angles.startAngle) ? angles.startAngle : 0;
+  const end = isAngle(angles.endAngle) ? angles.endAngle : 360;
+  const dial = Math.abs(end - start) === 360
+    ? pieGeometry(clockFromCounterclockwiseOf3(start), end < start)
+    : {};
+
+  return { data: { kind: 'polarArea', points: [points], dial }, count: points.length };
+}
+
+/** A polar chart's `startAngle` and `endAngle`, as given, if given. */
+interface PolarAngles {
+  startAngle?: unknown;
+  endAngle?: unknown;
+}
+
+/** The props of a `<VictoryChart>` the layers are read with. */
+interface ChartProps extends PolarAngles {
+  children?: ReactNode;
+  polar?: boolean;
+  horizontal?: boolean;
 }
 
 /**
@@ -972,6 +1002,10 @@ function extractWaterfallData(
 
 /**
  * Converts a single Victory data component into a {@link VictoryLayerInfo}.
+ *
+ * `chartAngles` are the enclosing `<VictoryChart>`'s `startAngle` and
+ * `endAngle`, which Victory draws a polar chart's data with whatever the data
+ * component gives; a component outside a chart is drawn with its own.
  */
 function extractLayerFromElement(
   element: ReactElement,
@@ -979,6 +1013,7 @@ function extractLayerFromElement(
   axisLabels: { x?: string; y?: string },
   inheritedPolar: boolean | undefined,
   inheritedHorizontal: boolean | undefined,
+  chartAngles?: PolarAngles,
 ): VictoryLayerInfo | null {
   const name = getVictoryDisplayName(element.type);
   if (!name || !isDataComponent(name))
@@ -1000,7 +1035,7 @@ function extractLayerFromElement(
       // waterfall. Both fall back to a plain bar when the data does not
       // support the reading.
       extracted = polar
-        ? extractPolarAreaData(props)
+        ? extractPolarAreaData(props, chartAngles ?? props)
         : extractWaterfallData(props) ?? extractBarData(props);
       break;
     case 'VictoryErrorBar':
@@ -1466,6 +1501,7 @@ function collectDataLayers(
   makeId: (localIndex: number) => string,
   chartPolar?: boolean,
   chartHorizontal?: boolean,
+  chartAngles?: PolarAngles,
 ): VictoryLayerInfo[] {
   const layers: VictoryLayerInfo[] = [];
 
@@ -1537,6 +1573,7 @@ function collectDataLayers(
         index => makeId(layers.length + index),
         groupPolar,
         chartHorizontal,
+        chartAngles,
       ));
       return;
     }
@@ -1548,6 +1585,7 @@ function collectDataLayers(
       axisLabels,
       chartPolar,
       chartHorizontal,
+      chartAngles,
     );
     if (layer)
       layers.push(layer);
@@ -1576,7 +1614,7 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
     const name = getVictoryDisplayName(child.type);
 
     if (name === 'VictoryChart') {
-      const chartProps = child.props as { children?: ReactNode; polar?: boolean; horizontal?: boolean };
+      const chartProps = child.props as ChartProps;
       const { labels, invertedIndependent } = extractAxisInfo(chartProps.children);
       layers.push(...readInDrawnOrder(
         collectDataLayers(
@@ -1585,6 +1623,7 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
           n => String(layers.length + n),
           chartProps.polar,
           chartProps.horizontal,
+          { startAngle: chartProps.startAngle, endAngle: chartProps.endAngle },
         ),
         invertedIndependent,
       ));
@@ -1653,7 +1692,7 @@ export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[
   }
 
   return charts.map(({ element, svgIndex }, panelIndex) => {
-    const chartProps = element.props as { children?: ReactNode; title?: string; polar?: boolean; horizontal?: boolean };
+    const chartProps = element.props as ChartProps & { title?: string };
     const { labels, invertedIndependent } = extractAxisInfo(chartProps.children);
     return {
       layers: readInDrawnOrder(
@@ -1663,6 +1702,7 @@ export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[
           n => `${panelIndex}_${n}`,
           chartProps.polar,
           chartProps.horizontal,
+          { startAngle: chartProps.startAngle, endAngle: chartProps.endAngle },
         ),
         invertedIndependent,
       ),
@@ -1859,6 +1899,9 @@ export function toMaidrLayer(
           x: { label: layer.xAxisLabel ?? 'Category' },
           y: { label: layer.yAxisLabel ?? 'Value' },
         },
+        // Where the first wedge points and which way the rest run, so each
+        // is panned where it is drawn and Right moves clockwise round them.
+        ...data.dial,
         selectors: toSeriesSelectors(selector),
         data: data.points,
       };
