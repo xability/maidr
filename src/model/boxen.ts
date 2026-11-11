@@ -1,5 +1,5 @@
 import type { ExtremaTarget } from '@type/extrema';
-import type { BoxenPoint, LetterValueLevel, MaidrLayer } from '@type/grammar';
+import type { BoxenPoint, BoxenSelector, LetterValueLevel, MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextAside, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
@@ -13,7 +13,7 @@ import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
- * One navigable position on a boxen: a value and what that value is.
+ * One rung of a ladder: a value and the quantile it is.
  *
  * Held rather than derived on each move because the ladder is walked in value
  * order while the data arrives as pairs, so the flattening happens once.
@@ -24,6 +24,32 @@ interface Rung {
   label: string;
   /** The quantile it is, from 0 to 1: `p` below the median, `1 - p` above. */
   quantile: number;
+}
+
+/** Which end of a ladder an outlier is drawn beyond. */
+type Side = 'lower' | 'upper';
+
+/**
+ * Where a walk across distributions is held: on a rung, its quantile; on an
+ * outlier, which has none, its side and how many outliers on that side lie
+ * further out than it.
+ */
+type Anchor = { quantile: number } | { side: Side; rank: number };
+
+/** One navigable position on a boxen: a rung, or an outlier past the ladder. */
+interface Stop {
+  value: number;
+  /** What the announcement calls it. */
+  label: string;
+  anchor: Anchor;
+}
+
+/** The elements a layer names for its distributions. */
+interface Drawn {
+  /** Each distribution's element, which holds its ladder. */
+  ladders: SVGElement[];
+  /** Each distribution's outlier marks, or null where the layer names none. */
+  outliers: (SVGElement[] | null)[];
 }
 
 /** One drawn box of a ladder and its extent along the value axis. */
@@ -131,6 +157,11 @@ function englishOrdinalSuffix(percent: number): string {
  * jump at the ends is the finding, and it is the thing a box plot's fixed
  * whisker flattens into a single number.
  *
+ * The outliers drawn past either end are stops too, one per point, walked on
+ * from the deepest rung in the same value order: each is a value of its own,
+ * with its own tone, braille cell and outline, as the chart draws each as a
+ * mark of its own.
+ *
  * Each position announces the percentile it actually is rather than a rung
  * number, because "the 12.5th percentile" is a number a reader can place and
  * "level 3" is one they have to count back from.
@@ -150,14 +181,29 @@ export class BoxenTrace extends AbstractTrace {
   private readonly rungs: Rung[][];
   private readonly rungValues: number[][];
 
+  /**
+   * What is walked, one row per distribution: its lower outliers, its ladder,
+   * then its upper outliers, all in value order.
+   */
+  private readonly stops: Stop[][];
+  private readonly stopValues: number[][];
+
+  /** Where each distribution's ladder starts among its stops: past its lower outliers. */
+  private readonly ladderStart: number[];
+
+  /** The ends of the quantile range, the deepest rungs any ladder reaches. */
   private readonly min: number;
   private readonly max: number;
 
+  /** The chart's scale for tones and braille, which runs out to the outliers. */
+  private readonly scaleMin: number;
+  private readonly scaleMax: number;
+
   /**
-   * The quantile a walk across distributions is holding, or null when the
-   * reader last moved along a ladder or jumped to a position.
+   * Where a walk across distributions is held, or null when the reader last
+   * moved along a ladder or jumped to a position.
    */
-  private heldQuantile: number | null = null;
+  private held: Anchor | null = null;
 
   /**
    * The element the chart drew each distribution as, as the selectors named
@@ -181,6 +227,9 @@ export class BoxenTrace extends AbstractTrace {
 
     this.rungs = this.points.map(point => BoxenTrace.ladderOf(point));
     this.rungValues = this.rungs.map(ladder => ladder.map(rung => rung.value));
+    this.stops = this.points.map((point, row) => BoxenTrace.stopsOf(point, this.rungs[row]));
+    this.stopValues = this.stops.map(stops => stops.map(stop => stop.value));
+    this.ladderStart = this.points.map(point => BoxenTrace.outliersOf(point.lowerOutliers).length);
 
     // One scale for the chart rather than one per distribution: a boxen is
     // drawn to compare distributions, and per-row bounds would put every
@@ -189,17 +238,27 @@ export class BoxenTrace extends AbstractTrace {
     const bounds = MathUtil.minMax(this.rungValues.flat().filter(Number.isFinite));
     this.min = bounds.min;
     this.max = bounds.max;
+    const scale = MathUtil.minMax(this.stopValues.flat().filter(Number.isFinite));
+    this.scaleMin = scale.min;
+    this.scaleMax = scale.max;
 
     const drawn = this.resolveDistributions(layer.selectors);
-    this.distributionElements = drawn ?? [];
+    this.distributionElements = drawn?.ladders ?? [];
     const reads = this.distributionElements
       .map((element, row) => BoxenTrace.ladderRead(element, this.rungs[row].length, this.orientation));
-    const upward = BoxenTrace.valueAxisRunsUp(reads, this.rungs);
+    // Every way the chart says which end of the axis is low: the tiled
+    // ladders together, and each distribution's outliers. Taken only when
+    // what says anything agrees.
+    const said = [
+      BoxenTrace.valueAxisRunsUp(reads, this.rungs),
+      ...this.distributionElements.map((element, row) => this.outliersRunUp(row, element, drawn?.outliers[row] ?? null)),
+    ].filter((one): one is boolean => one !== null);
+    const upward = said.length > 0 && said.every(one => one === said[0]) ? said[0] : null;
     this.highlightValues = drawn === null
       ? null
-      : drawn.map((element, row) =>
-          BoxenTrace.outlinesOf(element, this.rungs[row], BoxenTrace.stopBoxes(reads[row], upward)));
-    this.movable = new MovableGrid<number>(this.rungValues);
+      : drawn.ladders.map((element, row) =>
+          this.outlinesAt(row, element, drawn.outliers[row], BoxenTrace.stopBoxes(reads[row], upward), upward));
+    this.movable = new MovableGrid<number>(this.stopValues);
   }
 
   /**
@@ -242,15 +301,53 @@ export class BoxenTrace extends AbstractTrace {
   }
 
   /**
-   * Moves the cursor, holding the quantile when it changes distribution.
+   * One distribution's stops: its ladder, with the outliers drawn past each
+   * end walked on from the deepest rung, a stop per point, in value order.
+   *
+   * @param point - One distribution
+   * @param ladder - Its ladder, from {@link BoxenTrace.ladderOf}
+   * @returns Its stops, from the lowest outlier upward
+   */
+  private static stopsOf(point: BoxenPoint, ladder: Rung[]): Stop[] {
+    const lower = BoxenTrace.outliersOf(point.lowerOutliers);
+    const upper = BoxenTrace.outliersOf(point.upperOutliers);
+    return [
+      ...lower.map((value, index): Stop => ({
+        value,
+        label: t('model.boxenLowerOutlier'),
+        anchor: { side: 'lower', rank: index },
+      })),
+      ...ladder.map((rung): Stop => ({ value: rung.value, label: rung.label, anchor: { quantile: rung.quantile } })),
+      ...upper.map((value, index): Stop => ({
+        value,
+        label: t('model.boxenUpperOutlier'),
+        anchor: { side: 'upper', rank: upper.length - 1 - index },
+      })),
+    ];
+  }
+
+  /**
+   * One side's outliers as they are walked: the ones that are numbers, lowest
+   * first.
+   *
+   * @param values - The outliers a distribution declares on one side
+   * @returns Them in value order
+   */
+  private static outliersOf(values: number[] | undefined): number[] {
+    return (values ?? []).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+  }
+
+  /**
+   * Moves the cursor, holding its place when it changes distribution.
    *
    * Along a ladder the index is the position, so a move along it is the
    * grid's own. Between distributions the index is not a position: ladders
    * differ in depth, and the third rung of a three-level ladder is its 25th
    * percentile while the third of a four-level one is its 12.5th. So the
-   * distribution is stepped and the rung re-chosen as the one nearest the
-   * quantile the reader is on -- the same percentile where the next ladder
-   * has it, and its nearest rung where the ladder stops short of it.
+   * distribution is stepped and the stop re-chosen: on a rung, the one
+   * nearest the quantile the reader is on -- the same percentile where the
+   * next ladder has it, and its nearest rung where the ladder stops short of
+   * it; on an outlier, see {@link BoxenTrace.stopFor}.
    *
    * @param direction - Which way to move
    * @returns True if the cursor moved
@@ -259,8 +356,8 @@ export class BoxenTrace extends AbstractTrace {
     if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
       const moved = super.moveOnce(direction);
       if (moved) {
-        // Choosing a new rung is choosing a new quantile to hold.
-        this.heldQuantile = null;
+        // Choosing a new stop is choosing a new place to hold.
+        this.held = null;
       }
       return moved;
     }
@@ -275,15 +372,15 @@ export class BoxenTrace extends AbstractTrace {
       this.notifyOutOfBounds();
       return false;
     }
-    return this.moveHoldingQuantile(target);
+    return this.moveHolding(target);
   }
 
   /**
-   * Jumps to the first or last distribution, holding the quantile.
+   * Jumps to the first or last distribution, holding the reader's place.
    *
    * A jump between distributions has the step's problem: the grid would carry
-   * the rung index into the far ladder. A jump along a ladder is the grid's
-   * own, and lets go of the held quantile as a step along it does.
+   * the stop index into the far ladder. A jump along a ladder is the grid's
+   * own, and lets go of the held place as a step along it does.
    *
    * @param direction - Which edge to jump to
    * @returns True if the cursor moved
@@ -292,7 +389,7 @@ export class BoxenTrace extends AbstractTrace {
     if (direction !== 'UPWARD' && direction !== 'DOWNWARD') {
       const moved = super.moveToExtreme(direction);
       if (moved) {
-        this.heldQuantile = null;
+        this.held = null;
       }
       return moved;
     }
@@ -300,14 +397,14 @@ export class BoxenTrace extends AbstractTrace {
     if (this.isInitialEntry || this.rungs.length === 0) {
       return super.moveToExtreme(direction);
     }
-    return this.moveHoldingQuantile(direction === 'UPWARD' ? this.rungs.length - 1 : 0);
+    return this.moveHolding(direction === 'UPWARD' ? this.rungs.length - 1 : 0);
   }
 
   public override moveToIndex(row: number, col: number): boolean {
     const moved = super.moveToIndex(row, col);
     if (moved) {
       // A jump to a position is a new starting point, not a continuation.
-      this.heldQuantile = null;
+      this.held = null;
     }
     return moved;
   }
@@ -316,19 +413,19 @@ export class BoxenTrace extends AbstractTrace {
    * Sends the reader back to enter the chart afresh, holding nothing.
    *
    * Leaving the trace and coming back (another subplot, another layer)
-   * resets it, and the reader enters on its first rung. Held across the
-   * reset, the quantile of the walk they had left decided where the next
-   * Up or Down went, rather than the rung they entered on.
+   * resets it, and the reader enters on its first stop. Held across the
+   * reset, the place of the walk they had left decided where the next Up or
+   * Down went, rather than the stop they entered on.
    */
   public override resetToInitialEntry(): void {
-    this.heldQuantile = null;
+    this.held = null;
     super.resetToInitialEntry();
   }
 
   /**
-   * Moves to a distribution, onto its rung nearest the quantile being held.
+   * Moves to a distribution, onto its stop for the place being held.
    *
-   * The quantile is the one the reader set out from, not the one the last
+   * The place is the one the reader set out from, not the one the last
    * ladder landed on: walking from a deep ladder through a shallow one to
    * another deep one, the shallow one has to settle for its deepest rung,
    * and the deep one after it still has the percentile the reader started at.
@@ -336,14 +433,44 @@ export class BoxenTrace extends AbstractTrace {
    * @param row - The distribution to move to
    * @returns True if the cursor moved
    */
-  private moveHoldingQuantile(row: number): boolean {
-    const held = this.heldQuantile ?? this.rungs[this.row]?.[this.col]?.quantile ?? 0.5;
-    const moved = this.moveToIndex(row, BoxenTrace.nearestRung(this.rungs[row], held));
+  private moveHolding(row: number): boolean {
+    const anchor = this.held ?? this.stops[this.row]?.[this.col]?.anchor ?? { quantile: 0.5 };
+    const moved = this.moveToIndex(row, this.stopFor(row, anchor));
     if (moved) {
       // Set after the move, since moveToIndex clears it.
-      this.heldQuantile = held;
+      this.held = anchor;
     }
     return moved;
+  }
+
+  /**
+   * The stop of a distribution for a place held from another.
+   *
+   * A quantile lands on the rung nearest it, never on an outlier, which has
+   * no quantile to be near. An outlier lands on the outlier as far out on the
+   * same side: the most extreme on the most extreme, so a reader comparing
+   * the distributions' furthest points steps from one to the next. Where the
+   * distribution has fewer it lands on its innermost, and where it has none
+   * on the deepest rung on that side, the furthest it goes.
+   *
+   * @param row - The distribution
+   * @param anchor - The place being held
+   * @returns The index of the stop
+   */
+  private stopFor(row: number, anchor: Anchor): number {
+    const start = this.ladderStart[row];
+    const ladder = this.rungs[row];
+    if ('quantile' in anchor) {
+      return start + BoxenTrace.nearestRung(ladder, anchor.quantile);
+    }
+    const end = start + ladder.length - 1;
+    const total = this.stops[row].length;
+    const count = anchor.side === 'lower' ? start : total - 1 - end;
+    if (count === 0) {
+      return anchor.side === 'lower' ? start : end;
+    }
+    const rank = Math.min(anchor.rank, count - 1);
+    return anchor.side === 'lower' ? rank : total - 1 - rank;
   }
 
   /**
@@ -371,33 +498,208 @@ export class BoxenTrace extends AbstractTrace {
 
   /**
    * Resolves the layer's selectors to the element each distribution is drawn
-   * as, one per distribution in the order the data lists them.
+   * as, one per distribution in the order the data lists them, and to the
+   * marks of its outliers where the layer names them.
    *
    * Withdrawn unless the count matches exactly: a list that has slipped by
    * one highlights a neighbouring distribution for the rest of the chart,
    * which is worse than not highlighting at all. Nothing is cloned here, so
-   * declining leaves the chart as it was.
+   * declining leaves the chart as it was, and every selector is resolved
+   * before the first copy is inserted beside what it copies.
    *
    * @param selectors - The layer's selectors, when it has any
    * @returns The chart's own elements, or null when unresolvable
    */
   private resolveDistributions(
     selectors?: MaidrLayer['selectors'],
-  ): SVGElement[] | null {
+  ): Drawn | null {
     // `MaidrLayer['selectors']` also admits `(string | null)[][]` and the box and
     // candlestick shapes, and `Array.isArray` alone lets all of them through
     // to a cast. Narrowing on the elements instead means the guard matches
     // what the type allows, rather than leaning on `isUsableSelector` to
     // reject each entry one at a time and leave an empty list behind.
-    let live: SVGElement[];
+    let ladders: SVGElement[];
+    let outliers: (SVGElement[] | null)[];
     if (typeof selectors === 'string') {
-      live = Svg.selectAllElements(selectors, false);
+      ladders = Svg.selectAllElements(selectors, false);
+      outliers = ladders.map(() => null);
     } else if (Array.isArray(selectors) && selectors.every(one => typeof one === 'string')) {
-      live = selectors.flatMap(one => Svg.selectAllElements(one, false));
+      ladders = selectors.flatMap(one => Svg.selectAllElements(one, false));
+      outliers = ladders.map(() => null);
+    } else if (Array.isArray(selectors) && selectors.every(BoxenTrace.isBoxenSelector)) {
+      // One entry per distribution, so each names one element: a total that
+      // matched with one entry naming two and another none would pair every
+      // distribution after them with its neighbour's ladder.
+      const named = selectors.map(one => Svg.selectAllElements(one.ladder, false));
+      if (named.some(elements => elements.length !== 1)) {
+        return null;
+      }
+      ladders = named.flat();
+      outliers = selectors.map(one => BoxenTrace.marksOf(one.outliers));
     } else {
       return null;
     }
-    return live.length === this.points.length ? live : null;
+    return ladders.length === this.points.length ? { ladders, outliers } : null;
+  }
+
+  /**
+   * Whether one entry of a layer's selectors names a boxen distribution as
+   * an object: its ladder, and the marks of its outliers.
+   *
+   * @param one - An entry of the layer's selectors
+   * @returns True for a {@link BoxenSelector}
+   */
+  private static isBoxenSelector(one: unknown): one is BoxenSelector {
+    return typeof one === 'object' && one !== null && typeof (one as BoxenSelector).ladder === 'string';
+  }
+
+  /**
+   * The marks a distribution's outlier selectors name, concatenated.
+   *
+   * MAIDR's own copies are left out: one is inserted beside the mark it
+   * copies, so a selector matching every mark of a flier group matches it too
+   * while it is there.
+   *
+   * @param selectors - The selectors, when the layer gives any
+   * @returns The chart's own marks, or null when the layer names none
+   */
+  private static marksOf(selectors: string[] | undefined): SVGElement[] | null {
+    if (!Array.isArray(selectors)) {
+      return null;
+    }
+    return selectors
+      .filter(one => typeof one === 'string')
+      .flatMap(one => Svg.selectAllElements(one, false))
+      .filter(mark => !Svg.isOwned(mark));
+  }
+
+  /**
+   * What each stop of one distribution outlines: its outliers' marks, and the
+   * boxes of its ladder.
+   *
+   * Whatever cannot be read off the chart -- a ladder that is not its
+   * element's boxes, outliers whose marks the layer does not name or names
+   * a different number of -- outlines the whole distribution, copied once
+   * however many stops share it.
+   *
+   * @param row - Which distribution
+   * @param element - The chart's element for it
+   * @param marks - The marks the layer names for its outliers, or null
+   * @param boxes - The box for each rung, from {@link BoxenTrace.stopBoxes}, or null
+   * @param upward - Whether the value axis runs up the page or to the right,
+   *   or null when that cannot be told
+   * @returns One highlight element per stop
+   */
+  private outlinesAt(
+    row: number,
+    element: SVGElement,
+    marks: SVGElement[] | null,
+    boxes: SVGElement[] | null,
+    upward: boolean | null,
+  ): SVGElement[] {
+    let whole: SVGElement | null = null;
+    const wholeCopy = (): SVGElement => {
+      whole ??= Svg.cloneHidden(element);
+      return whole;
+    };
+    const ladder = this.rungs[row];
+    const start = this.ladderStart[row];
+    const end = start + ladder.length;
+    const stops = this.stops[row];
+    // Lower and upper together are in value order, the ladder lying between.
+    const outlierValues = [...stops.slice(0, start), ...stops.slice(end)].map(stop => stop.value);
+
+    const outliers = BoxenTrace.outlierOutlines(marks, outlierValues, this.orientation, upward)
+      ?? outlierValues.map(wholeCopy);
+    const rungs = BoxenTrace.outlinesOf(ladder, boxes, wholeCopy);
+    return [...outliers.slice(0, start), ...rungs, ...outliers.slice(start)];
+  }
+
+  /**
+   * What each outlier of a distribution outlines: its own mark, paired with
+   * it by where the mark is drawn along the value axis -- lowest value
+   * lowest on the page or furthest left, or the other way round on a
+   * reversed axis.
+   *
+   * @param marks - The marks the layer names for the outliers, or null
+   * @param values - The outliers, lowest first
+   * @param orientation - Which way the boxen is drawn
+   * @param upward - Whether the value axis runs up the page or to the right,
+   *   or null when that cannot be told
+   * @returns A copy of each outlier's mark, or null when they cannot be paired
+   */
+  private static outlierOutlines(
+    marks: SVGElement[] | null,
+    values: number[],
+    orientation: Orientation,
+    upward: boolean | null,
+  ): SVGElement[] | null {
+    if (values.length === 0) {
+      return [];
+    }
+    if (marks === null || marks.length !== values.length || upward === null) {
+      return null;
+    }
+    const placed = marks.map(mark => ({ mark, at: BoxenTrace.placeOf(mark, orientation) }));
+    // Marks not laid out yet all sit at one point, where any pairing would
+    // pass; only outliers of one value can share one.
+    const ats = placed.map(one => one.at);
+    if (Math.max(...values) > Math.min(...values) && !(Math.max(...ats) > Math.min(...ats))) {
+      return null;
+    }
+    const drawnOrder = placed.sort((a, b) => a.at - b.at);
+    return (upward ? drawnOrder : drawnOrder.reverse()).map(({ mark }) => Svg.cloneHidden(mark));
+  }
+
+  /**
+   * Where a mark is drawn along the value axis: its centre, measured up the
+   * page for a boxen standing up and left to right for one lying on its side.
+   *
+   * @param mark - The mark
+   * @param orientation - Which way the boxen is drawn
+   * @returns Its place, in screen pixels
+   */
+  private static placeOf(mark: SVGElement, orientation: Orientation): number {
+    const rect = mark.getBoundingClientRect();
+    return orientation === Orientation.HORIZONTAL
+      ? rect.left + rect.width / 2
+      : -(rect.top + rect.height / 2);
+  }
+
+  /**
+   * Which way the value axis runs, as one distribution's outlier marks say.
+   *
+   * The lower outliers are drawn past the low end of the ladder and the
+   * upper ones past its high end, so how many marks lie on either side of
+   * the ladder tells the ends apart -- wherever the two sides have different
+   * numbers of outliers, as they nearly always do. Two sides with as many
+   * say nothing, and neither do marks drawn over the ladder.
+   *
+   * @param row - Which distribution
+   * @param element - The chart's element for its ladder
+   * @param marks - The marks the layer names for its outliers, or null
+   * @returns True up or rightward, false the other way, null when unknown
+   */
+  private outliersRunUp(row: number, element: SVGElement, marks: SVGElement[] | null): boolean | null {
+    const lower = this.ladderStart[row];
+    const upper = this.stops[row].length - lower - this.rungs[row].length;
+    if (marks === null || marks.length !== lower + upper || lower === upper) {
+      return null;
+    }
+    const rect = element.getBoundingClientRect();
+    const [from, to] = this.orientation === Orientation.HORIZONTAL
+      ? [rect.left, rect.right]
+      : [-rect.bottom, -rect.top];
+    const ats = marks.map(mark => BoxenTrace.placeOf(mark, this.orientation));
+    const before = ats.filter(at => at < from).length;
+    const after = ats.filter(at => at > to).length;
+    if (before + after !== marks.length) {
+      return null;
+    }
+    if (before === lower && after === upper) {
+      return true;
+    }
+    return before === upper && after === lower ? false : null;
   }
 
   /**
@@ -405,19 +707,18 @@ export class BoxenTrace extends AbstractTrace {
    * ladder the stop is read off, as the chart drew it, or the whole element
    * where its boxes could not be paired with the stops.
    *
-   * @param element - The chart's element for the distribution
-   * @param ladder - Its stops, in walking order
-   * @param boxes - The box for each stop, from {@link BoxenTrace.stopBoxes}, or null
-   * @returns One highlight element per stop
+   * @param ladder - Its rungs, in walking order
+   * @param boxes - The box for each rung, from {@link BoxenTrace.stopBoxes}, or null
+   * @param wholeCopy - The copy of the whole element, made when first asked for
+   * @returns One highlight element per rung
    */
   private static outlinesOf(
-    element: SVGElement,
     ladder: Rung[],
     boxes: SVGElement[] | null,
+    wholeCopy: () => SVGElement,
   ): SVGElement[] {
     if (boxes === null) {
-      const whole = Svg.cloneHidden(element);
-      return ladder.map(() => whole);
+      return ladder.map(wholeCopy);
     }
     // One copy of each box however many stops outline it, as the chart drew
     // it once.
@@ -673,14 +974,14 @@ export class BoxenTrace extends AbstractTrace {
   }
 
   protected get values(): number[][] {
-    return this.rungValues;
+    return this.stopValues;
   }
 
   protected get dimension(): Dimension {
     return {
-      rows: this.rungValues.length,
-      cols: this.rungValues.reduce(
-        (widest, ladder) => Math.max(widest, ladder.length),
+      rows: this.stopValues.length,
+      cols: this.stopValues.reduce(
+        (widest, stops) => Math.max(widest, stops.length),
         0,
       ),
     };
@@ -689,15 +990,15 @@ export class BoxenTrace extends AbstractTrace {
   protected get audio(): AudioState {
     return {
       freq: {
-        min: this.min,
-        max: this.max,
-        raw: this.rungValues[this.row]?.[this.col] ?? Number.NaN,
+        min: this.scaleMin,
+        max: this.scaleMax,
+        raw: this.stopValues[this.row]?.[this.col] ?? Number.NaN,
       },
       panning: {
         x: this.col,
         y: this.row,
-        rows: this.rungValues.length,
-        cols: this.rungValues[this.row]?.length ?? 1,
+        rows: this.stopValues.length,
+        cols: this.stopValues[this.row]?.length ?? 1,
       },
       group: this.row,
     };
@@ -714,13 +1015,14 @@ export class BoxenTrace extends AbstractTrace {
     // its *steepness* is the reading: cells that climb gently through the
     // middle and jump at the ends are a heavy-tailed sample, which is the
     // finding a boxen is drawn to make and the one a box plot's single
-    // whisker flattens away.
+    // whisker flattens away. The outliers carry the run on past each end, a
+    // cell apiece, as far out as the chart draws them.
     return {
       empty: false,
       id: this.id,
-      values: this.rungValues,
-      min: this.rungValues.map(() => this.min),
-      max: this.rungValues.map(() => this.max),
+      values: this.stopValues,
+      min: this.stopValues.map(() => this.scaleMin),
+      max: this.stopValues.map(() => this.scaleMax),
       row: this.row,
       col: this.col,
     };
@@ -729,7 +1031,7 @@ export class BoxenTrace extends AbstractTrace {
   protected get text(): TextState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const point = this.points[this.row];
-    const rung = this.rungs[this.row]?.[this.col];
+    const stop = this.stops[this.row]?.[this.col];
 
     return {
       main: {
@@ -738,14 +1040,15 @@ export class BoxenTrace extends AbstractTrace {
       },
       cross: {
         label: isHorizontal ? this.xAxis : this.yAxis,
-        value: rung?.value ?? Number.NaN,
+        value: stop?.value ?? Number.NaN,
       },
       // Which quantile this is, named as the percentile rather than as a rung
-      // index. Lower case because `TextService` announces a section ahead of
-      // the axis label and does not lower-case it in terse mode -- the same
-      // convention `SECTION_LABEL` in errorBar.ts and `KIND_LABEL` in
-      // waterfall.ts note at their definitions.
-      section: rung?.label,
+      // index, or that it is an outlier. Lower case because `TextService`
+      // announces a section ahead of the axis label and does not lower-case
+      // it in terse mode -- the same convention `SECTION_LABEL` in
+      // errorBar.ts and `KIND_LABEL` in waterfall.ts note at their
+      // definitions.
+      section: stop?.label,
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
       ...this.outliersBeyond(),
@@ -754,26 +1057,27 @@ export class BoxenTrace extends AbstractTrace {
 
   /**
    * How many outliers the chart draws past the end of the ladder the cursor
-   * is on, as a statement after the reading.
+   * is on, as a statement after the reading at its deepest rung.
    *
-   * Navigation stops at a ladder's deepest rungs, and the points drawn past
-   * them -- the extremes of the distribution -- are not stops of their own:
-   * they were only in the description, so a reader at the end of a ladder
-   * heard nothing of them. Counted here, at the end they lie beyond, the
-   * reader learns they are there; the table lists each value.
+   * The walk goes on past the deepest rung onto the outliers, a stop apiece,
+   * and the jump from the ladder to the first of them can be the widest on
+   * the chart. Counted at the rung they lie beyond, the reader learns how
+   * many there are before stepping onto them.
    *
-   * @returns The asides for the current rung, or nothing when there is none
+   * @returns The asides for the current stop, or nothing when there is none
    */
   private outliersBeyond(): { asides?: TextAside[] } {
-    const point = this.points[this.row];
     const ladder = this.rungs[this.row];
-    if (point === undefined || ladder === undefined) {
+    const stops = this.stops[this.row];
+    if (ladder === undefined || stops === undefined) {
       return {};
     }
 
     const asides: TextAside[] = [];
-    const lower = point.lowerOutliers?.length ?? 0;
-    if (this.col === 0 && lower > 0) {
+    const start = this.ladderStart[this.row];
+    const end = start + ladder.length - 1;
+    const lower = start;
+    if (this.col === start && lower > 0) {
       asides.push({
         value: t(
           lower === 1 ? 'model.boxenLowerOutliersBeyondOne' : 'model.boxenLowerOutliersBeyondMany',
@@ -781,8 +1085,8 @@ export class BoxenTrace extends AbstractTrace {
         ),
       });
     }
-    const upper = point.upperOutliers?.length ?? 0;
-    if (this.col === ladder.length - 1 && upper > 0) {
+    const upper = stops.length - 1 - end;
+    if (this.col === end && upper > 0) {
       asides.push({
         value: t(
           upper === 1 ? 'model.boxenUpperOutliersBeyondOne' : 'model.boxenUpperOutliersBeyondMany',
@@ -867,11 +1171,10 @@ export class BoxenTrace extends AbstractTrace {
       });
     }
 
-    const outliers = this.points.reduce(
-      (total, point) =>
-        total
-        + (point.lowerOutliers?.length ?? 0)
-        + (point.upperOutliers?.length ?? 0),
+    // The outliers the walk visits: a value that is not a number is no stop,
+    // and is neither counted nor listed below.
+    const outliers = this.stops.reduce(
+      (total, stops, row) => total + stops.length - this.rungs[row].length,
       0,
     );
     if (outliers > 0) {
@@ -891,14 +1194,10 @@ export class BoxenTrace extends AbstractTrace {
       t('model.tableQuantile'),
       isHorizontal ? this.xAxis : this.yAxis,
     ];
-    // Outliers among the rungs, in the same long format: they were counted in
-    // the summary and then existed nowhere a reader could reach them -- the
-    // table listed the ladder alone, and navigation does not visit them.
-    const rows: (string | number)[][] = this.points.flatMap((point, row) => [
-      ...(point.lowerOutliers ?? []).map(value => [point.z, t('model.boxenLowerOutlier'), value]),
-      ...this.rungs[row].map(rung => [point.z, rung.label, rung.value]),
-      ...(point.upperOutliers ?? []).map(value => [point.z, t('model.boxenUpperOutlier'), value]),
-    ]);
+    // Outliers among the rungs, in the same long format, as the walk visits
+    // them: past each end of the ladder.
+    const rows: (string | number)[][] = this.points.flatMap((point, row) =>
+      this.stops[row].map(stop => [point.z, stop.label, stop.value]));
 
     // Swapped the same way the headers just were: the distribution sits on
     // whichever axis carries the categories and its value on the other one.
@@ -953,7 +1252,7 @@ export class BoxenTrace extends AbstractTrace {
       const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
       if (distance < nearestDistance) {
         nearestDistance = distance;
-        const median = Math.floor(this.rungs[row].length / 2);
+        const median = this.ladderStart[row] + Math.floor(this.rungs[row].length / 2);
         nearest = { element, row, col: median, centerX, centerY };
       }
     }
@@ -978,8 +1277,9 @@ export class BoxenTrace extends AbstractTrace {
    * The rungs at the two ends of the quantile range, for `]`, `[` and the
    * Go To dialog: the highest upper quantile any distribution reaches and
    * the lowest lower one, the range the description gives as `Quantile
-   * range`. The outliers past them are not rungs, as they are not in that
-   * range. Every rung holding an end is offered, distribution by
+   * range`. The outliers past them are stops but not in that range, so these
+   * keys stop at the ends of the ladders as the box plot's stop at the ends
+   * of its whiskers. Every rung holding an end is offered, distribution by
    * distribution, so a tie is walked.
    *
    * @returns The targets, or none for a chart with no measured rung
@@ -990,7 +1290,7 @@ export class BoxenTrace extends AbstractTrace {
     }
     const span = this.valueSpan;
     const at = (value: number, type: 'max' | 'min'): ExtremaTarget[] =>
-      this.rungValues.flatMap((ladder, row) => ladder.flatMap((rung, col) => (
+      this.rungValues.flatMap((ladder, row) => ladder.flatMap((rung, index) => (
         !MathUtil.nearlyEqualInRange(rung, value, span)
           ? []
           : [{
@@ -999,11 +1299,11 @@ export class BoxenTrace extends AbstractTrace {
                 this.distributionNameAt(row),
               ),
               value,
-              pointIndex: col,
+              pointIndex: this.ladderStart[row] + index,
               segment: String(row),
               type,
               groupIndex: row,
-              categoryIndex: col,
+              categoryIndex: this.ladderStart[row] + index,
               navigationType: 'group' as const,
               // So the Go To dialog writes the name with the category axis's
               // format, as the landing announces it.

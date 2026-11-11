@@ -116,7 +116,8 @@ describe('the ladder is walked in value order', () => {
       throw new Error('Expected a populated braille state');
     }
 
-    expect((light.values as number[][])[0]).toHaveLength(5);
+    // light's five rungs and the outlier drawn past them; heavy's nine rungs.
+    expect((light.values as number[][])[0]).toHaveLength(6);
     expect((light.values as number[][])[1]).toHaveLength(9);
   });
 
@@ -322,7 +323,8 @@ describe('the ends of a ladder count the outliers beyond them', () => {
       lowerOutliers: [3, 7],
     }];
 
-    expect(asidesAt(boxen(0, 0, low))).toEqual(['2 lower outliers beyond']);
+    // Its deepest rung, past the two outlier stops below it.
+    expect(asidesAt(boxen(0, 2, low))).toEqual(['2 lower outliers beyond']);
   });
 
   test('says nothing of outliers inside a ladder or past an end with none', () => {
