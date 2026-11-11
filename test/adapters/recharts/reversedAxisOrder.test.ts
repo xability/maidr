@@ -177,6 +177,8 @@ describe('reading the axis out of the children', () => {
 
   const XAxis = stub('XAxis');
   const YAxis = stub('YAxis');
+  const Bar = stub('Bar');
+  const Line = stub('Line');
   const BarChart = stub('BarChart');
   const Container = stub('ResponsiveContainer');
 
@@ -231,10 +233,73 @@ describe('reading the axis out of the children', () => {
     expect(readAxis(tree, true)).toBe(true);
   });
 
-  it('reads a reversed category axis declared after a plain one', () => {
-    // Bars drawn on the reversed `right` axis are drawn from its far end, and
-    // are read that way. Bars drawn on `left` would be read backwards: which
-    // axis a series is drawn on is its `yAxisId`, which the walk does not read.
+  it('reads the axis the bars are drawn on, not a reversed one declared after it', () => {
+    // Recharts draws a series on the axis its `yAxisId` names (on their side,
+    // the bars' categories are on a `<YAxis>`), so bars on `left` run the way
+    // `left` does, whichever way `right` runs.
+    const axes = [
+      createElement(YAxis, { key: 'left', yAxisId: 'left' }),
+      createElement(YAxis, { key: 'right', yAxisId: 'right', orientation: 'right', reversed: true }),
+    ];
+
+    expect(readAxis(createElement(BarChart, null, ...axes, createElement(Bar, { key: 'bar', yAxisId: 'left' })), true)).toBe(false);
+    expect(readAxis(createElement(BarChart, null, ...axes, createElement(Bar, { key: 'bar', yAxisId: 'right' })), true)).toBe(true);
+  });
+
+  it('pairs a series and an axis that name no id, as Recharts does', () => {
+    // Both default to 0, so a plain `<XAxis>` carries a `<Line>` naming none,
+    // and a reversed axis with an id of its own carries nothing.
+    const tree = createElement(
+      BarChart,
+      null,
+      createElement(XAxis, null),
+      createElement(XAxis, { xAxisId: 'top', orientation: 'top', reversed: true }),
+      createElement(Line, null),
+    );
+
+    expect(readAxis(tree)).toBe(false);
+  });
+
+  it('reads a series on no declared axis as drawn on Recharts\' own, plain one', () => {
+    const tree = createElement(
+      BarChart,
+      null,
+      createElement(XAxis, { xAxisId: 'top', reversed: true }),
+      createElement(Bar, null),
+    );
+
+    expect(readAxis(tree)).toBe(false);
+  });
+
+  it('takes an id written as a number and as a string for one axis', () => {
+    // Recharts looks an axis up in an object keyed by its id.
+    const tree = createElement(
+      BarChart,
+      null,
+      createElement(XAxis, { xAxisId: 1 }),
+      createElement(XAxis, { xAxisId: 2, reversed: true }),
+      createElement(Bar, { xAxisId: '2' }),
+    );
+
+    expect(readAxis(tree)).toBe(true);
+  });
+
+  it('reads series on a reversed and on a plain axis as reversed, the one answer it gave before', () => {
+    const tree = createElement(
+      BarChart,
+      null,
+      createElement(XAxis, null),
+      createElement(XAxis, { xAxisId: 'top', reversed: true }),
+      createElement(Bar, null),
+      createElement(Line, { xAxisId: 'top' }),
+    );
+
+    expect(readAxis(tree)).toBe(true);
+  });
+
+  it('reads any reversed category axis when no series says which it is drawn on', () => {
+    // A series drawn by a component of the chart's own is not one the walk
+    // can see, so the chart keeps the reading it had.
     const tree = createElement(
       BarChart,
       null,
