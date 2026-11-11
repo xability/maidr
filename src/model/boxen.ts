@@ -1171,11 +1171,10 @@ export class BoxenTrace extends AbstractTrace {
       });
     }
 
-    const outliers = this.points.reduce(
-      (total, point) =>
-        total
-        + (point.lowerOutliers?.length ?? 0)
-        + (point.upperOutliers?.length ?? 0),
+    // The outliers the walk visits: a value that is not a number is no stop,
+    // and is neither counted nor listed below.
+    const outliers = this.stops.reduce(
+      (total, stops, row) => total + stops.length - this.rungs[row].length,
       0,
     );
     if (outliers > 0) {
@@ -1197,11 +1196,8 @@ export class BoxenTrace extends AbstractTrace {
     ];
     // Outliers among the rungs, in the same long format, as the walk visits
     // them: past each end of the ladder.
-    const rows: (string | number)[][] = this.points.flatMap((point, row) => [
-      ...(point.lowerOutliers ?? []).map(value => [point.z, t('model.boxenLowerOutlier'), value]),
-      ...this.rungs[row].map(rung => [point.z, rung.label, rung.value]),
-      ...(point.upperOutliers ?? []).map(value => [point.z, t('model.boxenUpperOutlier'), value]),
-    ]);
+    const rows: (string | number)[][] = this.points.flatMap((point, row) =>
+      this.stops[row].map(stop => [point.z, stop.label, stop.value]));
 
     // Swapped the same way the headers just were: the distribution sits on
     // whichever axis carries the categories and its value on the other one.

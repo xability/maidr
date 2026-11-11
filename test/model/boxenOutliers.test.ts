@@ -146,6 +146,19 @@ describe('the outliers of a distribution', () => {
     expect(stateOf(trace).text).toMatchObject({ section: 'upper outlier', cross: { value: 90 } });
   });
 
+  test('are counted and listed as they are walked', () => {
+    const odd: BoxenPoint = { ...SPREAD, upperOutliers: [90, Number.NaN] };
+
+    const { stats, dataTable } = boxen([odd]).description;
+
+    expect(stats).toContainEqual({ label: 'Outliers', value: 3 });
+    expect(dataTable?.rows.filter(([, name]) => String(name).endsWith('outlier'))).toEqual([
+      ['spread', 'lower outlier', 5],
+      ['spread', 'lower outlier', 12],
+      ['spread', 'upper outlier', 90],
+    ]);
+  });
+
   test('stay out of the quantile range the bracket keys go to the ends of', () => {
     const trace = boxen([SPREAD]);
 
