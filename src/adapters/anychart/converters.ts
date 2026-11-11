@@ -3573,15 +3573,19 @@ function cloudWeight(row: Record<string, unknown>): number {
 }
 
 /**
- * The size a tag cloud word is drawn at.
+ * The size a tag cloud word is drawn at, in pixels.
+ *
+ * AnyChart writes it as a bare number in the `font-size` attribute. Any other
+ * value there, one in `em` say, is read from the computed style instead,
+ * which gives it in pixels.
  *
  * @param text - A drawn word
  * @returns Its font size, or NaN when it says none
  */
 function drawnWordSize(text: SVGElement): number {
-  const size = Number.parseFloat(text.getAttribute('font-size') ?? '');
-  if (Number.isFinite(size))
-    return size;
+  const written = /^\s*(\d+(?:\.\d+)?)(?:px)?\s*$/.exec(text.getAttribute('font-size') ?? '');
+  if (written)
+    return Number(written[1]);
   return Number.parseFloat((text.ownerDocument.defaultView ?? window).getComputedStyle(text).fontSize);
 }
 

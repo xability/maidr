@@ -442,6 +442,23 @@ describe('a tag cloud, whose every word AnyChart writes twice', () => {
     cleanUp(container);
   });
 
+  it('outlines three case twins, one heavier and two of one weight, by size and then data order', () => {
+    const { container, chartGroup } = renderChart('cloud-twins-mixed');
+    const wordText = drawWords(chartGroup, [['braille', 77], ['braille', 13], ['braille', 13]]);
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'braille', value: 30 },
+      { x: 'Braille', value: 60 },
+      { x: 'BRAILLE', value: 30 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-1', '0-0', '0-2']);
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
+
   it('stamps nothing when three terms are drawn alike and two words are, and names all three', () => {
     const { container, chartGroup } = renderChart('cloud-twins-short');
     const wordText = drawWords(chartGroup, [['braille', 77], ['braille', 13]]);
