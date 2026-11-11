@@ -88,6 +88,117 @@ function isMeasured(value: number): boolean {
 }
 
 /**
+ * How far apart, in the chart's own units, two coordinates of one whip may
+ * be and still be the same place.
+ */
+const SAME_PLACE = 0.5;
+
+/** Which coordinate a line runs along. */
+type Axis = 'x' | 'y';
+
+/** A `<line>` and its two ends, in the coordinates it was drawn in. */
+interface Segment {
+  readonly element: SVGElement;
+  readonly x: readonly [number, number];
+  readonly y: readonly [number, number];
+}
+
+/**
+ * Reads a `<line>`'s two ends off its attributes.
+ *
+ * An absent coordinate is 0, as it is to the renderer. A coordinate in other
+ * units does not read as a number, and the element is then not taken for a
+ * line of a whip.
+ *
+ * @param element - A child of the element a layer names for one sample
+ * @returns The line, or null when the element is not one with numeric ends
+ */
+function segmentOf(element: Element): Segment | null {
+  if (element.tagName.toLowerCase() !== 'line') {
+    return null;
+  }
+  const read = (name: string): number => Number(element.getAttribute(name) ?? 0);
+  const x: [number, number] = [read('x1'), read('x2')];
+  const y: [number, number] = [read('y1'), read('y2')];
+  return [...x, ...y].every(Number.isFinite) ? { element: element as SVGElement, x, y } : null;
+}
+
+/**
+ * How long a line runs along one axis.
+ *
+ * @param segment - The line
+ * @param axis - The axis
+ * @returns Its extent along that axis
+ */
+function extentAlong(segment: Segment, axis: Axis): number {
+  const [start, end] = segment[axis];
+  return Math.abs(end - start);
+}
+
+/**
+ * The caps of a whip drawn as cap, whisker and cap, by the bound each marks.
+ *
+ * Recharts draws every `<ErrorBar>` sample as a group of exactly three lines:
+ * the whisker along the value axis and a short cap across it at each end. The
+ * whisker is the one line the other two cross, so it says which way the value
+ * axis runs, and the cap further up a vertical whisker, or further right
+ * along a horizontal one, is the upper bound's. That assumes the value axis
+ * grows up or to the right, as the sections, walked from the lower bound up,
+ * already do.
+ *
+ * Copies MAIDR made of the lines are not the chart's and are passed over.
+ * Anything else -- a whip drawn as one path, a group of other marks, or
+ * three lines that do not meet that way -- answers null, and the sample is
+ * outlined whole.
+ *
+ * @param group - The element the layer names for one sample
+ * @returns The lower and upper caps, or null when the element is not that triple
+ */
+function capsOf(group: SVGElement): { lower: SVGElement; upper: SVGElement } | null {
+  const children = [...group.children].filter(child => !Svg.isOwned(child));
+  if (children.length !== 3) {
+    return null;
+  }
+  const segments = children.map(segmentOf).filter((line): line is Segment => line !== null);
+  if (segments.length !== children.length) {
+    return null;
+  }
+  const along: Axis = segments.filter(line => extentAlong(line, 'x') <= SAME_PLACE).length === 1 ? 'y' : 'x';
+  const across: Axis = along === 'y' ? 'x' : 'y';
+
+  const whiskers = segments.filter(line => extentAlong(line, along) > SAME_PLACE && extentAlong(line, across) <= SAME_PLACE);
+  const caps = segments.filter(line => extentAlong(line, across) > SAME_PLACE && extentAlong(line, along) <= SAME_PLACE);
+  if (whiskers.length !== 1 || caps.length !== 2) {
+    return null;
+  }
+
+  // Each cap crosses the whisker, at one of its two ends, and not the end
+  // the other cap is at.
+  const whisker = whiskers[0];
+  const crossesAt = whisker[across][0];
+  const endOf = (cap: Segment): number => {
+    const [from, to] = cap[across];
+    const crosses = Math.min(from, to) - SAME_PLACE <= crossesAt && crossesAt <= Math.max(from, to) + SAME_PLACE;
+    return crosses ? whisker[along].findIndex(end => Math.abs(cap[along][0] - end) <= SAME_PLACE) : -1;
+  };
+  const [first, second] = caps;
+  const firstEnd = endOf(first);
+  const secondEnd = endOf(second);
+  if (firstEnd === -1 || secondEnd === -1 || firstEnd === secondEnd) {
+    return null;
+  }
+
+  // Up a vertical whisker is towards a smaller y; along a horizontal one,
+  // towards a larger x.
+  const firstIsUpper = along === 'y'
+    ? first[along][0] < second[along][0]
+    : first[along][0] > second[along][0];
+  return firstIsUpper
+    ? { lower: second.element, upper: first.element }
+    : { lower: first.element, upper: second.element };
+}
+
+/**
  * Strips binary floating-point noise from a subtracted magnitude.
  *
  * The interval width is derived, not authored: `4.6 - 3.8` is
@@ -263,13 +374,17 @@ export class ErrorBarTrace extends AbstractTrace {
   }
 
   /**
-   * Resolves the layer's selectors to one element per sample, repeated across
-   * the sections.
+   * Resolves the layer's selectors to one element per sample, and each
+   * section of a sample to the part of it that section is drawn as.
    *
-   * A chart draws one whip per sample, not one element per bound, so every
-   * section of a column highlights the same element. Announcing a move
-   * between bounds while the highlight sits still is the honest rendering of
-   * that — the alternative is inventing three elements the chart never drew.
+   * A layer names one element per sample, the whip. Where that element is a
+   * group of a cap, the whisker and the other cap -- as Recharts draws every
+   * `<ErrorBar>` -- each bound is outlined as its own cap ({@link capsOf}),
+   * so the outline moves with the announcement from one end of the interval
+   * to the other. Every bound used to outline the whole whip, and so did the
+   * estimate, which still does: the whisker is where it is read off. Any
+   * other element is outlined whole on every section, since there is no
+   * part of it that is drawn for one bound alone.
    *
    * @param selectors - The layer's selectors, when it has any
    * @returns Elements shaped sections x samples, or null when unresolvable
@@ -293,16 +408,30 @@ export class ErrorBarTrace extends AbstractTrace {
       return null;
     }
     const flat = live.map(element => Svg.cloneHidden(element));
+    // Found on the chart's own group, whose children the copy above did not
+    // change: it went in beside the group, not inside it.
+    const caps = live.map((element) => {
+      const found = capsOf(element);
+      return found === null
+        ? null
+        : { lower: Svg.cloneHidden(found.lower), upper: Svg.cloneHidden(found.upper) };
+    });
     // One whip per point, and the flat list runs in the same group-major
-    // order the rows do -- so each group's rows take that group's slice, and
-    // every section within a group highlights the same whips. Handing every
-    // row the whole list would light a second group's whips while the cursor
-    // was in the first.
+    // order the rows do -- so each group's rows take that group's slice.
+    // Handing every row the whole list would light a second group's whips
+    // while the cursor was in the first.
     let taken = 0;
     return this.groups.flatMap((group) => {
-      const slice = flat.slice(taken, taken + group.length);
+      const whips = flat.slice(taken, taken + group.length);
+      const ends = caps.slice(taken, taken + group.length);
       taken += group.length;
-      return this.sections.map(() => slice);
+      return this.sections.map((section) => {
+        if (section === 'value') {
+          return whips;
+        }
+        const bound: 'lower' | 'upper' = section;
+        return whips.map((whip, index) => ends[index]?.[bound] ?? whip);
+      });
     });
   }
 
