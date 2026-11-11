@@ -307,6 +307,22 @@ describe('marks AnyChart fills partly transparent', () => {
   });
 });
 
+/**
+ * A tag cloud's visible words, each in a `<text>` drawn at its font size, in
+ * the order given.
+ * @param chartGroup - The chart group the words layer goes in
+ * @param words - Each word and its font size
+ * @returns The words' elements
+ */
+function drawWords(chartGroup: SVGElement, words: Array<[string, number]>): SVGElement[] {
+  const shown = element('g', { id: 'ac_layer_words' }, chartGroup);
+  return words.map(([word, size], i) => {
+    const text = element('text', { 'id': `ac_simple-text_word_${i}`, 'fill': '#64b5f6', 'fill-opacity': '0.85', 'font-size': String(size) }, shown);
+    text.textContent = word;
+    return text;
+  });
+}
+
 describe('a tag cloud, whose every word AnyChart writes twice', () => {
   it('outlines the visible word, not its invisible copy', () => {
     // AnyChart writes each word first into a layer of near-invisible copies
@@ -363,6 +379,146 @@ describe('a tag cloud, whose every word AnyChart writes twice', () => {
     ]));
 
     expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-1', '0-2', '0-0']);
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
+
+  it('outlines each of two terms that differ only in case, heaviest first', () => {
+    // Measured on AnyChart 8.13: "braille" (30) and "Braille" (60) are both
+    // drawn as "braille", heaviest first and larger. Each matched two words,
+    // and the whole cloud lost its highlight.
+    const { container, chartGroup } = renderChart('cloud-case-twins');
+    const wordText = drawWords(chartGroup, [['braille', 77], ['maidr', 55], ['braille', 13]]);
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'braille', value: 30 },
+      { x: 'Braille', value: 60 },
+      { x: 'MAIDR', value: 50 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-1', '0-2', '0-0']);
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
+
+  it('leaves a cloud whose case twins are not drawn largest first without a highlight, and says why', () => {
+    // The order the words are written in is measured on one version of
+    // AnyChart. Written in another, pairing them heaviest first would outline
+    // each term on the other's word, and nothing would say so.
+    const { container, chartGroup } = renderChart('cloud-twins-out-of-order');
+    const wordText = drawWords(chartGroup, [['braille', 13], ['maidr', 55], ['braille', 77]]);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'braille', value: 30 },
+      { x: 'Braille', value: 60 },
+      { x: 'MAIDR', value: 50 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual([null, null, null]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"braille" and "Braille" are drawn alike'));
+
+    cleanUp(container);
+  });
+
+  it('outlines case twins of one weight in data order', () => {
+    // AnyChart breaks a tie in weight by data order, and draws the two at one
+    // size, so their sizes cannot say more.
+    const { container, chartGroup } = renderChart('cloud-twins-tied');
+    const wordText = drawWords(chartGroup, [['braille', 20], ['braille', 20]]);
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'Braille', value: 40 },
+      { x: 'braille', value: 40 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-0', '0-1']);
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
+
+  it('outlines three case twins, one heavier and two of one weight, by size and then data order', () => {
+    const { container, chartGroup } = renderChart('cloud-twins-mixed');
+    const wordText = drawWords(chartGroup, [['braille', 77], ['braille', 13], ['braille', 13]]);
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'braille', value: 30 },
+      { x: 'Braille', value: 60 },
+      { x: 'BRAILLE', value: 30 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-1', '0-0', '0-2']);
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
+
+  it('stamps nothing when three terms are drawn alike and two words are, and names all three', () => {
+    const { container, chartGroup } = renderChart('cloud-twins-short');
+    const wordText = drawWords(chartGroup, [['braille', 77], ['braille', 13]]);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'braille', value: 30 },
+      { x: 'Braille', value: 60 },
+      { x: 'BRAILLE', value: 10 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual([null, null]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(
+      'Expected 3 rendered words for the terms "braille", "Braille" and "BRAILLE" but found 2.',
+    ));
+
+    cleanUp(container);
+  });
+
+  it('leaves a term with no numeric weight out, as AnyChart leaves it undrawn', () => {
+    const { container, chartGroup } = renderChart('cloud-twin-unweighted');
+    const wordText = drawWords(chartGroup, [['braille', 13]]);
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'braille', value: 30 },
+      { x: 'Braille', value: 'n/a' },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-0']);
+    expect(warn).not.toHaveBeenCalled();
+
+    cleanUp(container);
+  });
+
+  it('matches a dotted capital I to the word AnyChart draws for it, whatever the locale lowercases to', () => {
+    // AnyChart lowercases with `toLowerCase()`, which turns "İ" into "i" and a
+    // combining dot above, and "I" into "i", in every locale. Turkish
+    // lowercasing gives a plain "i" for the one and a dotless "ı" for the
+    // other, neither of which AnyChart draws; standing the locale in as
+    // Turkish shows the match does not take its lowercasing from the locale.
+    const toLocaleLowerCase = String.prototype.toLocaleLowerCase;
+    jest.spyOn(String.prototype, 'toLocaleLowerCase').mockImplementation(function (this: string) {
+      return toLocaleLowerCase.call(this, 'tr');
+    });
+    const { container, chartGroup } = renderChart('cloud-dotted-i');
+    const shown = element('g', { id: 'ac_layer_words' }, chartGroup);
+    const wordText = ['i̇stanbul', 'işik'].map((word, i) => {
+      const text = element('text', { 'id': `ac_simple-text_word_${i}`, 'fill': '#64b5f6', 'fill-opacity': '0.85' }, shown);
+      text.textContent = word;
+      return text;
+    });
+    const warn = jest.spyOn(console, 'warn');
+
+    bindAnyChart(createDatasetChart('tag-cloud', container, [
+      { x: 'IŞIK', value: 40 },
+      { x: 'İstanbul', value: 60 },
+    ]));
+
+    expect(stamps(wordText, 'data-maidr-anychart-word')).toEqual(['0-1', '0-0']);
     expect(warn).not.toHaveBeenCalled();
 
     cleanUp(container);
