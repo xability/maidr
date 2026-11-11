@@ -1762,7 +1762,7 @@ export function computeSubplotGrid<T>(panels: T[], layout?: VictoryPanelLayout):
  * @returns One selector per series, or undefined when nothing was tagged
  */
 function toSeriesSelectors(
-  selector?: string | string[] | string[][] | BoxSelector[] | CandlestickSelector,
+  selector?: string | string[] | (string | null)[][] | BoxSelector[] | CandlestickSelector,
 ): string[] | undefined {
   if (typeof selector === 'string')
     return [selector];
@@ -1781,7 +1781,7 @@ function toSeriesSelectors(
  */
 export function toMaidrLayer(
   layer: VictoryLayerInfo,
-  selector?: string | string[] | string[][] | BoxSelector[] | CandlestickSelector,
+  selector?: string | string[] | (string | null)[][] | BoxSelector[] | CandlestickSelector,
 ): MaidrLayer {
   // A horizontal bar layer is emitted in the arrangement the core reads it in:
   // `x` holds the magnitude and `y` the category, the reverse of Victory's own

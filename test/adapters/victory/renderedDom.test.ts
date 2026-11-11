@@ -543,13 +543,11 @@ describe('victory stacked bar', () => {
     }
   });
 
-  it('outlines nothing on a stack whose series miss a category, rather than another segment', () => {
-    // Product B has no Q2. `VictoryStack` fills it in with a bar of no
-    // height, so B is drawn with three bars for its two points, and no
-    // position pairs the bars with the points any more.
-    const { doc, layers } = renderAndTag(createElement(
+  /** A stack of Product A over every quarter and Product B over the ones given. */
+  function quarters(productB: { x: string; y: number }[], chart: Record<string, unknown> | null = null): ReactElement {
+    return createElement(
       VictoryChart,
-      null,
+      chart,
       createElement(
         VictoryStack,
         null,
@@ -558,17 +556,65 @@ describe('victory stacked bar', () => {
           name: 'Product A',
           data: [{ x: 'Q1', y: 2400 }, { x: 'Q2', y: 3100 }, { x: 'Q3', y: 2200 }],
         }),
-        createElement(VictoryBar, {
-          key: 'b',
-          name: 'Product B',
-          data: [{ x: 'Q1', y: 1800 }, { x: 'Q3', y: 1700 }],
-        }),
+        createElement(VictoryBar, { key: 'b', name: 'Product B', data: productB }),
       ),
-    ));
+    );
+  }
+
+  it('outlines the segment being read on a stack whose series miss a category', () => {
+    // Product B has no Q2. `VictoryStack` fills it in with a bar of no
+    // height, so B is drawn with three bars for its two points, and its
+    // second point, Q3, is its third bar.
+    const { doc, layers } = renderAndTag(quarters([{ x: 'Q1', y: 1800 }, { x: 'Q3', y: 1700 }]));
 
     expect(doc.querySelectorAll('path[role="presentation"]')).toHaveLength(6);
     expect(layers[0].type).toBe(TraceType.STACKED);
-    expect(layers[0].data).toHaveLength(2);
+    const [aQ1, aQ2, aQ3, bQ1, bQ3] = withPageDocument(doc.body, () => {
+      const trace = TraceFactory.create(layers[0]);
+      const read = [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1]].map(([series, point]) => {
+        trace.moveToIndex(series, point);
+        const { state } = trace;
+        const element = state.empty || state.type !== 'trace' || state.highlight.empty
+          ? null
+          : state.highlight.elements;
+        const bar = Array.isArray(element) ? element[0] : element;
+        return { ...barExtent(bar), ...barSpanX(bar) };
+      });
+      trace.dispose();
+      return read;
+    });
+
+    // B's Q3 stands on A's Q3, in its column, as tall as its own value.
+    expect(bQ3.left).toBeCloseTo(aQ3.left, 6);
+    expect(bQ3.bottom).toBeCloseTo(aQ3.bottom - aQ3.height, 6);
+    expect(bQ3.height / aQ3.height).toBeCloseTo(1700 / 2200, 2);
+    expect(bQ1.height / aQ1.height).toBeCloseTo(1800 / 2400, 2);
+    expect(aQ2.height / aQ1.height).toBeCloseTo(3100 / 2400, 2);
+  });
+
+  it('outlines no bar for a point Victory draws none for, and the rest where they are', () => {
+    // Product B lists Q3 before Q1. `VictoryStack` walks each series along
+    // the axis in step, so it draws B's Q3 and passes over its Q1.
+    const { doc, layers } = renderAndTag(quarters([{ x: 'Q3', y: 1700 }, { x: 'Q1', y: 1800 }]));
+    const grid = layers[0].selectors as (string | null)[][];
+
+    expect(grid[1][1]).toBeNull();
+    const [bQ3] = Array.from(doc.querySelectorAll(grid[1][0] as string));
+    const [aQ3] = Array.from(doc.querySelectorAll(grid[0][2] as string));
+    expect(barSpanX(bQ3).left).toBeCloseTo(barSpanX(aQ3).left, 6);
+    expect(barExtent(bQ3).bottom).toBeCloseTo(barExtent(aQ3).bottom - barExtent(aQ3).height, 6);
+  });
+
+  it('outlines nothing on a stack whose axis orders the categories otherwise, rather than other bars', () => {
+    // The chart lists the quarters backwards. Victory then draws each series'
+    // points out of step with the axis, and no bar stands where the points
+    // say it would.
+    const { layers } = renderAndTag(quarters(
+      [{ x: 'Q1', y: 1800 }, { x: 'Q2', y: 2700 }, { x: 'Q3', y: 1700 }],
+      { categories: { x: ['Q3', 'Q2', 'Q1'] } },
+    ));
+
+    expect(layers[0].type).toBe(TraceType.STACKED);
     expect(layers[0].selectors).toBeUndefined();
   });
 
