@@ -20,6 +20,7 @@ import type { ReactElement } from 'react';
 import type { Root } from 'react-dom/client';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
+import { Orientation } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 
 // MaidrApp only mounts after focus-in (contextValue starts null), so it never
@@ -38,6 +39,13 @@ const errorData = [
   { treatment: 'Control', mean: 4.2, sd: 0.6 },
   { treatment: 'Nitrogen', mean: 5.5, sd: 0.5 },
   { treatment: 'Phosphate', mean: 5, sd: 0.7 },
+];
+
+/** Absolute bounds for the layer, and the offsets an `<ErrorBar>` draws them from. */
+const forestData = [
+  { study: 'Silva 2018', or: 0.62, lower: 0.41, upper: 0.94, offsets: [0.21, 0.32] },
+  { study: 'Nguyen 2020', or: 1.34, lower: 0.98, upper: 1.83, offsets: [0.36, 0.49] },
+  { study: 'Pooled', or: 1.28, lower: 1.02, upper: 1.61, offsets: [0.26, 0.33] },
 ];
 
 const volcanoData = [
@@ -171,6 +179,15 @@ const configs = {
     xKey: 'treatment',
     yKeys: ['mean'],
     errorConfig: { errorKey: 'sd' },
+  },
+  forest: {
+    id: 'forest-dom',
+    data: forestData,
+    chartType: 'forest' as const,
+    xKey: 'study',
+    yKeys: ['or'],
+    orientation: Orientation.HORIZONTAL,
+    errorConfig: { yMinKey: 'lower', yMaxKey: 'upper' },
   },
   volcano: {
     id: 'volcano-dom',
@@ -447,6 +464,17 @@ beforeAll(async () => {
           createElement(ErrorBar, { dataKey: 'sd', direction: 'y', isAnimationActive: false }),
         ),
       )),
+      wrap(configs.forest, createElement(
+        ScatterChart,
+        { width: 320, height: 220, layout: 'vertical' },
+        createElement(XAxis, { dataKey: 'or', type: 'number', domain: [0, 3] }),
+        createElement(YAxis, { dataKey: 'study', type: 'category' }),
+        createElement(
+          Scatter,
+          { data: forestData, isAnimationActive: false },
+          createElement(ErrorBar, { dataKey: 'offsets', direction: 'x', width: 6, isAnimationActive: false }),
+        ),
+      )),
       wrap(configs.volcano, createElement(
         ScatterChart,
         { width: 320, height: 220 },
@@ -611,6 +639,15 @@ describe('recharts rendered mark contract', () => {
 
   it('matches one whisker group per error bar sample', () => {
     expect(document.querySelectorAll(firstSelector(maidr.errorBar))).toHaveLength(errorData.length);
+  });
+
+  it('matches one interval per forest study, each drawn as cap, whisker and cap', () => {
+    // The three lines are what lets the core outline each bound as its own cap.
+    const intervals = [...document.querySelectorAll(firstSelector(maidr.forest))];
+
+    expect(intervals).toHaveLength(forestData.length);
+    expect(intervals.map(interval => interval.querySelectorAll(':scope > line').length))
+      .toEqual(forestData.map(() => 3));
   });
 
   it('matches one symbol per volcano point', () => {

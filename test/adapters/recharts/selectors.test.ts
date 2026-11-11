@@ -57,12 +57,16 @@ describe('getRechartsSelector', () => {
       expect(getRechartsSelector('survival')).toBe('.recharts-line-dots .recharts-line-dot');
     });
 
-    it('returns scoped scatter symbol selector for volcano, manhattan and forest types', () => {
-      // The first two are literally scatters; a forest plot is a
-      // <ScatterChart> whose symbols carry the study weights.
+    it('returns scoped scatter symbol selector for volcano and manhattan types', () => {
+      // Both are literally scatters.
       expect(getRechartsSelector('volcano')).toBe('.recharts-scatter-symbol .recharts-symbols');
       expect(getRechartsSelector('manhattan')).toBe('.recharts-scatter-symbol .recharts-symbols');
-      expect(getRechartsSelector('forest')).toBe('.recharts-scatter-symbol .recharts-symbols');
+    });
+
+    it('targets a forest plot\'s intervals, so each bound is outlined as its own cap', () => {
+      // A forest plot is a <ScatterChart> with an <ErrorBar direction="x">.
+      // Its scatter symbol was the outline at both bounds, which lie outside it.
+      expect(getRechartsSelector('forest')).toBe('.recharts-errorBars .recharts-errorBar');
     });
 
     it('returns scoped trapezoid selector for funnel type', () => {

@@ -127,8 +127,10 @@
  *   than mis-aligning it, the same way a zero-value pie slice behaves.
  *
  *   A forest plot is drawn as a `<ScatterChart>` with `<ErrorBar direction="x">`,
- *   so its marks are the scatter symbols — the square whose area carries the
- *   study's weight — and it targets those instead.
+ *   and targets its whiskers too, one per study: each bound is outlined as its
+ *   own cap and the estimate as the whole interval. The scatter symbol, the
+ *   square whose area carries the study's weight, is not outlined; targeted
+ *   instead, it was the outline at both bounds, and a bound lies outside it.
  *
  * Sankey (alluvial, sankey):
  *   g.recharts-sankey-links > path.recharts-sankey-link
@@ -526,18 +528,19 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
       return '.recharts-area-dots .recharts-area-dot';
     case 'radar':
       return '.recharts-radar-dots .recharts-radar-dot';
-    // A volcano and a Manhattan plot are literally scatters, and a forest plot
-    // is a <ScatterChart> whose symbols carry the study weights.
+    // A volcano and a Manhattan plot are literally scatters.
     case 'scatter':
     case 'dot':
     case 'lollipop':
     case 'volcano':
     case 'manhattan':
-    case 'forest':
       return '.recharts-scatter-symbol .recharts-symbols';
     case 'funnel':
       return '.recharts-funnel-trapezoid .recharts-trapezoid';
+    // A forest plot is a <ScatterChart> whose intervals are an <ErrorBar>, so
+    // a bound is outlined as its cap, as on an error bar; see the module docs.
     case 'error_bar':
+    case 'forest':
       return '.recharts-errorBars .recharts-errorBar';
     // Both are a `<Sankey>`, so both highlight its ribbons.
     case 'alluvial':
