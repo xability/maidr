@@ -202,6 +202,15 @@ export interface VictoryLayerInfo {
   dataCount: number;
   /** Legend labels for multi-series segmented charts. */
   legend?: string[];
+  /**
+   * For a stacked bar layer some of whose `VictoryStack` children draw none
+   * of its series, which series each child that draws marks draws, in the
+   * order they are declared, null for none. Victory renders such a child's
+   * bars, and moves the data after an empty child one child early, so the
+   * tagger finds each series' bars by the child that draws them. Absent when
+   * every child draws its own series.
+   */
+  stackDraws?: (number | null)[];
   /** The component's own `name` prop, which names it in `percentileBands`. */
   componentName?: string;
   /**
