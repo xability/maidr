@@ -59,6 +59,25 @@ function displayNameOf(type: unknown): string | undefined {
 }
 
 /**
+ * The components that draw a series along the category axis, and so the ones
+ * a reversed category axis turns round: the bars, and the line family --
+ * `<Line>` draws the line, step and bump charts, `<Area>` the area charts.
+ */
+const CATEGORY_SERIES = new Set(['Bar', 'Line', 'Area']);
+
+/**
+ * The id an axis or a series is paired by. Recharts gives both 0 unless told
+ * otherwise, and looks an axis up in an object keyed by its id, so `1` and
+ * `'1'` name the same axis.
+ *
+ * @param id - The `xAxisId` or `yAxisId` as written, if it was
+ * @returns The id as Recharts looks it up
+ */
+function axisIdOf(id: unknown): string {
+  return String(id ?? 0);
+}
+
+/**
  * Whether the axis carrying the categories is drawn from its far end.
  *
  * `<XAxis reversed />` is how Recharts states it, and it lives in the chart
@@ -69,36 +88,50 @@ function displayNameOf(type: unknown): string | undefined {
  * as `indexAxis` decides it for Chart.js (#1016): x normally, y once the bars
  * are turned on their side. Reversing the *value* axis moves no category.
  *
- * The walk is depth-first because an axis is commonly nested -- inside a
- * `<ResponsiveContainer>`, or behind a fragment -- and stops at the first
- * matching axis that is reversed. Anything it cannot find or cannot read
- * answers `false`, so a chart whose axes are built in a way this does not
- * recognise keeps the reading it has today rather than being turned round on a
- * guess.
+ * A chart may declare several category axes, and Recharts draws each series
+ * on the one its `xAxisId` (on its side, its `yAxisId`) names. So what is
+ * asked is whether a `<Bar>`, `<Line>` or `<Area>` is drawn on a reversed
+ * one, and a reversed axis carrying no series turns nothing round. Asking
+ * whether any category axis was reversed read bars drawn left to right on a
+ * plain axis backwards whenever a reversed one was declared beside them. A
+ * series naming no axis the chart declares is drawn on the hidden, plain one
+ * Recharts supplies, so it turns nothing round either.
  *
- * A chart with several category axes is read as reversed when any of them is.
- * That is right for a series drawn on the reversed axis and wrong for one
- * drawn on a plain axis declared before it: which axis a series is drawn on is
- * its `xAxisId` or `yAxisId`, which this does not read. A ridgeline, whose
- * `<Area>`s share one `<YAxis>`, reads its own ({@link ridgelineAxisReversedFor}).
+ * Series drawn on a reversed axis and on a plain one share this one answer,
+ * which cannot be right for both; they are read as reversed, as they were
+ * before the series were read. A walk that finds no series at all -- drawn
+ * by a component of the chart's own, which it cannot see into -- answers
+ * whether any category axis is reversed, as it did then too.
+ *
+ * The walk is depth-first because an axis is commonly nested -- inside a
+ * `<ResponsiveContainer>`, or behind a fragment. Anything it cannot find or
+ * cannot read answers `false`, so a chart whose axes are built in a way this
+ * does not recognise keeps the reading it has today rather than being turned
+ * round on a guess. A ridgeline, whose `<Area>`s share one `<YAxis>`, reads
+ * its own ({@link ridgelineAxisReversedFor}).
  *
  * @param children - The chart subtree this component was given
  * @param horizontal - Whether the bars are drawn on their side
- * @returns True when the category axis is reversed
+ * @returns True when the category axis the series are drawn on is reversed
  */
 export function categoryAxisReversedFor(children: ReactNode, horizontal: boolean): boolean {
-  const wanted = horizontal ? 'YAxis' : 'XAxis';
-  let found = false;
+  const axisName = horizontal ? 'YAxis' : 'XAxis';
+  const idKey = horizontal ? 'yAxisId' : 'xAxisId';
+  const axes: { id: string; reversed: boolean }[] = [];
+  const drawnOn: string[] = [];
 
   const walk = (nodes: ReactNode): void => {
-    if (found)
-      return;
     Children.forEach(nodes, (child) => {
-      if (found || !isValidElement(child))
+      if (!isValidElement(child))
         return;
-      const props = child.props as { reversed?: unknown; children?: ReactNode };
-      if (displayNameOf(child.type) === wanted) {
-        found = props.reversed === true;
+      const props = child.props as Record<string, unknown> & { children?: ReactNode };
+      const name = displayNameOf(child.type);
+      if (name === axisName) {
+        axes.push({ id: axisIdOf(props[idKey]), reversed: props.reversed === true });
+        return;
+      }
+      if (name !== undefined && CATEGORY_SERIES.has(name)) {
+        drawnOn.push(axisIdOf(props[idKey]));
         return;
       }
       walk(props.children);
@@ -106,7 +139,9 @@ export function categoryAxisReversedFor(children: ReactNode, horizontal: boolean
   };
 
   walk(children);
-  return found;
+  if (drawnOn.length === 0)
+    return axes.some(axis => axis.reversed);
+  return axes.some(axis => axis.reversed && drawnOn.includes(axis.id));
 }
 
 /**
@@ -346,7 +381,7 @@ export function areaDataKeyFor(children: ReactNode): string | undefined {
  * else, and read as the ridges' own it would list them top first.
  *
  * Read for a ridgeline alone: {@link categoryAxisReversedFor}, which bar and
- * line charts read, answers for whichever category axis is reversed.
+ * line charts read, answers for the category axis their series are drawn on.
  *
  * @param children - The chart subtree this component was given
  * @returns True when the first `<YAxis>` is reversed

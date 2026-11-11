@@ -1233,9 +1233,9 @@ export interface RechartsAdapterConfig {
    * Whether the axis carrying the categories is drawn from its far end.
    *
    * Not a prop an author sets: {@link MaidrRecharts} derives it by reading
-   * `reversed` off the `<XAxis>` / `<YAxis>` inside its own children, which is
-   * where Recharts states it and where the converter cannot otherwise see it
-   * (#1017).
+   * `reversed` off the `<XAxis>` / `<YAxis>` inside its own children that the
+   * series are drawn on, which is where Recharts states it and where the
+   * converter cannot otherwise see it (#1017).
    */
   categoryAxisReversed?: boolean;
 
