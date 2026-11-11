@@ -531,7 +531,7 @@ test.describe('Multi Lineplot', () => {
     test('should navigate to a real point intersection with ArrowRight', async ({ page }) => {
       // Use a fixture that contains actual point intersections — Series 1 and
       // Series 2 in multiline_plot_intersection.html share the sampled point
-      // (x="3", y=5), so ArrowRight in intersection mode from col 0 lands
+      // (x 3, y 5), so ArrowRight in intersection mode from col 0 lands
       // there rather than hitting a boundary.
       //
       // Path note: the Playwright baseURL (e2e_tests/config/test-config.ts)
@@ -543,7 +543,7 @@ test.describe('Multi Lineplot', () => {
 
       await cycleRotorTo(page, 'INTERSECTING POINT NAVIGATION');
 
-      // ArrowRight should actually move to the (3, 4) point intersection and
+      // ArrowRight should actually move to the (3, 5) point intersection and
       // the text-output area should announce both coordinates. A regex that
       // binds the digits to their axis labels avoids false positives from
       // incidental "3"s and "5"s in other parts of the description.
