@@ -1,5 +1,7 @@
 import type { Maidr } from '../../type/grammar';
 import type { PlotlyAxis, PlotlyFullLayout, PlotlyGraphDiv } from './types';
+import { placeCopiesWith } from '@util/copyPlacement';
+import { plotlyCopyPlace } from './copies';
 
 /**
  * Detects whether an SVG element lives inside a Plotly container.
@@ -76,6 +78,9 @@ export function normalizePlotlySvg(
   setupLayoutObserver(svg, plotlyDiv);
   fixModebarTabOrder(container);
   setupClickToFocus(container);
+  // MAIDR's copies of the chart's marks go where plotly does not look its
+  // marks up again (see `plotlyCopyPlace`).
+  placeCopiesWith(plotlyCopyPlace);
 }
 
 // ---------------------------------------------------------------------------

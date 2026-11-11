@@ -26,6 +26,7 @@
 import type { Rgb } from '@type/color';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Color } from '@util/color';
+import { placeCopiesWith } from '@util/copyPlacement';
 import { Svg } from '@util/svg';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
@@ -850,6 +851,83 @@ describe('createLabelHighlights', () => {
     const highlight = Svg.createHighlightElement(mark, FALLBACK_COLOR);
 
     expect(Svg.createLabelHighlights(mark, highlight, BLACK_AND_WHITE)).toEqual([]);
+  });
+});
+
+describe('createLabelHighlights under a highlight placed after the chart\'s groups', () => {
+  const BLACK_AND_WHITE = ['#000000', '#ffffff'];
+
+  // As plotly's adapter does: copies of a mark in a trace's group go after
+  // every group of its layer, where they are drawn over the trace's labels.
+  placeCopiesWith((mark) => {
+    const layer = mark.closest('g.placed-trace')?.parentElement ?? null;
+    return layer === null ? null : { parent: layer, before: null };
+  });
+
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    document.body.innerHTML = '';
+    useMarkedBoxes();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  /**
+   * Draws a bar and the label drawn on it in one point of a trace, highlights
+   * the bar from its hidden copy as the highlight service does, and copies
+   * its labels.
+   * @param markStyle - The bar's paint
+   * @param labelStyle - The label's paint
+   * @returns The layer, the label, the highlight and the label copies
+   */
+  function placedBar(
+    markStyle: string,
+    labelStyle: string,
+  ): { layer: Element; label: SVGElement; highlight: SVGElement; copies: SVGElement[] } {
+    renderDiagram('<g id="layer"><g class="placed-trace"><g class="point">'
+      + `<rect id="bar" data-box="0,0,100,20" style="${markStyle}"></rect>`
+      + `<text id="bar-label" data-box="40,4,30,12" style="${labelStyle}">Bar</text>`
+      + '</g></g></g>');
+    const bar = document.getElementById('bar') as unknown as SVGElement;
+    const hidden = Svg.cloneHidden(bar);
+    const highlight = Svg.createHighlightElement(hidden, FALLBACK_COLOR);
+    return {
+      layer: document.getElementById('layer') as Element,
+      label: document.getElementById('bar-label') as unknown as SVGElement,
+      highlight,
+      copies: Svg.createLabelHighlights(hidden, highlight, BLACK_AND_WHITE),
+    };
+  }
+
+  it('copies a label that reads on the highlight over it, in its own colour', () => {
+    const { layer, label, highlight, copies } = placedBar('fill: #ECECFF', 'fill: #000000');
+
+    expect(copies).toHaveLength(1);
+    const [copy] = copies;
+    expect(copy.textContent).toBe('Bar');
+    expect(copy.style.getPropertyValue('fill')).toBe('#000000');
+    expect(copy.style.getPropertyPriority('fill')).toBe('');
+    // Over the highlight, which is over the label.
+    expect(label.compareDocumentPosition(highlight) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(layer.lastElementChild).toBe(copy);
+  });
+
+  it('copies a label that does not read on the highlight in a colour that does', () => {
+    const { layer, highlight, copies } = placedBar('fill: #ff0000', 'fill: #ffffff');
+
+    expect(copies).toHaveLength(1);
+    expect(contrast(copies[0].style.getPropertyValue('fill'), highlight.style.fill)).toBeGreaterThanOrEqual(4.5);
+    expect(layer.lastElementChild).toBe(copies[0]);
+  });
+
+  it('copies the label of a mark that fills nothing, since its highlight is filled', () => {
+    // A sunburst's root slice is drawn transparent, and its highlight is not.
+    const { layer, copies } = placedBar('fill: rgba(0, 0, 0, 0)', 'fill: #444444');
+
+    expect(copies).toHaveLength(1);
+    expect(layer.lastElementChild).toBe(copies[0]);
   });
 });
 

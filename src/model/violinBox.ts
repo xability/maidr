@@ -9,6 +9,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { BoxplotSection, boxSectionLabel } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
+import { insertCopy } from '@util/copyPlacement';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -1037,7 +1038,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     }
     const clone = Svg.markOwned(original.cloneNode(true) as SVGElement);
     clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    original.insertAdjacentElement(Constant.AFTER_END, clone);
+    insertCopy(original, clone);
     return clone;
   }
 
