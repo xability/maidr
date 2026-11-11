@@ -107,6 +107,49 @@ test.describe('Lightweight Charts adapter', () => {
     expect(second?.x ?? 0).toBeGreaterThan(first?.x ?? 0);
   });
 
+  test('outlines the pane the lobby is on, until a move inside it lands on a candle', async ({ page }) => {
+    await open(page, 'lightweight-charts.html');
+    await page.click('#price-chart');
+    await waitForText(page, 'maidr figure');
+    await page.keyboard.press('ArrowRight');
+    await waitForText(page, 'Subplot 1 of 2');
+    const first = { text: await text(page), box: await highlight(page) };
+    // The other pane, above or below the first.
+    await page.keyboard.press(first.text.includes('Volume') ? 'ArrowUp' : 'ArrowDown');
+    await waitForText(page, 'Subplot 2 of 2');
+    const second = { text: await text(page), box: await highlight(page) };
+    const volume = [first, second].find(stop => stop.text.includes('Volume'))?.box ?? null;
+    const price = [first, second].find(stop => stop.text.includes('ACME'))?.box ?? null;
+    if (price === null || volume === null) {
+      throw new Error(`no outline in the lobby: price pane ${JSON.stringify(price)}, volume pane ${JSON.stringify(volume)}`);
+    }
+    if (second.text.includes('Volume')) {
+      // Back up to the price pane, above.
+      await page.keyboard.press('ArrowUp');
+      await waitForText(page, 'ACME');
+    }
+    await page.keyboard.press('Enter');
+    await waitForText(page, 'Entered subplot');
+    // Nothing is selected yet, so the pane the reader went into stays outlined.
+    const entered = await highlight(page);
+    await page.keyboard.press('ArrowRight');
+    await waitForText(page, 'Date is 2025-01-02, close ACME is 98.08');
+
+    // Each pane's plot area is outlined, the price pane above the volume pane.
+    expect(price.height).toBeGreaterThan(volume.height);
+    expect(price.y + price.height).toBeLessThanOrEqual(volume.y + 1);
+    expect(Math.abs(price.width - volume.width)).toBeLessThanOrEqual(1);
+    expect(entered).toEqual(price);
+    // The first candle's box replaces the outline.
+    await expect.poll(async () => (await highlight(page))?.width ?? Number.POSITIVE_INFINITY)
+      .toBeLessThan(price.width / 4);
+
+    // Back in the lobby, the pane is outlined again.
+    await page.keyboard.press('Escape');
+    await waitForText(page, 'Returned to figure overview');
+    await expect.poll(() => highlight(page)).toEqual(price);
+  });
+
   test('keeps the candle outlined through the description dialog, for Space to replay', async ({ page }) => {
     await open(page, 'lightweight-charts.html');
     await enterPricePane(page, '#price-chart', 'ACME');
