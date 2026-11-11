@@ -244,13 +244,11 @@ const GUIDES: Record<string, Guide> = {
   'highcharts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: { stable: 16, experimental: 33 },
+    minRows: { stable: 15, experimental: 33 },
     examples: { after: '## Code Examples', before: '## Advanced Usage', level: '###', min: 11 },
     labels: {
       // `pareto` is the cumulative line over a bar chart.
       'line (pareto)': ['line'],
-      // `timeline` is a row of named events, read as a scatter.
-      'labelled scatter': ['point'],
       'normalized (percent-stacked) bar': ['stacked_normalized_bar'],
       'venn': ['venn'],
     },
