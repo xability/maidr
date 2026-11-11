@@ -151,6 +151,36 @@ describe('a radar or polar area read round the dial it declares', () => {
     ]);
   });
 
+  it('reads a start angle and a counterclockwise direction together on a radar', () => {
+    // From 3 o'clock, counterclockwise: January at 3, February at 1, March at
+    // 11, April at 9, May at 7 and June at 5. Right starts at June.
+    const layer = { ...coxcomb({ startAngle: 90, direction: PieDirection.COUNTERCLOCKWISE }), type: TraceType.RADAR };
+
+    expectWalk(walk(layer), [
+      ['Jun', 0.5],
+      ['May', -0.5],
+      ['Apr', -1],
+      ['Mar', -0.5],
+      ['Feb', 0.5],
+      ['Jan', 1],
+    ]);
+  });
+
+  it('reads a start angle that is not a number as 12 o\'clock', () => {
+    const asDeclaredNothing = walk(coxcomb());
+
+    expectWalk(walk(coxcomb({ startAngle: Number.NaN })), asDeclaredNothing);
+    expectWalk(walk(coxcomb({ startAngle: Number.POSITIVE_INFINITY })), asDeclaredNothing);
+  });
+
+  it('turns the braille row with the walk', () => {
+    const trace = TraceFactory.create(coxcomb({ startAngle: 60, direction: PieDirection.COUNTERCLOCKWISE })) as RadarTrace;
+
+    const { braille } = stateAt(trace, 0, 0);
+
+    expect(braille).toMatchObject({ values: [[...DEATHS].reverse()], col: 0 });
+  });
+
   it('turns a shorter series round within its own length', () => {
     // A ragged layer lists a short series as the first spokes of the
     // drawing. Turned round, its first column is its own last spoke, April,
