@@ -163,6 +163,8 @@ Wrap multiple `<VictoryBar>` series in `<VictoryStack>`. Each child's `name` pro
 
 A series may leave out categories the others have. The stack is then read category by category: each point is outlined on the bar Victory draws for it, and where a series has no point, it is read as missing, with nothing outlined, and left out of the category's total. Up and Down stay in the category being read. List each series' points in the order of the categories along the axis: Victory walks every series along the axis in step and draws no bar for a point listed out of that order, so MAIDR reads its value but outlines nothing for it.
 
+A child whose `data` is an empty array is not a series. Victory still draws a set of bars for it: it moves the data of each later child into the place of the child before it, and draws its own sample data, slivers at the axis, in the last child's place. MAIDR outlines each series on the bars drawn from its own data, and none of the slivers.
+
 ### Dodged (Grouped) Bar Chart
 
 Wrap multiple `<VictoryBar>` series in `<VictoryGroup>`. Each child's `name`

@@ -248,13 +248,18 @@ function tagDiscreteElements(
 
   // Victory renders one element per data point, except in a stack, which
   // draws every series out to the categories of all of them. Take the first
-  // that many unclaimed elements.
+  // that many unclaimed elements -- or, in a stack with children that draw
+  // none of its series, the bars of the children that draw them.
   const stack = layer.data.kind === 'segmented' ? stackLayout(layer.data.points) : null;
   if (layer.data.kind === 'segmented' && stack === null) {
     return undefined;
   }
   const count = stack ? stack.slots.length * stack.categories.length : layer.dataCount;
-  const matched = candidates.slice(0, count);
+  const byChild = stack && layer.stackDraws ? stackBarsByChild(candidates, layer.stackDraws, stack) : undefined;
+  if (byChild === null) {
+    return undefined;
+  }
+  const matched = byChild ? byChild.series : candidates.slice(0, count);
 
   if (matched.length !== count) {
     return undefined;
@@ -262,12 +267,17 @@ function tagDiscreteElements(
   if (
     stack
     && layer.data.kind === 'segmented'
-    && !stackInStep(stack)
+    && (byChild || !stackInStep(stack))
     && !stackDrawnAsLaidOut(matched, stack, layer.data.points, layer.orientation === Orientation.HORIZONTAL)
   ) {
     return undefined;
   }
 
+  // The bars of the children that draw no series are the stack's too, and
+  // are left to no later layer.
+  for (const el of byChild?.drawn ?? []) {
+    claimed.add(el);
+  }
   for (const el of matched) {
     // A reversed layer names its marks one by one below, and the shared
     // attribute would then be a second, wrongly-ordered way to select them.
@@ -319,6 +329,60 @@ function tagDiscreteElements(
 }
 
 /**
+ * The bars of a stack some of whose children draw none of its series
+ * ({@link VictoryLayerInfo.stackDraws}), found by the child that draws each
+ * series.
+ *
+ * Victory draws each child's bars in a group of their own and renders the
+ * children back to front, so the stack's groups are the first so many
+ * parents of the unclaimed bars, its last child's first. The bars a child
+ * draws for no series -- the slivers of Victory's sample data, for one --
+ * are skipped, rather than taken for the first series' as the first so many
+ * bars took them.
+ *
+ * @param candidates - The unclaimed bars, in document order
+ * @param draws      - Which series each child that draws marks draws
+ * @param layout     - Where each point is drawn
+ * @returns The series' bars in the order the stack's tagging reads them,
+ *   its last series' first and each series' in category order, with every
+ *   bar the stack draws; null when a series' bars are not found
+ */
+function stackBarsByChild(
+  candidates: Element[],
+  draws: readonly (number | null)[],
+  layout: StackLayout,
+): { series: Element[]; drawn: Element[] } | null {
+  const groups = new Map<Element, Element[]>();
+  for (const bar of candidates) {
+    const parent = bar.parentElement;
+    const group = parent ? groups.get(parent) : undefined;
+    if (group) {
+      group.push(bar);
+      continue;
+    }
+    if (!parent || groups.size === draws.length) {
+      break;
+    }
+    groups.set(parent, [bar]);
+  }
+  const drawn = [...groups.values()];
+  if (drawn.length !== draws.length) {
+    return null;
+  }
+
+  const series: Element[] = [];
+  for (let s = layout.slots.length - 1; s >= 0; s--) {
+    const child = draws.indexOf(s);
+    const bars = child < 0 ? undefined : drawn[draws.length - 1 - child];
+    if (bars?.length !== layout.categories.length) {
+      return null;
+    }
+    series.push(...bars);
+  }
+  return { series, drawn: drawn.flat() };
+}
+
+/**
  * Whether a stack's bars are drawn as {@link stackLayout} laid its points
  * out: no bar where a series has no point, and a bar where it has a point
  * that is a number other than zero.
@@ -326,9 +390,10 @@ function tagDiscreteElements(
  * The layout follows how Victory places categories along the axis, and an
  * axis given categories of its own places them otherwise. Read against the
  * bars, such a stack is left without a highlight rather than outlined on
- * other segments. Only a stack that is not {@link stackInStep} is read
- * against them: one that is pairs its bars with its points in order, and is
- * tagged as it was before ragged stacks were.
+ * other segments. Only a stack that is not {@link stackInStep}, or whose
+ * bars were found child by child ({@link stackBarsByChild}), is read against
+ * them: any other pairs its bars with its points in order, and is tagged as
+ * it was before ragged stacks were.
  *
  * @param bars       - The stack's bars, in document order
  * @param layout     - Where each point is drawn

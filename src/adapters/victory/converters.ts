@@ -1127,6 +1127,67 @@ function collectStackChildren(children: ReactNode): StackChild[] {
   return collected;
 }
 
+/** The roles of the components Victory gathers data from (victory-core `Data.isDataComponent`). */
+const VICTORY_DATA_ROLES = new Set([
+  'area',
+  'bar',
+  'boxplot',
+  'candlestick',
+  'errorbar',
+  'group',
+  'histogram',
+  'line',
+  'pie',
+  'scatter',
+  'stack',
+  'voronoi',
+]);
+
+/**
+ * Which of a stacked bar layer's series each child of its `VictoryStack`
+ * draws, for every child that draws marks, in the order they are declared:
+ * the series' index, or null for a child that draws none of them.
+ *
+ * Victory gives the stack's i-th child the i-th set of data it gathered from
+ * the children (victory-stack `getChildren`), and gathers none from a child
+ * whose `data` is an empty array (victory-core `Wrapper.getDataFromChildren`).
+ * After such a child, each child draws the data of the one after it, and the
+ * last draws Victory's own sample data, bars a sliver tall. A child given no
+ * `data` at all draws that sample data in its own place. Either way the stack
+ * draws bars that belong to no series, and draws them ahead of the series'
+ * own when they come from a later child.
+ *
+ * @param children - The stack's children
+ * @returns One entry per child that draws marks, or undefined when every
+ *   child draws its own series, or when a child has children Victory would
+ *   read in its place
+ */
+function stackChildDraws(children: ReactNode): (number | null)[] | undefined {
+  const elements = Children.toArray(children).filter(isValidElement);
+  const propsOf = (child: ReactElement): Record<string, unknown> => child.props as Record<string, unknown>;
+  if (elements.some(child => Boolean(propsOf(child).children)))
+    return undefined;
+
+  const drawsMarks = (child: ReactElement): boolean =>
+    VICTORY_DATA_ROLES.has(String((child.type as { role?: unknown }).role));
+  const gathered = elements.filter((child) => {
+    const data = propsOf(child).data;
+    return drawsMarks(child) && !(Array.isArray(data) && data.length === 0);
+  });
+  // The series as `extractSegmentedLayer` reads them: the bars with points.
+  const series = elements.filter(child =>
+    getVictoryDisplayName(child.type) === 'VictoryBar' && validateRawData(propsOf(child).data));
+
+  const draws = elements.flatMap((child, i) => {
+    if (!drawsMarks(child))
+      return [];
+    const index = series.indexOf(gathered[i]);
+    return [index < 0 ? null : index];
+  });
+  const own = draws.length === series.length && draws.every((index, i) => index === i);
+  return own ? undefined : draws;
+}
+
 /**
  * Whether a stack's bands are shares of one whole.
  *
@@ -1344,6 +1405,7 @@ function extractSegmentedLayer(
     legend.reverse();
   }
 
+  const stackDraws = grouped || diverging ? undefined : stackChildDraws(containerProps.children);
   return {
     id: layerId,
     victoryType: traceType,
@@ -1355,6 +1417,7 @@ function extractSegmentedLayer(
     ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     dataCount: totalElements,
     legend,
+    ...(stackDraws ? { stackDraws } : {}),
   };
 }
 

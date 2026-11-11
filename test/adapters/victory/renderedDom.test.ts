@@ -833,6 +833,73 @@ describe('victory stacked bar', () => {
     expect(barExtent(bQ3).height / barExtent(aQ3).height).toBeCloseTo(1700 / 2200, 2);
   });
 
+  /** Product A over Q1 to Q3, as `quarters` has it. */
+  const productA = createElement(VictoryBar, {
+    key: 'a',
+    name: 'Product A',
+    data: [{ x: 'Q1', y: 2400 }, { x: 'Q2', y: 3100 }, { x: 'Q3', y: 2200 }],
+  });
+  const noPoints = createElement(VictoryBar, { key: 'b', name: 'Product B', data: [] });
+
+  it.each([
+    { what: 'after it', children: [productA, noPoints] },
+    { what: 'before it', children: [noPoints, productA] },
+  ])('outlines Product A on its own bars beside a series with no points $what', ({ children }) => {
+    // Victory gathers no data from a child with none, gives each later child
+    // the data of the one after it and the last its own sample data, three
+    // slivers drawn ahead of Product A's bars. The first three bars were
+    // taken for Product A's.
+    const { doc, layers } = renderAndTag(createElement(VictoryChart, null, createElement(VictoryStack, null, ...children)));
+    const grid = layers[0].selectors as (string | null)[][];
+
+    expect(doc.querySelectorAll('path[role="presentation"]')).toHaveLength(6);
+    expect(grid).toHaveLength(1);
+    const [q1, q2, q3] = grid[0].map(selector => barExtent(doc.querySelector(selector as string)));
+    // Each outline stands on the axis, as tall as Product A's own value.
+    expect(q2.height).toBeGreaterThan(100);
+    expect(q1.bottom).toBeCloseTo(q2.bottom, 6);
+    expect(q1.height / q2.height).toBeCloseTo(2400 / 3100, 2);
+    expect(q3.height / q2.height).toBeCloseTo(2200 / 3100, 2);
+  });
+
+  it('outlines each series on its own bars on either side of a series with no points', () => {
+    // Victory draws Product C's data in the empty child's place and its
+    // sample data in Product C's, so the first six bars were the slivers and
+    // Product C's, taken for Product C's and Product A's.
+    const productC = createElement(VictoryBar, {
+      key: 'c',
+      name: 'Product C',
+      data: [{ x: 'Q1', y: 1000 }, { x: 'Q2', y: 900 }, { x: 'Q3', y: 800 }],
+    });
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryStack, null, productA, noPoints, productC),
+    ));
+    const grid = layers[0].selectors as (string | null)[][];
+
+    const [aQ1, cQ1] = [grid[0][0], grid[1][0]].map(selector => barExtent(doc.querySelector(selector as string)));
+    // Product C stands on Product A, each as tall as its own value.
+    expect(cQ1.bottom).toBeCloseTo(aQ1.bottom - aQ1.height, 6);
+    expect(cQ1.height / aQ1.height).toBeCloseTo(1000 / 2400, 2);
+  });
+
+  it('leaves the bars a series with no points draws to no later layer', () => {
+    // The stack took the slivers, and the dots after it Product A's bars.
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryStack, { key: 'stack' }, productA, noPoints),
+      createElement(VictoryScatter, { key: 'dots', data: [{ x: 'Q1', y: 500 }, { x: 'Q2', y: 600 }, { x: 'Q3', y: 700 }] }),
+    ));
+    const stackGroup = doc.querySelector('svg > g') as Element;
+
+    const dots = Array.from(doc.querySelectorAll(layers[1].selectors as string));
+
+    expect(dots).toHaveLength(3);
+    expect(dots.filter(dot => stackGroup.contains(dot))).toEqual([]);
+  });
+
   /** The left and right edges of a horizontal Victory bar, and its width. */
   function barSpanX(bar: Element | null): { left: number; right: number; width: number } {
     const xs = Array.from((bar?.getAttribute('d') ?? '').matchAll(/[ML]\s*(-?[\d.]+),/g))
