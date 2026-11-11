@@ -1736,6 +1736,42 @@ function distinguishSeriesSelectors(
 }
 
 /**
+ * Mark the points of each colour group of a scatter, and give the group a
+ * selector naming its marks.
+ *
+ * The converter names a group's points by their place in the mark
+ * (`> path:nth-child(k)`), which holds only until something is inserted among
+ * them. MAIDR inserts a hidden copy beside each element a layer's selector
+ * names when it reads the layer, so once the first group was read the second
+ * group's places counted the first group's copies, and its highlight landed
+ * on the first group's points: the iris scatter's versicolor point at 4.9 by
+ * 2.4 was outlined on a setosa point at 5.2 by 3.4. The places are read here,
+ * before MAIDR has inserted anything, and each group's points are marked with
+ * its id, which a copy of another group's point does not carry.
+ *
+ * @param svg - The chart's SVG
+ * @param layers - Every layer of the chart
+ * @param containerScope - The chart container's selector prefix
+ */
+function stampColourGroups(svg: SVGSVGElement, layers: MaidrLayer[], containerScope: string): void {
+  for (const layer of layers) {
+    const selector = layer.selectors;
+    if (layer.type !== TraceType.SCATTER || typeof selector !== 'string' || !selector.includes(':nth-child('))
+      continue;
+    const points = Array.from(svg.querySelectorAll<SVGElement>(selector));
+    if (points.length === 0) {
+      debugLog(`scatter layer "${layer.id}": its points match nothing, so it keeps its selector`);
+      continue;
+    }
+    // Quotes and backslashes would end or escape the attribute value.
+    const owner = String(layer.id).replace(/["\\]/g, '_');
+    for (const point of points)
+      point.setAttribute('data-maidr-group', owner);
+    layer.selectors = `${containerScope} ${points[0].tagName.toLowerCase()}[data-maidr-group="${owner}"]`;
+  }
+}
+
+/**
  * The layer types whose bands are stacked on one another, read as listed from
  * the bottom of the stack up.
  */
@@ -2565,6 +2601,11 @@ export function bindVegaLite(
   // repeat per series with one per series, so a chart with as many series as
   // points per series is not highlighted a point at a time.
   distinguishSeriesSelectors(svg as SVGSVGElement, layers, containerScope);
+
+  // For the colour groups of a scatter, mark each group's points before
+  // MAIDR inserts its highlight copies among them, which a selector naming
+  // the points by their place would count.
+  stampColourGroups(svg as SVGSVGElement, layers, containerScope);
 
   // For stacked area layers, list the bands from the bottom of the stack up,
   // as they are drawn, each band taking its own selector with it.
