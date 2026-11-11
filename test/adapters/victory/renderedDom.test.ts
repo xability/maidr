@@ -15,12 +15,15 @@
  * as a chart that announces correctly and highlights nothing.
  */
 
+import type { NotificationService } from '@service/notification';
 import type { ErrorBarPoint, HistogramPoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
+import type { TraceState } from '@type/state';
 import type { ReactElement } from 'react';
 import { extractVictoryLayers, toMaidrLayer } from '@adapters/victory/converters';
 import { tagLayerElements } from '@adapters/victory/selectors';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
+import { TextService } from '@service/text';
 import { TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 import { createElement } from 'react';
@@ -614,6 +617,16 @@ describe('victory stacked bar', () => {
     );
   }
 
+  /** What the text service announces for a state. */
+  function announce(state: TraceState): string {
+    const text = new TextService({ notify: jest.fn() } as unknown as NotificationService);
+    const listener = jest.fn();
+    const disposable = text.onChange(listener);
+    text.update(state);
+    disposable.dispose();
+    return (listener.mock.calls[0][0] as { value: string }).value;
+  }
+
   it('outlines the segment being read on a stack whose series miss a category', () => {
     // Product B has no Q2. `VictoryStack` fills it in with a bar of no
     // height, so B is drawn with three bars for its two points, and its
@@ -645,6 +658,24 @@ describe('victory stacked bar', () => {
     expect(aQ2.height / aQ1.height).toBeCloseTo(3100 / 2400, 2);
   });
 
+  it('outlines the segment being read on a horizontal stack whose series miss a category', () => {
+    const { doc, layers } = renderAndTag(quarters([{ x: 'Q1', y: 1800 }, { x: 'Q3', y: 1700 }], { horizontal: true }));
+    const grid = layers[0].selectors as (string | null)[][];
+
+    // B's Q2 is a gap, turned round with the rest of its series.
+    expect((layers[0].data as SegmentedPoint[][])[1]).toEqual([
+      { x: 1800, y: 'Q1', z: 'Product B' },
+      { x: Number.NaN, y: 'Q2', z: 'Product B' },
+      { x: 1700, y: 'Q3', z: 'Product B' },
+    ]);
+    expect(grid[1][1]).toBeNull();
+    // B's Q3 runs on from the end of A's Q3, in its row, as long as its value.
+    const [aQ3, bQ3] = [grid[0][2], grid[1][2]].map(selector => doc.querySelector(selector as string));
+    expect(barSpanX(bQ3).left).toBeCloseTo(barSpanX(aQ3).right, 6);
+    expect(barExtent(bQ3).bottom).toBeCloseTo(barExtent(aQ3).bottom, 6);
+    expect(barSpanX(bQ3).width / barSpanX(aQ3).width).toBeCloseTo(1700 / 2200, 2);
+  });
+
   it('outlines no bar for a point Victory draws none for, and the rest where they are', () => {
     // Product B lists Q3 before Q1. `VictoryStack` walks each series along
     // the axis in step, so it draws B's Q3 and passes over its Q1.
@@ -660,10 +691,14 @@ describe('victory stacked bar', () => {
     expect(barExtent(bQ3).bottom).toBeCloseTo(barExtent(aQ3).bottom - barExtent(aQ3).height, 6);
   });
 
-  it('keeps Up and Down in the category being read on a stack whose series miss one', () => {
+  it.each([
+    { what: 'vertical', chart: null },
+    { what: 'horizontal', chart: { horizontal: true } },
+  ])('keeps Up and Down in the category being read on a $what stack whose series miss one', ({ chart }) => {
     // Product B has no Q2. Up from Product A at Q2 reached B's next point,
-    // Q3, and the outline went to the Q3 column with it.
-    const { doc, layers } = renderAndTag(quarters([{ x: 'Q1', y: 1800 }, { x: 'Q3', y: 1700 }]));
+    // Q3, and the outline went to the Q3 column with it. A horizontal stack
+    // is padded before its points are turned round, gaps and all.
+    const { doc, layers } = renderAndTag(quarters([{ x: 'Q1', y: 1800 }, { x: 'Q3', y: 1700 }], chart));
 
     const [up, down, sum] = withPageDocument(doc.body, () => {
       const trace = TraceFactory.create(layers[0]);
@@ -695,6 +730,64 @@ describe('victory stacked bar', () => {
     expect(down).toEqual(expect.objectContaining({ quarter: 'Q2', value: 3100, series: 'Product A', outlined: true }));
     // The quarter's total counts the bars it has, not B's Q3.
     expect(sum).toEqual(expect.objectContaining({ quarter: 'Q2', value: 3100 }));
+  });
+
+  it('names a series that has no name the same at a gap as at its bars', () => {
+    // Unnamed series are numbered. Product B, the second, has no Q1, so its
+    // first point is a gap, and the extremes name a series by its first point.
+    const { doc, layers } = renderAndTag(quarters([{ x: 'Q2', y: 2700 }, { x: 'Q3', y: 1700 }], null, { name: undefined }));
+
+    const read = withPageDocument(doc.body, () => {
+      const trace = TraceFactory.create(layers[0]);
+      trace.moveToIndex(1, 0);
+      const gap = announce(trace.state);
+      trace.moveToIndex(1, 1);
+      const bar = announce(trace.state);
+      const extremes = (trace.getExtremaTargets?.() ?? []).map(target => target.label);
+      trace.dispose();
+      return { gap, bar, extremes };
+    });
+
+    expect({ names: (layers[0].data as SegmentedPoint[][])[1].map(point => point.z), ...read }).toEqual({
+      names: ['Series 2', 'Series 2', 'Series 2'],
+      gap: 'X is Q1, Y is missing, Series is Series 2',
+      bar: 'X is Q2, Y is 2700, Series is Series 2',
+      extremes: ['Max Series: \'Series 2\' at Q2', 'Min Series: \'Series 2\' at Q3'],
+    });
+  });
+
+  it.each([
+    { what: 'numbers', at: [1, 2, 3] },
+    { what: 'times', at: [0, 3, 6].map(month => new Date(Date.UTC(2024, month, 1))) },
+  ])('reads a stack over $what whose series miss some in the order Victory draws them', ({ at }) => {
+    // Product A has no second category and Product B no first, so the
+    // categories first appear first, third, second. Victory places numbers
+    // and times along the axis by value.
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(
+        VictoryStack,
+        null,
+        createElement(VictoryBar, { key: 'a', name: 'Product A', data: [{ x: at[0], y: 2400 }, { x: at[2], y: 2200 }] }),
+        createElement(VictoryBar, { key: 'b', name: 'Product B', data: [{ x: at[1], y: 2700 }, { x: at[2], y: 1700 }] }),
+      ),
+    ));
+    const data = layers[0].data as SegmentedPoint[][];
+    const grid = layers[0].selectors as (string | null)[][];
+
+    expect(data.map(row => row.map(point => point.x))).toEqual([at, at]);
+    expect(data.map(row => row.map(point => point.y))).toEqual([[2400, Number.NaN, 2200], [Number.NaN, 2700, 1700]]);
+    expect(grid.map(row => row.map(cell => cell !== null))).toEqual([[true, false, true], [false, true, true]]);
+    // B's second stands on the axis between A's first and its own third,
+    // which stands on A's.
+    const [aFirst, aThird, bSecond, bThird] = [grid[0][0], grid[0][2], grid[1][1], grid[1][2]]
+      .map(selector => doc.querySelector(selector as string));
+    expect(barExtent(bSecond).bottom).toBeCloseTo(barExtent(aFirst).bottom, 6);
+    expect(barSpanX(aFirst).right).toBeLessThan(barSpanX(bSecond).left);
+    expect(barSpanX(bSecond).right).toBeLessThan(barSpanX(bThird).left);
+    expect(barExtent(bThird).bottom).toBeCloseTo(barExtent(aThird).bottom - barExtent(aThird).height, 6);
+    expect(barExtent(bSecond).height / barExtent(bThird).height).toBeCloseTo(2700 / 1700, 2);
   });
 
   it('reads a full stack exactly as its series list their points', () => {
