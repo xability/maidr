@@ -54,6 +54,8 @@ const FIXTURES: ReadonlyArray<{ name: string; check: Check }> = [
   { name: 'py-seaborn-dodged', check: 'ranks' },
   { name: 'py-matplotlib-line', check: 'moves' },
   { name: 'py-seaborn-heat', check: 'outlined' },
+  // Each rung outlines its own box of the ladder, not the whole ladder (#1682).
+  { name: 'py-seaborn-boxen', check: 'moves' },
 ];
 
 /**

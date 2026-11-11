@@ -42,6 +42,7 @@ py-maidr version wrote the page.
 | `py-matplotlib-line`             | py-maidr after xability/py-maidr#807 | `ax.plot()`                                   |
 | `py-seaborn-heat`                | py-maidr after xability/py-maidr#807 | `sns.heatmap()`                               |
 | `r-base-survival`                | r-maidr 0.5.0.9000 (6cf62beb)        | `plot(survfit(... ~ sex, lung))` (#1433)      |
+| `py-seaborn-boxen`               | py-maidr 1.28.2 (6180075)            | `sns.boxenplot()`, a box a rung (#1682)       |
 
 ## Refreshing one
 
