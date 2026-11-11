@@ -919,6 +919,39 @@ describe('polar area', () => {
     expect(toMaidrLayer(info).type).toBe(TraceType.BAR);
   });
 
+  // Victory measures a polar chart's angles counterclockwise from 3 o'clock
+  // and centres each wedge on its share of the turn, the first on
+  // `startAngle`; the grammar's start is clockwise from 12.
+  it.each([
+    { what: 'its default, counterclockwise from 3 o\'clock', angles: {}, dial: { startAngle: 90, direction: PieDirection.COUNTERCLOCKWISE } },
+    { what: 'counterclockwise from 12 o\'clock', angles: { startAngle: 90, endAngle: 450 }, dial: { direction: PieDirection.COUNTERCLOCKWISE } },
+    { what: 'clockwise from 12 o\'clock', angles: { startAngle: 90, endAngle: -270 }, dial: {} },
+    { what: 'part of a turn, which no start and direction describe', angles: { startAngle: 0, endAngle: 180 }, dial: {} },
+  ])('declares where a polar area\'s wedges are drawn: $what', ({ angles, dial }) => {
+    const [info] = extractVictoryLayers(
+      chart({ polar: true, ...angles }, createElement(VictoryBar, { data: wedges })),
+    );
+
+    const { startAngle, direction } = toMaidrLayer(info);
+
+    expect({ startAngle, direction }).toEqual({ startAngle: undefined, direction: undefined, ...dial });
+  });
+
+  it('takes a chart\'s angles over its bar\'s, and a bar\'s own with no chart around it', () => {
+    // Measured: Victory draws a chart's bars at the chart's angles, its
+    // defaults included, and a bar outside a chart at its own.
+    const [inChart] = extractVictoryLayers(
+      chart({ polar: true }, createElement(VictoryBar, { data: wedges, startAngle: 90, endAngle: 450 })),
+    );
+    const [alone] = extractVictoryLayers(
+      createElement(VictoryBar, { data: wedges, polar: true, startAngle: 90, endAngle: 450 }),
+    );
+
+    expect(toMaidrLayer(inChart).startAngle).toBe(90);
+    expect(toMaidrLayer(alone).startAngle).toBeUndefined();
+    expect(toMaidrLayer(alone).direction).toBe(PieDirection.COUNTERCLOCKWISE);
+  });
+
   it('names a wedge and its value rather than X and Y', () => {
     // A polar chart is drawn against `VictoryPolarAxis`, not `VictoryAxis`,
     // so there was no label to read, and the core's fallback announced

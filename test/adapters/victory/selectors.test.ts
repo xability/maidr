@@ -742,6 +742,7 @@ describe('tagLayerElements: polar area', () => {
       data: {
         kind: 'polarArea',
         points: [Array.from({ length: wedgeCount }, (_, i) => ({ x: i, y: i + 1 }))],
+        dial: {},
       },
       dataCount: wedgeCount,
     };
