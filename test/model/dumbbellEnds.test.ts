@@ -107,6 +107,7 @@ function centre(element: SVGElement): [number, number] {
 
 const DENMARK: DumbbellPoint = { x: 'Denmark', start: 71.2, end: 78.4 };
 const LATVIA: DumbbellPoint = { x: 'Latvia', start: 74.6, end: 69.5 };
+const POLAND: DumbbellPoint = { x: 'Poland', start: 70.9, end: 75.6 };
 
 describe('each end of a dumbbell is marked on its own', () => {
   beforeEach(() => {
@@ -135,33 +136,43 @@ describe('each end of a dumbbell is marked on its own', () => {
     expect(centre(latvia2020)).toEqual([240, 190]);
   });
 
-  test('marks the top and the bottom of a connector on a chart standing upright', () => {
-    place({ x: 125, y: 361, width: 70, height: 29 }, { tag: 'path' });
-    const trace = new DumbbellTrace(layer([{ x: 'Norway', start: 74.9, end: 83.2 }], Orientation.VERTICAL));
+  test('marks the top and the bottom of each connector on a chart standing upright', () => {
+    place({ x: 125, y: 585, width: 70, height: 40 }, { tag: 'path' });
+    place({ x: 252, y: 620, width: 70, height: 50 }, { tag: 'path' });
+    const trace = new DumbbellTrace(layer([
+      { x: 'Norway', start: 75, end: 83 },
+      { x: 'Brazil', start: 66, end: 76 },
+    ], Orientation.VERTICAL));
 
-    expect(centre(markedAt(trace, 0, 0))).toEqual([160, 390]);
-    expect(centre(markedAt(trace, 1, 0))).toEqual([160, 361]);
+    expect(centre(markedAt(trace, 0, 0))).toEqual([160, 625]);
+    expect(centre(markedAt(trace, 1, 0))).toEqual([160, 585]);
+    expect(centre(markedAt(trace, 0, 1))).toEqual([287, 670]);
+    expect(centre(markedAt(trace, 1, 1))).toEqual([287, 620]);
   });
 
   test('marks both ends of a pair that held still at the middle of its connector', () => {
+    place({ x: 308, y: 120, width: 288, height: 0 });
+    place({ x: 240, y: 190, width: 204, height: 0 });
     place({ x: 500, y: 260, width: 0, height: 0 });
-    const trace = new DumbbellTrace(layer([{ x: 'Malta', start: 76, end: 76 }]));
+    const trace = new DumbbellTrace(layer([DENMARK, LATVIA, { x: 'Malta', start: 76, end: 76 }]));
 
-    expect(centre(markedAt(trace, 0, 0))).toEqual([500, 260]);
-    expect(centre(markedAt(trace, 1, 0))).toEqual([500, 260]);
+    expect(centre(markedAt(trace, 0, 2))).toEqual([500, 260]);
+    expect(centre(markedAt(trace, 1, 2))).toEqual([500, 260]);
   });
 
   test('reads which end is which off the page when the chart turns the group it draws in', () => {
     // Highcharts lays a chart on its side by turning the series group, so a
     // connector running across the page runs up and down its own coordinates.
-    place(
-      { x: 347.5, y: 97.5, width: 0, height: 96.25 },
-      { tag: 'path', toPage: { a: 0, b: -1, c: -1, d: 0, e: 500, f: 400 } },
-    );
-    const trace = new DumbbellTrace(layer([{ x: 'Norway', start: 76.5, end: 83.2 }]));
+    const turned = { a: 0, b: -1, c: -1, d: 0, e: 500, f: 400 };
+    place({ x: 347.5, y: 60, width: 0, height: 80 }, { tag: 'path', toPage: turned });
+    place({ x: 270.5, y: 50, width: 0, height: 60 }, { tag: 'path', toPage: turned });
+    const trace = new DumbbellTrace(layer([
+      { x: 'Norway', start: 76, end: 84 },
+      { x: 'Japan', start: 79, end: 85 },
+    ]));
 
-    expect(centre(markedAt(trace, 0, 0))).toEqual([347.5, 193.75]);
-    expect(centre(markedAt(trace, 1, 0))).toEqual([347.5, 97.5]);
+    expect(centre(markedAt(trace, 0, 0))).toEqual([347.5, 140]);
+    expect(centre(markedAt(trace, 1, 0))).toEqual([347.5, 60]);
   });
 
   test('marks the ends of a connector its own transform moves, beside it in its parent', () => {
@@ -171,59 +182,113 @@ describe('each end of a dumbbell is marked on its own', () => {
       configurable: true,
     });
     place(
-      { x: 0, y: 0, width: 80, height: 0 },
-      { tag: 'path', transform: 'translate(10,20)', toPage: { a: 1, b: 0, c: 0, d: 1, e: 110, f: 220 } },
+      { x: 0, y: 0, width: 60, height: 0 },
+      { tag: 'path', transform: 'translate(400,20)', toPage: { a: 1, b: 0, c: 0, d: 1, e: 500, f: 220 } },
     );
-    const trace = new DumbbellTrace(layer([{ x: 'Canada', start: 78, end: 79.2 }]));
+    place(
+      { x: 0, y: 0, width: 110, height: 0 },
+      { tag: 'path', transform: 'translate(255,60)', toPage: { a: 1, b: 0, c: 0, d: 1, e: 355, f: 260 } },
+    );
+    const trace = new DumbbellTrace(layer([
+      { x: 'Canada', start: 78, end: 79.2 },
+      { x: 'Chile', start: 75.1, end: 77.3 },
+    ]));
 
-    expect(centre(markedAt(trace, 0, 0))).toEqual([10, 20]);
-    expect(centre(markedAt(trace, 1, 0))).toEqual([90, 20]);
+    expect(centre(markedAt(trace, 0, 0))).toEqual([400, 20]);
+    expect(centre(markedAt(trace, 1, 0))).toEqual([460, 20]);
+  });
+
+  test('follows a value axis drawn reversed, its larger values further left', () => {
+    // One pair fits an axis running either way; it is the two together,
+    // drawn in order only the reversed way, that say which way it runs.
+    place({ x: 216, y: 120, width: 72, height: 0 });
+    place({ x: 254, y: 190, width: 51, height: 0 });
+    const trace = new DumbbellTrace(layer([DENMARK, LATVIA]));
+
+    expect(centre(markedAt(trace, 0, 0))).toEqual([288, 120]);
+    expect(centre(markedAt(trace, 1, 0))).toEqual([216, 120]);
+    expect(centre(markedAt(trace, 0, 1))).toEqual([254, 190]);
+    expect(centre(markedAt(trace, 1, 1))).toEqual([305, 190]);
+  });
+
+  test.each([
+    {
+      shape: 'pairs drawn out of order whichever way the axis runs',
+      draw: () => [
+        place({ x: 308, y: 120, width: 288, height: 0 }),
+        place({ x: 700, y: 190, width: 200, height: 0 }),
+      ],
+      points: [DENMARK, LATVIA],
+    },
+    {
+      shape: 'a lone pair, which fits an axis running either way',
+      draw: () => [place({ x: 308, y: 120, width: 288, height: 0 })],
+      points: [DENMARK],
+    },
+  ])('outlines every connector whole at both ends, as before, for $shape', ({ draw, points }) => {
+    // A wrong end marked shows the reader the other value's place, which is
+    // worse than showing them the pair.
+    const connectors = draw();
+    const trace = new DumbbellTrace(layer(points));
+
+    connectors.forEach((connector, col) => {
+      const start = markedAt(trace, 0, col);
+      const end = markedAt(trace, 1, col);
+
+      expect(start.previousElementSibling).toBe(connector);
+      expect(end).toBe(start);
+    });
   });
 
   test.each([
     {
       shape: 'a dot named in place of a connector',
-      draw: () => place({ x: 296, y: 111, width: 18, height: 18 }, { tag: 'circle' }),
-      point: DENMARK,
+      draw: () => place({ x: 287, y: 321, width: 18, height: 18 }, { tag: 'circle' }),
+      point: POLAND,
     },
     {
       shape: 'a pair missing a value',
-      draw: () => place({ x: 308, y: 120, width: 288, height: 0 }),
-      point: { x: 'Denmark', start: Number.NaN, end: 78.4 },
+      draw: () => place({ x: 296, y: 330, width: 188, height: 0 }),
+      point: { x: 'Poland', start: Number.NaN, end: 75.6 },
     },
     {
       shape: 'a connector that does not run along the value axis',
-      draw: () => place({ x: 308, y: 30, width: 0, height: 90 }),
-      point: DENMARK,
+      draw: () => place({ x: 296, y: 250, width: 0, height: 90 }),
+      point: POLAND,
     },
     {
       shape: 'a connector drawn with a transform of its own that the document cannot map',
-      draw: () => place({ x: 308, y: 120, width: 288, height: 0 }, { transform: 'rotate(5)' }),
-      point: DENMARK,
+      draw: () => place({ x: 296, y: 330, width: 188, height: 0 }, { transform: 'rotate(5)' }),
+      point: POLAND,
     },
-  ])('outlines $shape whole at both ends, as before', ({ draw, point }) => {
+  ])('outlines $shape whole at both ends, as before, and marks the other pairs\' ends', ({ draw, point }) => {
+    place({ x: 308, y: 120, width: 288, height: 0 });
+    place({ x: 240, y: 190, width: 204, height: 0 });
     const connector = draw();
-    const trace = new DumbbellTrace(layer([point]));
+    const trace = new DumbbellTrace(layer([DENMARK, LATVIA, point]));
 
-    const start = markedAt(trace, 0, 0);
-    const end = markedAt(trace, 1, 0);
+    const start = markedAt(trace, 0, 2);
+    const end = markedAt(trace, 1, 2);
 
     expect(start.tagName).toBe(connector.tagName);
     expect(start.previousElementSibling).toBe(connector);
     expect(end).toBe(start);
+    expect(centre(markedAt(trace, 1, 0))).toEqual([596, 120]);
   });
 
   test('outlines a connector the document cannot measure whole at both ends, and says why', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const connector = place({ x: 308, y: 120, width: 288, height: 0 });
+    place({ x: 308, y: 120, width: 288, height: 0 });
+    place({ x: 240, y: 190, width: 204, height: 0 });
+    const connector = place({ x: 296, y: 330, width: 188, height: 0 });
     Object.defineProperty(connector, 'getBBox', {
       value: () => {
         throw new Error('not rendered');
       },
     });
-    const trace = new DumbbellTrace(layer([DENMARK]));
+    const trace = new DumbbellTrace(layer([DENMARK, LATVIA, POLAND]));
 
-    expect(markedAt(trace, 1, 0).previousElementSibling).toBe(connector);
+    expect(markedAt(trace, 1, 2).previousElementSibling).toBe(connector);
     expect(warn).toHaveBeenCalledTimes(1);
   });
 

@@ -146,37 +146,54 @@ function rankLabel(kind: 'max' | 'min', change: number): string {
 }
 
 /**
- * Where each end of a pair is drawn on the connector the chart joins them
- * with.
+ * How far apart, in page pixels, two ends can be drawn the wrong way round
+ * along the value axis and still be read as drawn in order: rendering rounds
+ * a position, and two close values can come out a pixel apart either way.
+ */
+const ALONG_TOLERANCE = 1;
+
+/** One end of a connector, as the chart draws it. */
+interface DrawnEnd {
+  /** Where its marker is centred, in the coordinates of the connector's parent. */
+  readonly at: Point;
+  /** How far along the value axis it is drawn on the page: rightwards, or upwards. */
+  readonly along: number;
+}
+
+/** Where a connector's two ends, and its middle, are drawn. */
+interface DrawnConnector {
+  /** The end drawn further along the value axis: further right, or higher up. */
+  readonly far: DrawnEnd;
+  /** The other end. */
+  readonly near: DrawnEnd;
+  /** Its middle, where a pair whose ends hold one value is drawn. */
+  readonly middle: DrawnEnd;
+}
+
+/**
+ * Where the chart draws the two ends of a pair's connector, and its middle.
  *
- * The connector runs from one value to the other along the value axis, so
- * the larger value is drawn at the end of it higher up the page, or further
- * right on a chart lying on its side, and the smaller at the other. Which end
- * that is is read off the page rather than off the connector's own
- * coordinates: Highcharts lays a chart on its side by turning the group its
- * connectors are drawn in, so they run up and down their own coordinates and
- * across the page. A pair whose ends hold one value is drawn at the middle of
- * the connector, both ends at once.
- *
- * A value axis drawn reversed, with its larger values lower down or further
- * left, has the two ends swapped.
+ * The connector runs from one value to the other along the value axis. Its
+ * ends are found along the axis the page draws the value axis on, read
+ * through its screen matrix rather than off its own coordinates: Highcharts
+ * lays a chart on its side by turning the group its connectors are drawn in,
+ * so they run up and down their own coordinates and across the page.
  *
  * @param connector - The chart's own connector for the pair
  * @param values - The pair's two values
  * @param values.start - Its starting value
  * @param values.end - Its finishing value
  * @param isHorizontal - Whether the value axis runs across the chart
- * @returns Where to centre each end's marker, in the coordinates of the
- *   connector's parent, or null where the ends cannot be placed: a value
+ * @returns Where it is drawn, or null where its ends cannot be placed: a value
  *   missing, a dot named in place of a connector, a connector the document
  *   cannot measure, or one that does not run along the value axis between
  *   two different values
  */
-function endsOn(
+function drawnConnector(
   connector: SVGElement,
   { start, end }: Record<End, number>,
   isHorizontal: boolean,
-): Record<End, Point> | null {
+): DrawnConnector | null {
   const graphic = connector as Partial<SVGGraphicsElement>;
   if (!isMeasured(start) || !isMeasured(end)
     || DOT_TAGS.has(connector.tagName.toLowerCase())
@@ -197,20 +214,11 @@ function endsOn(
     return null;
   }
 
-  // The markers go beside the connector, in its parent's coordinates, and it
-  // is measured in its own: the two differ by a transform of its own, which
-  // Vega draws every line with, if only `translate(0,0)`.
-  const inParent = (point: Point): Point | null => {
-    if (!connector.hasAttribute('transform')) {
-      return point;
-    }
-    return toPage === null || parentToPage === null
-      ? null
-      : fromPage(parentToPage, onPage(toPage, point));
-  };
-
   // Which of the connector's own axes the page draws along the value axis:
   // its own x is drawn along (a, b) on the page, and its own y along (c, d).
+  // A connector turned exactly 45 degrees fits both, and is read along the
+  // axis an unturned one runs along: its own y on an upright chart, and its
+  // own x on one lying on its side.
   const { a, b, c, d } = toPage ?? { a: 1, b: 0, c: 0, d: 1 };
   const alongOwnY = isHorizontal ? Math.abs(c) > Math.abs(a) : Math.abs(d) >= Math.abs(b);
   const length = alongOwnY ? box.height : box.width;
@@ -218,22 +226,128 @@ function endsOn(
     return null;
   }
 
-  const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  const [one, other]: [Point, Point] = alongOwnY
-    ? [{ x: middle.x, y: box.y }, { x: middle.x, y: box.y + box.height }]
-    : [{ x: box.x, y: middle.y }, { x: box.x + box.width, y: middle.y }];
-  const [onePage, otherPage] = [onPage(toPage, one), onPage(toPage, other)];
-  const oneIsLarger = isHorizontal ? onePage.x > otherPage.x : onePage.y < otherPage.y;
-  const [larger, smaller] = oneIsLarger ? [one, other] : [other, one];
-  const [startAt, endAt] = start === end
-    ? [middle, middle]
-    : start > end ? [larger, smaller] : [smaller, larger];
+  // The markers go beside the connector, in its parent's coordinates, and it
+  // is measured in its own: the two differ by a transform of its own, which
+  // Vega draws every line with, if only `translate(0,0)`.
+  const drawn = (point: Point): DrawnEnd | null => {
+    const page = onPage(toPage, point);
+    const at = !connector.hasAttribute('transform')
+      ? point
+      : toPage === null || parentToPage === null ? null : fromPage(parentToPage, page);
+    return at === null ? null : { at, along: isHorizontal ? page.x : -page.y };
+  };
+  const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const [one, other, middle] = (alongOwnY
+    ? [{ x: centre.x, y: box.y }, { x: centre.x, y: box.y + box.height }, centre]
+    : [{ x: box.x, y: centre.y }, { x: box.x + box.width, y: centre.y }, centre]
+  ).map(drawn);
+  if (one === null || other === null || middle === null) {
+    return null;
+  }
+  return one.along >= other.along
+    ? { far: one, near: other, middle }
+    : { far: other, near: one, middle };
+}
 
-  const startInParent = inParent(startAt);
-  const endInParent = inParent(endAt);
-  return startInParent === null || endInParent === null
-    ? null
-    : { start: startInParent, end: endInParent };
+/**
+ * Which way the value axis runs, read off where the chart draws the pairs.
+ *
+ * A connector shows where its two ends are drawn, not which of its values
+ * each one holds, so one pair fits an axis running either way. Across the
+ * pairs, the ends sorted by value have to be drawn in order along the axis:
+ * on an axis running the usual way, every larger value further right or
+ * higher up. On one drawn reversed, they are in order the other way round,
+ * and read the usual way the pairs come out of order.
+ *
+ * Pairs that each lie within the next fit both ways too: turning every pair
+ * end for end keeps them in order. So does a chart of one pair.
+ *
+ * @param drawn - Each pair's connector, as drawn, or null where its ends
+ *   cannot be placed
+ * @param values - Each pair's two values
+ * @returns 1 for an axis whose larger values are drawn further right or
+ *   higher up, -1 for one drawn reversed, and null when the pairs fit both
+ *   ways or neither
+ */
+function valueAxisDirection(
+  drawn: readonly (DrawnConnector | null)[],
+  values: readonly Record<End, number>[],
+): 1 | -1 | null {
+  const fits = (direction: 1 | -1): boolean => {
+    const ends: { value: number; along: number }[] = [];
+    drawn.forEach((connector, col) => {
+      if (connector === null) {
+        return;
+      }
+      const { start, end } = values[col];
+      if (start === end) {
+        ends.push({ value: start, along: direction * connector.middle.along });
+        return;
+      }
+      // The larger value is at the far end on an axis running the usual way,
+      // and at the near end on one drawn reversed.
+      const [smaller, larger] = direction === 1
+        ? [connector.near, connector.far]
+        : [connector.far, connector.near];
+      ends.push(
+        { value: Math.min(start, end), along: direction * smaller.along },
+        { value: Math.max(start, end), along: direction * larger.along },
+      );
+    });
+    ends.sort((one, other) => one.value - other.value);
+
+    // The furthest along any smaller value is drawn, against which each value
+    // is checked; ends holding one value are not ordered among themselves.
+    let reached = Number.NEGATIVE_INFINITY;
+    let group = { value: Number.NaN, reached: Number.NEGATIVE_INFINITY };
+    for (const { value, along } of ends) {
+      if (value !== group.value) {
+        reached = Math.max(reached, group.reached);
+        group = { value, reached: Number.NEGATIVE_INFINITY };
+      }
+      if (along < reached - ALONG_TOLERANCE) {
+        return false;
+      }
+      group.reached = Math.max(group.reached, along);
+    }
+    return true;
+  };
+
+  const usual = fits(1);
+  const reversed = fits(-1);
+  if (usual === reversed) {
+    return null;
+  }
+  return usual ? 1 : -1;
+}
+
+/**
+ * Where each end of a pair is marked on its connector.
+ *
+ * @param connector - The pair's connector, as drawn
+ * @param values - The pair's two values
+ * @param values.start - Its starting value
+ * @param values.end - Its finishing value
+ * @param direction - Which way the value axis runs (see
+ *   {@link valueAxisDirection})
+ * @returns Where to centre each end's marker, in the coordinates of the
+ *   connector's parent: both at its middle for a pair whose ends hold one
+ *   value
+ */
+function endsOn(
+  connector: DrawnConnector,
+  { start, end }: Record<End, number>,
+  direction: 1 | -1,
+): Record<End, Point> {
+  if (start === end) {
+    return { start: connector.middle.at, end: connector.middle.at };
+  }
+  const [larger, smaller] = direction === 1
+    ? [connector.far.at, connector.near.at]
+    : [connector.near.at, connector.far.at];
+  return start > end
+    ? { start: larger, end: smaller }
+    : { start: smaller, end: larger };
 }
 
 /**
@@ -351,8 +465,12 @@ export class DumbbellTrace extends AbstractTrace {
    * highlight held still. Each end is marked with a dot where its value is
    * drawn on the connector instead (see {@link endsOn}).
    *
-   * A connector whose ends cannot be placed is outlined whole at both ends,
-   * as every connector was before.
+   * A connector whose ends cannot be placed (see {@link drawnConnector}) is
+   * outlined whole at both ends, as every connector was before. So is every
+   * connector of a chart whose pairs do not say which way its value axis runs
+   * (see {@link valueAxisDirection}): marking the wrong end of each would
+   * show the reader the other value's place, which is worse than showing
+   * them the pair.
    *
    * Every connector is measured, and its paint read, before anything is
    * inserted, for the reason given on `Svg.createCircleElements`.
@@ -362,10 +480,17 @@ export class DumbbellTrace extends AbstractTrace {
    */
   private markEnds(connectors: SVGElement[]): SVGElement[][] {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const values = connectors.map((_connector, col) => ({
+      start: this.endValues[0][col],
+      end: this.endValues[1][col],
+    }));
+    const drawn = connectors.map((connector, col) => drawnConnector(connector, values[col], isHorizontal));
+    const direction = valueAxisDirection(drawn, values);
     const placed = connectors.map((connector, col) => {
-      const values = { start: this.endValues[0][col], end: this.endValues[1][col] };
-      const ends = endsOn(connector, values, isHorizontal);
-      return ends === null ? null : { ends, paint: Svg.markerPaintOf(connector) };
+      const ends = drawn[col];
+      return ends === null || direction === null
+        ? null
+        : { ends: endsOn(ends, values[col], direction), paint: Svg.markerPaintOf(connector) };
     });
 
     const rows: SVGElement[][] = ENDS.map(() => []);
