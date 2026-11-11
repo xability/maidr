@@ -315,26 +315,24 @@ describe('redundant collinear vertices (#907)', () => {
   /**
    * Plotly's `hvh` geometry, measured. It splits each horizontal run into two
    * commands — `…H246.67H370…` with no `V` between them — so the path carries
-   * ten vertices for four samples where the `mid` convention has eight.
+   * ten vertices for four samples where the `mid` convention has eight: three
+   * moves to a step, the sample at the end of the third.
    */
   const PLOTLY_HVH
     = 'M0,320.25H123.34V220.5H246.67H370V120.75H493.33H616.67V21H740';
 
-  test('a mid staircase still lands inside each sample run', () => {
+  test('a mid staircase lands on each sample plotly drew', () => {
     render(PLOTLY_HVH);
     // eslint-disable-next-line no-new
     new StepTrace(layer(TraceType.STEP, { stepDirection: 'mid' }));
 
-    // The x values are the sample positions Plotly drew; the y values are the
-    // level held across each run.
-    // `closeTo` on x: an interior `mid` sample is the midpoint of its run, so
-    // it arrives through a division and lands a float ulp off the value
-    // Plotly drew. The y values are read straight off a vertex and are exact.
+    // Every third vertex, read straight off the path: the third sample is at
+    // 493.33, where plotly drew it, not at 493.335, the centre of its run.
     expect(circles()).toEqual([
-      { x: expect.closeTo(0, 6), y: 320.25 },
-      { x: expect.closeTo(246.67, 6), y: 220.5 },
-      { x: expect.closeTo(493.335, 6), y: 120.75 },
-      { x: expect.closeTo(740, 6), y: 21 },
+      { x: 0, y: 320.25 },
+      { x: 246.67, y: 220.5 },
+      { x: 493.33, y: 120.75 },
+      { x: 740, y: 21 },
     ]);
   });
 
@@ -401,11 +399,12 @@ describe('a stepped band with no baseline (#907)', () => {
     // eslint-disable-next-line no-new
     new AreaTrace(layer(TraceType.AREA, { stepDirection: 'mid' }));
 
+    // Plotly's three moves to a step, so the samples are every third vertex.
     expect(circles()).toEqual([
-      { x: expect.closeTo(0, 6), y: 320.25 },
-      { x: expect.closeTo(246.67, 6), y: 220.5 },
-      { x: expect.closeTo(493.335, 6), y: 120.75 },
-      { x: expect.closeTo(740, 6), y: 21 },
+      { x: 0, y: 320.25 },
+      { x: 246.67, y: 220.5 },
+      { x: 493.33, y: 120.75 },
+      { x: 740, y: 21 },
     ]);
   });
 });
