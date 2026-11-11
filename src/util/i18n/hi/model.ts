@@ -244,6 +244,11 @@ export const model = {
   'model.durationMinutesMany': '{count} मिनट',
   'model.durationSecondsOne': '{count} सेकंड',
   'model.durationSecondsMany': '{count} सेकंड',
+  'model.durationWeeks': 'सप्ताह',
+  'model.durationDays': 'दिन',
+  'model.durationHours': 'घंटे',
+  'model.durationMinutes': 'मिनट',
+  'model.durationSeconds': 'सेकंड',
   // Pie chart labels.
   'model.asidePercentage': 'प्रतिशत',
   'model.statNumberOfSlices': 'स्लाइस की संख्या',

@@ -783,6 +783,11 @@ export interface GanttData {
    * The length of an interval is the fact a gantt exists to carry, and a bare
    * number does not carry it. Omitted, the trace announces the length without
    * a unit rather than guessing one.
+   *
+   * A unit of time named in English -- `seconds`, `minutes`, `hours`, `days`
+   * or `weeks`, or one of them in the singular, in any case -- is read in the
+   * reader's language, as MAIDR's own words are, and in the singular for a
+   * length of one: "1 day", "3 Tage". Any other word is read as written.
    */
   unit?: string;
   /**

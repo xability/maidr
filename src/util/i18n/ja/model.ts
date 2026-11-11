@@ -250,6 +250,11 @@ export const model = {
   'model.durationMinutesMany': '{count}分間',
   'model.durationSecondsOne': '{count}秒間',
   'model.durationSecondsMany': '{count}秒間',
+  'model.durationWeeks': '週',
+  'model.durationDays': '日',
+  'model.durationHours': '時間',
+  'model.durationMinutes': '分',
+  'model.durationSeconds': '秒',
   // Pie chart labels.
   'model.asidePercentage': '割合',
   'model.statNumberOfSlices': 'スライスの数',

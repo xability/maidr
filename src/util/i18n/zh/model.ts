@@ -247,6 +247,11 @@ export const model = {
   'model.durationMinutesMany': '{count} 分钟',
   'model.durationSecondsOne': '{count} 秒',
   'model.durationSecondsMany': '{count} 秒',
+  'model.durationWeeks': '周',
+  'model.durationDays': '天',
+  'model.durationHours': '小时',
+  'model.durationMinutes': '分钟',
+  'model.durationSeconds': '秒',
   // Pie chart labels.
   'model.asidePercentage': '百分比',
   'model.statNumberOfSlices': '扇区数量',

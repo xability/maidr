@@ -258,6 +258,12 @@ export const model = {
   'model.durationMinutesMany': '{count} minutes',
   'model.durationSecondsOne': '{count} second',
   'model.durationSecondsMany': '{count} seconds',
+  // A unit of time named with no count, as a gantt's Length column is headed.
+  'model.durationWeeks': 'weeks',
+  'model.durationDays': 'days',
+  'model.durationHours': 'hours',
+  'model.durationMinutes': 'minutes',
+  'model.durationSeconds': 'seconds',
   // Pie chart labels.
   'model.asidePercentage': 'Percentage',
   'model.statNumberOfSlices': 'Number of slices',

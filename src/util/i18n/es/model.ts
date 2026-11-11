@@ -250,6 +250,11 @@ export const model = {
   'model.durationMinutesMany': '{count} minutos',
   'model.durationSecondsOne': '{count} segundo',
   'model.durationSecondsMany': '{count} segundos',
+  'model.durationWeeks': 'semanas',
+  'model.durationDays': 'días',
+  'model.durationHours': 'horas',
+  'model.durationMinutes': 'minutos',
+  'model.durationSeconds': 'segundos',
   // Pie chart labels.
   'model.asidePercentage': 'Porcentaje',
   'model.statNumberOfSlices': 'Número de sectores',
