@@ -259,16 +259,18 @@ function tagDiscreteElements(
   if (byChild === null) {
     return undefined;
   }
-  const matched = byChild ? byChild.series : candidates.slice(0, count);
+  const matched = byChild ? byChild.series.flatMap(bars => bars ?? []) : candidates.slice(0, count);
 
-  if (matched.length !== count) {
+  if (!byChild && matched.length !== count) {
     return undefined;
   }
+  const seriesBars = stack ? byChild?.series ?? barsInTurn(matched, stack) : null;
   if (
     stack
+    && seriesBars
     && layer.data.kind === 'segmented'
     && (byChild || !stackInStep(stack))
-    && !stackDrawnAsLaidOut(matched, stack, layer.data.points, layer.orientation === Orientation.HORIZONTAL)
+    && !stackDrawnAsLaidOut(seriesBars, stack, layer.data.points, layer.orientation === Orientation.HORIZONTAL)
   ) {
     return undefined;
   }
@@ -321,11 +323,32 @@ function tagDiscreteElements(
   // every series with another series' segments of the same bars, so each
   // segment is named in a grid instead. (Stacks are not in
   // `REVERSIBLE_KINDS`, so no stack reaches the reversed branch above.)
-  if (stack) {
-    return tagStackSegments(matched, stack, attrName, scope);
+  if (stack && seriesBars) {
+    return tagStackSegments(seriesBars, stack, attrName, scope);
   }
 
   return `${scope}[${attrName}]`;
+}
+
+/**
+ * Each series' bars, in category order, from a stack's bars in document
+ * order.
+ *
+ * `VictoryStack` reverses the render order of its children so the topmost
+ * series paints last, which puts the series in the DOM back to front, each
+ * one's bars in category order: the reversal {@link tagStackedAreaElements}
+ * undoes for the bands of a stacked area.
+ *
+ * @param bars   - The stack's bars, in document order
+ * @param layout - Where each point is drawn
+ * @returns One list of bars per series, in series order
+ */
+function barsInTurn(bars: Element[], layout: StackLayout): Element[][] {
+  const categories = layout.categories.length;
+  return layout.slots.map((_, s) => {
+    const first = (layout.slots.length - 1 - s) * categories;
+    return bars.slice(first, first + categories);
+  });
 }
 
 /**
@@ -338,20 +361,21 @@ function tagDiscreteElements(
  * parents of the unclaimed bars, its last child's first. The bars a child
  * draws for no series -- the slivers of Victory's sample data, for one --
  * are skipped, rather than taken for the first series' as the first so many
- * bars took them.
+ * bars took them. A series whose data Victory hands to a child that draws no
+ * marks has no bars at all.
  *
  * @param candidates - The unclaimed bars, in document order
  * @param draws      - Which series each child that draws marks draws
  * @param layout     - Where each point is drawn
- * @returns The series' bars in the order the stack's tagging reads them,
- *   its last series' first and each series' in category order, with every
- *   bar the stack draws; null when a series' bars are not found
+ * @returns Each series' bars in category order, null for a series with no
+ *   bars, and every bar the stack draws; null when the stack's groups are
+ *   not found, or a series' group holds other than a bar per category
  */
 function stackBarsByChild(
   candidates: Element[],
   draws: readonly (number | null)[],
   layout: StackLayout,
-): { series: Element[]; drawn: Element[] } | null {
+): { series: (Element[] | null)[]; drawn: Element[] } | null {
   const groups = new Map<Element, Element[]>();
   for (const bar of candidates) {
     const parent = bar.parentElement;
@@ -370,14 +394,12 @@ function stackBarsByChild(
     return null;
   }
 
-  const series: Element[] = [];
-  for (let s = layout.slots.length - 1; s >= 0; s--) {
+  const series = layout.slots.map((_, s) => {
     const child = draws.indexOf(s);
-    const bars = child < 0 ? undefined : drawn[draws.length - 1 - child];
-    if (bars?.length !== layout.categories.length) {
-      return null;
-    }
-    series.push(...bars);
+    return child < 0 ? null : drawn[draws.length - 1 - child];
+  });
+  if (series.some(bars => bars !== null && bars.length !== layout.categories.length)) {
+    return null;
   }
   return { series, drawn: drawn.flat() };
 }
@@ -395,30 +417,30 @@ function stackBarsByChild(
  * them: any other pairs its bars with its points in order, and is tagged as
  * it was before ragged stacks were.
  *
- * @param bars       - The stack's bars, in document order
+ * @param seriesBars - Each series' bars in category order, null for none
  * @param layout     - Where each point is drawn
  * @param series     - The layer's points, one row per series
  * @param horizontal - Whether the bars run across the page
  * @returns True when every bar has the length its place calls for
  */
 function stackDrawnAsLaidOut(
-  bars: Element[],
+  seriesBars: (Element[] | null)[],
   layout: StackLayout,
   series: SegmentedPoint[][],
   horizontal: boolean,
 ): boolean {
-  const { slots } = layout;
   const categories = layout.categories.length;
-  return slots.every((row, s) => {
-    // `VictoryStack` paints its last series first, each series' bars in
-    // category order.
-    const first = (slots.length - 1 - s) * categories;
+  return layout.slots.every((row, s) => {
+    const bars = seriesBars[s];
+    if (bars === null) {
+      return true;
+    }
     const pointAt = new Map(row.flatMap((slot, i) => (slot === null ? [] : [[slot, series[s][i]] as const])));
     for (let slot = 0; slot < categories; slot++) {
       const point = pointAt.get(slot);
       // Within float noise of nothing: a filled bar starts and ends where
       // the series below it does.
-      const hasLength = barLength(bars[first + slot], horizontal) > 1e-9;
+      const hasLength = barLength(bars[slot], horizontal) > 1e-9;
       const value = Number(point?.y);
       if (point === undefined ? hasLength : Number.isFinite(value) && value !== 0 && !hasLength) {
         return false;
@@ -450,33 +472,29 @@ function barLength(bar: Element, horizontal: boolean): number {
  * The payload of a stack read by category ({@link stackReadByCategory}) has
  * a place at every category of every series, and so has the grid: a series'
  * bar at each category it is drawn at, null at a gap and at a point Victory
- * passes over. Otherwise it has a cell per point.
+ * passes over. Otherwise it has a cell per point. A series Victory draws no
+ * bars for is null throughout.
  *
- * `VictoryStack` reverses the render order of its children so the topmost
- * series paints last, which puts the series in the DOM back to front, each
- * one's bars in category order: the reversal {@link tagStackedAreaElements}
- * undoes for the bands of a stacked area.
- *
- * @param bars     - The layer's bars, in document order
- * @param layout   - Where each point is drawn
- * @param attrName - The layer's tracking attribute name
- * @param scope    - Per-chart (and per-panel) CSS scope prefix
+ * @param seriesBars - Each series' bars in category order, null for none
+ * @param layout     - Where each point is drawn
+ * @param attrName   - The layer's tracking attribute name
+ * @param scope      - Per-chart (and per-panel) CSS scope prefix
  * @returns One selector per segment, each matching that segment alone
  */
 function tagStackSegments(
-  bars: Element[],
+  seriesBars: (Element[] | null)[],
   layout: StackLayout,
   attrName: string,
   scope: string,
 ): (string | null)[][] {
   const { slots } = layout;
-  const categories = layout.categories.length;
   const name = (s: number, slot: number | null, col: number): string | null => {
-    if (slot === null) {
+    const bar = slot === null ? undefined : seriesBars[s]?.[slot];
+    if (!bar) {
       return null;
     }
     const segmentAttr = `${attrName}-segment-${s}-${col}`;
-    bars[(slots.length - 1 - s) * categories + slot].setAttribute(segmentAttr, '');
+    bar.setAttribute(segmentAttr, '');
     return `${scope}[${segmentAttr}]`;
   };
   if (stackReadByCategory(layout)) {

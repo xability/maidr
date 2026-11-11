@@ -1148,14 +1148,16 @@ const VICTORY_DATA_ROLES = new Set([
  * draws, for every child that draws marks, in the order they are declared:
  * the series' index, or null for a child that draws none of them.
  *
- * Victory gives the stack's i-th child the i-th set of data it gathered from
- * the children (victory-stack `getChildren`), and gathers none from a child
- * whose `data` is an empty array (victory-core `Wrapper.getDataFromChildren`).
- * After such a child, each child draws the data of the one after it, and the
- * last draws Victory's own sample data, bars a sliver tall. A child given no
- * `data` at all draws that sample data in its own place. Either way the stack
- * draws bars that belong to no series, and draws them ahead of the series'
- * own when they come from a later child.
+ * Victory gives the stack's i-th child, counting every child whether it
+ * draws marks or not, the i-th set of data it gathered from them
+ * (victory-stack `getChildren`), and gathers none from a child that draws no
+ * marks or whose `data` is an empty array (victory-core
+ * `Wrapper.getDataFromChildren`). After such a child, each child draws the
+ * data of the one after it, a label takes a set and draws none of it, and
+ * the last child draws `VictoryBar`'s default data, (1, 1) to (4, 4): bars a
+ * sliver tall, drawn for no series and ahead of the series' own. A child
+ * declared with no `data` is given that default before Victory gathers it,
+ * so it draws it in its own place and is read as a series of its own.
  *
  * @param children - The stack's children
  * @returns One entry per child that draws marks, or undefined when every

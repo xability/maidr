@@ -36,6 +36,7 @@ import {
   VictoryErrorBar,
   VictoryGroup,
   VictoryHistogram,
+  VictoryLabel,
   VictoryLine,
   VictoryPolarAxis,
   VictoryScatter,
@@ -898,6 +899,99 @@ describe('victory stacked bar', () => {
 
     expect(dots).toHaveLength(3);
     expect(dots.filter(dot => stackGroup.contains(dot))).toEqual([]);
+  });
+
+  it('outlines Product A on its own bars beside a series with no points after a layer of its own', () => {
+    // The bars before the stack are claimed by their own layer first.
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryBar, { key: 'bars', data: [{ x: 'Q1', y: 500 }, { x: 'Q2', y: 600 }, { x: 'Q3', y: 700 }] }),
+      createElement(VictoryStack, { key: 'stack' }, productA, noPoints),
+    ));
+    const grid = layers[1].selectors as (string | null)[][];
+
+    const [q1, q2] = grid[0].map(selector => barExtent(doc.querySelector(selector as string)));
+    expect(q2.height).toBeGreaterThan(100);
+    expect(q1.height / q2.height).toBeCloseTo(2400 / 3100, 2);
+  });
+
+  it('outlines Product A on its own bars beside a series with no points on a horizontal stack', () => {
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      { horizontal: true },
+      createElement(VictoryStack, null, productA, noPoints),
+    ));
+    const grid = layers[0].selectors as (string | null)[][];
+
+    const [q1, q2, q3] = grid[0].map(selector => barSpanX(doc.querySelector(selector as string)));
+    // Each outline runs out from the axis, as long as Product A's own value.
+    expect(q2.width).toBeGreaterThan(100);
+    expect(q1.left).toBeCloseTo(q2.left, 6);
+    expect(q1.width / q2.width).toBeCloseTo(2400 / 3100, 2);
+    expect(q3.width / q2.width).toBeCloseTo(2200 / 3100, 2);
+  });
+
+  const label = createElement(VictoryLabel, { key: 'label', text: 'Revenue' });
+  const seriesB = createElement(VictoryBar, {
+    key: 'b',
+    name: 'Product B',
+    data: [{ x: 'Q1', y: 1800 }, { x: 'Q2', y: 2700 }, { x: 'Q3', y: 1700 }],
+  });
+
+  it('outlines a series on the bars its data is drawn in after a child that draws no marks', () => {
+    // Victory hands the stack's i-th child the i-th set of data, counting
+    // every child: the label takes Product A's, which is drawn nowhere,
+    // Product A draws Product B's, and Product B the default data's slivers.
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryStack, null, label, productA, seriesB),
+    ));
+    const grid = layers[0].selectors as (string | null)[][];
+
+    expect(grid[0]).toEqual([null, null, null]);
+    const [q1, q2] = grid[1].map(selector => barExtent(doc.querySelector(selector as string)));
+    expect(q2.height).toBeGreaterThan(50);
+    expect(q1.height / q2.height).toBeCloseTo(1800 / 2700, 2);
+  });
+
+  it('outlines nothing for a series whose data a child that draws no marks takes', () => {
+    // The label takes Product B's data, and Product A keeps its own.
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryStack, null, productA, label, seriesB),
+    ));
+    const grid = layers[0].selectors as (string | null)[][];
+
+    expect(grid[1]).toEqual([null, null, null]);
+    const [q1, q2] = grid[0].map(selector => barExtent(doc.querySelector(selector as string)));
+    expect(q1.bottom).toBeCloseTo(q2.bottom, 6);
+    expect(q1.height / q2.height).toBeCloseTo(2400 / 3100, 2);
+  });
+
+  it('reads a child given no data as the series of VictoryBar\'s default data, outlined in its own place', () => {
+    // React gives it the default, (1, 1) to (4, 4), before Victory gathers it,
+    // so it shifts nothing.
+    const numbered = createElement(VictoryBar, {
+      key: 'a',
+      name: 'Product A',
+      data: [{ x: 1, y: 2 }, { x: 2, y: 3 }, { x: 3, y: 1 }, { x: 4, y: 2 }],
+    });
+    const defaulted = createElement(VictoryBar, { key: 'b', name: 'Product B' });
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(VictoryStack, null, numbered, defaulted),
+    ));
+    const grid = layers[0].selectors as (string | null)[][];
+
+    expect((layers[0].data as SegmentedPoint[][])[1].map(point => point.y)).toEqual([1, 2, 3, 4]);
+    // Product B's bar at 2 stands on Product A's, as tall as its own value.
+    const [a2, b2] = [grid[0][1], grid[1][1]].map(selector => barExtent(doc.querySelector(selector as string)));
+    expect(b2.bottom).toBeCloseTo(a2.bottom - a2.height, 6);
+    expect(b2.height / a2.height).toBeCloseTo(2 / 3, 2);
   });
 
   /** The left and right edges of a horizontal Victory bar, and its width. */
