@@ -937,6 +937,25 @@ export class Candlestick extends AbstractTrace {
     return this.candleValues;
   }
 
+  /**
+   * The range `[`, `]` and the Go To dialog compare the cursor's section
+   * within: the prices' for an open, a high, a low or a close, and
+   * volatility's own for volatility -- the registers each is sounded on.
+   *
+   * The grid holds both, and volatility, an order of magnitude below the
+   * prices, stretched its span from the lowest price down to the narrowest
+   * candle: on a chart priced in the billions, highs a unit apart tied, and
+   * so did ranges a unit apart, where a billionth of the prices' range is a
+   * tenth of a unit.
+   *
+   * @returns The span, never negative
+   */
+  public override get valueSpan(): number {
+    const segment = this.currentSegmentType ?? this.sections[0];
+    const { min, max } = segment === 'volatility' ? this.volatilityRange : this.priceRange;
+    return Number.isFinite(min) && Number.isFinite(max) && max > min ? max - min : 0;
+  }
+
   protected get audio(): AudioState {
     const candleCount = this.candles.length;
     const sectionCount = this.candleValues.length;
