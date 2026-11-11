@@ -1749,6 +1749,13 @@ function distinguishSeriesSelectors(
  * before MAIDR has inserted anything, and each group's points are marked with
  * its id, which a copy of another group's point does not carry.
  *
+ * Places that do not name one mark per point were not counted among the
+ * marks the chart drew. Kept, they would count those copies instead, and
+ * outline the points of the groups read before: a group whose places named
+ * nothing here named the first group's points once its copies were in. Such
+ * a group is left without a selector, heard and felt but not outlined, and a
+ * warning says so.
+ *
  * @param svg - The chart's SVG
  * @param layers - Every layer of the chart
  * @param containerScope - The chart container's selector prefix
@@ -1759,8 +1766,13 @@ function stampColourGroups(svg: SVGSVGElement, layers: MaidrLayer[], containerSc
     if (layer.type !== TraceType.SCATTER || typeof selector !== 'string' || !selector.includes(':nth-child('))
       continue;
     const points = Array.from(svg.querySelectorAll<SVGElement>(selector));
-    if (points.length === 0) {
-      debugLog(`scatter layer "${layer.id}": its points match nothing, so it keeps its selector`);
+    const count = Array.isArray(layer.data) ? layer.data.length : 0;
+    if (points.length !== count) {
+      console.warn(
+        `[maidr/vegalite] The ${count} points of scatter layer "${layer.name ?? layer.id}" `
+        + `name ${points.length} drawn marks, so they are read without an outline.`,
+      );
+      delete layer.selectors;
       continue;
     }
     // Quotes and backslashes would end or escape the attribute value.

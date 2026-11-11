@@ -99,6 +99,53 @@ describe('a vega-lite scatter coloured by a field', () => {
     );
   });
 
+  it('reads the rows the spec\'s own filter leaves, which are the rows the mark draws', () => {
+    // As Vega-Lite 5.23 compiles the spec and Vega 5.33 runs it: the filter
+    // runs in `data_0`, the table the mark is drawn from, and drops row 3,
+    // the setosa point at 4.9 by 3.0.
+    const kept = [IRIS[0], IRIS[1], IRIS[2], IRIS[4]];
+    const view = makeView(
+      { source_0: IRIS, data_0: kept, marks: kept.map(datum => ({ datum })) },
+      { color: ['setosa', 'versicolor', 'virginica'] },
+    );
+    const spec = { ...scatter(SPECIES), transform: [{ filter: 'datum.length > 5' }] };
+
+    const layers = layersOf(vegaLiteToMaidr(spec as VegaLiteSpec, view));
+
+    expect(layers.map(layer => layer.name)).toEqual(['setosa', 'versicolor', 'virginica']);
+    expect(layers.map(pointsOf)).toEqual([
+      [[5.1, 3.5]],
+      [[7.0, 3.2], [6.4, 3.2]],
+      [[6.3, 3.3]],
+    ]);
+    // The places count the marks drawn: versicolor's second point is the
+    // fourth, where the unfiltered rows would have made it the fifth.
+    expect(layers[1].selectors).toBe(
+      'g.mark-symbol.role-mark.marks > path:nth-child(1), g.mark-symbol.role-mark.layer_0_marks > path:nth-child(1), '
+      + 'g.mark-symbol.role-mark.marks > path:nth-child(4), g.mark-symbol.role-mark.layer_0_marks > path:nth-child(4)',
+    );
+  });
+
+  it('counts the places of a facet panel\'s groups among that panel\'s marks', () => {
+    const panels = ['A', 'B', 'A', 'A', 'B'];
+    const spec = {
+      data: { values: IRIS.map((row, k) => ({ ...row, panel: panels[k] })) },
+      facet: { column: { field: 'panel' } },
+      spec: { mark: 'point', encoding: { x: LENGTH, y: WIDTH, color: SPECIES } },
+    };
+
+    const [a, b] = vegaLiteToMaidr(spec as VegaLiteSpec, undefined, { id: 'iris' }).subplots[0];
+
+    // Without a view, each panel lists its groups as its rows first name them.
+    expect(a.layers.map(layer => layer.name)).toEqual(['versicolor', 'virginica', 'setosa']);
+    expect(b.layers.map(layer => layer.name)).toEqual(['setosa', 'versicolor']);
+    // B's versicolor point is the second B draws, though the fifth row.
+    expect(b.layers[1].selectors).toBe(
+      'g[data-maidr-cell="iris-0-1"] g.mark-symbol.role-mark.child_marks > path:nth-child(2), '
+      + 'g[data-maidr-cell="iris-0-1"] g.mark-symbol.role-mark.child_layer_0_marks > path:nth-child(2)',
+    );
+  });
+
   it('reads an ordinal colour as groups too', () => {
     const layers = layersOf(vegaLiteToMaidr(scatter({ field: 'species', type: 'ordinal' }) as VegaLiteSpec));
 
