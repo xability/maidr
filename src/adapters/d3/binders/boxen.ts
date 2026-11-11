@@ -115,9 +115,10 @@ function readOutliers(
  *
  * Point `selector` at one element per distribution — the `<g>` holding that
  * category's stack of nested rungs — the way {@link bindD3Box} points at a box
- * group. Every rung of a distribution highlights that group: a chart does not
- * draw an element per quantile that MAIDR could pair up positionally, and
- * inventing one would highlight geometry the chart never drew.
+ * group. A rung outlines the box it is the outer edge of, where the group's
+ * children are the ladder's boxes, and the median a line drawn across the
+ * ladder in the group; a group holding anything else is outlined whole on
+ * every rung, rather than with geometry the chart never drew.
  *
  * @remarks
  * **Timing — call after D3 has rendered.** Like every D3 binder, this reads
