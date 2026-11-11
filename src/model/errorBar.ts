@@ -135,28 +135,43 @@ function extentAlong(segment: Segment, axis: Axis): number {
   return Math.abs(end - start);
 }
 
+/** One cap of a whip, and where it is drawn along the value axis. */
+interface DrawnCap {
+  readonly element: SVGElement;
+  /** How far along the value axis it is drawn: up the page, or to the right. */
+  readonly at: number;
+}
+
+/** A whip's two caps, by where they are drawn along the value axis. */
+interface DrawnCaps {
+  /** The cap lower down a vertical whisker, or further left along a horizontal one. */
+  readonly near: DrawnCap;
+  /** The cap at the other end. */
+  readonly far: DrawnCap;
+}
+
 /**
- * The caps of a whip drawn as cap, whisker and cap, by the bound each marks.
+ * The caps of a whip drawn as cap, whisker and cap, by where each is drawn.
  *
  * Recharts draws every `<ErrorBar>` sample as a group of exactly three lines:
  * the whisker along the value axis and a short cap across it at each end. The
  * whisker is the one line the other two cross, so it says which way the value
- * axis runs, and the cap further up a vertical whisker, or further right
- * along a horizontal one, is the upper bound's. That assumes the value axis
- * grows up or to the right, as the sections, walked from the lower bound up,
- * already do.
+ * axis runs. Which bound each cap marks turns on which way the axis grows,
+ * which one whip does not show; {@link capsInBoundOrder} reads that off all
+ * of them.
  *
  * Copies MAIDR made of the lines are not the chart's and are passed over.
- * Anything else -- a whip drawn as one path, a group of other marks, or
- * three lines that do not meet that way -- answers null, and the sample is
- * outlined whole.
+ * Anything else -- a whip drawn as one path, a group of other marks, three
+ * lines that do not meet that way, or a whip or line with a `transform` of
+ * its own, whose coordinates are then not the chart's -- answers null, and
+ * the sample is outlined whole.
  *
  * @param group - The element the layer names for one sample
- * @returns The lower and upper caps, or null when the element is not that triple
+ * @returns The two caps, or null when the element is not that triple
  */
-function capsOf(group: SVGElement): { lower: SVGElement; upper: SVGElement } | null {
+function capsOf(group: SVGElement): DrawnCaps | null {
   const children = [...group.children].filter(child => !Svg.isOwned(child));
-  if (children.length !== 3) {
+  if (children.length !== 3 || [group, ...children].some(element => element.hasAttribute('transform'))) {
     return null;
   }
   const segments = children.map(segmentOf).filter((line): line is Segment => line !== null);
@@ -190,12 +205,51 @@ function capsOf(group: SVGElement): { lower: SVGElement; upper: SVGElement } | n
 
   // Up a vertical whisker is towards a smaller y; along a horizontal one,
   // towards a larger x.
-  const firstIsUpper = along === 'y'
-    ? first[along][0] < second[along][0]
-    : first[along][0] > second[along][0];
-  return firstIsUpper
-    ? { lower: second.element, upper: first.element }
-    : { lower: first.element, upper: second.element };
+  const drawn = (cap: Segment): DrawnCap => ({ element: cap.element, at: along === 'y' ? -cap.y[0] : cap.x[0] });
+  const [one, other] = [drawn(first), drawn(second)];
+  return one.at < other.at ? { near: one, far: other } : { near: other, far: one };
+}
+
+/**
+ * Whether the caps can be read as the bounds they mark: the near cap the
+ * lower bound's, as on a value axis growing up or to the right.
+ *
+ * One whip shows where its two caps are drawn, not which bound each marks.
+ * The whips share the value axis, so across all of them the bounds, sorted by
+ * value, have to be drawn in order along it. Reading every near cap as the
+ * lower bound's puts them in order on an axis growing up or to the right, and
+ * out of order on one drawn reversed (`<YAxis reversed>`, or a forest's
+ * `<XAxis reversed>`), where it would outline the upper bound's cap while the
+ * lower bound is announced. Whips that each lie within the next fit both
+ * readings, as does a chart of one, and say nothing about the axis.
+ *
+ * @param caps - Each sample's caps, or null where it has none
+ * @param points - The samples, in the same order
+ * @returns True when the caps are drawn in the bounds' order, and not also in
+ *   the reverse order
+ */
+function capsInBoundOrder(caps: readonly (DrawnCaps | null)[], points: readonly ErrorBarPoint[]): boolean {
+  const inOrder = (direction: 1 | -1): boolean => {
+    const ends = caps.flatMap((drawn, index) => {
+      if (drawn === null) {
+        return [];
+      }
+      const [lower, upper] = direction === 1 ? [drawn.near, drawn.far] : [drawn.far, drawn.near];
+      return [
+        { value: magnitudeOf(points[index], 'lower'), at: direction * lower.at },
+        { value: magnitudeOf(points[index], 'upper'), at: direction * upper.at },
+      ];
+    }).sort((one, other) => one.value - other.value);
+    // No bound is drawn short of a smaller one. Bounds of one value are drawn
+    // at one place, so the tolerance lets them come in either order.
+    let reached = Number.NEGATIVE_INFINITY;
+    return ends.every(({ at }) => {
+      const ordered = at >= reached - SAME_PLACE;
+      reached = Math.max(reached, at);
+      return ordered;
+    });
+  };
+  return inOrder(1) && !inOrder(-1);
 }
 
 /**
@@ -386,6 +440,12 @@ export class ErrorBarTrace extends AbstractTrace {
    * other element is outlined whole on every section, since there is no
    * part of it that is drawn for one bound alone.
    *
+   * The caps are read as the bounds' only where, across the samples, they
+   * are drawn in the bounds' order on an axis growing up or to the right
+   * ({@link capsInBoundOrder}). On a reversed axis, or where the samples
+   * cannot tell, every sample is outlined whole, as it was before: an
+   * outline on the other bound's cap would contradict the announcement.
+   *
    * @param selectors - The layer's selectors, when it has any
    * @returns Elements shaped sections x samples, or null when unresolvable
    */
@@ -409,13 +469,16 @@ export class ErrorBarTrace extends AbstractTrace {
     }
     const flat = live.map(element => Svg.cloneHidden(element));
     // Found on the chart's own group, whose children the copy above did not
-    // change: it went in beside the group, not inside it.
-    const caps = live.map((element) => {
-      const found = capsOf(element);
-      return found === null
-        ? null
-        : { lower: Svg.cloneHidden(found.lower), upper: Svg.cloneHidden(found.upper) };
+    // change: it went in beside the group, not inside it. A sample whose
+    // bounds are not two values in order has no cap of either to read.
+    const found = live.map((element, index) => {
+      const point = this.points[index];
+      return magnitudeOf(point, 'lower') < magnitudeOf(point, 'upper') ? capsOf(element) : null;
     });
+    const readable = capsInBoundOrder(found, this.points);
+    const caps = found.map(drawn => readable && drawn !== null
+      ? { lower: Svg.cloneHidden(drawn.near.element), upper: Svg.cloneHidden(drawn.far.element) }
+      : null);
     // One whip per point, and the flat list runs in the same group-major
     // order the rows do -- so each group's rows take that group's slice.
     // Handing every row the whole list would light a second group's whips

@@ -935,7 +935,7 @@ const data = [
 
 The bounds are independently optional: a one-sided interval is a real chart, and a missing half is left off rather than defaulted to the estimate.
 
-Highlighting targets the whiskers, because the estimate's own mark may be a bar, a line dot or a scatter symbol depending on what you nested the `<ErrorBar>` in — pass the host's selector as `selectorOverride` to highlight that instead. Each bound outlines its own cap of the whisker, the lower bound the cap at the low end and the upper bound the cap at the high end, and the estimate outlines the whole whisker. Note that Recharts draws **no whisker at all** for a sample whose error value is zero or missing; MAIDR then sees fewer marks than samples and turns highlighting off for the layer rather than mis-aligning it.
+Highlighting targets the whiskers, because the estimate's own mark may be a bar, a line dot or a scatter symbol depending on what you nested the `<ErrorBar>` in — pass the host's selector as `selectorOverride` to highlight that instead. Each bound outlines its own cap of the whisker, the lower bound the cap at the low end and the upper bound the cap at the high end, and the estimate outlines the whole whisker. On a value axis drawn reversed (`<YAxis reversed>`, or `<XAxis reversed>` when the intervals run across the chart), or where the intervals cannot tell which way the axis grows — a single sample, or each interval inside the next — every section outlines the whole whisker instead. Note that Recharts draws **no whisker at all** for a sample whose error value is zero or missing; MAIDR then sees fewer marks than samples and turns highlighting off for the layer rather than mis-aligning it.
 
 #### Forest Plot [experimental]
 
