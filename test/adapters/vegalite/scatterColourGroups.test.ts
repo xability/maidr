@@ -92,6 +92,14 @@ describe('a vega-lite scatter coloured by a field', () => {
     expect(layers.map(layer => layer.name)).toEqual(['setosa', 'versicolor', 'virginica']);
   });
 
+  it('lists the groups the colour scale leaves out after those it lists, as their rows first name them', () => {
+    const view = makeView({ data_0: IRIS }, { color: ['virginica'] });
+
+    const layers = layersOf(vegaLiteToMaidr(scatter(SPECIES) as VegaLiteSpec, view));
+
+    expect(layers.map(layer => layer.name)).toEqual(['virginica', 'versicolor', 'setosa']);
+  });
+
   it('names each group\'s points by their place in the mark', () => {
     const layers = layersOf(vegaLiteToMaidr(scatter(SPECIES) as VegaLiteSpec));
 
@@ -239,6 +247,21 @@ describe('a vega-lite scatter coloured by a field', () => {
     [
       'a repeat of a layered spec',
       { data: { values: IRIS }, repeat: { column: ['length', 'width'] }, spec: { layer: [REPEATED, MEAN_RULE] } },
+      [['versicolor', 'setosa', 'virginica'], ['versicolor', 'setosa', 'virginica']],
+    ],
+    [
+      'a nested layer of a concat child',
+      { hconcat: [{ data: { values: IRIS }, layer: [{ layer: [POINTS] }, MEAN_RULE] }, scatter()] },
+      [['versicolor', 'setosa', 'virginica'], [undefined]],
+    ],
+    [
+      'a nested layer of a facet',
+      { data: { values: PANELLED }, facet: { column: { field: 'panel' } }, spec: { layer: [{ layer: [POINTS] }, MEAN_RULE] } },
+      [['versicolor', 'virginica', 'setosa'], ['setosa', 'versicolor']],
+    ],
+    [
+      'a nested layer of a repeat',
+      { data: { values: IRIS }, repeat: { column: ['length', 'width'] }, spec: { layer: [{ layer: [REPEATED] }, MEAN_RULE] } },
       [['versicolor', 'setosa', 'virginica'], ['versicolor', 'setosa', 'virginica']],
     ],
   ])('reads the groups of a scatter in %s', (_, spec, names) => {
