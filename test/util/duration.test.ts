@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from '@jest/globals';
-import { durationText } from '@util/duration';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { axisUnitMs, durationText } from '@util/duration';
 import { setLocale } from '@util/i18n';
 // Every dictionary but English is a locale pack, so load them all.
 import '../../src/locale/all';
@@ -69,5 +69,65 @@ describe('durationText', () => {
 
     setLocale('ja');
     expect(durationText(DAY)).toBe('1日間');
+  });
+});
+
+describe('axisUnitMs', () => {
+  // A date format that names a unit says so on purpose.
+  let warn: ReturnType<typeof jest.spyOn>;
+  beforeAll(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  beforeEach(() => {
+    warn.mockClear();
+  });
+  afterAll(() => {
+    warn.mockRestore();
+  });
+
+  it('takes a date format\'s values as epoch milliseconds, whatever unit it names', () => {
+    expect(axisUnitMs({ type: 'date' })).toBe(1);
+    expect(axisUnitMs({ type: 'date', unit: 'second' })).toBe(1);
+    expect(axisUnitMs({ type: 'date', unit: 'fortnight' } as never)).toBe(1);
+  });
+
+  it('says once in the console that a date format ignores its unit', () => {
+    axisUnitMs({ type: 'date', unit: 'hour' });
+    axisUnitMs({ type: 'date', unit: 'hour' });
+    axisUnitMs({ type: 'date', unit: 'millisecond' });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain('"hour" is ignored');
+  });
+
+  it('takes the unit any other format names', () => {
+    expect(axisUnitMs({ function: 'return String(value);', unit: 'day' })).toBe(DAY);
+    expect(axisUnitMs({ function: 'return String(value);', unit: 'second' })).toBe(SECOND);
+    expect(axisUnitMs({ type: 'number', unit: 'second' })).toBe(SECOND);
+  });
+
+  it('has no unit for a format that names none, or names one it does not know', () => {
+    expect(axisUnitMs(undefined)).toBeUndefined();
+    expect(axisUnitMs({ function: 'return String(value);' })).toBeUndefined();
+    expect(axisUnitMs({ type: 'fixed', decimals: 1 })).toBeUndefined();
+    expect(axisUnitMs({ function: 'return String(value);', unit: 'aeon' } as never)).toBeUndefined();
+  });
+
+  it('reads a unit in the singular or the plural, in any case', () => {
+    // A gantt's own unit is written in the plural, and a producer will write
+    // this one the same way.
+    expect(axisUnitMs({ function: 'return String(value);', unit: 'days' } as never)).toBe(DAY);
+    expect(axisUnitMs({ function: 'return String(value);', unit: 'Day' } as never)).toBe(DAY);
+    expect(axisUnitMs({ type: 'number', unit: 'SECONDS' } as never)).toBe(SECOND);
+    expect(axisUnitMs({ type: 'date', unit: 'milliseconds' } as never)).toBe(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('says once in the console that it ignores a unit it does not know', () => {
+    axisUnitMs({ function: 'return String(value);', unit: 'fortnight' } as never);
+    axisUnitMs({ type: 'number', unit: 'fortnight' } as never);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain('"fortnight"');
   });
 });

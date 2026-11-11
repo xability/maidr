@@ -94,7 +94,34 @@ export interface AxisFormat {
    * { "year": "numeric", "month": "long" } // "January 2024"
    */
   dateOptions?: Intl.DateTimeFormatOptions;
+
+  /**
+   * The span of time one unit of the axis's values stands for, on an axis
+   * whose values are times: `'day'` for matplotlib's and R's dates,
+   * `'second'` for a Unix timestamp, `'millisecond'` for a JavaScript one.
+   *
+   * A `function` format says how a time reads and nothing about what its
+   * numbers count, so a length along the axis -- a histogram's bin width --
+   * read as a bare number: weekly bins of matplotlib dates, "constant 7".
+   * With a unit it reads as a span of time, "constant 1 week". It applies to
+   * any format but a `date` one -- a `number` format over Unix seconds can
+   * carry one as well as a `function` can. A `date` format's values are epoch
+   * milliseconds, which is how it prints them, so it ignores a unit and says
+   * so in the console. Each unit may be written in the singular or the plural
+   * and in any case -- `"day"`, `"days"`, `"Day"` -- though the type lists the
+   * singular. Any other string is ignored, and the console says so.
+   *
+   * @example
+   * { "function": "return new Date(value * 864e5).toISOString().slice(0, 10);", "unit": "day" }
+   */
+  unit?: TimeUnit;
 }
+
+/**
+ * A span of time one unit of an axis's values stands for. See
+ * {@link AxisFormat.unit}.
+ */
+export type TimeUnit = 'millisecond' | 'second' | 'minute' | 'hour' | 'day';
 
 /**
  * Configuration options for violin plot display.
