@@ -3191,6 +3191,9 @@ const MARK_STAMP_ATTRS = [
   PACK_ATTR,
 ] as const;
 
+/** Every element carrying one of {@link MARK_STAMP_ATTRS}. */
+const STAMPED_SELECTOR = MARK_STAMP_ATTRS.map(attribute => `[${attribute}]`).join(', ');
+
 /**
  * Take a chart's stamps off, so that {@link stampChartAttributes} stamps it
  * as AnyChart now draws it.
@@ -3218,7 +3221,7 @@ function clearStamps(svg: SVGElement): void {
       whole.removeAttribute('visibility');
     half.remove();
   }
-  for (const element of Array.from(svg.querySelectorAll('*'))) {
+  for (const element of Array.from(svg.querySelectorAll(STAMPED_SELECTOR))) {
     for (const attribute of MARK_STAMP_ATTRS)
       element.removeAttribute(attribute);
   }

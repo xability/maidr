@@ -12,6 +12,8 @@
 
 import type { AnyChartInstance, AnyChartIterator, AnyChartSeries } from '@adapters/anychart/types';
 import type { LinePoint, Maidr } from '@type/grammar';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { anyChartToMaidr, bindAnyChart } from '@adapters/anychart/converters';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { JSDOM } from 'jsdom';
@@ -366,5 +368,21 @@ describe('anyChartToMaidr (a hidden series)', () => {
     expect((layers[0].data as LinePoint[][])[0].map(point => point.y)).toEqual([10, 11, 12]);
 
     cleanUp(container);
+  });
+});
+
+describe('the stamps a redraw takes off', () => {
+  it('include every attribute a stamper writes on a mark', () => {
+    // A stamper added without its attribute in MARK_STAMP_ATTRS would leave
+    // its stamps on the marks a redraw gives to other points.
+    const source = readFileSync(path.join(__dirname, '../../../src/adapters/anychart/converters.ts'), 'utf8');
+    const cleared = new Set(/const MARK_STAMP_ATTRS = \[([^\]]*)\]/.exec(source)?.[1].match(/\b[A-Z_]+_ATTR\b/g) ?? []);
+    const written = new Set(Array.from(source.matchAll(/\.setAttribute\(\s*([A-Z_]+_ATTR)\b/g), match => match[1]));
+    // The panel token is the SVG's, not a mark's, and a whisker's halves are
+    // taken out whole.
+    const notMarkStamps = new Set(['PANEL_ATTR', 'SPLIT_FROM_ATTR']);
+
+    expect(written.size).toBeGreaterThan(10);
+    expect([...written].filter(name => !cleared.has(name) && !notMarkStamps.has(name))).toEqual([]);
   });
 });
