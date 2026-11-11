@@ -798,6 +798,9 @@ function buildFunnel(group: Group, labels: Labels): Built | null {
     layer: {
       type: TraceType.FUNNEL,
       orientation: Orientation.HORIZONTAL,
+      // Excel draws a funnel from its first stage down, and there is no
+      // drawing here to measure that from.
+      firstCategory: 'top',
       axes: buildAxes(series.name, labels.category),
       data,
     },

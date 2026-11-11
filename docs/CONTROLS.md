@@ -62,9 +62,17 @@ Control + Up and Control + Down go to the top and the bottom category, and
 Control + Left and Control + Right to the first and the last series, end or
 bound. Autoplay, the rotor's lower and higher value navigation and the braille
 cursor follow the same keys. MAIDR reads from the chart whether its first
-category is drawn at the top or at the bottom; where it cannot, as on a chart
-drawn to a canvas, it takes the first category to be at the bottom, and Up
+category is drawn at the top or at the bottom, again on each key, so a chart
+laid out late or redrawn the other way round is followed. Where it cannot, as
+on a chart drawn to a canvas, the layer's `firstCategory` says, which the
+Chart.js and uPlot adapters give, and the amCharts and Excel adapters for a
+funnel; without it, the first category is taken to be at the bottom, and Up
 moves to the next.
+
+Earlier releases moved the other way on these charts: Left and Right moved
+between the categories, from the first category to the last whichever way they
+were drawn, and Up and Down moved along a category, or said there was no more
+data.
 
 On a tree -- a treemap, sunburst, icicle, circle packing or tree diagram -- and
 on a directed graph such as a flowchart, the extremes follow the arrow keys:

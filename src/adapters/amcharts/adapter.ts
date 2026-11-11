@@ -1383,7 +1383,10 @@ function buildFunnelLayer(
     id: layerId(series),
     type: TraceType.FUNNEL,
     name: seriesName(series),
-    ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+    // Stacked down the page, the stages run from the first at the top, in
+    // data order, and amCharts paints them into a canvas MAIDR cannot
+    // measure that from: said, or Up would walk down the funnel.
+    ...(horizontal ? { orientation: Orientation.HORIZONTAL, firstCategory: 'top' as const } : {}),
     // `axes.x` names whichever axis the point's `x` lies on, so the pair is
     // written in the order the payload puts them. The caller's own labels are
     // a naming of the two dimensions -- stage and value -- and travel with

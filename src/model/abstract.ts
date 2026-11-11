@@ -102,6 +102,10 @@ function verticalCentre(cell: SVGElement[] | SVGElement | null | undefined): num
     return undefined;
   }
   const box = mark.getBoundingClientRect();
+  // The box of an element that is not laid out: one detached from the page,
+  // one under `display: none`, or any element in jsdom. A mark drawn at the
+  // very top with no size gives it too, and is read as nothing, which costs
+  // only the measurement of that one row.
   if (box.top === 0 && box.width === 0 && box.height === 0) {
     return undefined;
   }
@@ -549,11 +553,10 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
-   * Whether the first category is drawn above the last, on a trace whose
-   * categories run down the page ({@link categoriesRunDown}): measured once
-   * the chart is laid out, `null` until then. See {@link firstCategoryOnTop}.
+   * What {@link firstCategoryOnTop} last read from the drawing, or `null`
+   * before it has read anything.
    */
-  private categoriesTopFirst: boolean | null = null;
+  private measuredTopFirst: boolean | null = null;
 
   /**
    * Whether this trace's grid lists its categories as columns while the
@@ -697,21 +700,22 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * ApexCharts, Vega-Lite, seaborn and most hand-drawn charts at the top. So
    * it is measured, as a Gantt chart measures its lanes, from the marks the
    * highlight holds: in the first row that has two, the first category's mark
-   * is above the last one's, or below it. Measured when first asked -- a
-   * vertical key -- rather than at construction, when the chart may not be
-   * laid out yet; until it is, the answer below is given and the drawing
-   * measured again on the next key.
+   * is above the last one's, or below it. Measured on every vertical key
+   * rather than once: two boxes are cheap, and an answer kept from the first
+   * key was kept from a chart not yet laid out, or one since re-rendered the
+   * other way round.
    *
-   * Where nothing can be measured -- a chart drawn to a canvas, or one
-   * category -- the first is taken to be at the bottom, as row 0 of a grid
-   * is, and Up moves to the next.
+   * Where nothing can be measured now, the last measurement holds, so a
+   * chart hidden for a moment does not turn the keys round under the reader.
+   * Where nothing has ever been measured -- a chart drawn to a canvas, one
+   * with no highlight, one not laid out yet, or one category -- the layer's
+   * {@link MaidrLayer.firstCategory} says where the first is drawn. Without
+   * it, the first is taken to be at the bottom, as row 0 of a grid is, and Up
+   * moves to the next.
    *
    * @returns True when the first category is drawn at the top
    */
   private firstCategoryOnTop(): boolean {
-    if (this.categoriesTopFirst !== null) {
-      return this.categoriesTopFirst;
-    }
     for (const row of this.highlightValues ?? []) {
       const drawn = row.flatMap((cell, col) => (cell ? [col] : []));
       if (drawn.length < 2) {
@@ -719,19 +723,13 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       }
       const first = verticalCentre(row[drawn[0]]);
       const last = verticalCentre(row[drawn[drawn.length - 1]]);
-      if (first === undefined && last === undefined) {
-        // Nothing laid out yet: answer as the grid would, and measure again
-        // on the next key rather than keep an answer read from nothing.
-        return false;
-      }
       if (first === undefined || last === undefined || first === last) {
         continue;
       }
-      this.categoriesTopFirst = first < last;
-      return this.categoriesTopFirst;
+      this.measuredTopFirst = first < last;
+      return this.measuredTopFirst;
     }
-    this.categoriesTopFirst = false;
-    return false;
+    return this.measuredTopFirst ?? (this.layer.firstCategory === 'top');
   }
 
   /**

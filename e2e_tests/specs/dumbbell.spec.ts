@@ -109,10 +109,12 @@ test.describe('Dumbbell', () => {
     });
 
     test('should name a decline as a decrease', async ({ page }) => {
+      // The countries are drawn down the page, Latvia below Denmark, so Down
+      // moves to it.
       const dumbbellPage = new DumbbellPlotPage(page);
       await dumbbellPage.activateMaidr();
       await dumbbellPage.moveToNextDataPoint();
-      await dumbbellPage.moveToNextDataPoint();
+      await dumbbellPage.moveToDataPointBelow();
 
       const announcement = normalizeText(await dumbbellPage.getInstructionText());
 
@@ -123,15 +125,16 @@ test.describe('Dumbbell', () => {
 
   test.describe('Position', () => {
     test('should place the reader at a category and an end of its pair on P', async ({ page }) => {
-      // The columns are the categories Left and Right walk and the rows the
-      // two ends Up and Down walk, however the chart is drawn. Read from the
-      // pan, which turns on its side for this drawing, the third country's
-      // first end was "column 1 of 4, row 3 of 2".
+      // The columns are the categories and the rows the two ends, however
+      // the chart is drawn; drawn on its side, as here, Up and Down walk the
+      // categories and Left and Right the ends. Read from the pan, which
+      // turns on its side for this drawing, the third country's first end
+      // was "column 1 of 4, row 3 of 2".
       const dumbbellPage = new DumbbellPlotPage(page);
       await dumbbellPage.activateMaidr();
       await dumbbellPage.moveToNextDataPoint();
-      await dumbbellPage.moveToNextDataPoint();
-      await dumbbellPage.moveToNextDataPoint();
+      await dumbbellPage.moveToDataPointBelow();
+      await dumbbellPage.moveToDataPointBelow();
       await dumbbellPage.announcePosition();
 
       const position = normalizeText(await dumbbellPage.getInstructionText());

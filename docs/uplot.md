@@ -265,7 +265,7 @@ new uPlot({
 }, [days, requests], document.getElementById('chart'));
 ```
 
-Bars drawn horizontally — an x scale with `ori: 1` — are read as a horizontal bar layer, with the axes swapped to match what is drawn.
+Bars drawn horizontally — an x scale with `ori: 1` — are read as a horizontal bar layer, with the axes swapped to match what is drawn. Up and Down move between the bars as they are drawn: the first at the bottom, as a vertical scale runs up the page, or at the top on a scale with `dir: -1`. MAIDR cannot measure a canvas to find out, so the adapter says which (`firstCategory`).
 
 ### Scatter Plot
 

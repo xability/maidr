@@ -1227,6 +1227,7 @@ function announce(maidr: Maidr, moves: ((context: Context) => void)[]): TextStat
 
 const right = (context: Context): void => context.moveOnce('FORWARD');
 const up = (context: Context): void => context.moveOnce('UPWARD');
+const down = (context: Context): void => context.moveOnce('DOWNWARD');
 
 describe('the figure reads in MAIDR\'s model as the chart holds it', () => {
   it('a column chart announces each quarter\'s value', () => {
@@ -1286,10 +1287,13 @@ describe('the figure reads in MAIDR\'s model as the chart holds it', () => {
   });
 
   it('a funnel announces each stage\'s count and what it retained', () => {
-    // A funnel is drawn on its side, so Up and Down walk its stages; with no
-    // drawing to measure here, its first stage is taken to be at the bottom.
+    // A funnel is drawn on its side, so Up and Down walk its stages, and
+    // Excel draws it from its first stage down: Down moves to the next.
     const stages = { name: 'People', categories: ['Visited', 'Paid'], values: ['1000', '40'] };
-    const texts = announce(convert(chart('Funnel', [stages])), [up, up]);
+    const funnel = convert(chart('Funnel', [stages]));
+    const texts = announce(funnel, [down, down]);
+
+    expect(funnel.subplots[0][0].layers[0].firstCategory).toBe('top');
 
     expect(texts.at(-1)?.main.value).toBe('Paid');
     expect(texts.at(-1)?.cross).toEqual({ label: 'People', value: 40 });

@@ -168,6 +168,8 @@ describe('chart.js error bars', () => {
     );
 
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    // Drawn from the top, which a canvas gives MAIDR no way to measure.
+    expect(layer.firstCategory).toBe('top');
     expect(points).toEqual([
       { x: 'a', y: 10, yMin: 8, yMax: 13 },
       { x: 'b', y: 20, yMin: 17, yMax: 22 },
