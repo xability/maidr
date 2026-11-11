@@ -299,8 +299,9 @@ on-screen braille field alike.
 
 ### Letter-value plot (boxen) [experimental]
 
-One row per distribution, one cell per rung of its quantile ladder, every row
-scaled against the **chart's** range rather than its own.
+One row per distribution, one cell per rung of its quantile ladder and one
+per outlier drawn past either end of it, every row scaled against the
+**chart's** range, out to its furthest outliers, rather than its own.
 
 **Not the box plot encoding above.** That one renders five named sections at
 proportional widths, and a letter-value ladder has a variable number of rungs
@@ -310,8 +311,9 @@ than it is, and depth is exactly the fact a boxen carries that a box plot
 cannot.
 
 So the row is the ladder itself, read in value order: deepest lower quantile,
-inward to the median, outward again to the deepest upper one. That makes the
-run of cells rise monotonically, and **its steepness is the reading**:
+inward to the median, outward again to the deepest upper one, with the
+outliers below and above it at either end. That makes the run of cells rise
+monotonically, and **its steepness is the reading**:
 
 ```
 ⣀⣀⠤⠒⠒⠉⠉    gentle throughout — a light-tailed sample

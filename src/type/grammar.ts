@@ -385,9 +385,33 @@ export interface BoxenPoint {
    * inward-first would otherwise be navigated backwards.
    */
   levels: LetterValueLevel[];
-  /** Values beyond the deepest rung, below it and above it. */
+  /**
+   * Values beyond the deepest rung, below it and above it. Each is a stop of
+   * its own, walked in value order past that end of the ladder.
+   */
   lowerOutliers?: number[];
   upperOutliers?: number[];
+}
+
+/**
+ * DOM selectors for one boxen distribution: the element its ladder is drawn
+ * as, and the marks of the outliers drawn beyond it.
+ *
+ * A plain string naming a distribution is `ladder` on its own. `outliers`
+ * lets each outlier outline its own mark rather than the whole distribution:
+ * every selector in it is resolved and the marks concatenated, then paired
+ * with the distribution's outliers, both sides, by where they are drawn along
+ * the value axis, the right way round on a reversed one -- so neither their
+ * order nor how many selectors name them matters, and a selector matching
+ * every mark of a flier group is enough, as long as there is one mark per
+ * outlier. Any other number of marks outlines the whole distribution at its
+ * outliers.
+ */
+export interface BoxenSelector {
+  /** The element the distribution's ladder is drawn as. */
+  ladder: string;
+  /** The marks of its outliers, one per value of `lowerOutliers` and `upperOutliers` together. */
+  outliers?: string[];
 }
 
 /**
@@ -2054,7 +2078,7 @@ export interface MaidrLayer {
    * an element and no value, while the slots outside the year have neither
    * (#1174).
    */
-  selectors?: string | string[] | (string | null)[][] | BoxSelector[] | CandlestickSelector;
+  selectors?: string | string[] | (string | null)[][] | BoxSelector[] | BoxenSelector[] | CandlestickSelector;
   /**
    * Which way the layer is drawn. Defaults to {@link Orientation.VERTICAL}.
    *
