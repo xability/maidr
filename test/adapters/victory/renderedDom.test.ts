@@ -15,7 +15,7 @@
  * as a chart that announces correctly and highlights nothing.
  */
 
-import type { ErrorBarPoint, HistogramPoint, MaidrLayer } from '@type/grammar';
+import type { ErrorBarPoint, HistogramPoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { ReactElement } from 'react';
 import { extractVictoryLayers, toMaidrLayer } from '@adapters/victory/converters';
 import { tagLayerElements } from '@adapters/victory/selectors';
@@ -624,7 +624,7 @@ describe('victory stacked bar', () => {
     expect(layers[0].type).toBe(TraceType.STACKED);
     const [aQ1, aQ2, aQ3, bQ1, bQ3] = withPageDocument(doc.body, () => {
       const trace = TraceFactory.create(layers[0]);
-      const read = [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1]].map(([series, point]) => {
+      const read = [[0, 0], [0, 1], [0, 2], [1, 0], [1, 2]].map(([series, point]) => {
         trace.moveToIndex(series, point);
         const { state } = trace;
         const element = state.empty || state.type !== 'trace' || state.highlight.empty
@@ -651,11 +651,64 @@ describe('victory stacked bar', () => {
     const { doc, layers } = renderAndTag(quarters([{ x: 'Q3', y: 1700 }, { x: 'Q1', y: 1800 }]));
     const grid = layers[0].selectors as (string | null)[][];
 
-    expect(grid[1][1]).toBeNull();
-    const [bQ3] = Array.from(doc.querySelectorAll(grid[1][0] as string));
+    // Read by quarter: B's Q1, which Victory passes over, its missing Q2, and its Q3.
+    expect((layers[0].data as SegmentedPoint[][])[1].map(point => point.y)).toEqual([1800, Number.NaN, 1700]);
+    expect(grid[1].slice(0, 2)).toEqual([null, null]);
+    const [bQ3] = Array.from(doc.querySelectorAll(grid[1][2] as string));
     const [aQ3] = Array.from(doc.querySelectorAll(grid[0][2] as string));
     expect(barSpanX(bQ3).left).toBeCloseTo(barSpanX(aQ3).left, 6);
     expect(barExtent(bQ3).bottom).toBeCloseTo(barExtent(aQ3).bottom - barExtent(aQ3).height, 6);
+  });
+
+  it('keeps Up and Down in the category being read on a stack whose series miss one', () => {
+    // Product B has no Q2. Up from Product A at Q2 reached B's next point,
+    // Q3, and the outline went to the Q3 column with it.
+    const { doc, layers } = renderAndTag(quarters([{ x: 'Q1', y: 1800 }, { x: 'Q3', y: 1700 }]));
+
+    const [up, down, sum] = withPageDocument(doc.body, () => {
+      const trace = TraceFactory.create(layers[0]);
+      const read = (): { quarter: string; value: number; series: string; outlined: boolean } => {
+        const { state } = trace;
+        if (state.empty || state.type !== 'trace')
+          throw new Error('Expected a populated trace state');
+        return {
+          quarter: String(state.text.main.value),
+          value: Number(state.text.cross?.value),
+          series: String(state.text.z?.value),
+          outlined: !state.highlight.empty && (state.highlight.elements as Element).getAttribute('d') !== null,
+        };
+      };
+      trace.moveToIndex(0, 1);
+      trace.moveOnce('UPWARD');
+      const onB = read();
+      trace.moveOnce('DOWNWARD');
+      const onA = read();
+      trace.moveOnce('UPWARD');
+      trace.moveOnce('UPWARD');
+      const total = read();
+      trace.dispose();
+      return [onB, onA, total];
+    });
+
+    // A gap, which the text service reads as missing, with nothing outlined.
+    expect(up).toEqual({ quarter: 'Q2', value: Number.NaN, series: 'Product B', outlined: false });
+    expect(down).toEqual(expect.objectContaining({ quarter: 'Q2', value: 3100, series: 'Product A', outlined: true }));
+    // The quarter's total counts the bars it has, not B's Q3.
+    expect(sum).toEqual(expect.objectContaining({ quarter: 'Q2', value: 3100 }));
+  });
+
+  it('reads a full stack exactly as its series list their points', () => {
+    const productB = [{ x: 'Q1', y: 1800 }, { x: 'Q2', y: 2700 }, { x: 'Q3', y: 1700 }];
+    const { layers } = renderAndTag(quarters(productB));
+
+    expect(layers[0].data).toEqual([
+      [{ x: 'Q1', y: 2400, z: 'Product A' }, { x: 'Q2', y: 3100, z: 'Product A' }, { x: 'Q3', y: 2200, z: 'Product A' }],
+      productB.map(point => ({ ...point, z: 'Product B' })),
+    ]);
+    expect((layers[0].selectors as string[][]).map(row => row.map(selector => selector.replace(/.*-segment-/, '')))).toEqual([
+      ['0-0]', '0-1]', '0-2]'],
+      ['1-0]', '1-1]', '1-2]'],
+    ]);
   });
 
   it('outlines nothing on a stack whose axis orders the categories otherwise, rather than other bars', () => {
@@ -680,7 +733,7 @@ describe('victory stacked bar', () => {
     const { doc, layers } = renderAndTag(quarters(productB, null, { cornerRadius: { top: 6 } }));
     const grid = layers[0].selectors as (string | null)[][];
 
-    const bQ3 = doc.querySelector(grid[1][productB.length - 1] as string);
+    const bQ3 = doc.querySelector(grid[1][2] as string);
     const aQ3 = doc.querySelector(grid[0][2] as string);
     expect(barSpanX(bQ3).left).toBeCloseTo(barSpanX(aQ3).left, 6);
     expect(barExtent(bQ3).bottom).toBeCloseTo(barExtent(aQ3).bottom - barExtent(aQ3).height, 6);

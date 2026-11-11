@@ -1,6 +1,8 @@
 import type { BoxSelector, CandlestickSelector, SegmentedPoint } from '@type/grammar';
+import type { StackLayout } from './stackLayout';
 import type { VictoryLayerInfo } from './types';
 import { Orientation } from '@type/grammar';
+import { stackInStep, stackLayout, stackReadByCategory } from './stackLayout';
 
 /**
  * Data-attribute prefix used to tag Victory-rendered SVG elements so that
@@ -251,7 +253,7 @@ function tagDiscreteElements(
   if (layer.data.kind === 'segmented' && stack === null) {
     return undefined;
   }
-  const count = stack ? stack.slots.length * stack.categories : layer.dataCount;
+  const count = stack ? stack.slots.length * stack.categories.length : layer.dataCount;
   const matched = candidates.slice(0, count);
 
   if (matched.length !== count) {
@@ -317,75 +319,6 @@ function tagDiscreteElements(
 }
 
 /**
- * Where `VictoryStack` draws each point of a stack.
- *
- * `slots[series][point]` is the point's place among the categories of all
- * the series, or null for a point Victory draws no bar for; `categories` is
- * how many there are.
- */
-interface StackLayout {
-  slots: (number | null)[][];
-  categories: number;
-}
-
-/**
- * Lays a stack's points out the way `VictoryStack` draws them.
- *
- * Victory fills every series out to the categories of all of them, in the
- * order of their positions on the axis, drawing a bar of no height for each
- * category a series lacks (victory-stack `fillData`). It walks each series
- * along those categories in step, so a point listed out of that order is
- * passed over and drawn nowhere. A category's position is its number or its
- * time, or for a name, the order the names first appear in, series by series.
- *
- * @param series - The layer's points, one row per series
- * @returns The layout, or null for categories of more than one kind
- */
-function stackLayout(series: SegmentedPoint[][]): StackLayout | null {
-  const names = new Map<string, number>();
-  const kinds = new Set<string>();
-  const positionOf = (x: unknown): number => {
-    if (typeof x === 'string') {
-      kinds.add('name');
-      if (!names.has(x))
-        names.set(x, names.size + 1);
-      return names.get(x) as number;
-    }
-    kinds.add(x instanceof Date ? 'time' : typeof x);
-    return x instanceof Date ? x.getTime() : Number(x);
-  };
-  const positions = series.map(row => row.map(point => positionOf(point.x)));
-  if (kinds.size > 1 || positions.some(row => row.some(position => !Number.isFinite(position)))) {
-    return null;
-  }
-
-  const axis = [...new Set(positions.flat())].sort((a, b) => a - b);
-  const slots = positions.map((row) => {
-    const placed = row.map((): number | null => null);
-    let next = 0;
-    axis.forEach((position, slot) => {
-      if (row[next] === position) {
-        placed[next] = slot;
-        next++;
-      }
-    });
-    return placed;
-  });
-  return { slots, categories: axis.length };
-}
-
-/**
- * Whether every series of a stack holds every category, in axis order: the
- * stack Victory draws one bar per point for, in the order of the points.
- *
- * @param layout - Where each point is drawn
- * @returns True when each point's place is its position in its series
- */
-function stackInStep(layout: StackLayout): boolean {
-  return layout.slots.every(row => row.length === layout.categories && row.every((slot, i) => slot === i));
-}
-
-/**
  * Whether a stack's bars are drawn as {@link stackLayout} laid its points
  * out: no bar where a series has no point, and a bar where it has a point
  * that is a number other than zero.
@@ -409,7 +342,8 @@ function stackDrawnAsLaidOut(
   series: SegmentedPoint[][],
   horizontal: boolean,
 ): boolean {
-  const { slots, categories } = layout;
+  const { slots } = layout;
+  const categories = layout.categories.length;
   return slots.every((row, s) => {
     // `VictoryStack` paints its last series first, each series' bars in
     // category order.
@@ -448,6 +382,11 @@ function barLength(bar: Element, horizontal: boolean): number {
  * Names each segment of a stacked bar layer, as a `[series][category]` grid
  * in payload order, null where Victory draws no bar for a point.
  *
+ * The payload of a stack read by category ({@link stackReadByCategory}) has
+ * a place at every category of every series, and so has the grid: a series'
+ * bar at each category it is drawn at, null at a gap and at a point Victory
+ * passes over. Otherwise it has a cell per point.
+ *
  * `VictoryStack` reverses the render order of its children so the topmost
  * series paints last, which puts the series in the DOM back to front, each
  * one's bars in category order: the reversal {@link tagStackedAreaElements}
@@ -465,15 +404,21 @@ function tagStackSegments(
   attrName: string,
   scope: string,
 ): (string | null)[][] {
-  const { slots, categories } = layout;
-  return slots.map((row, s) => row.map((slot, col) => {
+  const { slots } = layout;
+  const categories = layout.categories.length;
+  const name = (s: number, slot: number | null, col: number): string | null => {
     if (slot === null) {
       return null;
     }
     const segmentAttr = `${attrName}-segment-${s}-${col}`;
     bars[(slots.length - 1 - s) * categories + slot].setAttribute(segmentAttr, '');
     return `${scope}[${segmentAttr}]`;
-  }));
+  };
+  if (stackReadByCategory(layout)) {
+    return slots.map((row, s) => layout.categories.map((_, place) =>
+      name(s, row.includes(place) ? place : null, place)));
+  }
+  return slots.map((row, s) => row.map((slot, col) => name(s, slot, col)));
 }
 
 /**

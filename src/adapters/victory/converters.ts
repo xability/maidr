@@ -35,6 +35,7 @@ import { clockFromCounterclockwiseOf3, isAngle, pieGeometry } from '@adapters/sh
 import { drawsPrCurves } from '@adapters/shared/prCurveAxes';
 import { Orientation, TraceType } from '@type/grammar';
 import { Children, isValidElement } from 'react';
+import { stackByCategory, stackLayout, stackReadByCategory } from './stackLayout';
 
 // ---------------------------------------------------------------------------
 // Component name detection
@@ -2025,15 +2026,25 @@ export function toMaidrLayer(
         data: horizontal ? data.points.map(swapSeries) : data.points,
       };
 
-    case 'segmented':
+    case 'segmented': {
+      // A stack whose series miss categories is read category by category,
+      // each series padded out with a gap where it has no point, so Up and
+      // Down move within the category the reader is in rather than to the
+      // next point another series happens to have. A full stack is read as
+      // its series list their points, which is the same thing.
+      const layout = stackLayout(data.points);
+      const points = layout && stackReadByCategory(layout)
+        ? stackByCategory(data.points, layout, layer.legend ?? [])
+        : data.points;
       return {
         id: layer.id,
         type: TraceType.STACKED,
         ...(layer.orientation ? { orientation: layer.orientation } : {}),
         axes,
         selectors: selector,
-        data: horizontal ? data.points.map(swapSeries) : data.points,
+        data: horizontal ? points.map(swapSeries) : points,
       };
+    }
 
     case 'diverging':
       return {
