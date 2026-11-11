@@ -26,6 +26,28 @@ interface Rung {
   quantile: number;
 }
 
+/** One drawn box of a ladder and its extent along the value axis. */
+interface BoxSpan {
+  box: SVGElement;
+  /** Where it starts, lowest value first, in screen pixels. */
+  from: number;
+  /** Where it ends. */
+  to: number;
+}
+
+/** The elements a ladder's boxes are drawn as. */
+const BOX_TAGS: ReadonlySet<string> = new Set(['rect', 'path', 'polygon']);
+
+/** The elements a median drawn across a ladder is drawn as. */
+const LINE_TAGS: ReadonlySet<string> = new Set(['line', 'polyline']);
+
+/**
+ * How far, in pixels, two boxes may overlap and still be read as tiled, or a
+ * nested box overhang the one around it: the half pixel a stroke and the
+ * rounding of a drawn coordinate add.
+ */
+const SPAN_TOLERANCE = 0.5;
+
 /**
  * Names a quantile by its percentile, which is the number a reader can place.
  *
@@ -117,6 +139,13 @@ export class BoxenTrace extends AbstractTrace {
    */
   private heldQuantile: number | null = null;
 
+  /**
+   * The element the chart drew each distribution as, as the selectors named
+   * it: the chart's own, never cloned or removed, for the pointer to be
+   * measured against.
+   */
+  private readonly distributionElements: SVGElement[];
+
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -141,7 +170,11 @@ export class BoxenTrace extends AbstractTrace {
     this.min = bounds.min;
     this.max = bounds.max;
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors);
+    const drawn = this.resolveDistributions(layer.selectors);
+    this.distributionElements = drawn ?? [];
+    this.highlightValues = drawn === null
+      ? null
+      : drawn.map((element, row) => BoxenTrace.outlinesOf(element, this.rungs[row], this.orientation));
     this.movable = new MovableGrid<number>(this.rungValues);
   }
 
@@ -313,57 +346,193 @@ export class BoxenTrace extends AbstractTrace {
   }
 
   /**
-   * Resolves the layer's selectors to one element per distribution, repeated
-   * across its rungs.
+   * Resolves the layer's selectors to the element each distribution is drawn
+   * as, one per distribution in the order the data lists them.
    *
-   * A boxen is drawn as one nested stack of boxes per category, and a chart
-   * library does not emit one element per quantile that MAIDR could pair up
-   * positionally. So every rung of a distribution highlights that
-   * distribution -- honest about what the chart drew, rather than inventing
-   * elements it did not.
+   * Withdrawn unless the count matches exactly: a list that has slipped by
+   * one highlights a neighbouring distribution for the rest of the chart,
+   * which is worse than not highlighting at all. Nothing is cloned here, so
+   * declining leaves the chart as it was.
    *
    * @param selectors - The layer's selectors, when it has any
-   * @returns Elements shaped rungs x distributions, or null when unresolvable
+   * @returns The chart's own elements, or null when unresolvable
    */
-  private mapToSvgElements(
+  private resolveDistributions(
     selectors?: MaidrLayer['selectors'],
-  ): SVGElement[][] | null {
-    // Resolved live here and cloned by `pairWith` only once the count fits.
-    // A clone is inserted beside its original the moment it is made, so
-    // declining after cloning left every copy in the chart for `dispose()`
-    // never to reach -- and the next resolution matched the copies too.
-    if (typeof selectors === 'string') {
-      return this.pairWith(Svg.selectAllElements(selectors, false));
-    }
+  ): SVGElement[] | null {
     // `MaidrLayer['selectors']` also admits `(string | null)[][]` and the box and
     // candlestick shapes, and `Array.isArray` alone lets all of them through
     // to a cast. Narrowing on the elements instead means the guard matches
     // what the type allows, rather than leaning on `isUsableSelector` to
     // reject each entry one at a time and leave an empty list behind.
-    if (!Array.isArray(selectors)
-      || !selectors.every(one => typeof one === 'string')) {
+    let live: SVGElement[];
+    if (typeof selectors === 'string') {
+      live = Svg.selectAllElements(selectors, false);
+    } else if (Array.isArray(selectors) && selectors.every(one => typeof one === 'string')) {
+      live = selectors.flatMap(one => Svg.selectAllElements(one, false));
+    } else {
       return null;
     }
-
-    return this.pairWith(selectors.flatMap(one => Svg.selectAllElements(one, false)));
+    return live.length === this.points.length ? live : null;
   }
 
   /**
-   * Pairs resolved elements with the ladder, one element per distribution.
+   * What each stop of one distribution's ladder outlines: the box of the
+   * ladder the stop is read off, as the chart drew it.
    *
-   * Withdrawn unless the count matches exactly: a list that has slipped by
-   * one highlights a neighbouring distribution for the rest of the chart,
-   * which is worse than not highlighting at all.
+   * A rung is the outer edge of one box -- the edge away from the median --
+   * so a stop outlines the box whose outer edge it is: the 12.5th percentile
+   * the box from it in to the 25th, the 25th the box straddling the median.
+   * The median outlines a line drawn across the ladder inside the same
+   * element, where the chart drew one there, and otherwise the box it sits in.
    *
-   * @param live - The chart's own elements the selectors resolved to
-   * @returns Elements shaped rungs x distributions, or null on a mismatch
+   * The boxes are the element's own children, drawn either way a ladder is
+   * drawn: as 2k - 1 boxes tiled edge to edge along the value axis, as
+   * seaborn draws them, or as k boxes nested about the median, each spanning
+   * a whole rung. Which one is decided by their count and confirmed by their
+   * extents. An element holding anything else -- a single mark, boxes the
+   * ladder's depth does not account for, boxes that neither tile nor nest --
+   * is outlined whole on every stop, as every boxen was before.
+   *
+   * @param element - The chart's element for the distribution
+   * @param ladder - Its stops, in walking order
+   * @param orientation - Which way the boxen is drawn
+   * @returns One highlight element per stop
    */
-  private pairWith(live: SVGElement[]): SVGElement[][] | null {
-    if (live.length !== this.points.length) {
+  private static outlinesOf(
+    element: SVGElement,
+    ladder: Rung[],
+    orientation: Orientation,
+  ): SVGElement[] {
+    const stops = BoxenTrace.boxesRead(element, ladder.length, orientation);
+    if (stops === null) {
+      const whole = Svg.cloneHidden(element);
+      return ladder.map(() => whole);
+    }
+    // One copy of each box however many stops outline it, as the chart drew
+    // it once.
+    const copies = new Map<SVGElement, SVGElement>();
+    return stops.map((box) => {
+      const copy = copies.get(box) ?? Svg.cloneHidden(box);
+      copies.set(box, copy);
+      return copy;
+    });
+  }
+
+  /**
+   * The box each stop of a ladder is read off, in walking order, or null
+   * when the element does not hold the ladder's boxes.
+   *
+   * @param element - The chart's element for the distribution
+   * @param stopCount - The ladder's stops: its rungs either side and the median
+   * @param orientation - Which way the boxen is drawn
+   * @returns The chart's own element for each stop, or null
+   */
+  private static boxesRead(
+    element: SVGElement,
+    stopCount: number,
+    orientation: Orientation,
+  ): SVGElement[] | null {
+    const depth = (stopCount - 1) / 2;
+    if (!Number.isInteger(depth) || depth < 1) {
       return null;
     }
-    const flat = live.map(element => Svg.cloneHidden(element));
-    return this.rungValues.map((ladder, row) => ladder.map(() => flat[row]));
+
+    // Not MAIDR's own copies: a copy is inserted beside the box it copies, so
+    // inside this element, and a ladder read again before they are removed
+    // would count each box twice. Told apart by tag rather than by
+    // `instanceof SVGElement`, which an element from another window's
+    // document -- an iframe's -- is not.
+    const children = Array.from(element.children)
+      .filter(child => !Svg.isOwned(child)) as SVGElement[];
+    const boxes = children.filter(child => BOX_TAGS.has(child.localName));
+    const lines = children.filter(child => LINE_TAGS.has(child.localName));
+    const isHorizontal = orientation === Orientation.HORIZONTAL;
+    // Along the value axis, lowest value first: up the page for a boxen
+    // standing up, left to right for one lying on its side -- the way an
+    // unreversed value axis draws them, as the box plot's quartile edges are
+    // read (`domMapping.iqrDirection`).
+    const spans = boxes.map((box) => {
+      const rect = box.getBoundingClientRect();
+      return isHorizontal
+        ? { box, from: rect.left, to: rect.right }
+        : { box, from: -rect.bottom, to: -rect.top };
+    });
+    // A ladder not laid out yet -- hidden, or read before the chart has drawn
+    // -- has every box at one point, where any order passes for tiled and
+    // for nested alike.
+    const ends = spans.flatMap(span => [span.from, span.to]);
+    if (!(Math.max(...ends) - Math.min(...ends) > 0)) {
+      return null;
+    }
+
+    let read: SVGElement[] | null = null;
+    if (boxes.length === depth) {
+      read = BoxenTrace.nestedBoxesRead(spans, depth);
+    } else if (boxes.length === 2 * depth - 1) {
+      read = BoxenTrace.tiledBoxesRead(spans, depth);
+    }
+    if (read === null) {
+      return null;
+    }
+    if (lines.length === 1) {
+      read[depth] = lines[0];
+    }
+    return read;
+  }
+
+  /**
+   * Stops of a ladder drawn as k boxes nested about the median, the
+   * innermost spanning the quartiles: both ends of a rung outline the box
+   * spanning it.
+   *
+   * @param spans - Each box's extent along the value axis
+   * @param depth - The ladder's rungs, k
+   * @returns The box for each stop, or null when the boxes do not nest
+   */
+  private static nestedBoxesRead(spans: BoxSpan[], depth: number): SVGElement[] | null {
+    const inward = [...spans].sort((a, b) => (a.to - a.from) - (b.to - b.from));
+    for (let i = 1; i < inward.length; i++) {
+      const inner = inward[i - 1];
+      const outer = inward[i];
+      if (inner.from < outer.from - SPAN_TOLERANCE || inner.to > outer.to + SPAN_TOLERANCE) {
+        return null;
+      }
+    }
+    // Stop c below the median is rung k - c, which is the box k - c - 1 from
+    // the inside; above it, rung c - k is box c - k - 1.
+    return Array.from({ length: 2 * depth + 1 }, (_, stop) => {
+      if (stop < depth) {
+        return inward[depth - stop - 1].box;
+      }
+      return stop === depth ? inward[0].box : inward[stop - depth - 1].box;
+    });
+  }
+
+  /**
+   * Stops of a ladder drawn as 2k - 1 boxes tiled edge to edge, the middle one
+   * straddling the median: each rung outlines the box it is the outer edge of.
+   *
+   * @param spans - Each box's extent along the value axis
+   * @param depth - The ladder's rungs, k
+   * @returns The box for each stop, or null when the boxes do not tile
+   */
+  private static tiledBoxesRead(spans: BoxSpan[], depth: number): SVGElement[] | null {
+    const upward = [...spans].sort((a, b) => (a.from + a.to) - (b.from + b.to));
+    for (let i = 1; i < upward.length; i++) {
+      if (upward[i].from < upward[i - 1].to - SPAN_TOLERANCE) {
+        return null;
+      }
+    }
+    // Boxes 0 to k - 2 lie below the middle box k - 1 and k to 2k - 2 above it.
+    // Stop c below the median is the lower edge of box c, the quartile's
+    // being the middle box's; above it, stop c is the upper edge of box c - 2.
+    return Array.from({ length: 2 * depth + 1 }, (_, stop) => {
+      if (stop < depth) {
+        return upward[stop].box;
+      }
+      return stop === depth ? upward[depth - 1].box : upward[stop - 2].box;
+    });
   }
 
   protected get values(): number[][] {
@@ -624,16 +793,20 @@ export class BoxenTrace extends AbstractTrace {
    * @returns The nearest distribution, or null when nothing is resolvable
    */
   protected findNearestPoint(x: number, y: number): NearestPoint | null {
-    const elements = this.highlightValues;
-    if (!elements) {
+    const outlines = this.highlightValues;
+    if (!outlines) {
       return null;
     }
 
     let nearest: NearestPoint | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
-    for (let row = 0; row < elements.length; row++) {
-      const element = elements[row][0];
+    // Measured on, and bounded by, the whole distribution as drawn rather
+    // than the box one of its stops outlines: the pointer is on a
+    // distribution anywhere over its ladder, and a deep rung's box is a
+    // sliver at one end of it.
+    for (let row = 0; row < outlines.length; row++) {
+      const element = this.distributionElements[row];
       if (element === undefined) {
         continue;
       }
@@ -649,6 +822,19 @@ export class BoxenTrace extends AbstractTrace {
     }
 
     return nearest;
+  }
+
+  /**
+   * The chart's own elements high contrast recolours as this layer's marks:
+   * each distribution as the layer names it. The boxes the outline moves
+   * between are drawn inside those, and pairing each outline with its box,
+   * as the default does, would hand high contrast the boxes as marks of
+   * their own.
+   *
+   * @returns The distributions' elements, or none when unresolvable
+   */
+  public override getAllOriginalElements(): SVGElement[] {
+    return this.highlightValues?.length ? [...this.distributionElements] : [];
   }
 
   /**
