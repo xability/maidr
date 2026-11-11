@@ -94,14 +94,22 @@ describe('a heatmap whose x and y axes declare a format', () => {
     expect(max?.xValue).toBe('3');
   });
 
-  test('names every target of the menu through the formats', () => {
+  test('names every target of the menu through the formats, each at its own cell', () => {
     const trace = new Heatmap(layer);
 
-    // The row and column targets of the cell the cursor stands on, beside
-    // the two global ones.
-    const places = trace.getExtremaTargets().map(target => `${target.display?.x}, ${target.display?.y}`);
+    // The cursor starts on the bottom row's first cell, Mon AM, so the row
+    // and column targets are that row's and that column's, beside the two
+    // global ones.
+    const labels = trace.getExtremaTargets().map(target => target.label);
 
-    expect(places.every(place => /^(?:Mon|Tue|Wed), (?:PM|AM) shift$/.test(place))).toBe(true);
+    expect(labels).toEqual([
+      'Global Maximum at Wed, PM shift',
+      'Global Minimum at Mon, PM shift',
+      'Row Maximum at Mon, AM shift',
+      'Row Minimum at Mon, AM shift',
+      'Column Maximum at Mon, AM shift',
+      'Column Minimum at Mon, PM shift',
+    ]);
   });
 });
 
