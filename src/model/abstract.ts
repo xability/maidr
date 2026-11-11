@@ -21,6 +21,7 @@ import type {
 import type { Trace } from './plot';
 import { Orientation, TraceType } from '@type/grammar';
 import { chartTypeLabel, ownTypeGuide, ownTypeLabel } from '@util/chartTypeLabel';
+import { markOfPlacedCopy } from '@util/copyPlacement';
 import { FormatUtil } from '@util/format';
 import { t } from '@util/i18n';
 import {
@@ -805,6 +806,15 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
           const marked = this.originalMarkedBy(element);
           if (marked !== null) {
             elements.push(marked);
+            continue;
+          }
+
+          // A clone its chart's adapter placed away from its mark, after the
+          // chart's own groups, is paired through the record kept when it was
+          // placed: its previous sibling is whatever was placed before it.
+          const placed = markOfPlacedCopy(element);
+          if (placed !== null) {
+            elements.push(placed as SVGElement);
             continue;
           }
 

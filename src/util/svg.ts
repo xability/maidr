@@ -1,6 +1,7 @@
 import type { Rgb } from '@type/color';
 import { Color } from './color';
 import { Constant } from './constant';
+import { insertCopy, markOfPlacedCopy } from './copyPlacement';
 import { SELECTOR_CONTRACT_URL } from './selectors';
 
 /**
@@ -374,7 +375,7 @@ export abstract class Svg {
         const clone = element.cloneNode(true) as T;
         clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
         this.markOwned(clone);
-        element.insertAdjacentElement(Constant.AFTER_END, clone);
+        insertCopy(element, clone);
         return clone;
       });
   }
@@ -405,7 +406,8 @@ export abstract class Svg {
 
   /**
    * Clones an element, hides the copy, and inserts it straight after the
-   * original.
+   * original, or where the chart's adapter places copies (see
+   * `copyPlacement.ts`).
    *
    * This is the side effect {@link selectElement} performs once it has found
    * its element, split out so a caller can do the finding first. Resolving a
@@ -420,7 +422,7 @@ export abstract class Svg {
   public static cloneHidden<T extends SVGElement>(element: T): T {
     const clone = this.markOwned(element.cloneNode(true) as T);
     clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    element.insertAdjacentElement(Constant.AFTER_END, clone);
+    insertCopy(element, clone);
     return clone;
   }
 
@@ -900,7 +902,8 @@ export abstract class Svg {
    *   mark is painted from the reader's palette, often its light colour on a
    *   dark page, where a darker shade of it is only a dimmer copy of the
    *   labels around it.
-   * @returns The highlighted clone element
+   * @returns The highlighted clone element, inserted straight after `element`
+   *   or where the chart's adapter places copies (see `copyPlacement.ts`)
    */
   public static createHighlightElement(
     element: SVGElement,
@@ -1010,7 +1013,7 @@ export abstract class Svg {
       clone.style.strokeWidth = width;
     }
 
-    element.insertAdjacentElement(Constant.AFTER_END, clone);
+    insertCopy(element, clone);
     return clone;
   }
 
@@ -1201,6 +1204,11 @@ export abstract class Svg {
    * treemap draws its items over their section, the labels of a group, which
    * is outlined and keeps its fill, and text within a line's box.
    *
+   * A highlight its chart's adapter placed after the chart's own groups (see
+   * `copyPlacement.ts`) is drawn over the labels drawn on the mark as well as
+   * the mark. Each of those is copied over it whatever its contrast, in its
+   * own colour where that reads on the highlight.
+   *
    * @param element - The mark highlighted, in the document
    * @param highlight - Its highlight, from {@link createHighlightElement}
    * @param colors - The colours a label may take: black and white, or the
@@ -1220,7 +1228,11 @@ export abstract class Svg {
     const style = window.getComputedStyle(element);
     const root = this.outermostSvg(element);
     const box = element.getBoundingClientRect();
-    if (fill === null || root === null || !this.isPainted(style.fill, style.fillOpacity)
+    // A highlight placed after the chart's own groups is drawn over the labels
+    // on the mark even where the mark itself fills nothing, as a sunburst's
+    // root does: its highlight is filled.
+    const placed = markOfPlacedCopy(highlight) !== null;
+    if (fill === null || root === null || (!placed && !this.isPainted(style.fill, style.fillOpacity))
       || box.width <= 0 || box.height <= 0) {
       return [];
     }
@@ -1235,6 +1247,10 @@ export abstract class Svg {
     if (best === null) {
       return [];
     }
+    // Where the chart drew the mark: `element` itself, or the copy of it just
+    // after it, unless the chart's adapter placed the copy elsewhere.
+    const mark = markOfPlacedCopy(element) ?? element;
+    const reads = (shown: number): boolean => shown >= this.LABEL_CONTRAST_RATIO || contrastOn(best) <= shown;
 
     // The shapes drawn between the mark and a label, any of which may cover
     // the highlight where the label is. Read only once a label is over the
@@ -1243,13 +1259,13 @@ export abstract class Svg {
     const isCovered = (label: SVGElement, x: number, y: number): boolean => {
       shapes ??= Array.from(root.querySelectorAll<SVGElement>(this.HIGHLIGHT_SHAPES));
       return shapes.some(shape =>
-        (element.compareDocumentPosition(shape) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+        (mark.compareDocumentPosition(shape) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
         && (shape.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
         && this.fillsOver(shape, x, y));
     };
 
     const labels = Array.from(root.querySelectorAll<SVGElement>('text')).filter((label) => {
-      if ((element.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
+      if ((mark.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
         return false;
       }
       const rect = label.getBoundingClientRect();
@@ -1262,9 +1278,11 @@ export abstract class Svg {
         return false;
       }
       const ink = window.getComputedStyle(label);
-      const shown = contrastOn(ink.fill);
+      // A label the highlight is drawn after is under it, and lost whatever
+      // its contrast.
+      const under = (label.compareDocumentPosition(highlight) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
       return ink.display !== 'none' && ink.visibility !== Constant.HIDDEN
-        && shown < this.LABEL_CONTRAST_RATIO && contrastOn(best) > shown
+        && (under || !reads(contrastOn(ink.fill)))
         && !isCovered(label, x, y);
     });
 
@@ -1284,6 +1302,12 @@ export abstract class Svg {
       // The copy's spans are the label's own, in the same order: a deep
       // clone keeps them so.
       const drawn = [label, ...Array.from(label.querySelectorAll<SVGElement>('tspan, textPath'))];
+      // Copied only for being under the highlight, a label that reads on it
+      // keeps its colour.
+      if (reads(contrastOn(window.getComputedStyle(label).fill))) {
+        insertCopy(label, copy);
+        return copy;
+      }
       [copy, ...Array.from(copy.querySelectorAll<SVGElement>('tspan, textPath'))].forEach((glyphs, at) => {
         glyphs.style.setProperty(Constant.FILL, best, 'important');
         const source = drawn[at];
@@ -1291,7 +1315,7 @@ export abstract class Svg {
           glyphs.style.setProperty(Constant.STROKE, outline, 'important');
         }
       });
-      label.insertAdjacentElement(Constant.AFTER_END, copy);
+      insertCopy(label, copy);
       return copy;
     });
   }
