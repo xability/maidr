@@ -344,6 +344,7 @@ export class ViolinBoxTrace extends AbstractTrace {
       const index = this.sections.indexOf(section);
       return this.orientation === Orientation.HORIZONTAL ? [violin, index] : [index, violin];
     };
+    const span = this.valueSpan;
     const highest = this.sections.includes(BoxplotSection.MAX)
       ? whiskerEndTargets(
           this.points,
@@ -351,6 +352,7 @@ export class ViolinBoxTrace extends AbstractTrace {
           t(single ? 'model.statMaximum' : 'model.statHighestMaximum'),
           'model.nounViolin',
           cellOf(BoxplotSection.MAX),
+          span,
         )
       : [];
     return [
@@ -361,6 +363,7 @@ export class ViolinBoxTrace extends AbstractTrace {
         t(single ? 'model.statMinimum' : 'model.statLowestMinimum'),
         'model.nounViolin',
         cellOf(BoxplotSection.MIN),
+        span,
       ),
     ];
   }

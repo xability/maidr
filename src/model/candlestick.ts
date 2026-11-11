@@ -937,6 +937,25 @@ export class Candlestick extends AbstractTrace {
     return this.candleValues;
   }
 
+  /**
+   * The range `[`, `]` and the Go To dialog compare the cursor's section
+   * within: the prices' for an open, a high, a low or a close, and
+   * volatility's own for volatility -- the registers each is sounded on.
+   *
+   * The grid holds both, and volatility, an order of magnitude below the
+   * prices, stretched its span from the lowest price down to the narrowest
+   * candle: on a chart priced in the billions, highs a unit apart tied, and
+   * so did ranges a unit apart, where a billionth of the prices' range is a
+   * tenth of a unit.
+   *
+   * @returns The span, never negative
+   */
+  public override get valueSpan(): number {
+    const segment = this.currentSegmentType ?? this.sections[0];
+    const { min, max } = segment === 'volatility' ? this.volatilityRange : this.priceRange;
+    return Number.isFinite(min) && Number.isFinite(max) && max > min ? max - min : 0;
+  }
+
   protected get audio(): AudioState {
     const candleCount = this.candles.length;
     const sectionCount = this.candleValues.length;
@@ -1390,14 +1409,17 @@ export class Candlestick extends AbstractTrace {
       }));
       // Find all maximum values (there could be multiple candles with the same max volatility)
       const maxVolatility = Math.max(...volatilityValues.map(v => v.value));
+      const minVolatility = Math.min(...volatilityValues.map(v => v.value));
+      // Within a billionth of the layer's range, as every layer ties its
+      // extremes (`MathUtil.nearlyEqualInRange`).
+      const volatilitySpan = this.valueSpan;
       const maxVolatilityIndices = volatilityValues
-        .filter(v => v.value === maxVolatility)
+        .filter(v => MathUtil.nearlyEqualInRange(v.value, maxVolatility, volatilitySpan))
         .map(v => v.index);
 
       // Find all minimum values
-      const minVolatility = Math.min(...volatilityValues.map(v => v.value));
       const minVolatilityIndices = volatilityValues
-        .filter(v => v.value === minVolatility)
+        .filter(v => MathUtil.nearlyEqualInRange(v.value, minVolatility, volatilitySpan))
         .map(v => v.index);
 
       // Add all max volatility targets
@@ -1436,14 +1458,15 @@ export class Candlestick extends AbstractTrace {
       }));
       // Find all maximum values
       const maxValue = Math.max(...segmentValues.map(v => v.value));
+      const minValue = Math.min(...segmentValues.map(v => v.value));
+      const segmentSpan = this.valueSpan;
       const maxIndices = segmentValues
-        .filter(v => v.value === maxValue)
+        .filter(v => MathUtil.nearlyEqualInRange(v.value, maxValue, segmentSpan))
         .map(v => v.index);
 
       // Find all minimum values
-      const minValue = Math.min(...segmentValues.map(v => v.value));
       const minIndices = segmentValues
-        .filter(v => v.value === minValue)
+        .filter(v => MathUtil.nearlyEqualInRange(v.value, minValue, segmentSpan))
         .map(v => v.index);
 
       // Add all max targets

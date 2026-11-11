@@ -58,6 +58,34 @@ describe('MathUtil.nearlyEqualRelative', () => {
   });
 });
 
+describe('MathUtil.nearlyEqualInRange', () => {
+  it('reads values a billionth of the range apart as one value', () => {
+    // A KDE curve that peaks at 0.4 is 0 at one end of its tails and 9.4e-28
+    // at the other: one minimum, as the chart draws and sounds them.
+    expect(MathUtil.nearlyEqualInRange(9.4e-28, 0, 0.4)).toBe(true);
+    expect(MathUtil.nearlyEqualInRange(0.1 + 0.2, 0.3, 0.2)).toBe(true);
+  });
+
+  it('keeps values apart that differ by more than that', () => {
+    expect(MathUtil.nearlyEqualInRange(1e-6, 0, 0.4)).toBe(false);
+    expect(MathUtil.nearlyEqualInRange(3_000, 3_001, 1_000_000)).toBe(false);
+  });
+
+  it('keeps small values apart where the range is small too', () => {
+    // Measured against 1, as `nearlyEqual` measures them, these were one value.
+    expect(MathUtil.nearlyEqualInRange(1e-12, 5e-11, 5e-11 - 1e-12)).toBe(false);
+  });
+
+  it('reads only equal values as one where the range is nothing', () => {
+    expect(MathUtil.nearlyEqualInRange(2, 2, 0)).toBe(true);
+    expect(MathUtil.nearlyEqualInRange(2, 2 + 1e-15, 0)).toBe(false);
+  });
+
+  it('never reads a gap as a value', () => {
+    expect(MathUtil.nearlyEqualInRange(Number.NaN, 0, 1)).toBe(false);
+  });
+});
+
 describe('MathUtil.interpolate', () => {
   it('maps the source minimum to the target minimum', () => {
     expect(MathUtil.interpolate(0, 0, 10, 100, 200)).toBe(100);

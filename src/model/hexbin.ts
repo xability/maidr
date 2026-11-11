@@ -601,9 +601,10 @@ export class HexbinTrace extends AbstractTrace {
     if (occupied.length === 0) {
       return [];
     }
+    const span = this.valueSpan;
     const at = (count: number, type: 'max' | 'min'): ExtremaTarget[] =>
       this.bins.flatMap((bins, row) => bins.flatMap((bin, col) => (
-        this.counts[row][col] !== count
+        !MathUtil.nearlyEqualInRange(this.counts[row][col], count, span)
           ? []
           : [{
               // The raw x, and it again as `xValue`, so the Go To dialog

@@ -1469,8 +1469,9 @@ export class TreemapTrace extends AbstractTrace {
     }
 
     const values = leaves.map(leaf => leaf.value);
+    const span = this.valueSpan;
     const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => leaves
-      .filter(leaf => leaf.value === extreme)
+      .filter(leaf => MathUtil.nearlyEqualInRange(leaf.value, extreme, span))
       .map(leaf => ({
         ...extremumAt(
           t(type === 'max' ? 'model.extremaMaxPoint' : 'model.extremaMinPoint'),

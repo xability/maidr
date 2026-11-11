@@ -920,9 +920,10 @@ export class ChoroplethTrace extends AbstractTrace {
     if (!Number.isFinite(this.max) || !Number.isFinite(this.min)) {
       return [];
     }
+    const span = this.valueSpan;
     const at = (value: number, type: 'max' | 'min'): ExtremaTarget[] =>
       this.regions.flatMap((band, row) => band.flatMap((region, col) => (
-        region.value !== value
+        !MathUtil.nearlyEqualInRange(region.value, value, span)
           ? []
           : [{
               ...extremumAt(

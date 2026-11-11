@@ -665,9 +665,10 @@ export class BoxenTrace extends AbstractTrace {
     if (!Number.isFinite(this.max) || !Number.isFinite(this.min)) {
       return [];
     }
+    const span = this.valueSpan;
     const at = (value: number, type: 'max' | 'min'): ExtremaTarget[] =>
       this.rungValues.flatMap((ladder, row) => ladder.flatMap((rung, col) => (
-        rung !== value
+        !MathUtil.nearlyEqualInRange(rung, value, span)
           ? []
           : [{
               ...extremumAt(

@@ -668,8 +668,9 @@ export class RidgelineTrace extends AbstractTrace {
     }
 
     const densities = samples.map(({ density }) => density);
+    const span = this.valueSpan;
     const at = (extreme: number, type: 'max' | 'min'): ExtremaTarget[] => samples
-      .filter(({ density }) => density === extreme)
+      .filter(({ density }) => MathUtil.nearlyEqualInRange(density, extreme, span))
       .map(({ density, col }) => ({
         // The raw position, and it again as `xValue`, so the Go To dialog
         // writes it with the x axis's format, as the landing announces it.

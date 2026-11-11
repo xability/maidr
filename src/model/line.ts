@@ -2554,15 +2554,17 @@ export class LineTrace extends AbstractTrace {
     // Use pre-computed min/max values instead of recalculating
     const groupMin = this.min[currentGroup];
     const groupMax = this.max[currentGroup];
-    // Find indices of min/max values
+    // Find indices of min/max values: every point within a billionth of the
+    // layer's range of one, so a KDE's 9.4e-28 is the same minimum as its 0.
+    const span = this.valueSpan;
     const maxIndices: number[] = [];
     const minIndices: number[] = [];
     for (let index = 0; index < groupValues.length; index++) {
       const value = groupValues[index];
-      if (value === groupMax) {
+      if (MathUtil.nearlyEqualInRange(value, groupMax, span)) {
         maxIndices.push(index);
       }
-      if (value === groupMin) {
+      if (MathUtil.nearlyEqualInRange(value, groupMin, span)) {
         minIndices.push(index);
       }
     }

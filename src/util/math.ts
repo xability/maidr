@@ -382,6 +382,28 @@ export abstract class MathUtil {
   }
 
   /**
+   * Whether two values of one layer are the same at the layer's own scale:
+   * they differ by no more than a billionth of the range its values span.
+   *
+   * What `[`, `]` and the Go To dialog read as one extreme. A KDE curve that
+   * peaks at 0.4 is 0 at one end of its tails and 9.4e-28 at the other: a
+   * billionth of 0.4 is 4e-10, so the two are one minimum, as the chart draws
+   * and sounds them, where {@link MathUtil.nearlyEqualRelative} keeps them
+   * apart, measuring 9.4e-28 against its own size. Data small in its own
+   * units still keeps its values apart, since its range is small too: across
+   * 1e-12 to 5e-11 the margin is 4.9e-20. 0.1 + 0.2 and 0.3 are one value
+   * on any range of 1e-7 or more.
+   *
+   * @param a - One value
+   * @param b - The other
+   * @param range - The layer's largest value less its smallest
+   * @returns True when the two differ by no more than a billionth of the range
+   */
+  static nearlyEqualInRange(a: number, b: number, range: number): boolean {
+    return a === b || Math.abs(a - b) <= 1e-9 * range;
+  }
+
+  /**
    * Clamps a value into the inclusive `[min, max]` range.
    * @param value - The value to clamp
    * @param min - Lower bound (inclusive)

@@ -444,9 +444,10 @@ export class BoxTrace extends AbstractTrace {
       const index = this.sections.indexOf(section);
       return this.orientation === Orientation.HORIZONTAL ? [box, index] : [index, box];
     };
+    const span = this.valueSpan;
     return [
-      ...whiskerEndTargets(this.points, 'max', this.whiskerExtremeName(1), 'model.nounGroup', cellOf(BoxplotSection.MAX)),
-      ...whiskerEndTargets(this.points, 'min', this.whiskerExtremeName(0), 'model.nounGroup', cellOf(BoxplotSection.MIN)),
+      ...whiskerEndTargets(this.points, 'max', this.whiskerExtremeName(1), 'model.nounGroup', cellOf(BoxplotSection.MAX), span),
+      ...whiskerEndTargets(this.points, 'min', this.whiskerExtremeName(0), 'model.nounGroup', cellOf(BoxplotSection.MIN), span),
     ];
   }
 

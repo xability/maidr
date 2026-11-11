@@ -723,14 +723,15 @@ export class CandlestickDeltaTrace extends AbstractTrace {
     const maxDelta = deltas.reduce((a, b) => Math.max(a, b));
     const minDelta = deltas.reduce((a, b) => Math.min(a, b));
 
+    const span = this.valueSpan;
     const targets: ExtremaTarget[] = [];
     deltas.forEach((delta, index) => {
-      if (delta === maxDelta) {
+      if (MathUtil.nearlyEqualInRange(delta, maxDelta, span)) {
         targets.push(this.buildExtremaTarget('max', index));
       }
     });
     deltas.forEach((delta, index) => {
-      if (delta === minDelta) {
+      if (MathUtil.nearlyEqualInRange(delta, minDelta, span)) {
         targets.push(this.buildExtremaTarget('min', index));
       }
     });

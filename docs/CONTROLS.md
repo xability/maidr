@@ -74,6 +74,15 @@ start to go to: Control + Right or Control + Left says so, with the warning
 tone, rather than landing on a node of the cycle that the next arrow moves on
 from.
 
+Two values within a billionth of the layer's range of each other are one
+value to [ and ], and to G: a margin far below anything the chart draws or
+plays, and far above the rounding a computed value carries. On a density curve
+that peaks at 0.4, every point of its tails below 4e-10 is its minimum, from
+the 9.4e-28 one tail ends at to the 0 the other does, and [ walks them in turn,
+saying how many there are: a long tail can hold dozens. A candlestick's prices
+and its volatility are each compared within their own range, the ranges they
+are sounded on.
+
 On a layer with nothing to jump to, [ and ] say there is no minimum or maximum
 value to go to, and G says there are no extrema to go to. All three play the
 warning tone with their message. Where there is nothing to jump to by design,

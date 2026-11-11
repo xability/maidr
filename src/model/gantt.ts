@@ -899,11 +899,12 @@ export class GanttTrace extends AbstractTrace {
       return [];
     }
 
+    const span = this.valueSpan;
     const targets: ExtremaTarget[] = [];
     const collect = (value: number, type: 'max' | 'min', name: string): void => {
       this.lengths.forEach((lane, row) => lane.forEach((length, col) => {
         const point = this.lanes[row]?.[col];
-        if (length !== value || point === undefined) {
+        if (!MathUtil.nearlyEqualInRange(length, value, span) || point === undefined) {
           return;
         }
         const where = point.label
