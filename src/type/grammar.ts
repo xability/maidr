@@ -1834,8 +1834,9 @@ export interface AxisConfig {
 }
 
 /**
- * The way round the dial the slices of a pie follow one another from the
- * start angle. See {@link MaidrLayer.direction}.
+ * The way round the dial the slices of a pie, or the spokes of a radar or
+ * polar area, follow one another from the start angle. See
+ * {@link MaidrLayer.direction}.
  */
 export enum PieDirection {
   CLOCKWISE = 'clockwise',
@@ -2130,7 +2131,15 @@ export interface MaidrLayer {
    * wedge at `rotation` and draws it clockwise of there, then lays the rest
    * out counterclockwise from `rotation`.
    *
-   * Read by the pie trace and ignored by every other type.
+   * A radar or polar area reads it as where its **first spoke** points: for a
+   * polar area, whose wedges are centred on their spokes, the middle of the
+   * first wedge rather than its edge. Its spokes are panned from there, and
+   * `0` is where a layer that declares nothing has always had its first
+   * spoke. A library that says where its first wedge begins, as a Recharts
+   * `<Pie>` drawing a coxcomb does, is half a wedge short of it.
+   *
+   * Read by the pie, radar and polar area traces and ignored by every other
+   * type.
    *
    * @example
    * // a pie whose first slice starts at 3 o'clock
@@ -2151,9 +2160,14 @@ export interface MaidrLayer {
    * the clock position all describe the wedge under the cursor. `data` and
    * `selectors` stay in drawn order either way; only the walk changes.
    *
-   * Read by the pie trace and ignored by every other type. Omit it unless the
-   * drawn direction is known: a layer that declares `'counterclockwise'` and
-   * is not drawn that way walks the pie backwards.
+   * A radar or polar area takes it the same way: its spokes run from
+   * {@link MaidrLayer.startAngle} in this direction, and a counterclockwise
+   * one is walked turned round, its outline with it, so Right still moves
+   * clockwise.
+   *
+   * Read by the pie, radar and polar area traces and ignored by every other
+   * type. Omit it unless the drawn direction is known: a layer that declares
+   * `'counterclockwise'` and is not drawn that way is walked backwards.
    *
    * @example
    * // a plotly pie drawn with its default direction
