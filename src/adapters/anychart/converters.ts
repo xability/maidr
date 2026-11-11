@@ -3462,10 +3462,17 @@ function stampFunnelAttributes(
  * a term written with a capital found no word.
  *
  * Two terms that differ only in case are drawn alike, so their text cannot
- * tell them apart. AnyChart lays a cloud out heaviest word first, with ties in
- * data order, and writes the visible words in that order, so the terms drawn
- * alike take their words in that same order. Before, each of them matched two
- * words, and the whole cloud was left without a highlight.
+ * tell them apart. Measured on AnyChart 8.13, a cloud is laid out heaviest
+ * word first, with ties in data order, and the visible words are written in
+ * that order, so the terms drawn alike take their words in that same order.
+ * Before, each of them matched two words, and the whole cloud was left
+ * without a highlight. The order is checked against the page rather than
+ * trusted: AnyChart sizes a word by its weight, so a heavier term's word has
+ * to be drawn larger and terms of one weight at one size (see
+ * {@link sizedByWeight}). Where they are not, a version of AnyChart that
+ * writes the words in another order would have each term outlined on the
+ * other's word, so the cloud is left without a highlight, as before, and the
+ * console says why.
  *
  * AnyChart writes every word a second time, in a layer of its own at an
  * `opacity` of one millionth, to catch the pointer; that copy is passed over
@@ -3505,17 +3512,27 @@ function stampWordCloudAttributes(
   const glyphs: SVGElement[] = [];
   for (const [word, indices] of termsByText) {
     const drawn = byText.get(word) ?? [];
+    const named = listTerms(indices.map(i => terms[i]));
     if (drawn.length !== indices.length) {
-      const named = indices.map(i => `"${terms[i]}"`).join(' and ');
+      const expected = indices.length === 1
+        ? 'exactly one rendered word for the term'
+        : `${indices.length} rendered words for the terms`;
       console.warn(
-        `[maidr/anychart] Expected ${indices.length === 1 ? 'exactly one rendered word for the term' : `${indices.length} rendered words for the terms`} `
-        + `${named} but found ${drawn.length}. Highlighting is disabled for `
-        + 'this chart; pass an explicit `selectors` entry to override.',
+        `[maidr/anychart] Expected ${expected} ${named} but found ${drawn.length}. `
+        + 'Highlighting is disabled for this chart; pass an explicit `selectors` entry to override.',
       );
       return;
     }
     // Heaviest first, ties in data order: the order AnyChart drew them in.
     const ordered = [...indices].sort((a, b) => (cloudWeight(rows[b]) - cloudWeight(rows[a])) || (a - b));
+    if (indices.length > 1 && !sizedByWeight(ordered.map(i => cloudWeight(rows[i])), drawn.map(drawnWordSize))) {
+      console.warn(
+        `[maidr/anychart] The terms ${named} are drawn alike, at sizes that do not follow their weights, `
+        + 'so which word is which is unknown. Highlighting is disabled for this chart; '
+        + 'pass an explicit `selectors` entry to override.',
+      );
+      return;
+    }
     ordered.forEach((termIndex, k) => {
       glyphs[termIndex] = drawn[k];
     });
@@ -3545,13 +3562,59 @@ function foldCloudWord(word: string): string {
 }
 
 /**
- * The weight a tag cloud lays a row out by, read the way AnyChart reads it.
+ * The weight a tag cloud lays a row out by, read as {@link isDrawnDatum}
+ * reads it, so every row drawn has one.
  *
  * @param row - A row of the cloud's data
- * @returns The row's value, or NaN when it has none
+ * @returns The row's value
  */
 function cloudWeight(row: Record<string, unknown>): number {
-  return Number.parseFloat(String(row.value));
+  return Number(row.value ?? row.y);
+}
+
+/**
+ * The size a tag cloud word is drawn at.
+ *
+ * @param text - A drawn word
+ * @returns Its font size, or NaN when it says none
+ */
+function drawnWordSize(text: SVGElement): number {
+  const size = Number.parseFloat(text.getAttribute('font-size') ?? '');
+  if (Number.isFinite(size))
+    return size;
+  return Number.parseFloat((text.ownerDocument.defaultView ?? window).getComputedStyle(text).fontSize);
+}
+
+/**
+ * Whether words, paired in order with terms drawn alike, are sized the way
+ * those terms are weighted: each word smaller than the one before it where
+ * its term weighs less, and the same size where it weighs the same.
+ *
+ * @param weights - The terms' weights, heaviest first
+ * @param sizes - The sizes of the words paired with them, in the same order
+ * @returns False where a size does not follow its weight, or is unknown
+ */
+function sizedByWeight(weights: readonly number[], sizes: readonly number[]): boolean {
+  return weights.every((weight, k) => {
+    if (!Number.isFinite(sizes[k]))
+      return false;
+    if (k === 0)
+      return true;
+    return weight < weights[k - 1] ? sizes[k] < sizes[k - 1] : sizes[k] === sizes[k - 1];
+  });
+}
+
+/**
+ * Terms named for a warning: each in quotes, the last joined with "and".
+ *
+ * @param terms - The terms
+ * @returns The list
+ */
+function listTerms(terms: readonly string[]): string {
+  const quoted = terms.map(term => `"${term}"`);
+  return quoted.length < 2
+    ? quoted.join('')
+    : `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`;
 }
 
 /**
