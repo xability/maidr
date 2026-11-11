@@ -315,6 +315,7 @@ const GUIDES: Record<string, Guide> = {
       'polar area (coxcomb, rose)': ['polar_area'],
       'choropleth map': ['choropleth'],
       'scatter, each point carrying its name': ['point'],
+      'scatter, a layer per colour group': ['point'],
       'absorbed — the names go to the layer it labels': [],
       'normalized (100%) stacked bar chart': ['stacked_normalized_bar'],
     },
