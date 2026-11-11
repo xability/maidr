@@ -153,16 +153,19 @@ test.describe('Dumbbell', () => {
         const box = await page.locator('[id^="maidr-highlight"]').first().boundingBox();
         return box ? box.x + box.width / 2 : Number.NaN;
       };
+      // Drawn on its side, a pair's two ends lie across it, and Right moves
+      // from one to the other.
       const dumbbellPage = new DumbbellPlotPage(page);
       await dumbbellPage.activateMaidr();
       await dumbbellPage.moveToNextDataPoint();
       const start = await centreOfHighlight();
 
-      await dumbbellPage.moveToDataPointAbove();
+      await dumbbellPage.moveToNextDataPoint();
       const end = await centreOfHighlight();
 
       // Denmark rose from 71.2 to 78.4 on a chart lying on its side, so its
       // 2020 end is drawn to the right of its 1990 one.
+      expect(normalizeText(await dumbbellPage.getInstructionText())).toContain('Denmark, 2020');
       expect(end).toBeGreaterThan(start);
     });
   });
