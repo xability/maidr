@@ -33,9 +33,11 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       .map(point => Number(isVertical ? point.xMax : point.yMax))
       .filter(Number.isFinite);
     // Bin edges are positions on the binned axis, so they read in its declared
-    // format, as the table's bin columns and the announced bin already do. The
-    // bin width below does not: it is a length along the axis, and an axis of
-    // dates would print a span of days as a date.
+    // format, as the table's bin columns and the announced bin already do --
+    // with the decimals it takes for each bin's two edges to read apart,
+    // where the format declares fewer. The bin width below does not: it is a
+    // length along the axis, and an axis of dates would print a span of days
+    // as a date.
     const binAxis = isVertical ? 'x' : 'y';
     const binFormat = this.authoredFormat(binAxis) ?? defaultFormat;
     const binRange = MathUtil.spannedOrMissing(

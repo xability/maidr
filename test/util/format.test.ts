@@ -1,4 +1,6 @@
+import type { MaidrLayer } from '@type/grammar';
 import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { Orientation, TraceType } from '@type/grammar';
 import { defaultFormat, defaultLabelFormat, formatters, FormatUtil } from '@util/format';
 
 describe('defaultFormat', () => {
@@ -320,5 +322,113 @@ describe('the Intl formatters an axis is announced through', () => {
     });
 
     expect(constructions).toBe(1);
+  });
+});
+
+describe('a declared format coarser than the intervals read through it', () => {
+  // Bins a twentieth of a unit wide, read with one decimal: "1.1 through 1.1"
+  // twice over, between a bin that read "1.0 through 1.1" and one that read
+  // "1.1 through 1.2".
+  const TWENTIETHS: [number, number][] = [[1, 1.05], [1.05, 1.1], [1.1, 1.15], [1.15, 1.2]];
+
+  it('takes the decimals it needs for every interval\'s ends to read apart', () => {
+    const format = FormatUtil.separating({ type: 'fixed', decimals: 1 }, TWENTIETHS);
+    const read = FormatUtil.resolveFormat(format);
+
+    expect(format).toEqual({ type: 'fixed', decimals: 2 });
+    expect(TWENTIETHS.map(([low, high]) => `${read(low)} through ${read(high)}`)).toEqual([
+      '1.00 through 1.05',
+      '1.05 through 1.10',
+      '1.10 through 1.15',
+      '1.15 through 1.20',
+    ]);
+  });
+
+  it('gives every interval the same decimals, not each the fewest it needs', () => {
+    // The first and last bins read apart at one decimal; read at one, their
+    // shared edges would not agree with their neighbours'.
+    const read = FormatUtil.resolveFormat(FormatUtil.separating({ type: 'fixed', decimals: 1 }, TWENTIETHS));
+
+    expect(read(1)).toBe('1.00');
+    expect(read(1.2)).toBe('1.20');
+  });
+
+  it('counts from a type\'s own default when the format declares no decimals', () => {
+    // `number` reads whole numbers unless told otherwise.
+    expect(FormatUtil.separating({ type: 'number' }, [[1, 1.25], [1.25, 1.5]]))
+      .toEqual({ type: 'number', decimals: 1 });
+    // A percentage's decimals count in percent, not in the value.
+    expect(FormatUtil.separating({ type: 'percent', decimals: 0 }, [[0.101, 0.102]]))
+      .toEqual({ type: 'percent', decimals: 1 });
+    expect(FormatUtil.separating({ type: 'currency', currency: 'USD' }, [[1.001, 1.004]]))
+      .toEqual({ type: 'currency', currency: 'USD', decimals: 3 });
+    expect(FormatUtil.separating({ type: 'scientific', decimals: 1 }, [[1_050_000, 1_100_000]]))
+      .toEqual({ type: 'scientific', decimals: 2 });
+  });
+
+  it('leaves a format alone where every interval already reads apart', () => {
+    const format = { type: 'fixed', decimals: 1 } as const;
+
+    expect(FormatUtil.separating(format, [[0.75, 1.25], [1.25, 1.75]])).toBe(format);
+  });
+
+  it('leaves a date or a function format alone', () => {
+    const date = { type: 'date' } as const;
+    const custom = { function: 'return Number(value).toFixed(1);' };
+
+    expect(FormatUtil.separating(date, [[0, 1]])).toBe(date);
+    expect(FormatUtil.separating(custom, TWENTIETHS)).toBe(custom);
+  });
+
+  it('does not part two ends that differ by float noise alone', () => {
+    const format = { type: 'fixed', decimals: 1 } as const;
+
+    expect(FormatUtil.separating(format, [[1, 1 + 1e-12]])).toBe(format);
+  });
+
+  it('reads a format as declared when no number of decimals parts the ends', () => {
+    // Twenty decimals, the most it gives, still read both ends as zero.
+    const format = { type: 'fixed', decimals: 1 } as const;
+
+    expect(FormatUtil.separating(format, [[0, 1e-25]])).toBe(format);
+  });
+
+  it('reads a format it cannot build as declared rather than throwing', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const format = { type: 'currency', currency: 'NOT A CODE', decimals: 0 } as const;
+
+    expect(FormatUtil.separating(format, [[1, 1.2]])).toBe(format);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('the format a histogram reads an axis in', () => {
+  const ONE_DECIMAL = { type: 'fixed', decimals: 1 } as const;
+
+  it('widens the y axis of a histogram drawn sideways, and not its x', () => {
+    const layer: MaidrLayer = {
+      id: 'sideways',
+      type: TraceType.HISTOGRAM,
+      orientation: Orientation.HORIZONTAL,
+      axes: { x: { label: 'Count', format: ONE_DECIMAL }, y: { label: 'Length', format: ONE_DECIMAL } },
+      data: [[1, 1.05], [1.05, 1.1]].map(([low, high]) => (
+        { x: 3, y: (low + high) / 2, xMin: 0, xMax: 3, yMin: low, yMax: high }
+      )),
+    };
+
+    expect(FormatUtil.axisFormat(layer, 'y')).toEqual({ type: 'fixed', decimals: 2 });
+    expect(FormatUtil.axisFormat(layer, 'x')).toBe(ONE_DECIMAL);
+  });
+
+  it('has no format for an axis that declares none', () => {
+    const layer: MaidrLayer = {
+      id: 'plain',
+      type: TraceType.HISTOGRAM,
+      axes: { x: { label: 'Length' }, y: { label: 'Count' } },
+      data: [{ x: 1.025, y: 3, xMin: 1, xMax: 1.05, yMin: 0, yMax: 3 }],
+    };
+
+    expect(FormatUtil.axisFormat(layer, 'x')).toBeUndefined();
   });
 });

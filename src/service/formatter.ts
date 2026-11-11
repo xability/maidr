@@ -90,11 +90,13 @@ export class FormatterService implements Disposable {
           // Format is now inline on each axis: axes.x.format, axes.y.format, axes.z.format
           const axes = layer.axes;
 
-          // Resolve format functions with fallback to defaults
+          // Resolve format functions with fallback to defaults. Each axis's
+          // format is the one the layer declares, except that a histogram's
+          // binned axis may take the decimals its bin edges need to read apart.
           const layerFormatters: LayerFormatters = {
-            x: this.resolveAxisFormat(axes?.x?.format),
-            y: this.resolveAxisFormat(axes?.y?.format),
-            z: this.resolveAxisFormat(axes?.z?.format),
+            x: this.resolveAxisFormat(FormatUtil.axisFormat(layer, 'x')),
+            y: this.resolveAxisFormat(FormatUtil.axisFormat(layer, 'y')),
+            z: this.resolveAxisFormat(FormatUtil.axisFormat(layer, 'z')),
             authored: new Set(
               (['x', 'y', 'z'] as const).filter(axis => axes?.[axis]?.format !== undefined),
             ),
