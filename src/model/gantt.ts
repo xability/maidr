@@ -2,8 +2,10 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { FormatFunction, GanttData, GanttPoint, MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceEmptyState } from '@type/state';
+import type { DurationUnit } from '@util/duration';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
+import { namedTimeUnit, unitCount } from '@util/duration';
 import { defaultFormat, FormatUtil } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
@@ -83,6 +85,12 @@ export class GanttTrace extends AbstractTrace {
   private readonly lanes: GanttPoint[][];
   private readonly lengths: number[][];
   private readonly unit?: string;
+  /**
+   * The unit of time {@link unit} names, when it is an English word for one:
+   * the words the adapters write. Read in the reader's language rather than
+   * as written.
+   */
+  private readonly timeUnit?: DurationUnit;
   /** Whether an end is the last unit an interval covers. */
   private readonly inclusive: boolean;
   private readonly laneNames: (string | number)[];
@@ -160,6 +168,7 @@ export class GanttTrace extends AbstractTrace {
     const data = layer.data as GanttData;
     this.lanes = data.points;
     this.unit = data.unit?.trim() || undefined;
+    this.timeUnit = this.unit === undefined ? undefined : namedTimeUnit(this.unit);
     this.inclusive = data.inclusive === true;
     this.laneNames = data.lanes ?? [];
     this.firstLane = data.firstLane;
@@ -485,12 +494,7 @@ export class GanttTrace extends AbstractTrace {
         // untouched -- so a length of `1.23456` was spoken in full here and
         // rounded in the description's `Shortest`, `Longest` and Length column,
         // which are the same number under four labels.
-        value: this.unit === undefined
-          ? length
-          : t('model.ganttLengthWithUnit', {
-              value: defaultFormat(length),
-              unit: this.unit,
-            }),
+        value: this.unit === undefined ? length : this.withUnit(length),
       },
       // Which real axis each value came from, so the formatter picks the
       // right per-axis format. It defaults to x/y when absent, which for a
@@ -499,6 +503,24 @@ export class GanttTrace extends AbstractTrace {
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
     };
+  }
+
+  /**
+   * A length with the unit the chart names.
+   *
+   * A unit of time named by an English word -- the `days` and `hours` the
+   * adapters write -- reads in the reader's language, and in the singular for
+   * a length of one: "1 day", "3 Tage". Any other word is the chart's own and
+   * reads as written, after the number.
+   *
+   * @param length - The length
+   * @returns The length and its unit
+   */
+  private withUnit(length: number): string {
+    const value = defaultFormat(length);
+    return this.timeUnit === undefined
+      ? t('model.ganttLengthWithUnit', { value, unit: this.unit ?? '' })
+      : unitCount(value, this.timeUnit);
   }
 
   public get description(): DescriptionState {
@@ -523,14 +545,17 @@ export class GanttTrace extends AbstractTrace {
     }
 
     if (intervals.length > 0) {
-      const spanLabel = this.unit === undefined ? '' : ` ${this.unit}`;
       // Guarded before the unit is attached rather than after. A length is
       // `Number(end) - Number(start)`, so a producer sending an unparseable
       // end makes it NaN -- and once the unit has turned that into the string
       // `NaN days` neither the dialog's own non-finite blanking nor the
       // service's rounding can catch it, because both of them test numbers.
-      const withUnit = (value: number): string =>
-        isMeasured(value) ? `${defaultFormat(value)}${spanLabel}` : missingText();
+      const withUnit = (value: number): string => {
+        if (!isMeasured(value)) {
+          return missingText();
+        }
+        return this.unit === undefined ? defaultFormat(value) : this.withUnit(value);
+      };
 
       const from = MathUtil.safeMin(intervals.map(point => Number(point.start)));
       const to = MathUtil.safeMax(intervals.map(point => Number(point.end)));
@@ -578,7 +603,9 @@ export class GanttTrace extends AbstractTrace {
     // the announcement never says it without one.
     const lengthHeader = this.unit === undefined
       ? t('model.asideLength')
-      : t('model.ganttLengthHeader', { unit: this.unit });
+      : t('model.ganttLengthHeader', {
+          unit: this.timeUnit === undefined ? this.unit : t(this.timeUnit.name),
+        });
     const headers = [
       laneLabel,
       t('model.tableLabel'),
