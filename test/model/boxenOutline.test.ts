@@ -21,9 +21,22 @@ import { Orientation, TraceType } from '@type/grammar';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-/** A two-rung ladder: five stops, the 12.5th to the 87.5th percentile. */
+/**
+ * A two-rung ladder: five stops, the 12.5th to the 87.5th percentile, with
+ * the longer tail above, as most samples have one tail longer than the other.
+ */
 const TWO_RUNGS: BoxenPoint = {
   z: 'a',
+  median: 50,
+  levels: [
+    { p: 0.25, lo: 40, hi: 60 },
+    { p: 0.125, lo: 30, hi: 75 },
+  ],
+};
+
+/** The same ladder with tails of one length: its own mirror image. */
+const EVEN_TAILS: BoxenPoint = {
+  z: 'even',
   median: 50,
   levels: [
     { p: 0.25, lo: 40, hi: 60 },
@@ -170,6 +183,29 @@ function across(name: string, from: number, to: number): Shape {
   return { tag: 'rect', name, left: 4 * from, right: 4 * to, top: 90, bottom: 110 };
 }
 
+/**
+ * The same box on an inverted value axis, as `ax.invert_yaxis()` draws it:
+ * a higher value is drawn lower on the page.
+ * @param name - What a test calls it
+ * @param from - Its lower edge, as a value
+ * @param to - Its upper edge
+ * @returns The shape
+ */
+function hanging(name: string, from: number, to: number): Shape {
+  return { tag: 'path', name, left: 90, right: 110, top: 4 * from, bottom: 4 * to };
+}
+
+/**
+ * The same box on a log value axis, a hundred pixels to a decade.
+ * @param name - What a test calls it
+ * @param from - Its lower edge, as a value
+ * @param to - Its upper edge
+ * @returns The shape
+ */
+function logged(name: string, from: number, to: number): Shape {
+  return { tag: 'path', name, left: 90, right: 110, top: 400 - 100 * Math.log10(to), bottom: 400 - 100 * Math.log10(from) };
+}
+
 /** Every stop of a two-rung ladder outlining one thing. */
 const WHOLE = (name: string): string[] => Array.from({ length: 5 }, () => name);
 
@@ -181,7 +217,7 @@ afterEach(() => {
 describe('a ladder drawn as boxes tiled edge to edge', () => {
   test('outlines the box each rung is the outer edge of', () => {
     // Drawn out of order: the order is read off where each box sits.
-    draw([[upright('middle', 40, 60), upright('top', 60, 70), upright('bottom', 30, 40)]]);
+    draw([[upright('middle', 40, 60), upright('top', 60, 75), upright('bottom', 30, 40)]]);
 
     const along = outlinedAlong(boxen([TWO_RUNGS]), 0);
 
@@ -189,7 +225,7 @@ describe('a ladder drawn as boxes tiled edge to edge', () => {
   });
 
   test('reads a ladder lying on its side left to right', () => {
-    draw([[across('right', 60, 70), across('left', 30, 40), across('middle', 40, 60)]]);
+    draw([[across('right', 60, 75), across('left', 30, 40), across('middle', 40, 60)]]);
 
     const along = outlinedAlong(boxen([TWO_RUNGS], Orientation.HORIZONTAL), 0);
 
@@ -199,7 +235,7 @@ describe('a ladder drawn as boxes tiled edge to edge', () => {
   test('reads each distribution off its own boxes', () => {
     const shallow: BoxenPoint = { z: 'b', median: 50, levels: [{ p: 0.25, lo: 45, hi: 55 }] };
     draw([
-      [upright('a low', 30, 40), upright('a middle', 40, 60), upright('a high', 60, 70)],
+      [upright('a low', 30, 40), upright('a middle', 40, 60), upright('a high', 60, 75)],
       [upright('b only', 45, 55, 190)],
     ]);
 
@@ -208,12 +244,57 @@ describe('a ladder drawn as boxes tiled edge to edge', () => {
     expect(outlinedAlong(trace, 1)).toEqual(['b only', 'b only', 'b only']);
     expect(outlinedAlong(trace, 0)).toEqual(['a low', 'a middle', 'a middle', 'a middle', 'a high']);
   });
+
+  test('reads a reversed value axis the other way round', () => {
+    // The lowest values are drawn at the top of the page: the box drawn
+    // highest is the one below the median.
+    draw([[hanging('low', 30, 40), hanging('middle', 40, 60), hanging('high', 60, 75)]]);
+
+    const along = outlinedAlong(boxen([TWO_RUNGS]), 0);
+
+    expect(along).toEqual(['low', 'middle', 'middle', 'middle', 'high']);
+  });
+
+  test('reads a log value axis', () => {
+    draw([[logged('low', 30, 40), logged('middle', 40, 60), logged('high', 60, 75)]]);
+
+    const along = outlinedAlong(boxen([TWO_RUNGS]), 0);
+
+    expect(along).toEqual(['low', 'middle', 'middle', 'middle', 'high']);
+  });
+
+  test('outlines a ladder whole whose boxes cannot say which end is low', () => {
+    // Tails of one length fit the axis running either way, and paired the
+    // wrong way round every rung below the median would outline a box above it.
+    draw([[upright('low', 30, 40), upright('middle', 40, 60), upright('high', 60, 70)]]);
+
+    const along = outlinedAlong(boxen([EVEN_TAILS]), 0);
+
+    expect(along).toEqual(WHOLE('group 0'));
+  });
+
+  test('tells which end is low from ladders drawn at different heights', () => {
+    const higher: BoxenPoint = {
+      z: 'higher',
+      median: 80,
+      levels: [{ p: 0.25, lo: 70, hi: 90 }, { p: 0.125, lo: 60, hi: 100 }],
+    };
+    draw([
+      [upright('a low', 30, 40), upright('a middle', 40, 60), upright('a high', 60, 70)],
+      [upright('b low', 60, 70, 190), upright('b middle', 70, 90, 190), upright('b high', 90, 100, 190)],
+    ]);
+
+    const trace = boxen([EVEN_TAILS, higher]);
+
+    expect(outlinedAlong(trace, 0)).toEqual(['a low', 'a middle', 'a middle', 'a middle', 'a high']);
+    expect(outlinedAlong(trace, 1)).toEqual(['b low', 'b middle', 'b middle', 'b middle', 'b high']);
+  });
 });
 
 describe('a ladder drawn as boxes nested about the median', () => {
   test('outlines the box spanning each rung, and the median line', () => {
     draw([[
-      { tag: 'rect', name: 'outer', left: 85, right: 115, top: 120, bottom: 280 },
+      { tag: 'rect', name: 'outer', left: 85, right: 115, top: 100, bottom: 280 },
       { tag: 'rect', name: 'inner', left: 90, right: 110, top: 160, bottom: 240 },
       { tag: 'line', name: 'median', left: 85, right: 115, top: 200, bottom: 200 },
     ]]);
@@ -223,10 +304,23 @@ describe('a ladder drawn as boxes nested about the median', () => {
     expect(along).toEqual(['outer', 'inner', 'median', 'inner', 'outer']);
   });
 
+  test('outlines the innermost box at the median when it cannot tell which line is the median', () => {
+    draw([[
+      { tag: 'rect', name: 'outer', left: 85, right: 115, top: 100, bottom: 280 },
+      { tag: 'rect', name: 'inner', left: 90, right: 110, top: 160, bottom: 240 },
+      { tag: 'line', name: 'median', left: 85, right: 115, top: 200, bottom: 200 },
+      { tag: 'line', name: 'cap', left: 95, right: 105, top: 100, bottom: 100 },
+    ]]);
+
+    const along = outlinedAlong(boxen([TWO_RUNGS]), 0);
+
+    expect(along).toEqual(['outer', 'inner', 'inner', 'inner', 'outer']);
+  });
+
   test('outlines the innermost box at the median when no line is drawn there', () => {
     draw([[
       { tag: 'rect', name: 'inner', left: 90, right: 110, top: 160, bottom: 240 },
-      { tag: 'rect', name: 'outer', left: 85, right: 115, top: 120, bottom: 280 },
+      { tag: 'rect', name: 'outer', left: 85, right: 115, top: 100, bottom: 280 },
     ]]);
 
     const along = outlinedAlong(boxen([TWO_RUNGS]), 0);
@@ -237,7 +331,7 @@ describe('a ladder drawn as boxes nested about the median', () => {
 
 describe('a distribution drawn any other way is outlined whole', () => {
   test('when it holds as many boxes as neither drawing has', () => {
-    draw([[upright('one', 30, 40), upright('two', 40, 50), upright('three', 50, 60), upright('four', 60, 70)]]);
+    draw([[upright('one', 30, 40), upright('two', 40, 50), upright('three', 50, 60), upright('four', 60, 75)]]);
 
     const along = outlinedAlong(boxen([TWO_RUNGS]), 0);
 
@@ -280,7 +374,7 @@ describe('a distribution drawn any other way is outlined whole', () => {
 
 describe('the outlined boxes', () => {
   test('are copied once each, and every copy goes with the trace', () => {
-    draw([[upright('bottom', 30, 40), upright('middle', 40, 60), upright('top', 60, 70)]]);
+    draw([[upright('bottom', 30, 40), upright('middle', 40, 60), upright('top', 60, 75)]]);
     const trace = boxen([TWO_RUNGS]);
     const copies = document.querySelectorAll('[data-maidr-owned]').length;
 
@@ -290,8 +384,17 @@ describe('the outlined boxes', () => {
     expect(document.querySelectorAll('[data-maidr-owned]')).toHaveLength(0);
   });
 
+  test('are read again while the copies of an earlier reading are still in the chart', () => {
+    draw([[upright('bottom', 30, 40), upright('middle', 40, 60), upright('top', 60, 75)]]);
+    boxen([TWO_RUNGS]);
+
+    const along = outlinedAlong(boxen([TWO_RUNGS]), 0);
+
+    expect(along).toEqual(['bottom', 'middle', 'middle', 'middle', 'top']);
+  });
+
   test('leave the pointer on a distribution anywhere over its ladder', () => {
-    draw([[upright('bottom', 30, 40), upright('middle', 40, 60), upright('top', 60, 70)]]);
+    draw([[upright('bottom', 30, 40), upright('middle', 40, 60), upright('top', 60, 75)]]);
     const trace = boxen([TWO_RUNGS]);
 
     // Over the top box, further than the pointer's reach from the middle one.
@@ -302,7 +405,7 @@ describe('the outlined boxes', () => {
   });
 
   test('leave high contrast recolouring each distribution as the layer names it', () => {
-    draw([[upright('bottom', 30, 40), upright('middle', 40, 60), upright('top', 60, 70)]]);
+    draw([[upright('bottom', 30, 40), upright('middle', 40, 60), upright('top', 60, 75)]]);
     const trace = boxen([TWO_RUNGS]);
 
     const marks = trace.getAllOriginalElements().map(element => element.getAttribute('data-name'));
