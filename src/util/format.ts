@@ -1,5 +1,8 @@
-import type { AxisFormat, FormatFunction, FormatType } from '@type/grammar';
+import type { AxisFormat, FormatFunction, FormatType, HistogramPoint, MaidrLayer } from '@type/grammar';
+import type { AxisType } from '@type/state';
+import { Orientation, TraceType } from '@type/grammar';
 import { t } from '@util/i18n';
+import { resolveOrientation } from '@util/orientation';
 
 /**
  * Value type that can be formatted - single value or array of values.
@@ -37,6 +40,37 @@ const SIGNIFICANT_DIGITS_BELOW = 0.1;
  * `2,024`; a screen reader speaks `1234` and `1,234` the same way anyway.
  */
 const DEFAULT_GROUPING_THRESHOLD = 10_000;
+
+/**
+ * The decimals each format type reads with when it declares none, for the
+ * types that have decimals at all: a date has none.
+ */
+const TYPE_DECIMALS = {
+  currency: 2,
+  percent: 1,
+  fixed: 2,
+  number: 0,
+  scientific: 2,
+} as const;
+
+/** A format type that reads with a number of decimals. */
+type DecimalFormatType = keyof typeof TYPE_DECIMALS;
+
+/**
+ * The most decimals {@link FormatUtil.separating} gives a format: the most
+ * `Intl.NumberFormat` takes in every engine.
+ */
+const MAX_SEPARATING_DECIMALS = 20;
+
+/**
+ * Whether a format type reads with a number of decimals.
+ *
+ * @param type - The type a format declares, if any
+ * @returns True for a currency, percent, fixed, number or scientific format
+ */
+function hasDecimals(type: FormatType | undefined): type is DecimalFormatType {
+  return type !== undefined && Object.hasOwn(TYPE_DECIMALS, type);
+}
 
 /**
  * Puts a comma between every third digit of a number's integer part:
@@ -369,20 +403,105 @@ export abstract class FormatUtil {
 
     switch (type as FormatType) {
       case 'currency':
-        return formatters.currency(currency ?? 'USD', decimals ?? 2, locale ?? 'en-US');
+        return formatters.currency(currency ?? 'USD', decimals ?? TYPE_DECIMALS.currency, locale ?? 'en-US');
       case 'percent':
-        return formatters.percent(decimals ?? 1);
+        return formatters.percent(decimals ?? TYPE_DECIMALS.percent);
       case 'fixed':
-        return formatters.fixed(decimals ?? 2);
+        return formatters.fixed(decimals ?? TYPE_DECIMALS.fixed);
       case 'number':
-        return formatters.number(decimals ?? 0, locale ?? 'en-US');
+        return formatters.number(decimals ?? TYPE_DECIMALS.number, locale ?? 'en-US');
       case 'date':
         return formatters.date(dateOptions, locale ?? 'en-US');
       case 'scientific':
-        return formatters.scientific(decimals ?? 2);
+        return formatters.scientific(decimals ?? TYPE_DECIMALS.scientific);
       default:
         return defaultFormat;
     }
+  }
+
+  /**
+   * The format a layer reads its values on one axis in: the one it declares
+   * for that axis, or `undefined` where it declares none.
+   *
+   * A histogram's binned axis may read with more decimals than it declares;
+   * see {@link FormatUtil.separating}. The formatter service, which every
+   * announcement and the description's table read through, and a trace's
+   * own summary both take an axis's format from here, so the three read a
+   * bin edge alike.
+   *
+   * @param layer - The layer
+   * @param axis - The axis
+   * @returns The format to read the axis's values in
+   */
+  static axisFormat(layer: MaidrLayer, axis: AxisType): AxisFormat | undefined {
+    const format = layer.axes?.[axis]?.format;
+    if (format === undefined || layer.type !== TraceType.HISTOGRAM || !Array.isArray(layer.data)) {
+      return format;
+    }
+    const sideways = resolveOrientation(layer.type, layer.orientation) === Orientation.HORIZONTAL;
+    if (axis !== (sideways ? 'y' : 'x')) {
+      return format;
+    }
+    // A bin missing an edge gives NaN here, which `separating` leaves out.
+    const bins = layer.data as HistogramPoint[];
+    return FormatUtil.separating(format, bins.map(bin => (sideways
+      ? [Number(bin.yMin), Number(bin.yMax)]
+      : [Number(bin.xMin), Number(bin.xMax)])));
+  }
+
+  /**
+   * The format with as many more decimals as it takes for the two ends of
+   * every interval read through it to read apart.
+   *
+   * A declared format can be coarser than the bins of a histogram: read with
+   * one decimal, bins a twentieth of a unit wide were announced "1.1 through
+   * 1.1", "1.1 through 1.1" and "1.1 through 1.2", two of them a point and
+   * the third wider than it is. Every interval reads with the decimals the
+   * one hardest to part needs, rather than each with its own, so that the
+   * bins read at one precision, as they are drawn at one scale: "1.05
+   * through 1.10", "1.10 through 1.15".
+   *
+   * Only a format that has decimals is given more: a currency, percent,
+   * fixed, number or scientific one. A date or a `function` reads as
+   * declared. Two ends closer together than a billionth of their size differ
+   * by float noise alone, so they are not parted.
+   *
+   * @param format - The format an axis declares
+   * @param intervals - The two ends of each interval read on that axis
+   * @returns The format with the decimals it takes, or the format itself when
+   *   every interval reads apart already, when none can be parted within
+   *   {@link MAX_SEPARATING_DECIMALS}, or when the format cannot be read at all
+   */
+  static separating(
+    format: AxisFormat,
+    intervals: readonly (readonly [number, number])[],
+  ): AxisFormat {
+    if (format.function || !hasDecimals(format.type)) {
+      return format;
+    }
+    const declared = format.decimals ?? TYPE_DECIMALS[format.type];
+    if (!Number.isInteger(declared) || declared < 0) {
+      return format;
+    }
+    const apart = intervals.filter(([low, high]) => Number.isFinite(low)
+      && Number.isFinite(high)
+      && Math.abs(high - low) > Math.max(Math.abs(low), Math.abs(high)) * 1e-9);
+
+    try {
+      for (let decimals = declared; decimals <= MAX_SEPARATING_DECIMALS; decimals++) {
+        const candidate = decimals === declared ? format : { ...format, decimals };
+        const read = FormatUtil.resolveFormat(candidate);
+        if (apart.every(([low, high]) => read(low) !== read(high))) {
+          return candidate;
+        }
+      }
+    } catch (error) {
+      // A currency code or locale the chart got wrong. Read as declared, and
+      // `wrapFormat` falls back to the default format where each value is
+      // read, as it would have without this.
+      console.warn('[FormatUtil] Could not widen a format to part interval ends:', error);
+    }
+    return format;
   }
 
   /**

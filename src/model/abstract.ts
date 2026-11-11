@@ -576,11 +576,15 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * Null rather than the default format when nothing was declared, so a chart
    * nobody formatted reads as it did, which is the rule the table follows.
    *
+   * Taken from {@link FormatUtil.axisFormat}, as the announcements and the
+   * table take theirs, so a histogram's bin edges read with the same decimals
+   * in all three.
+   *
    * @param axis - The axis whose format to read
    * @returns The format, or null when the layer declared none
    */
   protected authoredFormat(axis: AxisType): FormatFunction | null {
-    const format = this.layer.axes?.[axis]?.format;
+    const format = FormatUtil.axisFormat(this.layer, axis);
     return format === undefined
       ? null
       : FormatUtil.wrapFormat(FormatUtil.resolveFormat(format));
