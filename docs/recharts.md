@@ -1130,7 +1130,7 @@ const data = [
 
 The two names are the content of the comparison. Announced as "start" and "end", a chart of life expectancy in 1990 against 2020 tells a reader which dot they are on and not which year it is — which is the one thing the legend gives a sighted reader for free. MAIDR derives the change rather than taking it from the data, so a row that declined (Russia, above) is announced as a decrease without anything extra declared.
 
-Highlighting pairs one element with each **row**, not with each dot: a chart draws one connector per row, so both ends highlight the same element. A dumbbell drawn as a `<ScatterChart>` with two `<Scatter>`s draws two symbols per row instead and needs a `selectorOverride` naming the connector shape.
+Highlighting pairs one element with each **row**, not with each dot: a chart draws one connector per row, and each end is marked where its value is drawn on it. A dumbbell drawn as a `<ScatterChart>` with two `<Scatter>`s draws two symbols per row instead and needs a `selectorOverride` naming the connector shape.
 
 #### Gantt Chart [experimental]
 

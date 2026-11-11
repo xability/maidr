@@ -140,6 +140,30 @@ test.describe('Dumbbell', () => {
     });
   });
 
+  test.describe('Highlight', () => {
+    test('should mark each end of a pair where it is drawn', async ({ page }) => {
+      // A pair is drawn as one connector, and both ends used to outline all
+      // of it: moving between them announced the other value while the
+      // highlight held still. jsdom measures nothing, so only a browser can
+      // say where a highlight is drawn.
+      const centreOfHighlight = async (): Promise<number> => {
+        const box = await page.locator('[id^="maidr-highlight"]').first().boundingBox();
+        return box ? box.x + box.width / 2 : Number.NaN;
+      };
+      const dumbbellPage = new DumbbellPlotPage(page);
+      await dumbbellPage.activateMaidr();
+      await dumbbellPage.moveToNextDataPoint();
+      const start = await centreOfHighlight();
+
+      await dumbbellPage.moveToDataPointAbove();
+      const end = await centreOfHighlight();
+
+      // Denmark rose from 71.2 to 78.4 on a chart lying on its side, so its
+      // 2020 end is drawn to the right of its 1990 one.
+      expect(end).toBeGreaterThan(start);
+    });
+  });
+
   test.describe('Braille Output', () => {
     // Braille is the modality that fails silently for a new trace type: an
     // unregistered encoder leaves the display blank while text and audio keep
