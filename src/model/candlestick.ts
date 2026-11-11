@@ -677,6 +677,15 @@ export class Candlestick extends AbstractTrace {
    * rather than `row`/`col`, so those are mapped from the requested position
    * and restored alongside the cursor.
    *
+   * `row` names the section in `sections` order, as it does for
+   * {@link moveToIndex}. The getters read `this.row` as something else: the
+   * section's value-sorted place in its candle, which is how the highlight
+   * grid and the pan are laid out (see {@link updateVisualSegmentPosition}).
+   * So the base class is handed that place, which is the row `moveToIndex`
+   * leaves the cursor on. Handing `row` on as it came paired the section
+   * asked for with the one ranked at that index instead: the close, row 4,
+   * with the highest-valued segment of the candle, its high.
+   *
    * @param row - The row of the position to compute state for
    * @param col - The column of the position to compute state for
    * @returns The trace state at the requested position
@@ -694,7 +703,10 @@ export class Candlestick extends AbstractTrace {
         = computeIndexAndSegment(row, col, this.sections);
       this.currentPointIndex = pointIndex;
       this.currentSegmentType = segmentType;
-      return super.getStateAt(row, col);
+      // A position the chart does not have has no place to look up, and is
+      // handed on as it came, so the base class answers it as before.
+      const sortedRow = this.sortedSegmentsByPoint[pointIndex]?.indexOf(segmentType) ?? -1;
+      return super.getStateAt(sortedRow === -1 ? row : sortedRow, col);
     } finally {
       // The base-class finally (inside super.getStateAt) restores
       // row/col/isInitialEntry and lowers the guard; this finally restores
