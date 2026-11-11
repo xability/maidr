@@ -191,12 +191,6 @@ export function subplotCssPrefix(xaxis?: string, yaxis?: string): string {
 }
 
 /**
- * The staircase whose runs stand midway between its levels, which the step
- * model does not read off its path; see {@link lineSelectors}.
- */
-const MIDWAY_LEVEL_STEP = 'vhv';
-
-/**
  * Line selectors: one per series of a line, step, area or precision-recall
  * layer, naming the marks plotly drew for that series' trace.
  *
@@ -220,14 +214,10 @@ const MIDWAY_LEVEL_STEP = 'vhv';
  * the whole list, since a list missing one entry pairs every series after it
  * with the wrong trace.
  *
- * So does a line drawn as a staircase whose runs stand midway between its
- * levels (`vhv`), when it is read off its path. Its samples are the ends of
- * its vertical risers, and the step model reads each sample's level off a
- * horizontal run, so it would mark each sample at a level halfway to a
- * neighbour's. No highlight is drawn rather than that one. A staircase whose
- * risers stand midway between the samples (`hvh`) is read sample by sample,
- * the risers of no height plotly draws between two samples of one level
- * among them.
+ * A staircase is read off its path whatever its shape. The step model finds
+ * each sample at its own vertex of an `hv` or `vh` path, and at every third
+ * vertex of the three moves a step plotly draws for `hvh` and `vhv`, the
+ * risers of no height between two samples of one level among them.
  *
  * @param traces - The layer's traces, one per series, in series order
  * @returns One selector per trace, or undefined when one cannot be named
@@ -239,9 +229,6 @@ export function lineSelectors(traces: readonly PlotlyTrace[]): string[] | undefi
   const marks = traces.every(trace => trace.mode?.includes('markers'))
     ? '.point'
     : 'path.js-line';
-  if (marks === 'path.js-line' && traces.some(trace => trace.line?.shape === MIDWAY_LEVEL_STEP)) {
-    return undefined;
-  }
   const selectors = traces.map(trace =>
     scatterTraceScope(subplotCssPrefix(trace.xaxis, trace.yaxis), trace, marks));
   return selectors.every((selector): selector is string => selector !== undefined)

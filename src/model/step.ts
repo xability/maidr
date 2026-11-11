@@ -61,6 +61,12 @@ export const STEP_DIRECTION_LABEL: Record<StepDirection, MessageKey> = {
  *   Recovering `x[i]` exactly would mean iterating `x[i+1] = 2m[i] - x[i]` from
  *   one end, which is numerically unstable over a long series; a bounded
  *   sub-run offset is the better trade.
+ * - `3N - 2` vertices, three moves to a step, as plotly draws `hvh` and
+ *   `vhv`: `H` to the midway x, `V` to the next level and `H` on to the
+ *   sample, or `V` to the midway level, `H` across and `V` on to the sample.
+ *   Every third vertex is a sample, exactly, however the samples are spaced.
+ *   A `vhv` staircase has no run at a sample's level, so the `2N` reading
+ *   would put each sample at a level halfway to a neighbour's.
  *
  * Shared with {@link AreaTrace}, which meets the same interleaved geometry once
  * a band is stepped, so the two cannot disagree about which vertex is a sample.
@@ -150,12 +156,13 @@ function continuesRun(
 /**
  * Drop the vertices a renderer added without turning a corner.
  *
- * One straight segment may reach the DOM as several commands: Plotly draws an
- * `hvh` staircase with consecutive same-direction moves — measured,
- * `…H246.67H370…` with no `V` between them — which puts a vertex in the middle
- * of a horizontal run that no step of the data corresponds to. Those inflate
- * the count past every shape {@link stepDataVertices} recognises, so the
- * staircase falls through to interpolation and every highlight lands wrong.
+ * One straight segment may reach the DOM as several commands, consecutive
+ * moves in one direction (`…H246.67H370…`, with no `V` between them), which
+ * puts a vertex in the middle of a run where the staircase turns no corner.
+ * Those inflate the count past every shape {@link stepDataVertices}
+ * recognises, so the staircase falls through to interpolation and every
+ * highlight lands wrong. A staircase plotly draws whole, `hvh` or `vhv`, is
+ * read before this, by its `3N - 2` vertices.
  *
  * A vertex its neighbour repeats is kept. It is a riser of no height, the
  * step Plotly draws between two samples of one level (`H33.75V209H67.5`,
@@ -200,6 +207,31 @@ function isSameVertex(a: LinePoint, b: LinePoint): boolean {
 }
 
 /**
+ * Whether every step of a path is the same three moves along the axes:
+ * across, up or down, and across again, as plotly draws `hvh`, or up or down,
+ * across, and up or down again, as it draws `vhv`. A move of no length goes
+ * either way, so the step plotly draws between two samples of one level fits
+ * both. One shape for every step, as a plotly trace has: an `hv` staircase
+ * extended past its ends, as MUI X Charts draws one, can run to `3N - 2`
+ * vertices too (N = 5), and its steps read as `hvh` and `vhv` by turns.
+ *
+ * @param coordinates - Vertices parsed from the path, a sample at every third
+ * @returns True when each pair of samples is joined the same way
+ */
+function isMidwayStaircase(coordinates: LinePoint[]): boolean {
+  const across = (a: LinePoint, b: LinePoint): boolean => Number(a.y) === Number(b.y);
+  const upOrDown = (a: LinePoint, b: LinePoint): boolean => Number(a.x) === Number(b.x);
+  let everyHvh = true;
+  let everyVhv = true;
+  for (let i = 3; i < coordinates.length; i += 3) {
+    const [a, b, c, d] = coordinates.slice(i - 3, i + 1);
+    everyHvh &&= across(a, b) && upOrDown(b, c) && across(c, d);
+    everyVhv &&= upOrDown(a, b) && across(b, c) && upOrDown(c, d);
+  }
+  return everyHvh || everyVhv;
+}
+
+/**
  * Read the samples off a vertex list whose length matches a step convention.
  *
  * @param coordinates - Vertices parsed from the path
@@ -212,6 +244,13 @@ function matchStepGeometry(
 ): LinePoint[] | null {
   if (expected > 1 && coordinates.length === 2 * expected - 1) {
     return coordinates.filter((_, index) => index % 2 === 0);
+  }
+
+  // Before the `2N` reading, which takes a sample's level from a horizontal
+  // run: two samples drawn `vhv` are four vertices too, and their second
+  // sample is the last of them, not the run before it.
+  if (expected > 1 && coordinates.length === 3 * expected - 2 && isMidwayStaircase(coordinates)) {
+    return coordinates.filter((_, index) => index % 3 === 0);
   }
 
   if (expected > 0 && coordinates.length === 2 * expected) {

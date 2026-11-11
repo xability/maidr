@@ -270,3 +270,62 @@ describe('a staircase plotly draws with its risers midway between samples', () =
     ]);
   });
 });
+
+describe('a staircase plotly draws with three moves to a step', () => {
+  // `examples/plotly-step.html`'s staff drawn `vhv` by plotly.js 2.35.2: `V`
+  // to the level midway to the next sample, `H` across and `V` on to the
+  // sample, each `V` moving by nothing between two samples of one level.
+  const VHV = 'M0,209V209H67.5V209V134.75H135V60.5V60.5H202.5V60.5V60.5H270V60.5'
+    + 'V110H337.5V159.5V159.5H405V159.5V85.25H472.5V11V11H540V11';
+  const STAFF = [2, 2, 5, 5, 5, 3, 3, 6, 6];
+  const LEVEL: Record<number, number> = { 2: 209, 3: 159.5, 5: 60.5, 6: 11 };
+  const SAMPLES = STAFF.map((staff, i) => ({ x: 67.5 * i, y: LEVEL[staff] }));
+
+  beforeEach(() => {
+    defineSvgPathElement();
+  });
+
+  test('reads each sample of a vhv staircase at the end of its riser', () => {
+    expect(stepDataVertices(Svg.pathVertices(VHV), STAFF.length)).toEqual(SAMPLES);
+  });
+
+  test('outlines each hour of a vhv staircase at its own sample', () => {
+    renderStaircase(VHV);
+
+    // A vhv line names no step direction (see the plotly adapter).
+    const trace = new StepTrace({
+      id: 'staff',
+      type: TraceType.STEP,
+      axes: { x: { label: 'Hour' }, y: { label: 'Staff' } },
+      selectors: ['g#step-series path'],
+      data: [STAFF.map((y, i) => ({ x: 8 + i, y }))],
+    });
+
+    expect(highlightCircles()).toEqual(SAMPLES);
+
+    trace.dispose();
+  });
+
+  test('reads the second of two samples drawn vhv at its own level', () => {
+    // Four vertices, as many as a two-sample steps-mid path has, but the run
+    // across is at the level midway between the two.
+    const path = 'M0,209V134.75H67.5V60.5';
+
+    expect(stepDataVertices(Svg.pathVertices(path), 2)).toEqual([
+      { x: 0, y: 209 },
+      { x: 67.5, y: 60.5 },
+    ]);
+  });
+
+  test('reads an unevenly spaced hvh staircase at its samples exactly', () => {
+    // Samples at x 0, 20 and 100: the run of the middle one spans 10 to 60,
+    // and its centre, 35, is not where it is drawn.
+    const path = 'M0,209H10V60.5H20H60V159.5H100';
+
+    expect(stepDataVertices(Svg.pathVertices(path), 3)).toEqual([
+      { x: 0, y: 209 },
+      { x: 20, y: 60.5 },
+      { x: 100, y: 159.5 },
+    ]);
+  });
+});

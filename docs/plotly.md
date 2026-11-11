@@ -125,10 +125,9 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 - A line, a step or an area drawn without markers (`mode: 'lines'`) has no
   element per point, so the highlight is a marker MAIDR places on the point
   being read, along the line plotly drew; when every trace of the layer draws
-  markers, it is the point's own marker. A staircase drawn `vhv` without
-  markers is not highlighted: its samples are the ends of its vertical
-  risers and its flat runs lie midway between two levels, so the samples
-  cannot be read off its path.
+  markers, it is the point's own marker. A staircase is marked at its
+  samples whatever its shape: plotly draws `hvh` and `vhv` with three moves
+  to a step, and the sample is the end of the third.
 
 - A pie trace is bound to no axes — Plotly positions it by its own `domain`
   instead — so each pie becomes its own MAIDR subplot rather than joining
