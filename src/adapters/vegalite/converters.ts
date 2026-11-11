@@ -265,14 +265,28 @@ export function vegaLiteToMaidr(
 }
 
 /**
+ * Where a layered spec that is itself a layer is drawn, when it is inside a
+ * composite: the class prefix of the composite child it is a layer of, and,
+ * in a facet's panel, the panel's scope and the facet values that pick the
+ * panel's rows.
+ */
+interface NestedPlace {
+  markGroupPrefix: string;
+  cellScope?: string;
+  cellFilters?: Array<[field: string, key: string]>;
+}
+
+/**
  * Read a layer that is itself a layered spec as the layers it draws.
  *
  * Vega-Lite draws the children of such a layer as marks of their own, named
  * after the path to them: the children of layer `i` are
- * `layer_<i>_layer_<j>_marks`, theirs `layer_<i>_layer_<j>_layer_<k>_marks`.
- * Read as one layer it has no mark, so it was dropped with every mark under
- * it, and `alt.layer(bars + labels, rule)` was read as its rule alone, which
- * reads as nothing.
+ * `layer_<i>_layer_<j>_marks`, theirs `layer_<i>_layer_<j>_layer_<k>_marks`,
+ * under the class prefix of the composite child it is a layer of, if any:
+ * `concat_0_layer_<i>_layer_<j>_marks`, `child_layer_<i>_layer_<j>_marks` in
+ * every panel of a facet. Read as one layer it has no mark, so it was dropped
+ * with every mark under it, and `alt.layer(bars + labels, rule)` was read as
+ * its rule alone, which reads as nothing.
  *
  * Each child is read as a concat child's layer is, under the class prefix of
  * its path and with the encoding and transforms of every layer above it, and
@@ -281,12 +295,18 @@ export function vegaLiteToMaidr(
  * paired only among the top-level layers, so inside a nested layer each of
  * its marks is read on its own.
  *
+ * In a facet's panel a child is read from the rows its marks are drawn from
+ * in that panel: every panel draws marks of the same name, each inside its
+ * own cell (see `resolveSceneMarkData`). A child with none in the panel is
+ * left out of it, as the facet leaves out a layer that has none.
+ *
  * @param nested - The layered spec, a layer of its parent
  * @param path - The layer indices leading to it, outermost first
  * @param view - The compiled view, when bound
  * @param parentEncoding - The encoding of the layers above it, merged
  * @param parentTransform - The transforms of the layers above it, outermost first
  * @param domOrder - A caller-supplied DOM order for segmented layers
+ * @param place - Where it is drawn, when it is a layer of a composite child
  * @returns Its layers, each paired with the spec it was read from
  */
 function convertNestedLayers(
@@ -296,22 +316,32 @@ function convertNestedLayers(
   parentEncoding: VegaLiteEncoding | undefined,
   parentTransform: VegaLiteTransform[] | undefined,
   domOrder: 'series-major' | 'subject-major' | undefined,
+  place: NestedPlace = { markGroupPrefix: '' },
 ): ConvertedLayer[] {
   // A declaration on the layered node names none of the layers under it, as
   // on any composite.
   warnCompositeDeclaration(nested);
   const encoding = { ...parentEncoding, ...nested.encoding };
   const transform = [...(parentTransform ?? []), ...(nested.transform ?? [])];
-  const markGroupPrefix = path.map(i => `layer_${i}_`).join('');
+  const markGroupPrefix = place.markGroupPrefix + path.map(i => `layer_${i}_`).join('');
   const children = withSharedAxisTitles(inheritData(nested.layer ?? [], nested.data), { ...nested, encoding });
   const overlays = labelOverlays(children, encoding);
   return children.flatMap((child, j): ConvertedLayer[] => {
     if (child.layer)
-      return convertNestedLayers(child, [...path, j], view, encoding, transform, domOrder);
+      return convertNestedLayers(child, [...path, j], view, encoding, transform, domOrder, place);
     if (overlays.claimed.has(j))
       return [];
     const named = overlays.names.get(j);
     const childSpec = named === undefined ? child : { ...child, encoding: { ...child.encoding, text: named } };
+    let panelRows: Record<string, unknown>[] | undefined;
+    if (place.cellFilters) {
+      const filters = place.cellFilters;
+      const drawn = view ? resolveSceneMarkData(view, `${markGroupPrefix}layer_${j}_marks`, filters) : undefined;
+      panelRows = drawn ?? resolveData(child, j).filter(row =>
+        filters.every(([field, key]) => String(row[field]) === key));
+      if (panelRows.length === 0)
+        return [];
+    }
     const layer = convertLayerSpec(
       childSpec,
       j,
@@ -319,8 +349,8 @@ function convertNestedLayers(
       encoding,
       true,
       domOrder,
-      { layerIndex: j, markGroupPrefix },
-      undefined,
+      { layerIndex: j, markGroupPrefix, cellScope: place.cellScope },
+      panelRows,
       transform,
     );
     if (!layer)
@@ -1808,12 +1838,24 @@ interface SceneMark {
  * area's or trail's, split into series, whose groups put its marks out of
  * `view.data()`'s reach the same way.
  *
+ * Every panel of a facet draws marks of the same names, each inside its own
+ * cell: an item of the facet's `cell` group, whose row holds the panel's
+ * facet values. Given a panel's values, only the marks inside its cell are
+ * read. The rows themselves need not hold the values: Vega-Lite splits the
+ * rows into panels before a layer aggregates them, so an aggregated layer's
+ * rows do not.
+ *
  * @param view - The compiled view
  * @param markName - The marks' name, such as `concat_0_marks` or `layer_1_marks`
+ * @param panel - A facet panel's values, field by field, to read its marks alone
  * @returns The rows in drawn order, or `undefined` when no mark of that name
  * is drawn or one of its items carries no row
  */
-function resolveSceneMarkData(view: VegaView, markName: string): Record<string, unknown>[] | undefined {
+function resolveSceneMarkData(
+  view: VegaView,
+  markName: string,
+  panel?: ReadonlyArray<readonly [field: string, key: string]>,
+): Record<string, unknown>[] | undefined {
   let root: unknown;
   try {
     root = view.scenegraph?.()?.root;
@@ -1829,6 +1871,8 @@ function resolveSceneMarkData(view: VegaView, markName: string): Record<string, 
     if (mark.marktype !== 'group')
       return;
     for (const item of mark.items ?? []) {
+      if (panel && mark.name === 'cell' && !isPanel(item.datum, panel))
+        continue;
       for (const child of item.items ?? [])
         walk(child);
     }
@@ -1846,6 +1890,20 @@ function resolveSceneMarkData(view: VegaView, markName: string): Record<string, 
     }
   }
   return rows.length > 0 ? rows : undefined;
+}
+
+/**
+ * Whether a facet cell's row is that of the panel with these values.
+ *
+ * @param datum - The cell's row
+ * @param panel - The panel's values, field by field
+ * @returns True when the cell is the panel's
+ */
+function isPanel(datum: unknown, panel: ReadonlyArray<readonly [field: string, key: string]>): boolean {
+  if (typeof datum !== 'object' || datum === null)
+    return false;
+  const row = datum as Record<string, unknown>;
+  return panel.every(([field, key]) => String(row[field]) === key);
 }
 
 /**
@@ -5150,7 +5208,25 @@ function concatPanel(
   let layers: MaidrLayer[];
   if (childSpec.layer) {
     layers = inheritData(childSpec.layer, childSpec.data)
-      .map((layerSpec, j) => {
+      .flatMap((layerSpec, j) => {
+        // A layer that is itself a layered spec is read as the layers it
+        // draws, under this child's prefix. See `convertNestedLayers`.
+        if (layerSpec.layer) {
+          const nested = convertNestedLayers(
+            layerSpec,
+            [j],
+            view,
+            childSpec.encoding,
+            [...(transform ?? []), ...(childSpec.transform ?? [])],
+            domOrder,
+            { markGroupPrefix },
+          );
+          counter.layer++;
+          return nested.map(({ layer }) => {
+            layer.id = `${id}_${layer.id}`;
+            return layer;
+          });
+        }
         // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
         // (local layer index `j`, not the global data index), so drive the
         // selector off those while keeping the running layer count for the
@@ -5174,9 +5250,8 @@ function concatPanel(
         if (layer)
           layer.id = `${id}_${j}`;
         counter.layer++;
-        return layer;
-      })
-      .filter(Boolean) as MaidrLayer[];
+        return layer ? [layer] : [];
+      });
   } else {
     // A single-view concat child renders under `concat_<i>_marks` (or the
     // sugar-expanded `concat_<i>_layer_0_marks`).
@@ -5772,7 +5847,16 @@ function buildFacetMaidr(
     for (let c = 0; c < grid[r].length; c++) {
       const cell = grid[r][c];
       const scope = facetCellScope(facetCellAttrValue(id, r, c));
-      const rawLayers = layerSpecs.map((layerSpec, j) => {
+      const rawLayers = layerSpecs.flatMap((layerSpec, j): ConvertedLayer[] => {
+        // A layer that is itself a layered spec is read as the layers it
+        // draws in this panel. See `convertNestedLayers`.
+        if (layerSpec.layer) {
+          return convertNestedLayers(layerSpec, [j], view, parentEncoding, parentTransform, domOrder, {
+            markGroupPrefix: 'child_',
+            cellScope: scope,
+            cellFilters: cell.filters,
+          });
+        }
         const cellRows = layerRows[j].filter(row =>
           cell.filters.every(([field, key]) => String(row[field]) === key),
         );
@@ -5782,7 +5866,7 @@ function buildFacetMaidr(
         // and a zero-point trace crashes MAIDR core's state getters the
         // moment the user PageUp/PageDown's onto it.
         if (cellRows.length === 0) {
-          return null;
+          return [];
         }
         const layer = convertLayerSpec(
           layerSpec,
@@ -5795,8 +5879,8 @@ function buildFacetMaidr(
           cellRows,
           parentTransform,
         );
-        return layer ? { layer, spec: layerSpec } : null;
-      }).filter(Boolean) as ConvertedLayer[];
+        return layer ? [{ layer, spec: layerSpec }] : [];
+      });
       const layers = coalesceSiblingLineLayers(rawLayers, parentEncoding);
       layers.forEach((layer, j) => {
         layer.id = `${flatIndex}_${j}`;
@@ -5919,7 +6003,15 @@ function buildRepeatMaidr(
       ? [...(spec.transform ?? []), ...(cellSpec.transform ?? [])]
       : spec.transform;
 
-    const rawLayers = layerSpecs.map((layerSpec, j) => {
+    const rawLayers = layerSpecs.flatMap((layerSpec, j): ConvertedLayer[] => {
+      // A layer that is itself a layered spec is read as the layers it
+      // draws, under this cell's prefix. See `convertNestedLayers`.
+      if (layerSpec.layer) {
+        globalLayerIndex++;
+        return convertNestedLayers(layerSpec, [j], view, parentEncoding, parentTransform, domOrder, {
+          markGroupPrefix: `${childName}_`,
+        });
+      }
       const layer = convertLayerSpec(
         layerSpec,
         globalLayerIndex,
@@ -5932,8 +6024,8 @@ function buildRepeatMaidr(
         parentTransform,
       );
       globalLayerIndex++;
-      return layer ? { layer, spec: layerSpec } : null;
-    }).filter(Boolean) as ConvertedLayer[];
+      return layer ? [{ layer, spec: layerSpec }] : [];
+    });
     const layers = coalesceSiblingLineLayers(rawLayers, parentEncoding);
     layers.forEach((layer, j) => {
       layer.id = `${flatIndex}_${j}`;
