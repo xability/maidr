@@ -50,6 +50,13 @@ const SPEC: VegaLiteSpec = {
   },
 } as unknown as VegaLiteSpec;
 
+/** The same points faceted by panel: A draws rows 0, 2 and 3, B rows 1 and 4. */
+const FACET_SPEC: VegaLiteSpec = {
+  data: { values: IRIS.map((row, k) => ({ ...row, panel: ['A', 'B', 'A', 'A', 'B'][k] })) },
+  facet: { column: { field: 'panel' } },
+  spec: { mark: 'point', encoding: SPEC.encoding },
+} as unknown as VegaLiteSpec;
+
 /**
  * A chart whose scatter mark draws one path per row, each named by its row.
  * @param drawn - How many of the rows the mark draws, from the first
@@ -57,7 +64,30 @@ const SPEC: VegaLiteSpec = {
  */
 function chart(drawn = IRIS.length): { container: HTMLElement; view: VegaView } {
   const paths = IRIS.slice(0, drawn).map((row, k) => `<path id="row-${k}" data-species="${row.species}"></path>`).join('');
-  const dom = new JSDOM(`<!DOCTYPE html><body><div id="chart"><svg><g class="mark-symbol role-mark marks">${paths}</g></svg></div></body>`);
+  return chartOf(`<g class="mark-symbol role-mark marks">${paths}</g>`);
+}
+
+/**
+ * The faceted chart: a cell per panel, its mark drawing the panel's rows in
+ * order, each path named by its panel and place.
+ * @returns The chart's container and its view
+ */
+function facetChart(): { container: HTMLElement; view: VegaView } {
+  const cell = (panel: string, count: number): string => {
+    const paths = Array.from({ length: count }, (_, k) => `<path id="${panel}-${k}"></path>`).join('');
+    return `<g><g class="mark-symbol role-mark child_marks">${paths}</g></g>`;
+  };
+  return chartOf(`<g class="mark-group role-scope cell">${cell('A', 3)}${cell('B', 2)}</g>`);
+}
+
+/**
+ * A chart drawn as the given SVG, with a view that answers nothing but its
+ * container.
+ * @param marks - The SVG's content
+ * @returns The chart's container and its view
+ */
+function chartOf(marks: string): { container: HTMLElement; view: VegaView } {
+  const dom = new JSDOM(`<!DOCTYPE html><body><div id="chart"><svg>${marks}</svg></div></body>`);
   const container = dom.window.document.querySelector('div') as HTMLElement;
   const view = {
     container: () => container,
@@ -129,5 +159,18 @@ describe('the colour groups of a vega-lite scatter', () => {
     expect(read).toEqual([[], [], []]);
     expect(layers.map(layer => layer.selectors)).toEqual([undefined, undefined, undefined]);
     expect(warn.mock.calls.filter(([message]) => String(message).includes('without an outline'))).toHaveLength(3);
+  });
+
+  it('name their own points in every panel of a facet', () => {
+    const { container, view } = facetChart();
+
+    bindVegaLite(view, FACET_SPEC);
+    const maidr = (initMaidrOnElement as jest.Mock).mock.calls[0][0] as Maidr;
+    const layers = maidr.subplots.flat().flatMap(subplot => subplot.layers);
+    const read = layers.map(layer => readLayer(container, layer));
+
+    // Each group's mark names the whole chart, and its id is its own panel's.
+    expect(layers.map(layer => layer.name)).toEqual(['versicolor', 'virginica', 'setosa', 'setosa', 'versicolor']);
+    expect(read).toEqual([['A-0'], ['A-1'], ['A-2'], ['B-0'], ['B-1']]);
   });
 });

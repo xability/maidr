@@ -32,6 +32,10 @@ const IRIS = [
 const LENGTH = { field: 'length', type: 'quantitative', title: 'Sepal Length (cm)' };
 const WIDTH = { field: 'width', type: 'quantitative', title: 'Sepal Width (cm)' };
 const SPECIES = { field: 'species', type: 'nominal', title: 'Species' };
+const POINTS = { mark: 'point', encoding: { x: LENGTH, y: WIDTH, color: SPECIES } };
+const REPEATED = { mark: 'point', encoding: { x: { field: { repeat: 'column' }, type: 'quantitative' }, y: WIDTH, color: SPECIES } };
+const MEAN_RULE = { mark: 'rule', encoding: { y: { aggregate: 'mean', field: 'width', type: 'quantitative' } } };
+const PANELLED = IRIS.map((row, k) => ({ ...row, panel: ['A', 'B', 'A', 'A', 'B'][k] }));
 
 /**
  * A point mark over the iris rows.
@@ -127,9 +131,8 @@ describe('a vega-lite scatter coloured by a field', () => {
   });
 
   it('counts the places of a facet panel\'s groups among that panel\'s marks', () => {
-    const panels = ['A', 'B', 'A', 'A', 'B'];
     const spec = {
-      data: { values: IRIS.map((row, k) => ({ ...row, panel: panels[k] })) },
+      data: { values: PANELLED },
       facet: { column: { field: 'panel' } },
       spec: { mark: 'point', encoding: { x: LENGTH, y: WIDTH, color: SPECIES } },
     };
@@ -211,6 +214,70 @@ describe('a vega-lite scatter coloured by a field', () => {
     ]);
     expect(first.layers[2].selectors).toBe(
       'g.mark-symbol.role-mark.concat_0_marks > path:nth-child(3), g.mark-symbol.role-mark.concat_0_layer_0_marks > path:nth-child(3)',
+    );
+  });
+
+  // The groups are handed from the scatter's layer to `buildMaidr` by the
+  // layer itself, which every composite numbers and names in place: a copy
+  // made on the way would read the scatter as one cloud again.
+  it.each([
+    [
+      'a repeat',
+      { data: { values: IRIS }, repeat: { column: ['length', 'width'] }, spec: REPEATED },
+      [['versicolor', 'setosa', 'virginica'], ['versicolor', 'setosa', 'virginica']],
+    ],
+    [
+      'a layered concat child',
+      { hconcat: [{ data: { values: IRIS }, layer: [POINTS, MEAN_RULE] }, scatter()] },
+      [['versicolor', 'setosa', 'virginica'], [undefined]],
+    ],
+    [
+      'a facet of a layered spec',
+      { data: { values: PANELLED }, facet: { column: { field: 'panel' } }, spec: { layer: [POINTS, MEAN_RULE] } },
+      [['versicolor', 'virginica', 'setosa'], ['setosa', 'versicolor']],
+    ],
+    [
+      'a repeat of a layered spec',
+      { data: { values: IRIS }, repeat: { column: ['length', 'width'] }, spec: { layer: [REPEATED, MEAN_RULE] } },
+      [['versicolor', 'setosa', 'virginica'], ['versicolor', 'setosa', 'virginica']],
+    ],
+  ])('reads the groups of a scatter in %s', (_, spec, names) => {
+    const { subplots } = vegaLiteToMaidr(spec as VegaLiteSpec);
+
+    expect(subplots.flat().map(subplot => subplot.layers.map(layer => layer.name))).toEqual(names);
+  });
+
+  it('names a group of a null or missing colour as the legend does', () => {
+    // As Vega-Lite 5.23 and 6.5 compile it and Vega 5.33 and 6.4 run it: the
+    // colour scale's domain holds null and undefined first, and the legend
+    // labels them "null" and "undefined".
+    const rows = [
+      { species: 'setosa', length: 5.1, width: 3.5 },
+      { species: null, length: 4.9, width: 3.0 },
+      { species: 'virginica', length: 6.3, width: 3.3 },
+      { length: 5.8, width: 2.7 },
+      { species: 'setosa', length: 5.4, width: 3.9 },
+    ];
+    const view = makeView({ data_0: rows }, { color: [null, undefined, 'setosa', 'virginica'] });
+    const spec = { ...scatter(SPECIES), data: { values: rows } };
+
+    const layers = layersOf(vegaLiteToMaidr(spec as VegaLiteSpec, view));
+
+    expect(layers.map(layer => layer.name)).toEqual(['null', 'undefined', 'setosa', 'virginica']);
+    expect(layers.map(pointsOf)).toEqual([[[4.9, 3.0]], [[5.8, 2.7]], [[5.1, 3.5], [5.4, 3.9]], [[6.3, 3.3]]]);
+  });
+
+  it('splits a scatter of two groups, one of them a single point', () => {
+    const spec = { ...scatter(SPECIES), data: { values: IRIS.filter(row => row.species !== 'virginica').slice(0, 3) } };
+
+    const layers = layersOf(vegaLiteToMaidr(spec as VegaLiteSpec));
+
+    expect(layers.map(layer => [layer.name, pointsOf(layer)])).toEqual([
+      ['versicolor', [[7.0, 3.2]]],
+      ['setosa', [[5.1, 3.5], [4.9, 3.0]]],
+    ]);
+    expect(layers[0].selectors).toBe(
+      'g.mark-symbol.role-mark.marks > path:nth-child(1), g.mark-symbol.role-mark.layer_0_marks > path:nth-child(1)',
     );
   });
 });
