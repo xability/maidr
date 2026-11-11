@@ -3153,9 +3153,10 @@ const TIMELINE_BLANK_EVENT = '(blank)';
 /**
  * Writes each event's date, on a timeline whose x axis counts time.
  *
- * The dates are written as the gantt's are -- day, month and year, with the
- * time of day only where some event is not at midnight, in the zone the
- * chart draws its dates in.
+ * The dates are written as the gantt's are -- in English, like every other
+ * word this adapter writes, with the day, month and year, the time of day
+ * only where some event is not at midnight, in the zone the chart draws its
+ * dates in.
  *
  * @param chart - The chart, for the time zone it draws dates in
  * @param points - The timeline's events
@@ -3216,18 +3217,29 @@ function convertTimelineSeries(
   chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
-  // An event the chart drew nothing for has no marker to pair with.
-  const events = series.data.filter(point => point.y !== null);
+  // Only the events the chart draws, which are the markers the selector
+  // finds. Measured on Highcharts 13.1.1, an event declared `y: null` is a gap
+  // (`isNull`) and one declared `visible: false` is hidden, and neither gets a
+  // marker or a box, while both report `y` as 1, as every event does. A gap
+  // is drawn under `nullInteraction`, the same test the timeline's own
+  // visibility map makes.
+  const drawsGaps = series.options.nullInteraction === true;
+  const events = series.data.filter(point => point.visible !== false && (point.isNull !== true || drawsGaps));
   const dateOf = isDatetimeAxis(series.xAxis) ? timelineDates(chart, events) : undefined;
 
-  const seen = new Map<string, number>();
+  const taken = new Set<string>();
   const data: TreemapPoint[] = events.map((point) => {
     const parts = [dateOf?.(point), timelineEventLabel(point)]
       .filter((part): part is string => part !== undefined);
     const base = parts.length > 0 ? parts.join(', ') : TIMELINE_BLANK_EVENT;
-    const count = (seen.get(base) ?? 0) + 1;
-    seen.set(base, count);
-    return { x: count === 1 ? base : `${base} (${count})` };
+    // Counted past any name already given, an event's own "Launch (2)"
+    // among them, so no two events end up with one name.
+    let name = base;
+    for (let count = 2; taken.has(name); count++) {
+      name = `${base} (${count})`;
+    }
+    taken.add(name);
+    return { x: name };
   });
 
   return {

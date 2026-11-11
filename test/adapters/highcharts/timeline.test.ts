@@ -55,7 +55,7 @@ const EVENTS = [
  * @returns The fake chart
  */
 function timelineChart(
-  points: Partial<{ x: number; y: number | null; name: string; label: string }>[] = EVENTS,
+  points: Partial<{ x: number; name: string; label: string; isNull: boolean; visible: boolean }>[] = EVENTS,
   xAxis = fakeAxis({ options: { visible: false } }),
 ): ReturnType<typeof fakeChart> {
   return fakeChart({
@@ -67,7 +67,7 @@ function timelineChart(
       xAxis,
       // Highcharts still gives the hidden y axis its default title.
       yAxis: fakeAxis({ options: { visible: false, title: { text: 'Values' } } }),
-      // The constant Highcharts puts on every event, unless overridden.
+      // The constant Highcharts puts on every event, a gap among them.
       data: points.map((point, i) => ({ x: i, y: 1, ...point })),
     })],
   });
@@ -174,6 +174,13 @@ describe('highcharts timeline', () => {
       .toEqual(['Launch', 'Landing', 'Launch (2)']);
   });
 
+  it('counts past a name another event already has', () => {
+    // An event of its own called "Launch (2)" would otherwise share its name
+    // with the second "Launch", and the two be read as one.
+    expect(events(timelineChart([{ name: 'Launch' }, { name: 'Launch (2)' }, { name: 'Launch' }])))
+      .toEqual(['Launch', 'Launch (2)', 'Launch (3)']);
+  });
+
   it('leads with the date on a timeline whose x axis counts time', () => {
     const dated = timelineChart(
       [
@@ -193,11 +200,25 @@ describe('highcharts timeline', () => {
     );
   });
 
-  it('drops an event the chart drew nothing for', () => {
+  it('reads only the events the chart draws, which are its markers', () => {
+    // Measured on Highcharts 13.1.1: an event declared `y: null` is a gap and
+    // one declared `visible: false` is hidden. Neither has a marker or a box,
+    // and both report `y` as 1, as every event does, so a test of `y` kept
+    // them, and the four events no longer matched the two markers.
     expect(events(timelineChart([
       { name: 'Launch' },
-      { name: 'Cancelled', y: null },
+      { name: 'Scrubbed', isNull: true },
+      { name: 'Hidden', visible: false },
       { name: 'Landing' },
     ]))).toEqual(['Launch', 'Landing']);
+  });
+
+  it('reads a gap the chart draws under `nullInteraction`', () => {
+    // Measured on Highcharts 13.1.1: with it set, the gap has a marker and a
+    // box like any other event.
+    const chart = timelineChart([{ name: 'Launch' }, { name: 'Scrubbed', isNull: true }, { name: 'Landing' }]);
+    chart.series[0].options.nullInteraction = true;
+
+    expect(events(chart)).toEqual(['Launch', 'Scrubbed', 'Landing']);
   });
 });

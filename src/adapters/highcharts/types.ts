@@ -296,6 +296,11 @@ export interface HighchartsSeries {
     startAngle?: number;
     /** Set by Highcharts on internal series (e.g. the Highstock navigator). */
     isInternal?: boolean;
+    /**
+     * Whether a gap is drawn and can be hovered. A `timeline` with it set
+     * draws an event declared `y: null` like any other, marker and box.
+     */
+    nullInteraction?: boolean;
     /** User- or Highcharts-assigned class name (e.g. `highcharts-navigator-series`). */
     className?: string;
     /**
@@ -434,6 +439,14 @@ export interface HighchartsPoint {
   };
   /** Reference to the SVG element for this point (may be undefined if not rendered). */
   graphic?: { element: SVGElement };
+  /**
+   * Whether Highcharts reads the point as a gap. A `timeline` sets it on an
+   * event declared with `y: null` and draws nothing for that event, while its
+   * `y` still reads 1, the value the series puts on every event.
+   */
+  isNull?: boolean;
+  /** False for a point declared `visible: false`, which a `timeline` draws nothing for. */
+  visible?: boolean;
   /**
    * Where the point is drawn, in the coordinates of its series' group: the
    * vertex a line passes through at this point.
