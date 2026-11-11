@@ -2,12 +2,14 @@
  * @jest-environment jsdom
  */
 
+import type { Trace } from '@model/plot';
 import type { ScatterTrace } from '@model/scatter';
 import type {
   BarPoint,
   BoxenPoint,
   CandlestickPoint,
   CandlestickSelector,
+  LinePoint,
   Maidr,
   MaidrLayer,
   SegmentedPoint,
@@ -15,7 +17,9 @@ import type {
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
+import { Context } from '@model/context';
 import { TraceFactory } from '@model/factory';
+import { Figure } from '@model/plot';
 
 /**
  * An authored example's data is what its marks draw.
@@ -86,23 +90,30 @@ function objectAt(source: string, start: number): string {
  * `var maidr = ...` script or in a `maidr` or `maidr-data` attribute.
  *
  * @param page - The file name under `examples/`
- * @returns Every layer of the spec, subplot by subplot
+ * @returns The spec
  */
-function loadLayers(page: string): MaidrLayer[] {
+function loadSpec(page: string): Maidr {
   const html = readFileSync(join(EXAMPLES, page), 'utf8');
   document.body.innerHTML = html;
   const script = html.indexOf('var maidr = ');
-  let spec: Maidr;
   if (script !== -1) {
-    spec = JSON.parse(objectAt(html, html.indexOf('{', script))) as Maidr;
-  } else {
-    const attribute = /\smaidr(?:-data)?=(['"])(\{[\s\S]*?\})\1/.exec(html);
-    if (attribute === null) {
-      throw new Error(`${page} declares no spec`);
-    }
-    spec = JSON.parse(unescapeHtml(attribute[2])) as Maidr;
+    return JSON.parse(objectAt(html, html.indexOf('{', script))) as Maidr;
   }
-  return spec.subplots.flat().flatMap(subplot => subplot.layers);
+  const attribute = /\smaidr(?:-data)?=(['"])(\{[\s\S]*?\})\1/.exec(html);
+  if (attribute === null) {
+    throw new Error(`${page} declares no spec`);
+  }
+  return JSON.parse(unescapeHtml(attribute[2])) as Maidr;
+}
+
+/**
+ * Puts an example page in the DOM and reads the layers of the spec it carries.
+ *
+ * @param page - The file name under `examples/`
+ * @returns Every layer of the spec, subplot by subplot
+ */
+function loadLayers(page: string): MaidrLayer[] {
+  return loadSpec(page).subplots.flat().flatMap(subplot => subplot.layers);
 }
 
 /**
@@ -113,6 +124,16 @@ function loadLayers(page: string): MaidrLayer[] {
  */
 function marks(selector: string): Element[] {
   return [...document.querySelectorAll(selector)];
+}
+
+/**
+ * The `x` coordinates a path's `M` and `L` commands visit.
+ *
+ * @param path - A `<path>` drawn with absolute moves and lines
+ * @returns Its vertices' `x`s
+ */
+function pathXs(path: Element): number[] {
+  return [...(path.getAttribute('d') ?? '').matchAll(/[ML]\s*([-\d.]+)\s+[-\d.]+/g)].map(match => Number(match[1]));
 }
 
 /**
@@ -212,5 +233,39 @@ describe('an authored example\'s data is what its marks draw', () => {
     expect(trace.supportsGridMode()).toBe(true);
     expect(state.empty || state.braille.empty).toBe(false);
     trace.dispose();
+  });
+
+  it('declares each line\'s x as the number its vertex is drawn at, which a layer switch carries', () => {
+    // The lines are drawn on a numeric x axis at 1 to 10, and every second x
+    // was declared as a string, "2" to "10". A layer switch carries a string
+    // as a name, and the crossings layer names none of its points, so Page Up
+    // from the lines' crossing at 8 entered that layer at its first point,
+    // the crossing at 3.
+    const spec = loadSpec('multiline_plot_intersection.html');
+    const [subplot] = spec.subplots[0];
+    const [lineLayer] = subplot.layers;
+    const lines = (lineLayer.data as LinePoint[][]).map(points => points.map(point => point.x));
+    const vertices = (lineLayer.selectors as string[]).map(selector => pathXs(marks(selector)[0]));
+    // The first line's first and last vertices, at 1 and 10, fix the scale.
+    const [from, to] = [vertices[0][0], vertices[0][vertices[0].length - 1]];
+    const drawn = vertices.map(line => line.map(x => Math.round((1 + 9 * (x - from) / (to - from)) * 100) / 100));
+    // A switch reads no outline, and jsdom has no SVG geometry to build one
+    // from, so the model is built without the selectors.
+    const unoutlined: Maidr = {
+      ...spec,
+      subplots: [[{ ...subplot, layers: subplot.layers.map(layer => ({ ...layer, selectors: undefined })) }]],
+    };
+    const context = new Context(new Figure(unoutlined));
+
+    (context.active as Trace).moveToIndex(0, 7);
+    context.stepTrace('UPWARD');
+    const entered = (context.active as Trace).getCurrentXValue();
+    context.stepTrace('DOWNWARD');
+    const returned = (context.active as Trace).getCurrentXValue();
+
+    expect(lines).toEqual(drawn);
+    expect(entered).toBe(8);
+    expect(returned).toBe(8);
+    context.dispose();
   });
 });
