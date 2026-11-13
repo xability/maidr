@@ -1,4 +1,4 @@
-import { getRechartsSelector, seriesDotSelectors } from '@adapters/recharts/selectors';
+import { boxenBoxSelectors, getRechartsSelector, seriesDotSelectors } from '@adapters/recharts/selectors';
 
 describe('getRechartsSelector', () => {
   describe('single series (no seriesIndex)', () => {
@@ -185,5 +185,20 @@ describe('seriesDotSelectors', () => {
 
   it('names nothing for a chart type that draws no dots', () => {
     expect(seriesDotSelectors('polar_area', ['a'], ['a'])).toBeUndefined();
+  });
+});
+
+describe('boxenBoxSelectors', () => {
+  it('names each distribution\'s rectangle in every segment carrying the class, one row each', () => {
+    expect(boxenBoxSelectors('boxen-box', [0, 2])).toEqual([
+      ['.boxen-box .recharts-bar-rectangle:nth-child(1) .recharts-rectangle'],
+      ['.boxen-box .recharts-bar-rectangle:nth-child(3) .recharts-rectangle'],
+    ]);
+  });
+
+  it('scopes each row to the chart and its panel, and escapes the class name', () => {
+    expect(boxenBoxSelectors('box:a', [0], 'chart', '.maidr-panel-0-1')).toEqual([
+      ['#maidr-article-chart .maidr-panel-0-1 .box\\:a .recharts-bar-rectangle:nth-child(1) .recharts-rectangle'],
+    ]);
   });
 });

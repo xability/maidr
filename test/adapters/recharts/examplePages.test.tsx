@@ -10,6 +10,7 @@
  * sighted colleague were describing two different charts.
  */
 
+import type { BoxenTrace } from '@model/boxen';
 import type { FlowTrace } from '@model/flow';
 import type {
   BoxenPoint,
@@ -189,6 +190,43 @@ describe('the recharts example apps', () => {
 
     expect(chart.querySelectorAll('.recharts-scatter-symbol')).toHaveLength(0);
     expect(outliers).toEqual([]);
+  });
+
+  it('outline each boxen position on the box it is read off', () => {
+    // Every position of a region outlined its one central segment, so the
+    // outline stood still while the reader walked the ladder.
+    const { chart, layer } = draw(BoxenExample);
+    // The article `<Maidr>` draws round the chart, which the selectors are
+    // scoped to.
+    chart.id = 'maidr-article-boxen-example';
+    // Recharts puts a `<Bar>`'s class name on its group and on each of its
+    // rectangles; the groups are the segments.
+    const segments = [...chart.querySelectorAll('g.boxen-box')];
+    const trace = TraceFactory.create(layer) as BoxenTrace;
+
+    for (const [row, point] of (layer.data as BoxenPoint[]).entries()) {
+      // The region's rectangle in each segment, stacked from the base.
+      const boxes = segments.map(segment =>
+        segment.querySelectorAll('.recharts-bar-rectangle')[row]?.querySelector('.recharts-rectangle'));
+      const walked: (string | null)[] = [];
+      for (let col = 0; trace.moveToIndex(row, col); col++) {
+        const state = trace.state;
+        const [outline] = state.empty || state.type !== 'trace' || state.highlight.empty
+          ? []
+          : [state.highlight.elements].flat();
+        walked.push(outline?.getAttribute('d') ?? null);
+      }
+
+      // Three rungs, so six boxes, each higher on the page than the last.
+      expect(point.levels).toHaveLength(3);
+      expect(boxes.map(box => (box ? boxOf(box).y : Number.NaN))).toEqual(
+        [...boxes.map(box => (box ? boxOf(box).y : Number.NaN))].sort((a, b) => b - a),
+      );
+      expect(new Set(boxes.map(box => box?.getAttribute('d'))).size).toBe(6);
+      // Each rung outlines the box it is the outer edge of, and the median
+      // the box above it.
+      expect(walked).toEqual([0, 1, 2, 3, 3, 4, 5].map(box => boxes[box]?.getAttribute('d') ?? null));
+    }
   });
 
   it.each([

@@ -200,14 +200,18 @@
  *   converter checks before emitting this selector at all.
  *
  * Boxen:
- *   no generated selector.
+ *   `<boxClassName> .recharts-bar-rectangle:nth-child(n) .recharts-rectangle`,
+ *   one row per distribution, when `boxenConfig.boxClassName` is set; no
+ *   generated selector otherwise.
  *
  *   A letter-value plot has no box primitive in Recharts: the rungs are
- *   stacked `<Bar>`s over a transparent base, so the rectangles are one per
- *   rung per distribution and no class name says which rung is which.
- *   `BoxenTrace` wants exactly one element per DISTRIBUTION, so a chart that
- *   wants highlighting puts a `className` on the single `<Bar>` drawing the
- *   outermost rung and passes it as `selectorOverride`.
+ *   stacked `<Bar>`s over a transparent base, so a distribution's boxes are
+ *   one rectangle in each segment `<Bar>`, and no element holds them. With
+ *   every segment carrying one class name, the rectangles at a distribution's
+ *   place are its boxes, which `BoxenTrace` reads as a row of a grid (see
+ *   {@link boxenBoxSelectors}). Without one, a chart that wants a highlight
+ *   puts a `className` on a single `<Bar>` and passes it as
+ *   `selectorOverride`.
  *
  * Selectors are scoped to their parent container classes to avoid matching
  * Recharts utility elements (e.g. Tooltip cursor rectangles) that share the
@@ -480,6 +484,37 @@ export function ridgeSelectors(places: readonly number[], chartId?: string, pane
     chartId,
     panelScope,
   ));
+}
+
+/**
+ * One row per distribution of a boxen drawn as stacked `<Bar>`s, naming its
+ * boxes: the rectangle each segment `<Bar>` carrying `className` draws at the
+ * distribution's place in the chart's data.
+ *
+ * Recharts wraps each of a `<Bar>`'s rectangles in a group of its own, one
+ * per row of the data, so `:nth-child` names a distribution's rectangle in
+ * every segment at once. The segments come in the order the `<Bar>`s are
+ * declared, which is the order they are stacked from the base: lowest value
+ * first, whichever way the axis runs. A segment of no height draws no
+ * rectangle, and is not one of the boxes. Measured on Recharts 3.8.1.
+ *
+ * @param className - The class name every segment `<Bar>` carries
+ * @param places - Each distribution's place in the chart's data, from 0
+ * @param chartId - When set, scopes the selectors to the chart's article
+ * @param panelScope - When set, additionally scopes them to one panel
+ * @returns One row per distribution, of the one selector naming its boxes
+ */
+export function boxenBoxSelectors(
+  className: string,
+  places: readonly number[],
+  chartId?: string,
+  panelScope?: string,
+): string[][] {
+  return places.map(place => [scoped(
+    `.${cssEscape(className)} ${BAR_WRAPPER_CLASS}:nth-child(${place + 1}) .recharts-rectangle`,
+    chartId,
+    panelScope,
+  )]);
 }
 
 /**

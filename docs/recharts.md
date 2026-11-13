@@ -90,7 +90,7 @@ function AccessibleBarChart() {
 | `parallelConfig` | `ParallelAxesConfig` | Parallel only | The axes in draw order, naming the raw fields, and the observation's label key. |
 | `ridgelineConfig` | `RidgelineCurveConfig` | Ridgeline only | Group key, value key, and the density key — the density BEFORE the ridge offset. |
 | `hexbinConfig` | `HexbinLatticeConfig` | Hexbin | Bin centre, count and lattice row keys. |
-| `boxenConfig` | `BoxenLadderConfig` | Boxen | Median, ladder and outlier keys. |
+| `boxenConfig` | `BoxenLadderConfig` | Boxen | Median, ladder and outlier keys, and the class name the ladder's segments carry. |
 | `selectorOverride` | `string` | No | Custom CSS selector for SVG highlighting (see Advanced section). |
 
 ## Configuration Modes
@@ -1468,8 +1468,7 @@ const distributions = [
   data={distributions}
   chartType="boxen"
   xKey="region"
-  boxenConfig={{ upperOutliersKey: 'slow' }}
-  selectorOverride="#maidr-article-boxen-example .boxen-centre .recharts-rectangle"
+  boxenConfig={{ upperOutliersKey: 'slow', boxClassName: 'boxen-box' }}
   xLabel="Region"
   yLabel="Response time (ms)"
 >
@@ -1477,8 +1476,8 @@ const distributions = [
     <XAxis dataKey="region" />
     <YAxis />
     <Bar dataKey="base" stackId="ladder" fill="transparent" />
-    <Bar dataKey="seg0" stackId="ladder" fill="#dcdcf0" />
-    {/* ... one <Bar> per gap between consecutive ladder positions ... */}
+    <Bar dataKey="seg0" stackId="ladder" fill="#dcdcf0" className="boxen-box" />
+    {/* ... one <Bar className="boxen-box"> per gap between consecutive ladder positions ... */}
   </BarChart>
 </MaidrRecharts>
 ```
@@ -1489,7 +1488,7 @@ A rung whose three numbers are not all finite is dropped rather than announced a
 
 Name outliers only where the chart draws them. `lowerOutliersKey` and `upperOutliersKey` name the values beyond the deepest rung, and each is read out in the description and listed in its table. The stacked `<Bar>`s above draw none: `slow` is there to show the key, and a chart that declares it draws its points too, for instance as a `<Scatter>` in a `<ComposedChart>` whose axis reaches them. The boxen example draws no outliers and declares none.
 
-No highlight selector is generated. A rung is a rectangle and a distribution is not, and no class name says which rung is which — so a chart that wants highlighting puts a `className` on the single `<Bar>` that can stand for the whole distribution and passes it as `selectorOverride`, as above.
+Each position outlines the box it is read off. Give every segment `<Bar>` one class name, but not the transparent base, and pass it as `boxenConfig.boxClassName`, as above. A distribution's rectangles in those segments, stacked from the base, are its boxes, lowest value first, whichever way the axis runs. A rung outlines the box it is the outer edge of, and the median the box just above it. Declare the segments in the order they stack, and draw one bar per row of `data`, in the same order: a box is found by its row's place among the bars, so a chart whose rows differ from `data` outlines another region's boxes. A region whose segments draw any number of boxes other than one per gap of its ladder outlines its middle box at every stop. A segment of no height, where two positions share a value, draws no box. Without `boxClassName`, no selector is generated; a chart can pass `selectorOverride` instead, such as a `className` on a single segment for one highlight per region. A `selectorOverride` wins over `boxClassName`.
 
 ## Multi-Panel (Faceted) Charts
 
