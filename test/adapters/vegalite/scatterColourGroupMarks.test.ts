@@ -161,6 +161,22 @@ describe('the colour groups of a vega-lite scatter', () => {
     expect(warn.mock.calls.filter(([message]) => String(message).includes('without an outline'))).toHaveLength(3);
   });
 
+  it('name their own points on a scatter of thousands', () => {
+    const species = ['setosa', 'versicolor', 'virginica'];
+    const rows = Array.from({ length: 3000 }, (_, k) => ({ species: species[k % 3], length: k, width: k % 7 }));
+    const paths = rows.map((_, k) => `<path id="row-${k}"></path>`).join('');
+    const { container, view } = chartOf(`<g class="mark-symbol role-mark marks">${paths}</g>`);
+
+    bindVegaLite(view, { ...SPEC, data: { values: rows } } as VegaLiteSpec);
+    const maidr = (initMaidrOnElement as jest.Mock).mock.calls[0][0] as Maidr;
+    const layers = maidr.subplots[0][0].layers;
+    const read = layers.map(layer => readLayer(container, layer));
+
+    // Each group is its 1,000 rows, every third from its first.
+    expect(layers.map(layer => layer.name)).toEqual(species);
+    expect(read).toEqual(species.map((_, g) => rows.flatMap((_, k) => (k % 3 === g ? [`row-${k}`] : []))));
+  }, 30000);
+
   it('name their own points in every panel of a facet', () => {
     const { container, view } = facetChart();
 

@@ -11,7 +11,7 @@
  */
 import type { VegaLiteSpec } from '@adapters/vegalite/types';
 import type { Maidr, MaidrLayer, ScatterPoint } from '@type/grammar';
-import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
+import { colourGroupPlaces, vegaLiteToMaidr } from '@adapters/vegalite/converters';
 import { afterAll, describe, expect, it, jest } from '@jest/globals';
 import { TraceType } from '@type/grammar';
 import { makeView } from './fixtures/testView';
@@ -36,6 +36,8 @@ const POINTS = { mark: 'point', encoding: { x: LENGTH, y: WIDTH, color: SPECIES 
 const REPEATED = { mark: 'point', encoding: { x: { field: { repeat: 'column' }, type: 'quantitative' }, y: WIDTH, color: SPECIES } };
 const MEAN_RULE = { mark: 'rule', encoding: { y: { aggregate: 'mean', field: 'width', type: 'quantitative' } } };
 const PANELLED = IRIS.map((row, k) => ({ ...row, panel: ['A', 'B', 'A', 'A', 'B'][k] }));
+/** The group a single view's point mark is drawn in, under either name it can have. */
+const MARKS = 'g.mark-symbol.role-mark.marks, g.mark-symbol.role-mark.layer_0_marks';
 
 /**
  * A point mark over the iris rows.
@@ -100,15 +102,14 @@ describe('a vega-lite scatter coloured by a field', () => {
     expect(layers.map(layer => layer.name)).toEqual(['virginica', 'versicolor', 'setosa']);
   });
 
-  it('names each group\'s points by their place in the mark', () => {
+  it('places each group\'s points among the elements of the mark\'s group, for the bind pass to mark', () => {
     const layers = layersOf(vegaLiteToMaidr(scatter(SPECIES) as VegaLiteSpec));
 
-    // The mark draws row k as its group's (k + 1)-th child: setosa's rows are
-    // the second and fourth.
-    expect(layers[1].selectors).toBe(
-      'g.mark-symbol.role-mark.marks > path:nth-child(2), g.mark-symbol.role-mark.layer_0_marks > path:nth-child(2), '
-      + 'g.mark-symbol.role-mark.marks > path:nth-child(4), g.mark-symbol.role-mark.layer_0_marks > path:nth-child(4)',
-    );
+    // The mark draws row k as its group's k-th element: setosa's rows are the
+    // second and fourth. The groups carry no selector until the bind pass has
+    // marked their points; the cloud's would name every group's.
+    expect(colourGroupPlaces(layers[1])).toEqual({ marks: MARKS, element: 'path', positions: [1, 3] });
+    expect(layers.map(layer => layer.selectors)).toEqual([undefined, undefined, undefined]);
   });
 
   it('reads the rows the spec\'s own filter leaves, which are the rows the mark draws', () => {
@@ -132,10 +133,7 @@ describe('a vega-lite scatter coloured by a field', () => {
     ]);
     // The places count the marks drawn: versicolor's second point is the
     // fourth, where the unfiltered rows would have made it the fifth.
-    expect(layers[1].selectors).toBe(
-      'g.mark-symbol.role-mark.marks > path:nth-child(1), g.mark-symbol.role-mark.layer_0_marks > path:nth-child(1), '
-      + 'g.mark-symbol.role-mark.marks > path:nth-child(4), g.mark-symbol.role-mark.layer_0_marks > path:nth-child(4)',
-    );
+    expect(colourGroupPlaces(layers[1])?.positions).toEqual([0, 3]);
   });
 
   it('counts the places of a facet panel\'s groups among that panel\'s marks', () => {
@@ -151,10 +149,12 @@ describe('a vega-lite scatter coloured by a field', () => {
     expect(a.layers.map(layer => layer.name)).toEqual(['versicolor', 'virginica', 'setosa']);
     expect(b.layers.map(layer => layer.name)).toEqual(['setosa', 'versicolor']);
     // B's versicolor point is the second B draws, though the fifth row.
-    expect(b.layers[1].selectors).toBe(
-      'g[data-maidr-cell="iris-0-1"] g.mark-symbol.role-mark.child_marks > path:nth-child(2), '
-      + 'g[data-maidr-cell="iris-0-1"] g.mark-symbol.role-mark.child_layer_0_marks > path:nth-child(2)',
-    );
+    expect(colourGroupPlaces(b.layers[1])).toEqual({
+      marks: 'g[data-maidr-cell="iris-0-1"] g.mark-symbol.role-mark.child_marks, '
+        + 'g[data-maidr-cell="iris-0-1"] g.mark-symbol.role-mark.child_layer_0_marks',
+      element: 'path',
+      positions: [1],
+    });
   });
 
   it('reads an ordinal colour as groups too', () => {
@@ -205,9 +205,7 @@ describe('a vega-lite scatter coloured by a field', () => {
       ['0.2', TraceType.SCATTER, 'virginica'],
       ['1', TraceType.LINE, undefined],
     ]);
-    expect(layers[1].selectors).toBe(
-      'g.mark-symbol.role-mark.layer_0_marks > path:nth-child(2), g.mark-symbol.role-mark.layer_0_marks > path:nth-child(4)',
-    );
+    expect(colourGroupPlaces(layers[1])).toEqual({ marks: 'g.mark-symbol.role-mark.layer_0_marks', element: 'path', positions: [1, 3] });
   });
 
   it('names a concat panel on its first group only', () => {
@@ -220,9 +218,11 @@ describe('a vega-lite scatter coloured by a field', () => {
       ['0_0.1', undefined, 'setosa'],
       ['0_0.2', undefined, 'virginica'],
     ]);
-    expect(first.layers[2].selectors).toBe(
-      'g.mark-symbol.role-mark.concat_0_marks > path:nth-child(3), g.mark-symbol.role-mark.concat_0_layer_0_marks > path:nth-child(3)',
-    );
+    expect(colourGroupPlaces(first.layers[2])).toEqual({
+      marks: 'g.mark-symbol.role-mark.concat_0_marks, g.mark-symbol.role-mark.concat_0_layer_0_marks',
+      element: 'path',
+      positions: [2],
+    });
   });
 
   // The groups are handed from the scatter's layer to `buildMaidr` by the
@@ -299,8 +299,6 @@ describe('a vega-lite scatter coloured by a field', () => {
       ['versicolor', [[7.0, 3.2]]],
       ['setosa', [[5.1, 3.5], [4.9, 3.0]]],
     ]);
-    expect(layers[0].selectors).toBe(
-      'g.mark-symbol.role-mark.marks > path:nth-child(1), g.mark-symbol.role-mark.layer_0_marks > path:nth-child(1)',
-    );
+    expect(colourGroupPlaces(layers[0])?.positions).toEqual([0]);
   });
 });

@@ -68,7 +68,7 @@ import {
   scopeSelector,
   substituteRepeatFields,
 } from './facets';
-import { buildLineSelectors, buildPositionSelector, buildSelector, markToCssClass } from './selectors';
+import { buildLineSelectors, buildMarkGroup, buildSelector, markToCssClass } from './selectors';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -2894,11 +2894,52 @@ function colourGroupsOf(
 }
 
 /**
- * The layers a scatter is read as, one per colour group, keyed by the layer
- * that reads it as one cloud. {@link buildMaidr} puts them in its place once
- * every caller has numbered it and, in a composite, named its panel on it.
+ * Where the points of a scatter's colour group are drawn: each one's place
+ * among the elements of its mark's group.
  */
-const colourGroupLayers = new WeakMap<MaidrLayer, MaidrLayer[]>();
+export interface ColourGroupPlaces {
+  /** The mark's group, as a selector list, inside its facet cell if any. */
+  readonly marks: string;
+  /** The element each point is drawn as. */
+  readonly element: string;
+  /** Each point's place among the group's elements, in the order of the points. */
+  readonly positions: readonly number[];
+}
+
+/** What a colour group of a scatter changes of the layer that reads it as one cloud. */
+interface ColourGroupLayer {
+  readonly layer: Pick<MaidrLayer, 'name' | 'axes' | 'data'>;
+  readonly places: ColourGroupPlaces;
+}
+
+/**
+ * The colour groups a scatter is read as, keyed by the layer that reads it as
+ * one cloud. {@link buildMaidr} puts them in its place once every caller has
+ * numbered it and, in a composite, named its panel on it.
+ */
+const colourGroupLayers = new WeakMap<MaidrLayer, ColourGroupLayer[]>();
+
+/** Where the points of each layer {@link readColourGroups} made are drawn. */
+const colourGroupPlacesOf = new WeakMap<MaidrLayer, ColourGroupPlaces>();
+
+/**
+ * Where the points of a colour group of a scatter are drawn, for the bind
+ * pass to mark them by: a group leaves the converter with no selector.
+ *
+ * Its points are its rows' places among the mark's elements, and a selector
+ * naming each place (`> path:nth-child(k)`) took Chromium 1.3 s to resolve on
+ * a scatter of 3,000 points, and 18 s on one of 10,000, every place being
+ * tried on every element. Read out of the drawn group by index, they take
+ * milliseconds. Such a selector also names the wrong points once MAIDR has
+ * inserted the copies of a group read before, which marking the points first
+ * is what avoids.
+ *
+ * @param layer - A converted layer
+ * @returns Where its points are drawn, or `undefined` when it is no colour group
+ */
+export function colourGroupPlaces(layer: MaidrLayer): ColourGroupPlaces | undefined {
+  return colourGroupPlacesOf.get(layer);
+}
 
 /**
  * A layer as the layers it is read as: the colour groups of a scatter,
@@ -2911,13 +2952,16 @@ function readColourGroups(layer: MaidrLayer): MaidrLayer[] {
   const groups = colourGroupLayers.get(layer);
   if (!groups)
     return [layer];
+  const { title, selectors: _cloud, ...rest } = layer;
   return groups.map((group, k) => {
-    const { title, ...untitled } = layer;
-    return {
-      ...(k === 0 && title !== undefined ? layer : untitled),
-      ...group,
+    const read: MaidrLayer = {
+      ...rest,
+      ...(k === 0 && title !== undefined ? { title } : {}),
+      ...group.layer,
       id: k === 0 ? layer.id : `${layer.id}.${k}`,
     };
+    colourGroupPlacesOf.set(read, group.places);
+    return read;
   });
 }
 
@@ -5139,19 +5183,15 @@ function convertLayerSpec(
   // the mark draws row k as the k-th element of its group.
   if (colourGroups) {
     const legendTitle = colorFieldLabel(encoding);
-    const groupLayers = colourGroups.map((group): MaidrLayer => {
-      let groupSelectors = buildPositionSelector(mark, selectorLayerIndex, layered, markGroupPrefix, group.positions);
-      if (cellScope)
-        groupSelectors = scopeSelector(groupSelectors, cellScope);
-      return {
-        ...layer,
+    const { marks, element } = buildMarkGroup(mark, selectorLayerIndex, layered, markGroupPrefix);
+    colourGroupLayers.set(layer, colourGroups.map(group => ({
+      layer: {
         name: group.name,
         axes: legendTitle === undefined ? axes : { ...axes, z: { label: legendTitle } },
-        selectors: groupSelectors,
         data: extractScatterData(group.positions.map(position => rows[position]), encoding),
-      };
-    });
-    colourGroupLayers.set(layer, groupLayers);
+      },
+      places: { marks: cellScope ? scopeSelector(marks, cellScope) : marks, element, positions: group.positions },
+    })));
   }
 
   return layer;

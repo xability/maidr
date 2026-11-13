@@ -44,7 +44,7 @@ import type {
 } from './adapters/vegalite/types';
 import type { BoxPoint, BoxSelector, DumbbellData, HeatmapData, HistogramPoint, LinePoint, Maidr, MaidrLayer } from './type/grammar';
 import { cssEscape, ensureContainerId } from './adapters/shared/selectorUtil';
-import { vegaLiteToMaidr } from './adapters/vegalite/converters';
+import { colourGroupPlaces, vegaLiteToMaidr } from './adapters/vegalite/converters';
 import { buildCellDomMap, scopeSelector, stampFacetCells } from './adapters/vegalite/facets';
 import { Orientation, TraceType } from './type/grammar';
 import { initMaidrOnElement } from './util/initMaidr';
@@ -1739,22 +1739,19 @@ function distinguishSeriesSelectors(
  * Mark the points of each colour group of a scatter, and give the group a
  * selector naming its marks.
  *
- * The converter names a group's points by their place in the mark
- * (`> path:nth-child(k)`), which holds only until something is inserted among
- * them. MAIDR inserts a hidden copy beside each element a layer's selector
- * names when it reads the layer, so once the first group was read the second
- * group's places counted the first group's copies, and its highlight landed
- * on the first group's points: the iris scatter's versicolor point at 4.9 by
- * 2.4 was outlined on a setosa point at 5.2 by 3.4. The places are read here,
- * before MAIDR has inserted anything, and each group's points are marked with
- * its id, which a copy of another group's point does not carry.
+ * A group leaves the converter with the places of its points among the
+ * elements of its mark's group (see `colourGroupPlaces`), which are read
+ * here by index, before MAIDR has inserted anything among them. MAIDR inserts
+ * a hidden copy beside each element a layer's selector names when it reads
+ * the layer, so places counted once the first group was read took in its
+ * copies: the iris scatter's versicolor point at 4.9 by 2.4 was outlined on a
+ * setosa point at 5.2 by 3.4. Each group's points are marked with its id,
+ * which a copy of another group's point does not carry.
  *
- * Places that do not name one mark per point were not counted among the
- * marks the chart drew. Kept, they would count those copies instead, and
- * outline the points of the groups read before: a group whose places named
- * nothing here named the first group's points once its copies were in. Such
- * a group is left without a selector, heard and felt but not outlined, and a
- * warning says so.
+ * Places that do not name one drawn element per point were not counted among
+ * the marks the chart drew, and the elements they name may be any group's.
+ * Such a group is left without a selector, heard and felt but not outlined,
+ * and a warning says so.
  *
  * @param svg - The chart's SVG
  * @param layers - Every layer of the chart
@@ -1762,24 +1759,30 @@ function distinguishSeriesSelectors(
  */
 function stampColourGroups(svg: SVGSVGElement, layers: MaidrLayer[], containerScope: string): void {
   for (const layer of layers) {
-    const selector = layer.selectors;
-    if (layer.type !== TraceType.SCATTER || typeof selector !== 'string' || !selector.includes(':nth-child('))
+    const places = colourGroupPlaces(layer);
+    if (!places)
       continue;
-    const points = Array.from(svg.querySelectorAll<SVGElement>(selector));
+    const points: Element[] = [];
+    for (const group of Array.from(svg.querySelectorAll(scopeSelector(places.marks, containerScope)))) {
+      for (const position of places.positions) {
+        const point = group.children[position];
+        if (point?.tagName.toLowerCase() === places.element)
+          points.push(point);
+      }
+    }
     const count = Array.isArray(layer.data) ? layer.data.length : 0;
     if (points.length !== count) {
       console.warn(
         `[maidr/vegalite] The ${count} points of scatter layer "${layer.name ?? layer.id}" `
         + `name ${points.length} drawn marks, so they are read without an outline.`,
       );
-      delete layer.selectors;
       continue;
     }
     // Quotes and backslashes would end or escape the attribute value.
     const owner = String(layer.id).replace(/["\\]/g, '_');
     for (const point of points)
       point.setAttribute('data-maidr-group', owner);
-    layer.selectors = `${containerScope} ${points[0].tagName.toLowerCase()}[data-maidr-group="${owner}"]`;
+    layer.selectors = `${containerScope} ${places.element}[data-maidr-group="${owner}"]`;
   }
 }
 
