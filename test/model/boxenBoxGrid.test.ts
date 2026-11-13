@@ -113,11 +113,13 @@ describe('a boxen whose boxes the layer lists, lowest value first', () => {
     expect(outlinedAlong(boxen([TWO_RUNGS]), 0)).toEqual(['0:0', '0:1', '0:2', '0:2', '0:3']);
   });
 
-  test('outlines the middle box at the quartiles and the median, tiled about it', () => {
-    // Three boxes for two rungs: 30-40, 40-60, 60-75.
+  test('outlines the middle box listed on every stop for a row one box short', () => {
+    // As a segment left out of the row leaves it, or one of no height where
+    // two positions share a value: paired by place, every box from the gap
+    // on would be another stop's.
     draw([3]);
 
-    expect(outlinedAlong(boxen([TWO_RUNGS]), 0)).toEqual(['0:0', '0:1', '0:1', '0:1', '0:2']);
+    expect(outlinedAlong(boxen([TWO_RUNGS]), 0)).toEqual(Array.from({ length: 5 }, () => '0:1'));
   });
 
   test('reads each distribution off its own row, however deep its ladder', () => {
@@ -138,19 +140,10 @@ describe('a boxen whose boxes the layer lists, lowest value first', () => {
     expect(outlinedAlong(boxen([TWO_RUNGS], [row]), 0)).toEqual(['0:3', '0:2', '0:1', '0:1', '0:0']);
   });
 
-  test('outlines the middle box listed on every stop when the boxes are neither layout', () => {
+  test('outlines the middle box listed on every stop for a row of more boxes than gaps', () => {
     draw([5]);
 
     expect(outlinedAlong(boxen([TWO_RUNGS]), 0)).toEqual(Array.from({ length: 5 }, () => '0:2'));
-  });
-
-  test('does not take boxes one short of the split layout for the tiled one', () => {
-    // 40 is two positions, so the split drawing has no box from one to the
-    // other, and three boxes may be its four with that one missing.
-    const tied: BoxenPoint = { ...TWO_RUNGS, levels: [{ p: 0.25, lo: 40, hi: 60 }, { p: 0.125, lo: 40, hi: 75 }] };
-    draw([3]);
-
-    expect(outlinedAlong(boxen([tied]), 0)).toEqual(Array.from({ length: 5 }, () => '0:1'));
   });
 
   test('skips a null cell, which names no box', () => {

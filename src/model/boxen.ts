@@ -838,14 +838,16 @@ export class BoxenTrace extends AbstractTrace {
    * Paired by their place in the list, so the way the value axis runs does
    * not matter: the producer knows which box holds the lowest values, as a
    * stacked bar chart stacks them from its base, wherever the axis draws it.
-   * Two layouts are read, as {@link BoxenTrace.stopBoxes} pairs them: 2k
-   * boxes split at the median, one per gap between consecutive positions of
-   * the ladder, and 2k - 1 boxes about a middle one spanning the quartiles.
+   * The boxes are the ladder split at the median, 2k of them, one per gap
+   * between consecutive positions. Fewer are not read: a list one box short
+   * is what a segment left out of the list draws, or two positions of one
+   * value, and pairing the rest by place would outline the wrong box from
+   * the gap on.
    *
    * @param boxes - The boxes listed, lowest value first
    * @param ladder - Its rungs, in walking order
-   * @returns The chart's own element for each stop, or null when the list is
-   *   neither layout
+   * @returns The chart's own element for each stop, or null when the list
+   *   holds any other number of boxes
    */
   private static listedStopBoxes(boxes: SVGElement[], ladder: Rung[]): SVGElement[] | null {
     const depth = (ladder.length - 1) / 2;
@@ -856,17 +858,9 @@ export class BoxenTrace extends AbstractTrace {
     // above it the upper edge of box c - 1. The median, on the edge between
     // boxes k - 1 and k, outlines the one above it. With k = 3, stops
     // 0 1 2 | 3 | 4 5 6 outline boxes 0 1 2 | 3 | 3 4 5.
-    if (boxes.length === 2 * depth) {
-      return ladder.map((_, stop) => boxes[stop < depth ? stop : Math.max(stop - 1, depth)]);
-    }
-    // About a middle box: 0 1 2 | 2 | 2 3 4. Two positions of one value have
-    // no box drawn between them, so on a ladder holding two this many boxes
-    // may be the split layout one box short, and is not read.
-    const distinct = ladder.every((rung, index) => index === 0 || rung.value > ladder[index - 1].value);
-    if (boxes.length === 2 * depth - 1 && distinct) {
-      return ladder.map((_, stop) => boxes[stop < depth ? stop : Math.max(stop - 2, depth - 1)]);
-    }
-    return null;
+    return boxes.length === 2 * depth
+      ? ladder.map((_, stop) => boxes[stop < depth ? stop : Math.max(stop - 1, depth)])
+      : null;
   }
 
   /**
