@@ -483,7 +483,8 @@ describe('tableau binder', () => {
      * The worksheet titles of the mounted figure, row by row.
      *
      * @param binding - The binding under test.
-     * @returns One array of titles per row, in row order.
+     * @returns One array of titles per row, in row order: row 0, the bottom
+     * row, first.
      */
     function layout(binding: TableauBinding): (string | undefined)[][] {
       return binding.maidr.subplots.map(row =>
@@ -530,7 +531,7 @@ describe('tableau binder', () => {
       binding.dispose();
     });
 
-    it('should still bind, as an N×1 column, against a dashboard with no objects', async () => {
+    it('should still bind, as an N×1 column with the first worksheet on top, against a dashboard with no objects', async () => {
       const sales = salesWorksheet('Sales');
       const profit = salesWorksheet('Profit');
       // No `objects` at all: the property is missing, not empty, which is what
@@ -544,7 +545,7 @@ describe('tableau binder', () => {
       if (binding === null) {
         throw new Error('expected bindTableau to mount a figure');
       }
-      expect(layout(binding)).toEqual([['Sales'], ['Profit']]);
+      expect(layout(binding)).toEqual([['Profit'], ['Sales']]);
       expect(warn).not.toHaveBeenCalled();
 
       binding.dispose();
@@ -568,7 +569,7 @@ describe('tableau binder', () => {
       }
       // A property that throws is a property this library does not really
       // have, and the figure is unchanged rather than unbuilt.
-      expect(layout(binding)).toEqual([['Sales'], ['Profit']]);
+      expect(layout(binding)).toEqual([['Profit'], ['Sales']]);
 
       binding.dispose();
     });
@@ -668,7 +669,7 @@ describe('tableau binder', () => {
       }
       // The flag is read here and judged there: the binder never decides a
       // layout, it only reports what the dashboard said.
-      expect(layout(binding)).toEqual([['Tiled'], ['Floater']]);
+      expect(layout(binding)).toEqual([['Floater'], ['Tiled']]);
       expect(warn.mock.calls.map(call => String(call[0])).join('\n'))
         .toContain('floats above the dashboard');
 
@@ -692,7 +693,7 @@ describe('tableau binder', () => {
         throw new Error('expected bindTableau to mount a figure');
       }
       // One gap is a whole-figure fall back: a partial grid is a wrong grid.
-      expect(layout(binding)).toEqual([['Left'], ['Right']]);
+      expect(layout(binding)).toEqual([['Right'], ['Left']]);
 
       binding.dispose();
     });
@@ -717,7 +718,7 @@ describe('tableau binder', () => {
       if (binding === null) {
         throw new Error('expected bindTableau to mount a figure');
       }
-      expect(layout(binding)).toEqual([['Left'], ['Right']]);
+      expect(layout(binding)).toEqual([['Right'], ['Left']]);
 
       binding.dispose();
     });
@@ -770,7 +771,7 @@ describe('tableau binder', () => {
       if (binding === null) {
         throw new Error('expected bindTableau to mount a figure');
       }
-      expect(layout(binding)).toEqual([['Left'], ['Right']]);
+      expect(layout(binding)).toEqual([['Right'], ['Left']]);
 
       binding.dispose();
     });

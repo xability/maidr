@@ -58,14 +58,20 @@ async function highlight(page: Page): Promise<{ x: number; y: number; width: num
   });
 }
 
-/** Moves from the figure into the price pane, which sits above the volume pane. */
+/**
+ * Moves from the figure into the price pane, which sits above the volume pane.
+ * The figure opens on the price pane as "Subplot 1", the top one; Down moves
+ * to the volume pane below it and Up comes back.
+ */
 async function enterPricePane(page: Page, chart: string, name: string): Promise<void> {
   await page.click(chart);
   await waitForText(page, 'maidr figure');
   await page.keyboard.press('ArrowRight');
-  await waitForText(page, 'Subplot 1 of 2, Volume');
+  await waitForText(page, `Subplot 1 of 2, ${name}`);
+  await page.keyboard.press('ArrowDown');
+  await waitForText(page, 'Subplot 2 of 2, Volume');
   await page.keyboard.press('ArrowUp');
-  await waitForText(page, `Subplot 2 of 2, ${name}`);
+  await waitForText(page, `Subplot 1 of 2, ${name}`);
   await page.keyboard.press('Enter');
   await waitForText(page, 'candlestick plot');
 }

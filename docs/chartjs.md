@@ -777,7 +777,7 @@ Chart.js has no facet API, but since v3.7 a single chart can render stacked pane
 
 MAIDR detects this layout automatically and exposes each panel as its own **subplot**: y-stacked scales become an N-rows-by-1-column figure, x-stacked scales become 1-row-by-N-columns (left to right). Navigation starts at the subplot level — arrow keys move between panels, `Enter` drills into a panel, `Escape` returns. Each panel announces its own value-axis label (from that scale's `title.text`, which also names the panel) while sharing the common index axis. While the reader is between panels, the highlight overlay outlines the panel they are on: the band of the plot area its scale is laid out in.
 
-Because Chart.js draws to a `<canvas>`, MAIDR cannot measure panel geometry from the DOM the way it does for SVG charts, so y-stacked figures follow the MAIDR grammar's native (matplotlib-style) row convention: **grid rows are ordered bottom-first**. Up/Down arrows always move the way the panels look on canvas (Up goes to the panel above), but panel *numbering* is announced bottom-up — "Subplot 1" is the bottom panel and navigation enters the figure there.
+Because Chart.js draws to a `<canvas>`, MAIDR cannot measure panel geometry from the DOM the way it does for SVG charts, so y-stacked figures follow the MAIDR grammar's native (matplotlib-style) row convention: **grid rows are ordered bottom-first**. Up/Down arrows always move the way the panels look on canvas (Up goes to the panel above). The row order is only how the rows are stored, for the arrows: panels are numbered in reading order, as on every chart MAIDR can measure, so "Subplot 1" is the top panel, and navigation enters the figure there.
 
 ```html
 <div style="width: 700px; height: 500px">

@@ -121,7 +121,7 @@ describe('resolveSubplotLayout panel-geometry fallback (no axes_* groups)', () =
     expect(layout.invertVertical).toBe(true);
   });
 
-  it('falls back to data order when rects are degenerate (jsdom default)', () => {
+  it('falls back to the rows as written when rects are degenerate (jsdom default)', () => {
     // No mocked rects: real jsdom elements report all-zero geometry.
     const subplots = grid([[{}], [{}]]);
     subplots.forEach(row => row.forEach((s) => {
@@ -131,29 +131,29 @@ describe('resolveSubplotLayout panel-geometry fallback (no axes_* groups)', () =
     const layout = resolveSubplotLayout(subplots);
 
     expect(layout.invertVertical).toBe(false);
-    expect(layout.topLeftRow).toBe(0);
-    expect(layout.visualOrderMap.get('0,0')).toBe(1);
-    expect(layout.visualOrderMap.get('1,0')).toBe(2);
+    expect(layout.topLeftRow).toBe(1);
+    expect(layout.visualOrderMap.get('1,0')).toBe(1);
+    expect(layout.visualOrderMap.get('0,0')).toBe(2);
   });
 
-  it('falls back to data order when any panel is missing geometry', () => {
+  it('falls back to the rows as written when any panel is missing geometry', () => {
     const layout = resolveSubplotLayout(grid([
       [{ rect: { top: 0, left: 0 } }],
       [{}],
     ]));
 
     expect(layout.invertVertical).toBe(false);
-    expect(layout.topLeftRow).toBe(0);
+    expect(layout.topLeftRow).toBe(1);
   });
 
-  it('falls back to data order when panels overlap exactly', () => {
+  it('falls back to the rows as written when panels overlap exactly', () => {
     const layout = resolveSubplotLayout(grid([
       [{ rect: { top: 50, left: 50 } }],
       [{ rect: { top: 50, left: 50 } }],
     ]));
 
     expect(layout.invertVertical).toBe(false);
-    expect(layout.visualOrderMap.get('0,0')).toBe(1);
+    expect(layout.visualOrderMap.get('1,0')).toBe(1);
   });
 
   it('measures the first layer-selector element when no highlight element exists', () => {
@@ -228,6 +228,38 @@ describe('resolveSubplotLayout panel-geometry fallback (no axes_* groups)', () =
 
     expect(layout.visualOrderMap.get('0,1')).toBe(1);
     expect(layout.visualOrderMap.get('0,0')).toBe(2);
+  });
+});
+
+describe('resolveSubplotLayout when nothing can be measured', () => {
+  // A chart drawn to a canvas has no element to measure. Its rows are taken
+  // as the grammar writes them, row 0 at the bottom, so Up moves to the next
+  // row. They are numbered from the last row, the top: "Subplot 1" is the
+  // top-left subplot, as on a measured figure, and the lobby opens on it.
+  it('numbers the subplots from the top-left one, row by row, and opens on the top row', () => {
+    const layout = resolveSubplotLayout(grid([
+      [{}, {}],
+      [{}],
+      [{}, {}, {}],
+    ]));
+
+    expect(layout.invertVertical).toBe(false);
+    expect(layout.topLeftRow).toBe(2);
+    expect(Object.fromEntries(layout.visualOrderMap)).toEqual({
+      '2,0': 1,
+      '2,1': 2,
+      '2,2': 3,
+      '1,0': 4,
+      '0,0': 5,
+      '0,1': 6,
+    });
+  });
+
+  it('starts at row 0 when the figure has no subplots', () => {
+    const layout = resolveSubplotLayout([]);
+
+    expect(layout.topLeftRow).toBe(0);
+    expect(layout.visualOrderMap.size).toBe(0);
   });
 });
 

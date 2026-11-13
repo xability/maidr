@@ -78,7 +78,7 @@ The geometry comes from `dashboard.objects`: each object reports a `position`, a
 
 Rows are **ragged by design**: a dashboard with two worksheets over one wide one is a two-then-one grid, not a padded 2×2.
 
-**The bottom row of the dashboard is row 0 of the figure**, so <kbd>↑</kbd> moves up the dashboard and <kbd>↓</kbd> moves down it. This is a consequence of there being no DOM to measure: MAIDR resolves a figure's visual ordering from the rendered SVG, the adapter emits no selectors because the marks are inside a cross-origin iframe, and the layout it falls back to numbers rows from the bottom. One honest cost comes with it: the *ordinal* in the announcement is counted in data order, so the bottom-left subplot is announced as "Subplot 1 of 6". The subplot's own title — the worksheet name — is what identifies it, and the arrows are the part that had to be spatially true.
+**The bottom row of the dashboard is row 0 of the figure**, so <kbd>↑</kbd> moves up the dashboard and <kbd>↓</kbd> moves down it. This is a consequence of there being no DOM to measure: MAIDR resolves a figure's visual ordering from the rendered SVG, the adapter emits no selectors because the marks are inside a cross-origin iframe, and the layout it falls back to takes row 0 for the bottom. That layout numbers the rows from the top, so the top-left worksheet is announced as "Subplot 1 of 6", and the figure opens on it.
 
 **When the column is used instead.** Any one of these is enough, and each one applies to the *whole* figure — a partly-guessed grid is worse than an honest column:
 
@@ -515,7 +515,7 @@ Once the figure is focused, the standard MAIDR shortcuts apply:
 
 Two notes specific to this adapter:
 
-- **Which arrows move between worksheets depends on the dashboard.** In the geometry-aware grid, Up and Down move between the dashboard's rows and Left and Right move along one — in the direction the dashboard is laid out, since its bottom row is the figure's row 0. In the column fallback there is one worksheet per row, so Left and Right are always out of bounds. See [Dashboard Layout](#dashboard-layout).
+- **Which arrows move between worksheets depends on the dashboard.** In the geometry-aware grid, Up and Down move between the dashboard's rows and Left and Right move along one — in the direction the dashboard is laid out, since its bottom row is the figure's row 0. In the column fallback there is one worksheet per row, the first on top: Down moves to the next worksheet, and Left and Right are always out of bounds. See [Dashboard Layout](#dashboard-layout).
 - **<kbd>Page Up</kbd> and <kbd>Page Down</kbd> do nothing here.** Those keys switch between *layers* of one subplot, and a Tableau worksheet always produces exactly one layer. There is nothing for them to switch to.
 
 For the full list, see the [Keyboard Controls](CONTROLS.md) reference.
@@ -531,7 +531,6 @@ Stated plainly, because every one of these is a place where a plausible-looking 
 - **A dual-axis worksheet is read as one of its axes.** Tableau reports a marks card per measure but nothing that says which axis a card belongs to, whether the axes are synchronized, or which summary-data column came from which card. The active card is read and the others are named in a warning.
 - **Story sheets are skipped.** The Embedding API has a listed known issue: a worksheet inside a story throws *operation not allowed on non-active sheet*.
 - **A dashboard layout is followed only when it is unambiguous.** The grid is built from `dashboard.objects`' positions and sizes; a floating or hidden worksheet, a staircase, an overlap inside a row, or an embedding library that reports no geometry all fall the *whole* figure back to one worksheet per row, in the order the worksheets were added — the order Tableau documents a screen reader as narrating them. The full list is under [Dashboard Layout](#dashboard-layout).
-- **A grid's subplot ordinals are not its positions.** "Subplot 1 of 6" counts in data order, which starts at the bottom-left, because MAIDR derives visual ordering from the rendered SVG and a `<tableau-viz>`'s marks are inside a cross-origin iframe. The arrow keys *are* spatially true; only the number is not, and the announcement carries the worksheet's name with it.
 - **Summary data only.** Underlying data (`getUnderlyingTableDataReaderAsync`) is gated to Explorer and Creator roles and would fail silently for Viewer-role users, so it is never requested.
 - **Nothing is written back into the workbook.** No annotations, no filters, no parameter changes; the only write is the mark selection, and that is cleared when focus leaves MAIDR's block, before every re-read, and on `dispose()` — see [How It Works](#how-it-works).
 - **Authentication is the host page's job.** Tableau Public needs none. Tableau Cloud and Tableau Server do: a connected-app JWT must be minted **by your server** — the connected-app secret must never reach the browser — and handed to the component through the `token` attribute or `viz.token` before you bind. The adapter neither mints, refreshes, nor inspects a token.

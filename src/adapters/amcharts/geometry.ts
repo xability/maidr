@@ -308,8 +308,8 @@ interface ChartCell {
  * the core's `MovableGrid` maps UPWARD to `row + 1`). amCharts renders to
  * canvas, so the core's DOM layout pass cannot measure panel positions and
  * always takes its no-inversion fallback — emitting the bottom row as data
- * row 0 is the only way to make ArrowUp move visually up. The trade-off is
- * that panel numbering ("Subplot 1") starts at the bottom-left panel.
+ * row 0 is the only way to make ArrowUp move visually up. The core numbers
+ * the panels from the top-left one all the same: that one is "Subplot 1".
  *
  * Falls back to a single row in insertion order when any chart's geometry is
  * unavailable (e.g. before layout, on the JSON `fromAmCharts` path).

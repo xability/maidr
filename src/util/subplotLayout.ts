@@ -474,7 +474,13 @@ function hasGeometry(el: Element): boolean {
 
 /**
  * Returns a default layout when no DOM elements are found (fallback).
- * Uses data-array order directly: index 1 = (0,0), no inversion.
+ *
+ * With nothing measured, row 0 is taken for the bottom row, as the grammar's
+ * rows run: there is no inversion, so Up moves to the next row. The rows are
+ * numbered from the last one, the top, and the lobby starts there, so
+ * "Subplot 1" is the top-left subplot here too, and the first one a reader
+ * meets. Numbered from row 0, the bottom-left subplot was "Subplot 1" on
+ * every figure drawn to a canvas, and the lobby opened on it.
  */
 function buildFallbackLayout(
   subplots: Subplot[][],
@@ -483,7 +489,7 @@ function buildFallbackLayout(
 ): SubplotLayout {
   const visualOrderMap = new Map<string, number>();
   let idx = 1;
-  for (let r = 0; r < subplots.length; r++) {
+  for (let r = subplots.length - 1; r >= 0; r--) {
     for (let c = 0; c < subplots[r].length; c++) {
       visualOrderMap.set(`${r},${c}`, idx++);
     }
@@ -491,7 +497,7 @@ function buildFallbackLayout(
 
   return {
     visualOrderMap,
-    topLeftRow: 0,
+    topLeftRow: Math.max(subplots.length - 1, 0),
     invertVertical: false,
     axesElements,
     panelElements,
