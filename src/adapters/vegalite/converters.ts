@@ -281,6 +281,12 @@ function drawnMarkRows(view: VegaView, markName: string, place: LayerPlace): Rec
  * else its guessed pipeline's, or without a view its own data, narrowed to a
  * facet panel's.
  *
+ * Marks that draw no item in a facet's panel leave the layer no rows there:
+ * a panel's cell is drawn only once the view has run, so its marks drew
+ * nothing because the layer's own filter keeps it out of the panel. Outside
+ * a facet, marks that draw no item give no rows to read, as those of a view
+ * not yet run do, and the layer is read from its data.
+ *
  * @param spec - The layer
  * @param index - Its position among its siblings
  * @param view - The compiled view, when bound
@@ -298,7 +304,9 @@ function pairedLayerRows(
   requiredFields?: readonly string[],
 ): Record<string, unknown>[] {
   const drawn = view ? drawnMarkRows(view, markName, place) : undefined;
-  if (drawn && rowsCarryFields(drawn, requiredFields))
+  if (drawn?.length === 0 && place.cellFilters)
+    return drawn;
+  if (drawn && drawn.length > 0 && rowsCarryFields(drawn, requiredFields))
     return drawn;
   return inPanel(resolveData(spec, index, view, undefined, requiredFields), place);
 }
@@ -1987,6 +1995,11 @@ function resolveSceneMarkData(
     return undefined;
   }
   const found: SceneMark[] = [];
+  // A line, area or trail split into series is drawn one group per series
+  // inside a `_pathgroup`, which holds no group, and so no mark of this name,
+  // where it draws nothing.
+  const seriesGroup = markName.endsWith('_marks') ? `${markName.slice(0, -'marks'.length)}pathgroup` : undefined;
+  let seriesGroups = 0;
   const walk = (mark: SceneMark): void => {
     if (mark.name === markName) {
       found.push(mark);
@@ -1994,6 +2007,8 @@ function resolveSceneMarkData(
     }
     if (mark.marktype !== 'group')
       return;
+    if (mark.name === seriesGroup)
+      seriesGroups++;
     for (const item of mark.items ?? []) {
       if (panel && mark.name === 'cell' && !isPanel(item.datum, panel))
         continue;
@@ -2013,6 +2028,10 @@ function resolveSceneMarkData(
       rows.push(datum as Record<string, unknown>);
     }
   }
+  // A mark drawn in a facet's panel with no item draws nothing there, which
+  // a filter of its layer's own does to the panels it keeps out.
+  if (panel && (found.length > 0 || seriesGroups > 0))
+    return rows;
   return rows.length > 0 ? rows : undefined;
 }
 
@@ -4633,6 +4652,10 @@ function convertDeclaredFans(
       return;
     }
     const fan = convertDeclaredFan(specs, index, declaration, encoding, view, parentName, used, place);
+    // A fan drawing nothing, as in a facet's panel its own filter keeps it out
+    // of, is no chart there, and its layers draw nothing either.
+    if ((fan.layer.data as PercentileBandPoint[]).length === 0)
+      return;
     used.add(index);
     fan.bands.forEach(band => used.add(band));
     fans.set(index, fan);
@@ -6154,16 +6177,30 @@ function buildFacetMaidr(
       const cellRows = (j: number): Record<string, unknown>[] => layerRows[j].filter(row =>
         cell.filters.every(([field, key]) => String(row[field]) === key),
       );
+      // A layer is read from the marks it draws inside this panel's cell,
+      // which a filter of its own leaves with none in the panels it keeps out.
+      // Its panel's share of its dataset, matched to it by the heuristics
+      // above, is read where it draws no marks of its own name: a composite's
+      // parts are named further down.
+      const panelRows = (j: number): Record<string, unknown>[] => {
+        const drawn = view
+          ? resolveSceneMarkData(view, isLayered ? `child_layer_${j}_marks` : 'child_marks', cell.filters)
+          : undefined;
+        const encoding = { ...parentEncoding, ...layerSpecs[j].encoding };
+        return drawn && (drawn.length === 0 || rowsCarryFields(drawn, columnsReadAsIs(encoding)))
+          ? drawn
+          : cellRows(j);
+      };
       const rawLayers = isLayered
         ? convertLayers(layerSpecs, { encoding: parentEncoding, transform: parentTransform }, view, domOrder, {
             basePrefix: 'child_',
             path: [],
             cellScope: scope,
             cellFilters: cell.filters,
-            rowsOf: cellRows,
+            rowsOf: panelRows,
           })
         : layerSpecs.flatMap((layerSpec, j): ConvertedLayer[] => {
-            const rows = cellRows(j);
+            const rows = panelRows(j);
             if (rows.length === 0)
               return [];
             const layer = convertLayerSpec(
