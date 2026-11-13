@@ -128,7 +128,9 @@ export interface VegaLiteSpec {
    * which the adapter reads only when it has to aggregate the raw
    * observations itself, or to tell an interquartile band from the rest.
    * `center` is the statistic a composite mark's interval is centred on,
-   * `mean` or `median`.
+   * `mean` or `median`. `point` and `line` lay points or a line over a line,
+   * an area, a trail or a rule, which changes the names Vega-Lite compiles
+   * the view under (`drawsPathOverlay` in `names.ts`).
    */
   mark?: string | {
     type: string;
@@ -136,15 +138,24 @@ export interface VegaLiteSpec {
     innerRadius?: number;
     extent?: string;
     center?: string;
+    point?: boolean | 'transparent' | Record<string, unknown> | null;
+    line?: boolean | Record<string, unknown> | null;
   };
   encoding?: VegaLiteEncoding;
   /**
    * Vega-Lite's name for a view, "for later reference". It also names the
    * view's compiled marks -- `p5_95_marks` rather than `layer_0_marks` for a
    * layer named `p5-95`, through `varName` -- and it is what a fan chart's
-   * `percentile_band` declaration names its bands by.
+   * `percentile_band` declaration names its bands by. Every name compiled
+   * below the view is named after it (see `names.ts`).
    */
   name?: string;
+  /**
+   * The chart's configuration, read only for what makes Vega-Lite lay points
+   * or a line over a mark by default (`config.line.point`,
+   * `config.area.line`), which changes the names it compiles a view under.
+   */
+  config?: Record<string, unknown>;
   layer?: VegaLiteSpec[];
   /**
    * Whether a composite spec's children share a channel's scale or axis.
@@ -223,6 +234,11 @@ export interface VegaLiteEncoding {
   stroke?: VegaLiteChannelDef;
   /** A line's dash pattern, which splits the marks as `stroke` does. */
   strokeDash?: VegaLiteChannelDef;
+  /**
+   * A point's shape. Bound on a line, an area, a trail or a rule, it makes
+   * Vega-Lite lay points over the mark (`drawsPathOverlay` in `names.ts`).
+   */
+  shape?: VegaLiteChannelDef;
   /**
    * Grouping without a visual channel: it splits one mark into several
    * without colouring or otherwise marking them apart. Vega-Lite's ranged

@@ -6,7 +6,6 @@ import {
   chunkIntoRows,
   describeFacet,
   describeRepeat,
-  repeatChildName,
   stampFacetCells,
   substituteRepeatFields,
 } from '@adapters/vegalite/facets';
@@ -135,30 +134,7 @@ describe('vega-Lite facet/repeat helpers', () => {
     });
   });
 
-  describe('repeatChildName', () => {
-    it('matches Vega-Lite child view naming', () => {
-      expect(repeatChildName({ repeat: 'yield' })).toBe('child__yield');
-      expect(repeatChildName({ row: 'yield' })).toBe('child__row_yield');
-      expect(repeatChildName({ column: 'year' })).toBe('child__column_year');
-      expect(repeatChildName({ row: 'yield', column: 'year' }))
-        .toBe('child__row_yieldcolumn_year');
-      // Non-word characters in field names become underscores.
-      expect(repeatChildName({ repeat: 'my field' })).toBe('child__my_field');
-    });
-
-    it('prefixes an underscore for digit-leading field names (varName rule)', () => {
-      // Vega-Lite's varName prepends `_` when the field starts with a
-      // digit, so the compiled classes are `child___2020_marks` /
-      // `child___2020_group`. Without the prefix every selector for a
-      // repeated year-column chart matches nothing.
-      expect(repeatChildName({ repeat: '2020' })).toBe('child___2020');
-      expect(repeatChildName({ row: '3rd quarter' })).toBe('child__row__3rd_quarter');
-      expect(repeatChildName({ column: '2019', row: 'yield' }))
-        .toBe('child__row_yieldcolumn__2019');
-    });
-  });
-
-  describe('chunkIntoRows', () => {
+  describe('repeatCtoRows', () => {
     it('wraps into rows of the given width, ragged at the end', () => {
       expect(chunkIntoRows(['a', 'b', 'c'], 2)).toEqual([['a', 'b'], ['c']]);
       expect(chunkIntoRows(['a', 'b', 'c'], undefined)).toEqual([['a', 'b', 'c']]);

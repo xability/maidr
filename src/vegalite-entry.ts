@@ -46,6 +46,7 @@ import type { BoxPoint, BoxSelector, DumbbellData, HeatmapData, HistogramPoint, 
 import { cssEscape, ensureContainerId } from './adapters/shared/selectorUtil';
 import { colourGroupPlaces, vegaLiteToMaidr } from './adapters/vegalite/converters';
 import { buildCellDomMap, scopeSelector, stampFacetCells } from './adapters/vegalite/facets';
+import { compiledName, viewName } from './adapters/vegalite/names';
 import { Orientation, TraceType } from './type/grammar';
 import { initMaidrOnElement } from './util/initMaidr';
 
@@ -2553,8 +2554,10 @@ export function bindVegaLite(
   // For faceted specs, stamp each rendered cell with the `data-maidr-cell`
   // attribute the converter baked into that panel's selectors. Must run
   // BEFORE any pass (or MAIDR trace construction) resolves those
-  // selectors — until the stamp exists they match nothing.
-  stampFacetCells(svg as SVGSVGElement, maidr);
+  // selectors — until the stamp exists they match nothing. The cells are
+  // the items of the facet's `cell` group, named after the facet, which is
+  // the top-level view.
+  stampFacetCells(svg as SVGSVGElement, maidr, compiledName(viewName(spec, '', ''), 'cell'));
 
   // Per-layer cell roots for the passes that would otherwise query the
   // whole SVG and cross-contaminate panels (box-plot selector rebuild,

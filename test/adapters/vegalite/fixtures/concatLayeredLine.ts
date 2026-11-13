@@ -2,7 +2,7 @@
  * An `hconcat` whose children are themselves layered, captured through the
  * real vega-lite compiler.
  *
- * `buildConcatMaidr` passes `markGroupPrefix: 'concat_<i>_'`, so
+ * `buildConcatMaidr` names the child `concat_<i>`, so
  * `convertLayerSpec` derives `concat_<i>_layer_<j>_marks` — but Vega nests a
  * concat child's marks inside its own group, so `view.data()` rejects that
  * name and the mark lookup always fails closed here, exactly as it does for

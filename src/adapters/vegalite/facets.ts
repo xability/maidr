@@ -24,11 +24,11 @@
  *   - Repeats compile to one `<g class="mark-group role-scope
  *     <childName>_group">` per cell, and the marks inside carry the
  *     already-unique class `<childName>_marks`, where `<childName>` is
- *     `child__row_<rf>column_<cf>` / `child__row_<rf>` /
- *     `child__column_<cf>` / `child__<f>` (field names sanitised with
- *     Vega-Lite's `varName`: non-word characters become `_`, and a
- *     leading digit gains a `_` prefix). No stamping is needed for
- *     repeats.
+ *     the cell's name (`repeatCellName` in `names.ts`). No stamping is
+ *     needed for repeats.
+ *
+ * A facet that declares a name of its own puts it before every name above:
+ * `<name>_cell`, `<name>_child_marks` (see `names.ts`).
  */
 
 import type { Maidr, MaidrLayer } from '@type/grammar';
@@ -100,7 +100,11 @@ export function describeFacet(spec: VegaLiteSpec): FacetDescriptor | null {
   const columnChannel = spec.encoding?.column;
   if (hasView && (rowChannel?.field || columnChannel?.field)) {
     const { row: _row, column: _column, ...childEncoding } = spec.encoding!;
-    const childSpec: VegaLiteSpec = { ...spec, encoding: childEncoding };
+    // A name the spec declares is the facet's: Vega-Lite moves the mark and
+    // its encoding into a child that declares none (`mapFacetedUnit`), which
+    // is named `<name>_child`.
+    const { name: _name, ...view } = spec;
+    const childSpec: VegaLiteSpec = { ...view, encoding: childEncoding };
     return {
       rowChannel: rowChannel?.field ? rowChannel : undefined,
       columnChannel: columnChannel?.field ? columnChannel : undefined,
@@ -179,31 +183,6 @@ export function substituteRepeatFields(
     return value;
   };
   return walk(spec) as VegaLiteSpec;
-}
-
-/**
- * Compute the Vega child-view name for one repeated cell. The rendered SVG
- * uses this name in the cell group class (`<name>_group`) and the mark
- * group class (`<name>_marks`), which is what makes repeat selectors
- * per-cell unique without any stamping.
- *
- * Mirrors Vega-Lite's `varName` sanitisation: every non-word character in
- * a field name becomes `_`, and a field name starting with a digit gains a
- * leading `_` (e.g. field `2020` → `child___2020`).
- */
-export function repeatChildName(cell: RepeatCellMapping): string {
-  const sanitize = (field: string): string =>
-    (field.match(/^\d/) ? '_' : '') + field.replace(/\W/g, '_');
-  if (cell.row !== undefined && cell.column !== undefined) {
-    return `child__row_${sanitize(cell.row)}column_${sanitize(cell.column)}`;
-  }
-  if (cell.row !== undefined) {
-    return `child__row_${sanitize(cell.row)}`;
-  }
-  if (cell.column !== undefined) {
-    return `child__column_${sanitize(cell.column)}`;
-  }
-  return `child__${sanitize(cell.repeat ?? '')}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -316,8 +295,6 @@ export interface CellDomInfo {
   scope: string;
 }
 
-const FACET_CELL_GROUP_SELECTOR = 'g.mark-group.role-scope.cell';
-
 /** Extract the `data-maidr-cell` value referenced by a subplot selector. */
 function parseCellAttr(selector: string | undefined): string | null {
   if (!selector)
@@ -349,10 +326,15 @@ function hasLayout(el: Element | undefined): boolean {
  * converter wrote into each cell's first layer; mismatches log a warning
  * but do not abort (navigation and audio still work; only highlighting
  * placement could be off).
+ *
+ * @param svg - The rendered chart
+ * @param maidr - Its schema
+ * @param cellGroup - The compiled name of the facet's cell group: `cell`,
+ * after the facet's own name where it declares one
  */
-export function stampFacetCells(svg: SVGSVGElement, maidr: Maidr): void {
-  const cellGroup = svg.querySelector(FACET_CELL_GROUP_SELECTOR);
-  if (!cellGroup)
+export function stampFacetCells(svg: SVGSVGElement, maidr: Maidr, cellGroup = 'cell'): void {
+  const cells = svg.querySelector(`g.mark-group.role-scope.${cellGroup}`);
+  if (!cells)
     return;
 
   // Collect the expected attribute values in grid reading order.
@@ -374,7 +356,7 @@ export function stampFacetCells(svg: SVGSVGElement, maidr: Maidr): void {
   // no `role-mark` group inside. The converter deliberately emits no
   // subplot for those (an empty-data panel would crash MAIDR core), so
   // skip mark-less cells here to keep the pairing aligned.
-  const items = Array.from(cellGroup.children)
+  const items = Array.from(cells.children)
     .filter((el): el is SVGGElement =>
       el.tagName.toLowerCase() === 'g' && el.querySelector('g.role-mark') !== null,
     );

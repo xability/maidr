@@ -7,15 +7,13 @@
  *
  * SVG structure reference:
  *
- *   Single-view spec:
- *     g.{markClass}.role-mark.marks {childElement}
- *
- *   Layered / concat spec:
- *     g.{markClass}.role-mark.layer_{N}_marks {childElement}
+ *   g.{markClass}.role-mark.{marks} {childElement}
  *
  * Where:
  *   - `markClass`     is the Vega CSS class for the mark (e.g. `mark-rect`).
- *   - `N`             is the zero-based layer index in the compiled spec.
+ *   - `marks`         is the compiled name of the mark group: `marks` for a
+ *                     single view, `layer_{N}_marks` for a layer, and so on,
+ *                     as `names.ts` gives them.
  *   - `childElement`  is `path` for most marks, `line` for `rule`.
  */
 
@@ -93,39 +91,22 @@ function markToChildElement(mark: string): string {
  * Used for marks where each datum produces one DOM element
  * (bar, scatter, heatmap, box, histogram).
  *
- * Emits a CSS comma-selector covering BOTH the single-view (`.marks`)
- * and the layered (`.layer_N_marks`) DOM patterns. Vega-Lite expands
- * mark sugar (`mark.point: true` on lines, `mark.line: true` on areas,
- * etc.) into additional Vega layers at render time, so even a spec
- * with a single user-visible mark may produce a `.layer_0_marks`
- * group instead of `.marks`. Trying both patterns in the same
- * selector avoids having to detect each Vega expansion in the converter.
+ * Emits a CSS comma-selector covering every name the mark group can have.
+ * Vega-Lite expands mark sugar (`mark.point: true` on lines, `mark.line:
+ * true` on areas, etc.) into additional Vega layers at render time, so even
+ * a single view with one user-visible mark may draw it a level down, under
+ * `layer_0_marks` rather than `marks` (`markViews` in `names.ts`). Trying both names
+ * in the same selector avoids having to detect each Vega expansion in the
+ * converter.
  *
- * `markGroupPrefix` scopes the mark-group class tokens to a composite
- * child. Vega-Lite compiles concat children to `concat_<i>_marks` /
- * `concat_<i>_layer_<j>_marks` classes, so callers pass `concat_<i>_`
- * to match them. Defaults to `''` for single-view and layered specs.
+ * @param mark - The Vega-Lite mark
+ * @param marks - The compiled names of the group its elements are drawn in
+ * @returns The selector
  */
-export function buildSelector(
-  mark: string,
-  layerIndex: number,
-  isLayered: boolean,
-  markGroupPrefix = '',
-): string {
+export function buildSelector(mark: string, marks: readonly string[]): string {
   const cssClass = markToCssClass(mark);
   const childElement = markToChildElement(mark);
-  const layeredClass = `${markGroupPrefix}layer_${layerIndex}_marks`;
-  if (isLayered) {
-    // Layered specs always render as `.layer_N_marks`; no fallback needed.
-    return `g.${cssClass}.role-mark.${layeredClass} ${childElement}`;
-  }
-  // Single-view specs *usually* render as `.marks`, but Vega may emit
-  // `.layer_0_marks` when mark sugar (e.g. `mark.point: true`) expands
-  // into siblings. Cover both.
-  return (
-    `g.${cssClass}.role-mark.${markGroupPrefix}marks ${childElement}, `
-    + `g.${cssClass}.role-mark.${layeredClass} ${childElement}`
-  );
+  return marks.map(name => `g.${cssClass}.role-mark.${name} ${childElement}`).join(', ');
 }
 
 /**
@@ -138,23 +119,14 @@ export function buildSelector(
  * {@link buildSelector} names the elements under.
  *
  * @param mark - The Vega-Lite mark
- * @param layerIndex - The layer's index in its layered spec
- * @param isLayered - Whether the layer is one of a layered spec
- * @param markGroupPrefix - The composite child's class prefix, if any
+ * @param marks - The compiled names of the group its elements are drawn in
  * @returns The group, as a selector list naming it under each name it can
  * have, and the element's tag
  */
-export function buildMarkGroup(
-  mark: string,
-  layerIndex: number,
-  isLayered: boolean,
-  markGroupPrefix: string,
-): { marks: string; element: string } {
+export function buildMarkGroup(mark: string, marks: readonly string[]): { marks: string; element: string } {
   const cssClass = markToCssClass(mark);
-  const layeredClass = `${markGroupPrefix}layer_${layerIndex}_marks`;
-  const groups = isLayered ? [layeredClass] : [`${markGroupPrefix}marks`, layeredClass];
   return {
-    marks: groups.map(group => `g.${cssClass}.role-mark.${group}`).join(', '),
+    marks: marks.map(name => `g.${cssClass}.role-mark.${name}`).join(', '),
     element: markToChildElement(mark),
   };
 }
@@ -187,54 +159,26 @@ export function buildMarkGroup(
  * selector matching every line `<path>` under any line-mark group; the
  * caller (`LineTrace.mapViaPathParsing`) is expected to resolve the Nth
  * series via document-order indexing (`Svg.selectNthElement(sel, r)`).
+ * No `:nth-child(N)`: when the chart has N color-encoded series, Vega
+ * creates N sibling groups each with exactly one `<path>`, so
+ * `:nth-child(2)` etc. never match.
  *
- * `markGroupPrefix` scopes the mark-group class tokens to a composite
- * child (e.g. `concat_<i>_` for concat children). Defaults to `''`.
- *
- * A layer of a layered spec that draws an overlay -- points on a line, a
- * line along an area, whether its mark def or the chart's `config` turns
- * them on -- is turned by Vega-Lite into a layer of its own, the path first
+ * A line that draws an overlay -- points on a line, a line along an area,
+ * whether its mark def or the chart's `config` turns them on -- is turned by
+ * Vega-Lite into a layer of its own, the path first
  * (`normalize/pathoverlay.js`): the path is then one level down, under
  * `layer_<i>_layer_0_marks`, and nothing is named `layer_<i>_marks`. Both
- * names are listed, as the single view's two are. A layer is drawn under one
- * of them only, since a layer is either a unit, named `layer_<i>`, or a
- * layer of its own, whose children are named `layer_<i>_layer_<j>`.
+ * names are listed (`markViews` in `names.ts`). A layer is drawn under one of them
+ * only, since a layer is either a unit, named `layer_<i>`, or a layer of its
+ * own, whose children are named `layer_<i>_layer_<j>`.
+ *
+ * @param mark - The Vega-Lite mark
+ * @param seriesCount - How many series the layer draws
+ * @param marks - The compiled names of the group its paths are drawn in
+ * @returns One selector per series
  */
-export function buildLineSelectors(
-  mark: string,
-  seriesCount: number,
-  layerIndex: number,
-  isLayered: boolean,
-  markGroupPrefix = '',
-): string[] {
+export function buildLineSelectors(mark: string, seriesCount: number, marks: readonly string[]): string[] {
   const cssClass = markToCssClass(mark);
-  const layeredClass = `${markGroupPrefix}layer_${layerIndex}_marks`;
-  const overlaidClass = `${markGroupPrefix}layer_${layerIndex}_layer_0_marks`;
-  const selectors: string[] = [];
-  for (let i = 0; i < seriesCount; i++) {
-    if (isLayered) {
-      // Layered specs put each user-visible layer in its own class.
-      // Each layer typically has one `<path>` so first-of-type is fine;
-      // when the layer itself contains color-encoded multi-series, the
-      // caller's selectNthElement(sel, r) indexing still resolves them.
-      selectors.push(
-        `g.${cssClass}.role-mark.${layeredClass} > path, `
-        + `g.${cssClass}.role-mark.${overlaidClass} > path`,
-      );
-    } else {
-      // Cover both DOM patterns Vega uses for a non-layered single mark:
-      //   - `.marks` (single-series simple line)
-      //   - `.layer_0_marks` (sugar-expanded sibling group, OR each of
-      //     N sibling groups for color-encoded multi-series)
-      // No `:nth-child(N)`: when the chart has N color-encoded series,
-      // Vega creates N sibling groups each with exactly one `<path>`,
-      // so `:nth-child(2)` etc. never match. The caller picks the rth
-      // match in document order via Svg.selectNthElement.
-      selectors.push(
-        `g.${cssClass}.role-mark.${markGroupPrefix}marks > path, `
-        + `g.${cssClass}.role-mark.${layeredClass} > path`,
-      );
-    }
-  }
-  return selectors;
+  const selector = marks.map(name => `g.${cssClass}.role-mark.${name} > path`).join(', ');
+  return Array.from({ length: seriesCount }, () => selector);
 }

@@ -63,11 +63,11 @@ import {
   describeRepeat,
   facetCellAttrValue,
   facetCellScope,
-  repeatChildName,
   resolveDomainKeys,
   scopeSelector,
   substituteRepeatFields,
 } from './facets';
+import { compiledName, drawsPathOverlay, markViews, repeatCellName, viewName } from './names';
 import { buildLineSelectors, buildMarkGroup, buildSelector, markToCssClass } from './selectors';
 
 // ---------------------------------------------------------------------------
@@ -112,15 +112,19 @@ export function vegaLiteToMaidr(
 
   warnCompositeDeclaration(spec);
 
+  // What Vega-Lite names the top-level view, which every name below it is
+  // named after (see `names.ts`).
+  const name = viewName(spec, '', '');
+
   // Handle composite views (concat).
   if (spec.hconcat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.hconcat, 'horizontal', view, domOrder, undefined, spec.transform);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.hconcat, 'horizontal', view, domOrder, undefined, spec.transform, name, spec.config);
   }
   if (spec.vconcat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.vconcat, 'vertical', view, domOrder, undefined, spec.transform);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.vconcat, 'vertical', view, domOrder, undefined, spec.transform, name, spec.config);
   }
   if (spec.concat) {
-    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view, domOrder, spec.columns, spec.transform);
+    return buildConcatMaidr(id, title, subtitle, caption, spec.concat, 'wrap', view, domOrder, spec.columns, spec.transform, name, spec.config);
   }
 
   // Faceted specs — the `facet` operator (row/column or wrapped) and the
@@ -170,7 +174,7 @@ export function vegaLiteToMaidr(
     // spec-only test of one was asserting against no data at all (#1126).
     // The facet path already did this; the plain layered path did not.
     const layerSpecs = withSharedAxisTitles(inheritData(spec.layer ?? [], spec.data), spec);
-    const rawLayers = convertLayers(layerSpecs, spec, view, domOrder, { basePrefix: '', path: [] });
+    const rawLayers = convertLayers(layerSpecs, spec, view, domOrder, { view: name, scopes: [name], path: [] });
 
     // Coalesce sibling LINE layers with matching axes into a single
     // multi-series LINE layer. This handles the common Altair case where
@@ -184,38 +188,46 @@ export function vegaLiteToMaidr(
     return buildMaidr(id, title, subtitle, caption, [[{ layers }]]);
   }
 
-  // Single view.
-  const layer = convertLayerSpec(spec, 0, view, undefined, false, domOrder);
+  // Single view. One drawn with a path overlay is a layer of it, named as
+  // the top level is, its path keeping the view's name (`markViews`).
+  const layer = convertLayerSpec(spec, 0, view, undefined, false, domOrder, { view: name, scopes: unitScopes(name, '', []) });
   if (!layer) {
     return buildMaidr(id, title, subtitle, caption, [[{ layers: [] }]]);
   }
   return buildMaidr(id, title, subtitle, caption, [[{ layers: [layer] }]]);
 }
 
+/** The composite a view is a child of, or is drawn inside a child of. */
+type Composite = 'concat' | 'facet' | 'repeat';
+
 /**
  * Where a layered spec is drawn, which names its layers' marks and says where
  * their rows are read from.
  */
 interface LayerPlace {
+  /** Its compiled name (see `names.ts`), which its layers are named after. */
+  view: string;
   /**
-   * The class prefix of the composite child the spec is, or is nested in:
-   * `''` at the top level, `concat_<i>_` in a concat, `child_` in a facet's
-   * panels, a repeated child's name and `_` in a repeat.
+   * The compiled names of the views whose scales its layers can read, from its
+   * own out to the top level: Vega-Lite names a scale after the view that owns
+   * it, the outermost one sharing it.
    */
-  basePrefix: string;
+  scopes: readonly string[];
   /**
-   * What Vega-Lite puts before the name a layer declares for itself: a
-   * repeated child's name and `_`, which every named layer under it takes
-   * (`child__column_p50_p5_95_marks`). A concat child's and a facet's named
-   * layers keep their names as they are.
+   * The repeated cell it is drawn in, whose name Vega-Lite puts before the name
+   * a layer declares for itself (`child__column_p50_p5_95_marks`).
    */
-  namePrefix?: string;
+  cell?: string;
+  /** The composite it is a child of, or is drawn inside a child of. */
+  composite?: Composite;
   /** The layer indices from that child down to the spec, outermost first. */
   path: number[];
   /** A facet panel's scope, which the selectors are read inside. */
   cellScope?: string;
   /** A facet panel's values, which pick its rows out of the marks every panel draws. */
   cellFilters?: Array<[field: string, key: string]>;
+  /** The compiled name of the group whose items are the facet's panels. */
+  cellGroup?: string;
   /** A layer's rows, where the caller has read them for it: a facet panel's. */
   rowsOf?: (index: number) => Record<string, unknown>[];
   /** The index a layer's dataset is guessed by, where it is not its own: a concat's or a repeat's running count. */
@@ -223,14 +235,71 @@ interface LayerPlace {
 }
 
 /**
- * The class prefix a layered spec's own layers are named under: its
- * composite child's, then `layer_<i>_` for each layer above it.
- *
- * @param place - Where the spec is drawn
- * @returns The prefix, `''` for a top-level spec
+ * Where a unit view is drawn: the name Vega-Lite compiles it under, the views
+ * around it, and the facet panel it is read in.
  */
-function layersPrefix(place: LayerPlace): string {
-  return place.basePrefix + place.path.map(i => `layer_${i}_`).join('');
+interface UnitPlace {
+  /** Its compiled name (see `names.ts`), which names its marks. */
+  view: string;
+  /** The compiled names of the views whose scales it can read, its own first. */
+  scopes: readonly string[];
+  /** The composite it is a child of, or is drawn inside a child of. */
+  composite?: Composite;
+  /** Whether it is a layer of a layer. */
+  nested?: boolean;
+  /** A facet panel's scope, which the selectors are read inside. */
+  cellScope?: string;
+  /** A facet panel's values, which pick its rows out of the marks every panel draws. */
+  cellFilters?: Array<[field: string, key: string]>;
+  /** The compiled name of the group whose items are the facet's panels. */
+  cellGroup?: string;
+}
+
+/**
+ * The views whose scales a unit view can read: its own, the layer a path
+ * overlay draws it as, which is named as an undeclared view would be (see
+ * `markViews`), and the views around it.
+ *
+ * @param view - The view's compiled name
+ * @param given - The name its parent gives it
+ * @param around - The views around it, innermost first
+ * @returns Their compiled names, each once
+ */
+function unitScopes(view: string, given: string, around: readonly string[]): string[] {
+  return [...new Set([view, given, ...around])];
+}
+
+/**
+ * The compiled name of a layer of a layered spec (see `names.ts`).
+ *
+ * @param specs - The layered spec's children
+ * @param index - The layer's position among them
+ * @param place - Where the layered spec is drawn
+ * @returns The layer's compiled name
+ */
+function layerName(specs: VegaLiteSpec[], index: number, place: LayerPlace): string {
+  return viewName(specs[index], place.view, `layer_${index}`, place.cell);
+}
+
+/**
+ * Where a layer of a layered spec is drawn, read as a unit view.
+ *
+ * @param specs - The layered spec's children
+ * @param index - The layer's position among them
+ * @param place - Where the layered spec is drawn
+ * @returns The layer's place
+ */
+function layerUnitPlace(specs: VegaLiteSpec[], index: number, place: LayerPlace): UnitPlace {
+  const name = layerName(specs, index, place);
+  return {
+    view: name,
+    scopes: unitScopes(name, compiledName(place.view, `layer_${index}`), place.scopes),
+    composite: place.composite,
+    nested: place.path.length > 0,
+    cellScope: place.cellScope,
+    cellFilters: place.cellFilters,
+    cellGroup: place.cellGroup,
+  };
 }
 
 /**
@@ -260,20 +329,20 @@ function inPanelScope(selector: string, place: LayerPlace): string {
 }
 
 /**
- * The rows the marks of one name are drawn from, wherever their layered spec
+ * The rows a unit view's marks are drawn from, wherever their layered spec
  * sits: the mark dataset a top-level spec's marks have, or the scenegraph,
  * where a composite child draws its marks inside its group. In a facet, those
  * drawn inside the panel's cell (see `resolveSceneMarkData`).
  *
  * @param view - The compiled view
- * @param markName - The marks' name
- * @param place - Where their layered spec is drawn
+ * @param unit - The unit view's compiled name
+ * @param place - Where its layered spec is drawn
  * @returns The rows in drawn order, or `undefined` when no such marks are drawn
  */
-function drawnMarkRows(view: VegaView, markName: string, place: LayerPlace): Record<string, unknown>[] | undefined {
+function drawnMarkRows(view: VegaView, unit: string, place: LayerPlace): Record<string, unknown>[] | undefined {
   if (place.cellFilters)
-    return resolveSceneMarkData(view, markName, place.cellFilters);
-  return resolveMarkItemData(view, markName) ?? resolveSceneMarkData(view, markName);
+    return resolveSceneMarkData(view, unit, place.cellFilters, place.cellGroup);
+  return resolveMarkItemData(view, compiledName(unit, 'marks')) ?? resolveSceneMarkData(view, unit);
 }
 
 /**
@@ -290,7 +359,7 @@ function drawnMarkRows(view: VegaView, markName: string, place: LayerPlace): Rec
  * @param spec - The layer
  * @param index - Its position among its siblings
  * @param view - The compiled view, when bound
- * @param markName - Its marks' name
+ * @param unit - The compiled name of the unit view its marks are drawn as
  * @param place - Where its layered spec is drawn
  * @param requiredFields - The columns the rows must carry, if any
  * @returns The rows
@@ -299,11 +368,11 @@ function pairedLayerRows(
   spec: VegaLiteSpec,
   index: number,
   view: VegaView | undefined,
-  markName: string,
+  unit: string,
   place: LayerPlace,
   requiredFields?: readonly string[],
 ): Record<string, unknown>[] {
-  const drawn = view ? drawnMarkRows(view, markName, place) : undefined;
+  const drawn = view ? drawnMarkRows(view, unit, place) : undefined;
   if (drawn?.length === 0 && place.cellFilters)
     return drawn;
   if (drawn && drawn.length > 0 && rowsCarryFields(drawn, requiredFields))
@@ -333,10 +402,9 @@ function pairedLayerRows(
  *
  * @param layerSpecs - The layered spec's children, with its data inherited
  * @param parent - The layered spec: the encoding and transforms of every
- * spec above its layers, merged, and its own name
+ * spec above its layers, merged
  * @param parent.encoding - The encoding its layers inherit
  * @param parent.transform - The transforms that run before its layers' own
- * @param parent.name - Its own name, which Vega-Lite names a top-level spec's fans by
  * @param view - The compiled view, when bound
  * @param domOrder - A caller-supplied DOM order for segmented layers
  * @param place - Where the spec is drawn
@@ -344,20 +412,17 @@ function pairedLayerRows(
  */
 function convertLayers(
   layerSpecs: VegaLiteSpec[],
-  parent: { encoding?: VegaLiteEncoding; transform?: VegaLiteTransform[]; name?: string },
+  parent: { encoding?: VegaLiteEncoding; transform?: VegaLiteTransform[] },
   view: VegaView | undefined,
   domOrder: 'series-major' | 'subject-major' | undefined,
   place: LayerPlace,
 ): ConvertedLayer[] {
-  const prefix = layersPrefix(place);
   const idOf = (i: number): string => [...place.path, i].join('_');
   // Which `text` layers label another, and what each labelled layer should
   // be told to call its points. Computed once, before conversion, because
   // a layer has to know its names while its data is being read.
   const overlays = labelOverlays(layerSpecs, parent.encoding);
-  // Vega-Lite names a fan's marks after its layered spec: a top-level spec
-  // by its own name, any other by the path to it.
-  const fans = convertDeclaredFans(layerSpecs, view, parent.encoding, prefix ? prefix.slice(0, -1) : parent.name, place);
+  const fans = convertDeclaredFans(layerSpecs, view, parent.encoding, place);
   const fanBands = new Set([...fans.values()].flatMap(fan => fan.bands));
   const rawLayers: ConvertedLayer[] = [];
   const pushed = (layer: MaidrLayer, i: number): void => {
@@ -366,7 +431,7 @@ function convertLayers(
   };
   for (let i = 0; i < layerSpecs.length;) {
     if (layerSpecs[i].layer) {
-      rawLayers.push(...convertNestedLayers(layerSpecs[i], [...place.path, i], view, parent.encoding, parent.transform, domOrder, place));
+      rawLayers.push(...convertNestedLayers(layerSpecs[i], layerName(layerSpecs, i, place), [...place.path, i], view, parent.encoding, parent.transform, domOrder, place));
       i += 1;
       continue;
     }
@@ -408,9 +473,10 @@ function convertLayers(
     // read for it, or, for a layer of a nested layer, those its marks are
     // drawn from inside the panel's cell. A layer with none in the panel is
     // left out of it, since a layer of no points cannot be read.
+    const unit = layerUnitPlace(layerSpecs, i, place);
     let rows = place.rowsOf?.(i);
     if (!rows && place.cellFilters) {
-      const drawn = view ? resolveSceneMarkData(view, `${prefix}layer_${i}_marks`, place.cellFilters) : undefined;
+      const drawn = view ? resolveSceneMarkData(view, unit.view, place.cellFilters, place.cellGroup) : undefined;
       rows = drawn ?? inPanel(resolveData(layerSpecs[i], i), place);
     }
     if (rows?.length === 0) {
@@ -424,9 +490,7 @@ function convertLayers(
       parent.encoding,
       true,
       domOrder,
-      prefix || place.cellScope
-        ? { layerIndex: i, markGroupPrefix: prefix, cellScope: place.cellScope, cellFilters: place.cellFilters }
-        : undefined,
+      unit,
       rows,
       parent.transform,
     );
@@ -443,19 +507,20 @@ function convertLayers(
  * Read a layer that is itself a layered spec as the layers it draws.
  *
  * Vega-Lite draws the children of such a layer as marks of their own, named
- * after the path to them: the children of layer `i` are
- * `layer_<i>_layer_<j>_marks`, theirs `layer_<i>_layer_<j>_layer_<k>_marks`,
- * under the class prefix of the composite child it is a layer of, if any:
- * `concat_0_layer_<i>_layer_<j>_marks`, `child_layer_<i>_layer_<j>_marks` in
- * every panel of a facet. Read as one layer it has no mark, so it was dropped
- * with every mark under it, and `alt.layer(bars + labels, rule)` was read as
- * its rule alone, which reads as nothing.
+ * after it: the children of layer `i` are `layer_<i>_layer_<j>_marks`, theirs
+ * `layer_<i>_layer_<j>_layer_<k>_marks`, after the name of the composite
+ * child it is a layer of, if any: `concat_0_layer_<i>_layer_<j>_marks`,
+ * `child_layer_<i>_layer_<j>_marks` in every panel of a facet. A layer that
+ * declares a name names its children after that alone (`inner_layer_<j>_marks`).
+ * Read as one layer it has no mark, so it was dropped with every mark under
+ * it, and `alt.layer(bars + labels, rule)` was read as its rule alone, which
+ * reads as nothing.
  *
- * Its children are read as a layered spec's are (`convertLayers`), under the
- * class prefix of its path and with the encoding and transforms of every
- * layer above it.
+ * Its children are read as a layered spec's are (`convertLayers`), under its
+ * name and with the encoding and transforms of every layer above it.
  *
  * @param nested - The layered spec, a layer of its parent
+ * @param name - Its compiled name
  * @param path - The layer indices leading to it, outermost first
  * @param view - The compiled view, when bound
  * @param parentEncoding - The encoding of the layers above it, merged
@@ -466,6 +531,7 @@ function convertLayers(
  */
 function convertNestedLayers(
   nested: VegaLiteSpec,
+  name: string,
   path: number[],
   view: VegaView | undefined,
   parentEncoding: VegaLiteEncoding | undefined,
@@ -479,12 +545,15 @@ function convertNestedLayers(
   const encoding = { ...parentEncoding, ...nested.encoding };
   const transform = [...(parentTransform ?? []), ...(nested.transform ?? [])];
   const children = withSharedAxisTitles(inheritData(nested.layer ?? [], nested.data), { ...nested, encoding });
-  return convertLayers(children, { encoding, transform, name: nested.name }, view, domOrder, {
-    basePrefix: place.basePrefix,
-    namePrefix: place.namePrefix,
+  return convertLayers(children, { encoding, transform }, view, domOrder, {
+    view: name,
+    scopes: [name, ...place.scopes],
+    cell: place.cell,
+    composite: place.composite,
     path,
     cellScope: place.cellScope,
     cellFilters: place.cellFilters,
+    cellGroup: place.cellGroup,
   });
 }
 
@@ -1120,38 +1189,31 @@ type CompiledScale = NonNullable<ReturnType<VegaView['scale']>>;
  *
  * Two things make this less direct than it looks. Vega **throws** for a
  * scale name it does not recognise rather than returning nothing, and a
- * composite child's scales are scoped to its own group — a concat child's y
- * scale is `concat_0_y`, not `y` — so the prefixed name is tried first and
- * the bare one after.
- *
- * A layer of a layered spec that resolves the scale `independent` has one of
- * its own, `layer_<i>_y` (`concat_0_layer_<i>_y` in a concat child), which is
- * tried before the shared one when the layer's index is given.
+ * scale is named after the view that owns it (`names.ts`): the outermost
+ * view sharing it, which may be the layer itself, where its layered spec
+ * resolves the scale `independent` (`layer_<i>_y`), a concat child
+ * (`concat_0_y`), or the top level (`y`). So the view's own name is tried
+ * first, then each view around it, out to the top level.
  *
  * The scale returned is also a function, as every Vega scale is, from a value
  * of its domain to the position that value is drawn at, which
  * {@link drawnFirstPlace} calls.
  *
  * @param view - The compiled view, when one was supplied
- * @param name - The scale's name — a positional axis, or `color`
- * @param markGroupPrefix - The composite child's class prefix, if any
- * @param layerIndex - The layer's index in its layered spec, if it is one
+ * @param channel - The scale's channel — a positional axis, or `color`
+ * @param scopes - The compiled names of the views whose scales the layer can
+ * read, its own first
  * @returns The scale, or `undefined` when no such scale with a domain is in
  * scope
  */
 function readScale(
   view: VegaView | undefined,
-  name: string,
-  markGroupPrefix: string,
-  layerIndex?: number,
+  channel: string,
+  scopes: readonly string[],
 ): CompiledScale | undefined {
   if (!view || typeof view.scale !== 'function')
     return undefined;
-  const candidates = [
-    ...(layerIndex === undefined ? [] : [`${markGroupPrefix}layer_${layerIndex}_${name}`]),
-    ...(markGroupPrefix ? [`${markGroupPrefix}${name}`] : []),
-    name,
-  ];
+  const candidates = new Set(scopes.map(scope => compiledName(scope, channel)));
   for (const candidate of candidates) {
     try {
       const scale = view.scale(candidate);
@@ -1169,16 +1231,17 @@ function readScale(
  * Read a scale's domain off the compiled view. See {@link readScale}.
  *
  * @param view - The compiled view, when one was supplied
- * @param name - The scale's name — a positional axis, or `color`
- * @param markGroupPrefix - The composite child's class prefix, if any
+ * @param channel - The scale's channel — a positional axis, or `color`
+ * @param scopes - The compiled names of the views whose scales the layer can
+ * read, its own first
  * @returns The domain, or `undefined` when no such scale is in scope
  */
 function readScaleDomain(
   view: VegaView | undefined,
-  name: string,
-  markGroupPrefix: string,
+  channel: string,
+  scopes: readonly string[],
 ): unknown[] | undefined {
-  return readScale(view, name, markGroupPrefix)?.domain();
+  return readScale(view, channel, scopes)?.domain();
 }
 
 /**
@@ -1202,22 +1265,23 @@ function readScaleDomain(
  *
  * @param view - The compiled view, when one was supplied
  * @param y - The layer's y channel, merged with any parent's
- * @param markGroupPrefix - The composite child's class prefix, if any
- * @param layerIndex - The layer's index in its layered spec, if it is one
+ * @param scopes - The compiled names of the views whose scales the layer can
+ * read, its own first
+ * @param layered - Whether the layer is one of a layered spec
  * @returns Where first place is drawn, or `undefined` where that is not certain
  */
 function firstPlaceOf(
   view: VegaView | undefined,
   y: VegaLiteChannelDef | undefined,
-  markGroupPrefix: string,
-  layerIndex?: number,
+  scopes: readonly string[],
+  layered: boolean,
 ): 'top' | 'bottom' | undefined {
   if (y?.scale === null)
     return 'top';
-  const scale = readScale(view, 'y', markGroupPrefix, layerIndex);
+  const scale = readScale(view, 'y', scopes);
   if (scale)
     return drawnFirstPlace(scale);
-  return layerIndex === undefined ? declaredFirstPlace(y) : undefined;
+  return layered ? undefined : declaredFirstPlace(y);
 }
 
 /**
@@ -1955,7 +2019,7 @@ interface SceneMark {
 }
 
 /**
- * The rows the marks of one name are drawn from, read off the view's
+ * The rows a unit view's marks are drawn from, read off the view's
  * scenegraph.
  *
  * A concat child's marks are drawn inside its group, and their datasets are
@@ -1971,22 +2035,26 @@ interface SceneMark {
  * `view.data()`'s reach the same way.
  *
  * Every panel of a facet draws marks of the same names, each inside its own
- * cell: an item of the facet's `cell` group, whose row holds the panel's
+ * cell: an item of the facet's cell group, whose row holds the panel's
  * facet values. Given a panel's values, only the marks inside its cell are
  * read. The rows themselves need not hold the values: Vega-Lite splits the
  * rows into panels before a layer aggregates them, so an aggregated layer's
  * rows do not.
  *
  * @param view - The compiled view
- * @param markName - The marks' name, such as `concat_0_marks` or `layer_1_marks`
+ * @param unit - The compiled name of the unit view whose marks are read, such
+ * as `concat_0` or `layer_1` (see `names.ts`)
  * @param panel - A facet panel's values, field by field, to read its marks alone
+ * @param cellGroup - The compiled name of the group whose items are the
+ * facet's panels
  * @returns The rows in drawn order, or `undefined` when no mark of that name
  * is drawn or one of its items carries no row
  */
 function resolveSceneMarkData(
   view: VegaView,
-  markName: string,
+  unit: string,
   panel?: ReadonlyArray<readonly [field: string, key: string]>,
+  cellGroup = 'cell',
 ): Record<string, unknown>[] | undefined {
   let root: unknown;
   try {
@@ -1994,11 +2062,12 @@ function resolveSceneMarkData(
   } catch {
     return undefined;
   }
+  const markName = compiledName(unit, 'marks');
   const found: SceneMark[] = [];
   // A line, area or trail split into series is drawn one group per series
-  // inside a `_pathgroup`, which holds no group, and so no mark of this name,
-  // where it draws nothing.
-  const seriesGroup = markName.endsWith('_marks') ? `${markName.slice(0, -'marks'.length)}pathgroup` : undefined;
+  // inside the view's `pathgroup`, which holds no group, and so no mark of
+  // this name, where it draws nothing.
+  const seriesGroup = compiledName(unit, 'pathgroup');
   let seriesGroups = 0;
   const walk = (mark: SceneMark): void => {
     if (mark.name === markName) {
@@ -2010,7 +2079,7 @@ function resolveSceneMarkData(
     if (mark.name === seriesGroup)
       seriesGroups++;
     for (const item of mark.items ?? []) {
-      if (panel && mark.name === 'cell' && !isPanel(item.datum, panel))
+      if (panel && mark.name === cellGroup && !isPanel(item.datum, panel))
         continue;
       for (const child of item.items ?? [])
         walk(child);
@@ -2233,7 +2302,7 @@ function resolveData(
   view?: VegaView,
   markDatasetName?: string,
   requiredFields?: readonly string[],
-  scene?: { marks: readonly string[]; requiredFields: readonly string[] },
+  scene?: { units: readonly string[]; requiredFields: readonly string[] },
 ): Record<string, unknown>[] {
   // Exact path first: a layer's own mark dataset. See
   // `resolveMarkItemData` — the name-guessing below is a fallback.
@@ -2242,12 +2311,12 @@ function resolveData(
     if (markRows && rowsCarryFields(markRows, requiredFields))
       return markRows;
   }
-  // The layer's marks, read where they are drawn, under the first of the
-  // names that is and carries the columns asked of it. See
+  // The layer's marks, read where they are drawn, as the first of the unit
+  // views that draws them and carries the columns asked of it. See
   // `resolveSceneMarkData`.
   if (view && scene) {
-    for (const name of scene.marks) {
-      const drawnRows = resolveSceneMarkData(view, name);
+    for (const unit of scene.units) {
+      const drawnRows = resolveSceneMarkData(view, unit);
       if (drawnRows && rowsCarryFields(drawnRows, scene.requiredFields))
         return drawnRows;
     }
@@ -3146,17 +3215,18 @@ function extractRugData(
  *
  * @param view - The compiled view, when one was supplied
  * @param channel - The positional channel, `'x'` or `'y'`
- * @param markGroupPrefix - The composite child's class prefix, if any
+ * @param scopes - The compiled names of the views whose scales the layer can
+ * read, its own first
  * @param seen - The categories the rows carried, in the order they arrived
  * @returns The drawn order, or `seen` when there is no view to ask
  */
 function orderedHeatmapAxis(
   view: VegaView | undefined,
   channel: string,
-  markGroupPrefix: string,
+  scopes: readonly string[],
   seen: string[],
 ): string[] {
-  const domain = readScaleDomain(view, channel, markGroupPrefix);
+  const domain = readScaleDomain(view, channel, scopes);
   if (!domain)
     return seen;
 
@@ -3173,8 +3243,8 @@ function orderedHeatmapAxis(
 function extractHeatmapData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
-  view?: VegaView,
-  markGroupPrefix = '',
+  view: VegaView | undefined,
+  scopes: readonly string[],
 ): HeatmapData {
   const xField = encoding.x?.field ?? 'x';
   const yField = encoding.y?.field ?? 'y';
@@ -3186,8 +3256,8 @@ function extractHeatmapData(
     xLabelsSet.add(String(row[xField] ?? ''));
     yLabelsSet.add(String(row[yField] ?? ''));
   }
-  const xLabels = orderedHeatmapAxis(view, 'x', markGroupPrefix, [...xLabelsSet]);
-  const yLabels = orderedHeatmapAxis(view, 'y', markGroupPrefix, [...yLabelsSet]);
+  const xLabels = orderedHeatmapAxis(view, 'x', scopes, [...xLabelsSet]);
+  const yLabels = orderedHeatmapAxis(view, 'y', scopes, [...yLabelsSet]);
 
   const xIndex = new Map(xLabels.map((l, i) => [l, i]));
   const yIndex = new Map(yLabels.map((l, i) => [l, i]));
@@ -4337,18 +4407,19 @@ function convertPairedLayers(
     return null;
   }
 
-  const prefix = layersPrefix(place);
-  const selectors = inPanelScope(buildSelector(connectorMark, index, true, prefix), place);
+  const connector = layerName(specs, index, place);
+  const selectors = inPanelScope(buildSelector(connectorMark, [compiledName(connector, 'marks')]), place);
   const axes: MaidrLayer['axes'] = {
     x: getAxisConfig(dotEncoding.x),
     y: getAxisConfig(dotEncoding.y),
   };
 
-  const dotRows = pairedLayerRows(dotSpec, index + 1, view, `${prefix}layer_${index + 1}_marks`, place);
+  const dots = layerUnitPlace(specs, index + 1, place);
+  const dotRows = pairedLayerRows(dotSpec, index + 1, view, dots.view, place);
   const dumbbell = extractDumbbellData(
     dotRows,
     dotEncoding,
-    readScaleDomain(view, 'color', place.basePrefix),
+    readScaleDomain(view, 'color', dots.scopes),
   );
   if (dumbbell) {
     const layer: MaidrLayer = {
@@ -4373,7 +4444,7 @@ function convertPairedLayers(
 
   // The stem's own rows, so the points line up with the elements the
   // selector resolves to.
-  const rows = pairedLayerRows(connectorSpec, index, view, `${prefix}layer_${index}_marks`, place);
+  const rows = pairedLayerRows(connectorSpec, index, view, connector, place);
   if (rows.length === 0)
     return null;
 
@@ -4505,11 +4576,12 @@ function convertMedianBand(
     return null;
   }
 
-  const prefix = layersPrefix(place);
-  const bandMarks = `${prefix}layer_${bandAt}_layer_0_marks`;
-  const lineMarks = `${prefix}layer_${lineAt}_marks`;
-  const bandRows = drawnMarkRows(view, bandMarks, place) ?? [];
-  const lineRows = drawnMarkRows(view, lineMarks, place) ?? [];
+  // An `errorband` is a composite mark, a layer of its parts, so its band
+  // is drawn a level down.
+  const band = compiledName(layerName(specs, bandAt, place), 'layer_0');
+  const line = layerName(specs, lineAt, place);
+  const bandRows = drawnMarkRows(view, band, place) ?? [];
+  const lineRows = drawnMarkRows(view, line, place) ?? [];
   if (bandRows.length === 0 || bandRows.length !== lineRows.length)
     return null;
 
@@ -4551,8 +4623,8 @@ function convertMedianBand(
     id: String(index),
     type: TraceType.PERCENTILE_BAND,
     selectors: [
-      inPanelScope(`g.${markToCssClass('errorband')}.role-mark.${bandMarks} > path`, place),
-      inPanelScope(`g.${markToCssClass('line')}.role-mark.${lineMarks} > path`, place),
+      inPanelScope(`g.${markToCssClass('errorband')}.role-mark.${compiledName(band, 'marks')} > path`, place),
+      inPanelScope(`g.${markToCssClass('line')}.role-mark.${compiledName(line, 'marks')} > path`, place),
     ],
     axes: {
       x: getAxisConfig(bandEncoding.x),
@@ -4566,35 +4638,6 @@ function convertMedianBand(
 interface DeclaredFan {
   layer: MaidrLayer;
   bands: number[];
-}
-
-/**
- * The name Vega-Lite gives a layer's compiled marks: its own `name`, or the
- * `layer_<i>` its parent gives it, through `varName` -- non-word characters
- * to `_`, and a leading digit prefixed -- as vega-lite 5.23.0's
- * `Model.getName` builds it.
- *
- * @param spec - The layer
- * @param index - Its position among its siblings
- * @param parentName - The layered parent's own `name`, when it has one
- * @param part - What the marks are: `marks`, or `layer_0_marks` for the
- *   area a composite `errorband` compiles into
- * @param namePrefix - What Vega-Lite puts before a name the layer declares,
- *   in a repeated cell (see `LayerPlace`)
- * @returns The mark group's name
- */
-function compiledMarkName(
-  spec: VegaLiteSpec,
-  index: number,
-  parentName: string | undefined,
-  part: string,
-  namePrefix = '',
-): string {
-  const own = spec.name !== undefined
-    ? `${namePrefix}${spec.name}`
-    : `${parentName ? `${parentName}_` : ''}layer_${index}`;
-  const name = `${own}_${part}`;
-  return (/^\d/.test(name) ? '_' : '') + name.replace(/\W/g, '_');
 }
 
 /**
@@ -4619,8 +4662,6 @@ function compiledMarkName(
  * @param specs - The layered spec's children, with the parent's data inherited
  * @param view - The compiled view, when one was supplied
  * @param parentEncoding - Encoding hoisted onto the layered parent
- * @param parentName - The name Vega-Lite gives the layered parent: its own
- * `name` at the top level, the path to it anywhere else
  * @param place - Where the layered spec is drawn
  * @returns The fans, keyed by the median layer's index
  */
@@ -4628,7 +4669,6 @@ function convertDeclaredFans(
   specs: VegaLiteSpec[],
   view: VegaView | undefined,
   parentEncoding: VegaLiteEncoding | undefined,
-  parentName: string | undefined,
   place: LayerPlace,
 ): Map<number, DeclaredFan> {
   const fans = new Map<number, DeclaredFan>();
@@ -4651,7 +4691,7 @@ function convertDeclaredFans(
       );
       return;
     }
-    const fan = convertDeclaredFan(specs, index, declaration, encoding, view, parentName, used, place);
+    const fan = convertDeclaredFan(specs, index, declaration, encoding, view, used, place);
     // A fan drawing nothing, as in a facet's panel its own filter keeps it out
     // of, is no chart there, and its layers draw nothing either.
     if ((fan.layer.data as PercentileBandPoint[]).length === 0)
@@ -4671,7 +4711,6 @@ function convertDeclaredFans(
  * @param declaration - Its validated block
  * @param encoding - Its encoding, merged with the parent's
  * @param view - The compiled view, when one was supplied
- * @param parentName - The name Vega-Lite gives the layered parent
  * @param used - The layers other fans already read
  * @param place - Where the layered spec is drawn
  * @returns The fan
@@ -4682,7 +4721,6 @@ function convertDeclaredFan(
   declaration: PercentileBandDeclaration,
   encoding: VegaLiteEncoding,
   view: VegaView | undefined,
-  parentName: string | undefined,
   used: Set<number>,
   place: LayerPlace,
 ): DeclaredFan {
@@ -4714,8 +4752,10 @@ function convertDeclaredFan(
         return refuse(band.series, 'which draws no "y" to "y2" range over the median\'s x');
       }
       used.add(at);
-      const markName = compiledMarkName(specs[at], at, parentName, mark === 'area' ? 'marks' : 'layer_0_marks', place.namePrefix);
-      const rows = pairedLayerRows(specs[at], at, view, markName, place, [low, high]);
+      // An `errorband` is a composite mark, a layer of its parts, so its
+      // band is drawn a level down.
+      const area = mark === 'area' ? layerName(specs, at, place) : compiledName(layerName(specs, at, place), 'layer_0');
+      const rows = pairedLayerRows(specs[at], at, view, area, place, [low, high]);
       const edges = new Map<string, { low: number | null; high: number | null }>();
       for (const row of rows) {
         const lowValue = Number(row[low]);
@@ -4725,12 +4765,12 @@ function convertDeclaredFan(
           high: Number.isFinite(highValue) ? highValue : null,
         });
       }
-      return { at, lower: band.lower, upper: band.upper, edges, selector: inPanelScope(`g.${markToCssClass('area')}.role-mark.${markName} > path`, place) };
+      return { at, lower: band.lower, upper: band.upper, edges, selector: inPanelScope(`g.${markToCssClass('area')}.role-mark.${compiledName(area, 'marks')} > path`, place) };
     })
     .filter(band => band !== undefined);
 
-  const lineMark = compiledMarkName(spec, index, parentName, 'marks', place.namePrefix);
-  const medianRows = pairedLayerRows(spec, index, view, lineMark, place, [xField, yField]);
+  const line = layerName(specs, index, place);
+  const medianRows = pairedLayerRows(spec, index, view, line, place, [xField, yField]);
   const data: PercentileBandPoint[] = [];
   for (const row of medianRows) {
     const x = row[xField];
@@ -4759,7 +4799,7 @@ function convertDeclaredFan(
       ...(declaration.name !== undefined ? { name: declaration.name } : {}),
       selectors: [
         ...bands.map(band => band.selector),
-        inPanelScope(`g.${markToCssClass('line')}.role-mark.${lineMark} > path`, place),
+        inPanelScope(`g.${markToCssClass('line')}.role-mark.${compiledName(line, 'marks')} > path`, place),
       ],
       axes: { x: getAxisConfig(encoding.x), y: getAxisConfig(encoding.y) },
       data,
@@ -4844,16 +4884,11 @@ function withSeriesChannel(mark: string, encoding: VegaLiteEncoding): VegaLiteEn
 function convertLayerSpec(
   spec: VegaLiteSpec,
   index: number,
-  view?: VegaView,
-  parentEncoding?: VegaLiteEncoding,
-  isLayered?: boolean,
-  domOrderOverride?: 'series-major' | 'subject-major',
-  selectorOverride?: {
-    layerIndex: number;
-    markGroupPrefix: string;
-    cellScope?: string;
-    cellFilters?: Array<[field: string, key: string]>;
-  },
+  view: VegaView | undefined,
+  parentEncoding: VegaLiteEncoding | undefined,
+  isLayered: boolean,
+  domOrderOverride: 'series-major' | 'subject-major' | undefined,
+  place: UnitPlace,
   rowsOverride?: Record<string, unknown>[],
   parentTransform?: VegaLiteTransform[],
 ): MaidrLayer | null {
@@ -4903,15 +4938,19 @@ function convertLayerSpec(
     y: getAxisConfig(encoding.y),
   };
 
-  const layered = isLayered ?? false;
+  const layered = isLayered;
 
-  // Concat children render their mark groups under Vega class tokens like
-  // `concat_<i>_marks` / `concat_<i>_layer_<j>_marks`, not the bare `marks`
-  // / `layer_<N>_marks` used by single-view and layered specs. When a
-  // selector override is supplied, use its local layer index and class
-  // prefix so highlight selectors match those concat mark groups.
-  const selectorLayerIndex = selectorOverride?.layerIndex ?? index;
-  const markGroupPrefix = selectorOverride?.markGroupPrefix ?? '';
+  // The marks are drawn under the layer's compiled name (`names.ts`):
+  // `marks` for a single view, `layer_<i>_marks` for a layer,
+  // `concat_<i>_marks` for a concat child, or the name the view declares. A
+  // line or an area drawn with points or a line over it is drawn a level
+  // down, as the overlay's path (`markViews`). A single view is looked for
+  // under both names; a layer of a layered spec under its own, but for a
+  // line's path.
+  const units = markViews(spec, place.view);
+  const ownMarks = compiledName(place.view, 'marks');
+  const marks = (layered ? units.slice(0, 1) : units).map(unit => compiledName(unit, 'marks'));
+  const pathMarks = units.map(unit => compiledName(unit, 'marks'));
 
   // A parallel coordinates layer is the one case where the layer index is
   // no guide to the pipeline: the gallery spec draws its axis rules first,
@@ -4950,23 +4989,15 @@ function convertLayerSpec(
   // `view.data()` on a single view, from the drawn marks in a repeated cell,
   // and from those inside its panel's cell in a facet.
   const drawnScatter = traceType === TraceType.SCATTER;
-  const ownMarks = layered
-    ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks`
-    : `${markGroupPrefix}marks`;
-  // The overlaid path of a layer that is not one of a layered spec's is a
-  // concat child's, the only such layer read from its drawn marks.
-  const overlaidPath = layered
-    ? `${markGroupPrefix}layer_${selectorLayerIndex}_layer_0_marks`
-    : `${markGroupPrefix}layer_0_marks`;
   const drawnAsSeries = mark === 'line' || mark === 'area' || mark === 'trail';
-  const sceneMarks = markGroupPrefix.startsWith('concat_') || (layered && drawnAsSeries) || drawnScatter
-    ? [ownMarks, ...(drawnAsSeries ? [overlaidPath] : [])]
+  const sceneUnits = place.composite === 'concat' || (layered && drawnAsSeries) || drawnScatter
+    ? (drawnAsSeries ? units : units.slice(0, 1))
     : undefined;
   const requiredFields = folded && traceType === TraceType.PARALLEL
     ? [folded.keyColumn, folded.valueColumn]
-    : markGroupPrefix ? columnsReadAsIs(encoding) : undefined;
-  const panelFilters = drawnScatter ? selectorOverride?.cellFilters : undefined;
-  const panelRows = view && panelFilters ? resolveSceneMarkData(view, ownMarks, panelFilters) : undefined;
+    : place.composite || place.nested ? columnsReadAsIs(encoding) : undefined;
+  const panelFilters = drawnScatter ? place.cellFilters : undefined;
+  const panelRows = view && panelFilters ? resolveSceneMarkData(view, place.view, panelFilters, place.cellGroup) : undefined;
   const drawnPanelRows = panelRows && rowsCarryFields(panelRows, columnsReadAsIs(encoding)) ? panelRows : undefined;
   const rows = drawnPanelRows ?? rowsOverride ?? resolveData(
     spec,
@@ -4977,7 +5008,7 @@ function convertLayerSpec(
     // The drawn rows have to carry the columns the layer reads, as a guessed
     // table does where its columns are asked for, so rows of another shape
     // fall through to the guessing rather than being read as zeros.
-    sceneMarks && { marks: sceneMarks, requiredFields: requiredFields ?? columnsReadAsIs(encoding) },
+    sceneUnits && { units: sceneUnits, requiredFields: requiredFields ?? columnsReadAsIs(encoding) },
   );
 
   let data: MaidrLayer['data'];
@@ -4993,7 +5024,7 @@ function convertLayerSpec(
   switch (traceType) {
     case TraceType.BAR: {
       data = extractBarData(rows, encoding);
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       const xIsQuant = encoding.x?.type === 'quantitative'
         || encoding.x?.aggregate != null;
       const yIsQuant = encoding.y?.type === 'quantitative'
@@ -5011,7 +5042,7 @@ function convertLayerSpec(
     case TraceType.DOT: {
       const isHorizontal = isCategorical(encoding.y);
       data = extractBarData(rows, encoding, isHorizontal);
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       if (isHorizontal) {
         orientation = Orientation.HORIZONTAL;
       }
@@ -5020,7 +5051,7 @@ function convertLayerSpec(
     case TraceType.HISTOGRAM: {
       const binnedHorizontally = isBinnedHorizontally(encoding);
       data = extractHistogramData(rows, encoding, binnedHorizontally);
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       if (binnedHorizontally) {
         orientation = Orientation.HORIZONTAL;
       }
@@ -5031,7 +5062,7 @@ function convertLayerSpec(
     case TraceType.NORMALIZED: {
       const segments = extractSegmentedData(rows, encoding);
       data = segments;
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       // Horizontal segmented bars (x=quantitative, y=nominal) carry the
       // value on x and the category on y. The core SegmentedTrace reads
       // the value from `point.x` only when `orientation` is HORIZONTAL,
@@ -5108,7 +5139,7 @@ function convertLayerSpec(
       const lineData = extractLineData(rows, encoding);
       data = lineData;
       // Line/area traces expect selectors as string[] (one per series).
-      selectors = buildLineSelectors(mark, lineData.length, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildLineSelectors(mark, lineData.length, pathMarks);
       // A precision-recall curve is drawn as an ordinary line, and nothing
       // but what its axes measure says so. `PrCurveTrace` reads the same
       // `LinePoint[][]`, one array per curve, so only the announced type
@@ -5132,13 +5163,7 @@ function convertLayerSpec(
       }
       const observations = extractParallelData(rows, encoding, folded);
       data = observations;
-      selectors = buildLineSelectors(
-        mark,
-        observations.length,
-        selectorLayerIndex,
-        layered,
-        markGroupPrefix,
-      );
+      selectors = buildLineSelectors(mark, observations.length, pathMarks);
       // The x channel carries the folded key, so it already names what the
       // columns are. The y channel does not name what the numbers are: it
       // reads the normalised column the fold was drawn into, whose name
@@ -5155,13 +5180,13 @@ function convertLayerSpec(
     }
     case TraceType.SCATTER:
       data = extractScatterData(rows, encoding);
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       // A declaration names the layer as one, so it is read as one.
       if (!declaration) {
         colourGroups = colourGroupsOf(
           rows,
           encoding,
-          readScale(view, 'color', markGroupPrefix, layered ? selectorLayerIndex : undefined)?.domain(),
+          readScale(view, 'color', place.scopes)?.domain(),
         );
       }
       break;
@@ -5171,15 +5196,15 @@ function convertLayerSpec(
     case TraceType.RUG: {
       const onY = !hasField(encoding.x);
       data = extractRugData(rows, encoding, onY);
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       if (onY) {
         orientation = Orientation.HORIZONTAL;
       }
       break;
     }
     case TraceType.HEATMAP:
-      data = extractHeatmapData(rows, encoding, view, markGroupPrefix);
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      data = extractHeatmapData(rows, encoding, view, place.scopes);
+      selectors = buildSelector(mark, marks);
       break;
     // A map has no positional channels at all, so its axes are named after
     // the two things it does carry: what a region is called, and what
@@ -5200,14 +5225,14 @@ function convertLayerSpec(
       // not match the regions it was given, so a map that dropped an
       // unmatched feature degrades to no highlight rather than to the wrong
       // one.
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       axes.x = { label: fields.regionLabel };
       axes.y = { label: fields.valueLabel };
       break;
     }
     case TraceType.PIE:
       data = extractPieData(rows, encoding);
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       // An arc has no x or y to name the axes after — the pair built above is
       // two empty labels. The slice labels come from the colour channel and
       // the magnitudes from `theta`, so the layer's axes are named after those.
@@ -5220,7 +5245,7 @@ function convertLayerSpec(
       // `RadarTrace` extends `LineTrace`, which expects one selector per
       // series — here always one, since a polar area draws one wedge per
       // category rather than one ring per group.
-      selectors = buildLineSelectors(mark, spokes.length, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildLineSelectors(mark, spokes.length, pathMarks);
       // An arc has no x or y, exactly as for a pie above: the spokes are
       // named by the colour (or angular) channel and measured by `radius`.
       axes.x = getAxisConfig(encoding.color ?? encoding.fill ?? encoding.theta);
@@ -5237,7 +5262,7 @@ function convertLayerSpec(
       // per-sample element to highlight. A spec that turns on the
       // composite's optional `ticks` loses its highlight the same way: the
       // extra parts shift the whip out of `layer_<N>_marks`.
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       if (isHorizontalEncoding(encoding)) {
         orientation = Orientation.HORIZONTAL;
       }
@@ -5251,13 +5276,13 @@ function convertLayerSpec(
       data = extractGanttData(
         rows,
         encoding,
-        readScaleDomain(view, isHorizontal ? 'y' : 'x', markGroupPrefix),
+        readScaleDomain(view, isHorizontal ? 'y' : 'x', place.scopes),
       );
       // Only when the lanes are contiguous in row order — see
       // `lanesFollowRowOrder`. Withholding the selectors leaves the layer
       // unhighlighted; emitting them would highlight another lane's bar.
       if (lanesFollowRowOrder(rows, rowField)) {
-        selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+        selectors = buildSelector(mark, marks);
       }
       // A schedule drawn the ordinary way runs its bars along x and stacks
       // its lanes down y, which is what `GanttTrace` calls horizontal.
@@ -5268,7 +5293,7 @@ function convertLayerSpec(
     }
     case TraceType.WATERFALL: {
       data = extractWaterfallData(rows, encoding);
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       // `WaterfallTrace` carries no orientation: it announces the step's
       // label against `axes.x` and the contribution against `axes.y`. A
       // waterfall drawn along x holds those the other way round, so the two
@@ -5281,7 +5306,7 @@ function convertLayerSpec(
     }
     case TraceType.BOX: {
       data = extractBoxData(rows, encoding);
-      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      selectors = buildSelector(mark, marks);
       // Vega-Lite boxplot orientation is implicit from encoding type:
       // x=quantitative + y=nominal/ordinal => HORIZONTAL.
       // Mirrors the BAR detection at lines 748-754. maidr core needs the
@@ -5308,7 +5333,7 @@ function convertLayerSpec(
   // mark-group classes (`child_marks` / `child_layer_<j>_marks`), so the
   // only way to address one panel's marks is via the `data-maidr-cell`
   // attribute stamped on the cell's item <g> at bind time.
-  const cellScope = selectorOverride?.cellScope;
+  const cellScope = place.cellScope;
   if (cellScope) {
     if (typeof selectors === 'string') {
       selectors = scopeSelector(selectors, cellScope);
@@ -5350,7 +5375,7 @@ function convertLayerSpec(
   // highlight's markers, which it can only once the chart is laid out and then
   // asks for in a console warning. Where not certain, left to be measured.
   if (traceType === TraceType.BUMP) {
-    const firstPlace = firstPlaceOf(view, encoding.y, markGroupPrefix, layered ? selectorLayerIndex : undefined);
+    const firstPlace = firstPlaceOf(view, encoding.y, place.scopes, layered);
     if (firstPlace)
       layer.firstPlace = firstPlace;
   }
@@ -5366,14 +5391,18 @@ function convertLayerSpec(
   // the mark draws row k as the k-th element of its group.
   if (colourGroups) {
     const legendTitle = colorFieldLabel(encoding);
-    const { marks, element } = buildMarkGroup(mark, selectorLayerIndex, layered, markGroupPrefix);
+    const drawn = buildMarkGroup(mark, marks);
     colourGroupLayers.set(layer, colourGroups.map(group => ({
       layer: {
         name: group.name,
         axes: legendTitle === undefined ? axes : { ...axes, z: { label: legendTitle } },
         data: extractScatterData(group.positions.map(position => rows[position]), encoding),
       },
-      places: { marks: cellScope ? scopeSelector(marks, cellScope) : marks, element, positions: group.positions },
+      places: {
+        marks: cellScope ? scopeSelector(drawn.marks, cellScope) : drawn.marks,
+        element: drawn.element,
+        positions: group.positions,
+      },
     })));
   }
 
@@ -5454,7 +5483,7 @@ function underEachOther(grids: PanelGrid[]): PanelGrid {
  * Convert a concat's children to panels, each where the concat draws it.
  *
  * A child that is itself a concat is read the same way, its own children
- * under the class prefix Vega-Lite gives them (`concat_<i>_concat_<j>_`), and
+ * under the names Vega-Lite gives them (`concat_<i>_concat_<j>`), and
  * its grid takes the child's place in the parent's. A nesting need not make
  * a plain grid -- a column of two charts beside a single one -- so the panels
  * are read in the rows of the grid the nesting makes, as a page is read:
@@ -5466,6 +5495,7 @@ function underEachOther(grids: PanelGrid[]): PanelGrid {
  * @param direction - How the concat lays them out
  * @param columns - For a wrapping `concat`, how many panels make a row
  * @param path - The child indices leading to this concat; empty at the top
+ * @param names - What its children are named after
  * @param view - The compiled view, when bound
  * @param domOrder - A caller-supplied DOM order for segmented layers
  * @param counter - The running layer count each layer's dataset is guessed
@@ -5482,6 +5512,7 @@ function placeConcatPanels(
   direction: ConcatDirection,
   columns: number | undefined,
   path: number[],
+  names: ConcatNames,
   view: VegaView | undefined,
   domOrder: 'series-major' | 'subject-major' | undefined,
   counter: { layer: number },
@@ -5494,10 +5525,11 @@ function placeConcatPanels(
     // not at all. Once per child, not once per layer.
     warnCompositeDeclaration(childSpec);
     const childPath = [...path, i];
+    const child = viewName(childSpec, names.scopes[0], `concat_${i}`);
     const nested = concatChildren(childSpec);
     const grid = nested
-      ? placeConcatPanels(nested.specs, nested.direction, nested.columns, childPath, view, domOrder, counter, [...(transform ?? []), ...(childSpec.transform ?? [])])
-      : concatPanel(childSpec, childPath, view, domOrder, counter, transform);
+      ? placeConcatPanels(nested.specs, nested.direction, nested.columns, childPath, { ...names, scopes: [child, ...names.scopes] }, view, domOrder, counter, [...(transform ?? []), ...(childSpec.transform ?? [])])
+      : concatPanel(childSpec, childPath, { child, given: compiledName(names.scopes[0], `concat_${i}`), ...names }, view, domOrder, counter, transform);
     if (!grid)
       return null;
     grids.push(grid);
@@ -5512,11 +5544,23 @@ function placeConcatPanels(
   return underEachOther(chunkIntoRows(grids, columns).map(besideEachOther));
 }
 
+/** What a concat's children are named after (see `names.ts`). */
+interface ConcatNames {
+  /** The concat's compiled name, then those of the views around it. */
+  scopes: readonly string[];
+  /** The chart's config, which can lay points or a line over a mark. */
+  config: VegaLiteSpec['config'];
+}
+
 /**
  * Convert one chart of a concat to its panel.
  *
  * @param childSpec - The chart: a single view or a layered one
  * @param path - The child indices leading to it
+ * @param names - What it is named: its compiled name, the one its concat
+ * gives it, and what that is named after
+ * @param names.child - Its compiled name
+ * @param names.given - The name its concat gives it
  * @param view - The compiled view, when bound
  * @param domOrder - A caller-supplied DOM order for segmented layers
  * @param counter - The running layer count Vega numbers datasets by
@@ -5527,14 +5571,13 @@ function placeConcatPanels(
 function concatPanel(
   childSpec: VegaLiteSpec,
   path: number[],
+  names: ConcatNames & { child: string; given: string },
   view: VegaView | undefined,
   domOrder: 'series-major' | 'subject-major' | undefined,
   counter: { layer: number },
   transform?: VegaLiteTransform[],
 ): PanelGrid | null {
-  // Vega-Lite names a concat child's groups after the path to it:
-  // `concat_<i>_`, and `concat_<i>_concat_<j>_` for a child of a child.
-  const markGroupPrefix = path.map(i => `concat_${i}_`).join('');
+  const { child, given } = names;
   const id = path.join('_');
   // Each concat child compiles to a per-cell Vega scope group
   // (`concat_<i>_group`) wrapping the panel's background path. Pointing
@@ -5542,7 +5585,11 @@ function concatPanel(
   // per-panel element to measure, which is what lets it compute the
   // visual panel order (and vertical arrow direction) for multi-row
   // vconcat / wrapped-concat grids — Vega SVGs carry no `axes_*` ids.
-  const selector = `g.mark-group.role-scope.${markGroupPrefix}group > g > path.background`;
+  // A single view drawn with a path overlay is drawn as a layer of it,
+  // named as the concat names the child, its path keeping the child's own
+  // name (`drawsPathOverlay`), so its group is the layer's.
+  const group = !childSpec.layer && drawsPathOverlay(childSpec, names.config) ? given : child;
+  const selector = `g.mark-group.role-scope.${compiledName(group, 'group')} > g > path.background`;
   // Each child is drawn with its own title above it, and the first layer's
   // title is the panel's name in MAIDR's subplot announcements, as a facet
   // or repeat panel names its cell there. Left unread, the gallery's
@@ -5553,8 +5600,8 @@ function concatPanel(
   let layers: MaidrLayer[];
   if (childSpec.layer) {
     // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
-    // (local layer index `j`, not the global data index), so drive the
-    // selector off those while keeping the running layer count for the
+    // (local layer index `j`, not the global data index), so name the
+    // layers after the child while keeping the running layer count for the
     // data lookup, which follows Vega's sequential dataset numbering.
     // The layers read the rows every transform above them made: the
     // concats', then the child's own. A window ranking the rows on the
@@ -5566,7 +5613,7 @@ function concatPanel(
       { encoding: childSpec.encoding, transform: [...(transform ?? []), ...(childSpec.transform ?? [])] },
       view,
       domOrder,
-      { basePrefix: markGroupPrefix, path: [], dataIndexOf: j => first + j },
+      { view: child, scopes: [child, ...names.scopes], composite: 'concat', path: [], dataIndexOf: j => first + j },
     ).map(({ layer }) => {
       // An ID that encodes both the concat path and the layer's path within
       // the child, so no two panels' layers share one.
@@ -5584,7 +5631,7 @@ function concatPanel(
       undefined,
       false,
       domOrder,
-      { layerIndex: 0, markGroupPrefix },
+      { view: child, scopes: unitScopes(child, given, names.scopes), composite: 'concat' },
       undefined,
       transform,
     );
@@ -5609,12 +5656,14 @@ function buildConcatMaidr(
   caption: string | undefined,
   specs: VegaLiteSpec[],
   direction: ConcatDirection,
-  view?: VegaView,
-  domOrder?: 'series-major' | 'subject-major',
-  columns?: number,
-  transform?: VegaLiteTransform[],
+  view: VegaView | undefined,
+  domOrder: 'series-major' | 'subject-major' | undefined,
+  columns: number | undefined,
+  transform: VegaLiteTransform[] | undefined,
+  name: string,
+  config: VegaLiteSpec['config'],
 ): Maidr {
-  const grid = placeConcatPanels(specs, direction, columns, [], view, domOrder, { layer: 0 }, transform);
+  const grid = placeConcatPanels(specs, direction, columns, [], { scopes: [name], config }, view, domOrder, { layer: 0 }, transform);
 
   // A subplot with zero layers inside a grid crashes MAIDR core's Subplot
   // model on focus; collapse to the same single empty figure other
@@ -5662,6 +5711,8 @@ interface FacetCellDef {
  *
  * @param view - The compiled view, when one was supplied
  * @param field - The facet field naming each panel
+ * @param cellGroup - The compiled name of the group whose items are the
+ * panels: `cell`, after the facet's own name where it declares one
  * @returns The panel keys in render order, or `undefined` when the view
  * cannot answer — in which case the caller falls back to a sorted domain,
  * which is what Vega's default lays out anyway
@@ -5669,12 +5720,13 @@ interface FacetCellDef {
 function resolveFacetCellKeys(
   view: VegaView | undefined,
   field: string,
+  cellGroup: string,
 ): string[] | undefined {
   if (!view)
     return undefined;
   let items: unknown;
   try {
-    items = view.data('cell');
+    items = view.data(cellGroup);
   } catch {
     return undefined;
   }
@@ -5728,6 +5780,28 @@ function resolveFacetCellKeys(
  * @param view - The compiled view, when one was supplied
  * @returns The ridgeline layer, or `null` when this is some other facet
  */
+/** What a facet's views are compiled as (see `names.ts`). */
+interface FacetNames {
+  /** The facet's own name, as the top level's. */
+  facet: string;
+  /** Its panels' template's: its `child`, unless the template declares one. */
+  child: string;
+  /** The group whose items are its panels: its `cell`. */
+  cellGroup: string;
+}
+
+/**
+ * What a facet's views are compiled as.
+ *
+ * @param spec - The faceted spec
+ * @param descriptor - Its normalised facet description
+ * @returns The compiled names
+ */
+function facetNames(spec: VegaLiteSpec, descriptor: FacetDescriptor): FacetNames {
+  const facet = viewName(spec, '', '');
+  return { facet, child: viewName(descriptor.childSpec, facet, 'child'), cellGroup: compiledName(facet, 'cell') };
+}
+
 function convertRidgelineLayer(
   spec: VegaLiteSpec,
   descriptor: FacetDescriptor,
@@ -5775,7 +5849,8 @@ function convertRidgelineLayer(
   // without a dataset name sorts the distinct values, which is what Vega's
   // default facet sort lays out; see `resolveFacetCellKeys` for why the
   // `row_domain` dataset is the wrong answer here.
-  const drawn = (resolveFacetCellKeys(view, groupField)
+  const names = facetNames(spec, descriptor);
+  const drawn = (resolveFacetCellKeys(view, groupField, names.cellGroup)
     ?? resolveDomainKeys(groupField, rows, view))
     .map((key, cell) => ({
       cell,
@@ -5799,9 +5874,9 @@ function convertRidgelineLayer(
   // which Vega draws as the cell group's n-th child, top first. Listed top
   // first, Up moved down the page and Down up it.
   const groups = [...drawn].reverse();
-  const area = buildSelector('area', 0, false, 'child_');
+  const area = buildSelector('area', markViews(childSpec, names.child).map(unit => compiledName(unit, 'marks')));
   const selectors = groups.map(group =>
-    scopeSelector(area, `g.mark-group.role-scope.cell > g:nth-child(${group.cell + 1})`));
+    scopeSelector(area, `g.mark-group.role-scope.${names.cellGroup} > g:nth-child(${group.cell + 1})`));
 
   return {
     id: '0',
@@ -5917,6 +5992,7 @@ function resolveFacetLayerDatasets(
   layerCount: number,
   facetFields: string[],
   sourceRows: Record<string, unknown>[],
+  facet: string,
 ): Record<string, unknown>[][] | undefined {
   if (!view || layerCount < 2 || facetFields.length === 0)
     return undefined;
@@ -5928,7 +6004,7 @@ function resolveFacetLayerDatasets(
   for (const field of facetFields) {
     const values = new Set<string>();
     for (const domain of ['column_domain', 'row_domain', 'facet_domain']) {
-      const rows = readViewDataset(view, domain);
+      const rows = readViewDataset(view, compiledName(facet, domain));
       if (!rows || !(field in rows[0]))
         continue;
       for (const row of rows)
@@ -6047,6 +6123,7 @@ function buildFacetMaidr(
     warnCompositeDeclaration(spec.spec);
   }
   const isLayered = childSpec.layer != null && childSpec.layer.length > 0;
+  const names = facetNames(spec, descriptor);
   // Both branches, not only the layered one: a facet's single child is
   // itself the spec whose data sits on the enclosing `spec`, so wrapping
   // only `childSpec.layer` left the unlayered case with none -- measured,
@@ -6072,6 +6149,7 @@ function buildFacetMaidr(
     layerSpecs.length,
     facetFields,
     resolveSourceRows(spec, view),
+    names.facet,
   );
   const layerRows = layerSpecs.map((layerSpec, j) => {
     if (perLayerDatasets)
@@ -6094,7 +6172,7 @@ function buildFacetMaidr(
   const grid: FacetCellDef[][] = [];
   if (descriptor.wrapChannel?.field) {
     const field = descriptor.wrapChannel.field;
-    const keys = resolveDomainKeys(field, allRows, view, 'facet_domain');
+    const keys = resolveDomainKeys(field, allRows, view, compiledName(names.facet, 'facet_domain'));
     const cells = keys.map(key => ({
       filters: [[field, key]] as FacetCellDef['filters'],
       title: panelName(descriptor.wrapChannel, field, key),
@@ -6104,10 +6182,10 @@ function buildFacetMaidr(
     const rowField = descriptor.rowChannel?.field;
     const colField = descriptor.columnChannel?.field;
     const rowKeys: (string | null)[] = rowField
-      ? resolveDomainKeys(rowField, allRows, view, 'row_domain')
+      ? resolveDomainKeys(rowField, allRows, view, compiledName(names.facet, 'row_domain'))
       : [null];
     const colKeys: (string | null)[] = colField
-      ? resolveDomainKeys(colField, allRows, view, 'column_domain')
+      ? resolveDomainKeys(colField, allRows, view, compiledName(names.facet, 'column_domain'))
       : [null];
 
     // Cross facets are sparse: Vega only renders cells for (row, column)
@@ -6177,15 +6255,24 @@ function buildFacetMaidr(
       const cellRows = (j: number): Record<string, unknown>[] => layerRows[j].filter(row =>
         cell.filters.every(([field, key]) => String(row[field]) === key),
       );
+      // The panel's template, drawn in this panel's cell.
+      const place: LayerPlace = {
+        view: names.child,
+        scopes: [names.child, names.facet],
+        composite: 'facet',
+        path: [],
+        cellScope: scope,
+        cellFilters: cell.filters,
+        cellGroup: names.cellGroup,
+      };
       // A layer is read from the marks it draws inside this panel's cell,
       // which a filter of its own leaves with none in the panels it keeps out.
       // Its panel's share of its dataset, matched to it by the heuristics
       // above, is read where it draws no marks of its own name: a composite's
       // parts are named further down.
       const panelRows = (j: number): Record<string, unknown>[] => {
-        const drawn = view
-          ? resolveSceneMarkData(view, isLayered ? `child_layer_${j}_marks` : 'child_marks', cell.filters)
-          : undefined;
+        const unit = isLayered ? layerName(layerSpecs, j, place) : names.child;
+        const drawn = view ? resolveSceneMarkData(view, unit, cell.filters, names.cellGroup) : undefined;
         const encoding = { ...parentEncoding, ...layerSpecs[j].encoding };
         return drawn && (drawn.length === 0 || rowsCarryFields(drawn, columnsReadAsIs(encoding)))
           ? drawn
@@ -6193,10 +6280,7 @@ function buildFacetMaidr(
       };
       const rawLayers = isLayered
         ? convertLayers(layerSpecs, { encoding: parentEncoding, transform: parentTransform }, view, domOrder, {
-            basePrefix: 'child_',
-            path: [],
-            cellScope: scope,
-            cellFilters: cell.filters,
+            ...place,
             rowsOf: panelRows,
           })
         : layerSpecs.flatMap((layerSpec, j): ConvertedLayer[] => {
@@ -6210,7 +6294,14 @@ function buildFacetMaidr(
               parentEncoding,
               isLayered,
               domOrder,
-              { layerIndex: j, markGroupPrefix: 'child_', cellScope: scope, cellFilters: cell.filters },
+              {
+                view: names.child,
+                scopes: unitScopes(names.child, compiledName(names.facet, 'child'), [names.facet]),
+                composite: 'facet',
+                cellScope: scope,
+                cellFilters: cell.filters,
+                cellGroup: names.cellGroup,
+              },
               rows,
               parentTransform,
             );
@@ -6317,6 +6408,9 @@ function buildRepeatMaidr(
   // buildConcatMaidr: Vega numbers `data_<k>` datasets sequentially across
   // the whole compiled spec, not per repeated child.
   let globalLayerIndex = 0;
+  // The concat a repeat is compiled to, named as the top level is, owns the
+  // scales its cells share.
+  const repeat = viewName(spec, '', '');
   let flatIndex = 0;
   let hasEmptyPanel = false;
 
@@ -6325,7 +6419,9 @@ function buildRepeatMaidr(
     if (cellSpec.data == null) {
       cellSpec.data = spec.data;
     }
-    const childName = repeatChildName(cell.mapping);
+    // Vega-Lite turns the repeat into a concat of the cells, each named for
+    // its fields (`repeatCellName`), whatever the repeated spec is named.
+    const childName = repeatCellName(childSpec, cell.mapping);
     const isLayered = cellSpec.layer != null && cellSpec.layer.length > 0;
     const layerSpecs = inheritData(
       isLayered ? cellSpec.layer! : [cellSpec],
@@ -6342,8 +6438,10 @@ function buildRepeatMaidr(
     globalLayerIndex += layerSpecs.length;
     const rawLayers = isLayered
       ? convertLayers(layerSpecs, { encoding: parentEncoding, transform: parentTransform }, view, domOrder, {
-          basePrefix: `${childName}_`,
-          namePrefix: `${childName}_`,
+          view: childName,
+          scopes: [childName, repeat],
+          cell: childName,
+          composite: 'repeat',
           path: [],
           dataIndexOf: j => first + j,
         })
@@ -6355,7 +6453,7 @@ function buildRepeatMaidr(
             parentEncoding,
             isLayered,
             domOrder,
-            { layerIndex: j, markGroupPrefix: `${childName}_` },
+            { view: childName, scopes: [childName, repeat], composite: 'repeat' },
             undefined,
             parentTransform,
           );
@@ -6373,7 +6471,7 @@ function buildRepeatMaidr(
     flatIndex++;
     return {
       layers,
-      selector: `g.mark-group.role-scope.${childName}_group > g > path.background`,
+      selector: `g.mark-group.role-scope.${compiledName(childName, 'group')} > g > path.background`,
     };
   }));
 
