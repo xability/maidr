@@ -180,4 +180,32 @@ describe('a vega-lite scatter drawn in the order of a channel', () => {
       ['versicolor', [[6.4, 2.9]], [0]],
     ]);
   });
+
+  it('reads a facet panel from its table where the marks drawn there lack a column it reads', () => {
+    const widthless = (rows: Array<Record<string, unknown>>): Array<Record<string, unknown>> =>
+      rows.map(({ width: _width, ...row }) => row);
+    const view = compiled(
+      { source_0: ROWS, data_0: ROWS },
+      'cell',
+      [
+        { datum: { panel: 'A', count: 3 }, marks: [mark('child_marks', widthless(drawn(3, 0, 2)))] },
+        { datum: { panel: 'B', count: 2 }, marks: [mark('child_marks', widthless(drawn(4, 1)))] },
+      ],
+    );
+    const spec = {
+      data: { values: ROWS },
+      facet: { column: { field: 'panel' } },
+      spec: { mark: 'point', encoding: { x: LENGTH, y: WIDTH, color: SPECIES, order: BY_WIDTH } },
+    };
+
+    const [a] = vegaLiteToMaidr(spec as VegaLiteSpec, view).subplots[0];
+
+    // A drawn row without the width is no point of this scatter, so A is read
+    // from its table, in the rows' order: 0, 2, then 3.
+    expect(read(a.layers)).toEqual([
+      ['setosa', [[4.9, 3.0]], [2]],
+      ['versicolor', [[7.0, 3.2]], [0]],
+      ['virginica', [[6.3, 3.3]], [1]],
+    ]);
+  });
 });
