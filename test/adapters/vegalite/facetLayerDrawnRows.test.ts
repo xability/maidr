@@ -197,3 +197,32 @@ describe('a vega-lite facet\'s layers, read from the marks each panel draws', ()
     expect(read(b)).toEqual([[TraceType.BAR, [110, 150]]]);
   });
 });
+
+describe('a vega-lite pair outside a facet whose marks draw no item', () => {
+  // A lollipop whose layers' own filter keeps all of it out, as vega 5.33.1
+  // gives it before and after it runs: before, every table throws and no
+  // mark is drawn; after, the marks draw no item and their tables are
+  // `undefined`.
+  const LOLLIPOP = [{ cat: 'p', v: 10 }, { cat: 'q', v: 30 }, { cat: 'r', v: 20 }];
+  const V = { field: 'v', type: 'quantitative' };
+  const NONE = [{ filter: 'false' }];
+  const spec = { data: { values: LOLLIPOP }, layer: [
+    { mark: 'rule', transform: NONE, encoding: { x: CAT, y: V } },
+    { mark: 'point', transform: NONE, encoding: { x: CAT, y: V } },
+  ] };
+  const drawing = (view: VegaView, marks: unknown[]): VegaView =>
+    Object.assign(view, { scenegraph: () => ({ root: { marktype: 'group', name: 'root', items: [{ items: marks }] } }) });
+  const notRun = drawing(makeView({}), []);
+  const run = drawing(
+    makeView({ source_0: LOLLIPOP, data_0: [], layer_0_marks: undefined, layer_1_marks: undefined } as unknown as Record<string, unknown[]>),
+    [mark('rule', 'layer_0_marks', []), mark('symbol', 'layer_1_marks', [])],
+  );
+
+  it.each([['not yet run', notRun], ['run', run]])('reads the pair from its data, as before, in a view %s', (_stage, view) => {
+    const [[chart]] = vegaLiteToMaidr(spec as unknown as VegaLiteSpec, view).subplots;
+
+    // Marks that draw no item outside a facet give the pair no rows, as
+    // those of a view not yet run do, so it is not left out.
+    expect(read(chart)).toEqual([[TraceType.LOLLIPOP, [10, 30, 20]]]);
+  });
+});

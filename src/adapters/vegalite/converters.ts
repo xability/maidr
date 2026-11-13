@@ -281,6 +281,12 @@ function drawnMarkRows(view: VegaView, markName: string, place: LayerPlace): Rec
  * else its guessed pipeline's, or without a view its own data, narrowed to a
  * facet panel's.
  *
+ * Marks that draw no item in a facet's panel leave the layer no rows there:
+ * a panel's cell is drawn only once the view has run, so its marks drew
+ * nothing because the layer's own filter keeps it out of the panel. Outside
+ * a facet, marks that draw no item give no rows to read, as those of a view
+ * not yet run do, and the layer is read from its data.
+ *
  * @param spec - The layer
  * @param index - Its position among its siblings
  * @param view - The compiled view, when bound
@@ -298,7 +304,9 @@ function pairedLayerRows(
   requiredFields?: readonly string[],
 ): Record<string, unknown>[] {
   const drawn = view ? drawnMarkRows(view, markName, place) : undefined;
-  if (drawn && (drawn.length === 0 || rowsCarryFields(drawn, requiredFields)))
+  if (drawn?.length === 0 && place.cellFilters)
+    return drawn;
+  if (drawn && drawn.length > 0 && rowsCarryFields(drawn, requiredFields))
     return drawn;
   return inPanel(resolveData(spec, index, view, undefined, requiredFields), place);
 }
