@@ -44,7 +44,7 @@ import type {
 } from './adapters/vegalite/types';
 import type { BoxPoint, BoxSelector, DumbbellData, HeatmapData, HistogramPoint, LinePoint, Maidr, MaidrLayer } from './type/grammar';
 import { cssEscape, ensureContainerId } from './adapters/shared/selectorUtil';
-import { vegaLiteToMaidr } from './adapters/vegalite/converters';
+import { colourGroupPlaces, vegaLiteToMaidr } from './adapters/vegalite/converters';
 import { buildCellDomMap, scopeSelector, stampFacetCells } from './adapters/vegalite/facets';
 import { Orientation, TraceType } from './type/grammar';
 import { initMaidrOnElement } from './util/initMaidr';
@@ -1736,6 +1736,57 @@ function distinguishSeriesSelectors(
 }
 
 /**
+ * Mark the points of each colour group of a scatter, and give the group a
+ * selector naming its marks.
+ *
+ * A group leaves the converter with the places of its points among the
+ * elements of its mark's group (see `colourGroupPlaces`), which are read
+ * here by index, before MAIDR has inserted anything among them. MAIDR inserts
+ * a hidden copy beside each element a layer's selector names when it reads
+ * the layer, so places counted once the first group was read took in its
+ * copies: the iris scatter's versicolor point at 4.9 by 2.4 was outlined on a
+ * setosa point at 5.2 by 3.4. Each group's points are marked with its id,
+ * which a copy of another group's point does not carry.
+ *
+ * Places that do not name one drawn element per point were not counted among
+ * the marks the chart drew, and the elements they name may be any group's.
+ * Such a group is left without a selector, heard and felt but not outlined,
+ * and a warning says so.
+ *
+ * @param svg - The chart's SVG
+ * @param layers - Every layer of the chart
+ * @param containerScope - The chart container's selector prefix
+ */
+function stampColourGroups(svg: SVGSVGElement, layers: MaidrLayer[], containerScope: string): void {
+  for (const layer of layers) {
+    const places = colourGroupPlaces(layer);
+    if (!places)
+      continue;
+    const points: Element[] = [];
+    for (const group of Array.from(svg.querySelectorAll(scopeSelector(places.marks, containerScope)))) {
+      for (const position of places.positions) {
+        const point = group.children[position];
+        if (point?.tagName.toLowerCase() === places.element)
+          points.push(point);
+      }
+    }
+    const count = Array.isArray(layer.data) ? layer.data.length : 0;
+    if (points.length !== count) {
+      console.warn(
+        `[maidr/vegalite] The ${count} points of scatter layer "${layer.name ?? layer.id}" `
+        + `name ${points.length} drawn marks, so they are read without an outline.`,
+      );
+      continue;
+    }
+    // Quotes and backslashes would end or escape the attribute value.
+    const owner = String(layer.id).replace(/["\\]/g, '_');
+    for (const point of points)
+      point.setAttribute('data-maidr-group', owner);
+    layer.selectors = `${containerScope} ${places.element}[data-maidr-group="${owner}"]`;
+  }
+}
+
+/**
  * The layer types whose bands are stacked on one another, read as listed from
  * the bottom of the stack up.
  */
@@ -2565,6 +2616,11 @@ export function bindVegaLite(
   // repeat per series with one per series, so a chart with as many series as
   // points per series is not highlighted a point at a time.
   distinguishSeriesSelectors(svg as SVGSVGElement, layers, containerScope);
+
+  // For the colour groups of a scatter, mark each group's points before
+  // MAIDR inserts its highlight copies among them, which a selector naming
+  // the points by their place would count.
+  stampColourGroups(svg as SVGSVGElement, layers, containerScope);
 
   // For stacked area layers, list the bands from the bottom of the stack up,
   // as they are drawn, each band taking its own selector with it.

@@ -129,6 +129,37 @@ export function buildSelector(
 }
 
 /**
+ * Name the group a Vega mark's elements are drawn in, and the element each
+ * one is drawn as.
+ *
+ * Vega draws a mark's items as the children of its group, one element each,
+ * in the order of the rows they are drawn from, so the row at a position is
+ * the group's child at that position. The groups are the ones
+ * {@link buildSelector} names the elements under.
+ *
+ * @param mark - The Vega-Lite mark
+ * @param layerIndex - The layer's index in its layered spec
+ * @param isLayered - Whether the layer is one of a layered spec
+ * @param markGroupPrefix - The composite child's class prefix, if any
+ * @returns The group, as a selector list naming it under each name it can
+ * have, and the element's tag
+ */
+export function buildMarkGroup(
+  mark: string,
+  layerIndex: number,
+  isLayered: boolean,
+  markGroupPrefix: string,
+): { marks: string; element: string } {
+  const cssClass = markToCssClass(mark);
+  const layeredClass = `${markGroupPrefix}layer_${layerIndex}_marks`;
+  const groups = isLayered ? [layeredClass] : [`${markGroupPrefix}marks`, layeredClass];
+  return {
+    marks: groups.map(group => `g.${cssClass}.role-mark.${group}`).join(', '),
+    element: markToChildElement(mark),
+  };
+}
+
+/**
  * Build per-series CSS selectors for line and area charts.
  *
  * Vega's render shape depends on whether multi-series come from a
