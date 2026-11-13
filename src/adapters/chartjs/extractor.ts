@@ -1285,6 +1285,22 @@ export function drawnCategoryPositions(chart: ChartJsChart, count: number): numb
 }
 
 /**
+ * The keys a category layer drawn on its side carries: its orientation, and
+ * where its first category is drawn. A category axis on the left is drawn
+ * from the top, and every such layer here lists its categories in the order
+ * they are drawn ({@link drawnCategoryPositions}), so the first is the
+ * topmost whether or not the axis is reversed. MAIDR cannot measure a canvas
+ * to find that out, and without `firstCategory` took the first to be at the
+ * bottom: Up walked down the chart.
+ *
+ * @param isHorizontal - Whether the chart is drawn with `indexAxis: 'y'`
+ * @returns The keys, or none for an upright chart
+ */
+function sidewaysCategories(isHorizontal: boolean): Pick<MaidrLayer, 'orientation' | 'firstCategory'> {
+  return isHorizontal ? { orientation: Orientation.HORIZONTAL, firstCategory: 'top' } : {};
+}
+
+/**
  * Builds a one-value-per-category layer from a single dataset.
  *
  * Serves the mark variants that differ only in what is drawn at the category:
@@ -1321,7 +1337,7 @@ function singleDatasetToBarLayer(
     // layer switch announces it. It is never the layer's `title`, which
     // MAIDR reads as the chart's: that is `plugins.title`'s text.
     name: datasetName(dataset),
-    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+    ...sidewaysCategories(isHorizontal),
     axes: {
       x: { label: getAxisLabel(chart, 'x', pluginOptions) },
       y: { label: getAxisLabel(chart, 'y', pluginOptions) },
@@ -1364,7 +1380,7 @@ function extractSegmentedBarLayers(
     {
       id: '0',
       type: traceType,
-      ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+      ...sidewaysCategories(isHorizontal),
       axes: {
         x: { label: getAxisLabel(chart, 'x', pluginOptions) },
         y: { label: getAxisLabel(chart, 'y', pluginOptions) },
@@ -1488,7 +1504,7 @@ function extractDumbbellLayer(
     id: '0',
     type: TraceType.DUMBBELL,
     name: datasetName(dataset),
-    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+    ...sidewaysCategories(isHorizontal),
     axes: {
       x: { label: getAxisLabel(chart, 'x', pluginOptions) },
       y: { label: getAxisLabel(chart, 'y', pluginOptions) },
@@ -3362,7 +3378,12 @@ function extractErrorBarLayers(
       ...(chart.data.datasets.length === 1 && chart.data.datasets[0]?.label !== undefined
         ? { name: datasetName(chart.data.datasets[0]) }
         : {}),
-      ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+      // Named categories are drawn from the top, as every sideways layer's
+      // are. A scatter's positions are numbers on a value axis, where the
+      // first one written can be drawn anywhere, so nothing is said.
+      ...(labels.length > 0
+        ? sidewaysCategories(isHorizontal)
+        : isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
       axes: {
         x: { label: getAxisLabel(chart, 'x', pluginOptions) },
         y: { label: getAxisLabel(chart, 'y', pluginOptions) },

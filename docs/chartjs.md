@@ -119,6 +119,8 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 
 ### Notes on these chart types
 
+> **Horizontal note:** with `indexAxis: 'y'`, a bar, dot, funnel, dumbbell or error-bar chart draws its categories down the page, first at the top, and MAIDR reads them that way: Up and Down move between the categories as they are drawn and Left and Right along one, between its series or its two ends. MAIDR cannot measure a canvas to find which end the first category is at, so the adapter tells it (`firstCategory: "top"`), reversed axis or not: the categories of a reversed axis are read from the top too.
+
 > **Pie note:** a pie has no Chart.js scales, so there is no axis title to read. `axes.x` and `axes.y` default to `Category` and `Value`; set `plugins.maidr.axes` to name what the slice labels and their values actually mean. Multiple datasets are concentric rings, not slices of one circle — each becomes its own MAIDR layer with its own total and percentages, and Page Up / Page Down move between them.
 
 > **Funnel note:** a funnel is read as the stages it draws, `data.labels` naming them and `dataset.data` carrying the magnitudes — plain numbers or `{x, y}` rows, either way. The reading MAIDR gives it is a bar's with one difference that matters: the pitch carries the **retention** between adjacent stages rather than the count, and the counts are announced alongside. `indexAxis: 'y'` draws it on its side and the payload is exchanged with it, as for any bar-family chart. Several datasets are several funnels, one layer each, rather than one segmented chart — a funnel is one population shrinking across ordered stages, so a second series is a second population.

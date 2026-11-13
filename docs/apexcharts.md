@@ -383,7 +383,7 @@ maidrApexCharts.bindApexCharts(chart);
 
 #### Grouped Bar Chart
 
-Several bar series without `stacked` are drawn side by side, and read as a dodged bar chart: Left/Right moves between categories, Up/Down between the series in one category.
+Several bar series without `stacked` are drawn side by side, and read as a dodged bar chart: Left/Right moves between categories, Up/Down between the series in one category. On a horizontal chart the two pairs change places, as on every chart drawn on its side.
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {

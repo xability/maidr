@@ -2364,6 +2364,31 @@ export interface MaidrLayer {
    */
   firstPlace?: 'top' | 'bottom';
   /**
+   * Which end of the chart a layer drawn on its side draws its first
+   * category at: `'top'` or `'bottom'`. A horizontal bar, dot, lollipop or
+   * funnel chart, a horizontal dumbbell or a horizontal forest plot draws its
+   * categories one above another, and Up and Down move between them as they
+   * are drawn.
+   *
+   * Optional. Where MAIDR can measure the drawing -- the marks the highlight
+   * resolves -- it does, and this is not read. Say it where the drawing
+   * cannot be measured: a chart drawn to a canvas, or a layer with no
+   * highlight. Left out there, the first category is taken to be at the
+   * bottom, as row 0 of a grid is, and Up moves to the next category. The
+   * Chart.js adapter says `'top'`, as Chart.js draws a category axis on the
+   * left from the top; the uPlot adapter says it from its scale's direction;
+   * the amCharts and Excel adapters say `'top'` for a funnel, which both
+   * draw from its first stage down; and the amCharts adapter says where a
+   * declared forest plot or error bar chart's first study is, from whether
+   * its category axis is inversed. Read by the traces above, on a horizontal
+   * layer, and ignored by every other type.
+   *
+   * @example
+   * // a horizontal bar chart drawn to a canvas, first category at the top
+   * { type: 'bar', orientation: 'horz', firstCategory: 'top', data: [...] }
+   */
+  firstCategory?: 'top' | 'bottom';
+  /**
    * The quantiles, from 0 to 1, at which a {@link TraceType.BOX} layer's lower
    * and upper whiskers end: `[0.1, 0.9]` for whiskers drawn to the 10th and
    * 90th percentiles. Read by `BoxTrace` and ignored by every other type.

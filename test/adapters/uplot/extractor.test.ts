@@ -262,6 +262,23 @@ describe('horizontal bars', () => {
     expect(layer.axes?.x).toEqual({ label: 'Count' });
     expect(layer.axes?.y).toEqual({ label: 'Item' });
   });
+
+  it.each([
+    // A vertical scale runs up the page, the smallest value lowest, unless
+    // `dir: -1` turns it round. The overlay draws no mark MAIDR could
+    // measure, so Up and Down walk the bars by what this says.
+    ['bottom', undefined],
+    ['bottom', 1],
+    ['top', -1],
+  ])('says the first bar is drawn at the %s of a vertical scale whose dir is %s', (end, dir) => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 20, 30]],
+      series: [{}, { label: 'Count', _paths: BAR_PATHS }],
+      scales: { x: { min: 0, max: 4, ori: 1, ...(dir === undefined ? {} : { dir }) }, y: { min: 0, max: 40, ori: 0 } },
+    });
+
+    expect(layersOf(u)[0].firstCategory).toBe(end);
+  });
 });
 
 describe('faceted mode', () => {
@@ -665,6 +682,7 @@ describe('stacked charts', () => {
     const layer = layersOf(u, { stacked: true })[0];
     expect(layer.type).toBe(TraceType.STACKED);
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect(layer.firstCategory).toBe('bottom');
     expect(layer.axes).toEqual({ x: { label: 'Lines' }, y: { label: 'Day' } });
     expect((layer.data as SegmentedPoint[][])[1]).toEqual([
       { x: 5, y: 1, z: 'Warnings' },

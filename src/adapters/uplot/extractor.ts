@@ -138,6 +138,11 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
   const xScale = u.series[0]?.scale ?? 'x';
   const toX = xReader(u, xScale, Array.from(xs, v => toFinite(v)), options);
   const horizontal = u.scales[xScale]?.ori === 1;
+  // Where a sideways chart draws its first sample, which the overlay draws
+  // no mark MAIDR could measure for: a vertical scale runs up the page,
+  // smallest value lowest, unless `dir: -1` turns it round. Said, or Up and
+  // Down would walk a reversed chart the wrong way.
+  const firstCategory = u.scales[xScale]?.dir === -1 ? 'top' as const : 'bottom' as const;
   const bases = options.stacked === true ? stackBases(u) : new Map<number, number>();
   const stacked = new Set<number>([...bases.keys(), ...bases.values()]);
 
@@ -295,7 +300,7 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
           layer: {
             id: layerId,
             type: TraceType.STACKED,
-            ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+            ...(horizontal ? { orientation: Orientation.HORIZONTAL, firstCategory } : {}),
             axes: horizontal ? { x: axes.y, y: axes.x } : axes,
             data: [] as SegmentedPoint[][],
           },
@@ -351,7 +356,7 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
       id: layerId,
       type: kind === 'bar' ? TraceType.BAR : TraceType.SCATTER,
       ...layerName(series),
-      ...(kind === 'bar' && horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+      ...(kind === 'bar' && horizontal ? { orientation: Orientation.HORIZONTAL, firstCategory } : {}),
       axes: kind === 'bar' && horizontal ? { x: axes.y, y: axes.x } : axes,
       data: points as BarPoint[] | ScatterPoint[],
     });

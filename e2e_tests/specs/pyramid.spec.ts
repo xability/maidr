@@ -122,7 +122,9 @@ test.describe('Population pyramid', () => {
     await expect(page.locator('[id^="maidr-highlight"]').first())
       .toHaveAttribute('x', '184.0');
 
-    await plot.moveToDataPointAbove();
+    // The two sides are drawn left and right of each other, so Right moves
+    // from men to women at the same age band.
+    await plot.moveToNextDataPoint();
 
     expect(normalizeText(await plot.getInstructionText())).toContain('Women');
     await expect(page.locator('[id^="maidr-highlight"]').first())

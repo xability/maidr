@@ -554,10 +554,22 @@ export class DumbbellTrace extends AbstractTrace {
     return this.compareSearchAlongRow(this.endValues[this.row] ?? [], direction, type);
   }
 
+  /**
+   * A horizontal dumbbell chart draws its categories down the page, so Up and
+   * Down move between them and Left and Right between the two ends drawn
+   * across each. See {@link AbstractTrace.categoriesRunDown}.
+   *
+   * @returns True for a horizontal layer
+   */
+  protected override get categoriesRunDown(): boolean {
+    return this.orientation === Orientation.HORIZONTAL;
+  }
+
   protected get dimension(): Dimension {
-    // Orientation-independent, matching `ErrorBarTrace.dimension`: up and down
-    // walk the ends and left and right walk the categories in BOTH
-    // orientations, so rows must always be the end count. `AutoplayState` is
+    // Orientation-independent, matching `ErrorBarTrace.dimension`: the ends
+    // are the rows and the categories the columns in BOTH orientations, so
+    // rows must always be the end count; on a chart drawn on its side the
+    // keys turn instead (`categoriesRunDown`). `AutoplayState` is
     // keyed by direction, so conditioning this on orientation mis-paces
     // autoplay and mis-clamps the `isMovable` bounds.
     return { rows: ENDS.length, cols: this.points.length };

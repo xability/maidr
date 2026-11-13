@@ -733,6 +733,9 @@ describe('fromAmCharts (sliced chart)', () => {
     // therefore runs horizontally, which is what MAIDR's `orientation` names,
     // and `FunnelTrace` reads it off `x`.
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    // The first stage is at the top, on a canvas: said, so Down walks the
+    // stages down the funnel.
+    expect(layer.firstCategory).toBe('top');
     // A sliced chart is bound to no axis, so the dimensions name what they
     // hold -- in the order the payload puts them.
     expect(layer.axes).toEqual({ x: { label: 'Value' }, y: { label: 'Stage' } });
@@ -754,6 +757,7 @@ describe('fromAmCharts (sliced chart)', () => {
     const layer = fromAmCharts(fakeRoot([sliced])).subplots[0][0].layers[0];
 
     expect(layer.orientation).toBeUndefined();
+    expect(layer.firstCategory).toBeUndefined();
     expect(layer.axes).toEqual({ x: { label: 'Stage' }, y: { label: 'Value' } });
     expect((layer.data as BarPoint[])[0]).toEqual({ x: 'Visited', y: 10000 });
   });

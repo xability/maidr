@@ -172,7 +172,7 @@ describe('nivo bar', () => {
     expect(ys[1]).toBeGreaterThan(ys[2]);
   });
 
-  it('lists a grouped horizontal chart\'s series bottom-up within each band, the way Up walks them', () => {
+  it('lists a grouped horizontal chart\'s series bottom-up within each band, the way Right walks them', () => {
     const { data } = mount('bar', Bar as never, {
       data: FOOD,
       keys: ['hotdog', 'burger'],

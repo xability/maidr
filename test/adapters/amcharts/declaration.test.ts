@@ -23,6 +23,7 @@ import {
   fakePieSeries,
   fakeRoot,
   fakeSeries,
+  fakeValueAxis,
   itemOf,
 } from './helpers';
 
@@ -90,7 +91,13 @@ function cloudSeries(
 function columnSeries(
   name: string,
   data: Array<Record<string, unknown>>,
-  config: { maidr?: unknown; id?: string; rows?: Array<Record<string, unknown>>; horizontal?: boolean } = {},
+  config: {
+    maidr?: unknown;
+    id?: string;
+    rows?: Array<Record<string, unknown>>;
+    horizontal?: boolean;
+    inversed?: boolean;
+  } = {},
 ): AmXYSeries {
   return fakeSeries({
     className: 'ColumnSeries',
@@ -98,7 +105,7 @@ function columnSeries(
     id: config.id,
     userData: config.maidr === undefined ? undefined : { maidr: config.maidr },
     settings: config.horizontal
-      ? { categoryYField: 'study' }
+      ? { categoryYField: 'study', ...(config.inversed === undefined ? {} : { yAxis: fakeValueAxis(config.inversed) }) }
       : { categoryXField: 'group' },
     data,
     rows: config.rows,
@@ -891,6 +898,20 @@ describe('declared forest plots', () => {
 
   it('makes no claim about significance when no null value is declared', () => {
     expect(forestLayer({ type: 'forest' }).forestOptions).toBeUndefined();
+  });
+
+  it.each([
+    // The studies are read in data order, which a category axis draws from
+    // the bottom up and an inversed one from the top down. The canvas gives
+    // MAIDR nothing to measure that from, and unsaid, a forest plot on an
+    // inversed axis was walked down the page with Up.
+    ['bottom', false],
+    ['top', true],
+  ])('says its first study is drawn at the %s of an axis inversed: %s', (end, inversed) => {
+    const layer = layerOf([columnSeries('Effect', STUDIES, { horizontal: true, inversed, maidr: { type: 'forest' } })]);
+
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect(layer.firstCategory).toBe(end);
   });
 
   it('counts pooledIndex over the rows as authored, including dropped ones', () => {
