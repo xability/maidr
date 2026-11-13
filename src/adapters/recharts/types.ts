@@ -689,6 +689,16 @@ export interface BoxenLadderConfig {
   lowerOutliersKey?: string;
   /** Key holding the values above the deepest rung. */
   upperOutliersKey?: string;
+  /**
+   * A class name every segment `<Bar>` of the ladder carries, and the
+   * transparent base does not. With it, each stop outlines the box it is
+   * read off: the segments' rectangles at a distribution's place, stacked
+   * from the base, are its boxes, lowest value first.
+   *
+   * Without it no selector is generated, and a chart that wants a highlight
+   * passes one as `selectorOverride`. A `selectorOverride` wins over it.
+   */
+  boxClassName?: string;
 }
 
 /**

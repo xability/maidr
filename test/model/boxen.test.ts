@@ -411,11 +411,12 @@ describe('the selector guard matches the union it narrows', () => {
   }
 
   test('withdraws for a selector shape a boxen cannot use', () => {
-    // `MaidrLayer['selectors']` also admits `string[][]` and the box and
-    // candlestick shapes. `Array.isArray` alone lets all of them reach a cast
-    // to `string[]`, and what saved it was `isUsableSelector` rejecting each
-    // entry three frames away -- a guard leaning on a check it does not name.
-    expect(highlightsFor([['a', 'b'], ['c']] as unknown as MaidrLayer['selectors']))
+    // `MaidrLayer['selectors']` also admits the box and candlestick shapes,
+    // and JSON can carry a list mixing rows of a grid with plain strings.
+    // `Array.isArray` alone lets all of them reach a cast to `string[]`, and
+    // what saved it was `isUsableSelector` rejecting each entry three frames
+    // away -- a guard leaning on a check it does not name.
+    expect(highlightsFor([['a', 'b'], 'c'] as unknown as MaidrLayer['selectors']))
       .toBeNull();
     expect(highlightsFor([{ q1: 'a', q3: 'b' }] as unknown as MaidrLayer['selectors']))
       .toBeNull();

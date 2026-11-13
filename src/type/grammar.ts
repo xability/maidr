@@ -2092,9 +2092,9 @@ export interface MaidrLayer {
    * type in the "Selectors" section of `docs/SCHEMA.md`: a string is resolved
    * with `querySelectorAll`; a list is one element per point for a bar, one per
    * series for the line family, and resolved entry by entry for most others; a
-   * grid names one element per cell of a segmented layer or a heat map. A
-   * layer whose selectors resolve to nothing is still read aloud, and MAIDR
-   * says so in the console.
+   * grid names one element per cell of a segmented layer or a heat map, and
+   * a boxen's boxes, one row per distribution. A layer whose selectors
+   * resolve to nothing is still read aloud, and MAIDR says so in the console.
    *
    * A grid cell may be `null`, which says the chart drew **no element** for
    * that cell — a category a series has no bar at, or a position a heat grid

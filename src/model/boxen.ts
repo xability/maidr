@@ -46,10 +46,15 @@ interface Stop {
 
 /** The elements a layer names for its distributions. */
 interface Drawn {
-  /** Each distribution's element, which holds its ladder. */
+  /**
+   * Each distribution's element, which holds its ladder, or for one whose
+   * boxes the layer lists, the middle box listed.
+   */
   ladders: SVGElement[];
   /** Each distribution's outlier marks, or null where the layer names none. */
   outliers: (SVGElement[] | null)[];
+  /** Each distribution's boxes, lowest value first, or null where the layer lists none. */
+  boxes: (SVGElement[] | null)[];
 }
 
 /** One drawn box of a ladder and its extent along the value axis. */
@@ -212,6 +217,13 @@ export class BoxenTrace extends AbstractTrace {
    */
   private readonly distributionElements: SVGElement[];
 
+  /**
+   * Each distribution's boxes, where the layer lists them rather than naming
+   * an element that holds them: the chart's own, for high contrast to
+   * recolour.
+   */
+  private readonly listedBoxes: (SVGElement[] | null)[];
+
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -244,8 +256,12 @@ export class BoxenTrace extends AbstractTrace {
 
     const drawn = this.resolveDistributions(layer.selectors);
     this.distributionElements = drawn?.ladders ?? [];
-    const reads = this.distributionElements
-      .map((element, row) => BoxenTrace.ladderRead(element, this.rungs[row].length, this.orientation));
+    this.listedBoxes = drawn?.boxes ?? [];
+    // A distribution whose boxes the layer lists is read in the order they
+    // are listed, and has no element holding them to read.
+    const reads = this.distributionElements.map((element, row) => this.listedBoxes[row]
+      ? null
+      : BoxenTrace.ladderRead(element, this.rungs[row].length, this.orientation));
     // Every way the chart says which end of the axis is low: the tiled
     // ladders together, and each distribution's outliers. Taken only when
     // what says anything agrees.
@@ -256,8 +272,13 @@ export class BoxenTrace extends AbstractTrace {
     const upward = said.length > 0 && said.every(one => one === said[0]) ? said[0] : null;
     this.highlightValues = drawn === null
       ? null
-      : drawn.ladders.map((element, row) =>
-          this.outlinesAt(row, element, drawn.outliers[row], BoxenTrace.stopBoxes(reads[row], upward), upward));
+      : drawn.ladders.map((element, row) => {
+          const listed = drawn.boxes[row];
+          const boxes = listed === null
+            ? BoxenTrace.stopBoxes(reads[row], upward)
+            : BoxenTrace.listedStopBoxes(listed, this.rungs[row]);
+          return this.outlinesAt(row, element, drawn.outliers[row], boxes, upward);
+        });
     this.movable = new MovableGrid<number>(this.stopValues);
   }
 
@@ -507,24 +528,45 @@ export class BoxenTrace extends AbstractTrace {
    * declining leaves the chart as it was, and every selector is resolved
    * before the first copy is inserted beside what it copies.
    *
+   * A grid lists each distribution's boxes instead, one row per
+   * distribution, for a chart that draws no element holding a ladder: a
+   * stacked bar chart draws a distribution's boxes in a different `<Bar>`
+   * each.
+   *
    * @param selectors - The layer's selectors, when it has any
    * @returns The chart's own elements, or null when unresolvable
    */
   private resolveDistributions(
     selectors?: MaidrLayer['selectors'],
   ): Drawn | null {
-    // `MaidrLayer['selectors']` also admits `(string | null)[][]` and the box and
-    // candlestick shapes, and `Array.isArray` alone lets all of them through
-    // to a cast. Narrowing on the elements instead means the guard matches
-    // what the type allows, rather than leaning on `isUsableSelector` to
-    // reject each entry one at a time and leave an empty list behind.
+    // `MaidrLayer['selectors']` also admits the box and candlestick shapes,
+    // and `Array.isArray` alone lets all of them through to a cast. Narrowing
+    // on the elements instead means the guard matches what the type allows,
+    // rather than leaning on `isUsableSelector` to reject each entry one at a
+    // time and leave an empty list behind.
     let ladders: SVGElement[];
     let outliers: (SVGElement[] | null)[];
+    let boxes: (SVGElement[] | null)[] | null = null;
     if (typeof selectors === 'string') {
       ladders = Svg.selectAllElements(selectors, false);
       outliers = ladders.map(() => null);
     } else if (Array.isArray(selectors) && selectors.every(one => typeof one === 'string')) {
       ladders = selectors.flatMap(one => Svg.selectAllElements(one, false));
+      outliers = ladders.map(() => null);
+    } else if (Array.isArray(selectors) && selectors.every(BoxenTrace.isBoxRow)) {
+      // Each cell's matches in document order, MAIDR's own copies left out:
+      // one is inserted beside the box it copies, where a selector naming the
+      // box matches it too. A cell that matches nothing is a mistake, as in
+      // any grid, and so is a row naming no box.
+      const named = selectors.map(row => row
+        .filter((cell): cell is string => cell !== null)
+        .map(cell => Svg.selectAllElements(cell, false).filter(box => !Svg.isOwned(box))));
+      if (named.some(row => row.length === 0 || row.some(matches => matches.length === 0))) {
+        return null;
+      }
+      const listed = named.map(row => row.flat());
+      boxes = listed;
+      ladders = listed.map(row => row[Math.floor(row.length / 2)]);
       outliers = ladders.map(() => null);
     } else if (Array.isArray(selectors) && selectors.every(BoxenTrace.isBoxenSelector)) {
       // One entry per distribution, so each names one element: a total that
@@ -539,7 +581,20 @@ export class BoxenTrace extends AbstractTrace {
     } else {
       return null;
     }
-    return ladders.length === this.points.length ? { ladders, outliers } : null;
+    return ladders.length === this.points.length
+      ? { ladders, outliers, boxes: boxes ?? ladders.map(() => null) }
+      : null;
+  }
+
+  /**
+   * Whether one entry of a layer's selectors is a row of a grid: the boxes
+   * of one distribution.
+   *
+   * @param one - An entry of the layer's selectors
+   * @returns True for a list of selectors and nulls
+   */
+  private static isBoxRow(one: unknown): one is (string | null)[] {
+    return Array.isArray(one) && one.every(cell => cell === null || typeof cell === 'string');
   }
 
   /**
@@ -774,6 +829,44 @@ export class BoxenTrace extends AbstractTrace {
       }
       return stop === depth ? boxes[depth - 1].box : boxes[stop - 2].box;
     });
+  }
+
+  /**
+   * The box each stop of a ladder is read off, in walking order, from the
+   * boxes the layer lists for it, lowest value first.
+   *
+   * Paired by their place in the list, so the way the value axis runs does
+   * not matter: the producer knows which box holds the lowest values, as a
+   * stacked bar chart stacks them from its base, wherever the axis draws it.
+   * Two layouts are read, as {@link BoxenTrace.stopBoxes} pairs them: 2k
+   * boxes split at the median, one per gap between consecutive positions of
+   * the ladder, and 2k - 1 boxes about a middle one spanning the quartiles.
+   *
+   * @param boxes - The boxes listed, lowest value first
+   * @param ladder - Its rungs, in walking order
+   * @returns The chart's own element for each stop, or null when the list is
+   *   neither layout
+   */
+  private static listedStopBoxes(boxes: SVGElement[], ladder: Rung[]): SVGElement[] | null {
+    const depth = (ladder.length - 1) / 2;
+    if (!Number.isInteger(depth) || depth < 1) {
+      return null;
+    }
+    // Split at the median: stop c below it is the lower edge of box c, and
+    // above it the upper edge of box c - 1. The median, on the edge between
+    // boxes k - 1 and k, outlines the one above it. With k = 3, stops
+    // 0 1 2 | 3 | 4 5 6 outline boxes 0 1 2 | 3 | 3 4 5.
+    if (boxes.length === 2 * depth) {
+      return ladder.map((_, stop) => boxes[stop < depth ? stop : Math.max(stop - 1, depth)]);
+    }
+    // About a middle box: 0 1 2 | 2 | 2 3 4. Two positions of one value have
+    // no box drawn between them, so on a ladder holding two this many boxes
+    // may be the split layout one box short, and is not read.
+    const distinct = ladder.every((rung, index) => index === 0 || rung.value > ladder[index - 1].value);
+    if (boxes.length === 2 * depth - 1 && distinct) {
+      return ladder.map((_, stop) => boxes[stop < depth ? stop : Math.max(stop - 2, depth - 1)]);
+    }
+    return null;
   }
 
   /**
@@ -1265,12 +1358,16 @@ export class BoxenTrace extends AbstractTrace {
    * each distribution as the layer names it. The boxes the outline moves
    * between are drawn inside those, and pairing each outline with its box,
    * as the default does, would hand high contrast the boxes as marks of
-   * their own.
+   * their own. A distribution whose boxes the layer lists has no element
+   * holding them, and is its boxes.
    *
    * @returns The distributions' elements, or none when unresolvable
    */
   public override getAllOriginalElements(): SVGElement[] {
-    return this.highlightValues?.length ? [...this.distributionElements] : [];
+    if (!this.highlightValues?.length) {
+      return [];
+    }
+    return this.distributionElements.flatMap((element, row) => this.listedBoxes[row] ?? [element]);
   }
 
   /**

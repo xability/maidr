@@ -79,11 +79,11 @@ export function BoxenExample(): JSX.Element {
         pitch jumps is where the sample is thin.
       </p>
       <p>
-        The rungs are stacked bars here, so no class name identifies a
-        distribution: the chart names its central segment and passes that as
-        <code>selectorOverride</code>
+        The rungs are stacked bars here, so no one element holds a
+        distribution: every segment carries one class name, passed as
         {' '}
-        to get one highlight per region.
+        <code>boxenConfig.boxClassName</code>
+        , and each position outlines the box it is read off.
       </p>
       <MaidrRecharts
         id="boxen-example"
@@ -92,7 +92,7 @@ export function BoxenExample(): JSX.Element {
         data={distributions}
         chartType="boxen"
         xKey="region"
-        selectorOverride="#maidr-article-boxen-example .boxen-centre .recharts-rectangle"
+        boxenConfig={{ boxClassName: 'boxen-box' }}
         xLabel="Region"
         yLabel="Response time (ms)"
       >
@@ -111,9 +111,9 @@ export function BoxenExample(): JSX.Element {
               stackId="ladder"
               fill={shades[index]}
               stroke="#4a4a80"
-              // One rectangle per region, right at the centre of the
-              // distribution — the one mark that can stand for the whole of it.
-              className={index === segmentCount / 2 ? 'boxen-centre' : undefined}
+              // Every segment, and not the base: a region's boxes are its
+              // rectangles in these, stacked lowest value first.
+              className="boxen-box"
               isAnimationActive={false}
             />
           ))}

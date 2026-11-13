@@ -65,7 +65,7 @@ import { clockFromCounterclockwiseOf3, pieGeometry } from '@adapters/shared/pieG
 import { cssEscape } from '@adapters/shared/selectorUtil';
 import { resolveFieldRef, validateDeclaration } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
-import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors, ridgeSelectors, seriesDotSelectors } from './selectors';
+import { boxenBoxSelectors, getPanelClassSelector, getRechartsSelector, reversedBarSelectors, ridgeSelectors, seriesDotSelectors } from './selectors';
 
 /**
  * What a layer carries when its marks run opposite to its payload.
@@ -1370,10 +1370,13 @@ function groupIntoHexbinRows(bins: HexbinBin[]): HexbinBin[][] {
  * numbers are not all finite is dropped rather than announced as a quantile
  * the data never computed.
  *
- * No selector is generated. A rung is a rectangle rather than a distribution,
- * `BoxenTrace` wants exactly one element per distribution, and no class name
- * identifies the outermost rung — so a chart that wants highlighting puts a
- * `className` on that one `<Bar>` and passes it as `selectorOverride`.
+ * A distribution's boxes are one rectangle in each segment `<Bar>`, and no
+ * element holds them. Where every segment carries `boxClassName`, each
+ * distribution's row of the selector grid names its rectangles, so each stop
+ * outlines its own box (see `boxenBoxSelectors`); the row is the
+ * distribution's place in the data, which is its place in the chart's.
+ * Otherwise no selector is generated, and a chart that wants a highlight
+ * passes one as `selectorOverride`.
  */
 function buildBoxenLayer(
   data: Record<string, unknown>[],
@@ -1387,16 +1390,19 @@ function buildBoxenLayer(
   chartId?: string,
   panelScope?: string,
 ): MaidrLayer {
-  const { xKey: categoryKey, medianKey, levelsKey, lowerOutliersKey, upperOutliersKey } = boxenConfig ?? {};
+  const { xKey: categoryKey, medianKey, levelsKey, lowerOutliersKey, upperOutliersKey, boxClassName } = boxenConfig ?? {};
 
   const points: BoxenPoint[] = [];
-  for (const item of data) {
+  // Where each distribution kept is drawn among the chart's bars.
+  const places: number[] = [];
+  for (const [place, item] of data.entries()) {
     const median = toOptionalNumber(resolveFieldRef(item, medianKey, 'median'));
     // The median is the middle of the ladder and a navigable position in its
     // own right. A distribution without one has no centre to walk out from.
     if (median === undefined) {
       continue;
     }
+    places.push(place);
 
     const point: BoxenPoint = {
       z: toText(item[categoryKey ?? xKey]) ?? '',
@@ -1426,7 +1432,10 @@ function buildBoxenLayer(
   return {
     id: '0',
     type: TraceType.BOXEN,
-    selectors: selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope),
+    selectors: selectorOverride
+      ?? (boxClassName === undefined
+        ? getRechartsSelector(chartType, undefined, chartId, panelScope)
+        : boxenBoxSelectors(boxClassName, places, chartId, panelScope)),
     orientation: resolved,
     axes: barAxes(xLabel, yLabel, resolved === Orientation.HORIZONTAL),
     data: points,

@@ -2461,11 +2461,11 @@ describe('convertRechartsToMaidr', () => {
       })).toThrow('RechartsAdapter');
     });
 
-    it('generates no selector, since a rung is not a distribution', () => {
+    it('generates no selector without a class name on the segments', () => {
       const layer = convertRechartsToMaidr(boxenConfig).subplots[0][0].layers[0];
 
       // The rungs are stacked <Bar>s: one rectangle per rung per category,
-      // and no class name says which rung is which.
+      // and without boxClassName no class name says which rung is which.
       expect(layer.selectors).toBeUndefined();
       expect(layer.orientation).toBe(Orientation.VERTICAL);
 
@@ -2476,6 +2476,31 @@ describe('convertRechartsToMaidr', () => {
       }).subplots[0][0].layers[0];
       expect(overridden.selectors).toBe('.boxen-outer .recharts-rectangle');
       expect(overridden.orientation).toBe(Orientation.HORIZONTAL);
+    });
+
+    it('names each distribution\'s boxes, a row of the grid each, where the segments carry boxClassName', () => {
+      const layer = convertRechartsToMaidr({
+        ...boxenConfig,
+        data: [distributions[0], { region: 'North', levels: [{ p: 0.25, lo: 1, hi: 2 }] }, distributions[1]],
+        boxenConfig: { ...boxenConfig.boxenConfig, boxClassName: 'boxen-box' },
+      }).subplots[0][0].layers[0];
+
+      // North has no median and is not read, and West is still the chart's
+      // third bar.
+      expect(layer.selectors).toEqual([
+        ['#maidr-article-latency .boxen-box .recharts-bar-rectangle:nth-child(1) .recharts-rectangle'],
+        ['#maidr-article-latency .boxen-box .recharts-bar-rectangle:nth-child(3) .recharts-rectangle'],
+      ]);
+    });
+
+    it('lets selectorOverride win over boxClassName', () => {
+      const layer = convertRechartsToMaidr({
+        ...boxenConfig,
+        boxenConfig: { ...boxenConfig.boxenConfig, boxClassName: 'boxen-box' },
+        selectorOverride: '.boxen-outer .recharts-rectangle',
+      }).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe('.boxen-outer .recharts-rectangle');
     });
   });
 
