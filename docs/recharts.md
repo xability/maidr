@@ -978,6 +978,8 @@ const studies = [
 
 Row order is the drawn order, with the pooled row wherever the chart puts it. Keep the `orientation` horizontal: the rows are studies and the values run across.
 
+Highlighting targets the intervals, as it does on an error bar: each bound outlines its own cap of the `<ErrorBar>`, and the estimate outlines the whole interval. The scatter symbol, whose area is the weight, is not outlined. Pass its selector as `selectorOverride` to outline it instead, at every section.
+
 #### Alluvial and Sankey Diagrams [experimental]
 
 An alluvial is a `<Sankey>` whose node set repeats at each stage; a Sankey proper is one left-to-right budget of ribbons that split and rejoin. Both are the same weighted graph and take the same config — pass the `links` half of the Sankey data as `data`, and the `nodes` half through `flowConfig`:

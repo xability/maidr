@@ -1729,11 +1729,11 @@ describe('convertRechartsToMaidr', () => {
       expect(layer.forestOptions).toBeUndefined();
     });
 
-    it('targets the scatter symbols', () => {
+    it('targets the intervals, whose caps the bounds are outlined as', () => {
       const layer = convertRechartsToMaidr(forestConfig).subplots[0][0].layers[0];
 
       expect(layer.selectors).toBe(
-        '#maidr-article-meta .recharts-scatter-symbol .recharts-symbols',
+        '#maidr-article-meta .recharts-errorBars .recharts-errorBar',
       );
     });
   });
