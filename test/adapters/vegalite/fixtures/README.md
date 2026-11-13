@@ -34,6 +34,7 @@ invisible to these tests. Re-capture when bumping.
 | `repeatLayeredLine.ts`       | `repeat` with a layered child              | repeat numbers layers in **reverse** (`layer_0` → `data_1`)                                                                            |
 | `concatLayeredLine.ts`       | `hconcat` with layered children            | concat likewise reversed, and its layers are never merged                                                                              |
 | `unreachableMarkDatasets.ts` | colour-encoded line, boxplot               | shapes whose mark datasets are unreachable and must keep working through the fallback                                                  |
+| `namedViews.ts`              | views that declare a `name`                | a declared name renames every mark, group, cell and scale below it; vega-lite 5.23.0 and vega 5.33.1                                   |
 
 `testView.ts` is not a capture — it is a `VegaView` stub that deliberately
 reproduces Vega's awkward contract (`getState`'s `data` option is a

@@ -85,6 +85,8 @@ The Vega-Lite adapter:
 
 Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter must be called from inside the `vegaEmbed(...).then(...)` callback (or after `await vegaEmbed(...)`), once the SVG and the compiled view are both available.
 
+Vega-Lite names what a view compiles to after the view: a layer's marks are `layer_0_marks`, a concat child's panel is `concat_1_group`. A view that declares a `name` is compiled under that name instead, and so is everything inside it. Altair 6.1 names the view of a compound chart that carries its selection, so `alt.layer(points.interactive(), line)` draws its points under `view_<hash>_0_marks`. The adapter names the marks, panels and scales it reads the same way, so a named view is outlined and read like any other.
+
 ## Supported Chart Types
 
 ### Stable chart types
