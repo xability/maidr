@@ -5898,7 +5898,16 @@ function buildChoroplethLayer(
  * the numbers a funnel is read for — computing them here would put the same
  * arithmetic in every adapter and give a reader two sources for one figure.
  *
- * A pyramid is emitted unchanged, in draw order. Its widest stage is at the
+ * The layer lies on its side, as AnyChart draws it: the stages are stacked
+ * one above another, as a horizontal layer's categories are, so Up and Down
+ * move between them. Declared upright, Left and Right walked them, across a
+ * drawing that runs up and down the page. The count is the point's `x`, where
+ * a horizontal layer keeps its magnitude, though AnyChart draws it as the
+ * segment's height rather than its width. Which end the first stage is drawn
+ * at is measured from the stamped segments, so the layer needs no
+ * `firstCategory`.
+ *
+ * A pyramid is emitted the same way, in draw order. Its widest stage is at the
  * bottom rather than the top, but the rows still arrive in the order AnyChart
  * consumed them, which is the order the stages follow one another in.
  *
@@ -5915,10 +5924,10 @@ function buildFunnelLayer(
   const data: BarPoint[] = rows
     .filter(isDrawnDatum)
     .map(r => ({
+      x: asNumber(r.value ?? r.y),
       // A funnel's default data mapping is `name` / `value`, unlike the pie's
       // `x` / `value`, so `name` is preferred here and `x` is the fallback.
-      x: asString(r.name ?? r.x ?? r._index),
-      y: asNumber(r.value ?? r.y),
+      y: asString(r.name ?? r.x ?? r._index),
     }));
 
   // Default selector targets the attribute stamped by
@@ -5928,6 +5937,7 @@ function buildFunnelLayer(
   return {
     id: '0',
     type: TraceType.FUNNEL,
+    orientation: Orientation.HORIZONTAL,
     selectors: selectors ?? defaultSelector,
     data,
   };
@@ -6985,8 +6995,9 @@ const PIE_AXIS_FALLBACKS = { x: 'Label', y: 'Value' };
 /**
  * What a funnel's two dimensions are called when the chart names neither. Like
  * a pie, a funnel is bound to no axis, so there is no axis title to extract.
+ * It lies on its side, so the count is its `x` and the stage its `y`.
  */
-const FUNNEL_AXIS_FALLBACKS = { x: 'Stage', y: 'Count' };
+const FUNNEL_AXIS_FALLBACKS = { x: 'Count', y: 'Stage' };
 
 /**
  * What a tag cloud's two dimensions are called when the chart names neither.
@@ -7093,7 +7104,10 @@ function buildSubplot(
     // its category `x`: `LineTrace` has no orientation and its points were
     // not exchanged. A gantt declares `horz` on a chart type of its own,
     // which is not one of these, so its `Date` / `Task` pair is left alone.
-    const swap = horizontal && layer.orientation === Orientation.HORIZONTAL;
+    // A funnel is bound to no axis and lies on its side whatever the chart
+    // type, so its own orientation decides.
+    const swap = layer.orientation === Orientation.HORIZONTAL
+      && (horizontal || layer.type === TraceType.FUNNEL);
     const x = (swap ? yAxisLabel : xAxisLabel) ?? fallbacks?.x;
     const y = (swap ? xAxisLabel : yAxisLabel) ?? fallbacks?.y;
     if (!x && !y)

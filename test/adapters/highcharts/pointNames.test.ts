@@ -70,7 +70,8 @@ describe('highcharts points that sit on no category axis', () => {
       { name: 'Downloads', y: 4064 },
     ])) as BarPoint[];
 
-    expect(data.map(stage => stage.x)).toEqual(['Website visits', 'Downloads']);
+    // On its side: the stage is the point's `y`.
+    expect(data.map(stage => stage.y)).toEqual(['Website visits', 'Downloads']);
   });
 
   it('names each word cloud term by its name', () => {
