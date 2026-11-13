@@ -219,8 +219,9 @@ describe('vega-lite pairs below the top level', () => {
   });
 
   // Measured on vega-lite 5.23.0 with vega 5.33.1: a named band's marks keep
-  // its own name wherever the fan sits, and the unnamed median line is
-  // `layer_2` of the layered spec the fan is, named by the path to it.
+  // its own name wherever the fan sits but in a repeated cell, which puts the
+  // cell's name before it; the unnamed median line is `layer_2` of the layered
+  // spec the fan is, named by the path to it.
   it.each([
     [
       'a concat child',
@@ -249,11 +250,25 @@ describe('vega-lite pairs below the top level', () => {
         'g[data-maidr-cell="vl-chart-0-0"] g.mark-line.role-mark.child_layer_2_marks > path',
       ],
     ],
+    [
+      'a repeated cell',
+      {
+        data: { values: FAN_ROWS },
+        repeat: { column: ['p50'] },
+        spec: { layer: [FAN[0], FAN[1], { ...FAN[2], encoding: { x: FAN_X, y: { field: { repeat: 'column' }, type: 'quantitative' } } }] },
+      },
+      [
+        'g.mark-area.role-mark.child__column_p50_p5_95_marks > path',
+        'g.mark-area.role-mark.child__column_p50_p25_75_layer_0_marks > path',
+        'g.mark-line.role-mark.child__column_p50_layer_2_marks > path',
+      ],
+    ],
   ])('reads a declared fan that is %s, its marks named as they are drawn', (_, spec, selectors) => {
     const [first] = convert(spec).subplots[0];
 
     // Before: an area, an error bar and a line under names no mark is drawn
-    // with, and nothing at all in a facet.
+    // with, and nothing at all in a facet. In a repeated cell, a band named
+    // no mark until the cell's name was put before its own.
     expect(first.layers.map(layer => layer.type)).toEqual([TraceType.PERCENTILE_BAND]);
     expect(first.layers[0].selectors).toEqual(selectors);
   });

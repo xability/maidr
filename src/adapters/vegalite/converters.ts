@@ -203,6 +203,13 @@ interface LayerPlace {
    * panels, a repeated child's name and `_` in a repeat.
    */
   basePrefix: string;
+  /**
+   * What Vega-Lite puts before the name a layer declares for itself: a
+   * repeated child's name and `_`, which every named layer under it takes
+   * (`child__column_p50_p5_95_marks`). A concat child's and a facet's named
+   * layers keep their names as they are.
+   */
+  namePrefix?: string;
   /** The layer indices from that child down to the spec, outermost first. */
   path: number[];
   /** A facet panel's scope, which the selectors are read inside. */
@@ -464,6 +471,7 @@ function convertNestedLayers(
   const children = withSharedAxisTitles(inheritData(nested.layer ?? [], nested.data), { ...nested, encoding });
   return convertLayers(children, { encoding, transform, name: nested.name }, view, domOrder, {
     basePrefix: place.basePrefix,
+    namePrefix: place.namePrefix,
     path,
     cellScope: place.cellScope,
     cellFilters: place.cellFilters,
@@ -4550,10 +4558,20 @@ interface DeclaredFan {
  * @param parentName - The layered parent's own `name`, when it has one
  * @param part - What the marks are: `marks`, or `layer_0_marks` for the
  *   area a composite `errorband` compiles into
+ * @param namePrefix - What Vega-Lite puts before a name the layer declares,
+ *   in a repeated cell (see `LayerPlace`)
  * @returns The mark group's name
  */
-function compiledMarkName(spec: VegaLiteSpec, index: number, parentName: string | undefined, part: string): string {
-  const own = spec.name ?? `${parentName ? `${parentName}_` : ''}layer_${index}`;
+function compiledMarkName(
+  spec: VegaLiteSpec,
+  index: number,
+  parentName: string | undefined,
+  part: string,
+  namePrefix = '',
+): string {
+  const own = spec.name !== undefined
+    ? `${namePrefix}${spec.name}`
+    : `${parentName ? `${parentName}_` : ''}layer_${index}`;
   const name = `${own}_${part}`;
   return (/^\d/.test(name) ? '_' : '') + name.replace(/\W/g, '_');
 }
@@ -4671,7 +4689,7 @@ function convertDeclaredFan(
         return refuse(band.series, 'which draws no "y" to "y2" range over the median\'s x');
       }
       used.add(at);
-      const markName = compiledMarkName(specs[at], at, parentName, mark === 'area' ? 'marks' : 'layer_0_marks');
+      const markName = compiledMarkName(specs[at], at, parentName, mark === 'area' ? 'marks' : 'layer_0_marks', place.namePrefix);
       const rows = pairedLayerRows(specs[at], at, view, markName, place, [low, high]);
       const edges = new Map<string, { low: number | null; high: number | null }>();
       for (const row of rows) {
@@ -4686,7 +4704,7 @@ function convertDeclaredFan(
     })
     .filter(band => band !== undefined);
 
-  const lineMark = compiledMarkName(spec, index, parentName, 'marks');
+  const lineMark = compiledMarkName(spec, index, parentName, 'marks', place.namePrefix);
   const medianRows = pairedLayerRows(spec, index, view, lineMark, place, [xField, yField]);
   const data: PercentileBandPoint[] = [];
   for (const row of medianRows) {
@@ -6269,6 +6287,7 @@ function buildRepeatMaidr(
     const rawLayers = isLayered
       ? convertLayers(layerSpecs, { encoding: parentEncoding, transform: parentTransform }, view, domOrder, {
           basePrefix: `${childName}_`,
+          namePrefix: `${childName}_`,
           path: [],
           dataIndexOf: j => first + j,
         })
