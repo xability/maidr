@@ -3437,6 +3437,15 @@ const FUNNEL_COUNT_AXIS = 'Count';
  * A pyramid is the same series drawn without a neck and flipped, so it carries
  * the same stages in the same declared order and reads the same way.
  *
+ * The layer lies on its side, as Highcharts draws it: the segments are stacked
+ * one above another, as a horizontal layer's categories are, so Up and Down
+ * move between the stages. Declared upright, Left and Right walked them,
+ * across a drawing that runs up and down the page. The count is the point's
+ * `x`, where a horizontal layer keeps its magnitude, though Highcharts draws
+ * it as the segment's height rather than its width. Which end the first stage
+ * is drawn at, `reversed` or not, is measured from the segments the selectors
+ * resolve, so the layer needs no `firstCategory`.
+ *
  * The adapter supplies stage/count pairs and nothing else: the retention
  * between adjacent stages — the number a funnel is actually read for — is
  * arithmetic `FunnelTrace` does itself, so declared order is the whole of what
@@ -3452,18 +3461,19 @@ function convertFunnelSeries(
   const data: BarPoint[] = series.data
     .filter(p => p.y != null)
     .map(p => ({
-      x: pointName(p),
-      y: p.y as number,
+      x: p.y as number,
+      y: pointName(p),
     }));
 
   return {
     id: String(series.index),
     type: TraceType.FUNNEL,
     name: seriesName(series),
+    orientation: Orientation.HORIZONTAL,
     selectors: funnelSelector(containerId, series.index),
     axes: {
-      x: { label: FUNNEL_STAGE_AXIS },
-      y: { label: FUNNEL_COUNT_AXIS },
+      x: { label: FUNNEL_COUNT_AXIS },
+      y: { label: FUNNEL_STAGE_AXIS },
     },
     data,
   };
