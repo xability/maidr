@@ -345,6 +345,76 @@ describe('the other traces drawn on their side', () => {
   });
 });
 
+describe('the rotor\'s lower and higher value search on a dumbbell and an error bar drawn on their side', () => {
+  /**
+   * Where the cursor is: the category, then the reading.
+   * @param trace - The trace
+   * @returns The two
+   */
+  function reading(trace: AbstractTrace): unknown[] {
+    const state = trace.state;
+    if (state.empty || state.type !== 'trace') {
+      throw new Error('expected a populated trace state');
+    }
+    return [state.text.main.value, state.text.cross?.value];
+  }
+
+  test('a dumbbell searches its countries down and up the page along the end the cursor is on', () => {
+    // Drawn first at the top, as a canvas producer would say. The search
+    // stays on the 1990 ends, across the countries Up and Down walk.
+    const trace = TraceFactory.create({
+      id: 'gains',
+      type: TraceType.DUMBBELL,
+      orientation: Orientation.HORIZONTAL,
+      firstCategory: 'top',
+      axes: { x: { label: 'Years' }, y: { label: 'Country' } },
+      data: {
+        points: [
+          { x: 'Norway', start: 70, end: 82 },
+          { x: 'Kenya', start: 50, end: 66 },
+          { x: 'Chile', start: 60, end: 80 },
+        ],
+        startLabel: '1990',
+        endLabel: '2020',
+      },
+    }) as AbstractTrace;
+    trace.moveOnce('FORWARD');
+
+    expect(trace.moveDownRotor('lower')).toBe(true);
+    expect(reading(trace)).toEqual(['Kenya', 50]);
+    expect(trace.moveDownRotor('higher')).toBe(true);
+    expect(reading(trace)).toEqual(['Chile', 60]);
+    expect(trace.moveUpRotor('higher')).toBe(true);
+    expect(reading(trace)).toEqual(['Norway', 70]);
+    expect(trace.moveUpRotor('lower')).toBe(false);
+  });
+
+  test('an error bar searches its studies down and up the page along the estimates', () => {
+    const trace = TraceFactory.create({
+      id: 'forest',
+      type: TraceType.FOREST,
+      orientation: Orientation.HORIZONTAL,
+      firstCategory: 'top',
+      axes: { x: { label: 'Odds ratio' }, y: { label: 'Study' } },
+      data: [
+        { x: 'Alpha', y: 1.2, yMin: 0.9, yMax: 1.6 },
+        { x: 'Beta', y: 0.8, yMin: 0.5, yMax: 1.1 },
+        { x: 'Gamma', y: 1.0, yMin: 0.7, yMax: 1.4 },
+      ],
+    } as MaidrLayer) as AbstractTrace;
+    // Entered on the estimate, as on a vertical forest plot.
+    trace.moveOnce('FORWARD');
+
+    expect(trace.moveDownRotor('lower')).toBe(true);
+    expect(reading(trace)).toEqual(['Beta', 0.8]);
+    expect(trace.moveDownRotor('higher')).toBe(true);
+    expect(reading(trace)).toEqual(['Gamma', 1]);
+    expect(trace.moveUpRotor('higher')).toBe(true);
+    expect(reading(trace)).toEqual(['Alpha', 1.2]);
+    expect(trace.moveUpRotor('lower')).toBe(false);
+  });
+});
+
 describe('the rotor on a chart drawn on its side', () => {
   /**
    * The rotor over a trace, in its lower value mode, with the notifications
