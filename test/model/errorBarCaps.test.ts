@@ -183,7 +183,9 @@ describe('an error bar\'s bounds outlined as their own caps', () => {
     ]);
   });
 
-  // The first sample, 3.6 to 4.8, is drawn from y 128 up to y 104.
+  // The first sample, 3.6 to 4.8, is drawn from y 128 up to y 104, in a shape
+  // that is not read. The two whips beside it are, and keep their caps: one
+  // whip that cannot be read does not cost the others theirs.
   it.each([
     ['one path', '<g class="whip"><path d="M 95 104 L 105 104 M 100 104 L 100 128 M 95 128 L 105 128" /></g>'],
     ['four lines', `<g class="whip">${'<line x1="100" y1="104" x2="100" y2="128" />'.repeat(4)}</g>`],

@@ -469,8 +469,11 @@ export class ErrorBarTrace extends AbstractTrace {
     }
     const flat = live.map(element => Svg.cloneHidden(element));
     // Found on the chart's own group, whose children the copy above did not
-    // change: it went in beside the group, not inside it. A sample whose
-    // bounds are not two values in order has no cap of either to read.
+    // change: it went in beside the group, not inside it. Caps are read only
+    // for a sample whose lower bound is below its upper. A zero-width
+    // interval draws both caps at one place, so neither can be told for the
+    // lower bound's rather than the upper's; a missing or inverted bound
+    // gives the caps no order to be read in.
     const found = live.map((element, index) => {
       const point = this.points[index];
       return magnitudeOf(point, 'lower') < magnitudeOf(point, 'upper') ? capsOf(element) : null;
