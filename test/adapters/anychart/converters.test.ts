@@ -27,7 +27,7 @@ import {
   mapSeriesType,
 } from '@adapters/anychart/converters';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 
 // ---------------------------------------------------------------------------
@@ -1156,11 +1156,14 @@ describe('anyChartToMaidr (funnel chart)', () => {
     const layer = result!.subplots[0][0].layers[0];
     expect(layer.type).toBe(TraceType.FUNNEL);
     expect(layer.selectors).toBe('[data-maidr-anychart-funnel-stage^="0-"]');
-    // A funnel's default mapping is `name` / `value`, not the pie's `x`.
+    // Drawn on its side, its stages one above another: Up and Down walk them,
+    // and the count is the magnitude of a horizontal layer, on `x`. A
+    // funnel's default mapping is `name` / `value`, not the pie's `x`.
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
     expect(layer.data as BarPoint[]).toEqual([
-      { x: 'Visited', y: 10000 },
-      { x: 'Signed up', y: 2400 },
-      { x: 'Paid', y: 100 },
+      { x: 10000, y: 'Visited' },
+      { x: 2400, y: 'Signed up' },
+      { x: 100, y: 'Paid' },
     ]);
   });
 
@@ -1174,9 +1177,10 @@ describe('anyChartToMaidr (funnel chart)', () => {
     const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
 
     expect(layer.type).toBe(TraceType.FUNNEL);
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
     expect(layer.data as BarPoint[]).toEqual([
-      { x: 'Top', y: 5 },
-      { x: 'Base', y: 20 },
+      { x: 5, y: 'Top' },
+      { x: 20, y: 'Base' },
     ]);
   });
 
@@ -1185,7 +1189,18 @@ describe('anyChartToMaidr (funnel chart)', () => {
 
     const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
 
-    expect(layer.axes).toEqual({ x: { label: 'Stage' }, y: { label: 'Count' } });
+    expect(layer.axes).toEqual({ x: { label: 'Count' }, y: { label: 'Stage' } });
+  });
+
+  it('takes the page\'s axes as AnyChart\'s, the stage on its x', () => {
+    // A page names a funnel's dimensions as AnyChart's x and y, as it names a
+    // bar chart's, so the example's `axes: { x: 'Stage', y: 'Visitors' }`
+    // still names the stage once the stage is MAIDR's `y`.
+    const chart = createFunnelChart('Signups', [['Visited', 10]]);
+
+    const layer = anyChartToMaidr(chart, { axes: { x: 'Stage', y: 'Visitors' } })!.subplots[0][0].layers[0];
+
+    expect(layer.axes).toEqual({ x: { label: 'Visitors' }, y: { label: 'Stage' } });
   });
 
   it('drops stages with no numeric value, which AnyChart draws no segment for', () => {
@@ -1196,7 +1211,7 @@ describe('anyChartToMaidr (funnel chart)', () => {
     ]);
 
     expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as BarPoint[])
-      .toEqual([{ x: 'Visited', y: 10000 }, { x: 'Paid', y: 100 }]);
+      .toEqual([{ x: 10000, y: 'Visited' }, { x: 100, y: 'Paid' }]);
   });
 
   it('scopes funnel selectors to the panel token in multi-panel mode', () => {

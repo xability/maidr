@@ -43,8 +43,9 @@
   <body>
     <h1>MAIDR + AnyChart Funnel Chart</h1>
     <p>
-      Click on the chart and use the left and right arrow keys to move between
-      stages — a funnel is a single row, so up and down are out of bounds. Each
+      Click on the chart and use the up and down arrow keys to move between
+      stages, as they are drawn — a funnel is a single series, so left and
+      right are out of bounds. Each
       stage announces its count, what share of the population that entered
       reached it, and how much of the previous stage survived. The pitch
       carries the retention rather than the count: on a raw scale the worst
@@ -55,7 +56,8 @@
     </p>
     <p>
       <code>anychart.pyramid()</code> is read the same way — AnyChart draws
-      both from one class, and only which end tapers differs.
+      both from one class, and only which end tapers differs. A pyramid's
+      first stage is drawn at the bottom, so there Up moves to the next.
     </p>
     <div id="container"></div>
   </body>
