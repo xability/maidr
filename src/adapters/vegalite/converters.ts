@@ -416,7 +416,9 @@ function convertLayers(
       parent.encoding,
       true,
       domOrder,
-      prefix || place.cellScope ? { layerIndex: i, markGroupPrefix: prefix, cellScope: place.cellScope } : undefined,
+      prefix || place.cellScope
+        ? { layerIndex: i, markGroupPrefix: prefix, cellScope: place.cellScope, cellFilters: place.cellFilters }
+        : undefined,
       rows,
       parent.transform,
     );
@@ -4823,7 +4825,12 @@ function convertLayerSpec(
   parentEncoding?: VegaLiteEncoding,
   isLayered?: boolean,
   domOrderOverride?: 'series-major' | 'subject-major',
-  selectorOverride?: { layerIndex: number; markGroupPrefix: string; cellScope?: string },
+  selectorOverride?: {
+    layerIndex: number;
+    markGroupPrefix: string;
+    cellScope?: string;
+    cellFilters?: Array<[field: string, key: string]>;
+  },
   rowsOverride?: Record<string, unknown>[],
   parentTransform?: VegaLiteTransform[],
 ): MaidrLayer | null {
@@ -4911,6 +4918,15 @@ function convertLayerSpec(
   // it. Only a plain mark is drawn under these names, a composite's parts
   // being named further down, so a box plot or an error bar keeps the
   // guessing below.
+  //
+  // A scatter's points are paired with its marks one to one, in the order the
+  // marks are drawn, and an `order` channel draws them sorted while its table
+  // keeps the rows' own order: read from the table, every point of a single
+  // view, a repeated cell or a facet's panel was outlined on another. So a
+  // scatter is read where its marks are drawn wherever it sits: through
+  // `view.data()` on a single view, from the drawn marks in a repeated cell,
+  // and from those inside its panel's cell in a facet.
+  const drawnScatter = traceType === TraceType.SCATTER;
   const ownMarks = layered
     ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks`
     : `${markGroupPrefix}marks`;
@@ -4920,17 +4936,20 @@ function convertLayerSpec(
     ? `${markGroupPrefix}layer_${selectorLayerIndex}_layer_0_marks`
     : `${markGroupPrefix}layer_0_marks`;
   const drawnAsSeries = mark === 'line' || mark === 'area' || mark === 'trail';
-  const sceneMarks = markGroupPrefix.startsWith('concat_') || (layered && drawnAsSeries)
+  const sceneMarks = markGroupPrefix.startsWith('concat_') || (layered && drawnAsSeries) || drawnScatter
     ? [ownMarks, ...(drawnAsSeries ? [overlaidPath] : [])]
     : undefined;
   const requiredFields = folded && traceType === TraceType.PARALLEL
     ? [folded.keyColumn, folded.valueColumn]
     : markGroupPrefix ? columnsReadAsIs(encoding) : undefined;
-  const rows = rowsOverride ?? resolveData(
+  const panelFilters = drawnScatter ? selectorOverride?.cellFilters : undefined;
+  const panelRows = view && panelFilters ? resolveSceneMarkData(view, ownMarks, panelFilters) : undefined;
+  const drawnPanelRows = panelRows && rowsCarryFields(panelRows, columnsReadAsIs(encoding)) ? panelRows : undefined;
+  const rows = drawnPanelRows ?? rowsOverride ?? resolveData(
     spec,
     index,
     view,
-    layered ? `${markGroupPrefix}layer_${selectorLayerIndex}_marks` : undefined,
+    layered || drawnScatter ? ownMarks : undefined,
     requiredFields,
     // The drawn rows have to carry the columns the layer reads, as a guessed
     // table does where its columns are asked for, so rows of another shape
@@ -6154,7 +6173,7 @@ function buildFacetMaidr(
               parentEncoding,
               isLayered,
               domOrder,
-              { layerIndex: j, markGroupPrefix: 'child_', cellScope: scope },
+              { layerIndex: j, markGroupPrefix: 'child_', cellScope: scope, cellFilters: cell.filters },
               rows,
               parentTransform,
             );
