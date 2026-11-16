@@ -1,3 +1,52 @@
+# [4.18.0](https://github.com/xability/maidr/compare/v4.17.0...v4.18.0) (2026-11-16)
+
+
+### Bug Fixes
+
+* **adapters:** move between AnyChart and Highcharts funnel and pyramid stages with Up and Down ([#1713](https://github.com/xability/maidr/issues/1713)) ([71bf48f](https://github.com/xability/maidr/commit/71bf48fcc72cd1d18c40a54c9d6d541de91927ca))
+* **anychart:** follow a legend click, and every other redraw, while the reader is in the chart ([#1693](https://github.com/xability/maidr/issues/1693)) ([62c03b5](https://github.com/xability/maidr/commit/62c03b5be55e3dc8d9c097bc223fe72c99c2dc3b)), closes [#1577](https://github.com/xability/maidr/issues/1577)
+* **anychart:** outline each of two tag cloud terms that differ only in case ([#1689](https://github.com/xability/maidr/issues/1689)) ([5569772](https://github.com/xability/maidr/commit/5569772c233ed241447d0539639ccdf70c99a7f4))
+* **boxen:** outline the box each stop is read off ([#1682](https://github.com/xability/maidr/issues/1682)) ([27fea25](https://github.com/xability/maidr/commit/27fea2570dcc2c7b723dd8f02cbb4790ef2ec7cd))
+* **command:** say why [ has no minimum to go to on a ROC or PR curve ([#1683](https://github.com/xability/maidr/issues/1683)) ([34482bd](https://github.com/xability/maidr/commit/34482bd3262c662f340ee491927857f757ad303e))
+* **error-bar:** outline the cap of the bound being read ([#1697](https://github.com/xability/maidr/issues/1697)) ([2e9cf27](https://github.com/xability/maidr/commit/2e9cf27e583884a067dd25e895a275b3be94ab32))
+* **format:** read a histogram's bin edges with the decimals that tell them apart ([#1677](https://github.com/xability/maidr/issues/1677)) ([7d5a6ea](https://github.com/xability/maidr/commit/7d5a6eabd1e8958ca434065bf5fa6973fc85c3b7))
+* **gantt:** read a schedule's unit of time in the reader's language ([#1699](https://github.com/xability/maidr/issues/1699)) ([38c778f](https://github.com/xability/maidr/commit/38c778f42f7e8f5292d2c5878c0533190f0b6697))
+* **highcharts:** read a timeline's events by their own text ([#1676](https://github.com/xability/maidr/issues/1676)) ([61361c3](https://github.com/xability/maidr/commit/61361c377ab7ce4f49b1e696f3b92a99d80603e2))
+* **lightweight-charts:** outline the pane the lobby is on ([#1703](https://github.com/xability/maidr/issues/1703)) ([00c7877](https://github.com/xability/maidr/commit/00c7877f68d3e6171bf0283f4a571ccf37a0e698))
+* **lobby:** number subplots from the top when nothing can be measured ([#1702](https://github.com/xability/maidr/issues/1702)) ([5985dff](https://github.com/xability/maidr/commit/5985dfffe6dbbac1c19d4ca3a9b18d37266a65a7))
+* **model:** head a heatmap's table columns through the x format ([#1705](https://github.com/xability/maidr/issues/1705)) ([20b7f31](https://github.com/xability/maidr/commit/20b7f314c74ad0d96f1981e0f3034a447006267a))
+* **model:** move between a horizontal chart's categories with Up and Down ([#1688](https://github.com/xability/maidr/issues/1688)) ([cf14e0b](https://github.com/xability/maidr/commit/cf14e0bc892d82c0a0d3febe149f15ed162c1112)), closes [#1482](https://github.com/xability/maidr/issues/1482)
+* **model:** name a heatmap cell through its axes' formats everywhere ([#1700](https://github.com/xability/maidr/issues/1700)) ([aa152ad](https://github.com/xability/maidr/commit/aa152ad53cd68accfdb837a29d53c9ed8f25b4ba))
+* **model:** name a series in the go to dialog as each move announces it ([#1701](https://github.com/xability/maidr/issues/1701)) ([f398bfa](https://github.com/xability/maidr/commit/f398bfa1ce0d8650fe1caa63a86afc9445901618))
+* **model:** outline each end of a dumbbell on its own ([#1685](https://github.com/xability/maidr/issues/1685)) ([187052e](https://github.com/xability/maidr/commit/187052ebd86b525774b263c7571a27e0a9cfcfba))
+* **model:** pair Candlestick.getStateAt's section with its own row ([#1679](https://github.com/xability/maidr/issues/1679)) ([a383d0b](https://github.com/xability/maidr/commit/a383d0b216147bb90da3e9adc0317841eb934d44))
+* **model:** read [ and ] values a billionth of the range apart as one ([#1684](https://github.com/xability/maidr/issues/1684)) ([6951066](https://github.com/xability/maidr/commit/6951066a49f89729430d5a80ac8090c55ff86c88))
+* **model:** read a heatmap's described range through its z format ([#1696](https://github.com/xability/maidr/issues/1696)) ([4af6514](https://github.com/xability/maidr/commit/4af6514529e6a7e9afab0c6afb9ff57d9cc05e5b))
+* **model:** read a scatter's z only where every point read has one ([#1680](https://github.com/xability/maidr/issues/1680)) ([a5dd7d9](https://github.com/xability/maidr/commit/a5dd7d9b249a7e713c162e5a4982339086a5bca2))
+* **model:** read a staircase plotly draws vhv at its samples ([#1692](https://github.com/xability/maidr/issues/1692)) ([f772f32](https://github.com/xability/maidr/commit/f772f32034d743500dcb4a72dc31f2a351bb581e)), closes [#1636](https://github.com/xability/maidr/issues/1636) [#1661](https://github.com/xability/maidr/issues/1661)
+* **plotly:** keep the highlight's copies out of the groups plotly redraws ([#1694](https://github.com/xability/maidr/issues/1694)) ([8185d90](https://github.com/xability/maidr/commit/8185d9008544ca85063700cec27dfbca800e9e0f))
+* **radar:** walk a polar area clockwise from where its wedges are drawn ([#1675](https://github.com/xability/maidr/issues/1675)) ([90f472a](https://github.com/xability/maidr/commit/90f472aaadf02b0efffceee92986451a862b2c7f))
+* **recharts:** outline a forest plot's interval, its caps at the bounds ([#1698](https://github.com/xability/maidr/issues/1698)) ([1b08ab8](https://github.com/xability/maidr/commit/1b08ab82442de3852d2a88d9d1a67e46b652cc74))
+* **recharts:** read the category axis a chart's series are drawn on ([#1678](https://github.com/xability/maidr/issues/1678)) ([738e343](https://github.com/xability/maidr/commit/738e343e8ecc59a126047a345d8db6c25e680cef))
+* **vegalite:** name every compiled view as vega-lite does ([#1715](https://github.com/xability/maidr/issues/1715)) ([6e1a140](https://github.com/xability/maidr/commit/6e1a14076251e1df4264e24da544f4e553b3463d))
+* **vegalite:** pair a layered spec's layers wherever it sits ([#1708](https://github.com/xability/maidr/issues/1708)) ([8f670fa](https://github.com/xability/maidr/commit/8f670fadba1b8e0ae8c208f69b9d6a5fd80f3e04))
+* **vegalite:** read a colour-grouped scatter as a layer per group ([#1704](https://github.com/xability/maidr/issues/1704)) ([306e741](https://github.com/xability/maidr/commit/306e741e1ccdf4d3ba3a3c0988db60d829d28c75))
+* **vegalite:** read a facet's layers from the marks each panel draws ([#1714](https://github.com/xability/maidr/issues/1714)) ([c832aa8](https://github.com/xability/maidr/commit/c832aa878ee55ac3cee2be1c4ecbb4c2d69c18cc))
+* **vegalite:** read a nested layer inside a concat, facet or repeat ([#1706](https://github.com/xability/maidr/issues/1706)) ([08f87af](https://github.com/xability/maidr/commit/08f87af13929a38481ba2e4400730b02889f6b52))
+* **vegalite:** read a scatter in the order its marks are drawn ([#1712](https://github.com/xability/maidr/issues/1712)) ([28485fa](https://github.com/xability/maidr/commit/28485fad4da07eb14747e8c03eb570422a78945a))
+* **vegalite:** read the transforms above a composite child's layers ([#1687](https://github.com/xability/maidr/issues/1687)) ([cce3ebd](https://github.com/xability/maidr/commit/cce3ebdd9a352e1b3a6d91e51d1382a4ea6f755e))
+* **victory:** declare where a polar area's wedges are drawn ([#1686](https://github.com/xability/maidr/issues/1686)) ([df6a312](https://github.com/xability/maidr/commit/df6a31210e35c4ec99c8be6a98c1c57392df8bd9)), closes [#1675](https://github.com/xability/maidr/issues/1675)
+* **victory:** keep Up and Down in the category on a stack whose series miss one ([#1690](https://github.com/xability/maidr/issues/1690)) ([f0a356b](https://github.com/xability/maidr/commit/f0a356b7a4c3b215bd108bb7f6e392fd4e5249b9))
+* **victory:** outline a stack's series on their own bars beside a child with no points ([#1707](https://github.com/xability/maidr/issues/1707)) ([07a4133](https://github.com/xability/maidr/commit/07a4133e89ca5524ac58ba485e1df70be3aac58d))
+* **victory:** outline each segment of a stack whose series miss a category ([#1674](https://github.com/xability/maidr/issues/1674)) ([fb46597](https://github.com/xability/maidr/commit/fb4659731cda6bcef5e3ed44eb6490f292c896a6))
+
+
+### Features
+
+* **boxen:** walk each outlier as a stop of its own ([#1691](https://github.com/xability/maidr/issues/1691)) ([a051f0d](https://github.com/xability/maidr/commit/a051f0df2a4909d9123d1e08ad21b96be3a75abf))
+* **grammar:** let an axis format say what unit of time its values count ([#1695](https://github.com/xability/maidr/issues/1695)) ([b5d2f26](https://github.com/xability/maidr/commit/b5d2f26c8a5d77739ab008bbaa4afc19107497d6))
+* **recharts:** outline each boxen stop on the box it is read off ([#1709](https://github.com/xability/maidr/issues/1709)) ([43ee9cb](https://github.com/xability/maidr/commit/43ee9cb1dd60a27924ea1f729e3dbbcd8dfa0f6d))
+
 # [4.17.0](https://github.com/xability/maidr/compare/v4.16.0...v4.17.0) (2026-11-09)
 
 
