@@ -1,7 +1,8 @@
 'use strict';
 
 /**
- * Waits until the npm registry serves one version of a package.
+ * Waits until the npm registry serves one version of a package, its tarball
+ * included.
  *
  * The release workflow runs this between publishing to npm and telling
  * r-maidr, py-maidr and maidr-skill about the release, because the first no
@@ -38,7 +39,7 @@ const process = require('node:process');
  * @property {number} [timeoutMs] How long one check may take; 10 s by
  *   default. Without it a request that hangs holds its check open for as long
  *   as `fetch` allows (five minutes in Node), and the hour stops being one.
- * @property {(url: string, init: { signal: AbortSignal }) => Promise<RegistryAnswer>} [fetch]
+ * @property {(url: string, init: { method: string, signal: AbortSignal }) => Promise<RegistryAnswer>} [fetch]
  *   The global `fetch` unless a test stands in for the registry.
  * @property {(ms: number) => Promise<void>} [sleep] Stubbed by the tests so
  *   the hour passes at once.
@@ -46,7 +47,14 @@ const process = require('node:process');
  */
 
 /**
- * Checks `registry.npmjs.org/<name>/<version>` until it answers 2xx.
+ * Checks `registry.npmjs.org/<name>/<version>` until it answers 2xx, and then
+ * the version's tarball until it does too.
+ *
+ * The tarball is what the receivers download next, and it can come after the
+ * document: 4.18.0's document was served at 15:33:36 UTC and its tarball still
+ * answered 404 at 15:33:51, so r-maidr and py-maidr, whose scripts wait only
+ * for the document, both failed on it. It is asked for with HEAD, since it is
+ * about 16 MB.
  *
  * Any other answer, a request that fails outright, and one that outlasts
  * `timeoutMs` count as "not yet" rather than as an error: in the window after
@@ -67,16 +75,31 @@ async function waitForNpmVersion({
   sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
   log = message => console.log(message),
 }) {
-  const url = `https://registry.npmjs.org/${name}/${version}`;
-  for (let check = 1; check <= attempts; check++) {
-    let answer;
+  const document = `https://registry.npmjs.org/${name}/${version}`;
+  const tarball = `https://registry.npmjs.org/${name}/-/${name.split('/').pop()}-${version}.tgz`;
+
+  /**
+   * Why one request did not serve the version, or undefined if it did.
+   * @param {string} url
+   * @param {string} method
+   * @returns {Promise<string | undefined>} The reason.
+   */
+  async function miss(url, method) {
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-      if (response.ok)
-        return check;
-      answer = `answered ${response.status}`;
+      const response = await fetch(url, { method, signal: AbortSignal.timeout(timeoutMs) });
+      return response.ok ? undefined : `answered ${response.status}`;
     } catch (error) {
-      answer = `failed: ${error instanceof Error ? error.message : String(error)}`;
+      return `failed: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  for (let check = 1; check <= attempts; check++) {
+    let answer = await miss(document, 'GET');
+    if (answer === undefined) {
+      const tarballAnswer = await miss(tarball, 'HEAD');
+      if (tarballAnswer === undefined)
+        return check;
+      answer = `its tarball ${tarballAnswer}`;
     }
     log(`${name}@${version} is not on the registry yet (check ${check} of ${attempts}: ${answer}).`);
     if (check < attempts)
