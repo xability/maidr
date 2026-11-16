@@ -12,6 +12,10 @@ import { describe, expect, it } from '@jest/globals';
  * the 4.11.0 ping for fifteen minutes and gave up at 15:34, so a release the
  * pipeline reported as delivered reached neither of them.
  *
+ * Serving the version's document is not yet serving its tarball, which is what
+ * they download next: 4.18.0's tarball still answered 404 fifteen seconds after
+ * its document was served, when both of them asked for it and failed.
+ *
  * `scripts/ci/waitForNpmVersion.cjs` is the wait. The registry and the clock
  * are stubbed, so the hour it can take passes at once. The last block checks
  * the other half: that the release workflow still runs the wait, and runs it
@@ -35,7 +39,7 @@ interface WaitOptions {
   timeoutMs?: number;
   // `init` optional here, though the module always passes it, so that a
   // module which stopped passing it reaches the stub rather than a TypeError.
-  fetch?: (url: string, init?: { signal?: AbortSignal }) => Promise<RegistryAnswer>;
+  fetch?: (url: string, init?: { method?: string; signal?: AbortSignal }) => Promise<RegistryAnswer>;
   sleep?: (ms: number) => Promise<void>;
   log?: (message: string) => void;
 }
@@ -49,27 +53,40 @@ const { waitForNpmVersion } = require(MODULE) as {
 };
 
 /**
- * A registry that does not serve the version for its first `misses` checks.
- * `miss` is what it does instead: answer with a status, fail the request, or
- * `'hang'` -- never answer, so only the check's own abort signal ends it.
+ * A registry that does not serve the version's document for its first
+ * `misses` requests for it. `miss` is what it does instead: answer with a
+ * status, fail the request, or `'hang'` -- never answer, so only the check's
+ * own abort signal ends it. The tarball answers 404 to its first
+ * `tarballMisses` requests.
  */
-function registry(misses: number, miss: number | Error | 'hang' = 404): {
+function registry(misses: number, miss: number | Error | 'hang' = 404, tarballMisses = 0): {
   stubs: Pick<WaitOptions, 'fetch' | 'sleep' | 'log'>;
   urls: string[];
+  methods: string[];
   sleeps: number[];
   logs: string[];
 } {
   const urls: string[] = [];
+  const methods: string[] = [];
   const sleeps: number[] = [];
   const logs: string[] = [];
+  let documentAsks = 0;
+  let tarballAsks = 0;
   return {
     urls,
+    methods,
     sleeps,
     logs,
     stubs: {
       fetch: async (url, init) => {
         urls.push(url);
-        if (urls.length > misses)
+        methods.push(init?.method ?? 'GET');
+        if (url.endsWith('.tgz')) {
+          tarballAsks += 1;
+          return tarballAsks > tarballMisses ? { ok: true, status: 200 } : { ok: false, status: 404 };
+        }
+        documentAsks += 1;
+        if (documentAsks > misses)
           return { ok: true, status: 200 };
         if (miss === 'hang') {
           // Settles only through the signal, as a hung request would.
@@ -97,8 +114,38 @@ describe('waitForNpmVersion', () => {
     const r = registry(0);
 
     await expect(waitForNpmVersion({ name: 'maidr', version: '4.11.0', ...r.stubs })).resolves.toBe(1);
-    expect(r.urls).toEqual(['https://registry.npmjs.org/maidr/4.11.0']);
+    expect(r.urls).toEqual([
+      'https://registry.npmjs.org/maidr/4.11.0',
+      'https://registry.npmjs.org/maidr/-/maidr-4.11.0.tgz',
+    ]);
     expect(r.sleeps).toEqual([]);
+  });
+
+  it('should wait for the tarball when the registry serves the document first, as on 4.18.0', async () => {
+    const r = registry(0, 404, 2);
+
+    await expect(waitForNpmVersion({ name: 'maidr', version: '4.18.0', ...r.stubs })).resolves.toBe(3);
+    expect(r.logs).toEqual([
+      'maidr@4.18.0 is not on the registry yet (check 1 of 120: its tarball answered 404).',
+      'maidr@4.18.0 is not on the registry yet (check 2 of 120: its tarball answered 404).',
+    ]);
+    expect(r.sleeps).toEqual([30_000, 30_000]);
+  });
+
+  it('should ask for the tarball with HEAD, so that 16 MB is not downloaded on every check', async () => {
+    const r = registry(0, 404, 1);
+
+    await waitForNpmVersion({ name: 'maidr', version: '4.18.0', ...r.stubs });
+
+    expect(r.methods).toEqual(['GET', 'HEAD', 'GET', 'HEAD']);
+  });
+
+  it('should name a scoped package\'s tarball by the name after its scope', async () => {
+    const r = registry(0);
+
+    await waitForNpmVersion({ name: '@xability/maidr', version: '1.0.0', ...r.stubs });
+
+    expect(r.urls[1]).toBe('https://registry.npmjs.org/@xability/maidr/-/maidr-1.0.0.tgz');
   });
 
   it('should wait out the eighteen minutes 4.11.0 took, checking every 30 s', async () => {
