@@ -846,10 +846,38 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   private static carriedXValue(from: Trace, to: Trace, xValue: XValue | null): XValue | null {
     const alternate = from.getAlternateXValue?.() ?? null;
     if (alternate === null || typeof to.hasXValue !== 'function' || !to.hasXValue(alternate)) {
-      return xValue;
+      return Subplot.asWrittenOn(from, to, xValue);
     }
     const readsTwoWays = (to.getAlternateXValue?.() ?? null) !== null;
     return readsTwoWays || xValue === null || !to.hasXValue(xValue) ? alternate : xValue;
+  }
+
+  /**
+   * The X to carry where one layer holds a place as text and the other as a
+   * number its axis formats: the number as its reading, where the layer
+   * entered holds that text, and the text as the number whose reading it is.
+   *
+   * r-maidr writes a line's time as text ("2026-01-01 03:00:00") and a
+   * scatter's as the axis's seconds with a format that writes them the same
+   * way. Carried as it was, neither found the other: from the scatter at
+   * 03:00 a switch landed on the line at midnight, and from the line at
+   * 03:00 on the scatter's first point (#1717). An X the layer entered holds
+   * as it is, or one neither layer's format writes, is carried as before.
+   *
+   * @param from - The trace being left
+   * @param to - The trace being entered
+   * @param xValue - `from`'s x value, read before the move
+   * @returns The X to carry
+   */
+  private static asWrittenOn(from: Trace, to: Trace, xValue: XValue | null): XValue | null {
+    if (xValue === null || typeof to.hasXValue !== 'function' || to.hasXValue(xValue)) {
+      return xValue;
+    }
+    if (typeof xValue === 'number') {
+      const reading = from.xReading?.(xValue) ?? null;
+      return reading !== null && to.hasXValue(reading) ? reading : xValue;
+    }
+    return to.xValueReadAs?.(xValue) ?? xValue;
   }
 
   /**
@@ -1162,6 +1190,24 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @returns True when the trace holds `xValue` exactly
    */
   hasXValue?: (xValue: XValue) => boolean;
+
+  /**
+   * How the trace's x axis writes an x, through the format its layer
+   * declares, or null where it declares none. Optional; asked when a switch
+   * carries a number to a layer that holds the place as text.
+   * @param xValue An x of this trace's
+   * @returns Its reading, or null
+   */
+  xReading?: (xValue: XValue) => string | null;
+
+  /**
+   * The x of the trace's that its axis writes as `reading`, or null.
+   * Optional; asked when a switch carries text to a layer that holds the
+   * place as a number its axis formats.
+   * @param reading The text another layer holds the place as
+   * @returns The x, or null
+   */
+  xValueReadAs?: (reading: string) => XValue | null;
 
   /**
    * Get the current Y value from the trace.

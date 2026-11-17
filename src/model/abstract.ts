@@ -1644,6 +1644,52 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * How this layer's x axis writes an x: through the format the layer
+   * declares for it, or null where it declares none.
+   *
+   * A layer switch carries a number this way to a layer that holds the same
+   * place as text (see `Subplot.carriedXValue`).
+   *
+   * @param xValue - An x of this layer's
+   * @returns Its reading, or null
+   */
+  public xReading(xValue: XValue): string | null {
+    const format = this.authoredFormat('x');
+    return format === null ? null : format(xValue);
+  }
+
+  /**
+   * The x of this layer's that its axis writes as `reading`: the first in
+   * the order the points are held, or null where the layer declares no x
+   * format or none of its x reads that way.
+   *
+   * A layer switch carries text this way to a layer that holds the same
+   * place as a number its axis formats (see `Subplot.carriedXValue`).
+   *
+   * @param reading - The text another layer holds the place as
+   * @returns The x, or null
+   */
+  public xValueReadAs(reading: string): XValue | null {
+    const format = this.authoredFormat('x');
+    if (format === null || !this.hasPointsArray()) {
+      return null;
+    }
+    const points = this.getPointsArray();
+    if (!this.isValidPointsArray(points)) {
+      return null;
+    }
+    for (const row of points) {
+      for (const point of Array.isArray(row) ? row : [row]) {
+        const x = typeof point === 'object' && point !== null ? (point as { x?: unknown }).x : undefined;
+        if ((typeof x === 'number' || typeof x === 'string') && format(x) === reading) {
+          return x;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Type guard to check if trace has points array.
    * @returns True if points array exists
    */

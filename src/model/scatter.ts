@@ -2325,6 +2325,26 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
+   * The column x that the x axis writes as `reading`, or null where the
+   * layer declares no x format or no column's x reads that way.
+   *
+   * The points are kept by column here rather than in `points`, which the
+   * inherited lookup reads. A line over a time column holds its x as the
+   * text the scatter's time format writes, and a layer switch from it finds
+   * the scatter's point this way (#1717).
+   *
+   * @param reading - The text another layer holds the place as
+   * @returns The x, or null
+   */
+  public override xValueReadAs(reading: string): XValue | null {
+    const format = this.authoredFormat('x');
+    if (format === null) {
+      return null;
+    }
+    return this.xValues.find(x => format(x) === reading) ?? null;
+  }
+
+  /**
    * Moves to the column at an x value, entering COL mode to do so.
    *
    * An exact x wins; a numeric x with no exact column falls back to the
