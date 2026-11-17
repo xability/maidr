@@ -1010,7 +1010,10 @@ export class LineTrace extends AbstractTrace {
       return true;
     }
 
-    if (!this.isMovable(direction)) {
+    // The direction as given, not through `isMovable`: a subclass that turns
+    // its keys to follow the drawing turns them on the way in, in both
+    // methods, and checked through `isMovable` they were turned twice.
+    if (!this.isMovableAlong(direction)) {
       this.notifyOutOfBounds();
       return false;
     }
@@ -1159,10 +1162,21 @@ export class LineTrace extends AbstractTrace {
       );
     }
 
-    switch (target) {
+    return this.isMovableAlong(target);
+  }
+
+  /**
+   * Whether the cursor can move one step in a direction of the grid: along
+   * the series, or to the series above or below at this x.
+   *
+   * @param direction - The direction to move the grid in
+   * @returns True when the move is possible
+   */
+  private isMovableAlong(direction: MovableDirection): boolean {
+    switch (direction) {
       case 'UPWARD':
       case 'DOWNWARD':
-        return this.findVerticalTarget(target) !== null;
+        return this.findVerticalTarget(direction) !== null;
       case 'FORWARD':
         return this.col < (this.values[this.row]?.length ?? 0) - 1;
       case 'BACKWARD':

@@ -2,7 +2,7 @@ import type { LinePoint, MaidrLayer, StepDirection } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
@@ -459,17 +459,97 @@ export class AreaTrace extends LineTrace {
   }
 
   /**
+   * Whether the layer is drawn on its side: its positions run up the page,
+   * one above another, and its values across it. matplotlib's `fill_betweenx`
+   * and Bokeh's `harea` and `harea_stack` draw an area that way, and py-maidr
+   * says so with `orientation: 'horz'`, keeping the positions in `x` and the
+   * values in `y` as for any area.
+   *
+   * The arrow keys then follow the drawing, as they do on a horizontal bar
+   * chart (see {@link AbstractTrace.categoriesRunDown}): Up and Down move
+   * along the band, to the position drawn above or below, and Left and Right
+   * between the bands, which lie side by side. They ran against it: Left and
+   * Right moved up and down the page, and Up and Down left and right (#1711).
+   *
+   * Read straight off the layer rather than through `resolveOrientation`. An
+   * area is still not announced as horizontal or vertical: its readings, its
+   * axes and its payload are the same either way, and only the keys turn.
+   *
+   * @returns True for a layer declared `horz`
+   */
+  protected override get categoriesRunDown(): boolean {
+    return this.layer.orientation === Orientation.HORIZONTAL;
+  }
+
+  /**
+   * Moves the way the key points on the drawing; see {@link categoriesRunDown}.
+   *
+   * @param direction - The key's direction
+   * @returns Whether the cursor moved
+   */
+  public override moveOnce(direction: MovableDirection): boolean {
+    return super.moveOnce(this.keyDirection(direction));
+  }
+
+  /**
+   * Movability by the same rule, so check-then-move (autoplay's idiom) agrees
+   * with the move it checks.
+   *
+   * @param target - A direction, or a cell
+   * @returns Whether the move is possible
+   */
+  public override isMovable(target: [number, number] | MovableDirection): boolean {
+    return super.isMovable(Array.isArray(target) ? target : this.keyDirection(target));
+  }
+
+  /**
+   * The rotor's lower and higher value search, Up: on a band drawn on its
+   * side, along the band toward the position drawn above, as Up moves.
+   * Elsewhere Up moves to the band above, as on a line.
+   *
+   * @param mode - Whether a lower or a higher value is sought
+   * @returns Whether the cursor moved
+   */
+  public override moveUpRotor(mode?: 'lower' | 'higher'): boolean {
+    if (!this.categoriesRunDown || mode === undefined) {
+      return super.moveUpRotor(mode);
+    }
+    return this.moveToNextCompareValue(this.firstCategoryOnTop() ? 'left' : 'right', mode);
+  }
+
+  /**
+   * The rotor's search, Down: toward the position drawn below. See
+   * {@link moveUpRotor}.
+   *
+   * @param mode - Whether a lower or a higher value is sought
+   * @returns Whether the cursor moved
+   */
+  public override moveDownRotor(mode?: 'lower' | 'higher'): boolean {
+    if (!this.categoriesRunDown || mode === undefined) {
+      return super.moveDownRotor(mode);
+    }
+    return this.moveToNextCompareValue(this.firstCategoryOnTop() ? 'right' : 'left', mode);
+  }
+
+  /**
    * Control + Up and Down go to the top and the bottom band at this x.
    *
    * The line's extremes are the highest and lowest values at the x, which on
    * a stack name a band in the middle as often as not, and from that "top"
    * band Up could still move. Left and right are the line's.
    *
+   * On a stack drawn on its side the bands lie side by side, so the keys
+   * that reach them are Control + Left and Right, turned as every other key
+   * is ({@link categoriesRunDown}), and Control + Up and Down go to the first
+   * and the last position of the band.
+   *
    * @param direction - The key's direction
    * @returns Whether the cursor moved
    */
   public override moveToExtreme(direction: MovableDirection): boolean {
-    if (this.variant === 'area' || (direction !== 'UPWARD' && direction !== 'DOWNWARD')) {
+    const along = this.keyDirection(direction);
+    if (this.variant === 'area' || (along !== 'UPWARD' && along !== 'DOWNWARD')) {
+      // Turned there, by the same rule.
       return super.moveToExtreme(direction);
     }
     if (this.isInitialEntry) {
@@ -479,7 +559,7 @@ export class AreaTrace extends LineTrace {
       this.notifyOutOfBounds();
       return false;
     }
-    for (let target = this.findVerticalTarget(direction); target !== null; target = this.findVerticalTarget(direction)) {
+    for (let target = this.findVerticalTarget(along); target !== null; target = this.findVerticalTarget(along)) {
       this.row = target.row;
       this.col = target.col;
     }
@@ -526,7 +606,11 @@ export class AreaTrace extends LineTrace {
    * @returns True when the first band is drawn at the top of the stack
    */
   private listedTopFirst(): boolean {
-    if (this.variant === 'area') {
+    // A stack drawn on its side has no top: its bands lie side by side, and
+    // the markers of one position are drawn across the page from each other,
+    // which this measure passes over. Its list is read as documented, first
+    // band nearest the axis.
+    if (this.variant === 'area' || this.categoriesRunDown) {
       return false;
     }
     if (this.topBandFirst !== null) {
