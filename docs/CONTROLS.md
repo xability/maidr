@@ -75,6 +75,19 @@ between the categories, from the first category to the last whichever way they
 were drawn, and Up and Down moved along a category, or said there was no more
 data.
 
+An area or a stacked area drawn on its side -- matplotlib's `fill_betweenx`, or
+Bokeh's `harea` and `harea_stack` -- is followed the same way when its layer
+says `"orientation": "horz"`. Up and Down move along the band, to the position
+drawn above or below, and Left and Right move between the bands, which lie side
+by side. Control + Up and Control + Down go to the two ends of the band, and
+Control + Left and Control + Right to the band drawn furthest to the left and
+the one furthest to the right. The rotor's
+lower and higher value navigation searches along
+the band with Up and Down. The first position is taken to be drawn at the
+bottom unless MAIDR can measure the chart or the layer's `firstCategory` says
+`"top"`. Earlier releases moved such an area as an upright one: Left and Right
+up and down the page along the band, and Up and Down between the bands.
+
 On a tree -- a treemap, sunburst, icicle, circle packing or tree diagram -- and
 on a directed graph such as a flowchart, the extremes follow the arrow keys:
 Control + Left and Right go to the first and last of the items Left and Right
@@ -541,3 +554,5 @@ the band drawn on top of the one you are on, Down to the band underneath,
 whatever their values. Control + Up and Control + Down (Command on a Mac) go to
 the top and the bottom band. Two bands of the same value are still two bands, one
 drawn on top of the other, so they are never announced as an intersection.
+On a stack drawn on its side, Left and Right move between the bands instead, as
+the section on charts drawn on their side says.

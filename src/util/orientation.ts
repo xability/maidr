@@ -27,10 +27,13 @@ import { t } from '@util/i18n';
  * category name where the magnitude belongs.
  */
 const IS_ORIENTED: Record<TraceType, boolean> = {
-  // An area trace is a line with a fill, and it is navigated as one: along
-  // the series, then between series. Which way the band is drawn changes
-  // nothing about that, so — as with LINE, STEP and SMOOTH — there is no
-  // orientation to announce. The stacked variants inherit the same reading.
+  // An area trace is a line with a fill, and it is read as one: along the
+  // series, then between series. Which way the band is drawn changes nothing
+  // about its readings, its axes or its payload, so — as with LINE, STEP and
+  // SMOOTH — there is no orientation to announce. It does change which way
+  // the keys move: `AreaTrace` reads `layer.orientation` itself and turns
+  // them on a band drawn on its side (#1711), without resolving an
+  // orientation here. The stacked variants inherit the same reading.
   [TraceType.AREA]: false,
   [TraceType.BAR]: true,
   [TraceType.BOX]: true,

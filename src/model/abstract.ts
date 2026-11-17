@@ -676,7 +676,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * @param direction - The key's direction
    * @returns The direction to move the grid in
    */
-  private keyDirection(direction: MovableDirection): MovableDirection {
+  protected keyDirection(direction: MovableDirection): MovableDirection {
     if (!this.categoriesRunDown) {
       return direction;
     }
@@ -722,7 +722,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    *
    * @returns True when the first category is drawn at the top
    */
-  private firstCategoryOnTop(): boolean {
+  protected firstCategoryOnTop(): boolean {
     for (const row of this.highlightValues ?? []) {
       let start = 0;
       let end = row.length - 1;

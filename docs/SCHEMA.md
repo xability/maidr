@@ -498,7 +498,10 @@ The data property is defined as a list of objects where each object is a record 
    // category is taken to be at the bottom. A producer that draws to a canvas
    // or emits no selectors, and lists its categories from the top, sets
    // "firstCategory": "top", or Up and Down run against the drawing. Read by
-   // the bar family and by horizontal dumbbell and error-bar layers.
+   // the bar family, by horizontal dumbbell and error-bar layers, and by an
+   // area, stacked area or 100% stacked area layer declared "horz", which keeps
+   // its positions in "x" and its values in "y" and is drawn with its
+   // positions up the page.
 
   // boxplot maidr.data structure: an array of objects with properties lower_outlier, min, q1, q2, q3, max, and upper_outlier
   maidr = {

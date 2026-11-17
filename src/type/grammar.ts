@@ -2118,8 +2118,8 @@ export interface MaidrLayer {
    * the magnitude**, so getting it wrong is not a cosmetic error — the trace
    * reads a category name where it expects a number and sounds with no
    * magnitude at all. For every other trace it changes only which axis label
-   * a reading is announced against, and the payload is written the same way
-   * whichever value is set.
+   * a reading is announced against, or which way the arrow keys move, and the
+   * payload is written the same way whichever value is set.
    *
    * **What the two words name.** Orientation is the direction the *magnitude*
    * runs, not which axis happens to be called `x`. That is the convention the
@@ -2148,6 +2148,7 @@ export interface MaidrLayer {
    * | `box`, `boxen`, `violin_box` | quantile fields, no axis assignment | unchanged |
    * | `gantt`, `dumbbell` | — | unchanged; navigation and panning only |
    * | `rug` | the ticks stand on the x axis and `x` is the position | the ticks lie along the y axis and `y` is the position |
+   * | `area`, `stacked_area`, `stacked_normalized_area` | `x` is the position along the band, `y` the value | unchanged; the positions are drawn up the page, and Up and Down move along the band, Left and Right between bands |
    *
    * The bar family is defined by what a type is built on rather than by what
    * it is called, because the exchange is inherited from `AbstractBarPlot`'s
@@ -2368,7 +2369,8 @@ export interface MaidrLayer {
    * category at: `'top'` or `'bottom'`. A horizontal bar, dot, lollipop or
    * funnel chart, a horizontal dumbbell or a horizontal forest plot draws its
    * categories one above another, and Up and Down move between them as they
-   * are drawn.
+   * are drawn. An area drawn on its side draws its positions one above
+   * another, and Up and Down move along the band the same way.
    *
    * Optional. Where MAIDR can measure the drawing -- the marks the highlight
    * resolves -- it does, and this is not read. Say it where the drawing
