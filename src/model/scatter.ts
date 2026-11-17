@@ -1295,6 +1295,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
     // Named after the axes rather than after `x` and `y`, so the summary and
     // the table headers three lines down call the same axis the same thing.
+    // Each range reads through its axis's own format where the layer declares
+    // one, as the announcements and the table read the same values: a scatter
+    // over times, which r-maidr sends as the axis's seconds with a time
+    // format, said "t range: 1,767,225,600 to ..." over a table of dates
+    // (#1716).
     const xNames = ScatterTrace.categoriesOf(this.xPoints);
     const yNames = ScatterTrace.categoriesOf(this.yPoints);
     stats.push(
@@ -1302,14 +1307,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       { label: t('model.statUniqueAxisValues', { axis: this.yAxis }), value: this.yPoints.length },
       xNames
         ? { label: t('model.statAxisCategories', { axis: this.xAxis }), value: ScatterTrace.listed(xNames) }
-        : { label: t('model.statAxisRange', { axis: this.xAxis }), value: MathUtil.spannedOrMissing(this.minX, this.maxX) },
+        : {
+            label: t('model.statAxisRange', { axis: this.xAxis }),
+            value: MathUtil.spannedOrMissing(this.minX, this.maxX, this.authoredFormat('x') ?? defaultFormat),
+          },
       yNames
         ? { label: t('model.statAxisCategories', { axis: this.yAxis }), value: ScatterTrace.listed(yNames) }
-        : { label: t('model.statAxisRange', { axis: this.yAxis }), value: MathUtil.spannedOrMissing(this.minY, this.maxY) },
+        : {
+            label: t('model.statAxisRange', { axis: this.yAxis }),
+            value: MathUtil.spannedOrMissing(this.minY, this.maxY, this.authoredFormat('y') ?? defaultFormat),
+          },
     );
 
     if (this.hasZ) {
-      stats.push({ label: t('model.statAxisRange', { axis: this.z }), value: MathUtil.spannedOrMissing(this.minZ, this.maxZ) });
+      stats.push({
+        label: t('model.statAxisRange', { axis: this.z }),
+        value: MathUtil.spannedOrMissing(this.minZ, this.maxZ, this.authoredFormat('z') ?? defaultFormat),
+      });
     }
 
     // How deep the deepest column is. A plain scatter, where every point has
@@ -1520,12 +1534,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           .join(', '),
       },
       {
+        // In each axis's format, as the ranges above are: the split is a
+        // value on that axis like any other.
         label: t('model.statQuadrantsSplitAt'),
         value: t('model.quadrantSplitValue', {
           xAxis: this.xAxis,
-          x: defaultFormat(splitX),
+          x: (this.authoredFormat('x') ?? defaultFormat)(splitX),
           yAxis: this.yAxis,
-          y: defaultFormat(splitY),
+          y: (this.authoredFormat('y') ?? defaultFormat)(splitY),
         }),
       },
     ];
