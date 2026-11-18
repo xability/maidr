@@ -89,6 +89,10 @@ export interface AxisFormat {
   /**
    * Options for Intl.DateTimeFormat when using date type.
    *
+   * Epoch milliseconds are read in the reader's own time zone unless the
+   * options name a `timeZone`. A date written without a time of day, such as
+   * `"2023-01-15"`, is read as that day in every zone.
+   *
    * @example
    * { "month": "short", "day": "numeric" } // "Jan 15"
    * { "year": "numeric", "month": "long" } // "January 2024"

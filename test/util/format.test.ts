@@ -224,6 +224,37 @@ describe('a numeric format meeting a value it cannot express', () => {
   });
 });
 
+describe('a date format read away from Greenwich', () => {
+  // A reader's own zone is the zone a date format reads in when it names
+  // none, and the test runner's zone is whatever the machine's is. These
+  // cases name the zone, so they read the same on every machine.
+  const CHICAGO = { month: 'short', day: 'numeric', timeZone: 'America/Chicago' } as const;
+
+  it('reads a date written without a time of day as the day it names', () => {
+    // JavaScript parses "2023-01-15" as midnight UTC, which is the evening
+    // of the 14th in Chicago: read there, the 15th was announced as the 14th.
+    expect(formatters.date(CHICAGO)('2023-01-15')).toBe('Jan 15');
+    expect(formatters.date({ ...CHICAGO, timeZone: 'Pacific/Kiritimati' })('2023-01-15')).toBe('Jan 15');
+  });
+
+  it('reads a year or a month written alone as that year or month', () => {
+    // "2023" is midnight UTC on Jan 1, 2023, and a year axis read in
+    // Chicago said 2022.
+    expect(formatters.date({ year: 'numeric', timeZone: 'America/Chicago' })('2023')).toBe('2023');
+    expect(formatters.date({ year: 'numeric', month: 'long', timeZone: 'America/Chicago' })('2023-03'))
+      .toBe('March 2023');
+  });
+
+  it('still reads an instant in the zone it is read in', () => {
+    // Epoch milliseconds and a time with its offset name an instant, which is
+    // the evening before in Chicago.
+    const withHour = { ...CHICAGO, hour: 'numeric' } as const;
+
+    expect(formatters.date(withHour)(Date.UTC(2023, 0, 15))).toBe('Jan 14, 6 PM');
+    expect(formatters.date(withHour)('2023-01-15T00:00:00Z')).toBe('Jan 14, 6 PM');
+  });
+});
+
 describe('a user format function that throws', () => {
   const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
