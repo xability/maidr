@@ -314,7 +314,7 @@ An **area** drawn with a step curve stays an area and carries the convention, wh
 
 This is the one reading in the adapter that is *detected* rather than declared, and it is worth knowing why. Plot binds the datum indices to the path, so how many samples there should be is known — which is what lets the surplus vertices be identified as corners rather than mistaken for data. A binder that reads its data from the source rather than from the drawing has no such handle, which is why MAIDR's d3 binder asks you to declare the convention instead.
 
-A **date axis** works: values travel as epoch milliseconds — every trace's point type is numeric, because the value has to drive sonification and the min/max range — and the layer declares `format: { type: 'date' }`, which is what turns them back into dates in the announcement.
+A **date axis** works: values travel as epoch milliseconds — every trace's point type is numeric, because the value has to drive sonification and the min/max range — and the layer declares a `date` format, which is what turns them back into dates in the announcement. The dates are read in the zone the scale draws them in: in UTC on a `utc` scale, which is what Plot gives dates unless told otherwise (`format: { type: 'date', dateOptions: { timeZone: 'UTC' } }`), and in the reader's own zone on a `time` scale (`format: { type: 'date' }`). A point the axis draws on Jan 15 used to be announced as Jan 14 anywhere west of Greenwich, where midnight UTC is the evening before.
 
 ### Spike and vector marks
 

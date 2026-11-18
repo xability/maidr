@@ -37,6 +37,7 @@
 import type { PercentileBandPlan, ResolvedBandEdges } from '@adapters/shared/percentileBandOption';
 import type {
   AxisConfig,
+  AxisFormat,
   BarPoint,
   BoxPoint,
   BoxSelector,
@@ -3868,24 +3869,41 @@ function uniqueInOrder<T>(values: T[]): T[] {
 }
 
 /**
+ * The format a temporal axis is announced in: a date, in the zone the scale
+ * draws its ticks in.
+ *
+ * A `utc` scale, which Plot gives dates unless told otherwise, draws them in
+ * UTC, and a `time` scale in the reader's own zone. Read in the reader's zone,
+ * a `utc` axis's midnight was the day before anywhere west of Greenwich: a
+ * point the axis draws on Jan 15 was announced as Jan 14 in Chicago.
+ *
+ * @param scale - The temporal scale.
+ * @returns The format.
+ */
+function dateFormat(scale: PlotScale | undefined): AxisFormat {
+  return scale?.type === 'utc'
+    ? { type: 'date', dateOptions: { timeZone: 'UTC' } }
+    : { type: 'date' };
+}
+
+/**
  * Builds a layer's axis configuration from the resolved labels.
  *
- * A temporal axis also carries `format: { type: 'date' }`. Its values travel as
- * epoch milliseconds — a trace's point types are numeric because the value has
- * to drive sonification and the min/max range — and the format is what turns
- * them back into dates when they are announced.
+ * A temporal axis also carries a `date` format, from {@link dateFormat}. Its
+ * values travel as epoch milliseconds — a trace's point types are numeric
+ * because the value has to drive sonification and the min/max range — and the
+ * format is what turns them back into dates when they are announced.
  *
  * @param context - The conversion context.
  * @returns The axes object, or `undefined` when nothing is known about them.
  */
 function axisConfig(context: ConversionContext): MaidrLayer['axes'] {
   const { x, y, z } = context.axes;
-  const dateFormat = { type: 'date' } as const;
   const xAxis = x || context.temporal.x
-    ? { ...(x ? { label: x } : {}), ...(context.temporal.x ? { format: dateFormat } : {}) }
+    ? { ...(x ? { label: x } : {}), ...(context.temporal.x ? { format: dateFormat(context.scales.x) } : {}) }
     : undefined;
   const yAxis = y || context.temporal.y
-    ? { ...(y ? { label: y } : {}), ...(context.temporal.y ? { format: dateFormat } : {}) }
+    ? { ...(y ? { label: y } : {}), ...(context.temporal.y ? { format: dateFormat(context.scales.y) } : {}) }
     : undefined;
   if (!xAxis && !yAxis && !z)
     return undefined;
