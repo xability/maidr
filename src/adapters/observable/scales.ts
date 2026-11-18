@@ -135,8 +135,8 @@ export function isDiscrete(scale: PlotScale | undefined): boolean {
  * A temporal axis inverts to a `Date`, which no MAIDR trace can carry: the
  * point types are typed `number` because the value has to drive sonification
  * and the min/max range. The adapter therefore carries epoch milliseconds and
- * declares `format: { type: 'date' }` on the axis, which is what turns the
- * number back into a date in the announcement.
+ * declares a `date` format on the axis, in UTC for a `utc` scale, which is what
+ * turns the number back into a date in the announcement.
  *
  * @param scale - The scale to test.
  * @returns True for Plot's `utc` and `time` scales.

@@ -16,7 +16,9 @@
 import type { BarPoint, HistogramPoint, LinePoint, MaidrLayer, ScatterPoint, SegmentedPoint } from '@type/grammar';
 import { observablePlotToMaidr } from '@adapters/observable/converters';
 import { Orientation, TraceType } from '@type/grammar';
-import { mountFixture } from './helpers';
+import { FormatUtil } from '@util/format';
+import { FIXTURES } from './fixtures';
+import { attachScales, mountFixture } from './helpers';
 
 /** Converts a fixture and returns its single layer. */
 function onlyLayer(key: Parameters<typeof mountFixture>[0], withScales = true): MaidrLayer {
@@ -330,7 +332,22 @@ describe('values the drawn geometry cannot state exactly', () => {
       Date.UTC(2024, 0, 15),
       Date.UTC(2024, 5, 1),
     ]);
-    expect(layer.axes?.x?.format).toEqual({ type: 'date' });
+    expect(layer.axes?.x?.format?.type).toBe('date');
+  });
+
+  it('reads a utc axis\'s dates in UTC, and a time axis\'s in the reader\'s zone', () => {
+    // Plot gives dates a `utc` scale unless told otherwise and draws its ticks
+    // in UTC, where the first point sits on Jan 15. Read in the reader's own
+    // zone, it was Jan 14 anywhere west of Greenwich.
+    const utc = onlyLayer('timeScatter');
+    const { element } = mountFixture('timeScatter');
+    const scales = FIXTURES.timeScatter.scales;
+    attachScales(element, { ...scales, x: { ...scales.x, type: 'time' } });
+    const time = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+
+    expect(utc.axes?.x?.format).toEqual({ type: 'date', dateOptions: { timeZone: 'UTC' } });
+    expect(FormatUtil.resolveFormat(utc.axes?.x?.format)(Date.UTC(2024, 0, 15))).toBe('1/15/2024');
+    expect(time?.axes?.x?.format).toEqual({ type: 'date' });
   });
 
   it('rounds a line to the precision its path was written at', () => {
