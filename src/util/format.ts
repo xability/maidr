@@ -57,6 +57,13 @@ const TYPE_DECIMALS = {
 type DecimalFormatType = keyof typeof TYPE_DECIMALS;
 
 /**
+ * A date written without a time of day: `2023`, `2023-01` or `2023-01-15`, or
+ * the same with a signed six-digit year. These are the strings ECMAScript
+ * parses as UTC; a date with a time of day and no offset is local time.
+ */
+const DATE_ONLY = /^(?:\d{4}|[+-]\d{6})(?:-\d{2}(?:-\d{2})?)?$/;
+
+/**
  * The most decimals {@link FormatUtil.separating} gives a format: the most
  * `Intl.NumberFormat` takes in every engine.
  */
@@ -258,17 +265,26 @@ export const formatters = {
   /**
    * Creates a date formatter using Intl.DateTimeFormat.
    *
+   * An instant, such as epoch milliseconds, is read in the reader's own time
+   * zone, or in the `timeZone` the options name. A date written without a time
+   * of day, such as `'2023-01-15'`, is read as that day in every zone.
+   *
    * @param options - Intl.DateTimeFormat options
    * @param locale - BCP 47 locale string (default: 'en-US')
    * @returns Format function that formats values as dates
    *
    * @example
    * formatters.date({ month: 'short', day: 'numeric' })('2023-01-15') // "Jan 15"
-   * formatters.date({ year: 'numeric', month: 'long' })(1704067200000) // "January 2024"
+   * formatters.date({ year: 'numeric', month: 'long', timeZone: 'UTC' })(1704067200000) // "January 2024"
    */
   date: (options?: Intl.DateTimeFormatOptions, locale = 'en-US'): FormatFunction => {
     // See `currency`: one Intl object per axis, built on first use.
     let formatter: Intl.DateTimeFormat | undefined;
+    // JavaScript parses a date without a time of day as that day's midnight
+    // in UTC. In the reader's own zone, that midnight falls on the day before
+    // anywhere west of Greenwich, so "2023-01-15" was read "Jan 14" in
+    // Chicago. Read in UTC, it is the day it names, whatever the zone.
+    let calendar: Intl.DateTimeFormat | undefined;
     return (value: number | string): string => {
       // `Intl.DateTimeFormat.format` *throws* a RangeError on an invalid
       // date rather than returning a NaN-ish string, and nothing between
@@ -277,6 +293,10 @@ export const formatters = {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) {
         return String(value);
+      }
+      if (typeof value === 'string' && DATE_ONLY.test(value)) {
+        calendar ??= new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' });
+        return calendar.format(date);
       }
       formatter ??= new Intl.DateTimeFormat(locale, options);
       return formatter.format(date);
