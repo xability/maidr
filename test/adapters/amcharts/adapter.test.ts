@@ -909,10 +909,21 @@ describe('fromAmCharts (waterfall and dumbbell)', () => {
 });
 
 describe('fromAmCharts (gantt chart)', () => {
+  /**
+   * Midnight at the start of a day of 1970 in the reader's own zone, which is
+   * where a root that names no zone draws its dates.
+   *
+   * @param offset - Days after Jan 1, 1970
+   * @returns Epoch milliseconds
+   */
+  function day(offset: number): number {
+    return new Date(1970, 0, 1 + offset).getTime();
+  }
+
   const BARS = [
-    { categoryY: 'Design', openValueX: 0, valueX: 2_592_000_000 },
-    { categoryY: 'Design', openValueX: 5_184_000_000, valueX: 6_480_000_000 },
-    { categoryY: 'Build', openValueX: 2_592_000_000, valueX: 8_640_000_000 },
+    { categoryY: 'Design', openValueX: day(0), valueX: day(30) },
+    { categoryY: 'Design', openValueX: day(60), valueX: day(75) },
+    { categoryY: 'Build', openValueX: day(30), valueX: day(100) },
   ];
 
   function ganttLayer(config: { lanes?: string[]; timeUnit?: string }): MaidrLayer {
@@ -935,7 +946,7 @@ describe('fromAmCharts (gantt chart)', () => {
 
     const data = layer.data as GanttData;
     // Epoch milliseconds are restated in the axis' own unit -- a length in
-    // milliseconds carries nothing. These bars start at the epoch, day 0;
+    // milliseconds carries nothing. These bars start on Jan 1, 1970, day 0;
     // ganttDates.test.ts reads the dates they name.
     expect(data.unit).toBe('days');
     expect(data.points).toEqual([

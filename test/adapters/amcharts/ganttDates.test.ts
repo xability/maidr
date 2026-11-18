@@ -15,8 +15,22 @@ import { fakeChart, fakeGanttSeries, fakeRoot } from './helpers';
  */
 
 const DAY = 86_400_000;
-const HOUR = 3_600_000;
-const JAN_1 = Date.UTC(2024, 0, 1);
+/** Midnight UTC on Jan 1, 2024, for the cases that name the root's zone. */
+const JAN_1_UTC = Date.UTC(2024, 0, 1);
+
+/**
+ * A time on a day of 2024 in the reader's own zone, which is where a root
+ * that names no zone draws its dates. The cases that use it read the same in
+ * every zone the tests run in.
+ *
+ * @param month - The month, 0 for January
+ * @param day - The day of the month
+ * @param hour - The hour, midnight unless given
+ * @returns Epoch milliseconds
+ */
+function local(month: number, day: number, hour = 0): number {
+  return new Date(2024, month, day, hour).getTime();
+}
 
 /** One interval of a schedule, in epoch milliseconds. */
 interface Bar {
@@ -62,8 +76,8 @@ function written(layer: MaidrLayer, position: number): string {
 }
 
 describe('an amCharts gantt on a date axis', () => {
-  const DESIGN: Bar = { categoryY: 'Design', openValueX: JAN_1, valueX: JAN_1 + 30 * DAY };
-  const BUILD: Bar = { categoryY: 'Build', openValueX: JAN_1 + 30 * DAY, valueX: JAN_1 + 100 * DAY };
+  const DESIGN: Bar = { categoryY: 'Design', openValueX: local(0, 1), valueX: local(0, 31) };
+  const BUILD: Bar = { categoryY: 'Build', openValueX: local(0, 31), valueX: local(3, 10) };
 
   it('writes its positions as the dates the axis draws, and its lengths in the base interval\'s unit', () => {
     const layer = schedule([DESIGN, BUILD]);
@@ -94,7 +108,7 @@ describe('an amCharts gantt on a date axis', () => {
 
   it('writes the time of day on a schedule read in hours', () => {
     const layer = schedule(
-      [{ categoryY: 'Design', openValueX: JAN_1 + 9 * HOUR, valueX: JAN_1 + 12 * HOUR }],
+      [{ categoryY: 'Design', openValueX: local(0, 1, 9), valueX: local(0, 1, 12) }],
       { timeUnit: 'hour' },
     );
     const data = layer.data as GanttData;
@@ -109,8 +123,9 @@ describe('an amCharts gantt on a date axis', () => {
   it('writes the dates in the time zone the root draws them in', () => {
     // Midnight in UTC is the evening before in New York. A root's `utc`
     // takes precedence over its `timezone`, as it does in amCharts.
-    const inNewYork = schedule([DESIGN], { root: { timezone: { name: 'America/New_York' } } });
-    const inUtc = schedule([DESIGN], { root: { utc: true, timezone: { name: 'America/New_York' } } });
+    const design: Bar = { categoryY: 'Design', openValueX: JAN_1_UTC, valueX: JAN_1_UTC + 30 * DAY };
+    const inNewYork = schedule([design], { root: { timezone: { name: 'America/New_York' } } });
+    const inUtc = schedule([design], { root: { utc: true, timezone: { name: 'America/New_York' } } });
 
     expect(written(inNewYork, (inNewYork.data as GanttData).points[0][0].start))
       .toBe('Dec 31, 2023, 07:00 PM');
@@ -170,7 +185,7 @@ describe('an amCharts gantt on a date axis', () => {
       const data = layer.data as GanttData;
 
       expect(data.unit).toBe('milliseconds');
-      expect(data.points[0][0]).toMatchObject({ start: JAN_1, end: JAN_1 + 30 * DAY });
+      expect(data.points[0][0]).toMatchObject({ start: DESIGN.openValueX, end: DESIGN.valueX });
       expect(layer.axes?.x?.format?.function).toBeUndefined();
       expect(layer.axes?.x?.format?.type).toBe('date');
       expect(written(layer, data.points[0][0].start)).toBe('Jan 1, 2024');
