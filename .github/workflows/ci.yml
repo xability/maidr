@@ -297,6 +297,11 @@ jobs:
 
       - name: Run unit tests
         run: npm test
+        # West of Greenwich, with daylight saving time, and named by no test,
+        # so a test that passes only in UTC fails here. See "Dates and time
+        # zones" in .claude/rules/testing.md.
+        env:
+          TZ: America/Denver
 
   type-check:
     name: Type Check

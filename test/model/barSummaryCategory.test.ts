@@ -45,11 +45,13 @@ describe('the category a bar summary names', () => {
   });
 
   test('reads in the axis\'s own format when the layer declares one', () => {
-    // The uPlot adapter's day-level date format over epoch milliseconds.
+    // The uPlot adapter's day-level date format over epoch milliseconds,
+    // which reads them in the reader's own zone: the days start at midnight
+    // there, so they read the same on every machine.
     const days: BarPoint[] = [
-      { x: 1772668800000, y: 1500 },
-      { x: 1772755200000, y: 2675 },
-      { x: 1772928000000, y: 980 },
+      { x: new Date(2026, 2, 5).getTime(), y: 1500 },
+      { x: new Date(2026, 2, 6).getTime(), y: 2675 },
+      { x: new Date(2026, 2, 8).getTime(), y: 980 },
     ];
     const x: AxisConfig = {
       label: 'Day',

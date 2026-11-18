@@ -86,6 +86,22 @@ on one.
 - Clean up anything stateful in `afterEach`, and assert `dispose()` really
   releases what it allocated.
 
+### Dates and time zones
+
+A date the code reads in the reader's own zone reads differently in UTC than
+west of Greenwich, where midnight UTC is the evening before. CI used to run in
+UTC alone, so a test that passed only there went unnoticed until someone ran
+it in Chicago. CI now runs `npm test` with `TZ=America/Denver`: a zone west of
+Greenwich, with daylight saving time, that no test names.
+
+- Build a fixture the code reads in the reader's zone from local fields, such
+  as `new Date(2024, 0, 1).getTime()`, not from `Date.UTC`.
+- Give a case that needs a particular zone that zone by name: a format's
+  `timeZone`, or an amCharts root's `timezone`. A test cannot move itself to
+  another zone: setting `process.env.TZ` inside one changes neither `Date` nor
+  `Intl`, since `jest` gives each test file its own copy of `process.env`.
+- `TZ=America/Denver npm test` runs the suite as CI does.
+
 ## Component tests
 
 The default test environment is `node`. A component test opts into a DOM per
