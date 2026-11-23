@@ -1,3 +1,14 @@
+## [4.18.1](https://github.com/xability/maidr/compare/v4.18.0...v4.18.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **format:** read a date written without a time of day as that day in every zone ([#1722](https://github.com/xability/maidr/issues/1722)) ([e9a8405](https://github.com/xability/maidr/commit/e9a84052376a24b7782167aef098772b778b6ecb))
+* **model:** keep the place between a line and a scatter over one time column ([#1720](https://github.com/xability/maidr/issues/1720)) ([b683e93](https://github.com/xability/maidr/commit/b683e9332325f768c853d787da324b67c656720e)), closes [xability/r-maidr#447](https://github.com/xability/r-maidr/issues/447) [#1717](https://github.com/xability/maidr/issues/1717)
+* **model:** move along a sideways area with Up and Down ([#1721](https://github.com/xability/maidr/issues/1721)) ([9953816](https://github.com/xability/maidr/commit/99538167e35e9687ea2d5642451e5bf1816fb625)), closes [#1688](https://github.com/xability/maidr/issues/1688) [#1711](https://github.com/xability/maidr/issues/1711)
+* **observable:** read a utc scale's dates in UTC ([#1723](https://github.com/xability/maidr/issues/1723)) ([02d5dbd](https://github.com/xability/maidr/commit/02d5dbd5bc0cc6d616e5b987cd4cefbc47347002))
+* **scatter:** state the described ranges and split in each axis's format ([#1719](https://github.com/xability/maidr/issues/1719)) ([9804a85](https://github.com/xability/maidr/commit/9804a859f55852e48589de60d874edcb3447e08b)), closes [xability/r-maidr#447](https://github.com/xability/r-maidr/issues/447) [#1696](https://github.com/xability/maidr/issues/1696) [#1716](https://github.com/xability/maidr/issues/1716)
+
 # [4.18.0](https://github.com/xability/maidr/compare/v4.17.0...v4.18.0) (2026-11-16)
 
 
