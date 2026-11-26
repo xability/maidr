@@ -29,7 +29,7 @@ export const PUBLISHER
 export const CREATORS = ['Seo, JooYoung'];
 
 /** SPDX identifier, matching `license` in package.json. */
-export const RIGHTS = 'GPL-3.0-or-later';
+export const RIGHTS = 'MIT';
 
 /** Separators the page titles put between a page name and the site name. */
 const TITLE_SEPARATORS = [' - ', ' | ', ' – ', ' — ', ' • '];
