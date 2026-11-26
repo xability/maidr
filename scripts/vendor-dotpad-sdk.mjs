@@ -3,16 +3,16 @@
 /**
  * Fetches the DotPad SDK MAIDR is pinned to, for hosts that serve it themselves.
  *
- * `maidr.js` does not bundle the SDK: its braille engine is a 14 MB liblouis
- * build, and the package would carry it for every reader to serve the few
+ * `maidr.js` does not bundle the SDK: its braille engine and liblouis tables
+ * come to 14 MB, and the package would carry it for every reader to serve the few
  * with a DotPad. By default the runtime imports the vendor's published copy
  * from a CDN, pinned to a commit. This script fetches that same copy -- the
- * module, the liblouis build, and the LGPL licence and wrapper sources the
- * vendor asks redistributors to keep beside it -- verifies every file against
+ * module, the braille engine with its liblouis side module and tables, and the
+ * licence texts that ship beside them -- verifies every file against
  * the digests in `src/service/dotPadSdk.json`, and writes them where a page can
  * serve them from its own origin:
  *
- *   window.MAIDR_DOTPAD_SDK_URL = '/dotpad/DotPadSDK-3.0.2.js';
+ *   window.MAIDR_DOTPAD_SDK_URL = '/dotpad/DotPadSDK-3.0.5.js';
  *   window.MAIDR_DOTPAD_ASSET_BASE_URL = '/dotpad/lib/';
  *
  * Usage: node scripts/vendor-dotpad-sdk.mjs [--out DIR] [--force]
@@ -41,7 +41,7 @@ import {
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * How long one file may take. Generous, because `liblouis.data` is 14 MB and
+ * How long one file may take. Generous, because the engine and its tables are 14 MB and
  * a slow link is not a failure; bounded, so a connection that stalls does
  * not hang the script for good.
  */

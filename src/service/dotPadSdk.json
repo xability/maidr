@@ -1,56 +1,56 @@
 {
-  "version": "3.0.3",
+  "version": "3.0.5",
   "repository": "https://github.com/xability/dotpad-sdk-guide",
-  "commit": "139578cf29517d039d2e2749ea24f577a765090c",
-  "baseUrl": "https://cdn.jsdelivr.net/gh/xability/dotpad-sdk-guide@139578cf29517d039d2e2749ea24f577a765090c/Web/3.0.3/",
+  "commit": "8275311fe0fe3b1c3ffe12fa5cc84f1ecb9485f3",
+  "baseUrl": "https://cdn.jsdelivr.net/gh/xability/dotpad-sdk-guide@8275311fe0fe3b1c3ffe12fa5cc84f1ecb9485f3/Web/3.0.5/",
   "upstream": {
     "repository": "https://github.com/dotincorp/dotpad-sdk-guide",
-    "commit": "781f2308b3b80908e7ea335454c12d013101c91b",
-    "archive": "Web/3.0.3/download/web-sdk-3.0.3.zip",
-    "sha256": "be0c0df63c5302bf6a374a80d3cc15197dc3032d93e1fc3c2cc9643d032dc3b8"
+    "commit": "d1394f0df6609e1b79ad3635f4e66e68f4368c72",
+    "archive": "Web/3.0.5/download/web-sdk-3.0.5.zip",
+    "sha256": "224460375c64b928d5bfdb26de83fa6015a36de3ad343780f02b4116501b3096"
   },
-  "module": "DotPadSDK-3.0.3.js",
+  "module": "DotPadSDK-3.0.5.js",
   "assetDir": "lib/",
   "files": {
-    "DotPadSDK-3.0.3.js": {
-      "bytes": 47007,
-      "sha256": "084cea52e8bae885bd6ec64f402e5906677a62c4a4bb6f8ed873b65f244a312a",
-      "md5": "b9792eae7921c0da2c91baac03e44d86"
+    "DotPadSDK-3.0.5.js": {
+      "bytes": 45028,
+      "sha256": "ab54be28721396332d54153035e67a1b84dadd0bcd7e5c2d73a2e3dfa250f606",
+      "md5": "fed775517d0edd50b5fddd066d49d05f"
     },
-    "lib/LICENSES/liblouis-LGPL-2.1.txt": {
+    "lib/LIBLOUIS-COPYING.LESSER": {
       "bytes": 26530,
       "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
       "md5": "4fbd65380cdd255951079008b364516c"
     },
-    "lib/liblouis-web/build_liblouis_web.sh": {
-      "bytes": 4154,
-      "sha256": "34ff70dda4502b8733a2614b649da3e563358598fc4edfdd5417e2c29267f902",
-      "md5": "00abc774f82e17009f58dad73a770688"
+    "lib/MORPHOBR-NOTICE.txt": {
+      "bytes": 12266,
+      "sha256": "81a7cc04bd81b4705bd161e61f5a6f3a31f549f489765401fe1a69320604e2a5",
+      "md5": "628f33a726fa4aafe60a8f27ad601d32"
     },
-    "lib/liblouis-web/liblouis.post.js": {
-      "bytes": 1154,
-      "sha256": "fc969620ae5870dbfbdb6ea0fc820ef44fbd70cd0b203f9a705db469b25c7602",
-      "md5": "9f0f57a24a3cca01bf12e3ca64726470"
+    "lib/build-manifest.json": {
+      "bytes": 15789,
+      "sha256": "eeb63058a417c75878288b0f9846793f5896a2aa0f520904fb23d37087c52c70",
+      "md5": "98520bcde57ae4f5d5ea00aac6cb8303"
     },
-    "lib/liblouis-web/liblouis_web.c": {
-      "bytes": 8441,
-      "sha256": "460dc6bf6db662d14d8ce6113233e68858a4e4a1429834231c0525d646102b26",
-      "md5": "36cb792f1b9ca1edb409d69a1faa836a"
-    },
-    "lib/liblouis.data": {
-      "bytes": 13751594,
-      "sha256": "8475e6eaa539639c36353c10a2c38bcd8692ae0f8b47534ee2dd2d8b6fd00192",
-      "md5": "7a6dc8dd40c2f535ed48ca3ac75ab3cc"
-    },
-    "lib/liblouis.js": {
-      "bytes": 117694,
-      "sha256": "c5023cb27680f27df77db51d133718b70d837d855feb74e575a4fac6b1dd4059",
-      "md5": "36f517f0eed752090885e8ea098d83c4"
+    "lib/liblouis-tables.data": {
+      "bytes": 9503140,
+      "sha256": "07821069447e1d606a6136f46a30512cba0d646bc09b7607e3b53a573ddec8aa",
+      "md5": "d538e508ffd7d218ddd6c0f906f5dd0d"
     },
     "lib/liblouis.wasm": {
-      "bytes": 171970,
-      "sha256": "c8d96fbcdd90ee3aa2fe9fa2857092ac832b7b356e23b7e33fb861a486e9b53c",
-      "md5": "df5cc769072369122e51f327d894d296"
+      "bytes": 145801,
+      "sha256": "d3e5c49166109b895f0681ace5162fe9d34d6d43316aa18c7d19d41675a45aac",
+      "md5": "e2eb5a321401c6becdf07ec01947c8f9"
+    },
+    "lib/ttb-engine.mjs": {
+      "bytes": 90607,
+      "sha256": "220c9f0054b3e4bfb27da6391a0838c1395a396a5c277e9ec7ff8a78ac3efa26",
+      "md5": "23f36b03e62396bed510065108701e5f"
+    },
+    "lib/ttb-engine.wasm": {
+      "bytes": 4873524,
+      "sha256": "49c282c30f71a3401ff4bb258f726c47c305757044ff3445d23e3dd2b99b00db",
+      "md5": "00c58dd6665953a9b46bf8e0ee42924f"
     }
   }
 }

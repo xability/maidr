@@ -200,8 +200,15 @@ export interface DotPadVendorTranslation {
   GradeOption?: Readonly<{ Grade1: number; Grade2: number; Grade3: number }>;
 
   /**
+   * Points the SDK's braille engine at the directory serving its files:
+   * `ttb-engine.mjs`, its `.wasm` and the liblouis tables. SDK 3.0.4 and later.
+   */
+  DotBrailleModule?: { setEngineAssetBaseUrl: (url: string) => void };
+
+  /**
    * Points the SDK's liblouis build at the directory serving its `.js`,
-   * `.wasm` and `.data` files.
+   * `.wasm` and `.data` files. SDK 3.0.3 and earlier; 3.0.4 replaced it with
+   * {@link DotBrailleModule}.
    */
   LiblouisManager?: { setAssetBaseUrl: (url: string) => void };
 }

@@ -337,13 +337,15 @@ class DotPadSession implements TactileDisplayDriver {
   }
 
   /**
-   * Points the SDK's braille engine at a directory serving its liblouis build.
+   * Points the SDK's braille engine at a directory serving its files.
    *
    * Defaults to the `lib/` beside the module, which is where the vendor keeps
    * it. A host serving its own copy of the SDK needs this only if it puts the
    * engine somewhere else. From a page, `window.MAIDR_DOTPAD_ASSET_BASE_URL`.
    *
-   * @param url - Directory holding `liblouis.js`, `.wasm` and `.data`
+   * @param url - Directory holding the engine's files: `ttb-engine.mjs` and
+   *   its `.wasm` and tables from SDK 3.0.4, `liblouis.js`, `.wasm` and
+   *   `.data` before it
    */
   public setAssetBaseUrl(url: string): void {
     this.assetBaseUrl = url;
@@ -478,8 +480,8 @@ class DotPadSession implements TactileDisplayDriver {
   }
 
   /**
-   * Points the SDK's braille engine at its liblouis build and asks for
-   * contracted braille.
+   * Points the SDK's braille engine at its files and asks for contracted
+   * braille.
    *
    * Failure here is not fatal and is not reported to the reader: the text line
    * falls back to MAIDR's own uncontracted table, which is worse to read but
@@ -503,7 +505,12 @@ class DotPadSession implements TactileDisplayDriver {
       const assets = this.configuredAssetBaseUrl
         ?? (this.configuredModuleUrl === null ? VENDOR_ASSET_BASE_URL : null);
       if (assets !== null) {
-        vendor.LiblouisManager?.setAssetBaseUrl(assets);
+        // 3.0.4 renamed the call; a host may still serve an older build.
+        if (vendor.DotBrailleModule !== undefined) {
+          vendor.DotBrailleModule.setEngineAssetBaseUrl(assets);
+        } else {
+          vendor.LiblouisManager?.setAssetBaseUrl(assets);
+        }
       }
       sdk.setBrailleLanguage(language, grade);
       this.translationReady = true;
